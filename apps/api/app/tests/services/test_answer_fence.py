@@ -250,7 +250,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
         ("**Answer**\n\n", "**Answer**\n\n"),
         (
             "**Answer:** $x = 2$\n$x = -2$",
-            "**Answer**\n\n```answer\nverified: false\n$x = 2$, $x = -2$\n```",
+            "**Answer**\n\n```answer\nverified: false\nx = 2,\\quad x = -2\n```",
         ),
         (
             "**Answer:** $x = 12 / 4$\n$x = 3$",
@@ -318,10 +318,11 @@ def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
 @pytest.mark.parametrize(
     ("roots", "card"),
     [
-        ("- $x = 2$\n- $x = -2$", "$x = 2$, $x = -2$"),
-        ("$x = \\frac{1}{2}$\n$x = -\\frac{1}{2}$", "$x = \\frac{1}{2}$, $x = -\\frac{1}{2}$"),
-        ("$x = \\frac{-1}{2}$\n$x = \\frac{1}{2}$", "$x = \\frac{-1}{2}$, $x = \\frac{1}{2}$"),
-        ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$, $x_{2} = -2$"),
+        # Values that are all maths are one formula, set apart (2026-11-21).
+        ("- $x = 2$\n- $x = -2$", "x = 2,\\quad x = -2"),
+        ("$x = \\frac{1}{2}$\n$x = -\\frac{1}{2}$", "x = \\frac{1}{2},\\quad x = -\\frac{1}{2}"),
+        ("$x = \\frac{-1}{2}$\n$x = \\frac{1}{2}$", "x = \\frac{-1}{2},\\quad x = \\frac{1}{2}"),
+        ("$x_1 = 2$\n$x_{2} = -2$", "x_1 = 2,\\quad x_{2} = -2"),
     ],
 )
 def test_land_keeps_every_root_in_the_card(roots: str, card: str) -> None:

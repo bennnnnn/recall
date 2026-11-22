@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models import model_catalog
+from app.modules.chat.asks_turn import write_the_rest
 from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
@@ -232,6 +233,9 @@ async def _produce_reply(
     After the tool loop the turn may have become an instant reply, or a terminal
     picture that yields nothing (``_is_terminal_image``).
     """
+    # A verified result the read says answers part of the message, and one asking to see
+    # what its card draws none of, give way to the model's reply around the same card.
+    await write_the_rest(ctx, settings)
     await write_for_a_picture(ctx, settings)
     if ctx.instant_reply:
         async for token in run_instant_reply_path(ctx, should_cancel=should_cancel, accum=accum):

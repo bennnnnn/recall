@@ -338,10 +338,10 @@ class MathFigure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
-        return without_substitutes(text)
+        return without_substitutes(text, fence)
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         return DRAW_CONTRACT
@@ -505,6 +505,14 @@ class MathSubject:
             has_image_attachment=has_image_attachment,
             verified_request_text=verified_request_text,
         )
+
+    def answers_part(
+        self, verified: VerifiedSolveBlock, asked: int
+    ) -> tuple[VerifiedSolveBlock, str] | None:
+        # Maths replies instantly only to a request its whole-request grammar reads end to
+        # end (``math.tools.direct``): an ask beside the solved one already goes to the model.
+        del verified, asked
+        return None
 
 
 MATH_SUBJECT = MathSubject()

@@ -121,6 +121,22 @@ _SOME_ELECTRONS = re.compile(
     r"|lone)\b|\b[spdf](?:\s*-)?\s*electrons\b",
     re.IGNORECASE,
 )
+# A particle's own property is no count of it: "The proton mass is 1.007276 u", "the mass of
+# a neutron", "the electron's charge". Read as asks, a helium-4 binding-energy question was
+# answered "Protons = 2, Neutrons = 2" and verified (live round, 2026-11-21).
+_PARTICLE_PROPERTY = re.compile(
+    r"\b(?:protons?|neutrons?|electrons?)(?:['\u2019]s)?\s+(?:rest\s+)?(?:mass|charge)\b"
+    r"|\b(?:mass|charge)\s+of\s+(?:a|an|the|one|each)\s+(?:protons?|neutrons?|electrons?)\b",
+    re.IGNORECASE,
+)
+# What an atom's particles never answer, asked beside them: a closed reader answers every
+# ask of its question or none ("Find the mass defect, the binding energy ... per nucleon").
+_OTHER_ASK = re.compile(
+    r"\b(?:mass\s+defect|binding\s+energy|energy|half[- ]?life|activity|wavelength"
+    r"|frequency|radius|density|speed|velocity|force|(?<!atomic\s)(?<!relative\s)mass"
+    r"(?!\s+number))\b",
+    re.IGNORECASE,
+)
 # A sentence that asks: it ends on "?" or opens with an order. Split first, then read each
 # one, so a long run of spaces is read once, never once per position.
 _SENTENCE_END = re.compile(r"(?<=[.?!\n])")
@@ -175,9 +191,17 @@ def particle_asks(text: str) -> int:
 
 
 def _not_counts(text: str) -> str:
-    """``text`` without counts that are no atom's total: a shell's, or electrons gained
-    or lost. Neither gives the electrons nor asks for them."""
-    return _SHELL_COUNT.sub(" ", _GAIN_LOSS.sub(" ", text))
+    """``text`` without counts that are no atom's total: a shell's, electrons gained or lost,
+    or a particle's own mass or charge. None gives the particles nor asks for them."""
+    return _PARTICLE_PROPERTY.sub(" ", _SHELL_COUNT.sub(" ", _GAIN_LOSS.sub(" ", text)))
+
+
+def _asks_beyond_particles(text: str) -> bool:
+    """A sentence that asks also asks for what no count of particles is: an energy, a mass."""
+    return any(
+        _OTHER_ASK.search(_not_counts(asked).replace("mass number", " "))
+        for asked in _asked_sentences(text)
+    )
 
 
 def asks_more_particles(text: str, answers: str) -> bool:
@@ -223,7 +247,9 @@ def _named_elements(text: str) -> set[str]:
 
 def extract_atom_particles(text: str) -> ChemistryIntent | None:
     """One atom or ion: the facts given, and the quantities asked that were not."""
-    if _PARTICLE.search(text) is None or _DECLINE.search(text) or _PHYSICS.search(text):
+    if _PARTICLE.search(_PARTICLE_PROPERTY.sub(" ", text)) is None or _DECLINE.search(text):
+        return None
+    if _PHYSICS.search(text) or _asks_beyond_particles(text):
         return None
     if any(_SOME_ELECTRONS.search(asked) for asked in _asked_sentences(text)):
         return None

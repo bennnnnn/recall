@@ -211,6 +211,42 @@ WORK_QUESTION: dict[str, dict[str, Any]] = {
 }
 
 
+# How many separate results the message asks for, asked in a call of its own beside the
+# turn's, as the work question is: a verified result answering fewer is no whole reply
+# (``chat.asks_turn``). "What frequency does a stationary listener hear as it approaches,
+# and as it moves away?" was answered for the approach alone, and "the angle of the
+# first-order maximum and the highest order" with the angle (live round, 2026-11-21): the
+# word rules counted one ask each. On ``asks_count_corpus.json`` (that round's 60 questions,
+# and 35 turns written beside them and held out), three reads each, no turn of several asks
+# was read as one (189 reads) and no one-ask turn as several (96), 98.9% exact (a four-ask
+# lens question read as three, still more than was answered); p50 0.32 s, p95 0.93 s. The
+# word rules read 12 of its 63 several-asks turns as one. Of the 1,642 physics STEM-sweep
+# answer questions it read 16 that check one answer as several, each of which asks more
+# ("the deceleration and the braking force"): ``tests/behavior/asks_count_eval.py``.
+ASKS_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "asks": {
+            "type": "choice",
+            "instructions": (
+                "How many separate results does the user's last message ask for? Count each "
+                "quantity it asks to find, and one quantity again for each case it is asked in "
+                "(the frequency heard as it approaches and as it moves away is two; the "
+                "tension at the top and at the bottom is two). The values it gives count none, "
+                "nor a request to explain, show or draw."
+            ),
+            "criteria": {
+                "one": "one result",
+                "two": "two results",
+                "three": "three results",
+                "more": "four or more results",
+            },
+        }
+    }
+)
+# The count each answer stands for; "more" is at least four.
+ASKS_COUNTS: Mapping[str, int] = MappingProxyType({"one": 1, "two": 2, "three": 3, "more": 4})
+
+
 # A practice card the message may answer, at most this many from the last reply (a set of
 # five), each its own choice question; the most options one names by letter; and how much of
 # a card's question, code and each option the questions quote (a card is the model's text).
@@ -377,6 +413,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "asked": asked >= _ASKED_AT,
         # None (unanswered): the rules decide the layout.
         "work": None if work is None else work >= _WORK_AT,
+        # None (unanswered): the word rules count the asks.
+        "asks": ASKS_COUNTS.get(str(get_choice(answers, "asks"))),
         "card_picks": _picks(answers),
         "answers": _yes(get("answers", "noul"), _ANSWERS_AT),
         "unplaced": _yes(get("unplaced", "noul"), _UNPLACED_AT),
@@ -395,9 +433,9 @@ async def decide_turn(
     lesson: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
-    ``ask_work`` the work question, and with ``lesson`` the questions about the last reply's
-    cards (``lesson_questions``), go in calls of their own begun beside it: the Decider weighs
-    one call's questions together. Each ends when the read does, whatever ends it (an answer,
+    ``ask_work`` the work and the asks questions, and with ``lesson`` the questions about the
+    last reply's cards (``lesson_questions``), go in calls of their own begun beside it: the
+    Decider weighs one call's questions together. Each ends when the read does, whatever ends it (an answer,
     a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
     from app.gateways.llm_spend import meter_reported_cost
@@ -409,14 +447,22 @@ async def decide_turn(
         from app.models import model_catalog
 
         model = model_catalog.get(alias).model.removeprefix("openrouter/")
-        calls: tuple[tuple[dict[str, dict[str, Any]] | None, float | None], ...] = (
+        calls: tuple[tuple[Mapping[str, dict[str, Any]] | None, float | None], ...] = (
             (WORK_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
+            # Only a message with a number in it gets a verified result to fall short of.
+            (ASKS_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
             (lesson or None, None),
         )
         for questions, grace in calls:
             if questions is not None:
                 read = asyncio.create_task(
-                    decide(settings, model=model, state=state, questions=questions, seconds=seconds)
+                    decide(
+                        settings,
+                        model=model,
+                        state=state,
+                        questions=dict(questions),
+                        seconds=seconds,
+                    )
                 )
                 read.add_done_callback(_metered_work(alias))
                 beside.append((read, grace))

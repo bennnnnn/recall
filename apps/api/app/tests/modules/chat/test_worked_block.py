@@ -606,7 +606,7 @@ def test_an_unnamed_conclusion_concludes_its_own_part_s_ask() -> None:
 
 def test_a_conclusion_s_tex_specials_are_escaped() -> None:
     """Review of phys30: "yes & no" in ``\\text{}`` broke the group."""
-    from app.modules.chat.worked_render import words_tex
+    from app.modules.chat.worked_answers import words_tex
 
     assert words_tex("yes & no") == "\\text{yes \\& no}"
     assert words_tex("yes, since $\\mu_s < \\tan\\theta$") == (

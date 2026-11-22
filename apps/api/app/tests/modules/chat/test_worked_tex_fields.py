@@ -37,7 +37,7 @@ def test_a_bar_inside_a_closed_group_is_the_maths() -> None:
 
 def test_a_double_subscript_is_set_on_its_base() -> None:
     assert read_record(r"required: v_A_{vec}, v_B_{vec} | velocities") == Required(
-        symbol="{v_A}_{vec}, {v_B}_{vec}", meaning="velocities"
+        symbol="v_{A,vec}, v_{B,vec}", meaning="velocities"
     )
 
 
@@ -66,7 +66,7 @@ def test_a_thin_space_is_no_second_value() -> None:
 
 def test_a_power_of_ten_and_a_range_take_no_brackets() -> None:
     assert _laid_out("required: I | current", "answer: I | 1.5e-3 | A").endswith(
-        r"$I = 1.5e-3\,\mathrm{A}$"
+        r"$I = 1.5 \times 10^{-3}\,\mathrm{A}$"
     )
     assert "(20 - 25)" not in _laid_out("required: T | range", "answer: T | 20 - 25 | °C")
 
@@ -122,7 +122,7 @@ def test_a_speed_and_its_angle_share_one_card() -> None:
 def test_a_symbol_braced_twice_by_the_layout_keeps_one_subscript() -> None:
     from app.modules.chat.worked_text import tidy_tex
 
-    assert tidy_tex("v_Ai_mag") == "{v_{Ai}}_{mag}"
+    assert tidy_tex("v_Ai_mag") == "v_{Ai,mag}"
 
 
 def test_a_closing_absolute_value_bar_stays() -> None:

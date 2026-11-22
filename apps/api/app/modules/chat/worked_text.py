@@ -24,6 +24,7 @@ import unicodedata
 from collections.abc import Sequence
 
 from app.modules.chat.tex_form import well_formed
+from app.modules.chat.worked_lines import typed_signs
 from app.modules.chat.worked_prose import prose_maths
 from app.modules.chat.worked_solution import Answer, Formula, Given, RecordModel, Step
 from app.modules.chat.worked_units import (
@@ -186,10 +187,11 @@ def word_scripts(tex: str) -> str:
 def tidy_tex(tex: str) -> str:
     """A subscript of several characters in braces: ``x_final`` → ``x_{final}``; a word
     symbol's escaped subscript as a subscript (``word_scripts``); a product written with
-    a dot, with \\times as every reply writes it (``services/times_sign``). Markdown bold
+    a dot, with \\times as every reply writes it (``services/times_sign``), and what the
+    model typed for maths (``pi``, ``*``, ``->``) as maths writes it. Markdown bold
     a model put in a maths field (``**1.2**``) is dropped: TeX has none. A currency sign
     after a number goes before it (``worked_units``), and a Greek letter is its command."""
-    tex = word_scripts(_BOLD.sub(r"\1", tex.strip()))
+    tex = word_scripts(_BOLD.sub(r"\1", typed_signs(tex)))
     tex = greek_as_commands(currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))))
     # Braced, "v_Ai_mag" is two subscripts on v: one base takes one (``tex_form``).
     return well_formed(tex)

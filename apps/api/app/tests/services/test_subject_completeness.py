@@ -74,6 +74,8 @@ def test_every_subject_has_what_chat_asks_of_it(adapter: SubjectAdapter) -> None
     assert fences_pass(name) in {finalize_pass.name for finalize_pass in FINALIZE_PASSES}
     assert fences_pass(name) in CARD_PASSES
     assert any(fence_owner(block) is adapter for block in _blocks_of(name)), name
+    # Whether its verified result answers what the read counts, one ask answered whole.
+    assert all(adapter.answers_part(block, 1) is None for block in _blocks_of(name))
     # Never another subject's block: the one owner of a reply is the subject that verified it.
     for other in NAMES:
         if other != name:

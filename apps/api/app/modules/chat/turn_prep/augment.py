@@ -348,7 +348,9 @@ async def augment_after_prompt(
         followup.problem_of(owner) if owner is not None else None
     ) or followup.asked
     if augmented.worked is not None:
-        augmented.prompt_messages = with_worked_contract(augmented.prompt_messages)
+        augmented.prompt_messages = with_worked_contract(
+            augmented.prompt_messages, augmented.worked
+        )
     elif checks_stated_results(
         request.content, subject, answered=answered, lightweight=lightweight
     ):

@@ -23,6 +23,7 @@ from app.modules.physics.extractors.unit_patterns import (
     VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.stated_peak import without_stated_peaks
 from app.services.law_binding.fit import named_but_unstated
 from app.services.law_binding.words import angle_to, word_pattern
 from app.services.text_match import has_equation
@@ -273,7 +274,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     h0: float | None = None
     h0_unit = "m"
     hu = find_value_with_specific_unit(
-        cleaned,
+        without_stated_peaks(cleaned),
         LENGTH_UNIT_PATTERN,
         ("from", "initial height", "height of", "high", "above", "cliff", "h0"),
         require_keyword=True,
