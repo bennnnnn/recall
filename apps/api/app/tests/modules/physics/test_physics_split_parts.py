@@ -246,6 +246,6 @@ def test_each_part_s_own_picture_is_one_of_the_solver_s_cards() -> None:
     check dropped part (b)'s own picture as a stranger."""
     from app.modules.physics.fence import scene_fence, solver_cards
 
-    power = {"type": "plot", "title": "power"}
+    power: dict[str, object] = {"type": "plot", "title": "power"}
     block = _with_pictures(({"type": "plot", "title": "energy"},), (power,))
     assert scene_fence(power) in solver_cards(block)
