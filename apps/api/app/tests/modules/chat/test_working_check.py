@@ -415,3 +415,11 @@ def test_a_decimal_with_a_thousands_comma_is_never_rewritten() -> None:
     """Review (#2520): "1,224.74" was read as 1 and became "1225,224.74"."""
     reply = "So $\\sqrt{1500000}$ (approximately 1,224.74)."
     assert corrected_approximations(reply) == reply
+
+
+@pytest.mark.parametrize(
+    "reply", ["$\\pi \\approx \\frac{22}{7}$", "$\\sqrt{2} \\approx \\frac{7}{5}$"]
+)
+def test_an_exact_form_said_to_be_near_is_no_slip(reply: str) -> None:
+    """Review (#2520): "pi ≈ 22/7" was held to 1e-6 and noted."""
+    assert working_note("**Steps**\n\n" + reply) is None

@@ -242,7 +242,9 @@ def _slip(
         other = evaluate(right)
         if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
             return None
-        exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None
+        # Two exact forms held equal must be equal; one only said to be near ("pi ≈ 22/7",
+        # "sqrt(2) ≈ 7/5") is held to the slack an approximation has (review, #2520).
+        exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None and not approximate
         if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
             return WrongStep(left_tex, right_tex, value)
         if not exact and _is_wrong(value, other, 0.0, approximate):
