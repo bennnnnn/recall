@@ -83,6 +83,26 @@ async def test_update_applies_explicit_none():
 
 
 @pytest.mark.asyncio
+async def test_create_and_update_capitalize_a_lowercase_name(fake_session):
+    """Every sign-in writes the name here (dev login passes it as typed): the replies greeted
+    and signed "bini" (owner, 2026-11-22)."""
+    from app.repositories.users import create, update
+
+    created = await create(
+        fake_session, google_sub="dev:x", email="x@example.com", name="bini", avatar_url=None
+    )
+    assert fake_session.add.call_args.args[0].name == "Bini"
+
+    session = AsyncMock(spec=AsyncSession)
+    user = MagicMock()
+    await update(session, user, name="mary ann")
+    assert user.name == "Mary Ann"
+    await update(session, user, name="McKenzie")
+    assert user.name == "McKenzie"
+    assert created is not None
+
+
+@pytest.mark.asyncio
 async def test_delete_user_deletes_all_related(fake_session):
     """delete_user should delete messages, memories, usage, chats, and the user."""
     from app.repositories.users import delete_user

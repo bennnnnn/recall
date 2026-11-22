@@ -99,7 +99,24 @@ def normalize_display_name(raw: str | None) -> str | None:
     name = " ".join(raw.strip().split())
     if not name or len(name) > 80:
         return None
-    return name
+    return proper_name(name)
+
+
+# The first letter of each part of a name: after a space, a hyphen or an apostrophe.
+_NAME_PART_START = re.compile(r"(?<![^\W_])[^\W\d_]")
+
+
+def proper_name(name: str) -> str:
+    """A name typed all in lowercase, with a capital at the start of each part ("bini" is
+    Bini, "jean-luc o'neil" is Jean-Luc O'Neil); any capital the user typed keeps the name as
+    written ("McDonald", "de Silva", "BINI"), and a script with no case is left alone.
+
+    The name went into every prompt as typed, and replies signed and greeted "bini" (owner,
+    2026-11-07, again 2026-11-22). Postgres's ``initcap`` does the same to the rows saved
+    before (migration ``0133_proper_case_names``)."""
+    if name != name.lower() or name == name.upper():
+        return name
+    return _NAME_PART_START.sub(lambda letter: letter.group(0).upper(), name)
 
 
 _AVATAR_PATH_PREFIX = "/attachments/"
