@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.gateways.stream_signals import StreamAttempt
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.conversation import chats_repository, messages_repository
+from app.modules.images.intent import ImageGenRequest
 from app.tests.job_fakes import patch_job_enqueue
 from app.tests.modules.chat.chat_test_support import (
     FakeSessionCM as _FakeSessionCM,
@@ -17,6 +18,7 @@ from app.tests.modules.chat.chat_test_support import (
 from app.tests.modules.chat.chat_test_support import (
     grant_quota,
     offline_deps,
+    picture_read,
     stub_recent,
     turn_deps,
 )
@@ -773,24 +775,21 @@ async def test_stream_chat_response_rejects_empty_content(fake_redis, stream_off
 )
 async def test_try_image_gen_leaves_a_stem_turn_to_its_subject(content: str):
     """A chemistry structure or an optics question is not a picture request, on any
-    plan: generation would spend an image and skip the solver and its drawing."""
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+    plan: generation would spend an image and skip the solver and its drawing. Not even
+    a read calling it one paints it."""
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
-    user = MagicMock()
-    user.id = uuid4()
     generate = AsyncMock()
-    deps = turn_deps(
-        plan={"can_use": MagicMock(return_value=True)},
-        image_generation={"generate_for_chat": generate},
-    )
-    handled = await try_image_gen_for_turn(
-        deps,
-        Settings(),
-        user=user,
+    handled = await intercept_new_turn(
+        _image_gen_deps(image_generation={"generate_for_chat": generate}),
+        Settings(image_search_enabled=False),
+        user=_image_user(),
         chat_id=uuid4(),
         content=content,
         outcome=None,
-        create_user_message=True,
+        recent_messages=[],
+        prior_count=0,
+        read=picture_read("image"),
     )
 
     assert handled is False
@@ -802,168 +801,39 @@ def _image_gen_deps(**fields):
     return turn_deps(plan={"can_use": MagicMock(return_value=True)}, **fields)
 
 
-@pytest.mark.asyncio
-async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
+def _image_user() -> MagicMock:
     user = MagicMock()
     user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-    long_text = "x" * 121
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content=long_text,
-        outcome=None,
-        create_user_message=True,
-    )
-
-    assert handled is False
-    list_recent.assert_not_awaited()
+    return user
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("greeting", ["hi", "hello", "thanks", "ok"])
-async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content=greeting,
-        outcome=None,
-        create_user_message=True,
-    )
-
-    assert handled is False
-    list_recent.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content="make it blue",
-        outcome=None,
-        create_user_message=True,
-    )
-
-    assert handled is False
-    list_recent.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_try_image_gen_uses_preloaded_recent_without_lookup():
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content="make it blue",
-        outcome=None,
-        create_user_message=True,
-        recent_messages=[],
-    )
-
-    assert handled is False
-    list_recent.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("text", ["what's 2+2", "help me think", "how are you"])
-async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content=text,
-        outcome=None,
-        create_user_message=True,
-    )
-
-    assert handled is False
-    list_recent.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
-    """A brand-new chat has no prior image — don't pay Neon list_recent."""
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-    list_recent = AsyncMock(return_value=[])
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(messages={"list_recent": list_recent}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content="red",
-        outcome=None,
-        create_user_message=True,
-        skip_revision_lookup=True,
-    )
-
-    assert handled is False
-    list_recent.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_try_image_gen_dog_then_image_uses_prior_subject():
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
+def _painted() -> AsyncMock:
     asst_msg = MagicMock()
     asst_msg.id = uuid4()
     asst_msg.content = "[Image: /attachments/x/file]"
     asst_msg.model = "image-gen-model"
-    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
+    return AsyncMock(return_value=(MagicMock(), asst_msg))
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_dog_then_image_uses_prior_subject():
+    from app.modules.chat.turn_intercepts import intercept_new_turn
+
+    generate = _painted()
     dog = MagicMock()
     dog.role = "user"
     dog.content = "Dog"
 
-    handled = await try_image_gen_for_turn(
+    handled = await intercept_new_turn(
         _image_gen_deps(image_generation={"generate_for_chat": generate}),
         Settings(),
-        user=user,
+        user=_image_user(),
         chat_id=uuid4(),
         content="Image",
         outcome=None,
-        create_user_message=True,
         recent_messages=[dog],
+        prior_count=1,
+        read=picture_read("image"),
     )
 
     assert handled is True
@@ -1011,26 +881,37 @@ async def test_try_image_gen_reads_the_chat_like_the_composer(
     prompt: str,
     references: list[UUID] | None,
 ):
-    from app.modules.chat.turn_intercepts import try_image_gen_for_turn
+    from app.modules.chat.turn_intercepts import intercept_new_turn, intercept_regenerate
+    from app.modules.chat.turn_prep import RegenerateBackup
 
-    user = MagicMock()
-    user.id = uuid4()
-    asst_msg = MagicMock()
-    asst_msg.id = uuid4()
-    asst_msg.content = "[Image: /attachments/x/file]"
-    asst_msg.model = "image-gen-model"
-    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
-
-    handled = await try_image_gen_for_turn(
-        _image_gen_deps(image_generation={"generate_for_chat": generate}),
-        Settings(),
-        user=user,
-        chat_id=uuid4(),
-        content=content,
-        outcome=None,
-        create_user_message=create_user_message,
-        recent_messages=[_turn_row(*row) for row in recent],
+    generate = _painted()
+    deps = _image_gen_deps(
+        session_factory=_FakeSessionCM,
+        messages={"get_by_id": AsyncMock(return_value=None)},
+        image_generation={"generate_for_chat": generate, "image_reference_ids": lambda _c: []},
     )
+    rows = [_turn_row(*row) for row in recent]
+    turn: dict[str, Any] = {"user": _image_user(), "chat_id": uuid4(), "outcome": None}
+    if create_user_message:
+        handled = await intercept_new_turn(
+            deps,
+            Settings(),
+            **turn,
+            content=content,
+            recent_messages=rows,
+            prior_count=len(rows),
+            read=picture_read("image"),
+        )
+    else:
+        handled = await intercept_regenerate(
+            deps,
+            Settings(),
+            **turn,
+            content=content,
+            backup=RegenerateBackup(content="[Image]", model="free-chat", message_id=uuid4()),
+            read=picture_read("image"),
+            recent_messages=rows,
+        )
 
     assert handled is True
     call = generate.await_args
@@ -1072,6 +953,7 @@ async def test_a_refused_picture_says_which_limit_not_the_chat_quota(
             user=user,
             chat_id=uuid4(),
             content="Generate image: a cat",
+            request=ImageGenRequest("a cat"),
             outcome=None,
             create_user_message=True,
         )
@@ -1108,6 +990,7 @@ async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
         user=user,
         chat_id=uuid4(),
         content="Generate image: a cat",
+        request=ImageGenRequest("a cat"),
         outcome=None,
         create_user_message=False,
         replace_assistant_id=old_id,
@@ -1158,6 +1041,7 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
         user=user,
         chat_id=chat_id,
         content="Generate image: a cat",
+        request=ImageGenRequest("a cat"),
         outcome=TurnOutcome(),
         create_user_message=False,
         replace_assistant_id=old_id,
@@ -1169,45 +1053,33 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
 
 
 @pytest.mark.asyncio
-async def test_try_image_lookup_returns_false_when_disabled():
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+@pytest.mark.parametrize(
+    "settings, content",
+    [
+        (Settings(image_search_enabled=False), "show me an ear"),
+        (Settings(image_search_enabled=True), "what's the weather"),
+    ],
+)
+async def test_no_photo_is_looked_up_with_search_off_or_no_photo_named(
+    settings: Settings, content: str
+):
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
-    user = MagicMock()
-    user.id = uuid4()
-
-    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"):
-        handled = await try_image_lookup_for_turn(
-            turn_deps(),
-            Settings(image_search_enabled=False),
-            user=user,
-            chat_id=uuid4(),
-            content="show me an ear",
-            outcome=None,
-            create_user_message=True,
-        )
-
-    assert handled is False
-
-
-@pytest.mark.asyncio
-async def test_try_image_lookup_returns_false_when_no_query_match():
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
-
-    user = MagicMock()
-    user.id = uuid4()
-
-    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value=None):
-        handled = await try_image_lookup_for_turn(
-            turn_deps(),
-            Settings(image_search_enabled=True),
-            user=user,
-            chat_id=uuid4(),
-            content="what's the weather",
-            outcome=None,
-            create_user_message=True,
-        )
+    search = AsyncMock()
+    handled = await intercept_new_turn(
+        turn_deps(image_search={"search_and_attach_for_chat": search}),
+        settings,
+        user=_image_user(),
+        chat_id=uuid4(),
+        content=content,
+        outcome=None,
+        recent_messages=[],
+        prior_count=0,
+        read=picture_read("photo"),
+    )
 
     assert handled is False
+    search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1226,18 +1098,17 @@ async def test_try_image_lookup_succeeds_and_populates_outcome():
     search_and_attach = AsyncMock(return_value=(user_msg, asst_msg))
     outcome = TurnOutcome()
 
-    with patch(
-        "app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="human ear"
-    ):
-        handled = await try_image_lookup_for_turn(
-            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
-            Settings(image_search_enabled=True),
-            user=user,
-            chat_id=chat_id,
-            content="show me an ear",
-            outcome=outcome,
-            create_user_message=True,
-        )
+    handled = await try_image_lookup_for_turn(
+        turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
+        Settings(image_search_enabled=True),
+        user=user,
+        chat_id=chat_id,
+        content="show me an ear",
+        query="human ear",
+        outcome=outcome,
+        create_user_message=True,
+        recent=[],
+    )
 
     assert handled is True
     assert outcome.message_id == str(asst_msg.id)
@@ -1267,16 +1138,17 @@ async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int
         side_effect=ImageSearchError("not found", status_code=status_code)
     )
 
-    with patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"):
-        handled = await try_image_lookup_for_turn(
-            turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
-            Settings(image_search_enabled=True),
-            user=user,
-            chat_id=uuid4(),
-            content="show me an ear",
-            outcome=None,
-            create_user_message=True,
-        )
+    handled = await try_image_lookup_for_turn(
+        turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
+        Settings(image_search_enabled=True),
+        user=user,
+        chat_id=uuid4(),
+        content="show me an ear",
+        query="ear",
+        outcome=None,
+        create_user_message=True,
+        recent=[],
+    )
 
     assert handled is False
 
@@ -1292,18 +1164,17 @@ async def test_try_image_lookup_other_error_raises_chat_service_error():
 
     search_and_attach = AsyncMock(side_effect=ImageSearchError("boom", status_code=500))
 
-    with (
-        patch("app.modules.chat.turn_intercepts.extract_image_lookup_query", return_value="ear"),
-        pytest.raises(ChatServiceError),
-    ):
+    with pytest.raises(ChatServiceError):
         await try_image_lookup_for_turn(
             turn_deps(image_search={"search_and_attach_for_chat": search_and_attach}),
             Settings(image_search_enabled=True),
             user=user,
             chat_id=uuid4(),
             content="show me an ear",
+            query="ear",
             outcome=None,
             create_user_message=True,
+            recent=[],
         )
 
 
@@ -2320,6 +2191,7 @@ async def test_a_photo_ask_with_no_photo_is_answered_in_words_not_drawn():
         outcome=None,
         recent_messages=[],
         prior_count=0,
+        read=picture_read("photo"),
     )
     assert handled is False
     generate.assert_not_awaited()

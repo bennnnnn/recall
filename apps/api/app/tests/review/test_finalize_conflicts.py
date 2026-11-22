@@ -141,29 +141,6 @@ async def test_conflict_6b_open_card_kept_where_a_closed_one_is_demoted() -> Non
     assert [card.strip() for card in _cards(saved)] == ["12 m/s"]
 
 
-# --- 7. the closing line ------------------------------------------------------------------
-
-
-async def test_conflict_7_closing_summary_dropped_by_two_owners() -> None:
-    """A one-line closing summary is wanted (owner). On a solved turn the subject's fence
-    pass drops it; on an unsolved one ``working_check`` drops it (``drop_restated_tail``)."""
-    solved_reply = (
-        "**Substitution**\n$KE = \\tfrac12 \\times 2 \\times 3^2 = 9\\,\\mathrm{J}$\n\n"
-        "**Answer**\n\n```answer\n9 J\n```\n\nThe kinetic energy is 9 J."
-    )
-    _route, solved = await _finalize(
-        "A 2 kg ball moves at 3 m/s. What is its kinetic energy?", solved_reply
-    )
-    assert "The kinetic energy is" not in solved
-    unsolved_reply = (
-        "**Substitution**\n$v = \\frac{160}{12} = 13.33\\,\\mathrm{m/s}$\n\n"
-        "**Answer**\n\n$v = 13.33\\,\\mathrm{m/s}$\n\n"
-        "The car's average speed is $13.33\\,\\mathrm{m/s}$."
-    )
-    _route, unsolved = await _finalize(_TRIP, unsolved_reply)
-    assert "The car's average speed is" not in unsolved
-
-
 # --- 8. a flowchart stands in for a drawing -------------------------------------------------
 
 _FLOWCHART = (

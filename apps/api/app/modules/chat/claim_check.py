@@ -10,9 +10,12 @@ A cheap model lists the claims the evidence does not support: a figure, a legal 
 regulatory status, a named organisation said to do something, an attribution. The evidence
 is this turn's search results and the user's own words; an earlier reply of the assistant
 is where an invention starts, so it is not evidence. Each quote must be found in the reply.
-The pass removes the table row or sentence that holds it, outside fences, and adds one line
-saying what was left out. A check that fails, times out or flags most of the reply
-changes nothing: it never costs the user an answer.
+The pass removes the table row or sentence that holds it, outside fences, and says nothing
+about it: "*I couldn't confirm these from the sources I found, so I left them out: Release
+status of Google Xreal AR glasses.*" closed a reply about 80 years of technology (the owner's
+chat, 2026-11-22), the checker's bookkeeping read as the answer's last word. What was cut is
+logged. A check that fails, times out or flags most of the reply changes nothing: it never
+costs the user an answer.
 
 The checker sees the pages as the reply read them, and names what kind of claim each is.
 Only two kinds cost a sentence, a figure and a legal standing, and only when no page states
@@ -83,14 +86,11 @@ _SYSTEM = (
     "something works, steps for doing something, hedged estimates the reply calls "
     "estimates, and what the reply says it could not find.\n\n"
     'Return JSON: {"unsupported": [{"quote": ..., "topic": ..., "kind": ...}], '
-    '"used": [...], "note": ...}. '
+    '"used": [...]}. '
     "quote is the shortest span copied exactly from the reply that holds the claim. "
     "topic is 2 to 8 words naming what was claimed. kind is figure, legal (licensed, "
     "banned, approved, reinstated or safe to use under a law or regulator), attribution, "
-    "or other. note is one short sentence to the "
-    "user, in the language of the reply, saying you could not confirm those details from "
-    "the sources found and left them out; never number a source or name the reply. Use an "
-    "empty list and an empty note when every claim is supported.\n\n" + SOURCES_USED_RULE
+    "or other. Use an empty list when every claim is supported.\n\n" + SOURCES_USED_RULE
 )
 
 
@@ -104,7 +104,6 @@ class _Claim(BaseModel):
 class _Verdict(BaseModel):
     unsupported: list[_Claim] = Field(default_factory=list, max_length=_MAX_CLAIMS)
     used: PagesUsed = None
-    note: str = Field(default="", max_length=240)
 
 
 def _evidence(state: FinalizeState) -> str:
@@ -444,30 +443,4 @@ async def cut_unsupported_claims(state: FinalizeState) -> str:
         return text
     topics = "; ".join(dict.fromkeys(c.topic.strip() for c in claims if c.topic))
     logger.info("claim_check cut %d unsupported claim(s): %s", found, topics)
-    return f"{cut.rstrip()}\n\n*{_user_note(verdict.note, topics)}*"
-
-
-# The checker's own terms: a numbered source, "the provided sources", the reply or the
-# assistant. Live (2026-11-03): "The provided sources do not confirm that Musk criticized a
-# specific 'tax and spending bill' …; Source [4] mentions an 'agenda bill' but …" reached
-# the user as the note.
-_CHECKER_TERMS = re.compile(
-    r"\[\d+\]|\bsources?\s*#?\d|\bprovided\b|\bthe\s+(?:reply|assistant|evidence)\b",
-    re.IGNORECASE,
-)
-_MAX_NOTE_CHARS = 160
-
-
-def _user_note(note: str, topics: str) -> str:
-    """The checker's note when it is one short sentence to the user, else ours."""
-    said = collapse_ws(note).strip("*_ ")
-    if (
-        said
-        and len(said) <= _MAX_NOTE_CHARS
-        and len(_sentences(said)) == 1
-        and not _CHECKER_TERMS.search(said)
-    ):
-        return said
-    if topics:
-        return f"I couldn't confirm these from the sources I found, so I left them out: {topics}."
-    return "I left out details the sources I found did not confirm."
+    return cut.rstrip()

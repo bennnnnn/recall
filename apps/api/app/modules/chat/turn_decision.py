@@ -31,11 +31,13 @@ import logging
 import time
 from datetime import UTC, datetime
 from typing import Any, Literal, get_args
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+from app.modules.chat import shown_pictures
 from app.modules.chat.decider_read import NEAR_LIVE_AT, RESUME_QUESTION, lesson_questions
 from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
 from app.modules.chat.quiz_cards import (
@@ -44,6 +46,7 @@ from app.modules.chat.quiz_cards import (
     option_letter,
     practice_cards,
 )
+from app.modules.chat.shown_pictures import ShownPicture, ShownPictures
 from app.modules.turn_reading.lesson_flow import active_lesson_step
 
 logger = logging.getLogger(__name__)
@@ -107,7 +110,9 @@ _SYSTEM = (
     "- how things work and how to do something: steps, settings and checks on a phone, "
     "computer or app (unless it names a model or version that may be newer than you "
     "know); who makes or repairs something\n"
-    "- maths, science, writing, code, history and other settled knowledge\n"
+    "- maths, science, writing, code, history and other settled knowledge, what changed "
+    "or was invented over years or decades (the last 80 years, since the 1990s) included, "
+    "even when the span reaches today\n"
     "- where the user is: the app knows their place\n"
     "- what the user told you or keeps here: their earlier chats, memory, notes, to-dos "
     "and files, even when they ask you to search or look them up\n"
@@ -152,7 +157,10 @@ _SYSTEM = (
     "mind map; molecule: a molecule's structure, flat or 3D; photo: a real thing, place, "
     "animal or person; image: an imagined picture to paint (a scene, an animal doing "
     'something, a logo, a poster). A map is none. "Draw it" shows what the conversation '
-    "is about: a circuit is a diagram, a compound a molecule, a curve a graph.\n\n"
+    "is about: a circuit is a diagram, a compound a molecule, a curve a graph. A change to "
+    'a picture just shown ("make it blue", "now at night") asks for that picture again; a '
+    'remark, complaint or question about a picture already shown ("I can\'t see it", '
+    '"why did you send that", "what is it") is none.\n\n'
     "follow is what the message does with the assistant's last reply; people text short "
     '("yap", "nah", "the 2nd", "wdym"), so read it against that reply\'s end, where '
     "its question or offer is; with no earlier turns it is none:\n"
@@ -238,6 +246,10 @@ class TurnDecision(BaseModel):
     # After a reply cut off before its end, whether the message asks it to go on
     # (``decider_read.RESUME_QUESTION``). The Decider's alone, asked only then.
     resumes: bool | None = None
+    # Whether the answer is about one real thing worth a photo above it
+    # (``decider_read.PHOTO_QUESTION``). The Decider's alone: None from the text read, and the
+    # word rules offer the photo (``chat.answer_photo_offer``).
+    seen: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -274,17 +286,30 @@ class TurnDecision(BaseModel):
         return self
 
 
-def earlier_turns(recent: list[Any] | None) -> list[tuple[str, str]]:
+def earlier_turns(
+    recent: list[Any] | None, pictures: ShownPictures | None = None
+) -> list[tuple[str, str]]:
     """The last exchanges of an oldest-first window, as the read sees them: what a short
-    follow-up ("How much", "Can I walk?", "Draw it") refers to."""
+    follow-up ("How much", "Can I walk?", "Draw it") refers to. A picture a reply showed is
+    said in words (``shown_pictures``): "What image is that?" after one asks about it, and
+    "make it blue" changes it."""
     turns = [
-        (role, content)
+        (role, _shown(message, role, content, pictures or {}))
         for message in recent or []
         if (role := getattr(message, "role", None)) in {"user", "assistant"}
         and isinstance(content := getattr(message, "content", None), str)
         and content.strip()
     ][-_EARLIER_MESSAGES:]
     return [(r, _quoted(r, t, i == len(turns) - 1)) for i, (r, t) in enumerate(turns)]
+
+
+def _shown(message: Any, role: str, content: str, pictures: ShownPictures) -> str:
+    if role != "assistant":
+        return content
+    model = getattr(message, "model", None)
+    return shown_pictures.as_text(
+        content, model=model if isinstance(model, str) else None, pictures=pictures
+    )
 
 
 def _quoted(role: str, content: str, last: bool = False) -> str:
@@ -379,7 +404,13 @@ async def read_decision(
             # The Decider's breaker is open: the text read decides, as when it refuses.
             return _followed(await text_read, earlier)
         return await _join(
-            settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work, lesson=lesson
+            settings,
+            text_read,
+            messages[-1]["content"],
+            earlier,
+            ask_work=ask_work,
+            ask_photo=settings.image_search_enabled,
+            lesson=lesson,
         )
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
@@ -394,6 +425,7 @@ async def _join(
     earlier: list[tuple[str, str]],
     *,
     ask_work: bool = False,
+    ask_photo: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
@@ -407,6 +439,7 @@ async def _join(
         has_earlier=bool(earlier),
         seconds=settings.live_read_timeout_seconds,
         ask_work=ask_work,
+        ask_photo=ask_photo,
         lesson=lesson,
     )
     if decided is None:
@@ -496,17 +529,27 @@ async def _ask(
 
 
 def start_turn_decision(
-    settings: Settings, text: str, *, recent: list[Any] | None
+    settings: Settings,
+    text: str,
+    *,
+    recent: list[Any] | None,
+    pictures: asyncio.Future[dict[UUID, ShownPicture]] | None = None,
 ) -> asyncio.Task[TurnDecision | None] | None:
     """The read, started now so it runs beside the turn's prep; None when it is off.
-    ``recent``: the chat's window before this message, oldest first. Search off still
-    reads: the lane and the thinking come from it too."""
+    ``recent``: the chat's window before this message, oldest first; ``pictures``: the
+    labels of the pictures it shows, being read (``shown_pictures.start_labels``). Search
+    off still reads: the lane and the thinking come from it too."""
     if not settings.live_read_enabled:
         return None
     lesson = _lesson_questions(recent)
-    return asyncio.create_task(
-        read_decision(settings, text, earlier=earlier_turns(recent), lesson=lesson)
-    )
+
+    async def read() -> TurnDecision | None:
+        labels = await shown_pictures.settled_labels(pictures)
+        return await read_decision(
+            settings, text, earlier=earlier_turns(recent, labels), lesson=lesson
+        )
+
+    return asyncio.create_task(read())
 
 
 def _lesson_questions(recent: list[Any] | None) -> dict[str, dict[str, Any]] | None:

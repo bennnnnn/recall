@@ -389,34 +389,6 @@ GENERATE_NOW_EXACT = frozenset(
 
 DEICTIC_SUBJECTS = frozenset({"that", "this", "it", "them"})
 
-REACTION_WORDS = frozenset(
-    {
-        "nice",
-        "cool",
-        "great",
-        "love",
-        "wow",
-        "beautiful",
-        "awesome",
-        "perfect",
-        "cute",
-    }
-)
-
-REACTION_PHRASES = frozenset(
-    {
-        "looks good",
-        "looks great",
-        "looks nice",
-        "love it",
-        "love this",
-        "so cool",
-        "so nice",
-        "well done",
-        "nice one",
-    }
-)
-
 NON_REVISION = frozenset(
     {
         "ok",
@@ -495,23 +467,5 @@ NOT_REVISION_STARTERS = frozenset(
         "we",
         "let's",
         "lets",
-    }
-)
-
-# "show it at night" / "show the car in blue" redraw the last picture; "show the
-# steps" or "show 23 times 14" after a picture are ordinary chat.
-SHOW_REVISION_TARGETS = frozenset({"it", "them", "more", "less", "another", "a", "an", "the"})
-
-SHOW_NON_IMAGE_WORDS = frozenset(
-    {
-        "step",
-        "steps",
-        "work",
-        "working",
-        "workout",
-        "answer",
-        "solution",
-        "calculation",
-        "how",
     }
 )

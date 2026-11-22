@@ -472,6 +472,20 @@ class MoneyPeer(Protocol):
         """The chat's earlier loan, for a message about it that is no money request itself."""
         ...
 
+    async def prepare_read(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        conversation: Sequence[tuple[str, str]],
+    ) -> MoneyTurn | None:
+        """The money turn the chat's request makes, read by a model and held to the chat's
+        words: for a turn the read calls money that no word rule read."""
+        ...
+
     async def finish(self, turn: MoneyTurn, text: str, settings: Settings, *, english: bool) -> str:
         """The reply with the market note and the calculator card under it."""
         ...
