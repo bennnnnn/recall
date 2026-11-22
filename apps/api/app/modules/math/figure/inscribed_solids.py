@@ -36,10 +36,12 @@ _RADIUS = 2.0
 _SIZE_WHATS = frozenset({"height", "edge", "side", "length", "width"})
 
 
-def as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
+def as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest | None:
     """A sphere the question puts inside a cylinder or a cube, read as inside it: shape the
     holder, ``inscribed`` the sphere. A sphere read as joined to one is inside it only where
-    the question says so; a reading it does not say so of is left as read."""
+    the question says so, and is left as read where it does not. A sphere read as inside
+    that the question does not put inside ("a hemisphere fits inside", "a cone fits inside",
+    "sits on top of") draws nothing: no sphere is drawn into it (review, #2522)."""
     if request.kind != "solid":
         return request
     pair = {request.shape, request.attached}
@@ -48,7 +50,7 @@ def as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest:
         return request
     words = " ".join(texts).lower()
     if not (_INSIDE.search(words) and _SPHERE_WORD.search(words)) or "hemispher" in words:
-        return request
+        return None if inside else request
     outer = next(iter(pair & _OUTERS))
     return request.model_copy(update={"shape": outer, "attached": "", "inscribed": "sphere"})
 

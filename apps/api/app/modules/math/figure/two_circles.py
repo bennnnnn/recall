@@ -133,8 +133,7 @@ def build_two_circles(request: FigureRequest) -> FigureSpec | None:
         h = math.sqrt(max(0.0, r1 * r1 - x * x))
         top, bottom = drawing.point((x, h)), drawing.point((x, -h))
         drawing.line(top, bottom, length_label(chord, unit) if chord is not None else None)
-        middle = drawing.point((x, 0.0))
-        drawing.angle(middle, second, top, right=True)
+        _chord_foot(drawing, (first, second), x, d, top)
         ends = (top, top)
     else:
         ends = (drawing.point(polar(r1, _UP)), drawing.point(polar(r2, _UP, (d, 0.0))))
@@ -158,3 +157,18 @@ def _size(drawing: Drawing, centre: str, end: str, r: float, what: str, label: s
     low, high = drawing.point((cx, cy - r)), drawing.point((cx, cy + r))
     drawing.line(low, high, label, label_at=0.75)
     drawing.line(centre, end)
+
+
+def _chord_foot(drawing: Drawing, centres: tuple[str, str], x: float, d: float, top: str) -> None:
+    """The right angle where the common chord meets the centres' line, its arm along that
+    line toward a centre it does not sit on. A chord beyond both centres (radii 15 and 13,
+    4 apart: it crosses 9 from the first) has the line carried on to it, dashed and
+    unlabelled, so the mark sits on a line drawn (review, #2522)."""
+    first, second = centres
+    middle = drawing.point((x, 0.0))
+    if x < -_TOLERANCE:
+        drawing.line(middle, first, dashed=True)
+    elif x > d + _TOLERANCE:
+        drawing.line(second, middle, dashed=True)
+    toward = first if close(x, d) else second
+    drawing.angle(middle, toward, top, right=True)

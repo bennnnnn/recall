@@ -92,6 +92,9 @@ _NAMED = {
 }
 
 
+_BALL = re.compile(r"\bballs?\b")
+
+
 def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     """The reading's shape is the one the question names, where it is: not a default in
     its place. A polygon whose corners the question gives as coordinates is drawn there or
@@ -103,7 +106,9 @@ def _the_questions_shape(request: FigureRequest, texts: list[str]) -> bool:
     if request.kind == "solid" and not revolves_into(request.shape, texts):
         return False  # x = √y about the y-axis is no cylinder (u5-083)
     if request.kind == "solid" and request.shape in _NAMED:
-        return names_shape(texts, _NAMED[request.shape])
+        # A ball one of two named parts is: "a ball fits inside a cylinder" read either way.
+        named = names_shape(texts, _NAMED[request.shape])
+        return named or (bool(request.attached) and _a_ball(request.shape, texts))
     if request.kind == "polygon":
         return len({pair for text in own_texts(texts) for pair in written_pairs(text)}) < 3
     return True
@@ -117,17 +122,23 @@ def _names_attached(request: FigureRequest, texts: list[str]) -> bool:
         attached = request.attached
         return attached not in composite.ATTACHED or composite.names_part(texts, attached)
     solid = request.attached.removeprefix("two_").removesuffix("s")
-    return (
-        solid in _NAMED
-        and names_shape(texts, _NAMED[solid])
-        and any(solid[:5] in text.lower() for text in texts)
+    return solid in _NAMED and (
+        _a_ball(solid, texts)
+        or (names_shape(texts, _NAMED[solid]) and any(solid[:5] in text.lower() for text in texts))
     )
+
+
+def _a_ball(solid: str, texts: list[str]) -> bool:
+    """A sphere the question calls a ball: "a ball fits inside a cylinder" names both parts
+    of a solid made of two, though no word of it is "sphere" (review, #2522)."""
+    words = " ".join(texts).lower()
+    return solid == "sphere" and _BALL.search(words) is not None and "hemispher" not in words
 
 
 # The readings held to words that always leave one standing: a right triangle's altitude
 # onto its hypotenuse, an isosceles trapezium read as any, a sphere inside a solid, which
 # cone of a cut one a value is of, whether two circles touch.
-_SAID: tuple[Callable[[FigureRequest, Sequence[str]], FigureRequest], ...] = (
+_SAID: tuple[Callable[[FigureRequest, Sequence[str]], FigureRequest | None], ...] = (
     right_altitude.as_said,
     quads.trapezium_as_said,
     inscribed_solids.as_said,
@@ -146,6 +157,8 @@ def _as_said(request: FigureRequest, texts: list[str]) -> FigureRequest | None:
         return None
     for read in _SAID:
         said = read(said, texts)
+        if said is None:
+            return None
     return stacked_solids.heights_as_said(said, texts)
 
 

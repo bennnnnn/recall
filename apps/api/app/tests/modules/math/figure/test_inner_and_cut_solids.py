@@ -253,3 +253,68 @@ def test_a_whole_cone_and_a_frustum_by_its_ends_are_drawn_as_before(
     spec = figure(question, reading)
     assert spec.shape == shape
     assert not any(arc.rx < 9 for arc in spec.arcs if shape == "frustum")
+
+
+@pytest.mark.parametrize(
+    ("question", "reading"),
+    [
+        (
+            "A hemisphere of radius 5 cm fits inside a cylinder. Find the cylinder's volume.",
+            _solid("cylinder", ("radius", 5, ""), inscribed="sphere"),
+        ),
+        (
+            "A cone fits inside a cylinder of radius 5 cm. Find the cylinder's volume.",
+            _solid("cylinder", ("radius", 5, ""), inscribed="sphere"),
+        ),
+        (
+            "A sphere of radius 5 cm sits on top of a cylinder of radius 5 cm and height 10 cm.",
+            _solid("cylinder", ("radius", 5, ""), ("height", 10, ""), inscribed="sphere"),
+        ),
+    ],
+)
+def test_no_sphere_drawn_inside_where_the_question_puts_none(
+    question: str, reading: dict[str, Any]
+) -> None:
+    """Review (#2522): a sphere read as inside that the words do not put inside draws
+    nothing, never a sphere in the cylinder."""
+    assert draw(question, reading) is None
+
+
+@pytest.mark.parametrize(
+    "reading",
+    [
+        _solid("cylinder", ("height", 10, ""), attached="sphere"),
+        _solid("sphere", ("height", 10, ""), attached="cylinder"),
+        _solid("cylinder", ("height", 10, ""), inscribed="sphere"),
+    ],
+)
+def test_a_ball_inside_a_cylinder_is_a_sphere_inside_it(reading: dict[str, Any]) -> None:
+    """Review (#2522): "a ball" names the sphere of a solid made of two."""
+    question = "A ball fits inside a cylinder of height 10 cm. Find the ball's volume."
+    spec = figure(question, reading)
+    assert spec.shape == "sphere_in_cylinder"
+    assert _extent(spec) == pytest.approx((10, 10))
+
+
+@pytest.mark.parametrize(
+    "measures",
+    [
+        [("radius", 8, ""), ("height", 8, ""), ("radius", 4, "")],
+        [("height", 8, ""), ("radius", 8, ""), ("radius", 4, "")],
+        [("height", 8, "smaller cone"), ("radius", 8, "original cone"), ("radius", 4, "")],
+    ],
+)
+def test_cut_cone_values_written_alike_each_keep_their_own_cone(
+    measures: list[tuple[str, float, str]],
+) -> None:
+    """Review (#2522): two 8s, the whole cone's radius and the cut one's height, are each
+    read where they are written: the cut cone is 8 tall and the whole cone 16."""
+    question = (
+        "The original cone has base radius 8 cm. The smaller cone removed has height 8 cm and "
+        "radius 4 cm. Find the volume of the frustum."
+    )
+    spec = figure(question, _solid("frustum", *measures))
+    assert spec.shape == "frustum"
+    assert any(p.dot and p.y == pytest.approx(8) for p in spec.points)  # the cut
+    assert max(p.y for p in spec.points) == pytest.approx(16)  # the apex
+    assert sorted(arc.rx for arc in spec.arcs) == pytest.approx([4, 8, 8])

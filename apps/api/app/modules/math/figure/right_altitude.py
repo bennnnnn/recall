@@ -216,9 +216,20 @@ def _solve(items: list[tuple[tuple[str, ...], Measure]]) -> _Solved | None:
     they decide none, or two different ones."""
     found: list[_Solved] = []
     for roles in product(*(choices for choices, _ in items)):
+        if _shares_a_part(items, roles):
+            continue
         found += _fits(items, roles)
     shapes = {round(min(s.share, 1 - s.share), 6) for s in found}
     return found[0] if len(shapes) == 1 else None
+
+
+def _shares_a_part(items: list[tuple[tuple[str, ...], Measure]], roles: tuple[str, ...]) -> bool:
+    """Two values given one part that either could be another: two legs of 6 are both legs
+    (an isosceles right triangle), two parts of 8 both parts (the altitude at the middle),
+    never one part twice, the other unlabelled (review, #2522). A part stated twice (the
+    hypotenuse, a side its letters name) is that part both times."""
+    open_roles = [role for role, (choices, _) in zip(roles, items, strict=True) if len(choices) > 1]
+    return len(set(open_roles)) < len(open_roles)
 
 
 def build_right_altitude(request: FigureRequest) -> FigureSpec | None:

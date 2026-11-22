@@ -81,17 +81,39 @@ def _named_cone(prefix: str) -> str | None:
     return WHOLE if _WHOLE_WORDS.search(around) else _SOME_CONE
 
 
-def _found(words: str, value: float) -> re.Match[str] | None:
-    return re.search(rf"(?<![\d.]){re.escape(f'{value:g}')}(?![\d]|\.\d)", words)
+def _occurrences(words: str, value: float) -> list[re.Match[str]]:
+    return list(re.finditer(rf"(?<![\d.]){re.escape(f'{value:g}')}(?![\d]|\.\d)", words))
+
+
+def _placed(words: str, measures: Sequence[Measure]) -> list[re.Match[str] | None]:
+    """Where in the words each value is written, each place used once, in order: "base
+    radius 8 cm ... removed has height 8 cm" is two 8s, the first the whole cone's radius and
+    the second the cut one's height (review, #2522). A value written in places of different
+    cones goes to the one of the read's tag, where it gives one, then to the one written
+    after its own word ("height 8 cm")."""
+    used: set[int] = set()
+    placed: list[re.Match[str] | None] = []
+    for m in measures:
+        every = _occurrences(words, m.value)
+        free = [f for f in every if f.start() not in used] or every
+        read = _read_of(m)
+        tagged = [f for f in free if read is not None and _role(_written_at(words, f), m) == read]
+        free = tagged or free
+        named = [f for f in free if m.what in _sentence_before(words, f).split()[-3:]]
+        found = next(iter(named or free), None)
+        if found is not None:
+            used.add(found.start())
+        placed.append(found)
+    return placed
 
 
 def _sentence_before(words: str, found: re.Match[str]) -> str:
     return re.split(r"[.;?!](?:\s|$)", words[: found.start()])[-1]
 
 
-def _written_of(words: str, value: float) -> str | None:
-    """What the question writes a value of, or None when its words say nothing."""
-    found = _found(words, value)
+def _written_at(words: str, found: re.Match[str] | None) -> str | None:
+    """What the question writes the value at ``found`` of, or None when its words say
+    nothing."""
     if found is None:
         return None
     after = _UNIT.sub("", words[found.end() :])
@@ -102,10 +124,9 @@ def _written_of(words: str, value: float) -> str | None:
     return _named_cone(_sentence_before(words, found))
 
 
-def _end_of(words: str, m: Measure) -> str:
+def _end_of(words: str, m: Measure, found: re.Match[str] | None) -> str:
     """A frustum's radius is its base's (the whole cone's) or its top's (the cone cut off),
     as the words just before it say ("base radius 6 cm"); FRUSTUM when they do not."""
-    found = _found(words, m.value)
     if found is None or m.what not in {"radius", "diameter"}:
         return FRUSTUM
     end = " ".join(_sentence_before(words, found).split()[-3:])
@@ -130,13 +151,14 @@ def roles_as_said(request: FigureRequest, texts: Sequence[str]) -> FigureRequest
     if request.kind != "solid" or request.shape not in _SHAPES:
         return request
     words = " ".join(texts).lower()
-    roles = [_role(_written_of(words, m.value), m) for m in request.measures]
+    places = _placed(words, request.measures)
+    roles = [_role(_written_at(words, f), m) for m, f in zip(request.measures, places, strict=True)]
     cut_said = CUT in roles if request.shape == "cone" else bool({WHOLE, CUT} & set(roles))
     if not cut_said:
         return request
     roles = [
-        _end_of(words, m) if r == FRUSTUM else r
-        for m, r in zip(request.measures, roles, strict=True)
+        _end_of(words, m, f) if r == FRUSTUM else r
+        for m, r, f in zip(request.measures, roles, places, strict=True)
     ]
     measures = [
         m.model_copy(update={"of": role or ""})

@@ -4,6 +4,7 @@ unlabelled, or not at all (the hard-geometry round, 2026-11-21)."""
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import pytest
@@ -290,3 +291,71 @@ def test_a_plain_right_triangle_with_a_height_is_no_altitude_figure() -> None:
     # Never the altitude figure (two right angles, a dashed altitude): main draws this
     # reading as nothing, and so does the branch.
     assert spec is None or sum(mark.right for mark in spec.angles) == 1
+
+
+@pytest.mark.parametrize(
+    ("question", "measures", "corner"),
+    [
+        (
+            "In a right triangle the altitude to the hypotenuse divides the hypotenuse of 16 cm "
+            "into two segments of 8 cm and 8 cm. Find the altitude.",
+            [("hypotenuse", 16), ("length", 8), ("length", 8)],
+            (8, 8),
+        ),
+        (
+            "In a right triangle the legs are 6 cm and 6 cm. Find the altitude to the hypotenuse.",
+            [("leg", 6), ("leg", 6)],
+            (math.sqrt(18), math.sqrt(18)),
+        ),
+    ],
+)
+def test_equal_values_of_a_right_triangles_altitude_take_both_parts(
+    question: str, measures: list[tuple[str, float]], corner: tuple[float, float]
+) -> None:
+    """Review (#2522): two equal parts are both parts, the altitude at the middle; two equal
+    legs both legs, an isosceles right triangle; each one labelled."""
+    spec = figure(question, _reading("polygon", "right_triangle", *measures))
+    assert at(spec, "C") == pytest.approx(corner)
+    assert len(labels(spec)) == len(measures)
+    assert sum(mark.right for mark in spec.angles) == 2
+
+
+def _chord_mark_on_drawn_line(spec: Any) -> None:
+    """The common chord's right angle has an arm of length, along a drawn dashed line."""
+    mark = next(m for m in spec.angles if m.right)
+    assert length(spec, mark.at, mark.a) > 0
+    dashed = [s for s in spec.segments if s.dashed]
+    foot = at(spec, mark.at)
+    assert any(
+        min(at(spec, s.a)[0], at(spec, s.b)[0]) - 1e-9
+        <= foot[0]
+        <= max(at(spec, s.a)[0], at(spec, s.b)[0]) + 1e-9
+        and at(spec, s.a)[1] == at(spec, s.b)[1] == pytest.approx(0)
+        for s in dashed
+    )
+
+
+@pytest.mark.parametrize(
+    ("radii", "centres", "foot"),
+    [
+        ((10, 6), 8, 8),  # the chord through the second centre
+        ((15, 13), 4, 9),  # beyond the second centre
+        ((13, 15), 4, -5),  # beyond the first
+    ],
+)
+def test_common_chord_right_angle_stays_on_the_centres_line(
+    radii: tuple[float, float], centres: float, foot: float
+) -> None:
+    """Review (#2522): the mark never has an arm of no length, and never floats off the
+    centres' line; that line is carried on, unlabelled, to a chord beyond both centres."""
+    r1, r2 = radii
+    question = (
+        f"Two circles have radii {r1} cm and {r2} cm. The distance between their centres is "
+        f"{centres} cm. Find the length of their common chord."
+    )
+    measures = [("radius", r1), ("radius", r2), ("distance", centres)]
+    spec = figure(question, _reading("circle", "two_circles", *measures))
+    assert labels(spec) == sorted(f"{v} cm" for v in (r1, r2, centres))
+    mark = next(m for m in spec.angles if m.right)
+    assert at(spec, mark.at) == pytest.approx((foot, 0))
+    _chord_mark_on_drawn_line(spec)
