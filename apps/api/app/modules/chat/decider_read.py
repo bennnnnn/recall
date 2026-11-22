@@ -150,14 +150,14 @@ QUESTIONS: dict[str, dict[str, Any]] = {
             "draw": "show what the conversation is about (draw it, graph it)",
             "accept": "yes to something the last reply offered or proposed to do (yes, yap, "
             "sure, go, pls, do it)",
-            "decline": "no to the last reply's offer or question (nah, no thanks, im good, "
-            "not now)",
+            "decline": "no to the last reply's offer or question, or a no thanks with "
+            "nothing offered (nah, no thanks, nah im good, not now)",
             "pick": "chooses one of the options or items the last reply listed or asked "
             "between (the 2nd, pasta, both, b)",
             "answer": "gives a value or detail the last reply asked for (a number, a name, a "
             "place, how many), a quiz answer, or their own answer to check",
             "react": "a reaction, not a request, to a reply that asked and offered nothing "
-            "(ok, cool, lol, thanks, wow, nah im good)",
+            "(ok, cool, lol, thanks, wow, makes sense)",
         },
     },
     # "Top 5 in Ethiopia" after a search for the world's top universities read 0.14, its "Yes"

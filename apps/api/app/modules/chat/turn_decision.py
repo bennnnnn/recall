@@ -170,14 +170,14 @@ _SYSTEM = (
     'moving")\n'
     '- accept: yes to something the last reply offered or proposed to do ("yes", "yap", '
     '"sure", "go", "pls", "do it")\n'
-    '- decline: no to the last reply\'s offer or question ("nah", "no thanks", "im good", '
-    '"not now")\n'
+    "- decline: no to the last reply's offer or question, or a no thanks with nothing "
+    'offered ("nah", "no thanks", "nah im good", "not now")\n'
     "- pick: chooses one of the options or items the last reply listed or asked between "
     '("the 2nd", "pasta", "both", "b")\n'
     "- answer: gives a value or detail the last reply asked for (a number, a name, a "
     "place, how many), a quiz answer, or the user's own answer to check\n"
     "- react: a reaction, not a request, to a reply that asked and offered nothing "
-    '("ok", "cool", "lol", "thanks", "wow", "nah im good")\n\n'
+    '("ok", "cool", "lol", "thanks", "wow", "makes sense")\n\n'
     "Reply with JSON only, eight keys in this order: asked is true when the user's last "
     "message asks you to search the web or look up something about the world (a fact, a "
     "person, a place, a thing), google it or check online, whatever the topic; a search of "

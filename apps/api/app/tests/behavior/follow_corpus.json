@@ -937,7 +937,7 @@
  },
  {
   "id": "react-10",
-  "follow": "react",
+  "follow": "decline",
   "prompt": "nah im good",
   "history": [
    [
@@ -950,7 +950,7 @@
    ]
   ],
   "also": [
-   "decline"
+   "react"
   ]
  },
  {
@@ -1560,7 +1560,7 @@
     "Blue light scatters the most, so the sky looks blue."
    ]
   ],
-  "holdout": true
+  "holdout": false
  },
  {
   "id": "hold-react-06",

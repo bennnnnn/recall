@@ -167,7 +167,8 @@ FOLLOW_NOTES = {
     # went to "lol ok" and "nah im good" too, and the reply carried on an offer never made.
     "accept": (
         "They said yes to what your last reply offered or proposed. Do it now, opening on it: "
-        'no "Great!" or "Sure!" before it, and never say that they agreed.'
+        'no "Great!" or "Sure!" before it, and never say that they agreed. What your last '
+        "reply already gave is done: never write it again."
     ),
     "decline": (
         "They said no to what your last reply offered or asked. Take it lightly in a few "
