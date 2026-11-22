@@ -297,12 +297,12 @@ class GuardedFigure:
             self._subject, "figure.adds_to", False, lambda: self._inner.adds_to(text, fence)
         )
 
-    def without_substitutes(self, text: str) -> str:
+    def without_substitutes(self, text: str, fence: str) -> str:
         return neutral_on_error(
             self._subject,
             "figure.without_substitutes",
             text,
-            lambda: self._inner.without_substitutes(text),
+            lambda: self._inner.without_substitutes(text, fence),
         )
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:

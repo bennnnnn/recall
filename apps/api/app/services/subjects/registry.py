@@ -312,8 +312,9 @@ class SubjectFigure(Protocol):
         """``fence`` shows what the reply's own pictures do not."""
         ...
 
-    def without_substitutes(self, text: str) -> str:
-        """``text`` without the model's own picture of the figure drawn in characters."""
+    def without_substitutes(self, text: str, fence: str) -> str:
+        """``text`` without the pictures ``fence`` stands in for: the model's own picture of
+        it drawn in characters, and a solve's plain picture of the same shape."""
         ...
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:

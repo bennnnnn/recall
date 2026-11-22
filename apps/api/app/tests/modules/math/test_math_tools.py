@@ -843,14 +843,17 @@ def test_geometry_does_not_steal_algebra_asks(text: str, expected_kind: str | No
 
 
 def test_draw_circle_with_radius_still_geometry() -> None:
-    """Draw cue wins over algebra deferral — explicit diagram requests stay
-    on the geometry path even if the sentence also says 'equation'."""
-    intent = math_tools.extract_math_intent(
-        "draw a circle with radius 4 and show the equation labels"
-    )
+    """Draw cue wins over algebra deferral: an explicit diagram request stays on the
+    geometry path. One that also asks for the circle's equation asks what the circle reader
+    does not draw, and is the model's (``match/shape_words``)."""
+    intent = math_tools.extract_math_intent("draw a circle with radius 4 and label it")
     assert intent is not None
     assert intent.kind == "circle"
     assert intent.radius == 4
+    assert (
+        math_tools.extract_math_intent("draw a circle with radius 4 and show the equation labels")
+        is None
+    )
 
 
 def test_draw_right_triangle_uses_named_legs_not_default_6_by_4() -> None:
