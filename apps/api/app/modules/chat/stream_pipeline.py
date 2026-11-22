@@ -264,7 +264,7 @@ async def _produce_reply(
         return
     # Only a reply still to write takes the read's lane and level.
     await decide_from_the_read(ctx, settings)
-    if settings.image_search_enabled and ctx.user is not None:
+    if settings.image_search_enabled and ctx.user is not None and not ctx.no_answer_photo:
         ctx.answer_photo = AnswerPhoto(settings, ctx.user)
     async for token in run_llm_token_stream(
         deps,

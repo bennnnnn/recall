@@ -134,6 +134,9 @@ class StreamContext:
     # A real photo above an answer about something worth seeing: the search
     # starts when the reply's ```photo fence closes; finalize links the ids.
     answer_photo: AnswerPhoto | None = None
+    # The turn's read says the answer is about nothing worth seeing: the photo hints are
+    # gone from the prompt and no photo is looked up (``decided_turn``).
+    no_answer_photo: bool = False
     # What the reply shows above its text, linked to it when it saves: that photo, or
     # the picture a multi-part message asked for (``reply_picture``).
     answer_photo_ids: list[UUID] = field(default_factory=list)

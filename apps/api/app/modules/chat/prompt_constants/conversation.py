@@ -239,3 +239,23 @@ def summary_lead(summarized: int) -> str:
     if summarized <= 0:
         return SUMMARY_LEAD
     return f"{SUMMARY_LEAD} {SUMMARY_SPAN.format(count=summarized)}"
+
+
+# The change note, when the last reply holds a draft the message changes. "In Amharic" after a
+# reply to a teacher in a ```message fence got "I'm sorry, but I can't reply in Amharic in this
+# way" (the owner's chat, 2026-11-22), and Claude Haiku told the general note wrote the draft
+# again on 12 of 15 tries at "In Amharic", "Hindi" and "en español", 2 of them clean: it
+# explained "Replay", asked back or kept to English. Told this, 15 of 15, every one clean.
+DRAFT_CHANGE_NOTE = (
+    "This message changes the draft in your last reply: its wording, tone, length, a point "
+    "in it, or its language. Write the whole draft again with that change, in one ```{fence} "
+    "fence, keeping every name, date and number it did not change. A language it names, even "
+    'alone ("In Amharic", "Hindi", "en español"), is the language to write the draft in: just '
+    "write it, never say you can't and never point to a setting. No line before the fence "
+    "and at most one short line after it."
+)
+
+
+def draft_change_note(fence: str) -> str:
+    """The note beside a message that changes the draft of the last reply's ``fence``."""
+    return DRAFT_CHANGE_NOTE.format(fence=fence)

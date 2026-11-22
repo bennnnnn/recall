@@ -17,6 +17,7 @@ from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.math_padding import without_math_padding
+from app.modules.chat.maths_money import money_out_of_maths
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
 from app.modules.chat.places_sanitize import sanitize_places_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
@@ -128,9 +129,10 @@ def strip_recipient_placeholders(state: FinalizeState) -> str:
 
 def normalize_prose(state: FinalizeState) -> str:
     """Prose artifact cleanup, after the fence passes so it never interferes with
-    fence parsing: orphan colon lines go, 3+ blank lines collapse, and inline maths
-    loses a space inside its dollars ("$2x $")."""
-    normalized = without_math_padding(normalize_prose_artifacts(state.text))
+    fence parsing: orphan colon lines go, 3+ blank lines collapse, inline maths loses a
+    space inside its dollars ("$2x $"), and a sum of money set in a bold group inside maths
+    leaves it (``maths_money``)."""
+    normalized = without_math_padding(money_out_of_maths(normalize_prose_artifacts(state.text)))
     return normalized if prose_changed(state.text, normalized) else state.text
 
 

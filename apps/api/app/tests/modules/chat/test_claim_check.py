@@ -70,7 +70,7 @@ def _state(reply: str = _REPLY, **ctx_fields: Any) -> FinalizeState:
     )
 
 
-def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
+def _verdict(*quotes: str) -> claim_check._Verdict:
     """Each quote as the checker would name it: a figure when it states a number, else a
     status."""
     return claim_check._Verdict(
@@ -81,8 +81,7 @@ def _verdict(*quotes: str, note: str = "") -> claim_check._Verdict:
                 kind="figure" if figures(q) else "legal",
             )
             for q in quotes
-        ],
-        note=note,
+        ]
     )
 
 
@@ -101,7 +100,6 @@ async def test_an_unsupported_table_row_and_sentence_are_cut_and_the_rest_kept()
         _verdict(
             "| CSTA Levy | 0.5% | 150 |",
             "Cytonn has been reinstated and is fully operational, so you can use them safely.",
-            note="I couldn't confirm two details from the sources, so I left them out.",
         ),
     )
     assert "CSTA" not in out
@@ -109,9 +107,9 @@ async def test_an_unsupported_table_row_and_sentence_are_cut_and_the_rest_kept()
     assert "| NSE levy | 0.12% | 36 |" in out
     assert "| CDSC fee | flat | 90 |" in out
     assert "Compare brokers before you pick one." in out
-    assert out.rstrip().endswith(
-        "*I couldn't confirm two details from the sources, so I left them out.*"
-    )
+    # What was cut is never named to the user (the owner's chat, 2026-11-22).
+    assert "confirm" not in out
+    assert not out.rstrip().endswith("*")
 
 
 async def test_a_quote_inside_a_sentence_cuts_that_sentence_only() -> None:
@@ -183,7 +181,7 @@ async def test_a_check_that_flags_most_of_the_reply_changes_nothing() -> None:
 
 @pytest.mark.parametrize(
     "verdict",
-    [None, claim_check._Verdict(), claim_check._Verdict(note="all fine")],
+    [None, claim_check._Verdict()],
 )
 async def test_no_verdict_or_nothing_flagged_leaves_the_reply_whole(
     verdict: claim_check._Verdict | None,
@@ -256,34 +254,14 @@ def test_the_checker_is_told_a_headline_is_evidence() -> None:
     assert claim_check.HEADLINE_IS_EVIDENCE in claim_check._SYSTEM
 
 
-async def test_the_default_note_names_what_was_left_out() -> None:
+async def test_a_cut_leaves_no_note_for_the_user() -> None:
+    """A reply about 80 years of technology ended "*I couldn't confirm these from the sources
+    I found, so I left them out: Release status of Google Xreal AR glasses.*" (the owner's
+    chat, 2026-11-22): the checker's bookkeeping, read as the answer's last word."""
     out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |"))
-    assert out.rstrip().endswith("left them out: a levy.*")
-
-
-@pytest.mark.parametrize(
-    "note",
-    [
-        # Live, 2026-11-03: the checker's analysis reached the user as the note.
-        "The provided sources do not confirm that Musk criticized a specific 'tax and "
-        "spending bill'; Source [4] mentions an 'agenda bill' but does not detail it.",
-        "Source 2 does not support the levy.",
-        "The reply's levy is not in the evidence.",
-        "I couldn't confirm the levy. The rest is from the sources. Ask your broker.",
-        "I couldn't confirm " + "this detail and " * 12 + "left it out.",
-    ],
-)
-async def test_a_note_in_the_checkers_own_terms_gives_way_to_ours(note: str) -> None:
-    out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |", note=note))
-    assert out.rstrip().endswith(
-        "*I couldn't confirm these from the sources I found, so I left them out: a levy.*"
-    )
-
-
-async def test_a_short_note_to_the_user_in_another_language_is_kept() -> None:
-    note = "No pude confirmar la tasa CSTA en las fuentes, así que la omití."
-    out = await _run(_state(), _verdict("| CSTA Levy | 0.5% | 150 |", note=note))
-    assert out.rstrip().endswith(f"*{note}*")
+    assert "CSTA" not in out
+    assert out.endswith("Compare brokers before you pick one.")
+    assert "note" not in claim_check._SYSTEM
 
 
 _LEAD = "The charges on a 30,000 KES purchase are listed below, with each in shillings.\n\n"
@@ -454,7 +432,7 @@ def test_the_checker_names_only_a_legal_standing_as_cuttable() -> None:
     """2026-11-05: "beat defending champions Brazil" was labelled a "status" and cut. The
     checker is offered "legal" (licensed, banned, reinstated), not "status"."""
     assert "kind is figure, legal (licensed" in claim_check._SYSTEM
-    assert "status" not in claim_check._SYSTEM.split("kind is", 1)[1].split("note is", 1)[0]
+    assert "status" not in claim_check._SYSTEM.split("kind is", 1)[1].split("Use an empty", 1)[0]
 
 
 def test_a_figure_claim_written_in_words_is_never_cut() -> None:

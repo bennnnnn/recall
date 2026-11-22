@@ -107,7 +107,9 @@ _SYSTEM = (
     "- how things work and how to do something: steps, settings and checks on a phone, "
     "computer or app (unless it names a model or version that may be newer than you "
     "know); who makes or repairs something\n"
-    "- maths, science, writing, code, history and other settled knowledge\n"
+    "- maths, science, writing, code, history and other settled knowledge, what changed "
+    "or was invented over years or decades (the last 80 years, since the 1990s) included, "
+    "even when the span reaches today\n"
     "- where the user is: the app knows their place\n"
     "- what the user told you or keeps here: their earlier chats, memory, notes, to-dos "
     "and files, even when they ask you to search or look them up\n"
@@ -238,6 +240,10 @@ class TurnDecision(BaseModel):
     # After a reply cut off before its end, whether the message asks it to go on
     # (``decider_read.RESUME_QUESTION``). The Decider's alone, asked only then.
     resumes: bool | None = None
+    # Whether the answer is about one real thing worth a photo above it
+    # (``decider_read.PHOTO_QUESTION``). The Decider's alone: None from the text read, and the
+    # word rules offer the photo (``chat.answer_photo_offer``).
+    seen: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -379,7 +385,13 @@ async def read_decision(
             # The Decider's breaker is open: the text read decides, as when it refuses.
             return _followed(await text_read, earlier)
         return await _join(
-            settings, text_read, messages[-1]["content"], earlier, ask_work=ask_work, lesson=lesson
+            settings,
+            text_read,
+            messages[-1]["content"],
+            earlier,
+            ask_work=ask_work,
+            ask_photo=settings.image_search_enabled,
+            lesson=lesson,
         )
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
@@ -394,6 +406,7 @@ async def _join(
     earlier: list[tuple[str, str]],
     *,
     ask_work: bool = False,
+    ask_photo: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
@@ -407,6 +420,7 @@ async def _join(
         has_earlier=bool(earlier),
         seconds=settings.live_read_timeout_seconds,
         ask_work=ask_work,
+        ask_photo=ask_photo,
         lesson=lesson,
     )
     if decided is None:

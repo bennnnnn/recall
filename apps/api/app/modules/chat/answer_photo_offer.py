@@ -3,11 +3,18 @@
 A reply about one thing worth seeing ("what is a capybara") opens with a photo the app
 looks up (``modules/images/answer_photo``). A worked problem, a school exercise, a
 lesson or code never does.
+
+The word rules below only offer the photo; the turn's read decides it (``decider_read``'s
+``seen``). "What is ur name" read "ur name" as the thing asked about, its own hint said to
+open the reply with a photo of it, and "My name is Recall" came under one (the owner's chat,
+2026-11-22). A read that calls the answer unseen takes the hints back out
+(``without_answer_photo_hints``) and no photo is looked up; with no read the rules stand.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, get_args
+import re
+from typing import TYPE_CHECKING, Any, get_args
 
 from app.modules.chat.continuation_subject import works_on_last_reply
 from app.modules.chat.prompt_constants import is_bare_writing_line
@@ -62,3 +69,34 @@ def answer_photo_hints(turn: StyleTurn) -> list[str]:
     if subject:
         return [ANSWER_PHOTO_HINT, subject_photo_hint(subject)]
     return [ANSWER_PHOTO_HINT]
+
+
+def without_answer_photo_hints(
+    messages: list[dict[str, Any]], query: str | None
+) -> list[dict[str, Any]]:
+    """The prompt without the photo hints ``answer_photo_hints`` gave ``query``'s turn."""
+    hints = [ANSWER_PHOTO_HINT, WHERE_IS_PHOTO_HINT]
+    subject = asked_about_subject(query or "")
+    if subject:
+        hints.append(subject_photo_hint(subject))
+    out: list[dict[str, Any]] = []
+    for message in messages:
+        content = message.get("content")
+        if message.get("role") == "system" and isinstance(content, str):
+            changed = content
+            for hint in hints:
+                changed = changed.replace(hint, "")
+            if changed != content:
+                message = {**message, "content": re.sub(r"\n{3,}", "\n\n", changed).strip()}
+        out.append(message)
+    return out
+
+
+def offers_photo_in(messages: list[dict[str, Any]]) -> bool:
+    """Whether the prompt asks the reply to open with a photo."""
+    return any(
+        message.get("role") == "system"
+        and isinstance(message.get("content"), str)
+        and ANSWER_PHOTO_HINT in message["content"]
+        for message in messages
+    )

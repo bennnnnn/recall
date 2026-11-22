@@ -14,7 +14,8 @@ pairs with no other: "$9: 12: 15 $ is the $ 3: 4: 5$" read its first dollar as a
 showed the last one, the words between set as maths (2026-11-13). Dollars are paired here as
 the phone pairs them (``chat.math_padding.maths_pair_end``); a price's ("$5") stays a sign.
 TeX itself refuses a group left open and a second script on one base (``v_A_{vec}``,
-2026-11-20), so maths holds neither (``chat.tex_form``).
+2026-11-20), so maths holds neither (``chat.tex_form``). Nor does it hold a sum of money in
+a bold or word group (``$M \\approx \\textbf{\\$773}$``, 2026-11-22: ``chat.maths_money``).
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from pathlib import Path
 from app.modules.chat.inline_code import escaped_at
 from app.modules.chat.markdown_regions import PRICE_TIER
 from app.modules.chat.math_padding import maths_pair_end
+from app.modules.chat.maths_money import MONEY_GROUP
 from app.modules.chat.tex_form import well_formed
 
 FIXTURE = Path(__file__).resolve().parents[5] / "docs" / "fixtures" / "latex_commands.json"
@@ -149,6 +151,13 @@ def latex_problems(reply: str) -> list[str]:
         if name not in drawn
     ]
     problems += [problem for body in maths for problem in _braces_in_words(body)]
+    # A sum of money in a bold or word group: its escaped dollar ended the formula on the
+    # phone ("M ≈ {\\773}$", 2026-11-22); finalize takes it out (``chat.maths_money``).
+    problems += [
+        f"a sum of money in a group: {group.group(0)}"
+        for body in maths
+        for group in MONEY_GROUP.finditer(body)
+    ]
     # A group left open or a second script on one base: TeX refuses it, so it reads as source.
     problems += [
         f"TeX the renderer refuses: {body.strip()[:80]}"
