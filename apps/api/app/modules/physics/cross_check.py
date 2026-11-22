@@ -190,6 +190,9 @@ async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Sett
         late = not task.done()
         if late:  # out of time, or the turn itself was stopped
             task.cancel()
+            # A reading that fails while it is being stopped is no reading either; its
+            # error is read here so asyncio never reports it as unretrieved (review, #2533).
+            task.add_done_callback(lambda done: done.cancelled() or done.exception())
     waited = time.monotonic() - started
     if late:
         logger.info("physics cross-check: no reading in %.2f s, the check stands", waited)

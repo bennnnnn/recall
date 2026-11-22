@@ -34,7 +34,7 @@ def test_physics_prompt_cannot_claim_an_unverified_result() -> None:
     assert "do not recompute" in lower
 
 
-def testunverified_physics_note_must_finish_the_answer() -> None:
+def test_unverified_physics_note_must_finish_the_answer() -> None:
     note = unverified_physics_note()
     assert "finish under Answer" in note
     assert "Never end on the Answer heading" in note
