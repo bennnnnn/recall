@@ -3,7 +3,7 @@
 
 import pytest
 
-from app.services.part_answer_cards import land_part_answer_cards
+from app.services.part.answer_cards import land_part_answer_cards
 
 _CRANE = """**Given**
 $m = 450\\ \\text{kg}$

@@ -26,7 +26,7 @@ from app.services.answer_check import read_verified_value
 from app.services.answer_fence import ANSWER_FENCE_LANGS, UNCHECKED_ANSWER_MARKER
 from app.services.formal.answer import FormalValue
 from app.services.md_fence_scan import iter_fences
-from app.services.part_answer_cards import PART_ANSWER_HEADING
+from app.services.part.answer_cards import PART_ANSWER_HEADING
 from app.services.rounding_rule import RULE, Precision
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ import pytest
 
 from app.services.answer_fence import land_answer_card
 from app.services.card_text import card_maths, named_value, without_emphasis
-from app.services.part_answer_cards import answers_by_letter, land_part_answer_cards
+from app.services.part.answer_cards import answers_by_letter, land_part_answer_cards
 
 
 @pytest.mark.parametrize(

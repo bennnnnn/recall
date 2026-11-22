@@ -16,7 +16,7 @@ from app.modules.physics.ask import ask_clause, asked_phrases, has_ask
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.fence import validate_physics_fences
 from app.modules.physics.solvers.motion_scenes import vertical_scene
-from app.services.part_answer_cards import own_line_part_answers
+from app.services.part.answer_cards import own_line_part_answers
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subjects.dispatch import build_subject_augmentation
 

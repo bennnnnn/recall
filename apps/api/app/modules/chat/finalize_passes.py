@@ -59,6 +59,7 @@ from app.modules.chat.finalize_parts import (
     add_settings_card,
     attach_reply_picture,
     divide_request_sections,
+    place_pictures_by_part,
 )
 from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
@@ -349,6 +350,13 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         enrich_chemistry_fences,
         OnError(log_as="enrich_chemistry_fences", rewrite=uncaptioned),
         kind=TEXT,
+    ),
+    # Every picture attached and every card landed: a part's own picture goes after its card.
+    FinalizePass(
+        "pictures_by_part",
+        place_pictures_by_part,
+        kind=TEXT,
+        after=frozenset({"formal_answer", "worked_lead", "data_chart", CHEMISTRY_ENRICH}),
     ),
     FinalizePass("settings_card", add_settings_card, kind=EFFECT),
     FinalizePass("money_card", attach_money_card, kind=EFFECT),

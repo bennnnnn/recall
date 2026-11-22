@@ -121,8 +121,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # kind of texted reply the read names (accept, decline, pick, more, explain, react; FOLLOW_NOTES,
 # 100 texted chats, 2026-11-21).
 _RULES = 211
-_RULE_GRAMS = 20285
-_RULE_GRAMS_SHA = "77fb4e849a4fa0e8"
+_RULE_GRAMS = 20315
+_RULE_GRAMS_SHA = "bba514326ff0824e"
 
 
 def _rules() -> list[str]:

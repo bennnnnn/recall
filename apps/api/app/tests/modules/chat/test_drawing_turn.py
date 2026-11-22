@@ -35,7 +35,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.worked_stream import ReplyFilter
 from app.modules.math.drawing.contract import DRAW_CONTRACT
 from app.modules.physics.scene_drawing.contract import MOTION_DRAW_CONTRACT
-from app.services.md_fence_scan import iter_closed_fences
+from app.services.md_fence_scan import iter_closed_fences, iter_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 if TYPE_CHECKING:
@@ -671,3 +671,69 @@ async def test_a_physics_turn_the_read_calls_maths_is_drawn_with_its_motion() ->
         ctx, _settings(), _decision(subject="maths", picture="graph"), _deadline()
     )
     assert ctx.drawing is None
+
+
+_TWO_SKETCHES = (
+    "a) Sketch the graph of y = x^2 - 4x + 3 and find its roots.\n"
+    "b) Sketch the graph of y = 2x + 1 and find where it crosses the y-axis."
+)
+
+
+def _plot(part: str | None, curve: str) -> str:
+    body: dict[str, Any] = {"kind": "plot", "items": [{"item": "curve", "name": "f", "y": curve}]}
+    if part is not None:
+        body["part"] = part
+    return json.dumps(body)
+
+
+def _parts_reply() -> str:
+    return (
+        "**(a) Roots**\n\n$x = 1$ or $x = 3$\n\n**Answer (a)**\n\n"
+        "```answer\nverified: false\nx = 1, x = 3\n```\n\n---\n\n"
+        "**(b) Where it crosses the y-axis**\n\n$y = 1$\n\n**Answer (b)**\n\n"
+        "```answer\nverified: false\n(0, 1)\n```\n\nThe roots are 1 and 3; the line meets the y-axis at 1."
+    )
+
+
+async def test_each_part_s_picture_goes_right_after_that_part_is_answered() -> None:
+    """Owner (2026-11-21): a question in parts that needs a picture for each part gets each
+    one right after its part is answered, never all of them together at the end."""
+    ctx = _ctx(_TWO_SKETCHES, live_read=_read(subject="maths", picture="graph"))
+    ctx.drawing = ReplyDrawing(
+        "read", descriptions=[_plot("a", "x^2 - 4x + 3"), _plot("b", "2x + 1")]
+    )
+    out = await attach_drawing(_state(ctx, _parts_reply()))
+    graphs = list(iter_fences(out))
+    plots = [fence for fence in graphs if fence.lang == "graph"]
+    assert len(plots) == 2
+    first, second = (out[fence.start : fence.end] for fence in plots)
+    assert "4x" in first and "4x" not in second and "2x" in second
+    assert out.index("x = 1, x = 3\n```") < plots[0].start < out.index("**(b) Where")
+    assert out.index("(0, 1)\n```") < plots[1].start < out.index("The roots are 1 and 3")
+    assert ctx.drawing.fences and len(ctx.drawing.fences) == 2
+
+
+async def test_a_description_naming_no_part_goes_after_the_part_that_writes_its_curve() -> None:
+    """The model often leaves "part" out (live, 2026-11-21: two blocks, neither named): the
+    lettered part of the question whose own words hold the curve is its part."""
+    ctx = _ctx(_TWO_SKETCHES, live_read=_read(subject="maths", picture="graph"))
+    ctx.drawing = ReplyDrawing(
+        "read", descriptions=[_plot(None, "x^2 - 4*x + 3"), _plot(None, "2*x + 1")]
+    )
+    out = await attach_drawing(_state(ctx, _parts_reply()))
+    plots = [fence for fence in iter_fences(out) if fence.lang == "graph"]
+    assert len(plots) == 2
+    assert out.index("x = 1, x = 3\n```") < plots[0].start < out.index("**(b) Where")
+    assert out.index("(0, 1)\n```") < plots[1].start < out.index("The roots are 1 and 3")
+
+
+async def test_a_description_no_one_part_holds_goes_under_the_reply_as_before() -> None:
+    question = "Let f(x) = x^2 - 1.\na) Sketch f.\nb) Find its roots."
+    ctx = _ctx(question, live_read=_read(subject="maths", picture="graph"))
+    ctx.drawing = ReplyDrawing("read", descriptions=[_plot(None, "x^2 - 1")])
+    reply = (
+        "**(a) Sketch**\n\nA parabola.\n\n**(b) Roots**\n\n$x = \\pm 1$\n\nThe roots are -1 and 1."
+    )
+    out = await attach_drawing(_state(ctx, reply))
+    plot = next(fence for fence in iter_fences(out) if fence.lang == "graph")
+    assert plot.start > out.index("The roots are -1 and 1")

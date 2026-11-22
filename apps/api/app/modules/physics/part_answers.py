@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 from app.services.answer_check import stated_verdict
 from app.services.answer_fence import verified_answer_fence
-from app.services.part_answer_cards import PART_ANSWER_HEADING as _PART_ANSWER
+from app.services.part.answer_cards import PART_ANSWER_HEADING as _PART_ANSWER
 
 # A line that only restates a value: maths, "t = 2.04 s", "Answer: 2.04 s".
 _RESTATED = re.compile(
