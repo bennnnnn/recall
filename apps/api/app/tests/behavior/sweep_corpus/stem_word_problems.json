@@ -466,7 +466,8 @@
   "prompt": "show me a real photo of a bunsen burner",
   "history": [],
   "reply": "Here's a Bunsen burner 🔥\n\nIt's a small metal tube on a heavy base, connected to a gas tap by rubber tubing. The **collar** near the bottom has an air hole: closed, it gives a yellow, sooty \"safety flame\"; open, it gives the hot blue roaring flame used for heating (the hottest part is just above the tip of the inner blue cone).",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "s2-044",
@@ -515,7 +516,8 @@
   "prompt": "what does pyrite look like",
   "history": [],
   "reply": "Here's pyrite ✨\n\nPyrite (FeS₂, iron disulfide) is known as **fool's gold**: it has a brassy, pale-gold metallic shine and often grows as sharp, near-perfect **cubes**, sometimes with fine parallel lines (striations) on the faces. Unlike real gold it's hard and brittle, and it leaves a greenish-black streak on unglazed porcelain.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "s2-048",
@@ -539,7 +541,8 @@
   "prompt": "show me what a van de graaff generator looks like",
   "history": [],
   "reply": "Here's a Van de Graaff generator ⚡\n\nIt's a large polished metal **dome** sitting on top of an insulating column. Inside the column a rubber belt carries charge up to the dome, which can build up hundreds of thousands of volts — that's why touching it (while standing on an insulator) makes your hair stand on end.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "s2-051",
@@ -571,7 +574,8 @@
   "prompt": "draw me a cute cartoon atom with a smiley face for our chemistry club poster",
   "history": [],
   "reply": "Here's your cartoon atom! ⚛️😊 A happy round nucleus with a big smile, three colourful electron orbits looping around it, and little sparkles — bright and fun for the poster. Want a version with the club's name on it?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "s2-055",
@@ -603,7 +607,8 @@
   "prompt": "generate an image of a robot teaching calculus on a chalkboard",
   "history": [],
   "reply": "Here's your image: a friendly robot teacher with a piece of chalk, standing at a green chalkboard covered with integrals and derivative notation, in a sunlit classroom. 🤖📚",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "s2-059",

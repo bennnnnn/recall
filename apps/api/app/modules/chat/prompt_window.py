@@ -15,6 +15,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.models.orm import Chat
 from app.modules import todos as todos_service
+from app.modules.chat import shown_pictures
 from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.clarify_turn import card_as_line
 from app.modules.chat.context_window import (
@@ -23,6 +24,7 @@ from app.modules.chat.context_window import (
     trim_message_for_summary,
 )
 from app.modules.chat.prompt_context import _load_unsummarized_gap
+from app.modules.chat.shown_pictures import ShownPictures
 from app.services.answer_fence import answer_fence_value
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
@@ -154,8 +156,11 @@ def strip_prompt_owned_fences(content: str) -> str:
     return out
 
 
-def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[str, str]]:
-    """The window as chat messages: gap rows trimmed, prompt-owned fences out of replies."""
+def history_messages(
+    window: PromptWindow, *, math_followup: bool, pictures: ShownPictures | None = None
+) -> list[dict[str, str]]:
+    """The window as chat messages: gap rows trimmed, prompt-owned fences out of replies,
+    and each picture a reply showed said in words (``shown_pictures``)."""
     gap_ids = {m.id for m in window.gap}
     messages: list[dict[str, str]] = []
     for msg in (*window.gap, *window.recent):
@@ -172,6 +177,10 @@ def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[
             )
             content = prior_result or todos_service.reminder_cards_as_text(
                 strip_prompt_owned_fences(content)
+            )
+            model = getattr(msg, "model", None)
+            content = shown_pictures.as_text(
+                content, model=model if isinstance(model, str) else None, pictures=pictures or {}
             )
         messages.append({"role": msg.role, "content": content})
     return messages

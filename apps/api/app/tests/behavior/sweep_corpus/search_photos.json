@@ -214,21 +214,24 @@
   "area": "photo",
   "prompt": "Show me the Eiffel Tower",
   "reply": "Here's the **Eiffel Tower**, seen from the Trocadéro gardens across the Seine.\n\n- **Height:** 330 m including antennas\n- Created in 1889 for the Exposition Universelle, it was only meant to stand for 20 years.\n- At night it sparkles for five minutes at the top of every hour.\n\nWant a shot of it at night or from the top?",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-029",
   "area": "photo",
   "prompt": "What does a capybara look like?",
   "reply": "Here's a **capybara** — the world's largest rodent:\n\n- Barrel-shaped body, about 1.2 m long and up to 65 kg\n- Coarse reddish-brown fur\n- Blunt, square snout, small ears, and slightly webbed feet\n\nThink of a giant guinea pig that spends half its day in the water.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-030",
   "area": "photo",
   "prompt": "picture of a 1967 Mustang",
   "reply": "Here's a **1967 Ford Mustang** fastback in Highland Green.\n\nWhat changed for '67:\n\n- A wider, longer body to fit the big-block 390 V8\n- A larger grille and deeper side scoops\n- A concave rear panel with triple tail lights\n\nWant to see the coupe or the convertible too?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "sp-031",
@@ -291,14 +294,16 @@
   "area": "photo",
   "prompt": "Draw me a cat",
   "reply": "Here's your cat — a fluffy orange tabby curled up on a sunny windowsill, tail wrapped neatly around its paws. Want a different style, like a cartoon or a watercolor?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "sp-036",
   "area": "photo",
   "prompt": "image of a sunset",
   "reply": "Here's a sunset over the Indian Ocean from Diani Beach, Kenya — deep orange fading to violet over the water.\n\nWant a particular place (Santorini, the Grand Canyon, the Serengeti), or an AI-generated one instead?",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "sp-037",
@@ -315,7 +320,8 @@
    ]
   ],
   "reply": "Here's another — the tower from the Champ de Mars at dusk, just as the evening lights come on.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-038",
@@ -332,42 +338,48 @@
    ]
   ],
   "reply": "Here it is at night — the Nativity and Passion facades lit warm gold, with the central Tower of Jesus Christ glowing above the other spires.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-039",
   "area": "photo",
   "prompt": "Send me a photo of the rock-hewn churches in Lalibela",
   "reply": "Here are the **rock-hewn churches of Lalibela** — this is the cross-shaped **Bete Giyorgis** (Church of St. George), carved straight down into the volcanic rock.\n\n- Carved in the 12th–13th centuries under King Lalibela\n- 11 churches linked by trenches and tunnels\n- A UNESCO World Heritage Site since 1978",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-040",
   "area": "photo",
   "prompt": "Get me a picture of a red panda",
   "reply": "Here's a **red panda** — rusty-red fur, a white-masked face, and a thick ringed tail it wraps around itself like a scarf. Despite the name, it isn't closely related to the giant panda.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-041",
   "area": "photo",
   "prompt": "Generate an image of a cozy cabin in the snow at night",
   "reply": "Here's your cabin — a small log cabin half-buried in snow, warm light glowing from the windows and smoke curling from the chimney under a starry sky.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "sp-042",
   "area": "photo",
   "prompt": "Make me a picture of a dragon drinking buna in Addis",
   "reply": "Here's your dragon — a friendly green one curled around a clay jebena, sipping buna from a tiny cup on a Piassa rooftop at sunset.",
-  "expect": "image_gen"
+  "expect": "image_gen",
+  "read": ["everyday", "image"]
  },
  {
   "id": "sp-043",
   "area": "photo",
   "prompt": "Show me what a Shiba Inu looks like",
   "reply": "Here's a **Shiba Inu**:\n\n- Fox-like face, with a curled tail carried over its back\n- Red, sesame, or black-and-tan coat with cream *urajiro* markings on the cheeks and chest\n- Small and compact: about 8–11 kg\n\nIt's the dog from the *doge* meme.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-044",
@@ -381,7 +393,8 @@
   "area": "photo",
   "prompt": "Can you show me the Simien Mountains?",
   "reply": "Here are the **Simien Mountains** in northern Ethiopia — sheer escarpments dropping more than 1,000 m, with gelada monkeys grazing along the cliff edges.\n\nThe highest peak, **Ras Dashen**, reaches 4,550 m. The best trekking season is October to March.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-046",
@@ -1002,21 +1015,24 @@
   "area": "photo",
   "prompt": "show me a button mushroom",
   "reply": "Here's a **button mushroom** (*Agaricus bisporus*): small, round and white, with a smooth cap and a short stem.\n\nIt's the same species as cremini and portobello — just picked young.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-107",
   "area": "photo",
   "prompt": "What do bed bugs look like?",
   "reply": "**Bed bugs** are small, flat, oval insects:\n\n- **Size:** about 5 mm — roughly an apple seed\n- **Color:** reddish-brown; rounder and redder after feeding\n- **Young (nymphs):** smaller and almost see-through\n\nLook for them along mattress seams and headboards, along with tiny dark spots and shed skins.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-108",
   "area": "photo",
   "prompt": "show me a fish hook",
   "reply": "Here's a **fish hook**: a curved steel wire with a sharp point and a small barb that keeps the fish on, and an eye at the top where the line is tied.\n\nSmaller numbers (size 2) are bigger hooks; size 10 and up are tiny ones for small fish.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-109",
@@ -1193,14 +1209,16 @@
   "area": "photo",
   "prompt": "what does an olive branch look like",
   "reply": "An **olive branch** is a slim, woody twig with narrow, lance-shaped leaves: dark grey-green on top and silvery underneath. In season it carries small oval olives, green ripening to purple-black.\n\nIt's an old symbol of peace, which is why it appears on the UN flag.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-120",
   "area": "photo",
   "prompt": "show me the main stage at Coachella",
   "reply": "Here's the **Coachella Stage**, the festival's main stage at the Empire Polo Club in Indio, California: a huge open-air stage facing the polo field, framed by big video screens, with the San Jacinto mountains behind the crowd.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-121",
@@ -1427,7 +1445,8 @@
   "area": "photo",
   "prompt": "show me the roots of a mangrove tree",
   "reply": "Here are **mangrove roots**: arching prop roots that hold the tree above the water, and pencil-like roots that poke up from the mud to breathe.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-150",
@@ -1444,21 +1463,24 @@
    ]
   ],
   "reply": "Here's **Jacques Charles** in a portrait from the 1780s, around the time of his balloon flights.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-151",
   "area": "photo",
   "prompt": "you got a photo of a gelada?",
   "reply": "Here's a **gelada**: a grass-eating monkey of the Ethiopian highlands with a bright red patch on its chest.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-152",
   "area": "photo",
   "prompt": "have you got a picture of the titanic wreck?",
   "reply": "Here's the **Titanic wreck** on the floor of the North Atlantic, about 3,800 m down.",
-  "expect": "photo"
+  "expect": "photo",
+  "read": ["everyday", "photo"]
  },
  {
   "id": "sp-153",
@@ -1466,6 +1488,7 @@
   "prompt": "is there a picture of her?",
   "reply": "Here's **Marie Curie** in her laboratory in Paris, around 1920.",
   "expect": "photo",
+  "read": ["everyday", "photo"],
   "history": [
    [
     "user",

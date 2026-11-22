@@ -19,7 +19,7 @@ from app.modules.chat.turn_prep.intents import plan_turn
 from app.modules.images.gen_intent import extract_image_gen_prompt
 from app.modules.images.gen_intent_languages import LANGUAGES
 from app.modules.images.gen_intent_local import _read, _tokens_of
-from app.modules.images.intent import composer_image_intent, image_gen_request
+from app.modules.images.intent import composer_candidates, image_gen_request, names_a_picture
 
 
 def read_in(text: str) -> list[str]:
@@ -156,14 +156,14 @@ def test_a_draw_me_or_create_request_draws(lang: str, text: str, subject: str) -
 
 @pytest.mark.parametrize(("lang", "text", "subject"), DRAWN_CASES)
 def test_the_composer_draws_it_as_the_chat_turn_would(lang: str, text: str, subject: str) -> None:
-    intent = composer_image_intent(text, [])
+    intent = composer_candidates(text, [])
     assert intent.lookup_query is None
     assert intent.request is not None and intent.request.prompt == subject, lang
 
 
 @pytest.mark.parametrize("text", ANSWERED)
 def test_other_shapes_are_answered_in_words(text: str) -> None:
-    assert composer_image_intent(text, []).request is None
+    assert composer_candidates(text, []).request is None
     assert not plan_turn(text).of_kind("image")
 
 
@@ -194,7 +194,7 @@ WITH_A_SECOND_REQUEST = [
 @pytest.mark.parametrize("text", WITH_A_SECOND_REQUEST)
 def test_a_draw_me_line_beside_a_second_request_is_answered(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
-    assert composer_image_intent(text, []).request is None
+    assert composer_candidates(text, []).request is None
     assert not plan_turn(text).of_kind("image")
 
 
@@ -265,10 +265,16 @@ _ENGLISH_ON_MAIN: dict[str, dict[str, str | None]] = json.loads(
 
 @pytest.mark.parametrize("text", sorted(_ENGLISH_ON_MAIN))
 def test_english_reads_as_on_main(text: str) -> None:
-    """The other languages are read only after every English rule declined."""
+    """The other languages are read only after every English rule declined. A line naming
+    a picture the phrasing rules declined is now offered to the turn's read as it stands
+    ("draw up a contract"): the read, not the words, says it asks for none."""
     request = image_gen_request(text, [])
     assert extract_image_gen_prompt(text) == _ENGLISH_ON_MAIN[text]["extract"]
-    assert (request.prompt if request else None) == _ENGLISH_ON_MAIN[text]["request"]
+    on_main = _ENGLISH_ON_MAIN[text]["request"]
+    if on_main is None and request is not None:
+        assert names_a_picture(text) and not request.revision
+    else:
+        assert (request.prompt if request else None) == on_main
 
 
 @pytest.mark.parametrize(

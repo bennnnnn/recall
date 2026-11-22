@@ -58,13 +58,19 @@ def _has_whole_word(lower: str, word: str) -> bool:
         start = idx + 1
 
 
-def spent_tools(*, solve_timed_out: bool, photo_missed: bool) -> frozenset[str]:
+def spent_tools(
+    *, solve_timed_out: bool, photo_missed: bool, picture_declined: bool = False
+) -> frozenset[str]:
     """The tools a turn's own pre-work already ran without an answer, which its
     loop does not offer again: SymPy that ran out of time on the problem, a photo
-    search that found none. Either would only fail the same way a round later."""
+    search that found none or the read did not ask for, and a picture the read did not
+    ask for (``drawn_picture.read_asks``): the reply's model is not offered one on words
+    the read turned down."""
     spent = {"sympy"} if solve_timed_out else set()
     if photo_missed:
         spent.add("search_image")
+    if picture_declined:
+        spent.add("generate_image")
     return frozenset(spent)
 
 
@@ -172,7 +178,9 @@ def _needs_non_web_tool(
     )
     if lookup_on and extract_image_lookup_query(text):
         return True
-    image_on = settings is None or settings.image_generation_enabled
+    image_on = "generate_image" not in skip_tools and (
+        settings is None or settings.image_generation_enabled
+    )
     resolved = settings or get_settings()
     if (
         image_on

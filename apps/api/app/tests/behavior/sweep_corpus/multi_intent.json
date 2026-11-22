@@ -104,7 +104,8 @@
   "expect": [
    "image_gen",
    "answer"
-  ]
+  ],
+  "read": ["everyday", "image"]
  },
  {
   "id": "mi-compare-and-install",

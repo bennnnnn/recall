@@ -14,7 +14,8 @@
     "prompt": "Genera una imagen de un león",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-es-03",
@@ -88,7 +89,8 @@
     "prompt": "Dessine-moi un mouton",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-fr-02",
@@ -96,7 +98,8 @@
     "prompt": "Génère une image d'un lion",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-fr-03",
@@ -104,7 +107,8 @@
     "prompt": "Tu peux me dessiner un dragon ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-fr-10",
@@ -170,7 +174,8 @@
     "prompt": "Gere uma imagem de um leão",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-pt-03",
@@ -237,7 +242,8 @@
     "prompt": "Bir aslan resmi oluştur",
     "history": [],
     "reply": "İşte resmin. Başka bir tarz ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-tr-03",
@@ -245,7 +251,8 @@
     "prompt": "Bana bir ejderha çizer misin?",
     "history": [],
     "reply": "İşte resmin. Başka bir tarz ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-tr-10",
@@ -311,7 +318,8 @@
     "prompt": "Создай изображение льва",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-ru-03",
@@ -377,7 +385,8 @@
     "prompt": "ድመት ሳልልኝ",
     "history": [],
     "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-am-02",
@@ -385,7 +394,8 @@
     "prompt": "የአንበሳ ምስል ፍጠር",
     "history": [],
     "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-am-03",
@@ -393,7 +403,8 @@
     "prompt": "የዘንዶ ስዕል ሳልልኝ",
     "history": [],
     "reply": "ይኸው ስዕልህ። ሌላ አይነት ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-am-10",
@@ -825,7 +836,8 @@
     "expect": [
       "image_gen",
       "answer"
-    ]
+    ],
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-ru-80",
@@ -1121,7 +1133,8 @@
       ]
     ],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-fr-96",
@@ -1138,7 +1151,8 @@
       ]
     ],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-pt-13",
@@ -1173,7 +1187,8 @@
     "prompt": "draw me a dog and write Max on its collar",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-draw-me-detail-2",
@@ -1181,7 +1196,8 @@
     "prompt": "draw me a cat and show it sleeping",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-draw-me-detail-3",
@@ -1189,7 +1205,8 @@
     "prompt": "draw me a robot and tell me its name",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-draw-me-detail-4",
@@ -1197,7 +1214,8 @@
     "prompt": "draw me a cat and then show me a dog",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-es-100",
@@ -1650,7 +1668,8 @@
     "prompt": "draw me a cat and how are you",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-101",
@@ -1658,7 +1677,8 @@
     "prompt": "draw me a cat and how",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-102",
@@ -1666,7 +1686,8 @@
     "prompt": "draw me a castle and help",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-en-103",
@@ -1674,7 +1695,8 @@
     "prompt": "draw me a cat and who",
     "history": [],
     "reply": "Here is your picture.",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-01",
@@ -1682,7 +1704,8 @@
     "prompt": "Dibújame un dragón",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-02",
@@ -1690,7 +1713,8 @@
     "prompt": "¿Me dibujas un dragón?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-03",
@@ -1698,7 +1722,8 @@
     "prompt": "Dibújame un gato con sombrero",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-04",
@@ -1706,7 +1731,8 @@
     "prompt": "Píntame un atardecer en la playa",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-05",
@@ -1714,7 +1740,8 @@
     "prompt": "¿Puedes dibujarme un unicornio?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-06",
@@ -1722,7 +1749,8 @@
     "prompt": "Me dibujas un castillo en las nubes",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-07",
@@ -1730,7 +1758,8 @@
     "prompt": "Crea una imagen de un león",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-draw-08",
@@ -1738,7 +1767,8 @@
     "prompt": "Genera una ilustración de un bosque mágico",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-01",
@@ -1746,7 +1776,8 @@
     "prompt": "Dessine-moi un mouton",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-02",
@@ -1754,7 +1785,8 @@
     "prompt": "Tu peux me dessiner un chat ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-03",
@@ -1762,7 +1794,8 @@
     "prompt": "Peux-tu me dessiner un dragon ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-04",
@@ -1770,7 +1803,8 @@
     "prompt": "Dessinez-moi une maison dans la forêt",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-05",
@@ -1778,7 +1812,8 @@
     "prompt": "Tu me dessines un panda ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-06",
@@ -1786,7 +1821,8 @@
     "prompt": "Génère une image d'un lion",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-fr-draw-07",
@@ -1794,7 +1830,8 @@
     "prompt": "Crée une illustration d'une forêt magique",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-01",
@@ -1802,7 +1839,8 @@
     "prompt": "Desenha-me um gato",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-02",
@@ -1810,7 +1848,8 @@
     "prompt": "Me desenhe um cachorro",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-03",
@@ -1818,7 +1857,8 @@
     "prompt": "Pode me desenhar um dragão?",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-04",
@@ -1826,7 +1866,8 @@
     "prompt": "Você pode me desenhar um unicórnio?",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-05",
@@ -1834,7 +1875,8 @@
     "prompt": "Me desenha um castelo nas nuvens",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-06",
@@ -1842,7 +1884,8 @@
     "prompt": "Crie uma imagem de um leão",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-pt-draw-07",
@@ -1850,7 +1893,8 @@
     "prompt": "Gere uma ilustração de uma floresta mágica",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-01",
@@ -1858,7 +1902,8 @@
     "prompt": "Нарисуй мне собаку",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-02",
@@ -1866,7 +1911,8 @@
     "prompt": "Нарисуй мне единорога",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-03",
@@ -1874,7 +1920,8 @@
     "prompt": "Можешь нарисовать мне кота?",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-04",
@@ -1882,7 +1929,8 @@
     "prompt": "Нарисуйте мне замок в облаках",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-05",
@@ -1890,7 +1938,8 @@
     "prompt": "Можешь мне нарисовать дракона?",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-06",
@@ -1898,7 +1947,8 @@
     "prompt": "Создай изображение льва",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-ru-draw-07",
@@ -1906,7 +1956,8 @@
     "prompt": "Сгенерируй картинку замка в облаках",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-01",
@@ -1914,7 +1965,8 @@
     "prompt": "Bana bir panda çizer misin?",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-02",
@@ -1922,7 +1974,8 @@
     "prompt": "Bana bir kedi çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-03",
@@ -1930,7 +1983,8 @@
     "prompt": "Bana şapkalı bir kedi çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-04",
@@ -1938,7 +1992,8 @@
     "prompt": "Bana bir ejderha çizebilir misin?",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-05",
@@ -1946,7 +2001,8 @@
     "prompt": "Bana bir unicorn çiz lütfen",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-06",
@@ -1954,7 +2010,8 @@
     "prompt": "Bir aslan resmi oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-tr-draw-07",
@@ -1962,7 +2019,8 @@
     "prompt": "Büyülü bir orman görseli oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-01",
@@ -1970,7 +2028,8 @@
     "prompt": "ድመት ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-02",
@@ -1978,7 +2037,8 @@
     "prompt": "የዘንዶ ስዕል ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-03",
@@ -1986,7 +2046,8 @@
     "prompt": "እባክህ ድመት ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-04",
@@ -1994,7 +2055,8 @@
     "prompt": "የአንበሳ ምስል ፍጠር",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-05",
@@ -2002,7 +2064,8 @@
     "prompt": "የአበባ ምስል ፍጠርልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-am-draw-06",
@@ -2010,7 +2073,8 @@
     "prompt": "ፈረስ ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl5-es-multi-1",
@@ -3089,7 +3153,8 @@
     "prompt": "¿Me dibujas un unicornio?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-02",
@@ -3097,7 +3162,8 @@
     "prompt": "Crea una imagen de un perro surfeando",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-03",
@@ -3105,7 +3171,8 @@
     "prompt": "¿Puedes dibujarme un robot amigable?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-04",
@@ -3113,7 +3180,8 @@
     "prompt": "Hazme un dibujo de un castillo encantado",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-05",
@@ -3121,7 +3189,8 @@
     "prompt": "Dibújame un pulpo tocando la guitarra",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-06",
@@ -3129,7 +3198,8 @@
     "prompt": "Píntame un barco pirata en el mar",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-07",
@@ -3137,7 +3207,8 @@
     "prompt": "Crea una imagen de un astronauta en la luna",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-08",
@@ -3145,7 +3216,8 @@
     "prompt": "¿Me dibujas una jirafa con bufanda?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-09",
@@ -3153,7 +3225,8 @@
     "prompt": "Dibújame un muñeco de nieve",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-10",
@@ -3161,7 +3234,8 @@
     "prompt": "Dibújame una sirena en una roca",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-11",
@@ -3169,7 +3243,8 @@
     "prompt": "Dibújame un perro jugando en el parque",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-12",
@@ -3177,7 +3252,8 @@
     "prompt": "Píntame un paisaje de montaña",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-13",
@@ -3185,7 +3261,8 @@
     "prompt": "Dibújame una princesa con un vestido azul",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-14",
@@ -3193,7 +3270,8 @@
     "prompt": "Crea una imagen de un tigre en la selva",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-15",
@@ -3201,7 +3279,8 @@
     "prompt": "Dibújame un árbol de Navidad",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-16",
@@ -3209,7 +3288,8 @@
     "prompt": "Dibújame una tarta de cumpleaños",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-17",
@@ -3217,7 +3297,8 @@
     "prompt": "Dibújame un caballo blanco",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-18",
@@ -3225,7 +3306,8 @@
     "prompt": "Dibújame una niña con un globo",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-es-draw-19",
@@ -3233,7 +3315,8 @@
     "prompt": "Dibújame mi casa",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-01",
@@ -3241,7 +3324,8 @@
     "prompt": "Dessine-moi un chat qui joue du piano",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-02",
@@ -3249,7 +3333,8 @@
     "prompt": "Crée une image d'un dragon rouge",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-03",
@@ -3257,7 +3342,8 @@
     "prompt": "Tu me dessines un licorne ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-04",
@@ -3265,7 +3351,8 @@
     "prompt": "Peux-tu me dessiner une forêt magique ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-05",
@@ -3273,7 +3360,8 @@
     "prompt": "Génère une image d'un phare sous la tempête",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-06",
@@ -3281,7 +3369,8 @@
     "prompt": "Dessine-moi un hibou sur une branche",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-07",
@@ -3289,7 +3378,8 @@
     "prompt": "Crée une image d'un chevalier sur un cheval",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-08",
@@ -3297,7 +3387,8 @@
     "prompt": "Tu me dessines une fusée ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-09",
@@ -3305,7 +3396,8 @@
     "prompt": "Dessine-moi un phare au coucher du soleil",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-10",
@@ -3313,7 +3405,8 @@
     "prompt": "Dessine-moi une fée dans la forêt",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-11",
@@ -3321,7 +3414,8 @@
     "prompt": "Dessine-moi un chat noir",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-12",
@@ -3329,7 +3423,8 @@
     "prompt": "Dessine-moi une princesse dans un château",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-13",
@@ -3337,7 +3432,8 @@
     "prompt": "Dessine-moi un gâteau d'anniversaire",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-14",
@@ -3345,7 +3441,8 @@
     "prompt": "Crée une image d'un tigre dans la jungle",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-15",
@@ -3353,7 +3450,8 @@
     "prompt": "Dessine-moi un sapin de Noël",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-16",
@@ -3361,7 +3459,8 @@
     "prompt": "Dessine-moi un bonhomme de neige",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-17",
@@ -3369,7 +3468,8 @@
     "prompt": "Dessine-moi une petite fille avec un ballon",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-fr-draw-18",
@@ -3377,7 +3477,8 @@
     "prompt": "Dessine-moi un paysage de montagne",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-01",
@@ -3385,7 +3486,8 @@
     "prompt": "Me desenhe um gato de chapéu",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-02",
@@ -3393,7 +3495,8 @@
     "prompt": "Desenha-me um unicórnio",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-03",
@@ -3401,7 +3504,8 @@
     "prompt": "Crie uma imagem de um cachorro surfando",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-04",
@@ -3409,7 +3513,8 @@
     "prompt": "Você me desenha um dragão?",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-05",
@@ -3417,7 +3522,8 @@
     "prompt": "Pode me desenhar um robô fofo?",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-06",
@@ -3425,7 +3531,8 @@
     "prompt": "Gere uma imagem de um castelo encantado",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-07",
@@ -3433,7 +3540,8 @@
     "prompt": "Me desenhe um cachorro de óculos",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-08",
@@ -3441,7 +3549,8 @@
     "prompt": "Crie uma imagem de uma baleia no oceano",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-09",
@@ -3449,7 +3558,8 @@
     "prompt": "Me desenhe um castelo de areia",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-10",
@@ -3457,7 +3567,8 @@
     "prompt": "Me desenhe uma coruja",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-11",
@@ -3465,7 +3576,8 @@
     "prompt": "Me desenhe um astronauta",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-12",
@@ -3473,7 +3585,8 @@
     "prompt": "Me desenhe uma árvore de Natal",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-13",
@@ -3481,7 +3594,8 @@
     "prompt": "Me desenhe um bolo de aniversário",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-14",
@@ -3489,7 +3603,8 @@
     "prompt": "Me desenhe uma menina com um balão",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-15",
@@ -3497,7 +3612,8 @@
     "prompt": "Crie uma imagem de um tigre na selva",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-16",
@@ -3505,7 +3621,8 @@
     "prompt": "Me desenhe um cavalo branco",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-17",
@@ -3513,7 +3630,8 @@
     "prompt": "Me desenhe uma princesa num castelo",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-pt-draw-18",
@@ -3521,7 +3639,8 @@
     "prompt": "Me desenhe um boneco de neve",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-01",
@@ -3529,7 +3648,8 @@
     "prompt": "Нарисуй мне кота в шляпе",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-02",
@@ -3537,7 +3657,8 @@
     "prompt": "Создай картинку собаки на серфе",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-03",
@@ -3545,7 +3666,8 @@
     "prompt": "Можешь нарисовать мне дракона?",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-04",
@@ -3553,7 +3675,8 @@
     "prompt": "Нарисуй мне закат над морем",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-05",
@@ -3561,7 +3684,8 @@
     "prompt": "Сгенерируй изображение замка в облаках",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-06",
@@ -3569,7 +3693,8 @@
     "prompt": "Нарисуй мне дракона",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-07",
@@ -3577,7 +3702,8 @@
     "prompt": "Создай картинку замка на горе",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-08",
@@ -3585,7 +3711,8 @@
     "prompt": "Нарисуй мне маленького щенка",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-09",
@@ -3593,7 +3720,8 @@
     "prompt": "Можешь нарисовать мне единорога?",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-10",
@@ -3601,7 +3729,8 @@
     "prompt": "Нарисуй мне новогоднюю ёлку",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-11",
@@ -3609,7 +3738,8 @@
     "prompt": "Нарисуй мне праздничный торт",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-12",
@@ -3617,7 +3747,8 @@
     "prompt": "Нарисуй мне девочку с воздушным шариком",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-13",
@@ -3625,7 +3756,8 @@
     "prompt": "Создай картинку тигра в джунглях",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-14",
@@ -3633,7 +3765,8 @@
     "prompt": "Нарисуй мне белую лошадь",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-15",
@@ -3641,7 +3774,8 @@
     "prompt": "Нарисуй мне принцессу в замке",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-ru-draw-16",
@@ -3649,7 +3783,8 @@
     "prompt": "Нарисуй мне снеговика",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-01",
@@ -3657,7 +3792,8 @@
     "prompt": "Bana bir unicorn çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-02",
@@ -3665,7 +3801,8 @@
     "prompt": "Bir köpek resmi oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-03",
@@ -3673,7 +3810,8 @@
     "prompt": "Bana bir gün batımı çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-04",
@@ -3681,7 +3819,8 @@
     "prompt": "Bana sevimli bir robot çizebilir misin?",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-05",
@@ -3689,7 +3828,8 @@
     "prompt": "Bana şapkalı bir köpek çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-06",
@@ -3697,7 +3837,8 @@
     "prompt": "Bir ejderha resmi oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-07",
@@ -3705,7 +3846,8 @@
     "prompt": "Bana bir uzay gemisi çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-08",
@@ -3713,7 +3855,8 @@
     "prompt": "Bana deniz kenarında bir deniz feneri çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-09",
@@ -3721,7 +3864,8 @@
     "prompt": "Bana bir tek boynuzlu at çizer misin?",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-10",
@@ -3729,7 +3873,8 @@
     "prompt": "Bana bir yılbaşı ağacı çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-11",
@@ -3737,7 +3882,8 @@
     "prompt": "Bana bir doğum günü pastası çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-12",
@@ -3745,7 +3891,8 @@
     "prompt": "Bana balonlu bir kız çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-13",
@@ -3753,7 +3900,8 @@
     "prompt": "Ormanda bir kaplan resmi oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-14",
@@ -3761,7 +3909,8 @@
     "prompt": "Bana beyaz bir at çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-15",
@@ -3769,7 +3918,8 @@
     "prompt": "Bana bir kardan adam çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-tr-draw-16",
@@ -3777,7 +3927,8 @@
     "prompt": "Bana bir prenses çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-01",
@@ -3785,7 +3936,8 @@
     "prompt": "የአንበሳ ምስል ፍጠርልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-02",
@@ -3793,7 +3945,8 @@
     "prompt": "የፈረስ ስዕል ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-03",
@@ -3801,7 +3954,8 @@
     "prompt": "ውሻ ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-04",
@@ -3809,7 +3963,8 @@
     "prompt": "ቤት ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-05",
@@ -3817,7 +3972,8 @@
     "prompt": "የዛፍ ስዕል ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-06",
@@ -3825,7 +3981,8 @@
     "prompt": "አበባ ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-07",
@@ -3833,7 +3990,8 @@
     "prompt": "የተራራ ስዕል ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-08",
@@ -3841,7 +3999,8 @@
     "prompt": "መኪና ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl6-am-draw-09",
@@ -3849,7 +4008,8 @@
     "prompt": "ልጅ ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-mis-001",
@@ -4392,6 +4552,7 @@
       "image_gen",
       "answer"
     ],
+    "read": ["everyday", "image"],
     "note": "The plan cuts the picture part off; the rest is answered (round 7)."
   },
   {
@@ -4404,6 +4565,7 @@
       "image_gen",
       "answer"
     ],
+    "read": ["everyday", "image"],
     "note": "The plan cuts the picture part off; the rest is answered (round 7)."
   },
   {
@@ -4416,6 +4578,7 @@
       "image_gen",
       "answer"
     ],
+    "read": ["everyday", "image"],
     "note": "The plan cuts the picture part off; the rest is answered (round 7)."
   },
   {
@@ -4428,6 +4591,7 @@
       "image_gen",
       "answer"
     ],
+    "read": ["everyday", "image"],
     "note": "The plan cuts the picture part off; the rest is answered (round 7)."
   },
   {
@@ -4436,7 +4600,8 @@
     "prompt": "Dibújame un gato durmiendo en un sofá",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-023",
@@ -4444,7 +4609,8 @@
     "prompt": "¿Me dibujas un dragón azul?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-024",
@@ -4452,7 +4618,8 @@
     "prompt": "Crea una imagen de un faro en una tormenta",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-025",
@@ -4460,7 +4627,8 @@
     "prompt": "Dibújame un unicornio con alas",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-026",
@@ -4468,7 +4636,8 @@
     "prompt": "Dibújame un perro astronauta",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-027",
@@ -4476,7 +4645,8 @@
     "prompt": "¿Puedes dibujarme un castillo encantado?",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-es-draw-028",
@@ -4484,7 +4654,8 @@
     "prompt": "Dibújame una ballena saltando",
     "history": [],
     "reply": "Aquí tienes tu dibujo. ¿Quieres otro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-fr-draw-020",
@@ -4492,7 +4663,8 @@
     "prompt": "Peux-tu me dessiner une licorne ?",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-fr-draw-021",
@@ -4500,7 +4672,8 @@
     "prompt": "Dessine-moi une maison dans la forêt",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-fr-draw-022",
@@ -4508,7 +4681,8 @@
     "prompt": "Dessine-moi un robot gentil",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-fr-draw-023",
@@ -4516,7 +4690,8 @@
     "prompt": "Dessine-moi un coucher de soleil sur la mer",
     "history": [],
     "reply": "Voici ton dessin. Tu veux un autre style ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-019",
@@ -4524,7 +4699,8 @@
     "prompt": "Desenha-me um gato de chapéu",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-020",
@@ -4532,7 +4708,8 @@
     "prompt": "Me desenha um dragão",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-021",
@@ -4540,7 +4717,8 @@
     "prompt": "Crie uma imagem de um farol numa tempestade",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-022",
@@ -4548,7 +4726,8 @@
     "prompt": "Desenha-me um pôr do sol na praia",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-023",
@@ -4556,7 +4735,8 @@
     "prompt": "Pode me desenhar um castelo?",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-024",
@@ -4564,7 +4744,8 @@
     "prompt": "Desenha-me um robô",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-pt-draw-025",
@@ -4572,7 +4753,8 @@
     "prompt": "Desenha-me uma baleia",
     "history": [],
     "reply": "Aqui está o seu desenho. Quer outro estilo?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-ru-draw-018",
@@ -4580,7 +4762,8 @@
     "prompt": "Создай картинку маяка в шторм",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-ru-draw-019",
@@ -4588,7 +4771,8 @@
     "prompt": "Нарисуй мне закат на море",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-ru-draw-020",
@@ -4596,7 +4780,8 @@
     "prompt": "Можешь нарисовать мне замок?",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-ru-draw-021",
@@ -4604,7 +4789,8 @@
     "prompt": "Нарисуй мне робота",
     "history": [],
     "reply": "Вот твой рисунок. Хочешь другой стиль?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-020",
@@ -4612,7 +4798,8 @@
     "prompt": "Bana bir ejderha çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-021",
@@ -4620,7 +4807,8 @@
     "prompt": "Bir deniz feneri resmi oluştur",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-022",
@@ -4628,7 +4816,8 @@
     "prompt": "Bana bir tek boynuzlu at çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-023",
@@ -4636,7 +4825,8 @@
     "prompt": "Bana bir kale çizer misin?",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-024",
@@ -4644,7 +4834,8 @@
     "prompt": "Bana bir robot çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-tr-draw-025",
@@ -4652,7 +4843,8 @@
     "prompt": "Bana bir balina çiz",
     "history": [],
     "reply": "İşte çizimin. Başka bir stil ister misin?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-am-draw-012",
@@ -4660,7 +4852,8 @@
     "prompt": "ዘንዶ ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-am-draw-013",
@@ -4668,7 +4861,8 @@
     "prompt": "ሮቦት ሳልልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl7-am-draw-014",
@@ -4676,7 +4870,8 @@
     "prompt": "የፈረስ ምስል ፍጠርልኝ",
     "history": [],
     "reply": "ስዕልህ ይኸውልህ። ሌላ ዘይቤ ትፈልጋለህ?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl8-mis-001",
@@ -6043,7 +6238,8 @@
     "prompt": "मेरे लिए बिल्ली का चित्र बनाओ",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-02",
@@ -6051,7 +6247,8 @@
     "prompt": "मेरे लिए एक काली बिल्ली ड्रा करो",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-03",
@@ -6059,7 +6256,8 @@
     "prompt": "कृपया एक लाल टोपी वाली बिल्ली की तस्वीर बनाइए",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-04",
@@ -6067,7 +6265,8 @@
     "prompt": "समुद्र तट पर एक घोड़े की तस्वीर बना दो",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-05",
@@ -6075,7 +6274,8 @@
     "prompt": "मेरे लिए एक नीला ड्रैगन ड्रा कीजिए",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-06",
@@ -6083,7 +6283,8 @@
     "prompt": "चाँद पर एक रोबोट का चित्र बनाओ",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-07",
@@ -6091,7 +6292,8 @@
     "prompt": "एक बड़े पेड़ के नीचे एक शेर की तस्वीर बनाओ",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-08",
@@ -6099,7 +6301,8 @@
     "prompt": "पहाड़ों और नदी की पेंटिंग बनाइए",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-09",
@@ -6107,7 +6310,8 @@
     "prompt": "एक प्यारे पिल्ले का चित्र बनाओ",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-10",
@@ -6115,7 +6319,8 @@
     "prompt": "मेरे लिए एक गुलाबी तितली ड्रा करो।",
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
-    "expect": "image_gen"
+    "expect": "image_gen",
+    "read": ["everyday", "image"]
   },
   {
     "id": "pl-hi-11",
@@ -6313,6 +6518,7 @@
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
     "expect": "image_gen",
+    "read": ["everyday", "image"],
     "note": "a new thing, एक"
   },
   {
@@ -6322,6 +6528,7 @@
     "history": [],
     "reply": "यह रहा आपका चित्र। क्या आप कोई और शैली चाहेंगे?",
     "expect": "image_gen",
+    "read": ["everyday", "image"],
     "note": "ड़ typed as one sign (U+095C)"
   }
 ]

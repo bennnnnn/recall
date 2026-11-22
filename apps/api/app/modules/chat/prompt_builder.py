@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
+from app.modules.chat import shown_pictures
 from app.modules.chat.practice_asked import practice_questions
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
@@ -36,6 +37,7 @@ from app.modules.chat.prompt_window import (
     history_messages,
     load_prompt_window,
 )
+from app.modules.chat.shown_pictures import ShownPictures
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
 from app.modules.conversation import history_rag as chat_history_rag_service
@@ -296,7 +298,11 @@ async def _history_rag_block(
 
 
 def _assemble(
-    turn: PromptTurn, window: PromptWindow, *, math_followup: bool
+    turn: PromptTurn,
+    window: PromptWindow,
+    *,
+    math_followup: bool,
+    pictures: ShownPictures | None = None,
 ) -> list[dict[str, str]]:
     """The two system messages, the history, then the turn's context and the contracts
     kept beside the user turn."""
@@ -309,7 +315,7 @@ def _assemble(
     )
     messages = [
         *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),
-        *history_messages(window, math_followup=math_followup),
+        *history_messages(window, math_followup=math_followup, pictures=pictures),
     ]
     # Both go after the history, the contracts last, beside the user turn.
     for block in (context, nearby):
@@ -461,4 +467,6 @@ async def build_prompt_messages(
         asked_practice=asked_practice,
         summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat),
     )
-    return _assemble(turn, window, math_followup=followup == "math")
+    # The pictures the chat showed, read beside the turn's read (``shown_pictures``).
+    pictures = await shown_pictures.labels_for_turn()
+    return _assemble(turn, window, math_followup=followup == "math", pictures=pictures)

@@ -24,7 +24,7 @@ from app.models.orm import Attachment, Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
-from app.modules.chat import turn_decision
+from app.modules.chat import shown_pictures, turn_decision
 from app.modules.chat.chart_turn import start_chart, stop_chart
 from app.modules.chat.figure_turn import LIVE_READ, start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
@@ -111,6 +111,7 @@ def _attach_reads(
     question asks to see starts here, beside the reply (``chat.figure_turn``)."""
     ctx.live_read = live_read
     ctx.photo_missed = "photo" in misses
+    ctx.picture_declined = "image" in misses
     ctx.figure = start_figure(settings, ctx)
     ctx.chart = start_chart(settings, ctx)
     ctx.formal = start_formal(settings, ctx)
@@ -166,7 +167,9 @@ def _turn_settings(
     line's follow-up read starts here too (``posed_read.start_posed_read``)."""
     settings = profile_service.settings_for_user(settings, user)
     start_posed_read(settings, content, recent)
-    read = turn_decision.start_turn_decision(settings, content, recent=recent)
+    # What each picture shown so far was, for the read and the prompt (``shown_pictures``).
+    pictures = shown_pictures.start_labels(getattr(user, "id", None), recent)
+    read = turn_decision.start_turn_decision(settings, content, recent=recent, pictures=pictures)
     # The prep asks it whether this turn's figure will be drawn (``figure_turn.will_draw``).
     keep_for_turn(LIVE_READ, read)
     return settings, read
@@ -355,6 +358,7 @@ async def stream_regenerate_response(
             misses=misses,
             on_status=status,
             read=live_read,
+            recent_messages=turn.before_line,
         ):
             return
         current_image_ids, model = _regenerate_images(turn, settings, model_alias)

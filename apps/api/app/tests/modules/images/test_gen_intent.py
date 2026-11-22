@@ -4,12 +4,10 @@ import pytest
 
 from app.modules.images.gen_intent import extract_image_gen_prompt
 from app.modules.images.gen_intent_thread import (
-    could_be_image_revision,
-    could_be_image_thread_followup,
     extract_image_gen_prompt_from_thread,
-    extract_image_revision_prompt,
     image_gen_revision_context,
     is_image_only_assistant_content,
+    revision_prompt,
 )
 from app.services.subject_scan import (
     CHEMISTRY_CAMERA_PROMPT,
@@ -124,123 +122,26 @@ def test_extract_image_gen_prompt_from_thread_confirm_not_stale_image_ask() -> N
     assert extract_image_gen_prompt_from_thread("do it", ["draw a dog", "Paris"]) is None
 
 
-def test_could_be_image_thread_followup() -> None:
-    assert could_be_image_thread_followup("Image") is True
-    assert could_be_image_thread_followup("that works") is True
-    assert could_be_image_thread_followup("hi") is False
-    assert could_be_image_thread_followup("make it blue") is False
-
-
-def test_extract_image_revision_prompt_white_case() -> None:
-    """Mirror mobile: short color follow-up after image-only reply."""
-    assert (
-        extract_image_revision_prompt(
-            "White",
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        == "black cat, White"
-    )
-    assert (
-        extract_image_revision_prompt(
-            "make it blue",
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        == "black cat, blue"
-    )
-
-
-def test_extract_image_revision_prompt_rejects_praise() -> None:
-    assert (
-        extract_image_revision_prompt(
-            "Nice car.",
-            last_assistant_is_image_only=True,
-            previous_subject="that car",
-        )
-        is None
-    )
-    assert (
-        extract_image_revision_prompt(
-            "looks good",
-            last_assistant_is_image_only=True,
-            previous_subject="that car",
-        )
-        is None
-    )
-    assert (
-        extract_image_revision_prompt(
-            "make it nicer",
-            last_assistant_is_image_only=True,
-            previous_subject="that car",
-        )
-        == "that car, nicer"
-    )
-    assert could_be_image_revision("Nice car.") is False
-
-
-def test_extract_image_revision_prompt_rejects_thanks_and_non_image() -> None:
-    assert (
-        extract_image_revision_prompt(
-            "thanks",
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        is None
-    )
-    assert (
-        extract_image_revision_prompt(
-            "hi",
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        is None
-    )
-    assert (
-        extract_image_revision_prompt(
-            "Hi!",
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        is None
-    )
-    assert (
-        extract_image_revision_prompt(
-            "White",
-            last_assistant_is_image_only=False,
-            previous_subject="black cat",
-        )
-        is None
-    )
-
-
 @pytest.mark.parametrize(
-    "text",
-    ["hi", "Hi!", "hello", "hey", "thanks", "ok", "yo"],
+    "text, previous, prompt",
+    [
+        ("White", "black cat", "black cat, White"),
+        ("make it blue", "black cat", "black cat, blue"),
+        ("change it to a dog", "black cat", "black cat, a dog"),
+        ("now at night", "a lighthouse", "a lighthouse, at night"),
+        ("can you make it more realistic?", "a cat", "a cat, can you make it more realistic"),
+        ("make it nicer", None, "nicer"),
+    ],
 )
-def test_could_be_image_revision_rejects_greetings(text: str) -> None:
-    assert could_be_image_revision(text) is False
+def test_revision_prompt_adds_the_change_to_the_last_prompt(
+    text: str, previous: str | None, prompt: str
+) -> None:
+    """The prompt only: whether the line asks for a picture is the turn's read's to say."""
+    assert revision_prompt(text, previous) == prompt
 
 
-def test_could_be_image_revision_accepts_color_follow_up() -> None:
-    assert could_be_image_revision("make it blue") is True
-    assert could_be_image_revision("White") is True
-
-
-@pytest.mark.parametrize(
-    "text",
-    ["what's 2+2", "help me think", "how are you", "explain gravity"],
-)
-def test_could_be_image_revision_rejects_questions_and_chat(text: str) -> None:
-    assert could_be_image_revision(text) is False
-    assert (
-        extract_image_revision_prompt(
-            text,
-            last_assistant_is_image_only=True,
-            previous_subject="black cat",
-        )
-        is None
-    )
+def test_revision_prompt_writes_none_for_an_empty_line() -> None:
+    assert revision_prompt("  ?! ", "a cat") is None
 
 
 def test_image_gen_revision_context_finds_prior_subject() -> None:

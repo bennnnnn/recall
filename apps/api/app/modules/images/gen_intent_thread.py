@@ -1,8 +1,9 @@
-"""Image-generation intent across a thread: follow-ups, "that car", and revisions.
+"""What to draw across a thread: follow-ups, "that car", and changes to a picture.
 
 ``gen_intent`` reads one message; this reads it with the user's earlier lines
 or a picture just made: "Dog" then "Image", a picture of "that car", "make it
-blue" after a generated picture. ``intent.py`` combines both.
+blue" after a generated picture. ``intent.py`` combines both, and the turn's read
+decides whether the line asks for a picture at all.
 
 Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 (CodeQL ``py/polynomial-redos``).
@@ -10,7 +11,6 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 
 from __future__ import annotations
 
-from itertools import pairwise
 from typing import Any
 
 from app.modules.images.gen_intent import (
@@ -21,7 +21,6 @@ from app.modules.images.gen_intent import (
     has_non_image_subject,
     is_image_gen_generate_now,
     join_subject,
-    names_a_diagram,
     strip_polite,
 )
 from app.modules.images.gen_intent_words import (
@@ -30,10 +29,6 @@ from app.modules.images.gen_intent_words import (
     NON_REVISION,
     NOT_REVISION_STARTERS,
     NOUN_ONLY_FILLER,
-    REACTION_PHRASES,
-    REACTION_WORDS,
-    SHOW_NON_IMAGE_WORDS,
-    SHOW_REVISION_TARGETS,
     VERBS_DRAW,
     VERBS_IMAGE,
 )
@@ -63,15 +58,6 @@ def is_image_noun_only_message(text: str) -> bool:
     if not kept:
         return False
     return all(tok.lower() in IMAGE_NOUNS for tok in kept)
-
-
-def could_be_image_thread_followup(text: str) -> bool:
-    """True if this line might complete a prior 'dog' + 'image' thread.
-
-    Used to skip the Neon recent-message lookup when the text cannot be a
-    follow-up even with prior subject context.
-    """
-    return is_image_noun_only_message(text) or is_image_gen_generate_now(text)
 
 
 def _thread_subject_from_user(text: str) -> str | None:
@@ -172,45 +158,6 @@ def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str |
     return None
 
 
-def _is_reaction(text: str) -> bool:
-    collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
-    if collapsed.startswith("please "):
-        collapsed = collapsed[len("please ") :].strip()
-    if not collapsed:
-        return False
-    if collapsed in REACTION_PHRASES:
-        return True
-    return collapsed.split()[0] in REACTION_WORDS
-
-
-def _has_edit_lead_in(tokens: list[str]) -> bool:
-    i = 0
-    n = len(tokens)
-    if i < n and tokens[i].lower() == "please":
-        i += 1
-    if i + 1 < n and tokens[i].lower() == "make" and tokens[i + 1].lower() in {"it", "them"}:
-        return True
-    if i + 1 < n and tokens[i].lower() == "change" and tokens[i + 1].lower() in {"it", "them"}:
-        return True
-    return i < n and tokens[i].lower() in {"now", "again", "instead", "try"}
-
-
-_SHOW_NON_IMAGE_SYMBOLS = "+-\u00d7\u00f7*/=^"
-
-
-def _is_show_image_revision(tokens: list[str]) -> bool:
-    if len(tokens) < 3 or tokens[0].lower() != "show":
-        return False
-    if any(symbol in tok for tok in tokens for symbol in _SHOW_NON_IMAGE_SYMBOLS):
-        return False
-    words = [fold_token(tok) for tok in tokens]
-    if any(word in SHOW_NON_IMAGE_WORDS for word in words):
-        return False
-    if any(a == "long" and b == "division" for a, b in pairwise(words)):
-        return False
-    return words[1] in SHOW_REVISION_TARGETS
-
-
 def subject_from_image_gen_user_message(content: str) -> str | None:
     """Subject from a prior image-gen user bubble (legacy prefix or natural wording)."""
     trimmed = content.strip()
@@ -267,56 +214,17 @@ def _strip_revision_lead_in(tokens: list[str]) -> list[str]:
     return tokens[i:]
 
 
-def extract_image_revision_prompt(
-    text: str,
-    *,
-    last_assistant_is_image_only: bool,
-    previous_subject: str | None,
-) -> str | None:
-    """Short follow-up after an image-only reply → new generate prompt."""
-    if not last_assistant_is_image_only or not previous_subject:
-        return None
-    trimmed = text.strip()
-    if not trimmed or len(trimmed) > 120:
-        return None
-    if not _has_edit_lead_in(trimmed.split()) and _is_reaction(trimmed):
-        return None
-
+def revision_prompt(text: str, previous_subject: str | None) -> str | None:
+    """A change to the last generated picture, as the prompt to draw it again: "make it
+    blue" after a cat is "a cat, blue". Only the prompt: the turn's read decided the line
+    asks for a picture (``images.intent``)."""
+    trimmed = text.strip().rstrip("?!.").strip()
     tokens = _strip_revision_lead_in(trimmed.split())
-    if not tokens or len(tokens) > 8:
+    change = clean_prompt(join_subject(tokens)) if tokens else None
+    change = change or clean_prompt(trimmed)
+    if not change:
         return None
-    if "?" in trimmed:
-        return None
-    first = tokens[0].lower().rstrip(".!,")
-    if first in NOT_REVISION_STARTERS and not _is_show_image_revision(tokens):
-        return None
-    revision = join_subject(tokens)
-    if not revision:
-        return None
-    if has_non_image_subject(revision) or names_a_diagram(revision):
-        return None
-    cleaned = clean_prompt(revision)
-    if not cleaned:
-        return None
-    if cleaned.lower() in NON_REVISION:
-        return None
-    return f"{previous_subject}, {cleaned}"
-
-
-def could_be_image_revision(text: str) -> bool:
-    """True if this text could revise a prior image-only reply.
-
-    Used to skip the Neon recent-message lookup when the text cannot be a
-    revision even if the last assistant was image-only (greetings, thanks).
-    """
-    return (
-        extract_image_revision_prompt(
-            text,
-            last_assistant_is_image_only=True,
-            previous_subject="x",
-        )
-        is not None
-    )
+    return f"{previous_subject}, {change}" if previous_subject else change
 
 
 def image_gen_revision_context(

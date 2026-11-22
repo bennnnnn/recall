@@ -20,7 +20,7 @@ from app.modules.chat.referent_read import ReferentPick
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep.followups import SubjectFollowup, resolve_subject_followup
 from app.modules.images.gen_intent_thread import extract_image_gen_prompt_from_thread
-from app.modules.images.intent import composer_image_intent
+from app.modules.images.intent import composer_candidates
 from app.tests.fakes import make_user
 from app.tests.modules.chat.chat_test_support import turn_deps
 
@@ -130,9 +130,9 @@ def test_a_picture_of_it_keeps_the_subject_asked_for_earlier() -> None:
 def test_the_composer_leaves_a_picture_of_it_to_the_chat_turn(content: str) -> None:
     """What "it" is, the chat turn's read says; the composer never draws it first."""
     rows = _rows(_CURVE)
-    intent = composer_image_intent(content, rows)
+    intent = composer_candidates(content, rows)
     assert intent.lookup_query is None and intent.request is None
-    assert composer_image_intent("draw a red sports car", rows).request is not None
+    assert composer_candidates("draw a red sports car", rows).request is not None
 
 
 def _history(*pairs: tuple[str, str]) -> list[dict[str, str]]:
@@ -167,8 +167,8 @@ def test_a_free_users_picture_of_it_keeps_the_composers_upgrade_prompt() -> None
     """A user who cannot generate gets main's composer picture, whose generate answers with
     the upgrade prompt; only a user who can is sent to the chat turn's read."""
     rows = _rows(("Generate an image of a red sports car", "Here it is."))
-    assert composer_image_intent("a picture of it", rows, can_generate=False).request is not None
-    assert composer_image_intent("a picture of it", rows, can_generate=True).request is None
+    assert composer_candidates("a picture of it", rows, can_generate=False).request is not None
+    assert composer_candidates("a picture of it", rows, can_generate=True).request is None
 
 
 _RECTANGLE = (

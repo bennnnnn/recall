@@ -23,6 +23,7 @@ from app.modules.chat.tool_loop import selection
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools import solve_timeouts
 from app.services.model_health import Breakers
+from app.tests.modules.chat.chat_test_support import picture_read
 
 _SOLVE = "Solve 2x + 3 = 7"
 _PHOTO = "show me a picture of a human ear"
@@ -228,8 +229,10 @@ async def test_a_photo_lookup_that_found_nothing_is_a_miss(status: int) -> None:
         user=MagicMock(),
         chat_id=uuid4(),
         content=_PHOTO,
+        query="human ear",
         outcome=None,
         create_user_message=True,
+        recent=[],
         misses=misses,
     )
     assert handled is False
@@ -238,20 +241,22 @@ async def test_a_photo_lookup_that_found_nothing_is_a_miss(status: int) -> None:
 
 @pytest.mark.asyncio
 async def test_a_lookup_that_never_searched_is_no_miss() -> None:
-    from app.modules.chat.turn_intercepts import try_image_lookup_for_turn
+    from app.modules.chat.turn_intercepts import intercept_new_turn
 
     search = AsyncMock()
     misses: set[str] = set()
-    # Not a photo request at all: nothing was looked up.
-    handled = await try_image_lookup_for_turn(
+    # Not a photo request at all: nothing was looked up, whatever the read says.
+    handled = await intercept_new_turn(
         _photo_deps(search),
         Settings(image_search_enabled=True),
         user=MagicMock(),
         chat_id=uuid4(),
         content="what is an ear made of?",
         outcome=None,
-        create_user_message=True,
+        recent_messages=[],
+        prior_count=0,
         misses=misses,
+        read=picture_read("photo"),
     )
     assert handled is False
     search.assert_not_awaited()
@@ -288,6 +293,11 @@ async def test_the_turn_tells_its_tool_loop_the_photo_was_not_found() -> None:
         patch("app.modules.chat.stream_entry.start_reply_picture", return_value=None),
         patch("app.modules.chat.stream_entry.await_user_message_persist", AsyncMock()),
         patch("app.modules.chat.stream_entry.stream_and_finalize", fake_stream),
+        # The turn's read asks for a photo: the only thing that looks one up.
+        patch(
+            "app.modules.chat.turn_decision.start_turn_decision",
+            MagicMock(return_value=picture_read("photo")),
+        ),
     ):
         tokens = [
             token

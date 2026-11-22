@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import ExitStack
 from dataclasses import replace
 from typing import Any
@@ -9,6 +10,7 @@ import pytest
 from app.core.access_tokens import AccessCheck
 from app.core.config import Settings
 from app.modules.chat.prompt_builder import PromptStats, fetch_subject, inject_subject_block
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_deps import ChatTurnDeps, default_deps
 from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 from app.modules.conversation import messages_repository
@@ -48,6 +50,17 @@ def ws_streams(stream: Any) -> Any:
 def grant_quota() -> AsyncMock:
     """A ``reserve_usage_up_to`` with room for every turn: it takes all it is asked for."""
     return AsyncMock(side_effect=lambda _redis, _user_id, wanted, **_kwargs: wanted)
+
+
+def picture_read(picture: str, subject: str = "everyday") -> "asyncio.Future[TurnDecision | None]":
+    """A turn's read already in, saying what picture the message asks to see (``photo``,
+    ``image``, ``none``…): the only thing that lets a turn paint or look a photo up."""
+    decision = TurnDecision.model_validate(
+        {"live": False, "think": False, "subject": subject, "picture": picture}
+    )
+    read: asyncio.Future[TurnDecision | None] = asyncio.get_running_loop().create_future()
+    read.set_result(decision)
+    return read
 
 
 def turn_deps(**fields: Any) -> ChatTurnDeps:

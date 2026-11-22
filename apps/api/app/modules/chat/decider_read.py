@@ -118,10 +118,13 @@ QUESTIONS: dict[str, dict[str, Any]] = {
         "instructions": (
             "What does the last message ask to see? Only when it asks to draw, sketch, plot, "
             'graph, chart, show, a picture, or what something looks like; "draw it" shows '
-            "what the conversation is about."
+            "what the conversation is about, and a change to a picture just shown (make it "
+            "blue, now at night) asks for that picture again."
         ),
         "criteria": {
-            "none": "it asks to see nothing, even a problem a figure would help; a map",
+            "none": "it asks to see nothing, even a problem a figure would help; a map; a "
+            "remark, complaint or question about a picture already shown (I can't see it, "
+            "why did you send that, what is it, I like it)",
             "graph": "a curve, or a chart of data",
             "diagram": "a circuit, forces, rays, a wave or a moving scene, a geometric figure, "
             "a flowchart or mind map",
