@@ -90,7 +90,7 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
     "school": (
         _about_user(
             r"is (?:a |an )?(?:\S+ ){0,3}?(?:student|freshman|sophomore|junior|senior"
-            r"|undergrad\w*|pupil)"
+            r"|undergrad\w*|pupil|major|grader|schooler)"
             r"|is in (?:\S+ ){0,2}?(?:grade|year|class|form|school|college|university|uni)"
             r"|studies|is studying|attends|is attending|goes to|is enrolled"
             r"|(?:is taking|takes) (?:\S+ ){0,3}?(?:class|classes|course|courses|module)"

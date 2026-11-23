@@ -472,3 +472,22 @@ def test_an_assistant_message_over_several_lines_still_asks_its_question() -> No
     earlier = format_context([("assistant", "Happy to tailor it.\n\nHow old are you?")])
     (line,) = answering(_lines("34"), earlier)
     assert line.asked.endswith("How old are you?")
+
+
+@pytest.mark.parametrize(
+    ("fact", "slot"),
+    [
+        ("User is a computer science major", "school"),
+        ("User is a 10th grader", "school"),
+        ("User is a high schooler", "school"),
+        ("User is a nurse who works at Denver Health", "job"),
+    ],
+)
+def test_common_ways_to_say_a_school_or_job_keep_their_slot(fact, slot) -> None:
+    """Phrasings the memory model writes (review, #2539)."""
+    assert answered_slot(slot, fact) == slot
+
+
+def test_the_repository_keeps_only_a_slot_the_text_answers() -> None:
+    """A write built outside the pass (an instruction, a stated fact) is held too."""
+    assert _update(None, "User earns 200k a year", "name") is None
