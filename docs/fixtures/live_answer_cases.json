@@ -1,5 +1,5 @@
 {
-  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), null for no live answer. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
+  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), \"undefined\" for a draft with no number at all (1 ÷ 0, tan 90°, log 0: SymPy's zoo or nan; a real infinity, as atanh(1), shows nothing), null for no live answer. A case SymPy cannot write (Mod(5, 0) raises) has a null sympy, its value, a why and a server_gap. A draft with ± has a list for each: one sign, its − branch then its + branch; two or three, all ± or all ∓, the distinct values, smallest first. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
   "cases": [
     {
       "id": "sum-then-product",
@@ -651,16 +651,95 @@
     {
       "id": "tan-pole",
       "draft": "$\\tan(90^{\\circ})$",
-      "sympy": null,
-      "value": null,
-      "why": "undefined"
+      "sympy": "tan(pi/2)",
+      "value": "undefined"
     },
     {
       "id": "divide-zero",
       "draft": "$1\\div 0$",
+      "sympy": "1/0",
+      "value": "undefined"
+    },
+    {
+      "id": "divide-zero-by-zero",
+      "draft": "$0\\div 0$",
+      "sympy": "0/0",
+      "value": "undefined"
+    },
+    {
+      "id": "fraction-zero-denominator",
+      "draft": "$\\frac{1}{0}$",
+      "sympy": "1/0",
+      "value": "undefined",
+      "server_gap": "the turn does not verify a fraction over 0: the model answers it"
+    },
+    {
+      "id": "mod-zero",
+      "draft": "$5\\bmod 0$",
       "sympy": null,
-      "value": null,
-      "why": "undefined"
+      "value": "undefined",
+      "why": "SymPy's Mod(5, 0) raises rather than giving zoo",
+      "server_gap": "the turn does not verify a remainder by 0: the model answers it"
+    },
+    {
+      "id": "zero-negative-power",
+      "draft": "$0^{-1}$",
+      "sympy": "0**-1",
+      "value": "undefined"
+    },
+    {
+      "id": "log-zero",
+      "draft": "$\\log(0)$",
+      "sympy": "log(0)",
+      "value": "undefined"
+    },
+    {
+      "id": "ln-zero",
+      "draft": "$\\ln(0)$",
+      "sympy": "log(0)",
+      "value": "undefined"
+    },
+    {
+      "id": "log-base-one",
+      "draft": "$\\log_{1}(5)$",
+      "sympy": "log(5, 1)",
+      "value": "undefined"
+    },
+    {
+      "id": "cot-pole",
+      "draft": "$\\cot(0^{\\circ})$",
+      "sympy": "cot(0)",
+      "value": "undefined"
+    },
+    {
+      "id": "sec-pole",
+      "draft": "$\\sec(90^{\\circ})$",
+      "sympy": "sec(pi/2)",
+      "value": "undefined"
+    },
+    {
+      "id": "tan-pole-radians",
+      "draft": "$\\tan(\\frac{\\pi}{2})$",
+      "sympy": "tan(pi/2)",
+      "value": "undefined"
+    },
+    {
+      "id": "coth-zero",
+      "draft": "$\\coth(0)$",
+      "sympy": "coth(0)",
+      "value": "undefined"
+    },
+    {
+      "id": "undefined-in-sum",
+      "draft": "$2+1\\div 0$",
+      "sympy": "2+1/0",
+      "value": "undefined"
+    },
+    {
+      "id": "divide-exact-trig-zero",
+      "draft": "$\\frac{1}{2\\sin(30^{\\circ})-1}$",
+      "sympy": "1/(2*sin(pi/6)-1)",
+      "value": "undefined"
     },
     {
       "id": "sqrt-negative",
@@ -686,9 +765,344 @@
     {
       "id": "plus-minus",
       "draft": "$2\\pm 3$",
+      "sympy": [
+        "2-3",
+        "2+3"
+      ],
+      "value": [
+        "-1",
+        "5"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-one",
+      "draft": "$2\\pm 1$",
+      "sympy": [
+        "2-1",
+        "2+1"
+      ],
+      "value": [
+        "1",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-times",
+      "draft": "$10\\pm 2\\times 3$",
+      "sympy": [
+        "10-2*3",
+        "10+2*3"
+      ],
+      "value": [
+        "4",
+        "16"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-quadratic",
+      "draft": "$\\frac{-3\\pm\\sqrt{9-8}}{2}$",
+      "sympy": [
+        "(-3-sqrt(9-8))/2",
+        "(-3+sqrt(9-8))/2"
+      ],
+      "value": [
+        "-2",
+        "-1"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-root",
+      "draft": "$1\\pm\\sqrt{2}$",
+      "sympy": [
+        "1-sqrt(2)",
+        "1+sqrt(2)"
+      ],
+      "value": [
+        "-0.414213562373095",
+        "2.41421356237309"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-glyph",
+      "draft": "2±1",
+      "sympy": [
+        "2-1",
+        "2+1"
+      ],
+      "value": [
+        "1",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "minus-plus",
+      "draft": "$2\\mp 1$",
+      "sympy": [
+        "2-1",
+        "2+1"
+      ],
+      "value": [
+        "1",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-undefined-branch",
+      "draft": "$\\frac{1}{1\\pm 1}$",
+      "sympy": [
+        "1/(1-1)",
+        "1/(1+1)"
+      ],
+      "value": [
+        "undefined",
+        "1/2"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-twice",
+      "draft": "$1\\pm 1\\pm 1$",
+      "sympy": [
+        "1-1-1",
+        "1-1+1",
+        "1+1+1"
+      ],
+      "value": [
+        "-1",
+        "1",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-unsorted",
+      "draft": "$1\\pm 4\\pm 2$",
+      "sympy": [
+        "1-4-2",
+        "1-4+2",
+        "1+4-2",
+        "1+4+2"
+      ],
+      "value": [
+        "-5",
+        "-1",
+        "3",
+        "7"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-before-term",
+      "draft": "$\\pm 3+1$",
+      "sympy": [
+        "-3+1",
+        "3+1"
+      ],
+      "value": [
+        "-2",
+        "4"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-after-minus",
+      "draft": "$2-\\pm 3$",
+      "sympy": [
+        "2-(-3)",
+        "2-3"
+      ],
+      "value": [
+        "5",
+        "-1"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-denominator",
+      "draft": "$\\frac{1}{\\pm 2}$",
+      "sympy": [
+        "1/(-2)",
+        "1/2"
+      ],
+      "value": [
+        "-1/2",
+        "1/2"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-beside-mod",
+      "draft": "$5-\\pm 2\\bmod 3$",
+      "sympy": [
+        "5-Mod(-2,3)",
+        "5-Mod(2,3)"
+      ],
+      "value": [
+        "4",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-alone",
+      "draft": "$\\pm 3$",
       "sympy": null,
       "value": null,
-      "why": "two answers"
+      "why": "nothing to work out"
+    },
+    {
+      "id": "plus-minus-not-real",
+      "draft": "$\\sqrt{1\\pm 2}$",
+      "sympy": null,
+      "value": null,
+      "why": "one branch is not a real number"
+    },
+    {
+      "id": "plus-minus-four-signs",
+      "draft": "$1\\pm 2\\pm 4\\pm 8$",
+      "sympy": null,
+      "value": null,
+      "why": "a fourth sign"
+    },
+    {
+      "id": "plus-minus-eight-values",
+      "draft": "$\\pm 1\\pm 2\\pm 4$",
+      "sympy": null,
+      "value": null,
+      "why": "eight values: more than the line holds"
+    },
+    {
+      "id": "plus-minus-with-minus-plus",
+      "draft": "$1\\pm 2\\mp 4$",
+      "sympy": null,
+      "value": null,
+      "why": "∓ beside ± is the opposite sign, not a sign of its own"
+    },
+    {
+      "id": "atanh-one",
+      "draft": "$\\tanh^{-1}(1)$",
+      "sympy": null,
+      "value": null,
+      "why": "an infinity: the turn verifies no value, so it is not called undefined"
+    },
+    {
+      "id": "divide-by-underflow",
+      "draft": "$\\frac{1}{10^{-400}}$",
+      "sympy": null,
+      "value": null,
+      "why": "10^400: too big to show, not undefined"
+    },
+    {
+      "id": "divide-by-undefined",
+      "draft": "$1\\div\\tan(90^{\\circ})$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls 1/zoo 0: an undefined divisor leaves no value"
+    },
+    {
+      "id": "divide-by-log-zero",
+      "draft": "$1\\div\\ln(0)$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls 1/zoo 0: an undefined divisor leaves no value"
+    },
+    {
+      "id": "abs-of-undefined",
+      "draft": "$\\left|1\\div 0\\right|$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls Abs(zoo) an infinity"
+    },
+    {
+      "id": "undefined-to-power-zero",
+      "draft": "$(1\\div 0)^{0}$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls zoo**0 1"
+    },
+    {
+      "id": "tan-ten-nines",
+      "draft": "$\\tan(89.9999999999)$",
+      "sympy": "tan(89.9999999999*pi/180)",
+      "value": "572957795131.872",
+      "server_gap": "the turn verifies 5.75005e11 (SymPy gives 5.72958e11): it loses digits near the pole"
+    },
+    {
+      "id": "tan-near-pole",
+      "draft": "$\\tan(89.99999999999)$",
+      "sympy": null,
+      "value": null,
+      "why": "a cosine only rounded to 0 is no pole: about 5.7e12, too near the edge to show"
+    },
+    {
+      "id": "tan-nearer-pole",
+      "draft": "$\\tan(89.99999999999999)$",
+      "sympy": null,
+      "value": null,
+      "why": "exact degrees short of 90 are no pole: about 5.7e15, too near the edge to show"
+    },
+    {
+      "id": "difference-near-zero",
+      "draft": "$\\pi-3.14159265358979$",
+      "sympy": null,
+      "value": null,
+      "why": "about 3.2e-15, within floating point's rounding of 0: too near to tell"
+    },
+    {
+      "id": "difference-typed-pi",
+      "draft": "$\\pi-3.141592653589793$",
+      "sympy": null,
+      "value": null,
+      "why": "about 1.2e-16: the typed decimal meets π's float by chance, so the float 0 is no answer"
+    },
+    {
+      "id": "comma-thousands",
+      "draft": "$1,000$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 1,000 is not read as a number"
+    },
+    {
+      "id": "comma-thousands-sum",
+      "draft": "$1,000+1$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 1,000 is not read as a number"
+    },
+    {
+      "id": "comma-thousands-plain",
+      "draft": "1,000+1",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 1,000 is not read as a number"
+    },
+    {
+      "id": "comma-thousands-braced",
+      "draft": "$1{,}000\\times 2$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 1,000 is not read as a number"
+    },
+    {
+      "id": "comma-decimal",
+      "draft": "$2,5+1$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: a decimal comma is not read either"
+    },
+    {
+      "id": "comma-in-permutation",
+      "draft": "$P(10,000)$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 10,000 is not read as a number, and 000 is no k"
     },
     {
       "id": "letter",

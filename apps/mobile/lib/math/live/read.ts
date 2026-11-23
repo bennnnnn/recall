@@ -2,10 +2,11 @@
  * Reads the math keyboard's draft (`$3+1\times 2$`) into a tree the live answer evaluates.
  *
  * Only a calculation made of numbers is read: digits, + − × ÷, brackets, powers, roots,
- * fractions, %, !, π, e, trig, logs, |x|, ⌊x⌋, ⌈x⌉, mod, binomials and P(n, k). Anything
- * else — a letter, `=`, `<`, `\pm`, an integral, a sum, a limit, an empty box — is not a
- * calculation, and `readCalculation` gives `null`: the composer then shows no answer and
- * Send asks the server as before.
+ * fractions, %, !, π, e, trig, logs, |x|, ⌊x⌋, ⌈x⌉, mod, binomials, P(n, k) and ± or ∓
+ * (`\pm`, `\mp`), between two terms or before one; `signs.ts` works out each branch. Anything
+ * else — a letter, `=`, `<`, a thousands comma (`1,000`), an integral, a sum, a limit, an
+ * empty box — is not a calculation, and `readCalculation` gives `null`: the composer then
+ * shows no answer and Send asks the server as before.
  *
  * Precedence follows the server's reading (SymPy's, `docs/fixtures/live_answer_cases.json`
  * holds the two together): × ÷ mod and a written-together product share one level and run
@@ -35,7 +36,25 @@ export type LiveNode =
   | { kind: "root"; index: LiveNode | null; radicand: LiveNode }
   | { kind: "factorial" | "percent" | "degrees" | "radians" | "abs" | "floor" | "ceil"; operand: LiveNode }
   | { kind: "call"; fn: LiveFunction; arg: LiveNode; base: LiveNode | null }
-  | { kind: "binom" | "perm"; n: LiveNode; k: LiveNode };
+  | { kind: "binom" | "perm"; n: LiveNode; k: LiveNode }
+  /** `2 \pm 3` (`left` null for `\pm 3`); `at` and `width` place the sign in the read text. */
+  | { kind: "pm"; op: "pm" | "mp"; left: LiveNode | null; right: LiveNode; at: number; width: number };
+
+/** A node's children (`left`, `operand`, `arg`, …), in their order. */
+export const childrenOf = (node: LiveNode): LiveNode[] =>
+  Object.values(node).filter((value): value is LiveNode => typeof value === "object" && value !== null);
+
+/** A copy of `node` with each child replaced by `map(child)`. */
+export function mapChildren(node: LiveNode, map: (child: LiveNode) => LiveNode): LiveNode {
+  const copy: Record<string, unknown> = { ...node };
+  for (const [key, value] of Object.entries(node)) {
+    if (typeof value === "object" && value !== null) copy[key] = map(value as LiveNode);
+  }
+  return copy as LiveNode;
+}
+
+/** The calculation, and the text it was read from (`math`, where a ± node's `at` points). */
+export type LiveReading = { node: LiveNode; math: string };
 
 const MAX_LENGTH = 400;
 const MAX_DEPTH = 48;
@@ -51,8 +70,12 @@ const NAMED: Record<string, LiveFunction> = {
   arcsin: "asin", arccos: "acos", arctan: "atan",
   log: "log", ln: "ln", exp: "exp",
 };
+/** The spacing commands the reader skips (`\,`, `\quad`, …). */
+const SPACES = [",", ";", ":", "!", " ", "quad", "qquad"];
 /** Spacing commands, and `\left` / `\right`, which only size the bracket after them. */
-const SKIPPED = new Set([",", ";", ":", "!", " ", "quad", "qquad", "left", "right"]);
+const SKIPPED = new Set([...SPACES, "left", "right"]);
+/** One space the reader skips, white or a spacing command, as a regular expression's source. */
+export const LATEX_SPACE = String.raw`(?:\s|\\(?:${SPACES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![A-Za-z]))`;
 const TIMES = new Set(["*", "×", "·"]);
 const DIVIDE = new Set(["/", "÷"]);
 
@@ -108,12 +131,33 @@ class Reader {
     this.depth += 1;
     if (this.depth > MAX_DEPTH) this.fail();
     let left = this.term();
-    for (let c = this.peek(); c === "+" || c === "-" || c === "−"; c = this.peek()) {
-      this.pos += 1;
-      left = { kind: "add", op: c === "+" ? "+" : "-", left, right: this.term() };
+    for (;;) {
+      const c = this.peek();
+      if (c === "+" || c === "-" || c === "−") {
+        this.pos += 1;
+        left = { kind: "add", op: c === "+" ? "+" : "-", left, right: this.term() };
+        continue;
+      }
+      const sign = this.plusMinus();
+      if (!sign) break;
+      left = { kind: "pm", ...sign, left, right: this.term() };
     }
     this.depth -= 1;
     return left;
+  }
+
+  /** `\pm`, `±`, `\mp` or `∓` at the cursor, taken, with where it stood. */
+  private plusMinus(): { op: "pm" | "mp"; at: number; width: number } | null {
+    this.space();
+    const at = this.pos;
+    const c = this.src[at];
+    if (c === "±" || c === "∓") {
+      this.pos += 1;
+      return { op: c === "±" ? "pm" : "mp", at, width: 1 };
+    }
+    if (this.take("pm")) return { op: "pm", at, width: this.pos - at };
+    if (this.take("mp")) return { op: "mp", at, width: this.pos - at };
+    return null;
   }
 
   private term(): LiveNode {
@@ -167,6 +211,8 @@ class Reader {
       this.pos += 1;
       return this.unary();
     }
+    const sign = this.plusMinus();
+    if (sign) return { kind: "pm", ...sign, left: null, right: this.unary() };
     return this.power();
   }
 
@@ -235,6 +281,8 @@ class Reader {
     if (number) {
       this.pos += number[0].length;
       if (this.src[this.pos] === ".") this.fail(); // `3.` or `1.2.3`: still being typed
+      // `05` or the `000` of `P(10,000)`: no number is written so; a comma is no separator.
+      if (/^0\d/.test(number[0])) this.fail();
       return { kind: "number", text: number[0] };
     }
     if (c === "(") return this.closed("(", ")");
@@ -313,7 +361,7 @@ class Reader {
  * plain text with a digit, as `3+1*2` typed on the phone's own keyboard); words around
  * it make it a question for the server.
  */
-export function readCalculation(draft: string): LiveNode | null {
+export function readCalculation(draft: string): LiveReading | null {
   const text = draft.trim();
   if (!text || text.length > MAX_LENGTH) return null;
   let math = text;
@@ -324,5 +372,6 @@ export function readCalculation(draft: string): LiveNode | null {
   } else if (!/\d/.test(text)) {
     return null;
   }
-  return guard(() => new Reader(normalizeUnicodeScripts(math)).read());
+  const src = normalizeUnicodeScripts(math);
+  return guard(() => ({ node: new Reader(src).read(), math: src }));
 }

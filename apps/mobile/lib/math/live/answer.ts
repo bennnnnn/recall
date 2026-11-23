@@ -3,38 +3,33 @@
  * (`$3+1\times 2$`) shows its value under it (`= 5`) as each key lands. It is a typing
  * preview, worked on the phone; Send still asks the server, whose checked answer is the one
  * the chat keeps (CLAUDE.md, Golden Rule 7). A draft that is not a calculation shows nothing.
+ * One with no number at all says undefined (`1 ÷ 0`, `tan 90°`, `log 0`), and one with ± shows
+ * each branch (`signs.ts`).
  *
  * `docs/fixtures/live_answer_cases.json` holds drafts and their values; the server's test
  * (`test_live_answer_fixture.py`) checks each against SymPy and the turn's own reading, and
  * the phone's test checks this module against the same file.
  */
-import { evaluateCalculation, type LiveValue } from "@/lib/math/live/evaluate";
-import { formatLiveValue, type LiveAnswer } from "@/lib/math/live/format";
-import { readCalculation, type LiveNode } from "@/lib/math/live/read";
+import type { LiveResult } from "@/lib/math/live/evaluate";
+import { formatBranches, formatLiveResult, formatValues, shownValues, type LiveAnswer } from "@/lib/math/live/format";
+import { LATEX_SPACE, readCalculation, type LiveNode } from "@/lib/math/live/read";
+import { isTypedFraction, workSigns, type LiveSigns } from "@/lib/math/live/signs";
 
-export type { LiveAnswer, LiveValue };
+export type { LiveAnswer };
 
-/** `5`, `-2.5` or `(3)` has nothing to work out. */
+const isSignOnly = (node: LiveNode): boolean => node.kind === "pm" && !node.left;
+
+/** `5`, `-2.5`, `(3)`, `\pm 3` or `-\pm 3` has nothing to work out. */
 function isPlainNumber(node: LiveNode): boolean {
+  if (node.kind === "pm" && !node.left) return isPlainNumber(node.right);
+  if (node.kind === "neg" && isSignOnly(node.operand)) return isPlainNumber(node.operand);
   return node.kind === "number" || (node.kind === "neg" && node.operand.kind === "number");
 }
 
-/** `\frac{3}{4}` typed in lowest terms: only its decimal is new. */
-function isTypedFraction(node: LiveNode, value: LiveValue): boolean {
-  return (
-    node.kind === "frac" &&
-    value.kind === "exact" &&
-    node.num.kind === "number" &&
-    node.den.kind === "number" &&
-    node.num.text === value.r.n.toString() &&
-    node.den.text === value.r.d.toString()
-  );
-}
 
 /** Spaces the keyboard may leave after the = (`\,`, `\quad`, …). */
-const LATEX_SPACE = String.raw`(?:\s|\\[,;:! ]|\\q?quad\b)*`;
-const CLOSING_EQUALS_IN_MATH = new RegExp(String.raw`=${LATEX_SPACE}\$\s*$`);
-const CLOSING_EQUALS_PLAIN = new RegExp(String.raw`=${LATEX_SPACE}$`);
+const CLOSING_EQUALS_IN_MATH = new RegExp(String.raw`=${LATEX_SPACE}*\$\s*$`);
+const CLOSING_EQUALS_PLAIN = new RegExp(String.raw`=${LATEX_SPACE}*$`);
 
 /**
  * `3+4=` asks for its value, as a calculator's = key does: one = at the very end of the maths
@@ -47,24 +42,35 @@ function withoutClosingEquals(draft: string): string {
     : draft.replace(CLOSING_EQUALS_PLAIN, "");
 }
 
-function read(draft: string): { node: LiveNode; value: LiveValue } | null {
-  const node = readCalculation(withoutClosingEquals(draft));
-  if (!node || isPlainNumber(node)) return null;
-  const value = evaluateCalculation(node);
-  return value ? { node, value } : null;
+function read(draft: string): { node: LiveNode; signs: LiveSigns } | null {
+  const reading = readCalculation(withoutClosingEquals(draft));
+  if (!reading || isPlainNumber(reading.node)) return null;
+  const signs = workSigns(reading);
+  return signs ? { node: reading.node, signs } : null;
 }
 
-/** The draft's value, or `null` when it is not a calculation. */
-export function liveValueForTest(draft: string): LiveValue | null {
-  return read(draft)?.value ?? null;
+/** The draft writes a fraction, so its answer is one too. */
+const prefersFraction = (draft: string): boolean => /\\[dt]?frac\{/.test(draft);
+
+/** The draft's values as the composer shows them (one, or a ± draft's each), or `null`. */
+export function liveValuesForTest(draft: string): LiveResult[] | null {
+  const signs = read(draft)?.signs;
+  if (!signs) return null;
+  if (signs.kind === "one") return [signs.result];
+  if (signs.kind === "branches") return signs.branches.map((branch) => branch.result);
+  return shownValues(signs.values, prefersFraction(draft));
 }
 
-/** What the composer shows under the draft, or `null` for no answer. */
-export function liveAnswer(draft: string): LiveAnswer | null {
+/**
+ * What the composer shows under the draft, or `null` for no answer. `undefinedWord` is
+ * "undefined" in the app's language (`chat.math_live_undefined`).
+ */
+export function liveAnswer(draft: string, undefinedWord: string): LiveAnswer | null {
   const found = read(draft);
   if (!found) return null;
-  return formatLiveValue(found.value, {
-    preferFraction: /\\[dt]?frac\{/.test(draft),
-    typedFraction: isTypedFraction(found.node, found.value),
-  });
+  const { node, signs } = found;
+  const preferFraction = prefersFraction(draft);
+  if (signs.kind === "branches") return formatBranches(signs.branches, preferFraction, undefinedWord);
+  if (signs.kind === "values") return formatValues(signs.values, preferFraction);
+  return formatLiveResult(signs.result, { preferFraction, typedFraction: isTypedFraction(node, signs.result) }, undefinedWord);
 }

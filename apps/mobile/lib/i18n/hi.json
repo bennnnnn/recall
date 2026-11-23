@@ -151,6 +151,7 @@
   "chat.math_keyboard_paste": "पेस्ट करें",
   "chat.math_clear_all": "सब साफ़ करें",
   "chat.math_live_answer_a11y": "उत्तर: {{value}}",
+  "chat.math_live_undefined": "अपरिभाषित",
   "chat.math_keyboard_show": "कीबोर्ड",
   "chat.math_paste_scan_cta": "गणित स्कैन करें",
   "chat.math_paste_scan_hint": "यह पेस्ट एक इमेज लगता है। क्या इसकी जगह गणित स्कैनर इस्तेमाल करें?",

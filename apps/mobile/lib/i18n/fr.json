@@ -151,6 +151,7 @@
   "chat.math_keyboard_paste": "Coller",
   "chat.math_clear_all": "Tout effacer",
   "chat.math_live_answer_a11y": "Résultat : {{value}}",
+  "chat.math_live_undefined": "indéfini",
   "chat.math_keyboard_show": "Clavier",
   "chat.math_paste_scan_cta": "Scanner des maths",
   "chat.math_paste_scan_hint": "Ce que vous avez collé ressemble à une image. Utiliser plutôt le scanner de maths ?",

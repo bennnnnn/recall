@@ -1,14 +1,28 @@
 /**
  * How the composer writes a live answer: `= 5`, `= 0.3`, `= \frac{5}{6} \approx 0.8333333333`,
- * `\approx 1.414213562`. A decimal keeps 10 significant digits; one that rounded nothing away
- * (`sin 30°` is 0.49999999999999994 in floating point, shown 0.5) takes `=`, the rest `≈`.
+ * `\approx 1.414213562`, `= \text{undefined}` (in the app's language). A decimal keeps 10
+ * significant digits; one that rounded nothing away (`sin 30°` is 0.49999999999999994 in
+ * floating point, shown 0.5) takes `=`, the rest `≈`.
+ *
+ * A draft with ± (`signs.ts`) shows each branch written out with its value, side by side
+ * (`2 - 1 = 1,\quad 2 + 1 = 3`); with two or three signs, its distinct values
+ * (`= -1,\quad 1,\quad 3`). There each value is written once, and all of a draft's values in
+ * one form: fractions when the draft wrote one or a value needs one (`\frac{1}{3}`), else
+ * decimals. A branch that is its value's own fraction (`-\frac{1}{3}`) gets its decimal.
  */
-import type { LiveValue } from "@/lib/math/live/evaluate";
+import type { LiveResult, LiveValue } from "@/lib/math/live/evaluate";
 import { terminatingDecimal, toNumber, type Rational } from "@/lib/math/live/rational";
+import type { LiveBranch } from "@/lib/math/live/signs";
+import { spacedDraftMath } from "@/lib/math/draftText";
+import { spokenFormula } from "@/lib/math/spokenFormula";
 
 export type LiveAnswer = {
   /** For `MathText`: `= 5`, `\approx 1.414213562`. */
   latex: string;
+  /** A ± draft's branches or values: drawn at the draft's size, as they echo the draft. */
+  signed: boolean;
+  /** A ± draft's values alone (`= 1,\quad 3`), for branches too tall for the answer's row. */
+  short?: string;
   /** For a screen reader: `5`, `5/6, about 0.8333333333`. */
   spoken: string;
   /** False when the value shown is rounded. */
@@ -24,6 +38,15 @@ const MAX_FRACTION_DIGITS = 6;
 const SMALL = 1e-6;
 
 type Decimal = { latex: string; spoken: string; plain: string };
+type Shown = Omit<LiveAnswer, "signed">;
+type FormatOptions = {
+  preferFraction: boolean;
+  typedFraction: boolean;
+  /** One form per value (a ± draft's values): `\frac{1}{3}` or `0.75`, never both. */
+  compact?: boolean;
+  /** Every value as a decimal: one of a draft's values can be no short fraction. */
+  decimals?: boolean;
+};
 
 function trimZeros(digits: string): string {
   return digits.includes(".") ? digits.replace(/0+$/, "").replace(/\.$/, "") : digits;
@@ -62,7 +85,7 @@ function shownExactly(x: number, shown: Decimal): boolean {
   return Math.abs(Number(shown.plain) - x) <= 1e-12 * Math.abs(x);
 }
 
-function approxAnswer(x: number): LiveAnswer {
+function approxAnswer(x: number): Shown {
   const shown = decimal(x);
   const exact = shownExactly(x, shown);
   return {
@@ -72,7 +95,7 @@ function approxAnswer(x: number): LiveAnswer {
   };
 }
 
-function wholeAnswer(n: bigint): LiveAnswer {
+function wholeAnswer(n: bigint): Shown {
   const digits = n.toString();
   const size = digits.replace("-", "");
   if (size.length <= MAX_WHOLE_DIGITS) return { latex: `= ${digits}`, spoken: digits, exact: true };
@@ -86,7 +109,9 @@ function wholeAnswer(n: bigint): LiveAnswer {
  * that does not end as a decimal is shown as a fraction either way. `typedFraction`: the
  * draft is that same fraction already, so only its decimal is new.
  */
-function fractionAnswer(r: Rational, preferFraction: boolean, typedFraction: boolean): LiveAnswer {
+function fractionAnswer(r: Rational, options: FormatOptions): Shown {
+  const { preferFraction, compact = false, decimals = false } = options;
+  const typedFraction = options.typedFraction || decimals;
   const finite = terminatingDecimal(r, DIGITS);
   const top = (r.n < 0n ? -r.n : r.n).toString();
   const bottom = r.d.toString();
@@ -99,15 +124,131 @@ function fractionAnswer(r: Rational, preferFraction: boolean, typedFraction: boo
   const sign = r.n < 0n ? "-" : "";
   const latex = `= ${sign}\\frac{${top}}{${bottom}}`;
   const spoken = `${sign}${top}/${bottom}`;
+  if (compact) return { latex, spoken, exact: true };
   if (finite) return { latex: `${latex} = ${finite}`, spoken: `${spoken} = ${finite}`, exact: true };
   return { latex: `${latex} ${tail.latex}`, spoken: `${spoken}, ${tail.spoken}`, exact: true };
 }
 
-export function formatLiveValue(
-  value: LiveValue,
-  options: { preferFraction: boolean; typedFraction: boolean },
-): LiveAnswer {
+function formatValue(value: LiveValue, options: FormatOptions): Shown {
   if (value.kind === "approx") return approxAnswer(value.x);
   if (value.r.d === 1n) return wholeAnswer(value.r.n);
-  return fractionAnswer(value.r, options.preferFraction, options.typedFraction);
+  return fractionAnswer(value.r, options);
+}
+
+/** `= \text{undefined}`, the word in the app's language (`chat.math_live_undefined`). */
+function formatResult(result: LiveResult, options: FormatOptions, undefinedWord: string): Shown {
+  if (result.kind !== "undefined") return formatValue(result, options);
+  // Plain letters: a sign with a meaning in LaTeX (`_`, `^`, a brace) is dropped.
+  const word = undefinedWord.replace(/[\\{}$_^#&%~]/g, "");
+  return { latex: `= \\text{${word}}`, spoken: word, exact: true };
+}
+
+const SIDE_BY_SIDE = ",\\quad ";
+
+/** `= -1,\quad 1,\quad 3`: the first value keeps its `=`, every `≈` stays. */
+const listed = (shown: Shown[]): string =>
+  shown.map((s, i) => (i === 0 ? s.latex : s.latex.replace(/^= /, ""))).join(SIDE_BY_SIDE);
+
+export function formatLiveResult(result: LiveResult, options: FormatOptions, undefinedWord: string): LiveAnswer {
+  const shown = formatResult(result, options, undefinedWord);
+  return { ...shown, signed: false };
+}
+
+/** A short fraction that ends as no decimal (`\frac{1}{3}`): only a fraction writes it exactly. */
+function needsFraction(result: LiveResult): boolean {
+  if (result.kind !== "exact" || result.r.d === 1n) return false;
+  const size = (n: bigint) => (n < 0n ? -n : n).toString().length;
+  const short = size(result.r.n) <= MAX_FRACTION_DIGITS && size(result.r.d) <= MAX_FRACTION_DIGITS;
+  return short && terminatingDecimal(result.r, DIGITS) === null;
+}
+
+/** A value only a decimal writes on the line: a float, or a fraction too long to show. */
+function needsDecimal(result: LiveResult): boolean {
+  if (result.kind === "approx") return true;
+  if (result.kind !== "exact" || result.r.d === 1n) return false;
+  const size = (n: bigint) => (n < 0n ? -n : n).toString().length;
+  return size(result.r.n) > MAX_FRACTION_DIGITS || size(result.r.d) > MAX_FRACTION_DIGITS;
+}
+
+/**
+ * One form for all of a draft's values: decimals when one can be no short fraction
+ * (`\frac{1}{3} \pm 10^{-12}`), else fractions when the draft wrote one or a value needs one.
+ */
+const oneForm = (results: LiveResult[], preferFraction: boolean): FormatOptions => ({
+  preferFraction: preferFraction || results.some(needsFraction),
+  typedFraction: false,
+  compact: true,
+  decimals: results.some(needsDecimal),
+});
+
+/** `2 - 1 = 1`: the branch read out, so a listener knows which value is which. */
+function spokenBranch(latex: string, shown: Shown): string {
+  const rounded = shown.spoken.startsWith("≈ ");
+  return `${spokenFormula(latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;
+}
+
+/**
+ * One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. A branch whose text cannot be written
+ * truly (a merged sign in a draft with a mod) leaves its values alone, still in that order: `= 4,\quad 3`.
+ */
+export function formatBranches(branches: LiveBranch[], preferFraction: boolean, undefinedWord: string): LiveAnswer {
+  const form = oneForm(branches.map((branch) => branch.result), preferFraction);
+  const shown = branches.map((branch) =>
+    formatResult(branch.result, { ...form, typedFraction: branch.typed }, undefinedWord),
+  );
+  const texts = branches.map((branch) => branch.latex);
+  if (texts.some((text) => text === null)) {
+    const latex = listed(shown);
+    return { latex, signed: true, spoken: shown.map((s) => s.spoken).join(", "), exact: shown.every((s) => s.exact) };
+  }
+  // Spaced as the draft above it is (`2 - 1`, not `2- 1`).
+  const written = texts.map((text) => spacedDraftMath(text!));
+  return {
+    latex: written.map((text, i) => `${text} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
+    signed: true,
+    short: listed(shown),
+    spoken: written.map((text, i) => spokenBranch(text, shown[i]!)).join(", "),
+    exact: shown.every((s) => s.exact),
+  };
+}
+
+/** The most values one line holds. */
+const MAX_VALUES = 4;
+
+/**
+ * The values the display writes, each with how: two it rounds alike (`10^{20} ± 1 ± 1`,
+ * `1 ± 10^{-12} ± 10^{-12}`) are written once, the first of them kept. More than four: `null`,
+ * as the line would not hold them.
+ */
+function writtenValues(values: LiveValue[], preferFraction: boolean): { value: LiveValue; shown: Shown }[] | null {
+  const form = oneForm(values, preferFraction);
+  const digits = (s: Shown) => s.latex.replace(/^(?:=|\\approx) /, "");
+  const written: { value: LiveValue; shown: Shown }[] = [];
+  for (const value of values) {
+    const shown = formatValue(value, form);
+    const last = written.at(-1);
+    if (!last || digits(last.shown) !== digits(shown)) {
+      written.push({ value, shown });
+    } else if (!shown.exact && last.shown.exact) {
+      // Merged with a rounded value: the one written is rounded too.
+      last.shown = { latex: `\\approx ${digits(shown)}`, spoken: `≈ ${shown.spoken.replace(/^≈ /, "")}`, exact: false };
+    }
+  }
+  return written.length > MAX_VALUES ? null : written;
+}
+
+/** The values a draft with two or three ± shows, as the composer writes them, or `null`. */
+export const shownValues = (values: LiveValue[], preferFraction: boolean): LiveValue[] | null =>
+  writtenValues(values, preferFraction)?.map((v) => v.value) ?? null;
+
+/** Two or three ±: the distinct values, `= -1,\quad 1,\quad 3` (`≈` kept where a value is rounded). */
+export function formatValues(values: LiveValue[], preferFraction: boolean): LiveAnswer | null {
+  const shown = writtenValues(values, preferFraction)?.map((v) => v.shown);
+  if (!shown) return null;
+  return {
+    latex: listed(shown),
+    signed: true,
+    spoken: shown.map((s) => s.spoken).join(", "),
+    exact: shown.every((s) => s.exact),
+  };
 }
