@@ -72,10 +72,15 @@ def asks_a_reminder(text: str) -> bool:
     return is_reminder_request(body) or _ALARM.match(body) is not None
 
 
+def asks_a_setting(text: str) -> bool:
+    """The request asks to change a setting (``part_kind``'s "settings")."""
+    return bool(extract_settings_changes(request_body(text)))
+
+
 def part_kind(text: str, *, chemistry_enabled: bool = True) -> PartKind:
     """Which existing path owns this request, read with that path's own rules."""
     body = request_body(text)
-    if extract_settings_changes(body):
+    if asks_a_setting(text):
         return "settings"
     if extract_image_lookup_query(body):
         return "photo"

@@ -170,10 +170,13 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
 def _take_the_ordinary_prompt(ctx: StreamContext, read: TurnDecision | None) -> None:
     """Ordinary chat's shorter rules when the read calls the message everyday chat
     (``ordinary_prompt``). Not on a turn a server path worked, a calculation laid out, an
-    instant reply, a photo the model reads, or a regenerate or dispute, which keeps every
-    rule it had; the read late or saying anything else, the full prompt stands."""
+    instant reply, a photo the model reads, a regenerate or dispute, or a change to the draft
+    before ("In Amharic" after an ```email: its drafting rules stand), which keeps every rule
+    it had; the read late or saying anything else, the full prompt stands."""
     ordinary = ctx.ordinary_prompt
     if ordinary is None or read is None or not is_ordinary(read):
+        return
+    if read.follow == "change" and _last_reply_draft(ctx) is not None:
         return
     if _worked(ctx) or ctx.worked is not None or ctx.solver_unverified or ctx.instant_reply:
         return

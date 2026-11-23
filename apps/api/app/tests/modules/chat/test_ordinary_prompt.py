@@ -4,6 +4,7 @@ no shape of their own, and sent only when the turn's read calls it everyday chat
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -208,6 +209,24 @@ async def test_a_regenerate_or_a_dispute_keeps_the_full_rules(escalate: bool) ->
         ctx.regenerate_backup = RegenerateBackup(content="old", model=None, message_id=uuid4())
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.prompt_messages[1]["content"] == "full rules"
+
+
+@pytest.mark.parametrize(("draft", "ordinary"), [(True, False), (False, True)])
+@pytest.mark.asyncio
+async def test_a_change_to_the_draft_before_keeps_the_drafting_rules(
+    draft: bool, ordinary: bool
+) -> None:
+    """ "In Amharic" after an ```email draft: the read calls it everyday chat and a change,
+    and the drafting rules stay; a change to a reply with no draft may still be short
+    (Gemini review, #2540)."""
+    ctx = _ctx(_read(follow="change"))
+    reply = "Here it is:\n\n```email\nSubject: Hi\n\nDear Sam,\n```" if draft else "Sure!"
+    ctx.recent_messages = [
+        SimpleNamespace(role="user", content="write an email to Sam"),
+        SimpleNamespace(role="assistant", content=reply),
+    ]
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert ctx.prompt_messages[1]["content"] == ("short rules" if ordinary else "full rules")
 
 
 @pytest.mark.parametrize(
