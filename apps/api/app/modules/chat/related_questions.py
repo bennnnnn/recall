@@ -21,6 +21,7 @@ from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topi
 from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.modules.turn_reading.writing_kind import writing_request_kind
+from app.services.latex_groups import group_end
 from app.services.md_fence_scan import iter_fences, read_fence_marker
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
@@ -78,17 +79,7 @@ def _space_math_span(span: str) -> str:
             continue
         if ch in "^_":
             if i + 1 < n and span[i + 1] == "{":
-                depth = 0
-                j = i + 1
-                while j < n:
-                    if span[j] == "{":
-                        depth += 1
-                    elif span[j] == "}":
-                        depth -= 1
-                        if depth == 0:
-                            j += 1
-                            break
-                    j += 1
+                j = group_end(span, i + 1)
                 out.append(span[i:j])
                 i = j
                 continue
