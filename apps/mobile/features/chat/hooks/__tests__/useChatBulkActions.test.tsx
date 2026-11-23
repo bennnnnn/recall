@@ -78,7 +78,7 @@ it("keeps successful deletes removed, clears their cache and abandons only delet
   expect(bulkChats).toHaveBeenCalledTimes(1);
   expect(bulkChats).toHaveBeenCalledWith("token", "delete", [first.id, second.id]);
   // Both rows leave the list at once; the one the server kept comes back, in one edit each.
-  expect(removeChatsFromGroupsById.mock.calls).toEqual([[[first.id, second.id]], [[first.id]]]);
+  expect(removeChatsFromGroupsById.mock.calls).toEqual([[[first.id, second.id]]]);
   expect(insertChatsInGroups.mock.calls).toEqual([[[second]]]);
   expect(clearCachedChatMessages).toHaveBeenCalledWith(first.id);
   expect(clearCachedChatMessages).not.toHaveBeenCalledWith(second.id);

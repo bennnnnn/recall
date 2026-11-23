@@ -121,9 +121,9 @@ export function useChatBulkActions({
           );
           if (!currentSession()) return;
           const deletedIds = snapshots.filter((chat) => deleted.has(chat.id)).map((chat) => chat.id);
-          // A row a failed delete took out comes back; a deleted one stays out.
+          // A row a failed delete took out comes back. A deleted one stays out: the
+          // `chatsDeleted` event below removes it again (useDrawerChatList), in case a read put it back.
           insertChatsInGroups(snapshots.filter((chat) => !deleted.has(chat.id)));
-          removeChatsFromGroupsById(deletedIds);
           for (const chatId of deletedIds) void clearCachedChatMessages(chatId);
           if (deletedIds.length > 0) {
             emitAppEvent("chatsDeleted", { chatIds: deletedIds });

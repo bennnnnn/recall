@@ -203,11 +203,12 @@ describe("markdownPreprocessStream", () => {
     simulateStreamingAndCrossCheck(input, 5);
   });
 
-  it("BUG FIX regression: excludes an unclosed $...$ inline-math span from the stable prefix", () => {
-    // Without tracking single-`$` parity, a prefix cut mid-`$x^2 +` would
-    // be treated as stable and preprocessed with a dangling `$`.
+  it("a whole line with an unclosed $ is stable: its span can never close on a later line", () => {
+    // Only whole lines are stable, and `readInlineMathSpan` refuses a `$` span across `\n`, so
+    // the line draws the same now as once the reply ends (it used to be held back, audit MX-1).
     const input = "The answer is $x^2 + \n";
-    expect(findStableMarkdownPrefixLen(input)).toBe(0);
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+    expect(findStableMarkdownPrefixLen("The answer is $x^2 +")).toBe(0);
   });
 
   it("BUG FIX regression: includes a closed $...$ inline-math span in the stable prefix", () => {
@@ -292,7 +293,8 @@ describe("markdownPreprocessStream", () => {
 
   it.each([
     ["one $ holds its own line", "A $5 fee\nnext\n", "A $5 fee\nnext\n".length],
-    ["an open $ span holds the line it is on", "Intro\n\nIt is $x +\n", "Intro\n\n".length],
+    ["an open $ span holds nothing once its line ends", "Intro\n\nIt is $x +\n", "Intro\n\nIt is $x +\n".length],
+    ["a price list settles line by line", "Costs:\n\n- Rent: $1,200\n- Deposit: $300\n- Fee: $50\n", "Costs:\n\n- Rent: $1,200\n- Deposit: $300\n- Fee: $50\n".length],
     ["$$ spans lines until it closes", "A\n$$\nx\n", "A\n".length],
     ["\\( spans lines until it closes", "A\n\\(\nx\n", "A\n".length],
     ["a stray \\] closes nothing", "Type \\] here\nB\n", "Type \\] here\nB\n".length],
@@ -343,8 +345,8 @@ describe("markdownPreprocessStream", () => {
     simulateStreamingAndCrossCheck(content, 7);
   });
 
-  it("holds a line whose `$` opens a span, and the lines of an open \\( or \\[", () => {
-    expect(findStableMarkdownPrefixLen("Intro\n\nThe answer is $x^2 +\n")).toBe("Intro\n\n".length);
+  it("holds the lines of an open \\( or \\[, never a whole line's `$`", () => {
+    expect(findStableMarkdownPrefixLen("Intro\n\nThe answer is $x^2 +\n")).toBe("Intro\n\nThe answer is $x^2 +\n".length);
     expect(findStableMarkdownPrefixLen("Cost $5\nnext line\n")).toBe("Cost $5\nnext line\n".length);
     expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n")).toBe(0);
     expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n\\) here.\n")).toBe("Use \\(\nx^2\n\\) here.\n".length);
