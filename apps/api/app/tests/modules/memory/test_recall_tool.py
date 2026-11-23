@@ -158,7 +158,9 @@ def _stream_ctx(content: str, tools: list[dict[str, Any]]) -> StreamContext:
         reserved_tokens=100,
         max_output_tokens=100,
     )
-    ctx.user = SimpleNamespace(id=ctx.user_id, memory_enabled=True, locale=None, timezone=None)  # type: ignore[assignment]
+    ctx.user = SimpleNamespace(
+        id=ctx.user_id, name=None, memory_enabled=True, locale=None, timezone=None
+    )  # type: ignore[assignment]
     ctx.reply_tools = tools
     return ctx
 
