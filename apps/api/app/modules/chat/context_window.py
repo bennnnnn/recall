@@ -189,7 +189,16 @@ class FoldRule:
         if not self.over(count, total_tokens(unsummarized)):
             return 0
         keep = select_recent_window(list(unsummarized), self.target_tokens, self.target_count)
-        return count - keep
+        return count - keep + _replies_before_a_question(unsummarized[len(unsummarized) - keep :])
+
+
+def _replies_before_a_question(kept: Sequence[Any]) -> int:
+    """How many kept rows come before the first user line, when there is one: a fold never
+    keeps a reply without its question, which the summary would hold as still open."""
+    for index, message in enumerate(kept):
+        if getattr(message, "role", None) == "user":
+            return index
+    return 0
 
 
 # How many messages between the stored summary and the loaded recent window

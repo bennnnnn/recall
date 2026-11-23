@@ -108,6 +108,29 @@ def test_fold_rule_keeps_the_last_exchange_even_when_it_alone_is_over():
     assert _RULE.to_fold(huge) == 1
 
 
+class _Line(_M):
+    def __init__(self, role: str, content: str):
+        super().__init__(content)
+        self.role = role
+
+
+@pytest.mark.parametrize(
+    ("rows", "folded"),
+    [
+        # Long replies: the target holds the newest 3 rows, a reply first. Its question goes
+        # with it, so the reply goes too and the kept rows start at a question.
+        ([_Line(r, "a" * 400) for r in ["user", "assistant"] * 5], 8),
+        # The next line was saved before the job ran: 11 rows, the newest 4 a reply first.
+        ([_Line(r, "x") for r in ["user", "assistant"] * 5 + ["user"]], 8),
+        # Already starting at a question: the fold is the target's.
+        ([_Line(r, "x") for r in ["user", "assistant"] * 6], 8),
+    ],
+)
+def test_fold_rule_never_keeps_a_reply_without_its_question(rows, folded):
+    assert _RULE.to_fold(rows) == folded
+    assert rows[folded].role == "user"
+
+
 def test_shipped_fold_rule_leaves_room_for_the_turns_a_fold_takes():
     """The trigger sits under the prompt's caps, so a chat whose fold is still running is
     carried whole for a few turns more instead of sliding."""
