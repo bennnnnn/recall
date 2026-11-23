@@ -143,6 +143,13 @@ export function MathScannerCropOverlay({
 
 /** How long a corner's arms are, at most; a small frame's are a third of its side. */
 const CORNER_ARM = 28;
+/**
+ * The corners' curve. The undimmed hole under them is square, so the curve's outside must
+ * still cover the hole's own corner: with arms half outside the frame that holds while the
+ * radius is at most 1.7 times the arms' thickness. At 10 (`Radius.sm`) with 4-point arms the
+ * hole's corner showed past the curve, a speck of bright camera outside each corner.
+ */
+const CORNER_RADIUS = 6;
 
 /**
  * The frame is its four corners, in the accent alone (a white outline with accent corners
@@ -160,10 +167,10 @@ function cornerStyles(color: string, thick: number) {
   };
   const out = -thick / 2;
   return StyleSheet.create({
-    tl: { ...arm, top: out, left: out, borderTopWidth: thick, borderLeftWidth: thick, borderTopLeftRadius: Radius.sm },
-    tr: { ...arm, top: out, right: out, borderTopWidth: thick, borderRightWidth: thick, borderTopRightRadius: Radius.sm },
-    bl: { ...arm, bottom: out, left: out, borderBottomWidth: thick, borderLeftWidth: thick, borderBottomLeftRadius: Radius.sm },
-    br: { ...arm, bottom: out, right: out, borderBottomWidth: thick, borderRightWidth: thick, borderBottomRightRadius: Radius.sm },
+    tl: { ...arm, top: out, left: out, borderTopWidth: thick, borderLeftWidth: thick, borderTopLeftRadius: CORNER_RADIUS },
+    tr: { ...arm, top: out, right: out, borderTopWidth: thick, borderRightWidth: thick, borderTopRightRadius: CORNER_RADIUS },
+    bl: { ...arm, bottom: out, left: out, borderBottomWidth: thick, borderLeftWidth: thick, borderBottomLeftRadius: CORNER_RADIUS },
+    br: { ...arm, bottom: out, right: out, borderBottomWidth: thick, borderRightWidth: thick, borderBottomRightRadius: CORNER_RADIUS },
   });
 }
 
