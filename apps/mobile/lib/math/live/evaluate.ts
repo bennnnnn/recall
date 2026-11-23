@@ -7,7 +7,8 @@
  * divisor (`1 ÷ 0`, `0 ÷ 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`), a log of zero, a
  * log to base 1. `5 mod 0` and `\frac{1}{0}` are undefined on the phone only: the turn does not
  * verify them yet (SymPy's `Mod(5, 0)` raises). Only a zero that is exactly zero makes one: a decimal that
- * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. An undefined
+ * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing; a trig value
+ * that is a fraction at exact degrees is exact (`2 sin 30° − 1` is 0). An undefined
  * part carries through + − × and a numerator (`2 + 1 ÷ 0` is undefined, as SymPy's zoo is);
  * anywhere else the phone stays cautious and shows nothing: there SymPy sometimes gives a value
  * back (`1 ÷ tan 90°` is 0 to it, `|1 ÷ 0|` an infinity, `(1 ÷ 0)^0` 1), and the turn verifies
@@ -44,6 +45,9 @@ export type LiveResult = LiveValue | { kind: "undefined" };
 
 /** No value: the calculation is not one real number. */
 const fail = (): never => refuse();
+
+/** A float result that rounded to 0 from a number that is not 0 (`10^{-400}`): too small to hold. */
+const held = (result: number, from: number): number => (result === 0 && from !== 0 ? fail() : result);
 
 const UNDEFINED_REASON = "undefined";
 
@@ -92,7 +96,7 @@ function combine(
 
 function divide(a: LiveValue, b: LiveValue): LiveValue {
   if (numberOf(b) === 0) atZero(b);
-  return combine(a, b, div, (x, y) => x / y);
+  return combine(a, b, div, (x, y) => held(x / y, x));
 }
 
 /** A whole number from an exact value, within `[min, max]`. */
@@ -124,7 +128,7 @@ function power(base: LiveValue, exponent: LiveValue): LiveValue {
   const y = numberOf(exponent);
   if (x < 0 && !Number.isInteger(y)) fail();
   if (x === 0 && y < 0) atZero(base);
-  return approx(x ** y);
+  return approx(held(x ** y, x));
 }
 
 function root(radicand: LiveValue, index: bigint): LiveValue {
@@ -155,10 +159,16 @@ function choose(n: bigint, k: bigint, ordered: boolean): LiveValue {
   return exact(rational(product / kFactorial));
 }
 
-/** A floating-point value within a hair of a whole number is that number (for ⌊x⌋, ⌈x⌉). */
+/** Floating point's rounding steps a value may carry and still be a whole number. */
+const WHOLE_STEPS = 64;
+
+/**
+ * A floating-point value within its own rounding of a whole number is that number (for ⌊x⌋,
+ * ⌈x⌉). Relative to its rounding, not to its size: `10^{10}\pi` is 31415926535.9, not …536.
+ */
 function nearWhole(x: number): number {
   const rounded = Math.round(x);
-  return Math.abs(x - rounded) <= 1e-9 * Math.max(1, Math.abs(x)) ? rounded : x;
+  return Math.abs(x - rounded) <= WHOLE_STEPS * Number.EPSILON * Math.max(1, Math.abs(x)) ? rounded : x;
 }
 
 /** `log_b(x)` exactly when `b^k = x` for a whole `k`, as `log(1000)` or `log_2(8)`. */
@@ -203,7 +213,10 @@ const RADIANS = new Set<LiveNode["kind"]>(["pi", "radians"]);
  */
 type Angle = { radians: number; degrees: Rational | null; atZero: boolean };
 
-const CALLS = new Set<LiveNode["kind"]>(["call"]);
+/** Inside an angle, what keeps it from being read with π as a number: a function (worked out
+ * three times a level), or a floor or ceiling (`\lfloor 10^{10}\pi\rfloor` reads as a whole
+ * number of degrees, though it is no multiple of π). */
+const NOT_PI_MULTIPLE = new Set<LiveNode["kind"]>(["call", "floor", "ceil"]);
 
 /** The angle with π read as `degrees` (180 or 360): a multiple of π becomes exact degrees. */
 function withPi(node: LiveNode, degrees: string): LiveNode {
@@ -222,7 +235,7 @@ function withPi(node: LiveNode, degrees: string): LiveNode {
  * doubles but is 3, not π) or a function inside (worked out three times a level) leaves it `null`.
  */
 function piDegrees(arg: LiveNode, value: LiveValue): Rational | null {
-  if (contains(arg, CALLS)) return null;
+  if (contains(arg, NOT_PI_MULTIPLE)) return null;
   const read = (degrees: string): Rational | null => {
     const value = guardReason(() => evaluate(withPi(arg, degrees), true));
     return "value" in value && value.value.kind === "exact" ? value.value.r : null;
@@ -289,11 +302,46 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degr
   const c = cosineZero ? 0 : zero(cosine);
   if ((fn === "tan" || fn === "sec") && c === 0) atZero(cosineZero ? ZERO : SMALL);
   if ((fn === "cot" || fn === "csc") && s === 0) atZero(sineZero ? ZERO : SMALL);
+  const known = degrees && exactTrig(fn, degrees);
+  if (known) return exact(known);
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];
   const snapped = zero(value);
   if (snapped !== 0) return approx(snapped);
   const fromSine = fn === "sin" || fn === "tan";
   return (fromSine ? sineZero : cosineZero) ? ZERO : SMALL;
+}
+
+/** sin(30k°) for k in one turn: rational at 0°, 30°, 90°, 150°, …; `null` where it is a root. */
+const HALF = { n: 1n, d: 2n };
+const SINES: (Rational | null)[] = [
+  { n: 0n, d: 1n }, HALF, null, { n: 1n, d: 1n }, null, HALF,
+  { n: 0n, d: 1n }, { n: -1n, d: 2n }, null, { n: -1n, d: 1n }, null, { n: -1n, d: 2n },
+];
+/** tan(45k°) for k in one turn; `null` at the poles. */
+const TANGENTS: (Rational | null)[] = [0n, 1n, null, -1n, 0n, 1n, null, -1n].map((n) =>
+  n === null ? null : { n, d: 1n },
+);
+
+/** Which whole step of `step` degrees an exact angle is, within one turn, or `null`. */
+function stepOf(degrees: Rational, step: bigint): number | null {
+  const size = step * degrees.d;
+  if (degrees.n % size !== 0n) return null;
+  const steps = 360n / step;
+  return Number((((degrees.n / size) % steps) + steps) % steps);
+}
+
+/**
+ * A trig value that is a fraction at exact degrees (`sin 30°` is ½, `tan 45°` 1, `sec 60°` 2),
+ * exactly, so `2 sin 30° − 1` is 0 and `1 ÷ (2 sin 30° − 1)` undefined, as SymPy says.
+ */
+function exactTrig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", degrees: Rational): Rational | null {
+  const k = stepOf(degrees, 30n);
+  const m = stepOf(degrees, 45n);
+  const sin = k === null ? null : SINES[k]!;
+  const cos = k === null ? null : SINES[(k + 3) % 12]!;
+  const tan = m === null ? null : TANGENTS[m]!;
+  const inverse = (r: Rational | null) => (r && r.n !== 0n ? rational(r.d, r.n) : null);
+  return { sin, cos, tan, cot: inverse(tan), sec: inverse(cos), csc: inverse(sin) }[fn];
 }
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());
@@ -357,7 +405,7 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);
       const b = node.op === "*" ? evaluate(node.right, inAngle) : defined(node.right, inAngle);
       // Zero times any number is exactly zero (`0\pi`).
-      if (node.op === "*") return isZero(a) || isZero(b) ? ZERO : combine(a, b, mul, (x, y) => x * y);
+      if (node.op === "*") return isZero(a) || isZero(b) ? ZERO : combine(a, b, mul, (x, y) => (y === 0 ? 0 : held(x * y, x)));
       if (node.op === "/") return divide(a, b);
       // SymPy's Mod: the remainder takes the divisor's sign. Exact values only.
       if (b.kind === "exact" && b.r.n === 0n) return undefinedValue();

@@ -736,6 +736,12 @@
       "value": "undefined"
     },
     {
+      "id": "divide-exact-trig-zero",
+      "draft": "$\\frac{1}{2\\sin(30^{\\circ})-1}$",
+      "sympy": "1/(2*sin(pi/6)-1)",
+      "value": "undefined"
+    },
+    {
       "id": "sqrt-negative",
       "draft": "$\\sqrt{-4}$",
       "sympy": null,

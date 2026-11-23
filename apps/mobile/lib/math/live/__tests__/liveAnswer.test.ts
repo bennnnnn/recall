@@ -85,6 +85,7 @@ describe("liveAnswer", () => {
     ["a natural log of zero", "$\\ln(0)$"],
     ["a log to base 1", "$\\log_{1}(5)$"],
     ["a divisor that works out to zero", "$\\frac{3}{\\sin(180^{\\circ})}$"],
+    ["a divisor that is exactly zero at exact degrees", "$\\frac{1}{2\\sin(30^{\\circ})-1}$"],
     ["an undefined term in a sum", "$2+1\\div 0$"],
     ["an undefined factor", "$3\\times\\frac{1}{0}$"],
     ["an undefined numerator", "$\\frac{\\tan(90^{\\circ})}{2}$"],
@@ -125,6 +126,8 @@ describe("liveAnswer", () => {
     ["a log base that only rounds to 1", "$\\log_{1.0000000000000001}(5)$"],
     ["a negative percent in a sum", "$2\\pm -3\\%$"],
     ["a radian angle too big to keep ten digits", "$\\cos(10^{15}\\pi+1)$"],
+    ["a power that rounded to 0", "$10^{-400}$"],
+    ["a product that rounded to 0", "$10^{-400}\\times 10^{300}$"],
     ["an angle in π only near a pole", "$\\tan(\\frac{\\pi}{2}+10^{-15})$"],
     ["an angle in π that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
     ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
@@ -226,10 +229,15 @@ describe("liveAnswer", () => {
     expect(shown("$\\cos(10^{15}\\pi)$")).toBe("= 1");
     expect(shown("$\\sin(\\pi-\\pi)$")).toBe("= 0");
     expect(shown("$\\cos(2\\pi-2\\pi)$")).toBe("= 1");
+    // A floor of a multiple of π is no multiple: 3.1415926535 rad is no pole, and its floor is
+    // 31415926535, not the …536 a loose rounding gave.
+    expect(shown("$\\lfloor 10^{10}\\pi\\rfloor$")).toBe("= 31415926535");
+    expect(shown("$\\csc(\\lfloor 10^{10}\\pi\\rfloor\\div 10^{10})$")).toMatch(/^\\approx 111367\d{5}$/);
     // A step whole numbers fool is no multiple of π: floor π is 3.
     expect(shown("$\\sin(\\lfloor\\pi\\rfloor)$")).toBe("\\approx 0.1411200081");
     expect(shown("$\\tan(\\lfloor\\frac{\\pi}{2}\\rfloor)$")).toBe("\\approx 1.557407725");
-    expect(shown("$\\sin(400\\pi+\\frac{\\pi}{6})$")).toMatch(/^(=|\\approx) 0\.5$/);
+    // An exact multiple of π at 30° steps is an exact value: ½, in the fraction the draft wrote.
+    expect(shown("$\\sin(400\\pi+\\frac{\\pi}{6})$")).toBe("= \\frac{1}{2} = 0.5");
     // Exact degrees are taken within one turn first: 36000000000000030° is 30°.
     expect(shown("$\\sin(36000000000000030^{\\circ})$")).toBe("= 0.5");
   });
