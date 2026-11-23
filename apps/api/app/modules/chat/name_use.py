@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from app.models.orm import User
@@ -164,15 +165,25 @@ def _sparable_name(user: User | None, asked: str) -> str | None:
     return name
 
 
-def name_to_spare(user: User | None, asked: str, recent: Sequence[Any]) -> str | None:
-    """The name a streaming reply leaves out of its opening (``OpeningNameHold``): when one of
-    the last two replies used it, or the message is a few words and no greeting, as the
-    finalize pass decides."""
+@dataclass(frozen=True)
+class NameSpare:
+    """What the finalize pass will decide for this turn's name, known before the reply: the
+    name, whether the message is a few words (then a short reply spares it too) and whether
+    one of the last two replies used it (then every reply does)."""
+
+    name: str
+    short_message: bool
+    named_lately: bool
+
+
+def name_to_spare(user: User | None, asked: str, recent: Sequence[Any]) -> NameSpare | None:
+    """The name a streaming reply may leave out of its opening (``OpeningNameHold``), or
+    ``None`` when the finalize pass keeps it whatever the reply says."""
     name = _sparable_name(user, asked)
     if name is None:
         return None
-    few_words = len(asked.split()) <= _SHORT_MESSAGE_WORDS and not is_social_opener(asked)
-    return name if few_words or named_lately(name, recent) else None
+    spare = NameSpare(name, _a_short_message(asked), named_lately(name, recent))
+    return spare if spare.short_message or spare.named_lately else None
 
 
 def spare_name_pass(state: FinalizeState) -> str:
@@ -189,23 +200,25 @@ def spare_name_pass(state: FinalizeState) -> str:
 
 
 class OpeningNameHold:
-    """The streaming reply's opening, held until it is clear whether it addresses the user by
-    a name the turn spares ("Hi Bini!", "Bini, here's…"), then sent without it.
+    """The streaming reply's opening, held until it is clear what the finalize pass makes of
+    a name the turn may spare ("Hi Bini!", "Bini, here's…"), then sent as it will be saved.
 
     The finalize pass took the name out only once the reply had streamed, so the phone showed
-    "Hi Bini" and then swapped in "Hi" (the owner, 2026-11-23). The opening is held while its
-    first few words could still be a greeting and the name, and, once the name is in it, to
-    the end of that sentence; then everything passes straight through. A name further in is
-    still the finalize pass's.
+    "Hi Bini" and then swapped in "Hi" (the owner, 2026-11-23). Only finished words count (a
+    token may end inside the name: "Bi", "ni"). With no name in the first few words, the
+    opening passes unchanged. With the name in it, it is held to the end of its sentence, or,
+    after a message of a few words, until the reply is past a short one or ends: the finalize
+    pass's rule turns on the whole reply's length. Then everything passes straight through; a
+    name further in is still the finalize pass's.
     """
 
     _WORDS = 4
-    _MAX_CHARS = 200
+    _MAX_CHARS = 400
     _SENTENCE_END = re.compile(r"[.!?\n]")
 
-    def __init__(self, name: str) -> None:
-        self._name = name
-        self._word = re.compile(rf"(?:{_spellings(name)})\b")
+    def __init__(self, spare: NameSpare) -> None:
+        self._spare = spare
+        self._word = re.compile(rf"(?:{_spellings(spare.name)})\b")
         self._held = ""
         self._open = True
 
@@ -213,24 +226,34 @@ class OpeningNameHold:
         if not self._open:
             return token
         self._held += token
-        return self._release() if self._settled() else ""
+        if len(self._held) >= self._MAX_CHARS:
+            return self._release(short=False)
+        return self._release(short=False) if self._settled() else ""
 
     def flush(self) -> str:
-        return self._release() if self._open else ""
+        if not self._open:
+            return ""
+        short = self._spare.short_message and len(self._held.split()) <= _SHORT_REPLY_WORDS
+        return self._release(short=short)
 
     def _settled(self) -> bool:
         held = self._held
-        if len(held) >= self._MAX_CHARS:
-            return True
+        cut = max(held.rfind(" "), held.rfind("\n"), held.rfind("\t")) + 1
+        done, tail = held[:cut], held[cut:]
         named = self._word.search(held)
         if named is None:
-            # More words than an opening holds, the last one complete: no name leads it.
-            return len(held.split()) > self._WORDS
-        return self._SENTENCE_END.search(held, named.end()) is not None
+            last = tail.strip("*_,;:.!?\"'()").lower()
+            maybe_name = bool(last) and self._spare.name.lower().startswith(last)
+            return len(done.split()) > self._WORDS and not maybe_name
+        if self._spare.short_message:
+            return len(done.split()) > _SHORT_REPLY_WORDS
+        return self._SENTENCE_END.search(done, named.end()) is not None
 
-    def _release(self) -> str:
+    def _release(self, *, short: bool) -> str:
         self._open = False
-        return without_name(self._held, self._name)
+        if not short and not self._spare.named_lately:
+            return self._held
+        return without_name(self._held, self._spare.name, short=short)
 
 
 # "ok" answered "Got it, Sam 👍", "thanks" "Anytime, Sam!", "night" "Night, Sam 🌙": in 100
@@ -240,10 +263,11 @@ _SHORT_MESSAGE_WORDS = 4
 _SHORT_REPLY_WORDS = 30
 
 
+def _a_short_message(asked: str) -> bool:
+    """A few words, no greeting."""
+    return len(asked.split()) <= _SHORT_MESSAGE_WORDS and not is_social_opener(asked)
+
+
 def _a_short_exchange(asked: str, reply: str) -> bool:
     """A few words answered in a few words, the message no greeting."""
-    return (
-        len(asked.split()) <= _SHORT_MESSAGE_WORDS
-        and len(reply.split()) <= _SHORT_REPLY_WORDS
-        and not is_social_opener(asked)
-    )
+    return _a_short_message(asked) and len(reply.split()) <= _SHORT_REPLY_WORDS

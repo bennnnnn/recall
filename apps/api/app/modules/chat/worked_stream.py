@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 
 from app.modules.chat.draw_stream import DrawFilter
-from app.modules.chat.name_use import OpeningNameHold
+from app.modules.chat.name_use import NameSpare, OpeningNameHold
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.worked_asks import fitted, plain_notes, worked_givens
@@ -164,7 +164,11 @@ class ReplyFilter:
     """
 
     def __init__(
-        self, accum: StreamAccum, layout: WorkedLayout | None, *, spare_name: str | None = None
+        self,
+        accum: StreamAccum,
+        layout: WorkedLayout | None,
+        *,
+        spare_name: NameSpare | None = None,
     ) -> None:
         self._scaffold = ScaffoldFilter()
         self._draw = DrawFilter(accum)
