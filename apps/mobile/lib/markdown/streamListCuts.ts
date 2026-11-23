@@ -41,7 +41,7 @@ const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])([ \t]+)/;
 const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 /** The column after `text`'s leading spaces and tabs, starting at `column` (tabs stop every 4). */
-function columnAfterWhitespace(text: string, column = 0): number {
+export function columnAfterWhitespace(text: string, column = 0): number {
   for (const char of text) {
     if (char === " ") column += 1;
     else if (char === "\t") column += 4 - (column % 4);

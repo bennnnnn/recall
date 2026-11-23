@@ -241,7 +241,31 @@ export const UNDER_INDENTED_REPLY = [
   "",
 ].join("\n");
 
+/** A how-to past ten steps, each with its command in a fence indented under it. */
+export const CODE_STEPS_REPLY = [
+  "Set the project up step by step.",
+  "",
+  ...Array.from({ length: 14 }, (_, i) => {
+    // Indented to the item's content: three spaces under "9. ", four under "10. ".
+    const pad = " ".repeat(String(i + 1).length + 2);
+    return [
+      `${i + 1}. Run step ${i + 1}:`,
+      "",
+      `${pad}\`\`\`bash`,
+      `${pad}npm run step-${i + 1}`,
+      ...(i % 5 === 4 ? ["", `${pad}# a blank line inside the fence`] : []),
+      `${pad}\`\`\``,
+      "",
+      `${pad}It prints \`done ${i + 1}\` when the step is finished.`,
+      "",
+    ];
+  }).flat(),
+  "Everything is set up.",
+  "",
+].join("\n");
+
 export const STREAMING_REPLIES: Record<string, string> = {
+  codeSteps: CODE_STEPS_REPLY,
   maths: MATHS_REPLY,
   tips: TIPS_REPLY,
   steps: STEPS_REPLY,

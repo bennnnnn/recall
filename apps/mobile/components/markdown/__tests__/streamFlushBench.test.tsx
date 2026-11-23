@@ -61,11 +61,11 @@ bench("streaming flush benchmark (20k chars, 30-char flushes)", () => {
 
 /** A long checklist with nested items: each item asks about its whole list (MX-6). */
 const CHECKLIST = Array.from(
-  { length: 150 },
+  { length: 600 },
   (_, i) => `- [${i % 3 ? "x" : " "}] Task ${i + 1} with a short note\n  - [x] its first step\n  - [ ] its second step`,
 ).join("\n");
 
-bench("drawing a 150-item nested checklist", () => {
+bench("drawing a 600-item nested checklist", () => {
   it("renders it settled five times", async () => {
     await render(<MarkdownContent content={CHECKLIST} />);
     cleanup();

@@ -4,6 +4,7 @@
  * open list, and what stops every cut.
  */
 import {
+  columnAfterWhitespace,
   CONTINUATION_LINE_RE,
   listItemCut,
   type OpenList,
@@ -37,6 +38,11 @@ function isGlueyLine(line: string): boolean {
   );
 }
 
+/** `line` is indented to the open item's content column, so markdown reads it inside the item. */
+function insideItem(list: OpenList | null, line: string): boolean {
+  return list != null && CONTINUATION_LINE_RE.test(line) && columnAfterWhitespace(line) >= list.content;
+}
+
 function countDoubleDollar(line: string): number {
   let count = 0;
   let idx = 0;
@@ -55,6 +61,8 @@ type ScanState = {
   prevLineSafe: boolean;
   inBlankRun: boolean;
   list: OpenList | null;
+  /** The open fence is indented inside the open list's item, so the list goes on after it. */
+  fenceInItem: boolean;
   /**
    * A closed rich block (fenced code, ```math, or $$ display math) is cut into its
    * own once-mounted chunk at the next safe boundary, whatever its size, rather than
@@ -75,15 +83,20 @@ function trackBlockLine(state: ScanState, line: string): boolean {
   const before = state.openFence;
   state.openFence = fenceAfterLine(before, line);
   if (before != null && state.openFence != null) {
+    // A line of an item's fence left of the item's content ends the item in markdown.
+    if (state.fenceInItem && line.trim() && !insideItem(state.list, line)) state.list!.irregular = true;
     state.inBlankRun = false;
     return true;
   }
   if (before != null || state.openFence != null) {
-    // The fence's opener or its closer.
+    // The fence's opener or its closer. One indented inside the open list's item
+    // (a numbered step's code) is part of the item: the list goes on after it.
+    const inItem = state.list != null && insideItem(state.list, line) && (before == null || state.fenceInItem);
+    state.fenceInItem = state.openFence != null && inItem;
     state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
-    state.list = null;
+    if (!inItem) state.list = null;
     return true;
   }
 
@@ -169,6 +182,7 @@ export function scanClosedBlocks(
     prevLineSafe: false,
     inBlankRun: false,
     list: inherited,
+    fenceInItem: false,
     hasRichBlockSinceChunkStart: false,
   };
   let chunkStart = from;

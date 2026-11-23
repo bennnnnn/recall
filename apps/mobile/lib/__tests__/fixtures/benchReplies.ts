@@ -35,8 +35,9 @@ const PROSE = [
   "If a deduction seems unfair, the scheme runs a free dispute service. Send them the inventory, your photos and the emails, and they decide from the evidence alone.",
 ];
 
+/** A step with its command in a fence indented under its bullet. */
 const STEP = (n: number) =>
-  `${n}. Install the package and check the version it reports:\n\n   ${FENCE}bash\n   npm install left-pad@${n}.0.0\n   npx left-pad --version\n   ${FENCE}\n\n   The command prints the version it installed. If it prints an older one, clear the cache and run it again.`;
+  `- Install part ${n} and check the version it reports:\n\n  ${FENCE}bash\n  npm install left-pad@${n}.0.0\n  npx left-pad --version\n  ${FENCE}\n\n  The command prints the version it installed. If it prints an older one, clear the cache and run it again.`;
 
 export const BENCH_REPLIES = {
   /** MX-1: one price dollar in the first line holds every later paragraph unstable. */
@@ -46,10 +47,10 @@ export const BENCH_REPLIES = {
     "",
     Object.values(physics.replies).map((entry) => entry.reply),
   ),
-  /** MX-2: a fence indented under a numbered step (not at column 0). */
+  /** MX-2: a fence indented under a list item (not at column 0). */
   steps: fill(
     "Here is how to set it up.\n\n",
-    Array.from({ length: 12 }, (_, i) => STEP(i + 1)),
+    Array.from({ length: 99 }, (_, i) => STEP(i + 1)),
   ),
   /** MX-3: a link reference definition near the top. */
   references: fill("See the guide [1] before you start.\n\n[1]: https://example.com/guide\n\n", PROSE),

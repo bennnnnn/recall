@@ -4,6 +4,7 @@ import {
   emptyStreamBlocksState,
   MIN_SETTLED_CHUNK_CHARS,
 } from "@/lib/markdown/streamBlocks";
+import { CODE_STEPS_REPLY } from "@/lib/__tests__/fixtures/streamingReplies";
 
 const PARA = (label: string) =>
   `${label} ${"lorem ipsum dolor sit amet ".repeat(16).trim()}`;
@@ -282,6 +283,17 @@ describe("advanceStreamBlocks between list items", () => {
     expect(grown.chunks.join("")).toBe(grown.settledText);
     // A reply whose definition is still in its last, open line settles in one piece too.
     expect(settleStreamBlocks(before, `${body}[1]: https://example.com/article`).chunks).toEqual([]);
+  });
+
+  it("cuts a long how-to between its steps, each with an indented fence (audit MX-2)", () => {
+    const state = advanceStreamBlocks(null, CODE_STEPS_REPLY, CODE_STEPS_REPLY.length);
+    expect(state.continued.filter(Boolean).length).toBeGreaterThan(1);
+    expect(state.chunks.join("")).toBe(state.settledText);
+    // A fence line left of the item's content ends the item: no cut in that list after it.
+    const outdented = CODE_STEPS_REPLY.replace("   npm run step-3\n", "npm run step-3\n");
+    const broken = advanceStreamBlocks(null, outdented, outdented.length);
+    expect(state.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(true);
+    expect(broken.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(false);
   });
 
   it("ties only the pieces from a reference's first use to its definition (audit MX-3)", () => {
