@@ -141,22 +141,9 @@ async def test_invalidate_memory_block_failure_logs_a_warning(caplog):
     assert str(user_id) in warnings[0].getMessage()
 
 
-async def test_tagged_blocks_never_land_where_the_previous_release_reads(fake_redis):
-    """During a rolling deploy the previous release reads ``memblock:{user}`` raw: a
-    tagged entry there would put its generation line into that release's prompt."""
+async def test_invalidation_drops_every_scoped_block(fake_redis):
     user_id = uuid4()
-    key = cache.memory_block_key(user_id)
-    await cache.write_block_cache(fake_redis, key, "7", "Likes hiking", 60)
-
-    assert not key.startswith(f"memblock:{user_id}")
-    assert await fake_redis.get(f"memblock:{user_id}") is None
-
-
-async def test_invalidation_drops_the_previous_releases_blocks_too(fake_redis):
-    user_id = uuid4()
-    legacy = f"memblock:{user_id}"
     for suffix in ("", ":x", ":w", ":wx"):
-        await fake_redis.set(f"{legacy}{suffix}", "Likes hiking")
         await fake_redis.set(f"{cache.memory_block_key(user_id)}{suffix}", "0\nLikes hiking")
 
     with patch("app.modules.memory.cache.get_redis_client", return_value=fake_redis):
