@@ -113,6 +113,7 @@ describe("liveAnswer", () => {
     ["an undefined to the power 0, which SymPy calls 1", "$(1\\div 0)^{0}$"],
     ["a cosine that is only small, not a pole", "$\\tan(89.99999999999)$"],
     ["a sine that is only small, not a pole", "$\\csc(0.00000000001)$"],
+    ["a sine near 0, not a pole", "$\\csc(0.00000000000001)$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -156,7 +157,8 @@ describe("liveAnswer", () => {
   });
 
   it("speaks a ± draft's values, and draws them at the draft's size", () => {
-    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "1, 3", exact: true, signed: true });
+    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "1, 3", exact: true, signed: true, short: "= 1,\\quad 3" });
+    expect(answer("$\\frac{1}{1\\pm 1}$")?.short).toBe("= \\text{undefined},\\quad 0.5");
     expect(answer("$1\\pm 1\\pm 1$")).toMatchObject({ signed: true });
     expect(answer("$2+1$")).toMatchObject({ signed: false });
     expect(answer("$1\\pm\\sqrt{2}$")).toMatchObject({ exact: false });

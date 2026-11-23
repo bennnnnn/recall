@@ -60,7 +60,7 @@ const atZero = (value: LiveValue): never => (isZero(value) ? undefinedValue() : 
 const MAX_COUNT = 170;
 /** A trig value this close to 0 is shown as 0 (sin 180° is 1.2e-16 in floating point). */
 const TRIG_ZERO = 1e-12;
-/** Within this many rounding steps of the angle's size, a sine or cosine is exactly 0. */
+/** Within this many rounding steps of the angle, a sine or cosine is exactly 0. */
 const TRIG_EXACT_STEPS = 4;
 
 const exact = (r: Rational | null): LiveValue => ({ kind: "exact", r: r ?? fail() });
@@ -210,8 +210,8 @@ function angle(arg: LiveNode): number {
  */
 function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number): LiveValue {
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
-  const exactZero = (x: number) =>
-    Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.max(1, Math.abs(radians));
+  // Relative to the angle: near 0, sin r is r to full precision, so only r = 0 is a zero.
+  const exactZero = (x: number) => Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
   const sine = Math.sin(radians);
   const cosine = Math.cos(radians);
   const s = zero(sine);

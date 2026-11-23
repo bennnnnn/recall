@@ -17,6 +17,8 @@ export type LiveAnswer = {
   latex: string;
   /** A ± draft's branches or values: drawn at the draft's size, as they echo the draft. */
   signed: boolean;
+  /** A ± draft's values alone (`= 1,\quad 3`), for branches too tall for the answer's row. */
+  short?: string;
   /** For a screen reader: `5`, `5/6, about 0.8333333333`. */
   spoken: string;
   /** False when the value shown is rounded. */
@@ -136,6 +138,10 @@ function formatResult(result: LiveResult, options: FormatOptions, undefinedWord:
 
 const SIDE_BY_SIDE = ",\\quad ";
 
+/** `= -1,\quad 1,\quad 3`: the first value keeps its `=`, every `≈` stays. */
+const listed = (shown: Shown[]): string =>
+  shown.map((s, i) => (i === 0 ? s.latex : s.latex.replace(/^= /, ""))).join(SIDE_BY_SIDE);
+
 export function formatLiveResult(result: LiveResult, options: FormatOptions, undefinedWord: string): LiveAnswer {
   const shown = formatResult(result, options, undefinedWord);
   return { ...shown, signed: false };
@@ -148,6 +154,7 @@ export function formatBranches(branches: LiveBranch[], options: FormatOptions, u
   return {
     latex: branches.map((branch, i) => `${branch.latex} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
     signed: true,
+    short: listed(shown),
     spoken: shown.map((s) => s.spoken).join(", "),
     exact: shown.every((s) => s.exact),
   };
@@ -156,9 +163,8 @@ export function formatBranches(branches: LiveBranch[], options: FormatOptions, u
 /** Two or three ±: the distinct values, `= -1,\quad 1,\quad 3` (`≈` kept where a value is rounded). */
 export function formatValues(values: LiveValue[], options: FormatOptions): LiveAnswer {
   const shown = values.map((value) => formatValue(value, { ...options, typedFraction: false, compact: true }));
-  const latex = shown.map((s, i) => (i === 0 ? s.latex : s.latex.replace(/^= /, ""))).join(SIDE_BY_SIDE);
   return {
-    latex,
+    latex: listed(shown),
     signed: true,
     spoken: shown.map((s) => s.spoken).join(", "),
     exact: shown.every((s) => s.exact),

@@ -8,8 +8,10 @@ import { MathText } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { ACCENTS } from "@/lib/accent";
+import { layoutMath } from "@/lib/math/layout";
 import { liveAnswer } from "@/lib/math/live/answer";
-import { MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
+import { MATH_TALL_LINE_HEIGHT, parseSimpleLatex } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -29,6 +31,16 @@ export function liveAnswerShows(input: string): boolean {
 const ANSWER_SIZE = 20;
 /** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
 const BRANCH_SIZE = 16;
+
+const heightOf = (latex: string, size: number): number =>
+  layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), size).height;
+
+/**
+ * The tallest the row holds: a fraction answer (`= \frac{5}{6}`) at the answer's size, as
+ * `MathText` lays it out. Text size scales both alike, so the comparison leaves it out.
+ */
+const ROW_LIMIT = heightOf("= \\frac{5}{6}", ANSWER_SIZE);
+const fitsRow = (latex: string, size: number): boolean => heightOf(latex, size) <= ROW_LIMIT;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
@@ -57,6 +69,11 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
   const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
   const color = ACCENTS.green[theme.scheme].primary;
   const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
+  // Branches that echo a tall draft (a fraction in a fraction) show their values alone.
+  const latex = useMemo(
+    () => (answer?.short && !fitsRow(answer.latex, size) ? answer.short : answer?.latex),
+    [answer, size],
+  );
   // Wider than the row, its scroll bar shows once, so a cut edge reads as more to see.
   const flash = useFlashWhenClipped();
   return (
@@ -76,7 +93,7 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >
-            <MathText latex={answer.latex} textColor={color} fontSize={size} />
+            <MathText latex={latex ?? answer.latex} textColor={color} fontSize={size} />
           </ScrollView>
         </AccessibleElementChildren>
       ) : null}
