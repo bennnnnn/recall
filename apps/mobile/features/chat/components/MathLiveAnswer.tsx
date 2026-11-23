@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
@@ -26,6 +26,8 @@ export function liveAnswerShows(input: string): boolean {
 
 /** Larger than the draft's 16, as a calculator's result is. */
 const ANSWER_SIZE = 20;
+/** A ± draft's branches, one under the other in the same row: the draft's own size. */
+const BRANCH_SIZE = 16;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
@@ -42,14 +44,18 @@ export const mathCardStyles = StyleSheet.create({
 
 /**
  * At the bottom of the composer while the math keyboard is open, in the row's middle: the
- * draft's value as each key lands (`= 5` for `3+1×2`), worked on the phone
- * (`lib/math/live/answer.ts`), in the green accent whatever accent the app wears. Send still
- * asks the server.
+ * draft's value as each key lands (`= 5` for `3+1×2`, `= undefined` for `1÷0`, both branches
+ * of `2±1`), worked on the phone (`lib/math/live/answer.ts`), in the green accent whatever
+ * accent the app wears. An answer wider than the row scrolls sideways. Send still asks the
+ * server.
  */
 export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const answer = useMemo(() => liveAnswer(input), [input]);
+  const undefinedWord = t("chat.math_live_undefined");
+  const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
+  const color = ACCENTS.green[theme.scheme].primary;
+  const size = answer && answer.lines.length > 1 ? BRANCH_SIZE : ANSWER_SIZE;
   return (
     <View
       style={styles.line}
@@ -59,7 +65,18 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
     >
       {answer ? (
         <AccessibleElementChildren>
-          <MathText latex={answer.latex} textColor={ACCENTS.green[theme.scheme].primary} fontSize={ANSWER_SIZE} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.lines}
+          >
+            {answer.lines.map((line, i) => (
+              <View key={line} testID={`math-live-answer-line-${i}`}>
+                <MathText latex={line} textColor={color} fontSize={size} />
+              </View>
+            ))}
+          </ScrollView>
         </AccessibleElementChildren>
       ) : null}
     </View>
@@ -76,4 +93,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.sm,
     overflow: "hidden",
   },
+  // Centred while the answer fits the row; wider, it scrolls from its start.
+  lines: { flexGrow: 1, flexDirection: "column", alignItems: "center", justifyContent: "center" },
 });

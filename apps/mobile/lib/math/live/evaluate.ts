@@ -3,8 +3,11 @@
  *
  * A value stays an exact fraction while every step allows it (+ − × ÷, whole powers, perfect
  * roots, %, !, |x|, mod, logs that come out whole); π, e, trig, other logs and other roots
- * give a decimal. Anything the server would not call one real number gives no value: a zero
- * divisor, a root of a negative, a log of zero, tan 90°, `50 + 10%` (55 or 50.1).
+ * give a decimal. A value with no number at all is undefined, as the server says it is: a zero
+ * divisor (`1 ÷ 0`, `0 ÷ 0`, `5 mod 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`,
+ * `atanh 1`), a log of zero, a log to base 1. `0^0` is 1, as SymPy and the server read it.
+ * Anything else the server would not call one real number gives no value: a root or a log of
+ * a negative (complex numbers are the server's), `50 + 10%` (55 or 50.1), a number too big.
  *
  * Angles follow the server's reading: `30^{\circ}` is degrees, an angle with π (or `rad`) is
  * radians, and a bare number is degrees (`\sin(30)` is ½, the school shorthand the server
@@ -29,9 +32,18 @@ import {
 } from "@/lib/math/live/rational";
 
 export type LiveValue = { kind: "exact"; r: Rational } | { kind: "approx"; x: number };
+/** A value, or `undefined`: a calculation with no number at all (`1 ÷ 0`). */
+export type LiveResult = LiveValue | { kind: "undefined" };
 
 /** No value: the calculation is not one real number. */
 const fail = (): never => refuse();
+
+class Undefined extends Error {}
+
+/** Undefined: no number at all, real or not (`1 ÷ 0`, `tan 90°`, `log 0`). */
+const undefinedValue = (): never => {
+  throw new Undefined();
+};
 
 /** The largest n in n!, nCk and nPk. */
 const MAX_COUNT = 170;
@@ -62,7 +74,7 @@ function combine(
 }
 
 function divide(a: LiveValue, b: LiveValue): LiveValue {
-  if (num(b) === 0 || (b.kind === "exact" && b.r.n === 0n)) fail();
+  if (num(b) === 0 || (b.kind === "exact" && b.r.n === 0n)) undefinedValue();
   return combine(a, b, div, (x, y) => x / y);
 }
 
@@ -77,7 +89,7 @@ function power(base: LiveValue, exponent: LiveValue): LiveValue {
   if (base.kind === "exact" && exponent.kind === "exact") {
     const { r: b } = base;
     const { r: e } = exponent;
-    if (b.n === 0n && e.n < 0n) fail();
+    if (b.n === 0n && e.n < 0n) undefinedValue();
     if (isInteger(e)) {
       const r = bitLength(e.n) <= 32 ? powInteger(b, e.n) : null;
       if (r) return exact(r);
@@ -94,7 +106,7 @@ function power(base: LiveValue, exponent: LiveValue): LiveValue {
   const x = num(base);
   const y = num(exponent);
   if (x < 0 && !Number.isInteger(y)) fail();
-  if (x === 0 && y < 0) fail();
+  if (x === 0 && y < 0) undefinedValue();
   return approx(x ** y);
 }
 
@@ -143,7 +155,8 @@ function exactLog(x: Rational, b: Rational): Rational | null {
 function logarithm(arg: LiveValue, base: LiveValue | "e"): LiveValue {
   const x = num(arg);
   const b = base === "e" ? Math.E : num(base);
-  if (x <= 0 || b <= 0 || b === 1) fail();
+  if (x < 0 || b <= 0) fail();
+  if (x === 0 || b === 1) undefinedValue();
   if (base !== "e" && arg.kind === "exact" && base.kind === "exact") {
     const r = exactLog(arg.r, base.r);
     if (r) return exact(r);
@@ -179,13 +192,15 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   const s = zero(Math.sin(radians));
   const c = zero(Math.cos(radians));
-  if ((fn === "tan" || fn === "sec") && c === 0) fail();
-  if ((fn === "cot" || fn === "csc") && s === 0) fail();
+  if ((fn === "tan" || fn === "sec") && c === 0) undefinedValue();
+  if ((fn === "cot" || fn === "csc") && s === 0) undefinedValue();
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];
   return approx(zero(value));
 }
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());
+/** A pole: `coth 0` or `atanh 1` has no value. */
+const offPole = (x: number, ok: boolean) => (ok ? x : undefinedValue());
 
 function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue {
   if (fn === "sin" || fn === "cos" || fn === "tan" || fn === "cot" || fn === "sec" || fn === "csc") {
@@ -207,12 +222,12 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
     case "sinh": return approx(Math.sinh(x));
     case "cosh": return approx(Math.cosh(x));
     case "tanh": return approx(Math.tanh(x));
-    case "coth": return approx(1 / Math.tanh(inRange(x, x !== 0)));
+    case "coth": return approx(1 / Math.tanh(offPole(x, x !== 0)));
     case "sech": return approx(1 / Math.cosh(x));
-    case "csch": return approx(1 / Math.sinh(inRange(x, x !== 0)));
+    case "csch": return approx(1 / Math.sinh(offPole(x, x !== 0)));
     case "asinh": return approx(Math.asinh(x));
     case "acosh": return approx(Math.acosh(inRange(x, x >= 1)));
-    case "atanh": return approx(Math.atanh(inRange(x, Math.abs(x) < 1)));
+    case "atanh": return approx(Math.atanh(offPole(inRange(x, Math.abs(x) <= 1), Math.abs(x) < 1)));
   }
   return fail();
 }
@@ -239,7 +254,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       if (node.op === "*") return combine(a, b, mul, (x, y) => x * y);
       if (node.op === "/") return divide(a, b);
       // SymPy's Mod: the remainder takes the divisor's sign. Exact values only.
-      if (a.kind !== "exact" || b.kind !== "exact" || b.r.n === 0n) return fail();
+      if (b.kind === "exact" && b.r.n === 0n) return undefinedValue();
+      if (a.kind !== "exact" || b.kind !== "exact") return fail();
       const q = div(a.r, b.r) ?? fail();
       return exact(sub(a.r, mul(b.r, rational(floor(q)) ?? fail()) ?? fail()));
     }
@@ -271,6 +287,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       return exact(rational(node.kind === "floor" || isInteger(v.r) ? down : down + 1n));
     }
     case "call": return call(node.fn, node.arg, node.base);
+    // `signs.ts` picks each ± before a calculation is worked out.
+    case "pm": return fail();
     case "binom":
     case "perm": {
       const n = whole(evaluate(node.n), 0, MAX_COUNT);
@@ -279,7 +297,14 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
   }
 }
 
-/** The calculation's value, or `null` when it is not one real number. */
-export function evaluateCalculation(node: LiveNode): LiveValue | null {
-  return guard(() => evaluate(node));
+const UNDEFINED: LiveResult = { kind: "undefined" };
+
+/** The calculation's value, `undefined` when it has none, `null` when it is not one real number. */
+export function evaluateCalculation(node: LiveNode): LiveResult | null {
+  try {
+    return guard(() => evaluate(node));
+  } catch (error) {
+    if (error instanceof Undefined) return UNDEFINED;
+    throw error;
+  }
 }

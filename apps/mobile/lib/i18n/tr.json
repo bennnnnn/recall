@@ -151,6 +151,7 @@
   "chat.math_keyboard_paste": "Yapıştır",
   "chat.math_clear_all": "Tümünü temizle",
   "chat.math_live_answer_a11y": "Sonuç: {{value}}",
+  "chat.math_live_undefined": "tanımsız",
   "chat.math_keyboard_show": "Klavye",
   "chat.math_paste_scan_cta": "Matematik tara",
   "chat.math_paste_scan_hint": "Yapıştırdığınız şey bir görsel gibi görünüyor. Bunun yerine matematik tarayıcısını kullanmak ister misiniz?",
