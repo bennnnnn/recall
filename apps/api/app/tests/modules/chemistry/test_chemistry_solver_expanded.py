@@ -169,12 +169,12 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
         "Chemistry: 2.0 L of H2 at 1 atm and 273.15 K reacts with excess O2 in "
         "H2 + O2 -> H2O. How many liters of H2O gas form?",
         "gas_stoichiometry",
-        "V(H2O) = 2 L",
+        "V(H2O) = 2.0 L",
     ),
     (
         "How many grams of H2O from 22.4 L of H2 at 1 atm and 0 C in 2H2 + O2 -> 2H2O",
         "gas_stoichiometry",
-        "m(H2O) = 2 × 10^1 g",
+        "m(H2O) = 18.0 g",
     ),
     (
         "Find the limiting reagent from masses 10 g H2 and 10 g O2 in H2 + O2 -> H2O",

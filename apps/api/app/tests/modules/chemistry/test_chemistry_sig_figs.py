@@ -454,6 +454,11 @@ def test_a_negative_power_is_no_rounded_number() -> None:
             "CO2 = -393.5, H2O = -285.8 kJ/mol",
             "ΔH° = -890.3 kJ/mol",
         ),
+        # Standard pressure is defined: "1 atm and 0 °C" limits nothing (review).
+        (
+            "How many grams of H2O from 22.4 L of H2 at 1 atm and 0 C in 2H2 + O2 -> 2H2O",
+            "m(H2O) = 18.0 g",
+        ),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
@@ -527,6 +532,19 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
         ),
         # A typed pH of 0.00 has two decimals: [H+] is 1.0 mol/L, never a bare 1.
         ("What is [H+] if the pH is 0.00?", "= 1.0\\,\\mathrm{mol/L}$"),
+        # The ICE polynomial is worked from the givens, never rounded to the answer (review).
+        (
+            "Solve the ICE equilibrium for H2 + I2 -> 2HI when K=50 and [H2]=1 and [I2]=1",
+            "−46x² + 100x − 50 = 0",
+        ),
+        # A one-"=" row is read whole: its difference of carried values keeps Ka rounded.
+        ("A 0.010 M weak acid has pH 2.10, find Ka", "K_{a} = 0.031$"),
+        # A row restating a kept-rounded value keeps it too: c = −0.0091, as the row above.
+        (
+            "25.0 mL of 0.100 M acetic acid (Ka = 1.8e-5) is titrated with 30.0 mL of "
+            "0.100 M NaOH. What is the pH?",
+            "where c = −0.0091 mol/L",
+        ),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),
     ],

@@ -10,7 +10,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.scene import EquilibriumRow, EquilibriumScene
-from app.modules.chemistry.solvers.display import inp, num, verified
+from app.modules.chemistry.solvers.display import const, inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import counts_in_mass_action
 from app.services.solving import SolveServiceError
@@ -167,7 +167,9 @@ def _ice_substituted(
 
 
 def _polynomial_text(coefficients: list[Any]) -> str:
-    """``4x^2 + 4x − 4`` from sympy's highest-degree-first coefficients."""
+    """``4x^2 + 4x − 4`` from sympy's highest-degree-first coefficients, written plainly: they
+    are worked from the givens, never rounded to the answer's figures (with K = 50 that made
+    ``−5 × 10^1x^2 + 1 × 10^2x − 5 × 10^1``, whose root is no 0.8)."""
     degree = len(coefficients) - 1
     text = ""
     for offset, coefficient in enumerate(coefficients):
@@ -175,7 +177,7 @@ def _polynomial_text(coefficients: list[Any]) -> str:
         if abs(value) < 1e-15:
             continue
         power = degree - offset
-        magnitude = num(abs(value))
+        magnitude = const(abs(value))
         term = magnitude if power == 0 else ("x" if power == 1 else f"x^{power}")
         if power and abs(abs(value) - 1) < 1e-12:
             body = term

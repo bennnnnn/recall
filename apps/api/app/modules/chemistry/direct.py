@@ -149,13 +149,21 @@ def _worked_rows(
         closing = index > 0 and " = " in row and not _NUMBER_TEXT.search(row.split(" = ")[0])
         closing = closing and not inputs[index] - ({ends[index]} - {None})
         reached = {_last_number(earlier) for earlier in rows[:index]} - {None}
-        own = bool(inputs[index] & rounded) or _subtracts_carried(row, reached)
+        # A row with no rounded end is read whole: "Ka = (0.007943)^2 / (0.010 − 0.007943)".
+        difference = row.rpartition(" = ")[0] if ends[index] is not None else row
+        own = bool(inputs[index] & rounded) or _subtracts_carried(difference, reached)
         rounded_with.append(rounded_with[index - 1] if closing and not own else own)
     shown: list[str] = []
+    kept: set[str] = set()
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
         later = end is not None and _used_later(row, end, typed, heads[index + 1 :])
-        if end is None or later or rounded_with[index]:
+        # A row restating a value an earlier row kept rounded ("where c = -0.00909 mol/L")
+        # keeps it too: one value, one precision.
+        restated = end is not None and end.lstrip("-−") in kept
+        if end is None or later or rounded_with[index] or restated:
             shown.append(row)
+            if end is not None:
+                kept.add(end.lstrip("-−"))
         else:
             shown.append(_unrounded_value(row, unrounded))
     return shown
@@ -169,16 +177,14 @@ _DIFFERENCE = re.compile(
 )
 
 
-def _subtracts_carried(row: str, reached: set[str | None]) -> bool:
-    """Whether the row takes a difference of values earlier rows reached. They are carried to
-    four figures, so a difference of near ones loses what the unrounded result keeps:
+def _subtracts_carried(text: str, reached: set[str | None]) -> bool:
+    """Whether ``text`` (a row's working) takes a difference of values earlier rows reached.
+    They are carried to four figures, so a difference of near ones loses what the unrounded
+    result keeps:
     "(1.000 mol − 0.9921 mol) × 31.998 g/mol" makes 0.2528 g, not the 0.2560 g worked in
     full. Such a row ends on its rounded value, as the card does. A difference of typed
     values ("1/350 − 1/300") is exact and works as written."""
-    return any(
-        {found["left"], found["right"]} & reached
-        for found in _DIFFERENCE.finditer(row.rpartition(" = ")[0])
-    )
+    return any({found["left"], found["right"]} & reached for found in _DIFFERENCE.finditer(text))
 
 
 def _last_number(row: str) -> str | None:

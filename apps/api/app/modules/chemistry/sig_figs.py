@@ -60,6 +60,13 @@ _EXACT_IN_OP = {
     # An index of hydrogen deficiency counts atoms: C21H23N gives 11, never 1 x 10^1.
     "hydrogen_deficiency": re.compile(r"carbon|hydrogen|nitrogen|halogen"),
 }
+# Standard temperature and pressure are defined (0 °C, 1 atm): typed as "1 atm and 0 °C" the
+# pressure is no one-figure measurement, so 22.4 L at STP makes 18.0 g of water, not 2 x 10^1.
+PRESSURE_KEYS = frozenset({"pressure", "p", "p1", "p2"})
+_TEMPERATURE_KEYS = ("temperature", "t", "t1", "t2")
+_STP = re.compile(r"\bSTP\b", re.IGNORECASE)
+# One atmosphere in the units a pressure is given in: atm, kPa, Pa, mmHg (torr).
+_ONE_ATM = (1.0, 101.325, 101325.0, 760.0)
 # Given as logarithms: their precision is their decimal places.
 LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb", "pka1", "pka2"})
 # A Celsius reading, whose precision is that of the kelvin value it becomes.
@@ -114,6 +121,24 @@ def as_written(literal: str) -> str:
     """A typed literal for display: ``1.80e-5`` is shown as ``1.80 × 10^-5``."""
     mantissa, _, exponent = literal.partition("e") if "e" in literal else literal.partition("E")
     return f"{mantissa} × 10^{int(exponent)}" if exponent else literal
+
+
+def _at_stp(text: str, intent: ChemistryIntent) -> bool:
+    """Whether the question is at standard temperature and pressure: it says STP, or its
+    temperature is 0 °C (273.15 K)."""
+    if _STP.search(text):
+        return True
+    params = intent.params
+    if params.get("temperature_c") == 0:
+        return True
+    return any(
+        key in params and math.isclose(params[key], CELSIUS_OFFSET_K, abs_tol=1e-9)
+        for key in _TEMPERATURE_KEYS
+    )
+
+
+def _standard_pressure(value: float) -> bool:
+    return any(math.isclose(value, atm, rel_tol=1e-9) for atm in _ONE_ATM)
 
 
 def _exact(op: str, key: str) -> bool:
@@ -204,12 +229,16 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         *(("sample", value) for value in intent.samples),
     ]
     counts = _count_spellings(text, intent, measured, forms)
+    standard = _at_stp(text, intent)
     for key, value in measured:
         reading = _reading(value, forms)
         if reading is None:
             continue
         typed_forms, how = reading
-        if not _exact(intent.chemistry_op, key):
+        exact = _exact(intent.chemistry_op, key) or (
+            standard and key in PRESSURE_KEYS and _standard_pressure(value)
+        )
+        if not exact:
             # A count of the same value is its own literal: "i = 1" beside "1.00 mol", or
             # "n = 2" electrons beside "2.0 A" or "2.00 h", never cuts the measured value to
             # one figure.
@@ -223,7 +252,7 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             written[repr(value)] = typed_forms_echo[0]
         elif how in {"scaled", "celsius"} and len(typed_forms) == 1:
             converted[repr(value)] = typed_forms[0]
-        if _exact(intent.chemistry_op, key):
+        if exact:
             continue
         if value == 0 and not (how == "celsius" or key in CELSIUS_KEYS or key in LOG_KEYS):
             # A zero has neither a figure nor a decimal to give: a measured ΔS = 0 J/(mol·K),
