@@ -163,13 +163,13 @@ export function inHeading(parent: unknown): boolean {
   return HEADING_TYPES.some((type) => parentHasType(parent, type));
 }
 
+/** Each node's `astSource`, made once: a nested item's is part of every item around it. */
+const SOURCES = new WeakMap<AstNode, string>();
+
 /**
  * The AST fields the render rules read from a node and its children, as one
  * string: two nodes with the same source, in the same place, draw the same.
  */
-/** Each node's `astSource`, made once: a nested item's is part of every item around it. */
-const SOURCES = new WeakMap<AstNode, string>();
-
 export function astSource(node: AstNode): string {
   const known = SOURCES.get(node);
   if (known !== undefined) return known;

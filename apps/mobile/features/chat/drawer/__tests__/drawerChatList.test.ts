@@ -253,6 +253,18 @@ describe("editing many chats at once (audit MX-5)", () => {
     expect(patchChatListGroupsMany(list, patches)).toEqual(oneByOne);
   });
 
+  it("edits a chat named twice as editing it twice does", () => {
+    const id = rows[3]!.id;
+    const twice = [[id, { archived: true }], [id, { archived: true }]] as const;
+    const oneByOne = twice.reduce((groups, [chatId, patch]) => patchChatListGroups(groups, chatId, patch), list);
+    expect(patchChatListGroupsMany(list, twice)).toEqual(oneByOne);
+    expect(patchChatListGroupsMany(list, twice).archived.filter((row) => row.id === id)).toHaveLength(1);
+    const removed = removeChatsFromGroups(list, new Set([id]));
+    expect(insertNewChatsByRecency(removed, [rows[3]!, { ...rows[3]!, title: "Second" }])).toEqual(
+      insertChatIntoGroups(removed, rows[3]!),
+    );
+  });
+
   it("removes and inserts as doing it one by one does", () => {
     const ids = rows.filter((_, i) => i % 4 === 1).map((r) => r.id);
     const removedOneByOne = ids.reduce((groups, id) => removeChatFromGroups(groups, id), list);

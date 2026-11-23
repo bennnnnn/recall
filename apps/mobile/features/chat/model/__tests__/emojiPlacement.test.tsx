@@ -38,6 +38,12 @@ describe("placeLiveEmoji", () => {
     }
   });
 
+  it("places a draft again when the emoji setting changes mid-stream", () => {
+    const draft = "## 🎯 Goal\nmore 😀";
+    expect(placeLiveEmoji(draft, "some", "hi")).toBe(placeEmoji(draft, "some", false));
+    expect(placeLiveEmoji(draft, "off", "hi")).toBe(placeEmoji(draft, "off", false));
+  });
+
   it("leaves an empty draft alone", () => {
     expect(placeLiveEmoji(undefined, "some", null)).toBeUndefined();
     expect(placeLiveEmoji("", "some", null)).toBe("");

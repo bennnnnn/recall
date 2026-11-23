@@ -16,11 +16,7 @@ import {
   preprocessSettledMarkdown,
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
-import {
-  advanceStreamBlocks,
-  settleStreamBlocks,
-  type StreamBlocksState,
-} from "@/lib/markdown/streamBlocks";
+import { advanceStreamBlocks, type StreamBlocksState } from "@/lib/markdown/streamBlocks";
 import { advancePreviewFilesScan, type PreviewScanState } from "@/lib/preview/htmlPreviewBundle";
 import { lightTheme } from "@/lib/theme";
 
@@ -102,7 +98,5 @@ export function streamReply(reply: string, step = 30, keepFrames = false): Strea
   stats.chunks = blocks?.chunks.length ?? 0;
   const content = rowMarkdown(reply, false);
   const settled = preprocessSettledMarkdown(content, pre, undefined, {});
-  // The settled pieces, as the row draws them (markdownStreamPieces.test.tsx holds their look).
-  settleStreamBlocks(blocks, settled);
   return { stats, frames, settled };
 }

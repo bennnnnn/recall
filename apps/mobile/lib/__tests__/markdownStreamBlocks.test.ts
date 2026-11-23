@@ -322,6 +322,19 @@ describe("advanceStreamBlocks between list items", () => {
       end += chunk.length;
       expect(end > topOpens && end <= topCloses).toBe(false);
     }
+    // A closer at the margin ends the item and opens a top-level fence: prose after it is code
+    // until the next bare ```, and no cut lands inside.
+    const margin = ["- a", "  ```", "  x", "```", "", `First ${para}`, "", `Second ${para}`, "", "```", "", "After."].join("\n");
+    const marginOpens = margin.indexOf("```\n\nFirst");
+    const marginCloses = margin.lastIndexOf("```");
+    let marginEnd = 0;
+    for (const chunk of advanceStreamBlocks(null, margin, margin.length).chunks) {
+      marginEnd += chunk.length;
+      expect(marginEnd > marginOpens && marginEnd <= marginCloses).toBe(false);
+    }
+    // A lazy line bends a task list; its items after a fence are still that list, never cut.
+    const lazyTasks = ["- [x] Install it:", "Then run:", "  ```", "  npm i", "  ```", `- Build ${para}`, `- Test ${para}`, `- [ ] Lint ${para}`, "", "Done."].join("\n");
+    expect(advanceStreamBlocks(null, lazyTasks, lazyTasks.length).continued.some(Boolean)).toBe(false);
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);

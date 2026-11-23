@@ -105,7 +105,9 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
-    if (!inItem) state.list = null;
+    // An irregular list is kept, uncut, across a fence: markdown may still read the items after
+    // it as the same list (a lazy line, then the item's fence), task boxes and all.
+    if (!inItem && !state.list?.irregular) state.list = null;
     return true;
   }
 

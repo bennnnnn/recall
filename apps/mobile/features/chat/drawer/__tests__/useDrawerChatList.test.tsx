@@ -603,9 +603,14 @@ describe("editing many chats at once (audit MX-5)", () => {
   it("removes and puts back chats in one edit each", async () => {
     seedChatListCacheForTest(listed);
     await render(<Probe open={false} />);
+    let edits = 0;
+    const stopList = subscribeChatList(() => { edits += 1; });
     await act(async () => { current.removeChatsFromGroupsById(["pinned", "old"]); });
+    expect(edits).toBe(1);
     expect(allChatsFromGroups(getCachedChatList()!).map((row) => row.id)).toEqual(["other"]);
     await act(async () => { current.insertChatsInGroups([pinned, chat]); });
+    expect(edits).toBe(2);
+    stopList();
     const list = getCachedChatList()!;
     expect(list.pinned.map((row) => row.id)).toEqual(["pinned"]);
     expect(list.older.map((row) => row.id)).toEqual(["other", "old"]);
