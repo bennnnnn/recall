@@ -37,7 +37,7 @@ describe("stream segment cuts", () => {
   });
 
   it("stops cutting at a fence marker the passes could read two ways", () => {
-    for (const odd of ["Use ``` to open a fence.", "  ```python", "```js```"]) {
+    for (const odd of ["Use ``` to open a fence.", "    ```python", "```js```"]) {
       const { cuts, state } = cutsOf(`Intro.\n\n${odd}\n\nLater.\n\nMore.\n`);
       expect(state.poisoned).toBe(true);
       // The cut before it stands; none after it.
@@ -45,6 +45,13 @@ describe("stream segment cuts", () => {
     }
     const nested = "```markdown\n```python\nx\n```\n```\n\nLater.\n";
     expect(cutsOf(nested).state.poisoned).toBe(true);
+  });
+
+  it("cuts after a fence indented under a list item that closes cleanly (audit MX-2)", () => {
+    const step = (n: number) => `${n}. Run it:\n\n   \`\`\`bash\n   npm test\n   \`\`\`\n\n   It prints the result.\n`;
+    const { cuts, state } = cutsOf(`Intro.\n\n${step(1)}\n${step(2)}\n${step(3)}\nDone.\n`);
+    expect(state.poisoned).toBe(false);
+    expect(cuts.length).toBeGreaterThan(1);
   });
 
   it.each(["<details><summary>More</summary>", '{"$schema": "https://vega.github.io/schema/"}', "```molecule3d"])(

@@ -10,7 +10,7 @@
  * read together:
  *
  * - fences, display maths, `\(…\)` and `\[…\]`: a cut lands outside them, and
- *   only between fences every pass reads alike (column 0, no nesting);
+ *   only between fences every pass reads alike (indented 3 spaces at most, no nesting);
  * - code spans (`protectMathEscapes` pairs ticks across lines): every line's
  *   ticks pair on that line;
  * - a worked reply (`separateStandaloneBoldLines` reads a bold Given or Required
@@ -80,7 +80,9 @@ export type SegmentScanState = {
 /** An Answer heading looks up to 6 lines ahead for its card; keep a margin. */
 const ANSWER_LOOKAHEAD_LINES = 12;
 const POISON_RE = /<details|"\$schema"|molecule3d/i;
-const CLEAN_FENCE_RE = /^(`{3,}|~{3,})([^`~]*)$/;
+/** A fence marker every pass reads alike: at most 3 spaces in (4 or more is code to strict
+ * readers and a fence to loose ones), and no tick or tilde after it. */
+const CLEAN_FENCE_RE = /^( {0,3})(`{3,}|~{3,})([^`~]*)$/;
 /** A line that opens with "Answer", or holds an Answer heading a pass may break out of it. */
 const ANSWER_OPENING_RE = new RegExp(String.raw`^[\s#*]*(?:${ANSWER_WORDS_SOURCE})`, "iu");
 const ANSWER_HEADING_IN_LINE_RE = new RegExp(String.raw`#{1,6}[ \t]*(?:\*\*)?(?:${ANSWER_WORDS_SOURCE})`, "iu");
@@ -181,11 +183,13 @@ function foldFenceLine(state: SegmentScanState, line: string, next: number): boo
     state.poisoned = true;
     return true;
   }
-  const marker = match[1]!;
-  const info = match[2] ?? "";
+  const indented = match[1] !== "";
+  const marker = match[2]!;
+  const info = match[3] ?? "";
   const char = marker[0] as "`" | "~";
   if (!state.fence) {
-    state.fence = { char, len: marker.length, durable: isDurableFence(info) };
+    // An indented fence sits in a list item, whose passes may still move it: never a region's end.
+    state.fence = { char, len: marker.length, durable: !indented && isDurableFence(info) };
     return true;
   }
   if (char !== state.fence.char || marker.length < state.fence.len || info.trim()) {
