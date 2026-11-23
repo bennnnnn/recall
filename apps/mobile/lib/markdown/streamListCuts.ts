@@ -49,6 +49,8 @@ const WIDE_NUMBER = MAX_NUMBERED_CUT + 1;
 export const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const BULLET_ITEM_RE = /^([-*+])([ \t]+)/;
 const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])([ \t]+)/;
+/** A line that starts its own block even under a paragraph: an ATX heading, a quote, a rule, HTML. */
+const INTERRUPTS_PARAGRAPH_RE = /^ {0,3}(?:#{1,6}(?:[ \t]|$)|>|(?:[-*_][ \t]*){3,}$|<[A-Za-z/!?])/;
 const EMPTY_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]*$/;
 const TASK_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\](?:[ \t]|$)/;
 const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
@@ -145,7 +147,8 @@ export function listItemCut(state: ListScan, line: string): boolean {
   } else {
     // A lazy continuation (under a line of text) or a block that ends the list: either way, no cut.
     list.irregular = true;
-    if (!state.prevProse) list.ended = true;
+    // Only a paragraph line goes on lazily: a heading, quote, rule or HTML block ends the list.
+    if (!state.prevProse || INTERRUPTS_PARAGRAPH_RE.test(line)) list.ended = true;
   }
   return false;
 }

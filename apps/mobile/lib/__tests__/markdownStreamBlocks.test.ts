@@ -358,6 +358,16 @@ describe("advanceStreamBlocks between list items", () => {
       yamlEnd += chunk.length;
       expect(yamlEnd > yamlOpens && yamlEnd <= yamlCloses).toBe(false);
     }
+    // A heading under an item ends the list (only a paragraph goes on lazily): its fence is the
+    // top level's, and the line at the margin inside it does not close it.
+    const headed = ["- Install:", "# Setup", "  ```bash", "  npm i", "cp .env x", "", `echo done ${para}`, "", `echo again ${para}`, "  ```", "", "Then start."].join("\n");
+    const headedOpens = headed.indexOf("  ```bash");
+    const headedCloses = headed.lastIndexOf("  ```");
+    let headedEnd = 0;
+    for (const chunk of advanceStreamBlocks(null, headed, headed.length).chunks) {
+      headedEnd += chunk.length;
+      expect(headedEnd > headedOpens && headedEnd <= headedCloses).toBe(false);
+    }
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);

@@ -1,4 +1,5 @@
 import * as preprocess from "@/lib/markdown/preprocess";
+import * as workout from "@/lib/markdown/workoutSection";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   findStableMarkdownPrefixLen,
@@ -303,6 +304,17 @@ describe("markdownPreprocessStream", () => {
     // Expected values, not the reference: both scans read a line with lineMathMarkers.
     expect(findStableMarkdownPrefixLen(input)).toBe(expected);
     expect(preprocessMarkdownForStream(input, null).cache.rawStableLen).toBe(expected);
+  });
+
+  it("reads the open part's worked label once while it stays the same", () => {
+    const stable = "Para one.\nPara two.\n";
+    const first = preprocessMarkdownForStream(`${stable}grow`, null).cache;
+    const openRaw = first.segments!.openRaw;
+    expect(openRaw).toBe(stable);
+    const read = jest.spyOn(workout, "isWorkedReply");
+    preprocessMarkdownForStream(`${stable}growing`, first);
+    expect(read.mock.calls.filter(([text]) => text === openRaw)).toHaveLength(0);
+    read.mockRestore();
   });
 
   it("settles a reply drawn whole as preprocessMarkdown does, and remembers it", () => {
