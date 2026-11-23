@@ -19,6 +19,10 @@ class ChatContextSettings(BaseModel):
     # The chat's last rows a turn's readers see (the live read, follow-ups, lesson and
     # chart readers, the turn mode). The prompt's own history is the ``history_*`` below.
     recent_message_window: int = 20
+    # A message the turn's read calls everyday chat gets the shorter rules message
+    # (``chat.ordinary_prompt``): no format contract, draft or clarification packs. Off: every
+    # turn sends the full prompt.
+    ordinary_prompt_enabled: bool = True
     link_preview_cache_ttl: int = 3600
     todo_inject_limit: int = 100
     # A reminder change from chat is a card the user taps to save (or mark

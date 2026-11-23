@@ -243,7 +243,6 @@ async def _ensure_areas(
 def _apply_update(fact: Memory, write: MemoryFactWrite, clean: str) -> None:
     if clean != fact.text:
         fact.embedding = None
-        fact.embedding_json = None
         fact.embedding_text_hash = None
     if write.topic and write.topic != fact.topic:
         # The model moved this fact to another document.
@@ -333,8 +332,6 @@ async def update_embedding_if_current(
         .where(Memory.id == memory_id, Memory.user_id == user_id, Memory.text == text)
         .values(
             embedding=embedding,
-            # The JSON copy is no longer read; clearing it frees the row's ~34 KB.
-            embedding_json=None,
             embedding_text_hash=embedding_text_hash,
         )
         .execution_options(synchronize_session=False)

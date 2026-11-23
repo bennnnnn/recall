@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.modules.chat.answer_photo_offer import (
@@ -66,7 +66,13 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.chart import with_chart_followup
 from app.modules.chat.prompt_constants.clarify import ranking_layout
 from app.modules.chat.prompt_constants.conversation import CONFIRMED_HINT
+from app.modules.chat.prompt_constants.format import ORDINARY_FORMAT_GUIDE
 from app.modules.chat.prompt_constants.lesson_flow import lesson_turn_hint
+from app.modules.chat.prompt_constants.privacy import (
+    NO_INVENTED_FACTS_RULE,
+    NO_SENDING_RULE,
+    PRIVACY_CONTEXT_HINT,
+)
 from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
@@ -190,6 +196,9 @@ class StyleTurn:
     chart_data: str | None = None
     # Memory says they are partway through this subject: the reply asks where to pick up.
     resuming: bool = False
+    # Rendered for ordinary chat (``ordinary_prompt``): the short layout guide in place of the
+    # format packs, and no draft, clarification or maths-ink rules.
+    ordinary: bool = False
 
 
 def _style_turn(
@@ -283,6 +292,10 @@ def _day_planning(turn: StyleTurn) -> list[str]:
 
 def _format_pack(turn: StyleTurn) -> list[str]:
     """The format baseline, then the one layout the turn's shape asks for."""
+    if turn.ordinary:
+        # An ordinary turn has no shape of its own (``_plain``): its layout, if any, is a
+        # comparison, a checklist, steps, a quote, a callout or picks.
+        return [ORDINARY_FORMAT_GUIDE, *_present(_layout_format_hint(turn.query, picks=turn.picks))]
     if turn.is_day_plan:
         # Day-plan used to miss math guardrails. Keep a short fence-safety
         # line so incidental `$...$` still renders; keep FORMAT_CONTRACT so
@@ -317,12 +330,64 @@ def _may_ask_with_card(turn: StyleTurn) -> bool:
     return bool(turn.query) and not shaped and not lesson and not answerable
 
 
+# Layouts ordinary chat does not take: a chart, a lesson, a walkthrough or a quiz keeps the
+# full pack, whose fences and contracts it needs.
+_SHAPED_LAYOUTS = frozenset(
+    {CHART_FORMAT_HINT, LEARNING_PLAN_HINT, TEACHING_HINT, WALKTHROUGH_HINT, QUIZ_FORMAT_HINT}
+)
+
+
+def _plain(turn: StyleTurn) -> bool:
+    """The turn's words ask for no shape of their own: no draft or edit, code, lesson, day
+    plan, chart or diagram, subject, several requests, card answer or greeting. Its layout,
+    if any, is one an everyday reply takes (a comparison, a checklist, steps, picks)."""
+    shaped = (
+        turn.compact
+        or turn.multi
+        or turn.is_day_plan
+        or turn.minimal_personal_context
+        or turn.writing
+        or turn.writing_kind
+        or turn.revision_fence
+        or turn.code_hint
+        or turn.learning_plan
+        or turn.teaching
+        or turn.walkthrough
+        or turn.lesson_hint
+        or turn.viz_intent
+        or turn.subject
+        or turn.chart_data
+        or turn.resuming
+        or turn.after_card
+    )
+    if shaped or not turn.query or mermaid_format_hint(turn.query):
+        return False
+    return _layout_format_hint(turn.query, picks=turn.picks) not in _SHAPED_LAYOUTS
+
+
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
-    PromptRule(_always, _hints(CLARIFICATION_HINT, PRIVACY_HINT), name="clarify_and_privacy"),
+    PromptRule(
+        lambda t: not t.ordinary,
+        _hints(CLARIFICATION_HINT, PRIVACY_HINT),
+        name="clarify_and_privacy",
+    ),
+    # Ordinary chat drafts nothing and asks nothing about the user (``_plain``): what every
+    # turn keeps of the privacy rules.
+    PromptRule(
+        lambda t: t.ordinary,
+        _hints(NO_INVENTED_FACTS_RULE, NO_SENDING_RULE, PRIVACY_CONTEXT_HINT),
+        name="ordinary_privacy",
+    ),
     PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT), name="clarify_card"),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(
-        lambda t: bool(t.query) and t.writing is None and t.writing_kind != "edit" and not t.multi,
+        lambda t: (
+            bool(t.query)
+            and t.writing is None
+            and t.writing_kind != "edit"
+            and not t.multi
+            and not t.ordinary
+        ),
         _hints(NON_DRAFT_TURN_HINT),
         name="non_draft_turn",
     ),
@@ -350,8 +415,9 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         ],
         name="image_generation_honesty",
     ),
+    # Ordinary chat has no subject; its guide says how money and any maths are written.
     PromptRule(
-        _always,
+        lambda t: not t.ordinary,
         lambda t: subject_presentation_hints(t.subject, short=t.compact),
         name="subject_presentation",
     ),
@@ -365,7 +431,10 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
     PromptRule(
-        lambda t: bool(t.revision_fence) or t.writing_kind not in {"translation", "prose"},
+        lambda t: (
+            not t.ordinary
+            and (bool(t.revision_fence) or t.writing_kind not in {"translation", "prose"})
+        ),
         _hints(COPY_DELIVERABLE_HINT),
         name="copy_deliverable",
     ),
@@ -454,6 +523,7 @@ def _style_format_hints(
     prior_messages: Sequence[tuple[str, str]] | None = None,
     multi: bool = False,
     resuming: bool = False,
+    ordinary: bool = False,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -463,6 +533,9 @@ def _style_format_hints(
     math/viz packs are intent-gated so general knowledge does not pay ~3k tokens.
     Writing deliverables replace compact / short / FORMAT_CONTRACT so a
     paragraph ask is not also told to use bullets or a compare table.
+
+    ``ordinary``: the hints for ordinary chat (``ordinary_prompt``) when the turn's words ask
+    for no shape of their own (``_plain``); any other turn gets its hints as without it.
     """
     pack = None if multi else _exclusive_pack(query_text, lesson, outline_pick=outline_pick)
     if pack is not None:
@@ -481,6 +554,8 @@ def _style_format_hints(
         multi=multi,
         resuming=resuming,
     )
+    if ordinary and _plain(turn):
+        turn = replace(turn, ordinary=True)
     return render_rules(HINT_RULES, turn, table="hints")
 
 

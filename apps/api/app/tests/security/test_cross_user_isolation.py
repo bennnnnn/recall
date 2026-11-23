@@ -22,7 +22,6 @@ from app.models.orm import (
     MemoryArea,
     Message,
     PushToken,
-    Suggestion,
     TodoItem,
     User,
 )
@@ -264,14 +263,11 @@ async def test_attachment_routes_answer_404_for_another_users_file(world: World)
 
 @pytest.mark.asyncio
 async def test_the_retired_suggestions_routes_are_gone(world: World) -> None:
-    """No route reads or dismisses suggestions any more; stored rows stay only for
-    the data export and account deletion until the table is dropped."""
-    c, b, data = world.client, world.b, world.a_data
+    """No route reads or dismisses suggestions any more, and their table is dropped."""
+    c, b = world.client, world.b
     assert (await c.get("/suggestions", headers=b.headers)).status_code == 404
-    response = await c.post(f"/suggestions/{data.suggestion_id}/dismiss", headers=b.headers)
+    response = await c.post(f"/suggestions/{uuid4()}/dismiss", headers=b.headers)
     assert response.status_code == 404
-    row = await _get(Suggestion, data.suggestion_id)
-    assert row is not None and row.dismissed is False
 
 
 @pytest.mark.asyncio

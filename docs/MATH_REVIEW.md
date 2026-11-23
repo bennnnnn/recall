@@ -346,7 +346,8 @@ Plan:
 
 ## 6. Scanner
 
-The pipeline: the student crops a photo → `POST /math/scan/read` → Mathpix, accepted when its
+The pipeline at the time of this review (the read-back and its `POST /math/scan/read` endpoint
+have since been removed; the turn reads the photo, `modules/math/camera.py`): the student crops a photo → `POST /math/scan/read` → Mathpix, accepted when its
 confidence is at least 0.72 and the text parses as an equation, system, or inequality →
 otherwise Gemini 2.5 Flash returns vision JSON in 10 kinds, with the Mathpix text as a hint →
 the reading appears in an editable field → **Solve** sends `Show steps: <reading>` through the

@@ -28,7 +28,7 @@ __all__ = [
     "IMAGE_GEN_SPEND_USD",
     "IMAGE_SEARCH_SPEND_USD",
     "LIVE_TALK_SPEND_USD_PER_MINUTE",
-    "MATH_SCAN_READ_SPEND_USD",
+    "MATHPIX_READ_SPEND_USD",
     "STT_SPEND_USD",
     "TTS_SPEND_USD",
     "get_global_spend_micro_usd",
@@ -42,9 +42,9 @@ __all__ = [
 IMAGE_GEN_SPEND_USD = 0.03
 # Tavily image search + one SSRF-safe fetch (cheaper than image-gen, still billed).
 IMAGE_SEARCH_SPEND_USD = 0.01
-# One scan read-back's Mathpix call. A vision read of the page is priced by
-# the gateway on top, so this stays the old all-in estimate (conservative).
-MATH_SCAN_READ_SPEND_USD = 0.005
+# One photo's Mathpix call. A vision read of the page is priced by the
+# gateway on top, so this stays the old all-in estimate (conservative).
+MATHPIX_READ_SPEND_USD = 0.005
 STT_SPEND_USD = 0.01
 TTS_SPEND_USD = 0.015
 # An upper estimate of one minute of gpt-realtime conversation: audio both

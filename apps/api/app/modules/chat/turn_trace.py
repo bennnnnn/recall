@@ -23,7 +23,8 @@ import re
 import time
 from asyncio import CancelledError
 from collections import Counter
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Callable, Iterable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
@@ -104,6 +105,17 @@ def begin_turn_trace(kind: str) -> TurnTrace:
     trace = TurnTrace(kind=kind)
     _TRACE.set(trace)
     return trace
+
+
+@contextmanager
+def untraced() -> Iterator[None]:
+    """Work inside notes nothing: a prompt the turn renders but may not send (ordinary chat's
+    rules, ``chat.ordinary_prompt``) is not what it decided."""
+    token = _TRACE.set(None)
+    try:
+        yield
+    finally:
+        _TRACE.reset(token)
 
 
 @_quietly

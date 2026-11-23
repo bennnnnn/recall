@@ -26,8 +26,10 @@ _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
 # 105 once the maths fence tests stopped pinning the dropped "could not render" note; 104 once
 # the privacy test stopped pinning the scanner's old "Recall does not keep that photo"; 103
 # once the lesson shape's parts became constants of their own (2026-11-14); 102 once the old
-# ending rule ("a question or an offer") was replaced and its pin with it (2026-11-20).
-_PINNED = 102
+# ending rule ("a question or an offer") was replaced and its pin with it (2026-11-20); 106
+# once the guard read constants built from named parts (``_folded``), which four older pins on
+# such copy had escaped, as the format and privacy rules split into parts would have (2026-11-22).
+_PINNED = 106
 
 
 def _as_sent(text: str) -> str:
@@ -37,17 +39,48 @@ def _as_sent(text: str) -> str:
     return _PLACEHOLDER.sub("", text).replace("{{", "{").replace("}}", "}")
 
 
+def _folded(value: ast.expr | None, known: dict[str, str]) -> str | None:
+    """A module-level string as written: a literal, or one built from the module's earlier
+    constants (``f"{PRIVACY_CONTEXT_HINT}\\n…"``), so copy split into named parts is still read."""
+    if isinstance(value, ast.Constant):
+        return value.value if isinstance(value.value, str) else None
+    if isinstance(value, ast.Name):
+        return known.get(value.id)
+    if isinstance(value, ast.JoinedStr):
+        parts = []
+        for part in value.values:
+            inner = part.value if isinstance(part, ast.FormattedValue) else part
+            folded = _folded(inner, known)
+            if folded is None or (isinstance(part, ast.FormattedValue) and part.format_spec):
+                return None
+            parts.append(folded)
+        return "".join(parts)
+    return None
+
+
 def _prompt_texts() -> list[str]:
     """Every module-level string constant in app/ long enough to be prompt copy."""
     texts: list[str] = []
     for path in APP_ROOT.rglob("*.py"):
         if _TESTS in path.parents:
             continue
+        known: dict[str, str] = {}
         for node in ast.parse(path.read_text()).body:
-            value = node.value if isinstance(node, ast.Assign | ast.AnnAssign) else None
-            if isinstance(value, ast.Constant) and isinstance(value.value, str):
-                if len(value.value) >= 40:
-                    texts.append(_as_sent(value.value))
+            target: ast.expr
+            value: ast.expr | None
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target, value = node.targets[0], node.value
+            elif isinstance(node, ast.AnnAssign):
+                target, value = node.target, node.value
+            else:
+                continue
+            text = _folded(value, known)
+            if text is None:
+                continue
+            if isinstance(target, ast.Name):
+                known[target.id] = text
+            if len(text) >= 40:
+                texts.append(_as_sent(text))
     return texts
 
 

@@ -103,11 +103,7 @@ class AttachmentChunk(Base):
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    # Not loaded with the row (search ranks in SQL); ``embedding_json`` is no longer
-    # written and a later contract migration drops it.
-    embedding_json: Mapped[str | None] = mapped_column(
-        Text, nullable=True, deferred=True, deferred_raiseload=True
-    )
+    # Not loaded with the row (search ranks in SQL).
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
     )

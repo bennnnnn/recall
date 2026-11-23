@@ -83,7 +83,5 @@ def test_a_setting_reads_its_own_env_name(monkeypatch: pytest.MonkeyPatch) -> No
     for name in [key for key in os.environ if key.endswith("SOLVE_TIMEOUT_SECONDS")]:
         monkeypatch.delenv(name)
     monkeypatch.setenv("STEM_SOLVE_TIMEOUT_SECONDS", "7")
-    monkeypatch.setenv("SCAN_READ_RATE_LIMIT_PER_HOUR", "9")
     settings = isolated_settings()
     assert settings.stem_solve_timeout_seconds == 7.0
-    assert settings.scan_read_rate_limit_per_hour == 9

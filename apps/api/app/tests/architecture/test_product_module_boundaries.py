@@ -6,6 +6,7 @@ from .boundary_support import (
     APP_ROOT,
     MOBILE_ROOT,
     _foreign_module_import_violations,
+    served_paths,
 )
 
 
@@ -62,20 +63,23 @@ def test_notifications_runtime_code_has_one_owner() -> None:
     assert (APP_ROOT / "tests" / "services" / "test_push_notifications.py").is_file()
 
 
-def test_suggestions_keeps_only_the_table_reads() -> None:
-    """The proactive suggestions are retired: no route, no generator, no job.
-    The table stays for the data export and account deletion until it is dropped."""
-    module_root = APP_ROOT / "modules" / "suggestions"
-    assert {path.name for path in module_root.glob("*.py")} == {
-        "__init__.py",
-        "models.py",
-        "repository.py",
-        "service.py",
-    }
-    assert "def " not in (module_root / "__init__.py").read_text()
+def test_suggestions_are_gone() -> None:
+    """The proactive suggestions are retired: no route, no generator, no job, no table."""
+    from app.core.db import Base
+
+    assert not any((APP_ROOT / "modules" / "suggestions").rglob("*.py"))
+    assert "suggestions" not in Base.metadata.tables
     handlers = (APP_ROOT / "background" / "handlers.py").read_text()
     assert '"suggestions"' not in handlers
     assert "modules.suggestions" not in (APP_ROOT / "main.py").read_text()
+
+
+def test_the_scan_read_backs_are_gone() -> None:
+    """The scanner sends the photo to the chat, which reads it; no read-back endpoint is left."""
+    assert not any(path.endswith("/scan/read") for path in served_paths())
+    for subject in ("math", "physics", "chemistry"):
+        assert not (APP_ROOT / "modules" / subject / "api.py").exists()
+    assert not (APP_ROOT / "services" / "scan_read.py").exists()
 
 
 def test_search_runtime_code_has_one_owner() -> None:
