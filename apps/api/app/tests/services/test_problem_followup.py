@@ -179,8 +179,9 @@ def test_scaled_value_writes_the_number_a_student_would(
         ("5", 2.0, "1e1"),
         ("25", 4.0, "1.0e2"),
         ("2.0e3", 2.0, "4.0e3"),
-        # A repeating scale keeps the typed figures: 0.10 / 3 is 0.033, never 0.0333333.
-        ("0.10", 1 / 3, "0.033"),
+        # A value that does not end is never rounded as an input: 1.0 / 3 moves no answer.
+        ("0.10", 1 / 3, "0.0333333"),
+        ("1.0", 1 / 3, "0.333333"),
     ],
 )
 def test_scaled_value_keeps_the_figures_it_was_typed_with(

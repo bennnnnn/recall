@@ -318,8 +318,10 @@ Physics' and maths' cards keep the two-decimal rule (`services/rounding_rule.py`
 the card pass leaves a chemistry solver's checked card as the solver wrote it (the model's
 own unchecked card follows the rule)
 (`VerifiedSolveBlock.card_precision_own`, `chat/card_numbers.py`) unless the question asks
-for another precision ("to 3 decimal places", "2 sig figs", "don't round"), which it honours
-as it does for every subject. Extraction records how each given was typed, and the solve
+for another precision ("to 3 decimal places", "2 sig figs", "don't round"). It honours that
+only as far as the working knows the value: a card whose working ends on 35.74 g can show
+35.74, but a card with no unrounded working stays as the solver wrote it, never padded with
+zeros it does not know. Extraction records how each given was typed, and the solve
 formats every number from that record:
 
 - **Answers** take the fewest significant figures among the measured givens (multiplication

@@ -226,6 +226,10 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             converted[repr(value)] = typed_forms[0]
         if _exact(intent.chemistry_op, key):
             continue
+        if value == 0 and not (how == "celsius" or key in CELSIUS_KEYS):
+            # A zero has neither a figure nor a decimal to give: a measured ΔS = 0 J/(mol·K),
+            # or O₂'s ΔHf° = 0 in a sum of formation enthalpies, limits nothing.
+            continue
         for typed in typed_forms:
             typed_places = min(decimals_of(typed), MAX_DECIMALS)
             if how in {"typed", "celsius"}:
@@ -233,10 +237,6 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
                 places.append(typed_places)
             if how == "typed" and key in LOG_KEYS:
                 log_places.append(typed_places)
-            elif value == 0 and not (how == "celsius" or key in CELSIUS_KEYS):
-                # A zero has no significant figure to give: a measured ΔS = 0 J/(mol·K)
-                # limits nothing.
-                continue
             elif how == "celsius" or key in CELSIUS_KEYS:
                 # 25 °C is 298 K: adding 273.15 keeps the decimal places, not the figures.
                 kelvin = value if how == "celsius" else value + CELSIUS_OFFSET_K

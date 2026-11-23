@@ -448,6 +448,12 @@ def test_a_negative_power_is_no_rounded_number() -> None:
         # A formula's digit is no typed number: the 3 of "Fe2(SO4)3" is not the 3.00 mol.
         ("What is the mass of 3.00 mol of Fe2(SO4)3?", "m(Fe2(SO4)3) = 1.20 × 10^3 g"),
         ("What is the mass of 5.00 mol of CuSO4·5H2O?", "m(CuSO4·5H2O) = 1.25 × 10^3 g"),
+        # O₂'s typed ΔHf° = 0 gives no decimal: the sum keeps one place (review).
+        (
+            "Calculate ΔH for CH4 + 2O2 -> CO2 + 2H2O. ΔHf values: CH4 = -74.8, O2 = 0, "
+            "CO2 = -393.5, H2O = -285.8 kJ/mol",
+            "ΔH° = -890.3 kJ/mol",
+        ),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",

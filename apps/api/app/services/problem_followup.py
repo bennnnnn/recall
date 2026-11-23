@@ -153,17 +153,19 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
 
     A scaling is exact, so the number keeps the significant figures of ``literal``, the
     given as typed: 0.010 M doubled is ``0.020``, 2.50 g ``5.00``, never ``0.02``, which
-    would cut a chemistry answer to one figure. It never loses a digit of the value itself."""
+    would cut a chemistry answer to one figure. It never loses a digit of the value itself,
+    so a value that does not end (1.0 g / 3) is written to six figures, as before: rounding
+    the input would move the answer, and only the answer is rounded."""
     scaled = value * factor
     exact = f"{scaled:.6g}"
     figures = _typed_figures(literal) if literal else 0
     if not figures or scaled == 0 or not math.isfinite(scaled):
         return exact
-    # Never fewer figures than the scaled value has when it ends: 0.00006 C doubled is
-    # 0.00012, not 1e-4. A repeating one (0.10 / 3) keeps the typed figures: 0.033.
+    # Never fewer figures than the scaled value has: 0.00006 C doubled is 0.00012, not 1e-4.
     ending = f"{abs(scaled):.12g}"
-    if _typed_figures(ending, whole_zeros=False) <= _EXACT_DIGITS:
-        figures = max(figures, _typed_figures(ending, whole_zeros=False))
+    if _typed_figures(ending, whole_zeros=False) > _EXACT_DIGITS:
+        return exact
+    figures = max(figures, _typed_figures(ending, whole_zeros=False))
     mantissa, exponent = round_figures(scaled, figures)
     # A whole number's zeros that are no figure are a power of ten: 5 g doubled is 1e1 g,
     # since "10" would read as two figures.
