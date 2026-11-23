@@ -52,8 +52,8 @@ def _load() -> dict[str, Any]:
 
 
 _UNDEFINED = "undefined"
-# The pieces of a turn's answer with more than one value: ``-1, 5`` or ``x = 1 \text{ or } x = 3``.
-_ANSWER_PIECES = re.compile(r",|\\quad|\\text\{\s*or\s*\}|\bor\b")
+# The pieces of a turn's answer with more than one value: ``-1, 5``, ``x = 1 \text{ or } x = 3``, ``-1 \text{ and } 5``.
+_ANSWER_PIECES = re.compile(r",|\\quad|\\text\{\s*(?:or|and)\s*\}|\b(?:or|and)\b")
 
 
 def _sympy_value(text: str) -> str | None:
@@ -113,6 +113,22 @@ def _turn_param(case: dict[str, Any]) -> object:
     gap = case.get("server_gap")
     marks = [pytest.mark.xfail(reason=gap, strict=True)] if gap else []
     return pytest.param(case, id=case["id"], marks=marks)
+
+
+@pytest.mark.parametrize(
+    "answer, values",
+    [
+        ("2 \\pm 3 = -1, 5", [-1, 5]),
+        ("x = 1 \\text{ or } x = 3", [1, 3]),
+        ("-1 \\text{ and } 5", [-1, 5]),
+        ("\\frac{1}{1 - 1} = \\text{undefined},\\quad \\frac{1}{2}", [None, 0.5]),
+    ],
+)
+def test_turn_values_reads_each_value_of_an_answer(answer: str, values: list[float | None]) -> None:
+    """The list check a ± case gets once the turn verifies one: today every list case is a gap."""
+    got = _turn_values(answer)
+    assert len(got) == len(values)
+    assert all(_agrees(g, w) for g, w in zip(got, values, strict=True))
 
 
 def test_live_answer_fixture_is_sympys_value() -> None:

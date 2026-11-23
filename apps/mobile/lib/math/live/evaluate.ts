@@ -62,6 +62,8 @@ const atZero = (value: LiveValue): never => (isZero(value) ? undefinedValue() : 
 const MAX_COUNT = 170;
 /** A trig value this close to 0 is shown as 0 (sin 180° is 1.2e-16 in floating point). */
 const TRIG_ZERO = 1e-12;
+/** A radian angle whose rounding passes this keeps fewer than the ten digits shown. */
+const TRIG_DIGITS = 1e-9;
 /** Within this many rounding steps of the angle, a sine or cosine is exactly 0. */
 const TRIG_EXACT_STEPS = 4;
 
@@ -193,11 +195,26 @@ const contains = (node: LiveNode, kinds: ReadonlySet<LiveNode["kind"]>): boolean
 const DEGREES = new Set<LiveNode["kind"]>(["degrees"]);
 const RADIANS = new Set<LiveNode["kind"]>(["pi", "radians"]);
 
-/** An angle in radians; in degrees too when they are exact (`90°`, `89.99999999999999`). */
-type Angle = { radians: number; degrees: Rational | null };
+/**
+ * An angle in radians, and how a zero of its sine or cosine is known. `degrees`: exact degrees
+ * (`90°`, `89.99999999999999`) decide it exactly. `pi`: an angle in π is one within floating
+ * point's own error. Any other (`1.5\mathrm{rad}`) has one only at exactly 0 (`atZero`): the
+ * sine of any other number is not 0, nor is its cosine.
+ */
+type Angle = { radians: number; degrees: Rational | null; pi: boolean; atZero: boolean };
 
-const exactDegrees = (value: LiveValue, negative: boolean): Rational | null =>
-  value.kind === "exact" ? (negative ? rational(-value.r.n, value.r.d) : value.r) : null;
+const PI = new Set<LiveNode["kind"]>(["pi"]);
+
+/** Exact degrees as an angle, its radians from the degrees within one turn, so they stay exact. */
+function inDegrees(value: LiveValue, negative: boolean): Angle {
+  if (value.kind !== "exact") {
+    return { radians: ((negative ? -1 : 1) * value.x * Math.PI) / 180, degrees: null, pi: false, atZero: false };
+  }
+  const degrees = rational(negative ? -value.r.n : value.r.n, value.r.d) ?? fail();
+  const turn = 360n * degrees.d;
+  const within = ((degrees.n % turn) + turn) % turn;
+  return { radians: (Number(within) / Number(degrees.d) * Math.PI) / 180, degrees, pi: false, atZero: false };
+}
 
 /** The angle, read as the server reads it. */
 function angle(arg: LiveNode): Angle {
@@ -206,19 +223,17 @@ function angle(arg: LiveNode): Angle {
     // `30^{\circ}` or `-30^{\circ}`; `30^{\circ} + 15` mixes two units.
     if (signed.kind !== "degrees" || contains(arg, RADIANS)) return fail();
     // Worked out once: nested degree trig would double its cost at every level.
-    const operand = defined(signed.operand, true);
-    const sign = arg.kind === "neg" ? -1 : 1;
-    return { radians: (sign * numberOf(operand) * Math.PI) / 180, degrees: exactDegrees(operand, sign < 0) };
+    return inDegrees(defined(signed.operand, true), arg.kind === "neg");
   }
   if (contains(arg, RADIANS)) {
-    // An angle in π that rounded to 0 (`10^{-400}\pi`) is too small to know; `0\pi` is exact.
     const value = defined(arg, true);
-    if (value.kind === "approx" && value.x === 0) fail();
-    return { radians: numberOf(value), degrees: null };
+    const pi = contains(arg, PI);
+    // An angle in π that rounded to 0 (`10^{-400}\pi`) is too small to know; `0\pi` is exact.
+    if (pi && value.kind === "approx" && value.x === 0) fail();
+    return { radians: numberOf(value), degrees: null, pi, atZero: isZero(value) };
   }
   if (signed.kind !== "number") return fail();
-  const value = defined(arg);
-  return { radians: (numberOf(value) * Math.PI) / 180, degrees: exactDegrees(value, false) };
+  return inDegrees(defined(arg), false);
 }
 
 /** Whether exact degrees are `offset` plus a whole number of half turns (`270°` for 90). */
@@ -227,21 +242,20 @@ const onHalfTurn = (degrees: Rational, offset: bigint): boolean =>
 
 /**
  * A sine or cosine that is exactly 0 (`cos 90°`) makes tan or sec a pole, undefined, and is an
- * exact 0 (`1 ÷ sin 180°` is undefined, as csc 180° is). Exact degrees decide it exactly (a
- * whole number of half turns); an angle in π, within floating point's own error. One that is
- * only small (`cos 89.99999999999999°`) is shown as 0 but is no pole: dividing by it leaves
- * no value.
+ * exact 0 (`1 ÷ sin 180°` is undefined, as csc 180° is): how that is known is the `Angle`'s.
+ * One that is only small (`cos 89.99999999999999°`, `cos 1.5707963267948966 rad`) is shown as
+ * 0 but is no pole: dividing by it leaves no value.
  */
-function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degrees }: Angle): LiveValue {
+function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degrees, pi, atZero: zeroAngle }: Angle): LiveValue {
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   // Relative to the angle: near 0, sin r is r to full precision, so only r = 0 is a zero.
-  const nearZero = (x: number) => Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
-  // Past this size a radian angle's rounding alone could be a zero: too big to know.
-  if (!degrees && TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians) > TRIG_ZERO) fail();
+  const rounding = TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
+  // A radian angle this large keeps fewer digits than the answer shows.
+  if (!degrees && rounding > TRIG_DIGITS) fail();
   const sine = Math.sin(radians);
   const cosine = Math.cos(radians);
-  const sineZero = degrees ? onHalfTurn(degrees, 0n) : nearZero(sine);
-  const cosineZero = degrees ? onHalfTurn(degrees, 90n) : nearZero(cosine);
+  const sineZero = degrees ? onHalfTurn(degrees, 0n) : pi ? Math.abs(sine) <= rounding : zeroAngle;
+  const cosineZero = degrees ? onHalfTurn(degrees, 90n) : pi && Math.abs(cosine) <= rounding;
   // Exact degrees on a zero are 0 however much converting a large angle rounded (`tan 9000090°`).
   const s = sineZero ? 0 : zero(sine);
   const c = cosineZero ? 0 : zero(cosine);

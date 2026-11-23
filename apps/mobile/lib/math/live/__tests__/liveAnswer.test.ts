@@ -124,6 +124,7 @@ describe("liveAnswer", () => {
     ["a negative percent in a sum", "$2\\pm -3\\%$"],
     ["an angle in π too big to know", "$\\cos(10^{15}\\pi)$"],
     ["an angle in π that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
+    ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -179,6 +180,8 @@ describe("liveAnswer", () => {
 
   it("gives a branch that is its own fraction its decimal, the sign inside or out", () => {
     expect(shown("$\\frac{\\pm 1}{2}$")).toBe("\\frac{- 1}{2} = -0.5,\\quad \\frac{+ 1}{2} = 0.5");
+    // Two minus signs cancel: the + branch of -±1/3 is its own fraction too.
+    expect(answer("$-\\pm\\frac{1}{3}$")?.latex).toMatch(/^\+ ?\\frac\{1\}\{3\} \\approx 0\.3333333333,/);
     expect(shown("$\\pm\\frac{1}{3}$")).toBe(
       "-\\frac{1}{3} \\approx -0.3333333333,\\quad +\\frac{1}{3} \\approx 0.3333333333",
     );
@@ -207,8 +210,16 @@ describe("liveAnswer", () => {
   });
 
   it("shows the values alone where merging signs beside a mod would write a false line", () => {
-    // 5 - ((-2) mod 3) is 4, but "5 + 2 mod 3" reads as 7.
-    expect(shown("$5-\\pm 2\\bmod 3$")).toBe("= 3,\\quad 4");
+    // 5 - ((-2) mod 3) is 4, but "5 + 2 mod 3" reads as 7. Still the − branch first.
+    expect(shown("$5-\\pm 2\\bmod 3$")).toBe("= 4,\\quad 3");
+    expect(shown("$5\\bmod(2-\\pm 2)$")).toBe("= 1,\\quad \\text{undefined}");
+  });
+
+  it("works large angles away from any pole", () => {
+    expect(shown("$\\cos(400\\pi)$")).toBe("= 1");
+    expect(shown("$\\sin(400\\pi+\\frac{\\pi}{6})$")).toMatch(/^(=|\\approx) 0\.5$/);
+    // Exact degrees are taken within one turn first: 36000000000000030° is 30°.
+    expect(shown("$\\sin(36000000000000030^{\\circ})$")).toBe("= 0.5");
   });
 
   it("works an angle of 0π out exactly", () => {

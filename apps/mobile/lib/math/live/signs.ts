@@ -20,9 +20,10 @@ import type { LiveNode, LiveReading } from "@/lib/math/live/read";
 type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
 
-/** One way a ± draft goes: its text with the sign picked, its value, and whether that text is
- * the value's own fraction (`-\frac{1}{3}`), so only its decimal is new. */
-export type LiveBranch = { latex: string; result: LiveResult; typed: boolean };
+/** One way a ± draft goes: its text with the sign picked (`null` where it cannot be written
+ * truly, beside a mod), its value, and whether that text is the value's own fraction
+ * (`-\frac{1}{3}`), so only its decimal is new. */
+export type LiveBranch = { latex: string | null; result: LiveResult; typed: boolean };
 
 export type LiveSigns =
   | { kind: "one"; result: LiveResult }
@@ -92,17 +93,27 @@ function same(a: LiveValue, b: LiveValue): boolean {
   return Math.abs(x - y) <= SAME * Math.max(Math.abs(x), Math.abs(y));
 }
 
-/** `\frac{3}{4}`, `-\frac{3}{4}` or `\frac{-3}{4}` typed in lowest terms: only its decimal is new. */
+/** A node under its minus signs, and whether they come to a minus (`--3` is 3). */
+function unsigned(node: LiveNode): { node: LiveNode; negative: boolean } {
+  let negative = false;
+  let inner = node;
+  while (inner.kind === "neg") {
+    negative = !negative;
+    inner = inner.operand;
+  }
+  return { node: inner, negative };
+}
+
+/** `\frac{3}{4}`, `-\frac{3}{4}` or `\frac{-3}{4}` (any signs) typed in lowest terms: only its decimal is new. */
 export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
   if (value.kind !== "exact") return false;
-  const outside = node.kind === "neg";
-  const frac = outside ? node.operand : node;
+  const outside = unsigned(node);
+  const frac = outside.node;
   if (frac.kind !== "frac" || frac.den.kind !== "number") return false;
-  const inside = frac.num.kind === "neg";
-  const num = frac.num.kind === "neg" ? frac.num.operand : frac.num;
-  if (num.kind !== "number") return false;
-  const top = outside !== inside ? -value.r.n : value.r.n;
-  return num.text === top.toString() && frac.den.text === value.r.d.toString();
+  const inside = unsigned(frac.num);
+  if (inside.node.kind !== "number") return false;
+  const top = outside.negative !== inside.negative ? -value.r.n : value.r.n;
+  return inside.node.text === top.toString() && frac.den.text === value.r.d.toString();
 }
 
 /** Smallest first, each compared with the last one kept, so close values never merge in a chain. */
@@ -134,10 +145,9 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
     ways.push({ picks, node, result });
   }
   const [only] = signs;
-  const texts = only && signs.length === 1 ? ways.map(({ picks }) => written(reading.math, only, picks.get(only)!)) : [];
-  if (texts.length > 0 && texts.every((text) => text !== null)) {
-    const branches = ways.map(({ node, result }, i) => ({
-      latex: texts[i]!,
+  if (only && signs.length === 1) {
+    const branches = ways.map(({ picks, node, result }) => ({
+      latex: written(reading.math, only, picks.get(only)!),
       result,
       typed: isTypedFraction(node, result),
     }));

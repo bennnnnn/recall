@@ -172,14 +172,22 @@ function spokenBranch(latex: string, shown: Shown): string {
   return `${spokenFormula(latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;
 }
 
-/** One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. */
+/**
+ * One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. A branch whose text cannot be written
+ * truly (beside a mod) leaves its values alone, still in that order: `= 4,\quad 3`.
+ */
 export function formatBranches(branches: LiveBranch[], preferFraction: boolean, undefinedWord: string): LiveAnswer {
   const form = oneForm(branches.map((branch) => branch.result), preferFraction);
   const shown = branches.map((branch) =>
     formatResult(branch.result, { ...form, typedFraction: branch.typed }, undefinedWord),
   );
+  const texts = branches.map((branch) => branch.latex);
+  if (texts.some((text) => text === null)) {
+    const latex = listed(shown);
+    return { latex, signed: true, spoken: shown.map((s) => s.spoken).join(", "), exact: shown.every((s) => s.exact) };
+  }
   // Spaced as the draft above it is (`2 - 1`, not `2- 1`).
-  const written = branches.map((branch) => spacedDraftMath(branch.latex));
+  const written = texts.map((text) => spacedDraftMath(text!));
   return {
     latex: written.map((text, i) => `${text} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
     signed: true,
