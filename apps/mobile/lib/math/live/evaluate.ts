@@ -106,7 +106,11 @@ function whole(value: LiveValue, min: number, max: number): bigint {
   return value.r.n;
 }
 
+const ONE: LiveValue = { kind: "exact", r: { n: 1n, d: 1n } };
+
 function power(base: LiveValue, exponent: LiveValue): LiveValue {
+  // Anything to the power exactly 0 is exactly 1 (`e^0`, `\pi^0`; `0^0` too, as SymPy says).
+  if (isZero(exponent)) return ONE;
   if (base.kind === "exact" && exponent.kind === "exact") {
     const { r: b } = base;
     const { r: e } = exponent;
@@ -298,6 +302,24 @@ function angle(arg: LiveNode): Angle {
   return inDegrees(defined(arg), false);
 }
 
+/**
+ * sin and cos of exact degrees, from the exact offset to the nearest quarter turn: near a pole
+ * (`89.9999999999°`, 1e-10° from 90°) the small offset converts to radians with no loss, where
+ * the whole angle would carry more rounding than the gap to the pole.
+ */
+function quarterTurns(degrees: Rational): [number, number] {
+  const quarter = 90n * degrees.d;
+  // The nearest quarter turn, by floor division that rounds negatives down.
+  const shifted = degrees.n + quarter / 2n;
+  let q = shifted / quarter;
+  if (shifted % quarter !== 0n && shifted < 0n) q -= 1n;
+  const offset = (Number(degrees.n - q * quarter) / Number(degrees.d) * Math.PI) / 180;
+  const s = Math.sin(offset);
+  const c = Math.cos(offset);
+  const turn = Number(((q % 4n) + 4n) % 4n);
+  return ([[s, c], [c, -s], [-s, -c], [-c, s]] as const)[turn] as [number, number];
+}
+
 /** Whether exact degrees are `offset` plus a whole number of half turns (`270°` for 90). */
 const onHalfTurn = (degrees: Rational, offset: bigint): boolean =>
   (degrees.n - offset * degrees.d) % (180n * degrees.d) === 0n;
@@ -312,8 +334,7 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degr
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   // A radian angle this large keeps fewer digits than the answer shows.
   if (!degrees && TRIG_ROUNDING_STEPS * Number.EPSILON * Math.abs(radians) > TRIG_DIGITS) fail();
-  const sine = Math.sin(radians);
-  const cosine = Math.cos(radians);
+  const [sine, cosine] = degrees ? quarterTurns(degrees) : [Math.sin(radians), Math.cos(radians)];
   const sineZero = degrees ? onHalfTurn(degrees, 0n) : zeroAngle;
   const cosineZero = degrees ? onHalfTurn(degrees, 90n) : false;
   // Exact degrees on a zero are 0 however much converting a large angle rounded (`tan 9000090°`).
@@ -375,9 +396,11 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   if (contains(arg, DEGREES)) fail();
   const value = defined(arg);
   if (fn === "log") return logarithm(value, base ? defined(base) : exact(rational(10n)));
-  if (fn === "ln") return logarithm(value, "e");
+  if (fn === "ln") return arg.kind === "e" ? ONE : logarithm(value, "e");
   // Exactly 0 at exactly 0, so `1 ÷ sinh 0` is undefined as `csch 0` is.
   if (isZero(value) && ZERO_AT_ZERO.has(fn)) return ZERO;
+  // exp 0 and cosh 0 are exactly 1, and so is ln e, so `\ln(e) - 1` is 0 as SymPy says.
+  if (isZero(value) && (fn === "exp" || fn === "cosh")) return ONE;
   const x = numberOf(value);
   switch (fn) {
     case "exp": return approx(held(Math.exp(x), 1));

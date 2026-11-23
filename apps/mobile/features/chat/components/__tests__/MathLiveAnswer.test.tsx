@@ -103,6 +103,10 @@ describe("MathLiveAnswer", () => {
   it("draws a value larger than the draft, and ± branches at the draft's own size", async () => {
     expect(await sizeOf("$2+1$")).toBe(20);
     expect(await sizeOf("$2\\pm 1$")).toBe(DRAFT_TEXT_SIZE);
+    expect(await sizeOf("$1\\div 3$")).toBe(20);
+    // A larger system text size grows a stacked fraction past the row: the draft's size.
+    atTextSize(1.3);
+    expect(await sizeOf("$1\\div 3$")).toBe(DRAFT_TEXT_SIZE);
   });
 
   it("writes out the branches of a ± draft that fits its row", async () => {

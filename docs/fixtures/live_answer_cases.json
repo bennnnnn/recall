@@ -965,11 +965,18 @@
       "why": "one branch is not a real number"
     },
     {
-      "id": "plus-minus-eight-values",
+      "id": "plus-minus-four-signs",
       "draft": "$1\\pm 2\\pm 4\\pm 8$",
       "sympy": null,
       "value": null,
-      "why": "more values than the line holds"
+      "why": "a fourth sign"
+    },
+    {
+      "id": "plus-minus-eight-values",
+      "draft": "$\\pm 1\\pm 2\\pm 4$",
+      "sympy": null,
+      "value": null,
+      "why": "eight values: more than the line holds"
     },
     {
       "id": "plus-minus-with-minus-plus",
@@ -1019,6 +1026,13 @@
       "sympy": null,
       "value": null,
       "why": "SymPy calls zoo**0 1"
+    },
+    {
+      "id": "tan-ten-nines",
+      "draft": "$\\tan(89.9999999999)$",
+      "sympy": "tan(89.9999999999*pi/180)",
+      "value": "572957795131.872",
+      "server_gap": "the turn verifies 5.75005e11 (SymPy gives 5.72958e11): it loses digits near the pole"
     },
     {
       "id": "tan-near-pole",

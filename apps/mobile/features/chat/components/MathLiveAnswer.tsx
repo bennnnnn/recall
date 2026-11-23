@@ -38,6 +38,12 @@ const BRANCH_SIZE = DRAFT_TEXT_SIZE;
 const fitsRow = (latex: string, size: number, fontScale: number): boolean =>
   mathHeight(latex, size) * fontScale <= MATH_LIVE_ANSWER_HEIGHT;
 
+/** A value at the answer's size that the system text size grows past the row it fits at 1×. */
+function grownPastRow(latex: string, fontScale: number): boolean {
+  const height = mathHeight(latex, ANSWER_SIZE);
+  return height * fontScale > Math.max(MATH_LIVE_ANSWER_HEIGHT, height);
+}
+
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
  * would: the draft at the top, its answer at the bottom. Expanded, its empty caret and
@@ -88,7 +94,9 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
   const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
   const color = ACCENTS.green[theme.scheme].primary;
   const { fontScale } = useWindowDimensions();
-  const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
+  // A value a larger system text size makes too tall for the row (`\frac{1}{3}` at 1.3) takes the
+  // draft's size, as ± branches always do; at the standard size the row is drawn for it.
+  const size = answer?.signed || (answer && grownPastRow(answer.latex, fontScale)) ? BRANCH_SIZE : ANSWER_SIZE;
   // Branches that echo a tall draft (a fraction in a fraction) show their values alone, when
   // those are lower: at a large text size even a fraction's values may not fit.
   const latex = useMemo((): string | null => {

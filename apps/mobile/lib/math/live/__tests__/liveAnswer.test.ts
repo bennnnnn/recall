@@ -159,7 +159,8 @@ describe("liveAnswer", () => {
     ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
-    ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
+    ["a fourth sign, sixteen ways", "$1\\pm 2\\pm 4\\pm 8$"],
+    ["more than four values", "$\\pm 1\\pm 2\\pm 4$"],
     ["a fourth sign", "$1\\pm 0\\pm 0\\pm 0\\pm 0$"],
     ["two signs with an undefined branch", "$\\frac{1}{2\\pm 1\\pm 1}$"],
     ["a thousands comma", "$1,000$"],
@@ -278,6 +279,17 @@ describe("liveAnswer", () => {
   it("never calls a sine that is only near 0 exactly 0", () => {
     expect(shown("$\\sin(10^{-13}\\pi)$")).toBeNull();
     expect(shown("$\\frac{\\sin(10^{-13}\\pi)}{10^{-13}\\pi}$")).toBeNull();
+  });
+
+  it("works values that are exactly 1 out exactly", () => {
+    for (const draft of ["$\\ln(e)-1$", "$e^{0}-1$", "$\\exp(0)-1$", "$\\cosh(0)-1$", "$\\pi^{0}-1$"]) {
+      expect({ draft, shown: shown(draft) }).toEqual({ draft, shown: "= 0" });
+    }
+  });
+
+  it("works a tangent near a pole to its ten digits", () => {
+    // 1e-10° short of 90°: tan is 1/tan(1e-10°) = 572957795130.8232…
+    expect(shown("$\\tan(89.9999999999)$")).toMatch(/^(=|\\approx) 572957795131$/);
   });
 
   it("calls two equal floats' difference 0", () => {
