@@ -162,13 +162,21 @@ function choose(n: bigint, k: bigint, ordered: boolean): LiveValue {
 /** Floating point's rounding steps a value may carry and still be a whole number. */
 const WHOLE_STEPS = 64;
 
+/** Within this many rounding steps of a whole number, a value a long chain of steps reached may be it. */
+const WHOLE_DOUBT_STEPS = 4096;
+
 /**
  * A floating-point value within its own rounding of a whole number is that number (for ⌊x⌋,
- * ⌈x⌉). Relative to its rounding, not to its size: `10^{10}\pi` is 31415926535.9, not …536.
+ * ⌈x⌉). Relative to its rounding, not to its size: `10^{10}\pi` is 31415926535.9, not …536. One
+ * a little further, still within `WHOLE_DOUBT_STEPS` (`(\sqrt[1000]{2})^{1000}` is 2 + 2.2e-13), may be
+ * the whole number or not: no value.
  */
 function nearWhole(x: number): number {
   const rounded = Math.round(x);
-  return Math.abs(x - rounded) <= WHOLE_STEPS * Number.EPSILON * Math.max(1, Math.abs(x)) ? rounded : x;
+  const off = Math.abs(x - rounded);
+  const step = Number.EPSILON * Math.max(1, Math.abs(x));
+  if (off <= WHOLE_STEPS * step) return rounded;
+  return off <= WHOLE_DOUBT_STEPS * step ? fail() : x;
 }
 
 /** `log_b(x)` exactly when `b^k = x` for a whole `k`, as `log(1000)` or `log_2(8)`. */
@@ -356,7 +364,7 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   if (fn === "ln") return logarithm(value, "e");
   const x = numberOf(value);
   switch (fn) {
-    case "exp": return approx(Math.exp(x));
+    case "exp": return approx(held(Math.exp(x), 1));
     case "asin": return approx(Math.asin(inRange(x, Math.abs(x) <= 1)));
     case "acos": return approx(Math.acos(inRange(x, Math.abs(x) <= 1)));
     case "atan": return approx(Math.atan(x));
@@ -367,8 +375,8 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
     case "cosh": return approx(Math.cosh(x));
     case "tanh": return approx(Math.tanh(x));
     case "coth": return approx(1 / Math.tanh(x === 0 ? atZero(value) : x));
-    case "sech": return approx(1 / Math.cosh(x));
-    case "csch": return approx(1 / Math.sinh(x === 0 ? atZero(value) : x));
+    case "sech": return approx(held(1 / Math.cosh(x), 1));
+    case "csch": return approx(held(1 / Math.sinh(x === 0 ? atZero(value) : x), 1));
     case "asinh": return approx(Math.asinh(x));
     case "acosh": return approx(Math.acosh(inRange(x, x >= 1)));
     case "atanh": return approx(Math.atanh(inRange(x, Math.abs(x) < 1)));

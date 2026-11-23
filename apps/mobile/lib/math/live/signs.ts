@@ -21,7 +21,7 @@ type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
 
 /** One way a ± draft goes: its text with the sign picked (`null` where it cannot be written
- * truly, beside a mod), its value, and whether that text is the value's own fraction
+ * truly, in a draft with a mod), its value, and whether that text is the value's own fraction
  * (`-\frac{1}{3}`), so only its decimal is new. */
 export type LiveBranch = { latex: string | null; result: LiveResult; typed: boolean };
 
@@ -65,7 +65,7 @@ const merged = (run: string, pick: Pick): Pick =>
  * The draft as written, its sign replaced (`2\pm 3` → `2-3`); a typed `*` drawn as ×. The
  * space the key typed after `\pm` goes with it. A run of + and − typed right before or after
  * the sign merges with it (`2-\pm 3`, `2--\pm 3` and `2\pm -3` → `2+3` and `2-3`), never `2--3`.
- * Not beside a mod, where it would not be true (`(-2) mod 3` is not `-(2 mod 3)`): there
+ * Not in a draft with a mod, where it may not be true (`(-2) mod 3` is not `-(2 mod 3)`): there
  * `null`, and the draft shows its values alone.
  */
 function written(math: string, sign: PlusMinus, pick: Pick): string | null {

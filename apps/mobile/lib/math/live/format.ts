@@ -174,7 +174,7 @@ function spokenBranch(latex: string, shown: Shown): string {
 
 /**
  * One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. A branch whose text cannot be written
- * truly (beside a mod) leaves its values alone, still in that order: `= 4,\quad 3`.
+ * truly (a merged sign in a draft with a mod) leaves its values alone, still in that order: `= 4,\quad 3`.
  */
 export function formatBranches(branches: LiveBranch[], preferFraction: boolean, undefinedWord: string): LiveAnswer {
   const form = oneForm(branches.map((branch) => branch.result), preferFraction);
