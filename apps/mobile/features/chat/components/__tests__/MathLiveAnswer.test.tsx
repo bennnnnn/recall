@@ -47,7 +47,7 @@ async function sizeOf(input: string): Promise<number> {
   return Math.max(...sizes(getByTestId("math-live-answer") as unknown as Styled));
 }
 
-type Scrolled = { props: { horizontal?: boolean; contentContainerStyle?: unknown }; children?: (Scrolled | string)[] | null };
+type Scrolled = { props: { horizontal?: boolean; style?: unknown; contentContainerStyle?: unknown }; children?: (Scrolled | string)[] | null };
 const scrollsOf = (node: Scrolled | string): Scrolled[] =>
   typeof node === "string"
     ? []
@@ -85,6 +85,8 @@ describe("MathLiveAnswer", () => {
     const { getByTestId, rerender } = await render(<MathLiveAnswer input={wide} />);
     const [scroll] = scrollsOf(getByTestId("math-live-answer") as unknown as Scrolled);
     expect(scroll?.props).toMatchObject({ horizontal: true, accessible: false, importantForAccessibility: "no" });
+    // The row's full height, so a tall answer's flashed bar stays inside the row.
+    expect(StyleSheet.flatten(scroll!.props.style as never)).toMatchObject({ alignSelf: "stretch" });
     expect(StyleSheet.flatten(scroll!.props.contentContainerStyle as never)).toMatchObject({
       flexGrow: 1,
       alignItems: "center",

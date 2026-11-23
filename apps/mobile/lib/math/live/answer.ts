@@ -12,7 +12,7 @@
  */
 import type { LiveResult } from "@/lib/math/live/evaluate";
 import { formatBranches, formatLiveResult, formatValues, shownValues, type LiveAnswer } from "@/lib/math/live/format";
-import { readCalculation, type LiveNode } from "@/lib/math/live/read";
+import { LATEX_SPACE, readCalculation, type LiveNode } from "@/lib/math/live/read";
 import { isTypedFraction, workSigns, type LiveSigns } from "@/lib/math/live/signs";
 
 export type { LiveAnswer };
@@ -28,9 +28,8 @@ function isPlainNumber(node: LiveNode): boolean {
 
 
 /** Spaces the keyboard may leave after the = (`\,`, `\quad`, …). */
-const LATEX_SPACE = String.raw`(?:\s|\\[,;:! ]|\\q?quad\b)*`;
-const CLOSING_EQUALS_IN_MATH = new RegExp(String.raw`=${LATEX_SPACE}\$\s*$`);
-const CLOSING_EQUALS_PLAIN = new RegExp(String.raw`=${LATEX_SPACE}$`);
+const CLOSING_EQUALS_IN_MATH = new RegExp(String.raw`=${LATEX_SPACE}*\$\s*$`);
+const CLOSING_EQUALS_PLAIN = new RegExp(String.raw`=${LATEX_SPACE}*$`);
 
 /**
  * `3+4=` asks for its value, as a calculator's = key does: one = at the very end of the maths

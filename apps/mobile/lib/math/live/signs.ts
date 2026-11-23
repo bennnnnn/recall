@@ -15,7 +15,7 @@
  * any such draft has.
  */
 import { evaluateCalculation, numberOf, type LiveResult, type LiveValue } from "@/lib/math/live/evaluate";
-import { childrenOf, mapChildren, type LiveNode, type LiveReading } from "@/lib/math/live/read";
+import { childrenOf, LATEX_SPACE, mapChildren, type LiveNode, type LiveReading } from "@/lib/math/live/read";
 
 type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
@@ -55,9 +55,9 @@ const merged = (run: string, pick: Pick): Pick =>
   [...run.replace(/[^+\-−]/g, "")].reduce<Pick>((sign, next) => ((next === "+") === (sign === "+") ? "+" : "-"), pick);
 
 /** Signs and the spaces the reader skips between them (`\,`, `\quad`). */
-const RUN = String.raw`(?:[+\-−]|\s|\\[,;:! ]|\\q?quad\b)*`;
+const RUN = String.raw`(?:[+\-−]|${LATEX_SPACE})*`;
 const RUN_BEFORE = new RegExp(String.raw`[+\-−]${RUN}$`);
-const RUN_AFTER = new RegExp(String.raw`^(?:\s|\\[,;:! ]|\\q?quad\b)*[+\-−]${RUN}`);
+const RUN_AFTER = new RegExp(String.raw`^${LATEX_SPACE}*[+\-−]${RUN}`);
 
 /**
  * The draft as written, its sign replaced (`2\pm 3` → `2-3`); a typed `*` drawn as ×. The
@@ -123,9 +123,16 @@ export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
 }
 
 /** Smallest first, each compared with the last one kept, so close values never merge in a chain. */
+/** Smaller first: two exact values compared exactly, as floats may round them alike. */
+function order(a: LiveValue, b: LiveValue): number {
+  if (a.kind !== "exact" || b.kind !== "exact") return numberOf(a) - numberOf(b);
+  const difference = a.r.n * b.r.d - b.r.n * a.r.d;
+  return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+}
+
 function distinct(values: LiveValue[]): LiveValue[] {
   const kept: LiveValue[] = [];
-  for (const value of [...values].sort((a, b) => numberOf(a) - numberOf(b))) {
+  for (const value of [...values].sort(order)) {
     const last = kept.at(-1);
     if (!last || !same(last, value)) kept.push(value);
   }

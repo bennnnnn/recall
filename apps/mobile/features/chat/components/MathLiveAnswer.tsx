@@ -73,6 +73,7 @@ function AnswerScroll({ children }: { children: ReactNode }) {
       showsHorizontalScrollIndicator
       bounces={false}
       keyboardShouldPersistTaps="handled"
+      style={styles.scroll}
       contentContainerStyle={styles.content}
     >
       {children}
@@ -134,4 +135,6 @@ const styles = StyleSheet.create({
   },
   // Centred while the answer fits the row; wider, it scrolls from its start.
   content: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
+  // The row's full height, so a tall answer is centred in it and the flashed bar stays in view.
+  scroll: { alignSelf: "stretch" },
 });

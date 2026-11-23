@@ -216,9 +216,9 @@ export function formatBranches(branches: LiveBranch[], preferFraction: boolean, 
 const MAX_VALUES = 4;
 
 /**
- * The values the display writes, each with how: two it rounds alike (`10^{20} ± 1`,
- * `1 ± 10^{-12}`) are written once, the first of them kept. More than four: `null`, as the
- * line would not hold them.
+ * The values the display writes, each with how: two it rounds alike (`10^{20} ± 1 ± 1`,
+ * `1 ± 10^{-12} ± 10^{-12}`) are written once, the first of them kept. More than four: `null`,
+ * as the line would not hold them.
  */
 function writtenValues(values: LiveValue[], preferFraction: boolean): { value: LiveValue; shown: Shown }[] | null {
   const form = oneForm(values, preferFraction);

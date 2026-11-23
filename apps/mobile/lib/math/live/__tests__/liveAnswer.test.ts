@@ -226,6 +226,10 @@ describe("liveAnswer", () => {
 
   it("writes once the values the display rounds alike", () => {
     expect(shown("$10^{20}\\pm 1\\pm 1$")).toBe("\\approx 1 \\times 10^{20}");
+    // Exact values a float rounds alike are still put smallest first.
+    expect(shown("$10^{14}\\pm 2\\times 10^{-10}\\pm 10^{-10}$")).toBe(
+      "= 99999999999999.9999999997,\\quad 99999999999999.9999999999,\\quad 100000000000000.0000000001,\\quad 100000000000000.0000000003",
+    );
     // Eight values, one as written: the cap counts what the display writes.
     expect(shown("$10^{20}\\pm 1\\pm 2\\pm 4$")).toBe("\\approx 1 \\times 10^{20}");
     expect(shown("$1\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 1");
@@ -250,6 +254,7 @@ describe("liveAnswer", () => {
     // Across the spaces the reader skips too.
     expect(shown("$2-\\,\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2\\pm\\, -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
+    expect(shown("$2-\\quad\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
     expect(shown("$2\\times\\pm 3$")).toBe("2 \\times -3 = -6,\\quad 2 \\times +3 = 6");
     // Typed with the glyphs, drawn as the draft above draws them.

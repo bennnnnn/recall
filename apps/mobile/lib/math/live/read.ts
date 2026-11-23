@@ -70,8 +70,12 @@ const NAMED: Record<string, LiveFunction> = {
   arcsin: "asin", arccos: "acos", arctan: "atan",
   log: "log", ln: "ln", exp: "exp",
 };
+/** The spacing commands the reader skips (`\,`, `\quad`, …). */
+const SPACES = [",", ";", ":", "!", " ", "quad", "qquad"];
 /** Spacing commands, and `\left` / `\right`, which only size the bracket after them. */
-const SKIPPED = new Set([",", ";", ":", "!", " ", "quad", "qquad", "left", "right"]);
+const SKIPPED = new Set([...SPACES, "left", "right"]);
+/** One space the reader skips, white or a spacing command, as a regular expression's source. */
+export const LATEX_SPACE = String.raw`(?:\s|\\(?:${SPACES.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![A-Za-z]))`;
 const TIMES = new Set(["*", "×", "·"]);
 const DIVIDE = new Set(["/", "÷"]);
 
