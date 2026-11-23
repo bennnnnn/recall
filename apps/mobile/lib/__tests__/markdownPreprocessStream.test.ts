@@ -286,4 +286,29 @@ describe("markdownPreprocessStream", () => {
     const notTable = preprocessMarkdownForStream("| just a note |\nthen prose\n", null).prepared;
     expect(notTable).toContain("| just a note |");
   });
+
+  it("a price dollar in the first line holds only that line (audit MX-1)", () => {
+    // One `$` used to hold every later line out of the stable prefix, so the
+    // rest of the reply was preprocessed, parsed and drawn again on every flush.
+    let content = "You will need a $300 deposit to hold the flat.\n\n";
+    let cache: StreamingPreprocessCache | null = preprocessMarkdownForStream(content, null).cache;
+    expect(cache.rawStableLen).toBe(content.length);
+    for (let i = 1; i <= 50; i += 1) {
+      content += `Paragraph ${i} says what the agent will check on the day you move in.\n\n`;
+      cache = preprocessMarkdownForStream(content, cache).cache;
+      expect(cache.rawStableLen).toBe(content.length);
+      expect(cache.scanState?.stableEnd).toBe(content.length);
+    }
+    simulateStreamingAndCrossCheck(content, 7);
+  });
+
+  it("holds a line whose `$` opens a span, and the lines of an open \\( or \\[", () => {
+    expect(findStableMarkdownPrefixLen("Intro\n\nThe answer is $x^2 +\n")).toBe("Intro\n\n".length);
+    expect(findStableMarkdownPrefixLen("Cost $5\nnext line\n")).toBe("Cost $5\nnext line\n".length);
+    expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n")).toBe(0);
+    expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n\\) here.\n")).toBe("Use \\(\nx^2\n\\) here.\n".length);
+    // A closer with no opener is not one: it holds nothing after it.
+    expect(findStableMarkdownPrefixLen("Type \\) to close.\n\nMore.\n")).toBe("Type \\) to close.\n\nMore.\n".length);
+    simulateStreamingAndCrossCheck("A $5 fee.\n\nThen \\(\nx\n\\) and \\] stray.\n\n$$\ny\n$$\n\nEnd $x$.\n", 3);
+  });
 });
