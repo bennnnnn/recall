@@ -98,7 +98,8 @@ class _TurnCharge:
 def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int]) -> _TurnCharge:
     """The provider's reported usage, or an estimate where it reported none."""
     usage_input = usage.get("input")
-    est_prompt_tokens = sum(estimate_tokens(m["content"]) for m in ctx.prompt_messages)
+    # A tool call's message has no content (None): it counts as empty, never as a crash.
+    est_prompt_tokens = sum(estimate_tokens(m.get("content") or "") for m in ctx.prompt_messages)
     input_tokens = usage_input if usage_input is not None else est_prompt_tokens
     usage_output = usage.get("output")
     output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)

@@ -319,3 +319,18 @@ def test_the_turn_cost_line_shows_the_cache(caplog: pytest.LogCaptureFixture) ->
     assert "input_tokens=5000 output_tokens=40" in caplog.text
     assert "cached_input_tokens=4096 cache_write_tokens=12" in caplog.text
     assert "est_cost_usd=0.000520" in caplog.text
+
+
+def test_a_tool_call_message_with_no_content_is_counted_as_empty() -> None:
+    """A tool call's assistant message carries content None; the turn's charge must not crash
+    on it, or the turn is never saved (test_turn_whole_trips on PR #2548)."""
+    from app.modules.chat.turn_settle import _turn_charge
+
+    messages = [
+        {"role": "user", "content": "where is the Eiffel Tower?"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1"}]},
+        {"role": "tool", "content": "Paris"},
+    ]
+    ctx = SimpleNamespace(user_id=uuid4(), model="free-chat", prompt_messages=messages)
+    charge = _turn_charge(ctx, "In Paris.", {"input": 100, "output": 5})  # type: ignore[arg-type]
+    assert charge.input_tokens == 100 and charge.est_prompt_tokens > 0
