@@ -2,9 +2,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
-import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
 import { useHomeOnScreen } from "@/features/home/model/homeOnScreen";
+import { selection as hapticSelection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type } from "@/lib/type";
@@ -84,12 +84,12 @@ export function useComposerPrompt(): string {
  * any language and text size and ends in an ellipsis. Screen readers hear the field's
  * own label instead.
  */
-export function ComposerPlaceholder({ bottom, top = false }: { bottom: number; top?: boolean }) {
+export function ComposerPlaceholder({ bottom }: { bottom: number }) {
   const theme = useTheme();
   const prompt = useComposerPrompt();
   return (
     <View
-      style={[placeholderStyles.box, top ? placeholderStyles.top : { bottom }]}
+      style={[placeholderStyles.box, { bottom }]}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -109,8 +109,6 @@ export function ComposerPlaceholder({ bottom, top = false }: { bottom: number; t
 
 const placeholderStyles = StyleSheet.create({
   box: { position: "absolute", left: 0, right: 0 },
-  // On the math draft's first line, beside its caret (`mathCardStyles`).
-  top: { top: (MATH_DRAFT_PREVIEW_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT) / 2 },
   text: { ...Type.body, lineHeight: COMPOSER_INPUT_LINE_HEIGHT },
 });
 
@@ -152,6 +150,30 @@ export function ComposerScanHint({
 }
 
 /** Opens a long draft in the full-height editor, and closes it again. */
+/** Top right of the composer while the maths pad is open: clears the whole draft at once. */
+/** The maths pad's clear-all: its row stays while the draft is empty (no button), so the
+ *  first key or a clear never moves the draft up or down. */
+export function ComposerClearControl({ s, onPress }: { s: ComposerStyles; onPress?: () => void }) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  return (
+    <View style={s.expandControlRow} testID="composer-math-clear-row">
+      {onPress ? <Pressable
+        style={s.expandControl}
+        onPress={() => {
+          hapticSelection();
+          onPress();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.math_clear_all")}
+        testID="composer-math-clear"
+      >
+        <Icon name="close-circle" size={IconSize.sm} color={theme.textSecondary} />
+      </Pressable> : null}
+    </View>
+  );
+}
+
 export function ComposerExpandControl({
   s,
   expanded,

@@ -16,8 +16,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  BOTTOM_CHROME_FADE_LOCATIONS,
-  bottomChromeFadeColors,
   COMPOSER_GAP_FADE_LOCATIONS,
   composerGapFadeColors,
 } from "@/features/chat/components/chromeFade";
@@ -30,6 +28,7 @@ import {
 } from "@/features/chat/components/MathDraftPreview";
 import {
   ComposerAttachButton,
+  ComposerClearControl,
   ComposerExpandControl,
   ComposerPlaceholder,
   useComposerPrompt,
@@ -110,6 +109,15 @@ type Props = {
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
 };
+
+/**
+ * Where the full-height composer starts. The maths pad's page covers the whole screen, the
+ * strip under the status bar included, so the thread's top buttons never show over it; it has
+ * no +, mic, live talk or expand control either (the owner, 2026-11-23). Send stays.
+ */
+function expandedTop(mathPad: boolean, insetTop: number) {
+  return mathPad ? { top: 0, paddingTop: insetTop + Space.xs } : { top: insetTop + Space.xs };
+}
 
 export const ChatComposer = memo(function ChatComposer({
   visible,
@@ -265,9 +273,9 @@ export const ChatComposer = memo(function ChatComposer({
     hasSendableContent,
   });
   const blockStyle = s.composerBlock;
-  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, { top: insets.top + Space.xs }] : null;
+  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, expandedTop(mathBarOpen, insets.top)] : null;
   const containerStyle = [blockStyle, animatedContainerStyle, expandedBlockStyle];
-  const attachButton = (
+  const attachButton = mathBarOpen ? null : (
     <ComposerAttachButton
       s={s}
       voiceActive={voiceActive}
@@ -293,11 +301,11 @@ export const ChatComposer = memo(function ChatComposer({
         sendBusy={sendBusy}
         isOffline={isOffline}
         attachBusy={attachPicking}
-        showMic={showMic}
+        showMic={showMic && !mathBarOpen}
         voiceRecording={voiceRecording}
         voiceTranscribing={voiceTranscribing}
         onVoicePress={onVoicePress}
-        onLiveTalkPress={onLiveTalkPress}
+        onLiveTalkPress={mathBarOpen ? undefined : onLiveTalkPress}
       />
     </View>
   );
@@ -337,7 +345,7 @@ export const ChatComposer = memo(function ChatComposer({
             testID="composer-surface"
             style={[
               s.inputWrap,
-              composerExpanded && s.inputWrapExpanded,
+              composerExpanded && s.expandedFill, mathBarOpen && s.inputWrapMath,
             ]}
           >
             {pendingAttachment ? (
@@ -347,7 +355,7 @@ export const ChatComposer = memo(function ChatComposer({
                 onRemove={onRemoveAttachment}
               />
             ) : null}
-            {showExpandControl ? (
+            {mathBarOpen ? <ComposerClearControl s={s} onPress={input ? () => { onChangeInput(""); math.moveCaret(0); } : undefined} /> : showExpandControl ? (
               <ComposerExpandControl
                 s={s}
                 expanded={composerExpanded}
@@ -454,7 +462,7 @@ export const ChatComposer = memo(function ChatComposer({
                     multiline
                     returnKeyType="default"
                   />
-                  {input || showMathPreview ? null : <ComposerPlaceholder bottom={field.slack / 2} top={mathBarOpen && composerExpanded} />}
+                  {input || showMathPreview || mathBarOpen ? null : <ComposerPlaceholder bottom={field.slack / 2} />}
                   {showEmptyCaret ? (
                     <View style={[s.emptyCaret, composerExpanded && mathCardStyles.emptyCaret]} pointerEvents="none">
                       <MathComposerCaret testID="math-composer-caret" />
@@ -466,7 +474,7 @@ export const ChatComposer = memo(function ChatComposer({
             </View>
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
-                {attachButton}
+                {mathBarOpen ? <View style={mathCardStyles.answerBalance} /> : attachButton}
                 {answerShows ? <MathLiveAnswer input={input} /> : null}
                 {trailingControls}
               </View>
@@ -483,15 +491,6 @@ export const ChatComposer = memo(function ChatComposer({
             ) : null}
           </View>
           </View>
-          {mathBarOpen && !composerExpanded ? (
-            <LinearGradient
-              pointerEvents="none"
-              colors={bottomChromeFadeColors(theme) as [string, string, ...string[]]}
-              locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
-              style={[s.keyboardGapFade, { bottom: math.padHeight }]}
-              testID="composer-scroll-fade"
-            />
-          ) : null}
           {math.mathBarOpen ? (
             <MathKeyboardBar
               open
