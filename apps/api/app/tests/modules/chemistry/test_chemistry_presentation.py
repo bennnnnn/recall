@@ -104,7 +104,7 @@ def test_the_model_prompt_names_the_same_sections() -> None:
             "Find electrochemical Gibbs ΔG for a cell with n=2 and E°=1.1 V",
             (
                 "ΔG° = −(2)(96485 C/mol)(1.1 V) = -2.1 × 10^5 J/mol",
-                "ΔG° = -2.1 × 10^5 J/mol = -2.1 × 10^2 kJ/mol",
+                "ΔG° = -2.123 × 10^5 J/mol = -2.1 × 10^2 kJ/mol",
             ),
         ),
         (

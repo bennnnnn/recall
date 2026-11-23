@@ -208,7 +208,7 @@ def _ice_rows(
         rows.append(
             EquilibriumRow(
                 species=species,
-                initial=num(intent.species.get(species, 0.0)),
+                initial=inp(intent.species.get(species, 0.0)),
                 change=_ice_change(coefficient, product=False),
                 equilibrium=equilibrium.get(species, ""),
             )
@@ -219,7 +219,7 @@ def _ice_rows(
         rows.append(
             EquilibriumRow(
                 species=species,
-                initial=num(intent.species.get(species, 0.0)),
+                initial=inp(intent.species.get(species, 0.0)),
                 change=_ice_change(coefficient, product=True),
                 equilibrium=equilibrium.get(species, ""),
             )

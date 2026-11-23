@@ -7,7 +7,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import most_common_isotope
-from app.modules.chemistry.solvers.display import inp, num, verified
+from app.modules.chemistry.solvers.display import const, inp, num, verified
 from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import monoisotopic_mass
@@ -209,7 +209,7 @@ def _peak(intent: ChemistryIntent, *, kind: str, operation: str) -> ChemistryRes
         for name, (label, low_ppm, high_ppm) in _NMR.items():
             if low_ppm <= value <= high_ppm:
                 groups.append(name)
-                span = f"{num(low_ppm)}–{num(high_ppm)}"
+                span = f"{const(low_ppm)}–{const(high_ppm)}"
                 working.append(f"{inp(value)} is within {name} {label} {span} {unit}")
     if not groups:
         raise SolveServiceError("no functional group contains that peak")
@@ -236,5 +236,5 @@ def _lines_for(groups: tuple[str, ...], *, kind: str) -> list[str]:
             band = _NMR.get(group)
             if band is not None:
                 name, low_ppm, high_ppm = band
-                lines.append(f"{group} {name} {num(low_ppm)}–{num(high_ppm)} ppm")
+                lines.append(f"{group} {name} {const(low_ppm)}–{const(high_ppm)} ppm")
     return lines

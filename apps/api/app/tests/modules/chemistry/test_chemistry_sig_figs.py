@@ -17,6 +17,7 @@ from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.scene import EquilibriumScene
 from app.modules.chemistry.sig_figs import as_written, decimals_of, figures_of
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.display import num, p_value
@@ -559,6 +560,12 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
             "A first order reaction has a half-life of 0.3 min. What is the rate constant k?",
             "k = 2.310\\,\\mathrm{min⁻¹}$",
         ),
+        # A row restating the worked value in the unit asked ends unrounded (review).
+        ("how many mg is 0.0150 mol of NaOH", "m = 0.59996\\,\\mathrm{g} = 599.96\\,\\mathrm{mg}$"),
+        # A table's range is shown as tabulated, never to the data's one figure.
+        ("NMR peak at 9 ppm", "9 is within aldehyde CHO 9–10 ppm"),
+        # Kw is a defined constant: 1.0 × 10^-14 whatever the data's figures.
+        ("What is Kb for the conjugate base if Ka = 1.8e-5?", "Kw = 1.0 × 10⁻¹⁴ at 25 °C"),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),
     ],
@@ -581,3 +588,16 @@ def test_a_derived_count_owns_no_bare_spelling() -> None:
     measured = [("ratio", 2.0), ("k", 2.0)]
     forms = {2.0: ["2", "2.0"]}
     assert _count_spellings("K is 2 and also 2.0", intent, measured, forms) == {}
+
+
+def test_the_ice_table_echoes_its_givens_as_typed() -> None:
+    """K = 4 has one figure, but the drawn table's Initial column is the typed 0.25 (review)."""
+    intent = extract_chemistry_intent(
+        "Solve the ICE equilibrium for H2 + I2 -> 2HI when K=4 and [H2]=0.25 and [I2]=0.25"
+    )
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    scene = verified.result.scene
+    assert isinstance(scene, EquilibriumScene)
+    assert [row.initial for row in scene.rows] == ["0.25", "0.25", "0"]

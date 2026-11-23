@@ -115,8 +115,8 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         rows = [f"m = ({qty(moles, 'mol')})({molar_mass_working(molar)} g/mol)"]
         asked = intent.units.get("answer")
         if asked in _GRAMS_IN:
-            # "How many mg is 0.0150 mol of NaOH?": the grams, then the unit asked.
-            rows.append(f"m = {value} = {num(mass * _GRAMS_IN[asked])} {asked}")
+            # "How many mg is 0.0150 mol of NaOH?": the grams as worked, in the unit asked.
+            rows.append(f"m = {carried(mass)} g = {num(mass * _GRAMS_IN[asked])} {asked}")
             value = f"{num(mass * _GRAMS_IN[asked])} {asked}"
         return verified(
             "Verified mass",

@@ -7,7 +7,7 @@ import math
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.constants import KW, KW_TEXT, PKW
 from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import positive, require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
@@ -228,7 +228,7 @@ def _dilute_strong(
     # Three figures, so the logarithm of the shown value is the shown pH.
     amount_text = format_number(amount, significant=3)
     working = [
-        f"[{ion}] = c/2 + √(c²/4 + Kw), c = {shown_c} mol/L, Kw = {num(KW)}",
+        f"[{ion}] = c/2 + √(c²/4 + Kw), c = {shown_c} mol/L, Kw = {KW_TEXT}",
         f"[{ion}] = {amount_text} mol/L",
         f"p{ion[:-1]} = −log10({amount_text}) = {own}",
     ]
@@ -236,7 +236,7 @@ def _dilute_strong(
         working.append(f"{asked} = {PKW} − {own}")
     return verified(
         f"Verified dilute strong-{'acid' if acid else 'base'} {asked}",
-        (f"{formula} = {inp(concentration)} mol/L", f"Kw = {num(KW)} at 25 °C"),
+        (f"{formula} = {inp(concentration)} mol/L", f"Kw = {KW_TEXT} at 25 °C"),
         asked,
         stated(intent.chemistry_op)[0],
         f"[{ion}] = C/2 + √(C²/4 + Kw), with [{other}] = Kw / [{ion}]",
@@ -258,12 +258,12 @@ def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
         source = positive(ka, "Ka")
         value = KW / source
         formula = base_formula
-        working = f"Kb = ({num(KW)}) / ({inp(source)})"
+        working = f"Kb = ({KW_TEXT}) / ({inp(source)})"
     elif target == "Ka" and kb is not None:
         source = positive(kb, "Kb")
         value = KW / source
         formula = "Ka = Kw / Kb"
-        working = f"Ka = ({num(KW)}) / ({inp(source)})"
+        working = f"Ka = ({KW_TEXT}) / ({inp(source)})"
     elif target == "pKa" and ka is not None:
         source = positive(ka, "Ka")
         value = -math.log10(source)
@@ -286,7 +286,7 @@ def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
         target,
         law_name,
         formula,
-        (f"Kw = {num(KW)} at 25 °C", working) if uses_kw else (working,),
+        (f"Kw = {KW_TEXT} at 25 °C", working) if uses_kw else (working,),
         shown,
         num(value),
     )

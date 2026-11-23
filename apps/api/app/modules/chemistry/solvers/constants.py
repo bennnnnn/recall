@@ -29,6 +29,8 @@ MEV_PER_U = constant("atomic_mass_constant * speed_of_light ** 2", "MeV")
 STANDARD_TEMPERATURE_K = CELSIUS_OFFSET_K + 25
 # Water's ion product at 25 °C is a tabulated value, not a constant of nature.
 KW = 1.0e-14
+# Kw as tables give it: a defined constant keeps its own precision, never the data's.
+KW_TEXT = "1.0 × 10^-14"  # noqa: RUF001
 PKW = 14  # -log10(KW), so pH + pOH
 
 # Standard reduction potential and electrons for the common aqueous ion.

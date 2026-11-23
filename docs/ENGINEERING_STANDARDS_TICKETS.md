@@ -86,7 +86,7 @@ families below were found by reading the code. Two of them are verified bugs tod
     - `format_places(value, places)`, which keeps the requested trailing zeros: 1.005 to 2 places
       is "1.01", and 3.999 is "4.00".
   - Make all six call sites use it. Physics and chemistry keep their own figure *policies*
-    (`ANSWER_FIGURES = 3`; chemistry's 2–4 from the givens). Only the primitive moves.
+    (`ANSWER_FIGURES = 3`; chemistry's 1–4 from the givens). Only the primitive moves.
   - Note: `MathIntent.percent_base` and `combo_n` are reused as "value to round" and "places"
     (`tools/school/arithmetic.py:286-303`). Rename them in a follow-up, not here.
 - **Tests (add first):**

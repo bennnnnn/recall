@@ -7,7 +7,7 @@ import math
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
+from app.modules.chemistry.solvers.constants import KW, KW_TEXT, PKW, weak_dissociation
 from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -68,7 +68,7 @@ def solve_conjugate_salt(intent: ChemistryIntent) -> ChemistryResult:
     amount, ph, note = _weakph_text(kb, concentration, acid=False)
     ph_text = p_value(ph)
     lines = [
-        f"Kb = {num(KW)} / {inp(ka)} = {num(kb)}",
+        f"Kb = {KW_TEXT} / {inp(ka)} = {num(kb)}",
         *_quadratic_lines(kb, concentration, amount),
         f"[OH-] = x = {carried(amount)} mol/L",
         f"pOH = −log10({carried(amount)}) = {p_value(-math.log10(amount))}",

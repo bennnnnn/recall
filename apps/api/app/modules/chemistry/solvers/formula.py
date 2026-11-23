@@ -19,6 +19,7 @@ from app.modules.chemistry.solvers.constants import (
     PLANCK,
 )
 from app.modules.chemistry.solvers.display import (
+    carried,
     converted,
     inp,
     molar_mass_working,
@@ -210,7 +211,9 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         given.append(f"{row}{typed[name]}")
     rows = [row.format(**names, **_CONSTANTS_SHOWN, **typed) for row in law.substitution]
     if in_asked is not None:
-        rows.append(f"{law.result.format(**names)} = {shown} = {in_asked}")
+        # The law's value as worked, restated in the unit asked.
+        worked = with_unit(carried(result), law.unit)
+        rows.append(f"{law.result.format(**names)} = {worked} = {in_asked}")
         shown = in_asked
     return verified(
         f"Verified {law.law_name[0].lower()}{law.law_name[1:]}",

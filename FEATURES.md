@@ -574,7 +574,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   figures among the measured givens for a product or quotient (`4 g` of H₂ makes `4 × 10¹ g`
   of water, a titration to four figures `0.1298 M`), the fewest decimal places for a sum,
   a pH's decimals from its concentration's figures, typed values echoed as typed; physics'
-  and maths' two-decimal card rule does not apply, and a precision the question asks for
+  and maths' two-decimal card rule does not apply (the gas laws, `Q = mcΔT` and decay,
+  answered by physics' laws, keep physics' rule), and a precision the question asks for
   still wins. Balance, stoichiometry, VSEPR, titration, ICE, and galvanic
   answers also append a server-owned `chem_scene` the phone only draws. Complete typed
   questions return a textbook worked solution: Given / Required / named Formula / Substitution

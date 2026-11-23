@@ -10,7 +10,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.acid_base import (
     ph_text,
 )
-from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
+from app.modules.chemistry.solvers.constants import KW, KW_TEXT, PKW, weak_dissociation
 from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.titration_curve import half_equivalence_ion, with_titration_scene
@@ -231,7 +231,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         lines.append(_ratio_row(conj, analyte_moles, total, salt))
         conj_symbol = "Kb" if acid else "Ka"
         k_conj = num(conj_constant)
-        lines.append(f"{conj_symbol} = Kw / {symbol} = ({num(KW)}) / ({inp(constant)}) = {k_conj}")
+        lines.append(f"{conj_symbol} = Kw / {symbol} = ({KW_TEXT}) / ({inp(constant)}) = {k_conj}")
         lines.append(f"x^2 + ({k_conj})x − ({k_conj})({carried(salt)}) = 0")
         lines.append(f"[{produced}] = x = {carried(amount)} mol/L")
         ph = p_value(PKW + math.log10(amount) if acid else -math.log10(amount))

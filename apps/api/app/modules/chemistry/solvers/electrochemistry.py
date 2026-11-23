@@ -47,7 +47,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             f"ΔG° = −({inp(electrons)})({const(FARADAY)} C/mol)({qty(potential, 'V')})"
             f" = {num(delta_g_j)} J/mol",
             # A coulomb-volt is a joule; the answer is quoted per kilojoule.
-            f"ΔG° = {num(delta_g_j)} J/mol = {value}",
+            f"ΔG° = {carried(delta_g_j)} J/mol = {value}",
         )
         return verified(
             "Verified electrochemical free energy",

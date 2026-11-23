@@ -94,7 +94,7 @@ def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
     value = f"{num(volume)} {v1_unit}"
     rows = [f"V1 = ({qty(m2, 'mol/L')})({qty(v2, v2_unit)}) / {qty(m1, 'mol/L')}"]
     if v1_unit != v2_unit:
-        rows.append(f"V1 = {num(in_v2_unit)} {v2_unit} = {value}")
+        rows.append(f"V1 = {carried(in_v2_unit)} {v2_unit} = {value}")
     return verified(
         "Verified dilution",
         (f"c1 = {inp(m1)} mol/L", f"c2 = {inp(m2)} mol/L", f"V2 = {inp(v2)} {v2_unit}"),
