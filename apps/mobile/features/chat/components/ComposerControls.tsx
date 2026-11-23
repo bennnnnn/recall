@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
 import { useHomeOnScreen } from "@/features/home/model/homeOnScreen";
+import { selection as hapticSelection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type } from "@/lib/type";
@@ -157,7 +158,10 @@ export function ComposerClearControl({ s, onPress }: { s: ComposerStyles; onPres
     <View style={s.expandControlRow}>
       <Pressable
         style={s.expandControl}
-        onPress={onPress}
+        onPress={() => {
+          hapticSelection();
+          onPress();
+        }}
         accessibilityRole="button"
         accessibilityLabel={t("chat.math_clear_all")}
         testID="composer-math-clear"

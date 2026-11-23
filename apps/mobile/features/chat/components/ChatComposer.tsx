@@ -41,7 +41,6 @@ import { ComposerSendControls } from "@/features/chat/components/ComposerSendCon
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import { selection as hapticSelection } from "@/lib/haptics";
 import { liveAnswerShows, MATH_LIVE_ANSWER_HEIGHT, MathLiveAnswer, mathCardStyles } from "@/features/chat/components/MathLiveAnswer";
 import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
@@ -112,6 +111,15 @@ type Props = {
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
 };
+
+/**
+ * Where the full-height composer starts. The maths pad's page covers the whole screen, the
+ * strip under the status bar included, so the thread's top buttons never show over it; it has
+ * no +, mic, live talk or expand control either (the owner, 2026-11-23). Send stays.
+ */
+function expandedTop(mathPad: boolean, insetTop: number) {
+  return mathPad ? { top: 0, paddingTop: insetTop + Space.xs } : { top: insetTop + Space.xs };
+}
 
 export const ChatComposer = memo(function ChatComposer({
   visible,
@@ -267,15 +275,8 @@ export const ChatComposer = memo(function ChatComposer({
     hasSendableContent,
   });
   const blockStyle = s.composerBlock;
-  // The maths pad's page covers the whole screen, the bar under the status bar included: the
-  // thread's top buttons never show over it (the owner, 2026-11-23).
-  const expandedTop = mathBarOpen
-    ? { top: 0, paddingTop: insets.top + Space.xs }
-    : { top: insets.top + Space.xs };
-  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, expandedTop] : null;
+  const expandedBlockStyle = composerExpanded ? [s.composerBlockExpanded, expandedTop(mathBarOpen, insets.top)] : null;
   const containerStyle = [blockStyle, animatedContainerStyle, expandedBlockStyle];
-  // The maths pad is for typing maths: no +, mic, live talk or expand control beside it
-  // (the owner, 2026-11-23: they distract there). Send stays.
   const attachButton = mathBarOpen ? null : (
     <ComposerAttachButton
       s={s}
@@ -346,8 +347,7 @@ export const ChatComposer = memo(function ChatComposer({
             testID="composer-surface"
             style={[
               s.inputWrap,
-              composerExpanded && s.inputWrapExpanded,
-              mathBarOpen && s.inputWrapMath,
+              composerExpanded && s.expandedFill, mathBarOpen && s.inputWrapMath,
             ]}
           >
             {pendingAttachment ? (
@@ -357,16 +357,7 @@ export const ChatComposer = memo(function ChatComposer({
                 onRemove={onRemoveAttachment}
               />
             ) : null}
-            {mathBarOpen && input ? (
-              <ComposerClearControl
-                s={s}
-                onPress={() => {
-                  hapticSelection();
-                  math.clearAll();
-                }}
-              />
-            ) : null}
-            {showExpandControl && !mathBarOpen ? (
+            {mathBarOpen ? (input ? <ComposerClearControl s={s} onPress={() => { onChangeInput(""); math.moveCaret(0); }} /> : null) : showExpandControl ? (
               <ComposerExpandControl
                 s={s}
                 expanded={composerExpanded}
@@ -485,7 +476,7 @@ export const ChatComposer = memo(function ChatComposer({
             </View>
             {stacked ? (
               <View style={s.controlsRow} testID="composer-controls-row">
-                {mathBarOpen ? <View style={s.mathAnswerBalance} /> : attachButton}
+                {mathBarOpen ? <View style={mathCardStyles.answerBalance} /> : attachButton}
                 {answerShows ? <MathLiveAnswer input={input} /> : null}
                 {trailingControls}
               </View>

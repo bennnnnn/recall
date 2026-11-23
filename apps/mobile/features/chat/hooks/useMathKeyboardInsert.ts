@@ -293,13 +293,6 @@ export function useMathKeyboardInsert(options: {
     pinSelection({ start: healed.start, end: healed.end });
   }, [pinSelection, selection, setInput, textRef]);
 
-  /** The composer's clear control: the whole draft goes at once, the caret at its start. */
-  const clearAll = useCallback(() => {
-    textRef.current = "";
-    setInput("");
-    pinSelection({ start: 0, end: 0 });
-  }, [pinSelection, setInput, textRef]);
-
   const pasteText = useCallback(
     async (text: string) => {
       if (!text) return;
@@ -361,7 +354,6 @@ export function useMathKeyboardInsert(options: {
     onChangeText,
     insertSymbol,
     backspace,
-    clearAll,
     pasteText,
     moveCaret,
     stepCaret,

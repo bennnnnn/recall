@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
+import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { ACCENTS } from "@/lib/accent";
 import { liveAnswer } from "@/lib/math/live/answer";
 import { MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
@@ -35,6 +36,8 @@ export const mathCardStyles = StyleSheet.create({
   // The field fills the card's height, so the draft starts at its top, not by the buttons.
   field: { alignSelf: "stretch", justifyContent: "flex-start" },
   emptyCaret: { bottom: undefined, height: MATH_DRAFT_PREVIEW_HEIGHT },
+  // Where + stood beside the answer, so the answer sits in the row's middle.
+  answerBalance: { width: COMPOSER_CONTROL_SIZE },
 });
 
 /**

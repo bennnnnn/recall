@@ -13,7 +13,7 @@ import { Type, Weight } from "@/lib/type";
 
 const COMPOSER_VERTICAL_PADDING = 6;
 /** Pill padding plus the keypad's top margin. The dim sits in that strip. */
-export const MATH_KEYBOARD_GAP_FADE_HEIGHT = Space.xs + COMPOSER_VERTICAL_PADDING;
+const MATH_KEYBOARD_GAP_FADE_HEIGHT = Space.xs + COMPOSER_VERTICAL_PADDING;
 
 export function makeChatComposerStyles(theme: Theme) {
   return StyleSheet.create({
@@ -58,11 +58,7 @@ export function makeChatComposerStyles(theme: Theme) {
       borderWidth: 1,
       borderColor: theme.borderStrong,
     },
-    inputWrapExpanded: { flex: 1, minHeight: 0 },
-    // The maths pad's page: the whole screen, no card edge around the draft.
     inputWrapMath: { borderWidth: 0, borderRadius: 0, backgroundColor: theme.bg },
-    // Where + stood: the answer sits in the row's middle, Send on its right.
-    mathAnswerBalance: { width: COMPOSER_CONTROL_SIZE },
     sendStatus: {
       marginTop: Space.xxs,
       marginLeft: Space.xl + Space.xs,
