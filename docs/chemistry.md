@@ -316,7 +316,8 @@ guidance, AP's "calculate" (correct units and significant figures). It is not "t
 a chemistry card has the significant figures of the question's data, from one to four.
 Physics' and maths' cards keep the two-decimal rule (`services/rounding_rule.py`);
 the card pass leaves a chemistry solver's checked card as the solver wrote it (the model's
-own unchecked card follows the rule)
+own unchecked card follows the rule, and so does every card of a turn that mixes chemistry
+with another subject)
 (`VerifiedSolveBlock.card_precision_own`, `chat/card_numbers.py`) unless the question asks
 for another precision ("to 3 decimal places", "2 sig figs", "don't round"). It honours that
 only as far as the working knows the value: a card whose working ends on 35.74 g can show

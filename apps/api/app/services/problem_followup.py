@@ -32,7 +32,7 @@ from app.services.scaled_followup import (
     thrown_at,
     written_owner,
 )
-from app.services.school_rounding import round_figures
+from app.services.school_rounding import round_figures, typed_figures
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -158,14 +158,14 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
     the input would move the answer, and only the answer is rounded."""
     scaled = value * factor
     exact = f"{scaled:.6g}"
-    figures = _typed_figures(literal) if literal else 0
+    figures = typed_figures(literal) if literal else 0
     if not figures or scaled == 0 or not math.isfinite(scaled):
         return exact
     # Never fewer figures than the scaled value has: 0.00006 C doubled is 0.00012, not 1e-4.
     ending = f"{abs(scaled):.12g}"
-    if _typed_figures(ending, whole_zeros=False) > _EXACT_DIGITS:
+    if typed_figures(ending, whole_zeros=False) > _EXACT_DIGITS:
         return exact
-    figures = max(figures, _typed_figures(ending, whole_zeros=False))
+    figures = max(figures, typed_figures(ending, whole_zeros=False))
     mantissa, exponent = round_figures(scaled, figures)
     # A whole number's zeros that are no figure are a power of ten: 5 g doubled is 1e1 g,
     # since "10" would read as two figures.
@@ -178,16 +178,6 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
 _EXACT_DIGITS = 6
 # Powers of ten a scaled value is written in full between, as ``:.6g`` writes it.
 _PLAIN_BELOW, _PLAIN_FROM = -4, 6
-
-
-def _typed_figures(literal: str, *, whole_zeros: bool = True) -> int:
-    """Significant figures of a number as typed: ``0.010`` has 2, ``1.0e-3`` 2, ``200`` 3
-    (``whole_zeros``; without it, a whole number's trailing zeros are no figures: 1)."""
-    mantissa = re.split(r"[eE]", literal.strip().lstrip("+-\u2212"))[0]
-    if not whole_zeros and "." not in mantissa:
-        mantissa = mantissa.rstrip("0") or "0"
-    digits = mantissa.replace(".", "").lstrip("0")
-    return len(digits) if digits.isdigit() else 0
 
 
 def in_unit(prior: str, unit: str) -> str:

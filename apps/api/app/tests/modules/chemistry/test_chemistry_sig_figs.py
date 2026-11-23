@@ -501,6 +501,32 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
             "How many grams of H2O can be made from 0.9 g of H2 and 9 g of O2?",
             "18.015\\,\\mathrm{g/mol} = 8.042\\,\\mathrm{g}$",
         ),
+        # The mass defect is carried to five figures into E, E to five into E/A (review).
+        (
+            "The mass of a proton is 1.007276 u. What is the mass defect of He-4 if its "
+            "nuclear mass = 4.0015 u?",
+            "= 0.030382 \\times 931.494 = 28.30",
+        ),
+        (
+            "The mass of a proton is 1.007276 u. What is the mass defect of He-4 if its "
+            "nuclear mass = 4.0015 u?",
+            "E/A = 28.300 / 4",
+        ),
+        # The Ksp rows write the ratio's factor as the whole number it is.
+        (
+            "What is the molar solubility of Ag2CrO4 if Ksp = 1.1e-12?",
+            "((1.1 \\times 10^{-12}) / 4)^{1/3}",
+        ),
+        ("The molar solubility of Ag2CrO4 is 6.5e-5 M. What is its Ksp?", "(4)(6.5 \\times"),
+        ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "(298) = 24.453"),
+        # A value the tens would round away keeps a place more: 5.5 − 1 × 10^1 is −5, not 0.
+        (
+            "A solution has molality 2 m, i = 1, Kf = 5.12 °C/m, and the normal freezing "
+            "point of benzene is 5.5 °C. What is the freezing point?",
+            "- 1 \\times 10^{1}\\,^\\circ\\mathrm{C} = -5\\,^\\circ\\mathrm{C}$",
+        ),
+        # A typed pH of 0.00 has two decimals: [H+] is 1.0 mol/L, never a bare 1.
+        ("What is [H+] if the pH is 0.00?", "= 1.0\\,\\mathrm{mol/L}$"),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),
     ],
@@ -511,3 +537,15 @@ def test_a_working_row_states_what_its_numbers_give(question: str, row: str) -> 
     verified = build_verified_chemistry(intent)
     assert verified is not None
     assert row in format_direct_chemistry_reply(verified)
+
+
+def test_a_derived_count_owns_no_bare_spelling() -> None:
+    """A count the solve works out (a ratio) never claims a bare spelling of a measured value:
+    "2" and "2.0" typed with no unit both stay the measured value's (review)."""
+    from app.modules.chemistry.sig_figs import _count_spellings
+
+    intent = extract_chemistry_intent("How many oxygen atoms are in 2.0 mol of CO2?")
+    assert intent is not None
+    measured = [("ratio", 2.0), ("k", 2.0)]
+    forms = {2.0: ["2", "2.0"]}
+    assert _count_spellings("K is 2 and also 2.0", intent, measured, forms) == {}

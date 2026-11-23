@@ -295,8 +295,12 @@ def _to_places(value: float, places: int) -> str:
     if places >= 0:
         return fixed(value, places)
     rounded = round_places(value, places)
-    if rounded == 0:
-        return "0"
+    while rounded == 0 and places < 0:
+        # 5.5 - 1 x 10^1 is no exact 0: a value the tens would round away keeps a place more.
+        places += 1
+        rounded = round_places(value, places)
+    if places >= 0:
+        return fixed(value, places)
     # The figures of the rounded value, so a carry counts: -9.789 to the ten is -1 x 10^1.
     figures = rounded.adjusted() + 1 + places
     return format_number(float(rounded), significant=figures, keep_zeros=True)

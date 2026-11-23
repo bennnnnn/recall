@@ -353,7 +353,7 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "The atomic number is 11 and the electron count is 10. Find the ion charge.",
         "ion_charge",
-        "q = 1.0",
+        "q = 1",
     ),
     (
         "For the shell, n = 3. Find the maximum electrons.",

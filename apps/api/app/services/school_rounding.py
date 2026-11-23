@@ -27,6 +27,17 @@ def _exact(value: float | str | Fraction) -> Decimal:
     return Decimal(repr(float(value)))
 
 
+def typed_figures(literal: str, *, whole_zeros: bool = True) -> int:
+    """Significant figures of a number as typed: ``0.010`` has 2, ``1.0e-3`` 2, ``200`` 3
+    (``whole_zeros``; without it, a whole number's trailing zeros are no figures: 1); 0 for
+    text with no digit. Chemistry's answers and a scaled follow-up's givens count by it."""
+    mantissa = re.split(r"[eE]", literal.strip().lstrip("+-\u2212"))[0]
+    if not whole_zeros and "." not in mantissa:
+        mantissa = mantissa.rstrip("0") or "0"
+    digits = mantissa.replace(".", "").lstrip("0")
+    return len(digits) if digits.isdigit() else 0
+
+
 def round_places(value: float | str | Fraction, places: int) -> Decimal:
     """``value`` half up to ``places`` decimals; a negative ``places`` rounds to tens, hundreds…"""
     exact = _exact(value)

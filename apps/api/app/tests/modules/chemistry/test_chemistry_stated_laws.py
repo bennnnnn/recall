@@ -150,7 +150,7 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
         (
             "Oxygen has atomic number 8 and 10 electrons. What is the charge of the ion?",
             "ion_charge",
-            "q = -2.0",
+            "q = -2",
         ),
         (
             "How many electrons fit in the shell with n = 5?",

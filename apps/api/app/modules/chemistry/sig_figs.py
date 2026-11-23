@@ -27,6 +27,7 @@ from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
+from app.services.school_rounding import typed_figures
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
 # A measured value has at least one figure. An answer has four at most: the reader does not
@@ -51,10 +52,9 @@ DERIVED_COUNT_KEYS = frozenset(
 EXACT_KEYS = frozenset(
     "i valence electrons bonding antibonding nonbonding neighbors count ratio shell_n "
     "components phases n_t2g n_eg charge charge_1 charge_2 charge_number protons neutrons "
-    "mass_number atomic_number delta_n miller_h miller_k miller_l".split()
+    "mass_number atomic_number electron_count delta_n miller_h miller_k miller_l".split()
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
-# A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.
 _EXACT_IN_OP = {
     "hess": re.compile(r"m\d+"),
     # An index of hydrogen deficiency counts atoms: C21H23N gives 11, never 1 x 10^1.
@@ -87,7 +87,7 @@ _CONVERTIBLE = (
 )
 # Lengths, tried only when no unit above explains a value: their x10 (nm and Å) would make a
 # volume's 400 mL also 4.00 x 0.1 L, and so read neither.
-_LENGTHS = (("nanometer", "angstrom", "picometer", "meter"),)
+_LENGTHS = (("nanometer", "angstrom", "meter"),)
 
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
 # formula ("H2O", "Ca(OH)2", "CuSO4·5H2O") or a unit's power ("m^2", "s-1", "M-1") is not
@@ -101,8 +101,7 @@ _LITERAL = re.compile(
 
 def figures_of(literal: str) -> int:
     """Significant figures of a typed number: 0.0050 has 2, 1.10 has 3, 200 has 3."""
-    mantissa = re.split(r"[eE]", literal.lstrip("+-"))[0]
-    return max(len(mantissa.replace(".", "").lstrip("0")), 1)
+    return max(typed_figures(literal), 1)
 
 
 def decimals_of(literal: str) -> int:
@@ -226,9 +225,10 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             converted[repr(value)] = typed_forms[0]
         if _exact(intent.chemistry_op, key):
             continue
-        if value == 0 and not (how == "celsius" or key in CELSIUS_KEYS):
+        if value == 0 and not (how == "celsius" or key in CELSIUS_KEYS or key in LOG_KEYS):
             # A zero has neither a figure nor a decimal to give: a measured ΔS = 0 J/(mol·K),
-            # or O₂'s ΔHf° = 0 in a sum of formation enthalpies, limits nothing.
+            # or O₂'s ΔHf° = 0 in a sum of formation enthalpies, limits nothing. A logarithm's
+            # decimals are its precision even at 0 (pH 0.00), and 0 °C is 273 K.
             continue
         for typed in typed_forms:
             typed_places = min(decimals_of(typed), MAX_DECIMALS)
