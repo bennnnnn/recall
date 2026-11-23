@@ -159,8 +159,11 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
     figures = _typed_figures(literal) if literal else 0
     if not figures or scaled == 0 or not math.isfinite(scaled):
         return exact
-    # Never fewer figures than the scaled value has: 0.00006 C doubled is 0.00012, not 1e-4.
-    figures = max(figures, _typed_figures(exact, whole_zeros=False))
+    # Never fewer figures than the scaled value has when it ends: 0.00006 C doubled is
+    # 0.00012, not 1e-4. A repeating one (0.10 / 3) keeps the typed figures: 0.033.
+    ending = f"{abs(scaled):.12g}"
+    if _typed_figures(ending, whole_zeros=False) <= _EXACT_DIGITS:
+        figures = max(figures, _typed_figures(ending, whole_zeros=False))
     mantissa, exponent = round_figures(scaled, figures)
     # A whole number's zeros that are no figure are a power of ten: 5 g doubled is 1e1 g,
     # since "10" would read as two figures.
@@ -169,6 +172,8 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
     return f"{scaled:.{max(figures - 1 - exponent, 0)}f}"
 
 
+# The most figures a scaled value that ends may need: 1 h is 3600 s, 0.00006 doubled 0.00012.
+_EXACT_DIGITS = 6
 # Powers of ten a scaled value is written in full between, as ``:.6g`` writes it.
 _PLAIN_BELOW, _PLAIN_FROM = -4, 6
 

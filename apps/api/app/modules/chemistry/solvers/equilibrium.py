@@ -8,7 +8,6 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.display import (
-    carried,
     const,
     given_row,
     inp,
@@ -164,14 +163,14 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         value = kc * factor
         shown = f"Kp = {num(value)}"
         given = f"Kc = {inp(kc)}"
-        working = f"Kp = ({inp(kc)})({carried(GAS_R * temperature)})^{delta_n}"
+        working = f"Kp = ({inp(kc)})({const(GAS_R * temperature)})^{delta_n}"
     elif kp is not None and kc is None:
         if factor == 0:
             raise SolveServiceError("cannot convert that Kp")
         value = kp / factor
         shown = f"Kc = {num(value)}"
         given = f"Kp = {inp(kp)}"
-        working = f"Kc = ({inp(kp)}) / ({carried(GAS_R * temperature)})^{delta_n}"
+        working = f"Kc = ({inp(kp)}) / ({const(GAS_R * temperature)})^{delta_n}"
     else:
         raise SolveServiceError("give Kc or Kp, not both")
     return verified(
@@ -181,7 +180,8 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         *stated("kc_kp"),
         (
             f"RT = ({const(GAS_R)})({used(temperature)})"
-            f" = {carried(GAS_R * temperature)} L·atm/mol",
+            # Five figures: RT is raised to Δn, which would double a four-figure error.
+            f" = {const(GAS_R * temperature)} L·atm/mol",
             working,
         ),
         shown,

@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import math
-
 import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
@@ -25,6 +23,7 @@ from app.modules.chemistry.solvers.display import (
 )
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.services.school_rounding import round_places
 from app.services.solving import SolveServiceError
 from app.services.units import CELSIUS_OFFSET_K
 
@@ -295,10 +294,12 @@ def _to_places(value: float, places: int) -> str:
     adds was written: 0 °C − 2 × 10^1 °C is −2 × 10^1 °C, never −19 °C."""
     if places >= 0:
         return fixed(value, places)
-    if value == 0:
+    rounded = round_places(value, places)
+    if rounded == 0:
         return "0"
-    figures = math.floor(math.log10(abs(value))) + 1 + places
-    return format_number(value, significant=figures, keep_zeros=True) if figures > 0 else "0"
+    # The figures of the rounded value, so a carry counts: -9.789 to the ten is -1 x 10^1.
+    figures = rounded.adjusted() + 1 + places
+    return format_number(float(rounded), significant=figures, keep_zeros=True)
 
 
 def _colligative(

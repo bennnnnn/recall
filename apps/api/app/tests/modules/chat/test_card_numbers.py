@@ -107,7 +107,9 @@ def test_a_card_the_model_left_open_follows_the_rule_once_closed() -> None:
 def _state(text: str, question: str, verified: object) -> object:
     from types import SimpleNamespace
 
-    ctx = SimpleNamespace(user_message_content=question, verified_subject=verified)
+    ctx = SimpleNamespace(
+        user_message_content=question, verified_subject=verified, photo_uncertain=None
+    )
     return SimpleNamespace(text=text, ctx=ctx)
 
 
@@ -230,4 +232,17 @@ def test_a_power_of_ten_card_knows_only_its_mantissa_s_figures() -> None:
         "m = 4 \\times 10^{1}\\,\\mathrm{g}", "true"
     )
     state = _state(reply, question + ", to 2 significant figures", _chemistry(question))
+    assert format_card_numbers(state) == reply  # type: ignore[arg-type]
+
+
+def test_an_uncertain_photo_s_unchecked_solver_card_keeps_its_figures() -> None:
+    """A photo read uncertainly unchecks the solver's card; it keeps 0.1298, never the rule's
+    0.130 (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = "$c = 0.12980\\,\\mathrm{mol/L}$\n\n**Answer**\n\n" + _card(
+        "c_{2} = 0.1298\\,\\mathrm{mol/L}"
+    )
+    state = _state(reply, _TITRATION, _chemistry(_TITRATION))
+    state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
     assert format_card_numbers(state) == reply  # type: ignore[arg-type]

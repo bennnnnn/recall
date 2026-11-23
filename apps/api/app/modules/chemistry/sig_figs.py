@@ -263,6 +263,8 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
 def _unit_after(text: str, end: int) -> bool:
     """A unit the chemistry table reads right after a number ("2 h", "2 kg", "25%"): the
     number was measured. A word that is no unit ("n = 2 and ...") says nothing."""
+    if text[end : end + 1] == "-":
+        end += 1  # "a 2-hour electrolysis"
     return CHEMISTRY_UNITS.at(text, end) is not None or text[end : end + 2].strip()[:1] == "%"
 
 

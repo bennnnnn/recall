@@ -139,10 +139,11 @@ def _worked_rows(
     typed = {number for row in given for number in _NUMBER_TEXT.findall(row)}
     rounded = {text for text, _ in unrounded} - typed
     ends = [_rounded_end(row, unrounded) for row in rows]
-    inputs = [
-        set(_NUMBER_TEXT.findall(row if end is None else row.rpartition(" = ")[0]))
+    heads = [
+        row if end is None else row.rpartition(" = ")[0]
         for row, end in zip(rows, ends, strict=True)
     ]
+    inputs = [set(_NUMBER_TEXT.findall(head)) for head in heads]
     rounded_with: list[bool] = []
     for index, row in enumerate(rows):
         closing = index > 0 and " = " in row and not _NUMBER_TEXT.search(row.split(" = ")[0])
@@ -152,12 +153,7 @@ def _worked_rows(
         rounded_with.append(rounded_with[index - 1] if closing and not own else own)
     shown: list[str] = []
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
-        # A rounded value that reads like a typed one ("2" beside i = 2) is no later input.
-        later = (
-            end is not None
-            and end not in typed
-            and any(end in used for used in inputs[index + 1 :])
-        )
+        later = end is not None and _used_later(row, end, typed, heads[index + 1 :])
         if end is None or later or rounded_with[index]:
             shown.append(row)
         else:
@@ -165,9 +161,11 @@ def _worked_rows(
     return shown
 
 
-# A difference of two values: "(1.000 mol − 0.9921 mol)", "1/350 − 1/300".
+# A difference of two values: "(1.000 mol − 0.9921 mol)", "1/350 − 1/300", and in powers
+# of ten "(9.995 × 10^-4 mol − 9.921 × 10^-4 mol)".
+_OPERAND = r"\d+(?:\.\d+)?(?: × 10\^-?\d+)?"
 _DIFFERENCE = re.compile(
-    r"(?P<left>\d+(?:\.\d+)?)\s*(?:[a-zA-Z/]+\s*)?[−-]\s*\(?(?P<right>\d+(?:\.\d+)?)"
+    rf"(?P<left>{_OPERAND})\s*(?:[a-zA-Z/]+\s*)?[−-]\s*\(?(?P<right>{_OPERAND})"
 )
 
 
@@ -188,6 +186,16 @@ def _last_number(row: str) -> str | None:
     _head, equals, value = row.rpartition(" = ")
     numbers = _NUMBER_TEXT.findall(value) if equals else []
     return numbers[0] if numbers else None
+
+
+def _used_later(row: str, end: str, typed: set[str], later_heads: list[str]) -> bool:
+    """Whether a later row works with this row's rounded value. With its unit, the value
+    itself is matched ("4 °C" in "0 °C − 4 °C"), never a count that reads alike ("(2)" beside
+    b = 2 mol/kg); a bare value is matched as a number no question typed."""
+    value = row.rpartition(" = ")[2].strip()
+    if " " in value:
+        return any(value in head for head in later_heads)
+    return end not in typed and any(end in _NUMBER_TEXT.findall(head) for head in later_heads)
 
 
 def _rounded_end(row: str, unrounded: tuple[tuple[str, str], ...]) -> str | None:

@@ -392,7 +392,7 @@ def test_a_count_takes_only_its_own_spelling(
     [
         # RT is carried into Kp's row, never its one-figure card value: (0.5)(2 x 10^1)^-2
         # is no 8 x 10^-4.
-        ("Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3", "Kp = (0.5)(24.45)^-2"),
+        ("Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3", "Kp = (0.5)(24.453)^-2"),
         # A stoichiometric factor is exact: 27, never one figure's 3 x 10^1 (review).
         ("The Ksp of Fe(OH)3 is 4 × 10^-38. Find its molar solubility.", "= (s)(3s)^3 = 27s^4"),
     ],
@@ -428,6 +428,17 @@ def test_a_negative_power_is_no_rounded_number() -> None:
             "What is the freezing point of a 5 m NaCl solution in water? Kf = 1.86 °C/m",
             "Tf = -2 × 10^1 °C",
         ),
+        # A carry counts: ΔTf = 9.789 °C to the ten is 1 x 10^1, so Tf is -1 x 10^1 °C, never 0.
+        (
+            "What is the freezing point of a solution of 5 mol NaCl in 1.9 kg of water? "
+            "Kf = 1.86 °C/m",
+            "Tf = -1 × 10^1 °C",
+        ),
+        # "a 2-hour electrolysis" is measured: the count's "2" is not its spelling.
+        (
+            "What mass of Cu is deposited by a current of 2.00 A in a 2-hour electrolysis?",
+            "m = 5 g",
+        ),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
@@ -449,3 +460,29 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
     verified = build_verified_chemistry(intent)
     assert verified is not None
     assert "= 2.143\\,\\mathrm{mol/kg}$" in format_direct_chemistry_reply(verified)
+
+
+@pytest.mark.parametrize(
+    ("question", "row"),
+    [
+        # A difference of carried values in powers of ten stays rounded too (review).
+        (
+            "how many grams of NH3 can be made from 0.028 g of nitrogen and 0.006 g of hydrogen",
+            "× 28.014 g/mol = 2 × 10⁻⁴ g",
+        ),
+        # The ΔTf row's 4 °C is the value the next row subtracts, though "4 mol" reads alike.
+        (
+            "What is the freezing point of a solution of 4 mol NaCl in 4.0 kg water? "
+            "Kf = 1.86 °C kg/mol",
+            "(1.000\\,\\mathrm{mol/kg}) = 4\\,^\\circ\\mathrm{C}$",
+        ),
+        # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
+        ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),
+    ],
+)
+def test_a_working_row_states_what_its_numbers_give(question: str, row: str) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert row in format_direct_chemistry_reply(verified)

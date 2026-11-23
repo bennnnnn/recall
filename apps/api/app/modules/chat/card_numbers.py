@@ -10,7 +10,7 @@ unrounded (the working's last line, the card's value a rounding of it, in the sa
 shows the working's value rounded once: the model's own "3 significant figures" made
 109324.04 Pa a card of 1.09 × 10⁵ (the owner's chat, 2026-11-18). An expression, a fraction,
 a sum of money and a pH are left as written: a pH keeps the decimals its concentration's
-figures give it, the one place a chemistry answer's precision is its correctness.
+figures give it.
 
 A chemistry solver's checked cards keep the significant figures of the question's data, the
 rule chemistry textbooks teach (``chemistry.sig_figs``; owner, 2026-11-23); only a precision
@@ -27,6 +27,7 @@ from app.services.answer_check import Number, read_verified_value
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
+    UNCHECKED_ANSWER_MARKER,
     VERIFIED_ANSWER_MARKER,
     answer_header_and_value,
 )
@@ -67,13 +68,17 @@ def format_card_numbers(state: FinalizeState) -> str:
     precision = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
     own = verified is not None and verified.cards_keep_precision
-    return card_numbers(state.text, precision, keep_checked=own)
+    # A photo read uncertainly unchecks the solver's card; it is still the solver's.
+    markers = (VERIFIED_ANSWER_MARKER, UNCHECKED_ANSWER_MARKER)
+    kept = markers if state.ctx.photo_uncertain is True else markers[:1]
+    return card_numbers(state.text, precision, keep_checked=kept if own else ())
 
 
-def card_numbers(text: str, precision: Precision, *, keep_checked: bool = False) -> str:
-    """``keep_checked``: a card the server checked keeps its solver's precision, and takes
-    a precision the question asks for only when the working knows the value to it (a card
-    of 2.4 is no 2.400); the model's own unchecked card on that turn follows the rule."""
+def card_numbers(text: str, precision: Precision, *, keep_checked: tuple[str, ...] = ()) -> str:
+    """``keep_checked``: the marker lines of the cards that keep their solver's precision; such
+    a card takes a precision the question asks for only when the working knows the value to
+    it (a card of 2.4 is no 2.400). The model's own unchecked card on that turn follows the
+    rule."""
     changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
@@ -81,7 +86,7 @@ def card_numbers(text: str, precision: Precision, *, keep_checked: bool = False)
             continue
         above, previous = text[previous : fence.start], fence.end
         body = text[fence.body_start : fence.body_end]
-        if keep_checked and VERIFIED_ANSWER_MARKER in answer_header_and_value(body)[0]:
+        if set(keep_checked) & set(answer_header_and_value(body)[0]):
             if precision == RULE or not _known_to(body, above, precision):
                 continue
         shown = _shown(body, above, precision)
