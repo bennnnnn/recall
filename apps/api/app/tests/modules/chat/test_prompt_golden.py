@@ -134,6 +134,10 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         "app.modules.conversation.messages_repository.count_for_chat": AsyncMock(
             return_value=case["total"]
         ),
+        # The rows before the oldest loaded one: ``total`` counts the chat before the turn's line.
+        "app.modules.conversation.messages_repository.count_before": AsyncMock(
+            return_value=case["total"] - len(history) + (current is not None)
+        ),
         "app.modules.conversation.messages_repository.list_before": AsyncMock(return_value=older),
         "app.modules.conversation.history_rag.retrieve_for_prompt": AsyncMock(
             return_value=case["history_rag_block"]
@@ -157,12 +161,13 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         )
     # Recorded as ``out``: the stats the prompt filled in (none but a summary here), and the
     # rules message ordinary chat would send instead of the second one (``ordinary_prompt``).
+    # As the fixture's JSON holds them: a pair (``history_size``) is a list there.
     ordinary, stats.ordinary = stats.ordinary, None
     out = {name: value for name, value in asdict(stats).items() if value}
     if ordinary is not None:
         assert ordinary.full == messages[1]["content"]
         out["ordinary"] = ordinary.compact
-    return messages, out
+    return messages, json.loads(json.dumps(out))
 
 
 def prompt_copy() -> dict[str, str]:

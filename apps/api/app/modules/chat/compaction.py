@@ -2,21 +2,18 @@
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
 from app.models.orm import Chat
-from app.modules.chat.context_window import (
-    cap_summary,
-    compute_history_split,
-    should_run_compression,
-    trim_message_for_summary,
-)
+from app.modules.chat.context_window import FoldRule, cap_summary, trim_message_for_summary
 from app.modules.chat.prompt_window import strip_prompt_owned_fences
 from app.modules.chat.summarize import summarize_conversation
 from app.modules.conversation import history as conversation_history
@@ -93,6 +90,8 @@ class _Fold:
     transcript: list[dict[str, str]]
     already: int
     summarized_count: int
+    # A backlog past one run's cap: more is waiting once this fold is saved.
+    more: bool = False
 
 
 async def compress_chat_history(
@@ -106,6 +105,7 @@ async def compress_chat_history(
     token = await acquire_lock(redis, lock_key, _COMPRESS_LOCK_TTL_SECONDS)
     if token is None:
         return
+    more = False
     try:
         fold = await _pending_fold(settings, chat_id, user_id)
         if fold is None:
@@ -115,12 +115,29 @@ async def compress_chat_history(
         new_summary = await summarize_conversation(settings, fold.summary, fold.transcript)
         if not new_summary:
             return
-        await _save_summary(chat_id, user_id, fold, cap_summary(new_summary))
+        saved = await _save_summary(chat_id, user_id, fold, cap_summary(new_summary))
+        more = saved and fold.more
     except Exception:
         logger.exception("History compression failed for chat_id=%s", chat_id)
         raise
     finally:
         await release_lock(redis, lock_key, token)
+    if more and user_id is not None:
+        await _enqueue_next_fold(chat_id, user_id)
+
+
+async def _enqueue_next_fold(chat_id: UUID, user_id: UUID) -> None:
+    """Queue the backlog's next window, after the lock is released (a run that found it
+    held would return). Until the backlog drains, the prompt cannot reach the summary's
+    edge and slides, leaving the rows between the two out of both. The job is skipped
+    like any other while the global spend cap holds (``background/handlers``), and each
+    run folds older rows, so the chain ends."""
+    await jobs.enqueue(
+        get_redis_client(),
+        "compress",
+        {"chat_id": str(chat_id), "user_id": str(user_id)},
+        dedupe_key=jobs.unique_dedupe_key(f"compress:{chat_id}"),
+    )
 
 
 async def _load_chat(session: AsyncSession, chat_id: UUID, user_id: UUID | None) -> Chat | None:
@@ -130,39 +147,41 @@ async def _load_chat(session: AsyncSession, chat_id: UUID, user_id: UUID | None)
 
 
 async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None) -> _Fold | None:
-    """The messages that have aged out of the window and are not yet summarized, if enough."""
+    """The oldest unsummarized messages, once they pass the fold trigger (``FoldRule``)."""
     async with SessionLocal() as session:
         chat = await _load_chat(session, chat_id, user_id)
         if chat is None:
             return None
         total = await conversation_history.message_count(session, chat_id)
-        recent_all = await conversation_history.recent_messages(
+        already = chat.summary_message_count or 0
+        waiting = total - already
+        if waiting <= 0:
+            return None
+        loaded = await conversation_history.recent_messages(
             session,
             chat_id,
-            limit=settings.recent_message_window,
+            limit=min(waiting, settings.history_max_messages),
         )
-        split = compute_history_split(
-            total,
-            recent_all,
-            settings.context_token_budget,
-            settings.recent_message_window,
-        )
-        already = chat.summary_message_count or 0
-        if not should_run_compression(
-            split,
-            already,
-            settings.history_summary_batch,
-            urgent_min_pending=settings.history_summary_urgent_pending,
-        ):
+        fold = FoldRule.of(settings).to_fold(loaded, unseen=waiting - len(loaded))
+        if fold <= 0:
             return None
+        # A backlog (a chat older than the rule, a job that failed) folds a window's worth
+        # a run, oldest first, so the summary model never reads hundreds of messages at once.
+        more = fold > settings.history_max_messages
+        fold = min(fold, settings.history_max_messages)
+        # A capped run reads one row past its window, to end it before a question's answer.
         slice_messages = await conversation_history.messages_page(
             session,
             chat_id,
             offset=already,
-            limit=split.summarized_count - already,
+            limit=fold + 1 if more else fold,
         )
+        if more:
+            slice_messages = _without_a_split_exchange(slice_messages, fold)
+            fold = len(slice_messages)
         if not slice_messages:
             return None
+        summarized_count = already + fold
         transcript = [
             {
                 "role": message.role,
@@ -174,15 +193,31 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             }
             for message in slice_messages
         ]
-        return _Fold(chat.summary, transcript, already, split.summarized_count)
+        return _Fold(chat.summary, transcript, already, summarized_count, more)
 
 
-async def _save_summary(chat_id: UUID, user_id: UUID | None, fold: _Fold, summary: str) -> None:
+def _without_a_split_exchange(rows: list[Any], fold: int) -> list[Any]:
+    """The first ``fold`` rows, less a last question whose answer is the next row: the
+    summary would hold it as still open, and the history would start at its answer."""
+    window = rows[:fold]
+    if (
+        len(window) > 1
+        and len(rows) > fold
+        and window[-1].role == "user"
+        and rows[fold].role == "assistant"
+    ):
+        return window[:-1]
+    return window
+
+
+async def _save_summary(chat_id: UUID, user_id: UUID | None, fold: _Fold, summary: str) -> bool:
+    """Whether the summary was saved."""
     async with SessionLocal() as session:
         chat = await _load_chat(session, chat_id, user_id)
         # Deleted, or folded by someone else while the model ran: this summary is stale.
         if chat is None or (chat.summary_message_count or 0) != fold.already:
-            return
+            return False
         chat.summary = summary
         chat.summary_message_count = fold.summarized_count
         await session.commit()
+    return True

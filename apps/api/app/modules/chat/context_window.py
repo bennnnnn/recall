@@ -6,6 +6,7 @@ and the background compaction job can share them without import cycles.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -141,47 +142,63 @@ def select_recent_window(
     return kept
 
 
+def total_tokens(messages: Iterable[Any]) -> int:
+    """The estimated tokens of the messages' text (a vision part's flat count included)."""
+    return sum(estimate_tokens(getattr(message, "content", "") or "") for message in messages)
+
+
+def fits_whole(messages: Sequence[Any], budget: int, max_count: int) -> bool:
+    """Whether the messages go into the prompt whole: every one verbatim."""
+    return 0 < len(messages) <= max_count and total_tokens(messages) <= budget
+
+
 @dataclass(frozen=True)
-class HistorySplit:
-    summarized_count: int
+class FoldRule:
+    """When the compress job folds the chat's oldest unsummarized messages, and how far.
 
-
-def compute_history_split(
-    total_message_count: int,
-    recent_messages: list[Any],
-    budget: int,
-    max_count: int,
-    min_count: int = 2,
-) -> HistorySplit:
-    """Split a chat into verbatim tail vs messages eligible for summarization."""
-    keep = select_recent_window(recent_messages, budget, max_count, min_count)
-    return HistorySplit(summarized_count=max(0, total_message_count - keep))
-
-
-def should_run_compression(
-    split: HistorySplit,
-    already_summarized: int,
-    batch: int,
-    *,
-    urgent_min_pending: int = 3,
-) -> bool:
-    """Whether the background job should fold more messages into the summary.
-
-    The gap between ``already_summarized`` and ``split.summarized_count`` is
-    dropped from the prompt entirely — those messages are older than the
-    recent window and not yet in the summary. Run compaction whenever that
-    gap reaches ``urgent_min_pending`` (not only under token pressure) so the
-    hole never grows past a few messages. The larger ``batch`` threshold
-    amortizes LLM cost on long, low-pressure threads.
+    Over ``trigger_tokens`` or ``trigger_count`` it folds them until ``target_tokens`` and
+    ``target_count`` hold the rest; under both it folds nothing. The prompt's history then
+    starts at the same message turn after turn, and a provider's prefix cache serves it.
+    The trigger sits below the prompt's budget so the turns a fold takes to finish still fit.
     """
-    pending = split.summarized_count - already_summarized
-    if pending <= 0:
-        return False
-    if pending >= batch:
-        return True
-    if pending >= urgent_min_pending:
-        return True
-    return False
+
+    trigger_tokens: int
+    trigger_count: int
+    target_tokens: int
+    target_count: int
+
+    @classmethod
+    def of(cls, settings: Any) -> FoldRule:
+        return cls(
+            trigger_tokens=settings.history_fold_trigger_tokens,
+            trigger_count=settings.history_fold_trigger_messages,
+            target_tokens=settings.history_fold_target_tokens,
+            target_count=settings.history_fold_target_messages,
+        )
+
+    def over(self, count: int, tokens: int) -> bool:
+        return count > self.trigger_count or tokens > self.trigger_tokens
+
+    def to_fold(self, unsummarized: Sequence[Any], *, unseen: int = 0) -> int:
+        """How many of the oldest unsummarized messages to fold now (0: none yet).
+
+        ``unsummarized`` is the newest of them, oldest first; ``unseen`` counts older
+        unsummarized messages not loaded, which are folded whatever their size.
+        """
+        count = unseen + len(unsummarized)
+        if not self.over(count, total_tokens(unsummarized)):
+            return 0
+        keep = select_recent_window(list(unsummarized), self.target_tokens, self.target_count)
+        return count - keep + _replies_before_a_question(unsummarized[len(unsummarized) - keep :])
+
+
+def _replies_before_a_question(kept: Sequence[Any]) -> int:
+    """How many kept rows come before the first user line, when there is one: a fold never
+    keeps a reply without its question, which the summary would hold as still open."""
+    for index, message in enumerate(kept):
+        if getattr(message, "role", None) == "user":
+            return index
+    return 0
 
 
 # How many messages between the stored summary and the loaded recent window

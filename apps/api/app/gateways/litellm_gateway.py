@@ -448,7 +448,10 @@ async def _stream_chat_once(
             response = await acompletion(
                 model=route.model,
                 messages=with_cache_breakpoint(
-                    messages, route, enabled=settings.prompt_cache_breakpoints_enabled
+                    messages,
+                    route,
+                    enabled=settings.prompt_cache_breakpoints_enabled,
+                    history=settings.prompt_cache_history_breakpoint_enabled,
                 ),
                 stream=True,
                 max_tokens=max_tokens + think.budget,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Collection
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
@@ -18,6 +18,7 @@ from app.modules import todos as todos_service
 from app.modules.attachments import rag as attachment_rag_service
 from app.modules.chat.context_window import (
     UNSUMMARIZED_GAP_MAX_MESSAGES,
+    fits_whole,
     messages_within_token_budget,
     unsummarized_gap_bounds,
 )
@@ -325,6 +326,91 @@ def _persisted_messages(window: list[Any], current_user_message_id: UUID | None)
     return [
         message for message in window if getattr(message, "id", None) != current_user_message_id
     ]
+
+
+# The ``limit`` messages of a chat just before one of its rows, oldest first.
+OlderRows = Callable[[UUID, Any, int], Awaitable[list[Any]]]
+
+
+async def _messages_before(chat_id: UUID, oldest: Any, limit: int) -> list[Any]:
+    async with SessionLocal() as session:
+        return list(
+            await conversation_history.messages_before(session, chat_id, oldest, limit=limit)
+        )
+
+
+# How many of a chat's messages come before one of its rows: that row's offset.
+RowOffset = Callable[[UUID, Any], Awaitable[int]]
+
+
+async def _offset_of(chat_id: UUID, row: Any) -> int:
+    async with SessionLocal() as session:
+        return await conversation_history.count_before(session, chat_id, row)
+
+
+async def load_anchored_history(
+    chat_id: UUID,
+    chat: Chat | None,
+    window: list[Any],
+    *,
+    loaded_limit: int,
+    budget: int,
+    max_count: int,
+    current_user_message_id: UUID | None,
+    prior_count: int | None,
+    omit_message_ids: Collection[UUID] | None = None,
+    read_older: OlderRows | None = None,
+    read_offset: RowOffset | None = None,
+) -> list[Any] | None:
+    """Every message after the summary's edge, oldest first, when all of them fit the
+    budget; None when they do not (the prompt then slides, ``load_prompt_window``).
+
+    ``window`` is the chat's newest rows as the turn read them (at most ``loaded_limit``),
+    the current line last even before it is saved. Older unsummarized rows are read here.
+    The history then starts at the same message until the next fold, so the prompt's
+    prefix repeats the last turn's (``context_window.FoldRule``). ``read_older`` reads those
+    rows (``_messages_before``: its own short session); ``read_offset``, when the turn passed
+    no count, where the oldest loaded row sits (``_offset_of``).
+    """
+    # Without the chat its summary's edge is unknown: anchoring could repeat what it holds.
+    if chat is None:
+        return None
+    summarized = (chat.summary_message_count or 0) if chat.summary else 0
+    if not isinstance(summarized, int):
+        return None
+    persisted = _persisted_messages(window, current_user_message_id)
+    # Older rows are read from the oldest loaded one; without its time there is no reading.
+    readable = bool(persisted) and getattr(persisted[0], "created_at", None) is not None
+    if prior_count is not None:
+        first = prior_count - len(persisted)
+    elif len(window) < loaded_limit:
+        # Fewer rows than the turn loads, its own line counted: the whole chat.
+        first = 0
+    elif not readable:
+        return None
+    else:
+        # Counted from the oldest loaded row, so the turn's line, saved or not, is no matter.
+        first = await (read_offset or _offset_of)(chat_id, persisted[0])
+    if first < 0:
+        return None
+    skip_ids = {message.id for message in persisted[: max(0, summarized - first)]}
+    missing = max(0, first - summarized)
+    # A regenerate's old reply is left out before the caps are checked: it is not sent.
+    dropped = skip_ids | set(omit_message_ids or ())
+    kept = [message for message in window if message.id not in dropped]
+    if missing + len(kept) > max_count or not fits_whole(kept, budget, max_count):
+        return None
+    older: list[Any] = []
+    if missing:
+        if not readable:
+            return None
+        older = await (read_older or _messages_before)(chat_id, persisted[0], missing)
+        if len(older) != missing:
+            return None
+    rows = [*older, *kept]
+    if omit_message_ids:
+        rows = [message for message in rows if message.id not in omit_message_ids]
+    return rows if fits_whole(rows, budget, max_count) else None
 
 
 async def _load_unsummarized_gap(

@@ -177,6 +177,8 @@ class PromptStats:
     memory_hints: list[str] = field(default_factory=list)
     # Older messages the chat summary stands in for.
     context_summarized: int = 0
+    # Messages and tokens after the summary's edge (``PromptWindow.history_size``).
+    history_size: tuple[int, int] | None = None
     # The rules message for ordinary chat, when the turn may take one and it is shorter.
     ordinary: OrdinaryPrompt | None = None
 
@@ -368,15 +370,21 @@ async def _read_prompt_inputs(
 
 
 def _fill_stats(
-    stats: PromptStats | None, recalled: int, memory_hints: list[str], chat: Chat | None
+    stats: PromptStats | None,
+    recalled: int,
+    memory_hints: list[str],
+    chat: Chat | None,
+    window: PromptWindow,
 ) -> int:
-    """What the prompt drew on, for the turn's ``done``; returns how many of the chat's first
-    messages its summary stands for (0 with none), which the summary's lead says."""
+    """What the prompt drew on, for the turn's ``done`` and its post-turn jobs; returns how
+    many of the chat's first messages its summary stands for (0 with none), which the
+    summary's lead says."""
     summarized = (chat.summary_message_count or 0) if chat and chat.summary else 0
     if stats is None:
         return summarized
     stats.recalled = recalled
     stats.memory_hints = memory_hints
+    stats.history_size = window.history_size
     if summarized > 0:
         stats.context_summarized = summarized
     return summarized
@@ -491,6 +499,6 @@ async def build_prompt_messages(
         recalls_shared_past=plan.recalls_shared_past,
         holds_attachment=holds_attachment,
         asked_practice=asked_practice,
-        summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat),
+        summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat, window),
     )
     return _assemble(turn, window, math_followup=followup == "math", stats=stats)

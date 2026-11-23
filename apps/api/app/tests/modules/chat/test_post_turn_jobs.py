@@ -135,10 +135,11 @@ async def test_a_turn_in_a_chat_its_window_holds_queues_no_compress_job(prior: i
 @pytest.mark.parametrize(
     ("prior", "window"),
     [
-        # Three messages out of the newest twenty: the job folds them.
+        # Older messages than the newest twenty, of a size the turn did not read: the
+        # job decides.
         (21, _lines(20)),
-        # Long messages push the older ones out of the token budget, not the count:
-        # three of ~5,400 tokens overflow 16,000.
+        # Long messages pass the fold trigger by tokens, not the count: five of ~5,400
+        # tokens pass 24,000.
         (4, _lines(5, words=4000)),
     ],
 )
@@ -147,6 +148,26 @@ async def test_a_turn_with_messages_out_of_the_window_queues_the_compress_job(
 ) -> None:
     ctx = _turn(prior_count=prior, recent_messages=window)
     assert "compress" in dict(await _enqueued(ctx))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("history_size", "queued"),
+    [
+        # 40 messages after the summary's edge, short: under the trigger, no fold yet.
+        ((40, 6_000), False),
+        # The reply takes them past 64 messages, or past 24,000 tokens: the job folds.
+        ((64, 6_000), True),
+        ((40, 24_000), True),
+    ],
+)
+async def test_the_prompts_history_size_decides_a_long_chats_compress_job(
+    history_size: tuple[int, int], queued: bool
+) -> None:
+    """A chat longer than the readers' window: the prompt carried every message after the
+    summary's edge, so the turn knows whether its reply passes the fold trigger."""
+    ctx = _turn(prior_count=90, recent_messages=_lines(20), history_size=history_size)
+    assert ("compress" in dict(await _enqueued(ctx, reply="Sure."))) is queued
 
 
 @pytest.mark.asyncio
