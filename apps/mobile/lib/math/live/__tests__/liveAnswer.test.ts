@@ -95,7 +95,9 @@ describe("liveAnswer", () => {
     expect(answer(draft)).toEqual({ latex: "= \\text{undefined}", signed: false, spoken: "undefined", exact: true });
   });
 
-  it("says undefined in the app's language", () => {
+  it("says undefined in the app's language, as plain letters", () => {
+    // A sign with a meaning in LaTeX is dropped: `a_b{c}` would draw b as a subscript.
+    expect(liveAnswer("$1\\div 0$", "a_b{c}")?.latex).toBe("= \\text{abc}");
     expect(liveAnswer("$1\\div 0$", "indéfini")?.latex).toBe("= \\text{indéfini}");
     expect(liveAnswer("$1\\div 0$", "не определено")?.latex).toBe("= \\text{не определено}");
   });
@@ -149,7 +151,7 @@ describe("liveAnswer", () => {
     ["$10\\pm 2\\times 3$", ["10 - 2 \\times 3 = 4", "10 + 2 \\times 3 = 16"]],
     ["$(2\\pm 1)^{2}$", ["(2 - 1)^{2} = 1", "(2 + 1)^{2} = 9"]],
     ["$1\\pm\\sqrt{2}$", ["1 - \\sqrt{2} \\approx -0.4142135624", "1 + \\sqrt{2} \\approx 2.414213562"]],
-    ["$5\\times\\pm 2$", ["5 \\times - 2 = -10", "5 \\times + 2 = 10"]],
+    ["$5\\times\\pm 2$", ["5 \\times -2 = -10", "5 \\times +2 = 10"]],
   ])("writes out both branches of %s side by side, the minus first", (draft, branches) => {
     expect(shown(draft)).toBe(branches.join(",\\quad "));
   });
@@ -180,7 +182,7 @@ describe("liveAnswer", () => {
   });
 
   it("gives a branch that is its own fraction its decimal, the sign inside or out", () => {
-    expect(shown("$\\frac{\\pm 1}{2}$")).toBe("\\frac{- 1}{2} = -0.5,\\quad \\frac{+ 1}{2} = 0.5");
+    expect(shown("$\\frac{\\pm 1}{2}$")).toBe("\\frac{-1}{2} = -0.5,\\quad \\frac{+1}{2} = 0.5");
     expect(shown("$\\frac{1}{\\pm 3}$")).toMatch(/\\approx -0\.3333333333,.*\\approx 0\.3333333333$/);
     // Two minus signs cancel: the + branch of -±1/3 is its own fraction too.
     expect(answer("$-\\pm\\frac{1}{3}$")?.latex).toMatch(/^\+ ?\\frac\{1\}\{3\} \\approx 0\.3333333333,/);
@@ -207,8 +209,9 @@ describe("liveAnswer", () => {
   it("merges a sign typed beside + or − instead of doubling it", () => {
     expect(shown("$2\\pm -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2-\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
+    expect(shown("$2--\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
     expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
-    expect(shown("$2\\times\\pm 3$")).toBe("2 \\times - 3 = -6,\\quad 2 \\times + 3 = 6");
+    expect(shown("$2\\times\\pm 3$")).toBe("2 \\times -3 = -6,\\quad 2 \\times +3 = 6");
   });
 
   it("shows the values alone where merging signs beside a mod would write a false line", () => {
@@ -223,6 +226,9 @@ describe("liveAnswer", () => {
     expect(shown("$\\cos(10^{15}\\pi)$")).toBe("= 1");
     expect(shown("$\\sin(\\pi-\\pi)$")).toBe("= 0");
     expect(shown("$\\cos(2\\pi-2\\pi)$")).toBe("= 1");
+    // A step whole numbers fool is no multiple of π: floor π is 3.
+    expect(shown("$\\sin(\\lfloor\\pi\\rfloor)$")).toBe("\\approx 0.1411200081");
+    expect(shown("$\\tan(\\lfloor\\frac{\\pi}{2}\\rfloor)$")).toBe("\\approx 1.557407725");
     expect(shown("$\\sin(400\\pi+\\frac{\\pi}{6})$")).toMatch(/^(=|\\approx) 0\.5$/);
     // Exact degrees are taken within one turn first: 36000000000000030° is 30°.
     expect(shown("$\\sin(36000000000000030^{\\circ})$")).toBe("= 0.5");

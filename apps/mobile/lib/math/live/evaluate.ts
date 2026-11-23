@@ -217,10 +217,11 @@ function withPi(node: LiveNode, degrees: string): LiveNode {
 
 /**
  * An angle that is exactly `k` times π (`\frac{\pi}{2}`, `\pi-\pi`), as `180k` degrees: read
- * with π as 180 and as 360, it doubles. A term without π (`\frac{\pi}{2}+10^{-15}`) or a
- * function inside (worked out three times a level) leaves it `null`.
+ * with π as 180 and as 360, it doubles, and the angle itself (`value`) is that many degrees. A
+ * term without π (`\frac{\pi}{2}+10^{-15}`), a step that whole numbers fool (`\lfloor\pi\rfloor`
+ * doubles but is 3, not π) or a function inside (worked out three times a level) leaves it `null`.
  */
-function piDegrees(arg: LiveNode): Rational | null {
+function piDegrees(arg: LiveNode, value: LiveValue): Rational | null {
   if (contains(arg, CALLS)) return null;
   const read = (degrees: string): Rational | null => {
     const value = guardReason(() => evaluate(withPi(arg, degrees), true));
@@ -229,7 +230,10 @@ function piDegrees(arg: LiveNode): Rational | null {
   const half = read("180");
   const whole = read("360");
   const doubled = half && rational(2n * half.n, half.d);
-  return doubled && whole && doubled.n === whole.n && doubled.d === whole.d ? half : null;
+  if (!half || !doubled || !whole || doubled.n !== whole.n || doubled.d !== whole.d) return null;
+  const radians = (toNumber(half) * Math.PI) / 180;
+  const x = numberOf(value);
+  return Math.abs(x - radians) <= 1e-9 * Math.max(1, Math.abs(radians)) ? half : null;
 }
 
 /** Exact degrees as an angle, its radians from the degrees within one turn, so they stay exact. */
@@ -253,9 +257,9 @@ function angle(arg: LiveNode): Angle {
     return inDegrees(defined(signed.operand, true), arg.kind === "neg");
   }
   if (contains(arg, RADIANS)) {
-    const degrees = piDegrees(arg);
-    if (degrees) return inDegrees({ kind: "exact", r: degrees }, false);
     const value = defined(arg, true);
+    const degrees = piDegrees(arg, value);
+    if (degrees) return inDegrees({ kind: "exact", r: degrees }, false);
     return { radians: numberOf(value), degrees: null, atZero: isZero(value) };
   }
   if (signed.kind !== "number") return fail();

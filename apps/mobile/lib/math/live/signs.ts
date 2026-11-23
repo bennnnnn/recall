@@ -57,30 +57,32 @@ function picked(node: LiveNode, picks: ReadonlyMap<PlusMinus, Pick>): LiveNode {
   return copy as LiveNode;
 }
 
-/** Two signs in a row as one: `-` then `-` is `+`. */
-const merged = (first: string, second: Pick): Pick => ((first === "+") === (second === "+") ? "+" : "-");
+/** A run of signs and one more as one sign: `-` then `-` is `+`, `--` then `+` is `+`. */
+const merged = (run: string, pick: Pick): Pick =>
+  [...run.replace(/\s/g, "")].reduce<Pick>((sign, next) => ((next === "+") === (sign === "+") ? "+" : "-"), pick);
 
 /**
- * The draft as written, its sign replaced (`2\pm 3` → `2- 3`); a typed `*` drawn as ×. A + or −
- * typed right before or after the sign merges with it (`2-\pm 3` and `2\pm -3` → `2+ 3` and
- * `2- 3`), never `2--3`. Not beside a mod, where it would not be true (`(-2) mod 3` is not
- * `-(2 mod 3)`): there `null`, and the draft shows its values alone.
+ * The draft as written, its sign replaced (`2\pm 3` → `2-3`); a typed `*` drawn as ×. The
+ * space the key typed after `\pm` goes with it. A run of + and − typed right before or after
+ * the sign merges with it (`2-\pm 3`, `2--\pm 3` and `2\pm -3` → `2+3` and `2-3`), never `2--3`.
+ * Not beside a mod, where it would not be true (`(-2) mod 3` is not `-(2 mod 3)`): there
+ * `null`, and the draft shows its values alone.
  */
 function written(math: string, sign: PlusMinus, pick: Pick): string | null {
   let before = math.slice(0, sign.at);
-  let after = math.slice(sign.at + sign.width);
+  let after = math.slice(sign.at + sign.width).replace(/^\s+/, "");
   let shown = pick;
-  const operator = /[+\-−]\s*$/.exec(before);
-  if (!sign.left && operator) {
-    shown = merged(operator[0].trim(), shown);
-    before = before.slice(0, operator.index);
+  const operators = /[+\-−][+\-−\s]*$/.exec(before);
+  if (!sign.left && operators) {
+    shown = merged(operators[0], shown);
+    before = before.slice(0, operators.index);
   }
-  const next = /^\s*([+\-−])/.exec(after);
+  const next = /^[+\-−][+\-−\s]*/.exec(after);
   if (next) {
-    shown = merged(next[1]!, shown);
+    shown = merged(next[0], shown);
     after = after.slice(next[0].length);
   }
-  const merging = before.length + after.length < math.length - sign.width;
+  const merging = Boolean((!sign.left && operators) || next);
   if (merging && math.includes("\\bmod")) return null;
   return `${before}${shown}${after}`.replace(/\*/g, "\\times ");
 }
