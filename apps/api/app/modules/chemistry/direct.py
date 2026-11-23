@@ -136,7 +136,7 @@ def _worked_rows(
     own: "(1.0 mol)(6.0221 × 10^23)" ending on 6.017 × 10^23 did not add up. A number the
     question typed (``given``) is never a rounded one, though it reads alike: "2 A" beside a
     card of 2 g. A closing row (``Kp = 8 × 10^-4``) follows the row it closes."""
-    typed = {number for row in given for number in _NUMBER_TEXT.findall(row)}
+    typed = {number for row in given for number in _NUMBER_TEXT.findall(_typed_part(row))}
     rounded = {text for text, _ in unrounded} - typed
     ends = [_rounded_end(row, unrounded) for row in rows]
     heads = [
@@ -188,13 +188,21 @@ def _last_number(row: str) -> str | None:
     return numbers[0] if numbers else None
 
 
+def _typed_part(given: str) -> str:
+    """The part of a given row the question typed: a row that works a value out
+    ("pKa1 = −log10(4.3 × 10^-7) = 6.37") reached its end, it did not type it."""
+    return given.rpartition(" = ")[0] if given.count(" = ") > 1 else given
+
+
 def _used_later(row: str, end: str, typed: set[str], later_heads: list[str]) -> bool:
     """Whether a later row works with this row's rounded value. With its unit, the value
     itself is matched ("4 °C" in "0 °C − 4 °C"), never a count that reads alike ("(2)" beside
     b = 2 mol/kg); a bare value is matched as a number no question typed."""
     value = row.rpartition(" = ")[2].strip()
     if " " in value:
-        return any(value in head for head in later_heads)
+        # As a whole value: "8 g" is not in "31.998 g/mol".
+        whole = re.compile(rf"(?<![\w.]){re.escape(value)}(?![\w/·])")
+        return any(whole.search(head) for head in later_heads)
     return end not in typed and any(end in _NUMBER_TEXT.findall(head) for head in later_heads)
 
 

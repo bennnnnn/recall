@@ -90,9 +90,13 @@ _CONVERTIBLE = (
 _LENGTHS = (("nanometer", "angstrom", "picometer", "meter"),)
 
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
-# formula ("H2O") follows a letter and is not one. A full stop may end the sentence after it
-# ("Ka = 1.8e-5."); only a decimal point followed by a digit continues it.
-_LITERAL = re.compile(r"(?<![\w.)\]·])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
+# formula ("H2O", "Ca(OH)2", "CuSO4·5H2O") or a unit's power ("m^2", "s-1", "M-1") is not
+# one. A full stop may end the sentence after it ("Ka = 1.8e-5."); only a decimal point
+# followed by a digit continues it.
+_LITERAL = re.compile(
+    r"(?<![\w.)\]·^])(?<!\^-)(?<![A-Za-z][-−])"
+    r"-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)"
+)
 
 
 def figures_of(literal: str) -> int:
@@ -230,8 +234,8 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             if how == "typed" and key in LOG_KEYS:
                 log_places.append(typed_places)
             elif value == 0 and not (how == "celsius" or key in CELSIUS_KEYS):
-                # A zero has no significant figure to give: "0.00" eg electrons or an
-                # entropy of 0 J/(mol·K) limits nothing (it made a CFSE "-2 x 10^2").
+                # A zero has no significant figure to give: a measured ΔS = 0 J/(mol·K)
+                # limits nothing.
                 continue
             elif how == "celsius" or key in CELSIUS_KEYS:
                 # 25 °C is 298 K: adding 273.15 keeps the decimal places, not the figures.

@@ -54,6 +54,8 @@ _WRITTEN = re.compile(
     r"|\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))?"
     r"(?![\w.])"
 )
+# A number in a card or a solver's answer, compared as written.
+_DIGITS = re.compile(r"\d+(?:\.\d+)?")
 # Left as written: money, a decimal comma, a pH, pOH or pK.
 _KEPT = re.compile(r"\\\$|[€£¥]|\{,\}|\bp(?:H|OH|K[ab]?)\b")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
@@ -67,18 +69,31 @@ def format_card_numbers(state: FinalizeState) -> str:
     data) keeps them, unless the question asks for another."""
     precision = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
-    own = verified is not None and verified.cards_keep_precision
-    # A photo read uncertainly unchecks the solver's card; it is still the solver's.
-    markers = (VERIFIED_ANSWER_MARKER, UNCHECKED_ANSWER_MARKER)
-    kept = markers if state.ctx.photo_uncertain is True else markers[:1]
-    return card_numbers(state.text, precision, keep_checked=kept if own else ())
+    if verified is None or not verified.cards_keep_precision:
+        return card_numbers(state.text, precision)
+    # A photo read uncertainly unchecks the solver's card; it is still the solver's, and is
+    # known by its numbers. The model's own card there follows the rule.
+    unchecked: frozenset[str] = frozenset()
+    if state.ctx.photo_uncertain is True:
+        answers = (verified, *verified.question_parts)
+        unchecked = frozenset(
+            number for block in answers for number in _DIGITS.findall(block.canonical_answer or "")
+        )
+    return card_numbers(state.text, precision, keep_checked=True, solver_numbers=unchecked)
 
 
-def card_numbers(text: str, precision: Precision, *, keep_checked: tuple[str, ...] = ()) -> str:
-    """``keep_checked``: the marker lines of the cards that keep their solver's precision; such
-    a card takes a precision the question asks for only when the working knows the value to
-    it (a card of 2.4 is no 2.400). The model's own unchecked card on that turn follows the
-    rule."""
+def card_numbers(
+    text: str,
+    precision: Precision,
+    *,
+    keep_checked: bool = False,
+    solver_numbers: frozenset[str] = frozenset(),
+) -> str:
+    """``keep_checked``: a card the server checked keeps its solver's precision, and takes a
+    precision the question asks for only when the working knows the value to it (a card of
+    2.4 is no 2.400). ``solver_numbers``: the solver's answers' numbers, which an unchecked
+    card that is the solver's (a photo read uncertainly) holds. The model's own unchecked
+    card on that turn follows the rule."""
     changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
@@ -86,7 +101,7 @@ def card_numbers(text: str, precision: Precision, *, keep_checked: tuple[str, ..
             continue
         above, previous = text[previous : fence.start], fence.end
         body = text[fence.body_start : fence.body_end]
-        if set(keep_checked) & set(answer_header_and_value(body)[0]):
+        if keep_checked and _solver_card(body, solver_numbers):
             if precision == RULE or not _known_to(body, above, precision):
                 continue
         shown = _shown(body, above, precision)
@@ -95,6 +110,16 @@ def card_numbers(text: str, precision: Precision, *, keep_checked: tuple[str, ..
     for start, end, body in reversed(changes):
         text = text[:start] + body + text[end:]
     return text
+
+
+def _solver_card(body: str, solver_numbers: frozenset[str]) -> bool:
+    """Whether a card is the solver's: checked, or unchecked with a solver's value (the first
+    number after its last "=": "0.1298" of "c_{2} = 0.1298\\,\\mathrm{mol/L}")."""
+    headers, value = answer_header_and_value(body)
+    if VERIFIED_ANSWER_MARKER in headers:
+        return True
+    found = _DIGITS.search(value.rpartition("=")[2])
+    return UNCHECKED_ANSWER_MARKER in headers and found is not None and found[0] in solver_numbers
 
 
 def cards_again(text: str, precision: Precision) -> list[tuple[str, str]] | None:

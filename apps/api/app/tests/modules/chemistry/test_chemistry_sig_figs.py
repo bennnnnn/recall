@@ -439,6 +439,15 @@ def test_a_negative_power_is_no_rounded_number() -> None:
             "What mass of Cu is deposited by a current of 2.00 A in a 2-hour electrolysis?",
             "m = 5 g",
         ),
+        # A unit's power is no typed number: the 1 of "s-1" is not the 1.00 M (review).
+        (
+            "A first-order reaction has k = 0.0450 s-1. If [A]0 = 1.00 M, "
+            "what is [A] after 10.0 s?",
+            "[A]ₜ = 0.638 mol/L",
+        ),
+        # A formula's digit is no typed number: the 3 of "Fe2(SO4)3" is not the 3.00 mol.
+        ("What is the mass of 3.00 mol of Fe2(SO4)3?", "m(Fe2(SO4)3) = 1.20 × 10^3 g"),
+        ("What is the mass of 5.00 mol of CuSO4·5H2O?", "m(CuSO4·5H2O) = 1.25 × 10^3 g"),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
@@ -475,6 +484,16 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
             "What is the freezing point of a solution of 4 mol NaCl in 4.0 kg water? "
             "Kf = 1.86 °C kg/mol",
             "(1.000\\,\\mathrm{mol/kg}) = 4\\,^\\circ\\mathrm{C}$",
+        ),
+        # A computed pKa is no typed value: its row and the pH row stay rounded (review).
+        (
+            "What is the pH of the intermediate form when Ka1 = 4.3e-7 and Ka2 = 4.8e-11?",
+            "(6.37 + 10.32) / 2 = 8.34$",
+        ),
+        # "8 g" is not inside the excess row's "31.998 g/mol": the yield row ends unrounded.
+        (
+            "How many grams of H2O can be made from 0.9 g of H2 and 9 g of O2?",
+            "18.015\\,\\mathrm{g/mol} = 8.042\\,\\mathrm{g}$",
         ),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),

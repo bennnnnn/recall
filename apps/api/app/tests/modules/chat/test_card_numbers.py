@@ -246,3 +246,16 @@ def test_an_uncertain_photo_s_unchecked_solver_card_keeps_its_figures() -> None:
     state = _state(reply, _TITRATION, _chemistry(_TITRATION))
     state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
     assert format_card_numbers(state) == reply  # type: ignore[arg-type]
+
+
+def test_an_uncertain_photo_s_model_card_still_follows_the_rule() -> None:
+    """On that photo the model's own card, a value the solver did not reach, is rounded by the
+    rule (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = "$c = 0.12980\\,\\mathrm{mol/L}$\n\n**Answer**\n\n" + _card(
+        "c_{2} = 0.1312\\,\\mathrm{mol/L}"
+    )
+    state = _state(reply, _TITRATION, _chemistry(_TITRATION))
+    state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
+    assert "0.1312" not in format_card_numbers(state)  # type: ignore[arg-type]
