@@ -35,7 +35,33 @@ const sweep: Reply[] = [chatCode, followups, lifeAdmin, mathScience, wordProblem
     typeof turn.reply === "string" ? [[turn.id, turn.reply]] : [],
   );
 
+const F = "```";
+/** Fences indented under list items (audit MX-2): a stream cuts after them now. */
+const INDENTED_FENCES: Reply[] = [
+  ["indented-bash", ["Set it up in three steps.", "",
+    ...[1, 2, 3].flatMap((n) => [`${n}. Install part ${n}:`, "", `   ${F}bash`, `   npm install part-${n}`, `   ${F}`, "",
+      `   It prints \`part-${n}\` when it is done. Costs $5 a month.`, ""]), "That is all."].join("\n")],
+  ["indented-python-maths", ["Here is the plan.", "",
+    "1. Write the function:", "", `   ${F}python`, "   def area(r):", "       return 3.14 * r ** 2", `   ${F}`, "",
+    "2. The formula is", "", "   $$", "   A = \\pi r^2", "   $$", "",
+    "3. Check it:", "", `  ${F}`, "  area(2)", `  ${F}`, "", "   The answer is $12.56$.", "",
+    `${F}python`, "print(area(3))", F, "", "Done."].join("\n")],
+  ["indented-worked", ["- **Given**", "", `  ${F}math`, "  v = 2", `  ${F}`, "",
+    "- **Required**", "", "  $t$", "", "- Solve:", "", `   ${F}answer`, "   t = 5\\,\\mathrm{s}", `   ${F}`, "",
+    "So it takes five seconds."].join("\n")],
+  ["indented-tilde", ["Two ways:", "", "1. With tildes:", "", "   ~~~js", "   run()", "   ~~~", "",
+    "2. With ticks:", "", `   ${F}js`, "   run()", `   ${F}`, "", "**Speed**", "Both run the same."].join("\n")],
+  ["interrupted-math", ["Set up:", "```math", "x + 2 = 5", "2. **Simplify:** take 2 away.", "```", "", "Then we check the result.", "", "$$", "x = 3", "$$", ""].join("\n")],
+  ["interrupted-indented-math", ["1. **Set up:**", "   ```math", "   x + 2 = 5", "2. **Simplify:** take 2 away.", "   ```", "", "Then we check the result.", "", "$$", "x = 3", "$$", ""].join("\n")],
+  // A code fence in a list item inside a worked reply: the parts still preprocess as the whole.
+  ["indented-durable-then-given", ["**Speed**", "$v = d / t$", "", "- Code:", "", `  ${F}python`, "  v = d / t", `  ${F}`, "",
+    "A paragraph.", "", "**Given**", "$d = 10$", "", "Done."].join("\n")],
+  ["indented-durable-between-givens", ["**Given**", "$d = 10$", "", "**Speed**", "$v = d / t$", "", "- Code:", "",
+    `  ${F}python`, "  v = d / t", `  ${F}`, "", "A paragraph.", "", "**Required**", "$v$", "", "**Law of speed**", "$v = 5$", "", "Done."].join("\n")],
+];
+
 const replies: Reply[] = [
+  ...INDENTED_FENCES,
   ...Object.entries(STREAMING_REPLIES),
   ...Object.entries(physics.replies).map(([name, entry]): Reply => [name, entry.reply]),
   ...Object.entries(chemistry.replies).map(([name, entry]): Reply => [name, entry.reply]),

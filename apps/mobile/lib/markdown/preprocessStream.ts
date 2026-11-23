@@ -5,6 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
+import { pairLazily } from "@/lib/markdown/streamSegments";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
@@ -26,6 +27,8 @@ export type StreamingPreprocessCache = {
   segments?: SegmentedPrefix | null;
   /** The maths formatter `segments` were preprocessed with. */
   mathFormat?: (expr: string) => string;
+  /** `isWorkedReply` of the open part, read once while it stays the same. */
+  openWorked?: { raw: string; worked: boolean };
 };
 
 /**
@@ -33,9 +36,11 @@ export type StreamingPreprocessCache = {
  * Excludes partial lines and regions inside unclosed fences / block math.
  *
  * This is the simple, non-incremental reference implementation: it re-scans
- * from the start of `content` on every call. It is kept exactly as it was
- * (and is still covered directly by tests) as the ground truth that
- * `scanStableMarkdownPrefix`'s incremental fast path is checked against.
+ * from the start of `content` on every call, and the tests check
+ * `scanStableMarkdownPrefix`'s incremental fast path against it. Both read a
+ * line's maths delimiters with `lineMathMarkers`, so that cross-check covers
+ * the incremental bookkeeping, not the delimiter rule; the rule itself is
+ * pinned by expected values in `markdownPreprocessStream.test.ts`.
  *
  * The streaming hot path (`preprocessMarkdownForStream`) does NOT call this
  * function — it uses the incremental scanner instead, because re-running a
@@ -68,16 +73,14 @@ export function findStableMarkdownPrefixLen(content: string): number {
 /** `$`, `$$`, `\[`, and `\(` inside a code fence are code, not math. */
 function mathMarkersOutsideFences(text: string): {
   blockDollar: number;
-  inlineDollar: number;
-  brackets: number;
-  parens: number;
+  bracketOpen: boolean;
+  parenOpen: boolean;
   fenceOpen: boolean;
 } {
   let openFence: OpenFence | null = null;
   let blockDollar = 0;
-  let inlineDollar = 0;
-  let brackets = 0;
-  let parens = 0;
+  let bracketOpen = false;
+  let parenOpen = false;
   let pos = 0;
   while (pos < text.length) {
     const nl = text.indexOf("\n", pos);
@@ -86,36 +89,55 @@ function mathMarkersOutsideFences(text: string): {
     const before = openFence;
     openFence = fenceAfterLine(openFence, line);
     if (before == null && openFence == null) {
-      const blocks = countOccurrences(line, "$$");
-      blockDollar += blocks;
-      inlineDollar += countOccurrences(line, "$") - 2 * blocks;
-      brackets += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
-      parens += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
+      const markers = lineMathMarkers(line, bracketOpen, parenOpen);
+      blockDollar += markers.blockDollars;
+      bracketOpen = markers.bracketOpen;
+      parenOpen = markers.parenOpen;
     }
     if (nl === -1) break;
     pos = nl + 1;
   }
-  return { blockDollar, inlineDollar, brackets, parens, fenceOpen: openFence != null };
+  return { blockDollar, bracketOpen, parenOpen, fenceOpen: openFence != null };
 }
 
 function hasUnclosedStreamingStructure(text: string): boolean {
   const math = mathMarkersOutsideFences(text);
   if (math.blockDollar % 2 !== 0) return true;
-  // Odd `$` outside a fence means an unclosed `$...$` span — without this,
-  // a prefix cut mid-`$x^2 +` would be treated as stable.
-  if (math.inlineDollar % 2 !== 0) return true;
+  // A single `$` holds nothing: only whole lines are stable, and a `$` span never
+  // reaches past its line (`readInlineMathSpan`), so a closed line's odd `$`
+  // ("a $300 deposit", a price list) can never close later.
   if (math.fenceOpen) return true;
   // \[...\] is the other block-math delimiter preprocessMarkdown converts
   // (BLOCK_MATH_BRACKET_RE, alongside $$...$$) — without tracking it here
   // too, an unclosed \[ mid-stream gets folded into the "stable" prefix and
   // preprocessed while still open, leaving a raw dangling "\[" visible until
   // the closing \] finally arrives.
-  if (math.brackets !== 0) return true;
-  // \(...\) inline math — same risk as $...$ above.
-  if (math.parens !== 0) return true;
+  if (math.bracketOpen) return true;
+  // \(...\) inline math, which may span lines.
+  if (math.parenOpen) return true;
   if (endsWithOpenCallout(text)) return true;
   if (endsWithOpenPipeTable(text)) return true;
   return false;
+}
+
+/**
+ * The maths delimiters of one line outside a fence. `$$`, `\[…\]` and
+ * `\(…\)` may span lines, so they carry across them, and pair lazily, as the
+ * preprocess regexes read them (`/\\\[([\s\S]+?)\\\]/`): an opener waits for
+ * the next closer, and a closer with no opener is not one. A single `$`
+ * pairs only on its line, so it is not read here.
+ */
+function lineMathMarkers(
+  line: string,
+  bracketOpen: boolean,
+  parenOpen: boolean,
+): { blockDollars: number; bracketOpen: boolean; parenOpen: boolean } {
+  if (!line.includes("$") && !line.includes("\\")) return { blockDollars: 0, bracketOpen, parenOpen };
+  return {
+    blockDollars: countOccurrences(line, "$$"),
+    bracketOpen: pairLazily(line, bracketOpen, "\\[", "\\]"),
+    parenOpen: pairLazily(line, parenOpen, "\\(", "\\)"),
+  };
 }
 
 /** True when the last complete line is a GFM pipe-table row (still growing). */
@@ -171,11 +193,9 @@ type StableScanState = {
   openFence: OpenFence | null;
   /** Parity of `$$` occurrences seen so far (true = inside block math). */
   dollarOpen: boolean;
-  /** Running count of `\[` minus `\]` seen so far (nonzero = inside \[...\] block math). */
+  /** 1 inside \[...\] block math, paired lazily (`lineMathMarkers`), else 0. */
   bracketDepth: number;
-  /** Parity of single-`$` (not part of `$$`) occurrences seen so far (true = inside `$...$` inline math). */
-  inlineDollarOpen: boolean;
-  /** Running count of `\(` minus `\)` seen so far (nonzero = inside \(...\) inline math). */
+  /** 1 inside \(...\) inline math, which may span lines, paired lazily, else 0. */
   parenDepth: number;
   /** Whether an unclosed `> [!type]` callout chain reaches `scannedLen`. */
   calloutOpen: boolean;
@@ -235,7 +255,6 @@ function scanStableMarkdownPrefix(
   let openFence: OpenFence | null = null;
   let dollarOpen = false;
   let bracketDepth = 0;
-  let inlineDollarOpen = false;
   let parenDepth = 0;
   let calloutOpen = false;
   let pipeTableOpen = false;
@@ -247,7 +266,6 @@ function scanStableMarkdownPrefix(
     openFence = prevState.openFence ?? null;
     dollarOpen = prevState.dollarOpen;
     bracketDepth = prevState.bracketDepth;
-    inlineDollarOpen = prevState.inlineDollarOpen;
     parenDepth = prevState.parenDepth;
     calloutOpen = prevState.calloutOpen;
     pipeTableOpen = prevState.pipeTableOpen;
@@ -264,15 +282,13 @@ function scanStableMarkdownPrefix(
     // preprocessor would cut mid-fence and render a half-open fence).
     const before = openFence;
     openFence = fenceAfterLine(openFence, line);
+    // A single `$` pairs only on its line (`readInlineMathSpan`), so it holds no
+    // whole line: "a $300 deposit" or a price list settles as it comes.
     if (before == null && openFence == null) {
-      const blockDollarCount = countOccurrences(line, "$$");
-      if (blockDollarCount % 2 !== 0) dollarOpen = !dollarOpen;
-      // Track single-`$` inline math: total `$` minus the ones consumed by `$$` pairs.
-      const totalDollar = countOccurrences(line, "$");
-      const inlineDollarCount = totalDollar - 2 * blockDollarCount;
-      if (inlineDollarCount % 2 !== 0) inlineDollarOpen = !inlineDollarOpen;
-      bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
-      parenDepth += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
+      const markers = lineMathMarkers(line, bracketDepth !== 0, parenDepth !== 0);
+      if (markers.blockDollars % 2 !== 0) dollarOpen = !dollarOpen;
+      bracketDepth = markers.bracketOpen ? 1 : 0;
+      parenDepth = markers.parenOpen ? 1 : 0;
     }
     // A callout chain continues as long as each new line still starts with
     // ">" (matching the original regex's permissive continuation pattern);
@@ -290,7 +306,6 @@ function scanStableMarkdownPrefix(
       openFence == null &&
       !dollarOpen &&
       bracketDepth === 0 &&
-      !inlineDollarOpen &&
       parenDepth === 0 &&
       !calloutOpen &&
       !pipeTableOpen
@@ -304,7 +319,6 @@ function scanStableMarkdownPrefix(
     openFence,
     dollarOpen,
     bracketDepth,
-    inlineDollarOpen,
     parenDepth,
     calloutOpen,
     pipeTableOpen,
@@ -348,8 +362,13 @@ export function preprocessMarkdownForStream(
   const tail = content.slice(stableLen);
   // A heading in the tail of a worked reply starts its own paragraph (`separateLeadLines`),
   // the tail's first line too: its line above is the closed text's last (b12, 2026-11-13).
-  const workedAbove = prefix.workedAbove || isWorkedReply(prefix.openRaw);
-  const above = content.slice(0, stableLen - 1).split("\n").pop() ?? "";
+  const openWorked =
+    cache?.openWorked && cache.openWorked.raw === prefix.openRaw
+      ? cache.openWorked
+      : { raw: prefix.openRaw, worked: isWorkedReply(prefix.openRaw) };
+  const workedAbove = prefix.workedAbove || openWorked.worked;
+  // The closed text's last line: from the newline before it (or the start) to its own.
+  const above = content.slice(content.lastIndexOf("\n", stableLen - 2) + 1, stableLen - 1);
   return {
     prepared: preparedStable + presentStreamTail(tail, presented, workedAbove, above),
     cache: {
@@ -359,6 +378,7 @@ export function preprocessMarkdownForStream(
       presented,
       segments: prefix,
       mathFormat,
+      openWorked,
     },
   };
 }
@@ -382,5 +402,50 @@ export function preprocessSettledMarkdown(
     cache && cache.presented === (options.presented === true) && cache.mathFormat === mathFormat
       ? cache.segments
       : null;
-  return (segments ? finishSegmentedPrefix(segments, content, preprocess) : null) ?? preprocess(content);
+  if (segments) return finishSegmentedPrefix(segments, content, preprocess) ?? preprocess(content);
+  if (options.workedAbove !== undefined) return preprocess(content);
+  return rememberedWhole(content, mathFormat, options.presented === true, () => preprocess(content));
+}
+
+/**
+ * The last few settled replies preprocessed whole, by text, formatter and
+ * presentation. A list row mounts again each time it scrolls back into view,
+ * and `preprocessMarkdown` is a pure function of these three.
+ */
+const WHOLE_MEMO_SIZE = 24;
+const wholeMemo = new Map<string, string>();
+
+/** Sign-out: the replies remembered were the account's. */
+export function clearSettledMarkdownMemo(): void {
+  wholeMemo.clear();
+}
+const formatterIds = new WeakMap<(expr: string) => string, number>();
+let nextFormatterId = 1;
+
+function rememberedWhole(
+  content: string,
+  mathFormat: ((expr: string) => string) | undefined,
+  presented: boolean,
+  make: () => string,
+): string {
+  let formatter = 0;
+  if (mathFormat) {
+    formatter = formatterIds.get(mathFormat) ?? 0;
+    if (!formatter) {
+      formatter = nextFormatterId++;
+      formatterIds.set(mathFormat, formatter);
+    }
+  }
+  const key = `${formatter}:${presented ? 1 : 0}:${content}`;
+  const known = wholeMemo.get(key);
+  if (known !== undefined) {
+    // Most recently used last, so the oldest goes first.
+    wholeMemo.delete(key);
+    wholeMemo.set(key, known);
+    return known;
+  }
+  const made = make();
+  wholeMemo.set(key, made);
+  if (wholeMemo.size > WHOLE_MEMO_SIZE) wholeMemo.delete(wholeMemo.keys().next().value!);
+  return made;
 }

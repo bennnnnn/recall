@@ -1,7 +1,11 @@
+import * as preprocess from "@/lib/markdown/preprocess";
+import * as workout from "@/lib/markdown/workoutSection";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   findStableMarkdownPrefixLen,
+  clearSettledMarkdownMemo,
   preprocessMarkdownForStream,
+  preprocessSettledMarkdown,
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
 
@@ -200,11 +204,12 @@ describe("markdownPreprocessStream", () => {
     simulateStreamingAndCrossCheck(input, 5);
   });
 
-  it("BUG FIX regression: excludes an unclosed $...$ inline-math span from the stable prefix", () => {
-    // Without tracking single-`$` parity, a prefix cut mid-`$x^2 +` would
-    // be treated as stable and preprocessed with a dangling `$`.
+  it("a whole line with an unclosed $ is stable: its span can never close on a later line", () => {
+    // Only whole lines are stable, and `readInlineMathSpan` refuses a `$` span across `\n`, so
+    // the line draws the same now as once the reply ends (it used to be held back, audit MX-1).
     const input = "The answer is $x^2 + \n";
-    expect(findStableMarkdownPrefixLen(input)).toBe(0);
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+    expect(findStableMarkdownPrefixLen("The answer is $x^2 +")).toBe(0);
   });
 
   it("BUG FIX regression: includes a closed $...$ inline-math span in the stable prefix", () => {
@@ -285,5 +290,80 @@ describe("markdownPreprocessStream", () => {
     expect(table).toContain("| 1 | 2");
     const notTable = preprocessMarkdownForStream("| just a note |\nthen prose\n", null).prepared;
     expect(notTable).toContain("| just a note |");
+  });
+
+  it.each([
+    ["one $ holds its own line", "A $5 fee\nnext\n", "A $5 fee\nnext\n".length],
+    ["an open $ span holds nothing once its line ends", "Intro\n\nIt is $x +\n", "Intro\n\nIt is $x +\n".length],
+    ["a price list settles line by line", "Costs:\n\n- Rent: $1,200\n- Deposit: $300\n- Fee: $50\n", "Costs:\n\n- Rent: $1,200\n- Deposit: $300\n- Fee: $50\n".length],
+    ["$$ spans lines until it closes", "A\n$$\nx\n", "A\n".length],
+    ["\\( spans lines until it closes", "A\n\\(\nx\n", "A\n".length],
+    ["a stray \\] closes nothing", "Type \\] here\nB\n", "Type \\] here\nB\n".length],
+    ["\\[ pairs lazily with the next \\]", "\\[ a \\[ b \\]\nC\n", "\\[ a \\[ b \\]\nC\n".length],
+  ])("pins the stable rule: %s", (_name, input, expected) => {
+    // Expected values, not the reference: both scans read a line with lineMathMarkers.
+    expect(findStableMarkdownPrefixLen(input)).toBe(expected);
+    expect(preprocessMarkdownForStream(input, null).cache.rawStableLen).toBe(expected);
+  });
+
+  it("reads the open part's worked label once while it stays the same", () => {
+    const stable = "Para one.\nPara two.\n";
+    const first = preprocessMarkdownForStream(`${stable}grow`, null).cache;
+    const openRaw = first.segments!.openRaw;
+    expect(openRaw).toBe(stable);
+    const read = jest.spyOn(workout, "isWorkedReply");
+    preprocessMarkdownForStream(`${stable}growing`, first);
+    expect(read.mock.calls.filter(([text]) => text === openRaw)).toHaveLength(0);
+    read.mockRestore();
+  });
+
+  it("settles a reply drawn whole as preprocessMarkdown does, and remembers it", () => {
+    clearSettledMarkdownMemo();
+    const boxed = (expr: string) => `\\boxed{${expr}}`;
+    // Each changes with the formatter (implicit maths) or with presentation (a bold repair).
+    const texts = ["x^2 = 4\n", "A train travels at**60 km/h** and returns.\n", "y = 2x + 1\nand at**5 km**.\n"];
+    const keys = texts.flatMap((text) => [false, true].flatMap((presented) =>
+      [undefined, boxed].map((mathFormat) => ({ text, presented, mathFormat }))));
+    expect(new Set(keys.map((k) => preprocessMarkdown(k.text, k.mathFormat, { presented: k.presented }))).size)
+      .toBeGreaterThan(texts.length * 2);
+    const want = keys.map((k) => preprocessMarkdown(k.text, k.mathFormat, { presented: k.presented }));
+    const settle = () => keys.map((k) => preprocessSettledMarkdown(k.text, null, k.mathFormat, { presented: k.presented }));
+    expect(settle()).toEqual(want);
+    // A row mounting again is drawn from the memo: no preprocess at all.
+    const read = jest.spyOn(preprocess, "preprocessMarkdown");
+    expect(settle()).toEqual(want);
+    expect(read).not.toHaveBeenCalled();
+    read.mockRestore();
+    // Past its size the oldest goes, and is preprocessed again.
+    for (let i = 0; i < 30; i += 1) preprocessSettledMarkdown(`Filler ${i}\n`, null);
+    const again = jest.spyOn(preprocess, "preprocessMarkdown");
+    expect(settle()).toEqual(want);
+    expect(again).toHaveBeenCalledTimes(keys.length);
+    again.mockRestore();
+  });
+
+  it("a price dollar in the first line holds only that line (audit MX-1)", () => {
+    // One `$` used to hold every later line out of the stable prefix, so the
+    // rest of the reply was preprocessed, parsed and drawn again on every flush.
+    let content = "You will need a $300 deposit to hold the flat.\n\n";
+    let cache: StreamingPreprocessCache | null = preprocessMarkdownForStream(content, null).cache;
+    expect(cache.rawStableLen).toBe(content.length);
+    for (let i = 1; i <= 50; i += 1) {
+      content += `Paragraph ${i} says what the agent will check on the day you move in.\n\n`;
+      cache = preprocessMarkdownForStream(content, cache).cache;
+      expect(cache.rawStableLen).toBe(content.length);
+      expect(cache.scanState?.stableEnd).toBe(content.length);
+    }
+    simulateStreamingAndCrossCheck(content, 7);
+  });
+
+  it("holds the lines of an open \\( or \\[, never a whole line's `$`", () => {
+    expect(findStableMarkdownPrefixLen("Intro\n\nThe answer is $x^2 +\n")).toBe("Intro\n\nThe answer is $x^2 +\n".length);
+    expect(findStableMarkdownPrefixLen("Cost $5\nnext line\n")).toBe("Cost $5\nnext line\n".length);
+    expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n")).toBe(0);
+    expect(findStableMarkdownPrefixLen("Use \\(\nx^2\n\\) here.\n")).toBe("Use \\(\nx^2\n\\) here.\n".length);
+    // A closer with no opener is not one: it holds nothing after it.
+    expect(findStableMarkdownPrefixLen("Type \\) to close.\n\nMore.\n")).toBe("Type \\) to close.\n\nMore.\n".length);
+    simulateStreamingAndCrossCheck("A $5 fee.\n\nThen \\(\nx\n\\) and \\] stray.\n\n$$\ny\n$$\n\nEnd $x$.\n", 3);
   });
 });

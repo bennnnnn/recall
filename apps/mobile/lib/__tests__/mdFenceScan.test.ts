@@ -4,6 +4,8 @@ import {
   readFenceMarker,
   readFenceMarkerLoose,
   replaceFirstClosedFenceBody,
+  collectClosedFenceBodies,
+  mentionsWord,
   scanFences,
   stripLangFence,
 } from "@/lib/fence/scan";
@@ -127,5 +129,48 @@ describe("dropFences", () => {
     const text = "```a\nx\n```\n```b\ny\n```\nend";
     expect(dropFences(text, (span) => span.info === "a")).toBe("```b\ny\n```\nend");
     expect(dropFences(text, () => false)).toBe(text);
+  });
+});
+
+describe("reading a text's fences again (audit MX-4)", () => {
+  it("gives the same spans for the same text, each read its own list", () => {
+    const text = "Intro\n```js\nx\n```\n~~~\nopen";
+    const first = scanFences(text);
+    const kept = [...first];
+    const again = scanFences(`${text}`);
+    expect(again).toEqual(kept);
+    expect(again).not.toBe(first);
+    again.pop();
+    first.pop();
+    expect(scanFences(text)).toEqual(kept);
+    expect(scanFences(text)).toHaveLength(2);
+    expect(Object.isFrozen(kept[0])).toBe(true);
+    expect(scanFences(text, true)).toEqual(kept);
+  });
+
+  it("reads a text's fences once, and not at all for a language it never names", () => {
+    const text = "Intro\n```js\nx\n```\n";
+    const span = scanFences(text)[0];
+    expect(scanFences(text)[0]).toBe(span);
+    // Three texts that never name "sources": skipped, so the memo still holds `text`.
+    for (const other of ["a\n```js\n1\n```", "b\n```js\n2\n```", "c\n```js\n3\n```"]) {
+      expect(collectClosedFenceBodies(other, "sources")).toEqual([]);
+    }
+    expect(scanFences(text)[0]).toBe(span);
+  });
+
+  it("keeps a strict read and a loose read of one text apart", () => {
+    const text = "- step\n    ```html\n    <p>x</p>\n    ```";
+    expect(scanFences(text)).toHaveLength(0);
+    expect(scanFences(text, true)).toHaveLength(1);
+    expect(scanFences(text)).toHaveLength(0);
+  });
+
+  it("finds a fence's language in any case before it scans", () => {
+    expect(mentionsWord("```SOURCES\n[]\n```", "sources")).toBe(true);
+    expect(mentionsWord("```cloc\u212A\n12:00\n```", "clock")).toBe(true);
+    expect(mentionsWord("no fence here", "sources")).toBe(false);
+    expect(collectClosedFenceBodies("```Sources\n[1]\n```", "sources")).toEqual(["[1]\n"]);
+    expect(stripLangFence("a\n```Reminder\nx\n```\nb", "reminder")).toBe("a\nb");
   });
 });

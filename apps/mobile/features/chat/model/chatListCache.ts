@@ -141,8 +141,18 @@ export function regroupCachedChatList(): ChatList | undefined {
 
 /** Drawer row already has title / pin / class id — skip GET /chats/{id}. */
 export function getCachedChat(id: string): Chat | undefined {
+  return getCachedChats([id]).get(id);
+}
+
+/** `getCachedChat` for many ids: the list read once. */
+export function getCachedChats(ids: readonly string[]): Map<string, Chat> {
   const list = getCachedChatList();
-  return list ? allChatsFromGroups(list).find((chat) => chat.id === id) : undefined;
+  const wanted = new Set(ids);
+  const found = new Map<string, Chat>();
+  for (const chat of list ? allChatsFromGroups(list) : []) {
+    if (wanted.has(chat.id) && !found.has(chat.id)) found.set(chat.id, chat);
+  }
+  return found;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   getCachedChat,
   getCachedChatList,
   invalidateChatListCache,
+  subscribeChatList,
   noteChatListChanged,
   noteChatTitleMissing,
   seedChatListCacheForTest,
@@ -269,7 +270,7 @@ describe("a chat started on another device", () => {
   it.each([
     ["a title it received", () => patchChatGlobal("old", { title: "Renamed" })],
     ["a pin", () => current.patchChatInGroups("old", { pinned: true })],
-    ["an archive", () => current.moveChatArchiveState("old", true)],
+    ["an archive", () => current.patchChatsInGroups([["old", { archived: true }]])],
   ])("is read again on the next open after %s", async (_name, change) => {
     seedChatListCacheForTest(initial);
     (api.listChats as jest.Mock).mockResolvedValue(initial);
@@ -567,5 +568,51 @@ describe("after Settings dropped the list", () => {
     expect(current.allChats.map((row) => row.id)).toEqual(["old"]);
     expect(current.groups.archived.map((row) => row.id)).toEqual(["stays"]);
     expect(getCachedChat("gone")).toBeUndefined();
+  });
+});
+
+describe("editing many chats at once (audit MX-5)", () => {
+  const pinned = { ...chat, id: "pinned", title: "Pinned", pinned: true };
+  const other = { ...chat, id: "other", title: "Other", updated_at: "2026-01-02T00:00:00Z" };
+  const listed = { ...emptyChatList(), pinned: [pinned], older: [other, chat] };
+
+  it("archives two chats, one pinned, in one edit and tells each chat's listeners", async () => {
+    seedChatListCacheForTest(listed);
+    await render(<Probe open={false} />);
+    const changes: [string, unknown][] = [];
+    const stopChanges = subscribeChatChanges((chatId, patch) => { changes.push([chatId, patch]); });
+    let edits = 0;
+    const stopList = subscribeChatList(() => { edits += 1; });
+    await act(async () => { current.patchChatsInGroups([["pinned", { archived: true }], ["old", { archived: true }]]); });
+    stopChanges();
+    stopList();
+    const list = getCachedChatList()!;
+    expect(list.pinned).toEqual([]);
+    expect(list.older.map((row) => row.id)).toEqual(["other"]);
+    expect(list.archived.map((row) => [row.id, row.archived, row.pinned])).toEqual([
+      ["pinned", true, false],
+      ["old", true, false],
+    ]);
+    expect(changes).toEqual([
+      ["pinned", { archived: true, pinned: false }],
+      ["old", { archived: true, pinned: false }],
+    ]);
+    expect(edits).toBe(1);
+  });
+
+  it("removes and puts back chats in one edit each", async () => {
+    seedChatListCacheForTest(listed);
+    await render(<Probe open={false} />);
+    let edits = 0;
+    const stopList = subscribeChatList(() => { edits += 1; });
+    await act(async () => { current.removeChatsFromGroupsById(["pinned", "old"]); });
+    expect(edits).toBe(1);
+    expect(allChatsFromGroups(getCachedChatList()!).map((row) => row.id)).toEqual(["other"]);
+    await act(async () => { current.insertChatsInGroups([pinned, chat]); });
+    expect(edits).toBe(2);
+    stopList();
+    const list = getCachedChatList()!;
+    expect(list.pinned.map((row) => row.id)).toEqual(["pinned"]);
+    expect(list.older.map((row) => row.id)).toEqual(["other", "old"]);
   });
 });

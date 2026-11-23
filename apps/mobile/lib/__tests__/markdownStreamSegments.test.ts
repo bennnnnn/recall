@@ -37,7 +37,7 @@ describe("stream segment cuts", () => {
   });
 
   it("stops cutting at a fence marker the passes could read two ways", () => {
-    for (const odd of ["Use ``` to open a fence.", "  ```python", "```js```"]) {
+    for (const odd of ["Use ``` to open a fence.", "    ```python", "```js```"]) {
       const { cuts, state } = cutsOf(`Intro.\n\n${odd}\n\nLater.\n\nMore.\n`);
       expect(state.poisoned).toBe(true);
       // The cut before it stands; none after it.
@@ -45,6 +45,30 @@ describe("stream segment cuts", () => {
     }
     const nested = "```markdown\n```python\nx\n```\n```\n\nLater.\n";
     expect(cutsOf(nested).state.poisoned).toBe(true);
+  });
+
+  it("cuts on after a code fence whose comment looks like a heading", () => {
+    // `# install deps` is a step line to closeInterruptedMathFences, which leaves bash fences alone.
+    const step = (n: number) => `${n}. Run it:\n\n   \`\`\`bash\n   # install deps\n   npm i\n   \`\`\`\n\n   Done ${n}.\n`;
+    const { cuts, state } = cutsOf(`Intro.\n\n${step(1)}\n${step(2)}\n${step(3)}\nEnd.\n`);
+    expect(state.poisoned).toBe(false);
+    expect(cuts.length).toBeGreaterThan(1);
+    expect(cutsOf("Intro.\n\n```\nx = 1\n2. **Next** step\n```\n\nLater.\n\nMore.\n").state.poisoned).toBe(true);
+  });
+
+  it("keeps a worked region open across a code fence indented in a list item", () => {
+    // A column-0 ```python ends the region (every pass keeps it); one in a list item may still be moved.
+    const region = (indent: string) =>
+      `**Given**\n$v = 2$\n\n- Code:\n\n${indent}\`\`\`python\n${indent}x = 1\n${indent}\`\`\`\n\nLater.\n\nMore.\n`;
+    expect(cutLines(region("  "))).not.toContain("Later.");
+    expect(cutLines(`**Given**\n$v = 2$\n\n\`\`\`python\nx = 1\n\`\`\`\n\nLater.\n\nMore.\n`)).toContain("Later.");
+  });
+
+  it("cuts after a fence indented under a list item that closes cleanly (audit MX-2)", () => {
+    const step = (n: number) => `${n}. Run it:\n\n   \`\`\`bash\n   npm test\n   \`\`\`\n\n   It prints the result.\n`;
+    const { cuts, state } = cutsOf(`Intro.\n\n${step(1)}\n${step(2)}\n${step(3)}\nDone.\n`);
+    expect(state.poisoned).toBe(false);
+    expect(cuts.length).toBeGreaterThan(1);
   });
 
   it.each(["<details><summary>More</summary>", '{"$schema": "https://vega.github.io/schema/"}', "```molecule3d"])(

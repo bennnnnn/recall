@@ -7,8 +7,10 @@ import {
   CHAT_DATE_SECTIONS,
   defaultChatSectionCollapsed,
   isCollapsibleChatSection,
-  patchChatListGroups,
+  insertNewChatsByRecency,
+  patchChatListGroupsMany,
   removeChatFromGroups,
+  removeChatsFromGroups,
   type ChatListSectionKey,
 } from "@/features/chat/model/listSections";
 import {
@@ -219,10 +221,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 
   const openRef = useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef });
 
-  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = useListEdits({ account, current, applyChatList, load, openRef });
-  const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
-    patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
-  }, [patchChatInGroups]);
+  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, ...bulkEdits } = useListEdits({ account, current, applyChatList, load, openRef });
 
   useEffect(() => {
     const unregisters = [
@@ -239,7 +238,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
     hasMoreArchived: Boolean(groups.archived_next_cursor), loadMoreArchivedChats, archivedPaging,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
-    moveChatArchiveState, removeChatFromGroupsById,
+    removeChatFromGroupsById, ...bulkEdits,
   };
 }
 
@@ -291,6 +290,13 @@ function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoad
   return openRef;
 }
 
+/** What an inserted row tells others: a row with no title yet tells no one its title is gone
+ * (the header may already hold it). */
+function titled(chat: Chat): Partial<Chat> {
+  const { title, ...untitled } = chat;
+  return title?.trim() ? chat : untitled;
+}
+
 type ListEditDeps = {
   account: string | null;
   current: () => boolean;
@@ -314,27 +320,42 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     if (openRef.current) void load();
     else scheduleIdleTask(() => void load(true));
   }), [current, applyChatList, load, openRef]);
-  const updateGroups = useCallback((chatId: string, patch: Partial<Chat> | null, update: (previous: ChatList) => ChatList) => {
-    if (!account || !current()) return;
+  // One edit for many chats (a bulk archive or delete): the list is copied, cached and drawn once.
+  const updateGroups = useCallback((changes: readonly (readonly [string, Partial<Chat> | null])[], update: (previous: ChatList) => ChatList) => {
+    if (!account || !current() || changes.length === 0) return;
     applyChatList(updateChatListCache(update) ?? update, false);
-    noteChatListChanged();
-    publishChatChange(chatId, patch);
+    for (const [chatId, patch] of changes) {
+      noteChatListChanged();
+      publishChatChange(chatId, patch);
+    }
   }, [account, current, applyChatList]);
-  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
-    updateGroups(chatId, normalized, (prev) => patchChatListGroups(prev, chatId, normalized));
+  const patchChatsInGroups = useCallback((patches: readonly (readonly [string, Partial<Chat>])[]) => {
+    const normalized = patches.map(([chatId, patch]) =>
+      [chatId, patch.archived === true ? { ...patch, pinned: false } : patch] as const);
+    updateGroups(normalized, (prev) => patchChatListGroupsMany(prev, normalized));
   }, [updateGroups]);
+  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
+    patchChatsInGroups([[chatId, patch]]);
+  }, [patchChatsInGroups]);
   const insertChatInGroups = useCallback((chat: Chat) => {
-    // A row with no title yet tells no one its title is gone (the header may already hold it).
-    const { title, ...untitled } = chat;
-    updateGroups(chat.id, title?.trim() ? chat : untitled, (prev) => insertChatIntoGroups(prev, chat));
+    updateGroups([[chat.id, titled(chat)]], (prev) => insertChatIntoGroups(prev, chat));
+  }, [updateGroups]);
+  const insertChatsInGroups = useCallback((chats: readonly Chat[]) => {
+    updateGroups(chats.map((chat) => [chat.id, titled(chat)] as const), (prev) => insertNewChatsByRecency(prev, chats));
   }, [updateGroups]);
   const removeChatFromGroupsById = useCallback((chatId: string) => {
-    updateGroups(chatId, null, (prev) => removeChatFromGroups(prev, chatId));
+    updateGroups([[chatId, null]], (prev) => removeChatFromGroups(prev, chatId));
+  }, [updateGroups]);
+  const removeChatsFromGroupsById = useCallback((chatIds: readonly string[]) => {
+    const ids = new Set(chatIds);
+    updateGroups(chatIds.map((chatId) => [chatId, null] as const), (prev) => removeChatsFromGroups(prev, ids));
   }, [updateGroups]);
   // A chat deleted elsewhere (Settings' archived chats) leaves only its own row.
   useEffect(() => onAppEvent("chatsDeleted", ({ chatIds }) => {
-    chatIds.forEach((chatId) => removeChatFromGroupsById(chatId));
-  }), [removeChatFromGroupsById]);
-  return { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById };
+    removeChatsFromGroupsById(chatIds);
+  }), [removeChatsFromGroupsById]);
+  return {
+    patchChatInGroups, patchChatsInGroups, insertChatInGroups, insertChatsInGroups,
+    removeChatFromGroupsById, removeChatsFromGroupsById,
+  };
 }

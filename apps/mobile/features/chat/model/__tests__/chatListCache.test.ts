@@ -7,6 +7,7 @@ import {
   fetchMoreArchivedChats,
   fetchOlderChats,
   getCachedChat,
+  getCachedChats,
   getCachedChatList,
   getFetchedChat,
   peekCreatedChat,
@@ -146,6 +147,15 @@ describe("chatListCache", () => {
     expect(getCachedChat("c1")?.title).toBe("Hello");
     expect(getCachedChat("old")?.archived).toBe(true);
     expect(getCachedChat("missing")).toBeUndefined();
+  });
+
+  it("finds many drawer rows in one read, the first row of an id winning", () => {
+    expect(getCachedChats(["c1"]).size).toBe(0);
+    const row = sample.today[0]!;
+    seedChatListCacheForTest({ ...sample, pinned: [{ ...row, title: "First" }], older: [{ ...row, title: "Second" }] });
+    const found = getCachedChats(["c1", "missing"]);
+    expect([...found.keys()]).toEqual(["c1"]);
+    expect(found.get("c1")?.title).toBe("First");
   });
 
   it("normalizes missing archived to an empty array", async () => {

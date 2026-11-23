@@ -19,10 +19,21 @@ export type OpenList = {
   irregular: boolean;
   content: number;
   wide: boolean;
+  /** An item so far is a task (`- [ ]`, `- [x]`): how a done one draws reads every item of the
+   * list (`listHasOpenTask`), so the list is not cut from here on. Set only when true. */
+  task?: true;
+  /** Markdown no longer reads the lines after as this list's items (a line ended it, or it was
+   * text all along): kept only so nothing in it is cut, its fences read at the top level. */
+  ended?: true;
 };
 
 /** What the chunk scan knows about the lines before the one it reads. */
-type ListScan = { list: OpenList | null; inBlankRun: boolean };
+type ListScan = {
+  list: OpenList | null;
+  inBlankRun: boolean;
+  /** The line before was a line of text (a paragraph can go on lazily under it). */
+  prevProse?: boolean;
+};
 
 /**
  * A numbered list's number column is as wide as its largest number. A chunk
@@ -38,10 +49,14 @@ const WIDE_NUMBER = MAX_NUMBERED_CUT + 1;
 export const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const BULLET_ITEM_RE = /^([-*+])([ \t]+)/;
 const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])([ \t]+)/;
+/** A line that starts its own block even under a paragraph: an ATX heading, a quote, a rule. */
+const INTERRUPTS_PARAGRAPH_RE = /^ {0,3}(?:#{1,6}(?:[ \t]|$)|>|(?:[-*_][ \t]*){3,}$)/;
+const EMPTY_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]*$/;
+const TASK_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\](?:[ \t]|$)/;
 const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 /** The column after `text`'s leading spaces and tabs, starting at `column` (tabs stop every 4). */
-function columnAfterWhitespace(text: string, column = 0): number {
+export function columnAfterWhitespace(text: string, column = 0): number {
   for (const char of text) {
     if (char === " ") column += 1;
     else if (char === "\t") column += 4 - (column % 4);
@@ -86,20 +101,28 @@ export function listItemCut(state: ListScan, line: string): boolean {
   const item = readListItem(line);
   const list = state.list;
   if (item) {
+    const task = TASK_ITEM_RE.test(line);
     const sameList =
       list != null && list.marker === item.marker && (list.next === null) === (item.number === null);
     if (!sameList) {
+      // Right under a line of text, markdown starts a list only at "1." and with words in the
+      // item ("Continuing from step 1:" then "2. Add…" is that paragraph's text): read it so.
+      const mayBeText = !state.inBlankRun && (EMPTY_ITEM_RE.test(line) || (item.number !== null && item.number !== 1));
       state.list = {
         marker: item.marker,
         next: item.number === null ? null : item.number + 1,
-        irregular: false,
+        irregular: mayBeText,
         content: item.content,
         wide: item.number !== null && item.number >= WIDE_NUMBER,
+        ...(task ? { task: true as const } : {}),
+        ...(mayBeText ? { ended: true as const } : {}),
       };
       return false;
     }
+    if (task) list.task = true;
     list.content = item.content;
-    if (item.number === null) return !list.irregular;
+    // A task list is never cut: a done item drawn apart from an open one draws as a check.
+    if (item.number === null) return !list.irregular && !list.task;
     const shown = list.next ?? 0;
     list.next = shown + 1;
     if (shown >= WIDE_NUMBER) list.wide = true;
@@ -107,20 +130,26 @@ export function listItemCut(state: ListScan, line: string): boolean {
       list.irregular = true;
       return false;
     }
-    return !list.irregular && !list.wide && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
+    return !list.irregular && !list.wide && !list.task && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
   }
   if (CONTINUATION_LINE_RE.test(line)) {
     // Indented less than the item's content, a line is not inside the item:
     // `10. Step` then `   - detail` ends the numbered list in markdown.
-    if (list && columnAfterWhitespace(line) < list.content) list.irregular = true;
+    if (list && columnAfterWhitespace(line) < list.content) {
+      list.irregular = true;
+      list.ended = true;
+    }
     return false;
   }
   if (!list) return false;
   if (state.inBlankRun) {
     state.list = null;
   } else {
-    // A lazy continuation, or a block that ends the list: either way, no cut.
+    // A lazy continuation (under a line of text) or a block that ends the list: either way, no cut.
     list.irregular = true;
+    // Only a paragraph line goes on lazily: a heading, quote or rule ends the list (the parser
+    // reads no HTML blocks, so a tag line is text).
+    if (!state.prevProse || INTERRUPTS_PARAGRAPH_RE.test(line)) list.ended = true;
   }
   return false;
 }

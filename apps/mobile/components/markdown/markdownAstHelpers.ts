@@ -163,13 +163,20 @@ export function inHeading(parent: unknown): boolean {
   return HEADING_TYPES.some((type) => parentHasType(parent, type));
 }
 
+/** Each node's `astSource`, made once: a nested item's is part of every item around it. */
+const SOURCES = new WeakMap<AstNode, string>();
+
 /**
  * The AST fields the render rules read from a node and its children, as one
  * string: two nodes with the same source, in the same place, draw the same.
  */
 export function astSource(node: AstNode): string {
+  const known = SOURCES.get(node);
+  if (known !== undefined) return known;
   const fields = [node.type, node.content, node.markup, JSON.stringify(node.attributes ?? {})];
-  return `${fields.join("\u0001")}[${(node.children ?? []).map(astSource).join("\u0002")}]`;
+  const source = `${fields.join("\u0001")}[${(node.children ?? []).map(astSource).join("\u0002")}]`;
+  SOURCES.set(node, source);
+  return source;
 }
 
 export function astText(node: AstNode): string {
@@ -298,8 +305,15 @@ export function taskChecked(node: AstNode): boolean | null {
 export function listHasOpenTask(parent: unknown): boolean {
   if (!Array.isArray(parent) || parent.length === 0) return false;
   const list = parent[0] as AstNode;
-  return (list.children ?? []).some((item) => taskChecked(item) === false);
+  // Asked by every item of the list: read its items once.
+  const known = OPEN_TASK_LISTS.get(list);
+  if (known !== undefined) return known;
+  const open = (list.children ?? []).some((item) => taskChecked(item) === false);
+  OPEN_TASK_LISTS.set(list, open);
+  return open;
 }
+
+const OPEN_TASK_LISTS = new WeakMap<AstNode, boolean>();
 
 export function detectStandaloneLink(node: AstNode): string | null {
   let kids = node.children ?? [];

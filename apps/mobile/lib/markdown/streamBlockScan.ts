@@ -1,25 +1,25 @@
 /**
  * Reading a streaming reply's prepared text line by line for the places a
- * chunk may end (`streamBlocks.ts`): fences, display maths, blank runs, the
- * open list, and what stops every cut.
+ * chunk may end (`streamBlocks.ts`): fences, display maths, blank runs and
+ * the open list.
  */
 import {
+  columnAfterWhitespace,
   CONTINUATION_LINE_RE,
   listItemCut,
   type OpenList,
 } from "@/lib/markdown/streamListCuts";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
-/** A link reference definition the reply holds, and where. */
-export type Definition = { at: number; line: string };
-
 /** Group small blocks together so long replies don't spawn hundreds of renderers. */
 export const MIN_SETTLED_CHUNK_CHARS = 320;
 
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
+/** A line of text that is not paragraph text, at any indent: an ATX heading, a table row, or a
+ * rule or setext underline (no lazy line goes on after one). */
+const NOT_PARAGRAPH_RE = /^[ \t]*(?:#{1,6}(?:[ \t]|$)|\||(?:[-*_][ \t]*){3,}$|=+[ \t]*$)/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
-const REFERENCE_DEFINITION_RE = /^ {0,3}\[[^\]\n]+\]:/;
 
 function isBlankLine(line: string): boolean {
   return line.trim().length === 0;
@@ -40,6 +40,11 @@ function isGlueyLine(line: string): boolean {
   );
 }
 
+/** `line` is indented to the open item's content column, so markdown reads it inside the item. */
+function insideItem(list: OpenList | null, line: string): boolean {
+  return list != null && CONTINUATION_LINE_RE.test(line) && columnAfterWhitespace(line) >= list.content;
+}
+
 function countDoubleDollar(line: string): number {
   let count = 0;
   let idx = 0;
@@ -58,6 +63,12 @@ type ScanState = {
   prevLineSafe: boolean;
   inBlankRun: boolean;
   list: OpenList | null;
+  /** The last line was a line of text, not a fence, maths or a blank (`listItemCut`). */
+  prevProse: boolean;
+  /** A fence as the loose reader reads them (one indented 4+ spaces in an item too). */
+  looseFence: OpenFence | null;
+  /** The open fence is indented inside the open list's item, so the list goes on after it. */
+  fenceInItem: boolean;
   /**
    * A closed rich block (fenced code, ```math, or $$ display math) is cut into its
    * own once-mounted chunk at the next safe boundary, whatever its size, rather than
@@ -75,6 +86,17 @@ type ScanState = {
  * say so; a plain prose line (false) is where a cut may land.
  */
 function trackBlockLine(state: ScanState, line: string): boolean {
+  if (state.fenceInItem && line.trim() && !insideItem(state.list, line)) {
+    // A line left of the item's content ends the item, and its fence with it (a fence
+    // has no lazy lines): markdown reads this line outside both, a ``` one as an opener.
+    // The list goes on only if this line is its next item (`listItemCut` keeps its flags).
+    state.openFence = null;
+    state.fenceInItem = false;
+    if (state.list && !LIST_LINE_RE.test(line)) {
+      state.list.irregular = true;
+      state.list.ended = true;
+    }
+  }
   const before = state.openFence;
   state.openFence = fenceAfterLine(before, line);
   if (before != null && state.openFence != null) {
@@ -82,11 +104,22 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     return true;
   }
   if (before != null || state.openFence != null) {
-    // The fence's opener or its closer.
+    // The fence's opener or its closer. One indented inside the open list's item
+    // (a numbered step's code) is part of the item: the list goes on after it.
+    // A task list stays open too, so it keeps knowing it is one and is not cut (`listItemCut`).
+    // A list a line has ended ("Then run:" after an item's fence) reads its fences at the top
+    // level; one a lazy line only bent still holds its item's fence.
+    const inItem = state.list != null && !state.list.ended && insideItem(state.list, line) &&
+      (before == null || state.fenceInItem);
+    state.fenceInItem = state.openFence != null && inItem;
     state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
-    state.list = null;
+    // An irregular list is kept, uncut, across a fence: markdown may still read the items after
+    // it as the same list (a lazy line, then the item's fence), task boxes and all. A fence
+    // opened outside the item ends it, though: no later fence is the item's.
+    if (!inItem && !state.list?.irregular) state.list = null;
+    else if (!inItem && before == null && state.list) state.list.ended = true;
     return true;
   }
 
@@ -131,8 +164,6 @@ export type Cut = { at: number; continued: boolean; listAfter: OpenList | null }
 
 type Scan = {
   cuts: Cut[];
-  /** A link reference definition the scan read: no cut may stand. */
-  definition: Definition | null;
   /** The list open where the scan began (the last chunk goes on in it) reached 100. */
   inheritedWide: boolean;
 };
@@ -147,8 +178,8 @@ type Scan = {
  * and `list` is the list open there.
  *
  * The text after `cutEnd` (to `readEnd`, its last line too, however far it
- * has come) is read but never cut: a link reference definition there, or a
- * numbered list reaching 100, still takes back the cuts it changes. A cut
+ * has come) is read but never cut: a numbered list reaching 100 there still
+ * takes back the cuts it changes. A cut
  * inside a numbered list stands only while the list stays under 100: one
  * that reaches it is drawn wider than its pieces were.
  */
@@ -170,6 +201,9 @@ export function scanClosedBlocks(
     prevLineSafe: false,
     inBlankRun: false,
     list: inherited,
+    prevProse: false,
+    looseFence: null,
+    fenceInItem: false,
     hasRichBlockSinceChunkStart: false,
   };
   let chunkStart = from;
@@ -193,10 +227,12 @@ export function scanClosedBlocks(
     const readOnly = nl >= cutEnd;
     if (readOnly && readEnd === cutEnd) break;
     const line = prepared.slice(i, nl);
-    if (!trackBlockLine(state, line)) {
-      if (REFERENCE_DEFINITION_RE.test(line)) {
-        return { cuts: [], definition: { at: i, line }, inheritedWide: false };
-      }
+    // A line of a fence only the loose reader sees (4+ spaces in an item) is code, not text.
+    const looseBefore = state.looseFence;
+    state.looseFence = fenceAfterLine(looseBefore, line, true);
+    const inLooseFence = looseBefore != null || state.looseFence != null;
+    const prose = !trackBlockLine(state, line);
+    if (prose) {
       const listBefore = state.list ? { ...state.list } : null;
       const nextItem = listItemCut(state, line);
       if (inherited?.wide) inheritedWide = true;
@@ -222,8 +258,10 @@ export function scanClosedBlocks(
     } else if (pendingList && state.list !== pendingList) {
       settlePending();
     }
+    // Only paragraph text goes on lazily under it: not a heading, table row, rule, underline or code.
+    state.prevProse = prose && !inLooseFence && !NOT_PARAGRAPH_RE.test(line);
     i = nl + 1;
   }
   settlePending();
-  return { cuts, definition: null, inheritedWide };
+  return { cuts, inheritedWide };
 }
