@@ -194,11 +194,6 @@ function sectionFor(chat: Chat): ChatListSectionKey {
   return chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
 }
 
-export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
-  const key = sectionFor(chat);
-  return { ...groups, [key]: sortedNewestFirst([...groups[key], chat]) };
-}
-
 /**
  * `groups` with each chat removed, each row edited, and each chat inserted
  * under the heading it belongs to, in one pass: what removing, patching and
@@ -263,7 +258,7 @@ export function removeChatsFromGroups(groups: ChatList, chatIds: ReadonlySet<str
   return editChatListGroups(groups, chatIds, new Map(), []);
 }
 
-/** `insertChatByRecency` for each of `chats` the list does not hold yet, the first of each id. */
+/** Each of `chats` the list does not hold yet (the first of each id), under its heading, newest first. */
 export function insertNewChatsByRecency(groups: ChatList, chats: readonly Chat[]): ChatList {
   const listed = new Set(allChatsFromGroups(groups).map((row) => row.id));
   const insert: Chat[] = [];

@@ -20,7 +20,7 @@ import {
   scanClosedBlocks,
   type Cut,
 } from "@/lib/markdown/streamBlockScan";
-import { NO_REFS, pieceRefs, tiedSpan, type PieceRefs } from "@/lib/markdown/streamReferences";
+import { pieceRefs, tiedSpan, type PieceRefs } from "@/lib/markdown/streamReferences";
 
 export type { OpenList } from "@/lib/markdown/streamListCuts";
 export { MIN_SETTLED_CHUNK_CHARS };
@@ -101,7 +101,7 @@ function mergedChunks(state: StreamBlocksState, first: number, last: number): St
     continued: splice(state.continued, state.continued[last]!),
     listAfter: splice(state.listAfter, state.listAfter[last] ?? null),
     settledText: state.settledText,
-    refs: splice(state.refs, refs.defines.length || refs.mentions.length ? refs : NO_REFS),
+    refs: splice(state.refs, refs),
   };
 }
 

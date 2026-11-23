@@ -13,7 +13,7 @@ import { markdownItInstance } from "@/lib/markdown/parser";
 /** The labels a piece defines and the bracketed labels it holds, as markdown-it normalizes them. */
 export type PieceRefs = { defines: string[]; mentions: string[] };
 
-export const NO_REFS: PieceRefs = { defines: [], mentions: [] };
+const NO_REFS: PieceRefs = { defines: [], mentions: [] };
 
 /** A bracketed run: escapes (`\]`) stay inside it, as in a markdown label. */
 const BRACKETED_RE = /\[((?:\\.|[^[\]\\]){1,999})\]/g;
