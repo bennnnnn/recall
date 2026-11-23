@@ -672,3 +672,37 @@ def test_the_question_the_model_or_the_fact_asks_answers_nothing(quote, fact, na
     from app.modules.memory.grounding import quote_gives_answer
 
     assert not quote_gives_answer(quote, fact, slot=answered_slot(named, fact), named=named)
+
+
+@pytest.mark.parametrize(
+    ("slot", "fact", "kept"),
+    [
+        # What was so is no answer now (Gemini review, #2539).
+        ("home", "User previously lived in Paris", False),
+        ("home", "User lived in Paris in 2020", False),
+        ("home", "User's home was in Paris", False),
+        ("job", "User formerly worked at Google", False),
+        ("job", "User worked at Google", False),
+        ("job", "User has worked as a nurse", True),
+        # A project, a workout, a run or a car is no job.
+        ("job", "User is working on a budgeting app", False),
+        ("job", "User works out daily", False),
+        ("job", "User runs every morning before work", False),
+        ("job", "User owns a 2014 Honda Civic", False),
+        ("job", "User is working at Google", True),
+        # A job named with its place or its field.
+        ("job", "User is a history teacher in Madrid", True),
+        ("job", "User is a nurse in the ICU", True),
+        ("job", "User is a lawyer specializing in contract law", True),
+        ("job", "User is an expert in wine", False),
+    ],
+)
+def test_a_slot_is_answered_now_and_for_a_living(slot, fact, kept) -> None:
+    assert (answered_slot(slot, fact) == slot) is kept
+
+
+def test_a_line_of_a_user_whose_app_is_not_in_english_is_the_models_to_read() -> None:
+    """ "Soy musulmán, no como cerdo" holds an English "no" and no English "I" (#2539)."""
+    assert said_of_themselves("Soy musulmán, no como cerdo", english=False)
+    assert said_of_themselves("34", english=False)
+    assert not said_of_themselves("With female")

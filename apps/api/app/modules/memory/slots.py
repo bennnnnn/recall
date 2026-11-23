@@ -38,7 +38,10 @@ _STEM = 4
 # theirs, and "User has a 7-year-old son" no age.
 # "User is vegetarian and lives in Denver" answers it after a first clause about the user.
 # "User has lived", "User has been working": the perfect says it too ("had lived" is past).
-_ADVERBS = r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*"
+# "previously" and "formerly" say it was so, not that it is.
+_ADVERBS = r"(?:(?:(?!previously|formerly)\w+ly|now|still|also|just|currently)\s+)*"
+# "lived" and "worked" are the user's home or job now only in the perfect ("has lived").
+_PERFECT = r"(?:(?<=has )|(?<=have ))"
 _SUBJECT = (
     r"^\s*(?:the )?user\s+(?:is [^,;]*? and\s+)?"
     rf"{_ADVERBS}(?:(?:has|have)\s+(?:been\s+)?{_ADVERBS})?"
@@ -57,9 +60,12 @@ _RELIGIONS = (
 _PARTNERS = r"wife|husband|partner|girlfriend|boyfriend|spouse|fianc\w*"
 
 
+# Work done for a living, not a project ("is working on an app"), a workout ("works out")
+# or a car owned ("owns a Honda", Gemini review, #2539).
 _JOB_VERBS = (
-    r"works?|is working|working|worked|is (?:self-)?employed|is retired|retired|is unemployed"
-    r"|runs|owns|manages|is the (?:owner|founder|ceo|manager)|founded|co-?founded"
+    rf"works?(?! out\b)|(?:is )?working(?! on\b)|{_PERFECT}worked|is (?:self-)?employed"
+    r"|is retired|retired|is unemployed|is the (?:owner|founder|ceo|manager)|founded"
+    r"|co-?founded"
 )
 # A word of the noun a job is named by: never one that ties the noun to something else, as
 # "a fan of jazz", "an expert on wine" or "a mentor to new hires" do.
@@ -70,6 +76,10 @@ _NOUN_WORD = r"(?!(?:of|about|to|for|with|in|on|at|from|by|who|that|which|than|a
 _JOB_NAMED = re.compile(
     rf"^\s*(?:the )?user is (?P<noun>an? (?:{_NOUN_WORD} ){{0,3}}{_NOUN_WORD})"
     rf"(?:(?: of (?:{_NOUN_WORD} ){{0,2}}{_NOUN_WORD})? (?:at|for) [^,;]+?"
+    # "a history teacher in Madrid", "a nurse in the ICU": a place named, never "an expert
+    # in wine"; "a lawyer specializing in contract law" (Gemini review, #2539).
+    r"| in (?:the )?(?-i:[A-Z])[^,;]*?"
+    r"| \w+ing (?:in|on|at) [^,;]+?"
     rf"| who (?:{_JOB_VERBS})(?![\w-])[^,;]*?)?"
     r"(?=\.?\s*$|,| and )",
     re.IGNORECASE,
@@ -81,7 +91,7 @@ _NOUN_SLOTS = ("school", "age", "gender", "religion", "relationship_status", "ho
 
 
 def _about_user(body: str, *, nouns: str = "") -> re.Pattern[str]:
-    owned = rf"|{_POSSESSED}(?:{nouns}) (?:is|are|was|were)" if nouns else ""
+    owned = rf"|{_POSSESSED}(?:{nouns}) (?:is|are)" if nouns else ""
     return re.compile(rf"(?:{_SUBJECT}(?:{body}){owned})(?![\w-])", re.IGNORECASE)
 
 
@@ -108,7 +118,7 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
     ),
     "home": (
         _about_user(
-            r"lives?|lived|is living|living|is based|resides|is residing|has moved|moved"
+            rf"lives?|{_PERFECT}lived|is living|living|is based|resides|is residing|has moved|moved"
             r"|has relocated"
             r"|relocated|is staying|stays|is located",
             nouns="home|city|town|address|location|residence",

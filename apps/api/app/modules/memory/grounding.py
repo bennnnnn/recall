@@ -194,10 +194,13 @@ _FIRST_PERSON = frozenset("i im ive id me my mine myself we our ours us".split()
 def said_of_themselves(line: str, *, english: bool = True) -> bool:
     """Whether a comparable line speaks about its writer: "I'm a woman", "my husband".
 
-    A line in another language or script is the model's to read.
+    A line in another language or script is the model's to read, and so is any line of a
+    user whose app is not in English: "Soy musulmán, no como cerdo" holds an English "no"
+    and no English "I", and the questions it may answer are asked in their language
+    (Gemini review, #2539).
     """
     words = _words(line)
-    if not _comparable(words, english=english):
+    if not english or not _comparable(words, english=english):
         return True
     return any(word in _FIRST_PERSON for word in words)
 
