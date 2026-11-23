@@ -233,8 +233,9 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degr
   const cosine = Math.cos(radians);
   const sineZero = degrees ? onHalfTurn(degrees, 0n) : nearZero(sine);
   const cosineZero = degrees ? onHalfTurn(degrees, 90n) : nearZero(cosine);
-  const s = zero(sine);
-  const c = zero(cosine);
+  // Exact degrees on a zero are 0 however much converting a large angle rounded (`tan 9000090°`).
+  const s = sineZero ? 0 : zero(sine);
+  const c = cosineZero ? 0 : zero(cosine);
   if ((fn === "tan" || fn === "sec") && c === 0) atZero(cosineZero ? ZERO : SMALL);
   if ((fn === "cot" || fn === "csc") && s === 0) atZero(sineZero ? ZERO : SMALL);
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];

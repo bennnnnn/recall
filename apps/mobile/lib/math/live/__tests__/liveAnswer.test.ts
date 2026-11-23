@@ -89,6 +89,8 @@ describe("liveAnswer", () => {
     ["an undefined factor", "$3\\times\\frac{1}{0}$"],
     ["an undefined numerator", "$\\frac{\\tan(90^{\\circ})}{2}$"],
     ["a pole far round the circle", "$\\tan(1890^{\\circ})$"],
+    ["a pole many turns round", "$\\tan(9000090^{\\circ})$"],
+    ["a sine zero many turns round", "$\\frac{1}{\\sin(9000000^{\\circ})}$"],
   ])("says undefined for %s", (_label, draft) => {
     expect(answer(draft)).toEqual({ latex: "= \\text{undefined}", signed: false, spoken: "undefined", exact: true });
   });
@@ -192,6 +194,12 @@ describe("liveAnswer", () => {
 
   it("keeps values apart that differ in the digits shown, however small", () => {
     expect(answer("$\\sqrt{2}\\times 10^{-5}\\pm 10^{-10}\\pm 10^{-10}$")?.latex.split(",").length).toBe(3);
+  });
+
+  it("merges a sign typed after + or − instead of doubling it", () => {
+    expect(shown("$2-\\pm 3$")).toBe("2+ 3 = 5,\\quad 2- 3 = -1");
+    expect(shown("$2+\\pm 3$")).toBe("2- 3 = -1,\\quad 2+ 3 = 5");
+    expect(shown("$2\\times\\pm 3$")).toBe("2\\times- 3 = -6,\\quad 2\\times+ 3 = 6");
   });
 
   it("works = out on a ± draft too", () => {
