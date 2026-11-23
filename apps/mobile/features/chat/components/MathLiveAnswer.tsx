@@ -91,8 +91,9 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
   const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
   // Branches that echo a tall draft (a fraction in a fraction) show their values alone, when
   // those are lower: at a large text size even a fraction's values may not fit.
-  const latex = useMemo(() => {
-    if (!answer?.short || fitsRow(answer.latex, size, fontScale)) return answer?.latex;
+  const latex = useMemo((): string | null => {
+    if (!answer) return null;
+    if (!answer.short || fitsRow(answer.latex, size, fontScale)) return answer.latex;
     return mathHeight(answer.short, size) < mathHeight(answer.latex, size) ? answer.short : answer.latex;
   }, [answer, size, fontScale]);
   return (
@@ -102,10 +103,10 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
       accessible={answer != null}
       accessibilityLabel={answer ? t("chat.math_live_answer_a11y", { value: answer.spoken }) : undefined}
     >
-      {answer ? (
+      {latex ? (
         <AccessibleElementChildren>
           <AnswerScroll key={latex}>
-            <MathText latex={latex ?? answer.latex} textColor={color} fontSize={size} />
+            <MathText latex={latex} textColor={color} fontSize={size} />
           </AnswerScroll>
         </AccessibleElementChildren>
       ) : null}

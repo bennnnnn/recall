@@ -1042,6 +1042,13 @@
       "why": "about 3.2e-15, within floating point's rounding of 0: too near to tell"
     },
     {
+      "id": "difference-typed-pi",
+      "draft": "$\\pi-3.141592653589793$",
+      "sympy": null,
+      "value": null,
+      "why": "about 1.2e-16: the typed decimal meets π's float by chance, so the float 0 is no answer"
+    },
+    {
       "id": "comma-thousands",
       "draft": "$1,000$",
       "sympy": null,

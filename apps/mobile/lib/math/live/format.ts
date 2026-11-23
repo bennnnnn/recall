@@ -44,6 +44,8 @@ type FormatOptions = {
   typedFraction: boolean;
   /** One form per value (a ± draft's values): `\frac{1}{3}` or `0.75`, never both. */
   compact?: boolean;
+  /** Every value as a decimal: one of a draft's values can be no short fraction. */
+  decimals?: boolean;
 };
 
 function trimZeros(digits: string): string {
@@ -108,7 +110,8 @@ function wholeAnswer(n: bigint): Shown {
  * draft is that same fraction already, so only its decimal is new.
  */
 function fractionAnswer(r: Rational, options: FormatOptions): Shown {
-  const { preferFraction, typedFraction, compact = false } = options;
+  const { preferFraction, compact = false, decimals = false } = options;
+  const typedFraction = options.typedFraction || decimals;
   const finite = terminatingDecimal(r, DIGITS);
   const top = (r.n < 0n ? -r.n : r.n).toString();
   const bottom = r.d.toString();
@@ -159,14 +162,26 @@ function needsFraction(result: LiveResult): boolean {
   return short && terminatingDecimal(result.r, DIGITS) === null;
 }
 
-/** One form for all of a draft's values: fractions when the draft wrote one or a value needs one. */
+/** A value only a decimal writes on the line: a float, or a fraction too long to show. */
+function needsDecimal(result: LiveResult): boolean {
+  if (result.kind === "approx") return true;
+  if (result.kind !== "exact" || result.r.d === 1n) return false;
+  const size = (n: bigint) => (n < 0n ? -n : n).toString().length;
+  return size(result.r.n) > MAX_FRACTION_DIGITS || size(result.r.d) > MAX_FRACTION_DIGITS;
+}
+
+/**
+ * One form for all of a draft's values: decimals when one can be no short fraction
+ * (`\frac{1}{3} \pm 10^{-12}`), else fractions when the draft wrote one or a value needs one.
+ */
 const oneForm = (results: LiveResult[], preferFraction: boolean): FormatOptions => ({
   preferFraction: preferFraction || results.some(needsFraction),
   typedFraction: false,
   compact: true,
+  decimals: results.some(needsDecimal),
 });
 
-/** `2 minus 1 = 1`: the branch read out, so a listener knows which value is which. */
+/** `2 - 1 = 1`: the branch read out, so a listener knows which value is which. */
 function spokenBranch(latex: string, shown: Shown): string {
   const rounded = shown.spoken.startsWith("≈ ");
   return `${spokenFormula(latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;

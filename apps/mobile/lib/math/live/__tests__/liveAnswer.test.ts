@@ -115,7 +115,9 @@ describe("liveAnswer", () => {
     ["a log of a negative", "$\\log(-1)$"],
     ["an infinity, which the server does not call undefined", "$\\tanh^{-1}(1)$"],
     ["a divisor that rounded to 0", "$\\frac{1}{10^{-400}}$"],
-    ["a log of a number that rounded to 0", "$\\ln(e^{-1000})$"],
+    ["a log of a power that rounded to 0", "$\\ln(e^{-1000})$"],
+    ["a log of a float 0", "$\\ln(\\pi-\\pi)$"],
+    ["a hyperbolic cotangent of a float 0", "$\\coth(\\pi-\\pi)$"],
     ["± and ∓ together", "$1\\pm 2\\mp 4$"],
     ["a sign after a minus with nothing to work out", "$-\\pm 3$"],
     ["an undefined divisor, which SymPy calls 0", "$1\\div\\tan(90^{\\circ})$"],
@@ -143,14 +145,17 @@ describe("liveAnswer", () => {
     ["an undefined log base", "$\\log_{1\\div 0}(5)$"],
     ["an undefined binomial", "$\\binom{1\\div 0}{2}$"],
     ["a power that rounded to 0", "$10^{-400}$"],
-    ["a product that rounded to 0", "$10^{-400}\\times 10^{300}$"],
+    ["a product holding a power that rounded to 0", "$10^{-400}\\times 10^{300}$"],
     ["a product of two small numbers that rounded to 0", "$10^{-200}\\times 10^{-200}$"],
     ["a quotient that rounded to 0", "$\\frac{10^{-200}}{10^{200}}$"],
     ["an exponential that rounded to 0", "$\\exp(-1000)$"],
     ["a hyperbolic secant that rounded to 0", "$\\sech(1000)$"],
     ["a ceiling a long chain of steps leaves in doubt", "$\\lceil(\\sqrt[1000]{2})^{1000}\\rceil$"],
     ["an angle in π only near a pole", "$\\tan(\\frac{\\pi}{2}+10^{-15})$"],
-    ["an angle in π that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
+    ["an angle holding a power that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
+    ["a typed decimal that meets π's float by chance", "$\\pi-3.141592653589793$"],
+    ["a ceiling floating point cannot place", "$\\lceil 1+e^{-40}\\rceil$"],
+    ["a floor floating point cannot place", "$\\lfloor\\sqrt{2}\\sqrt{2}\\rfloor$"],
     ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
@@ -220,6 +225,8 @@ describe("liveAnswer", () => {
     // Eight values, one as written: the cap counts what the display writes.
     expect(shown("$10^{20}\\pm 1\\pm 2\\pm 4$")).toBe("\\approx 1 \\times 10^{20}");
     expect(shown("$1\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 1");
+    // A fraction too long to show makes every value a decimal, so one value is written once.
+    expect(shown("$\\frac{1}{3}\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 0.3333333333");
   });
 
   it("keeps values apart that differ in the tenth digit", () => {
@@ -239,6 +246,8 @@ describe("liveAnswer", () => {
     expect(shown("$2\\pm\\, -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
     expect(shown("$2\\times\\pm 3$")).toBe("2 \\times -3 = -6,\\quad 2 \\times +3 = 6");
+    // Typed with the glyphs, drawn as the draft above draws them.
+    expect(shown("2×±3")).toBe("2 \\times -3 = -6,\\quad 2 \\times +3 = 6");
   });
 
   it("shows the values alone where merging signs beside a mod would write a false line", () => {

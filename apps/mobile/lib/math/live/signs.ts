@@ -89,7 +89,11 @@ function written(math: string, sign: PlusMinus, pick: Pick): string | null {
   }
   const merging = Boolean((!sign.left && operators) || next);
   if (merging && math.includes("\\bmod")) return null;
-  return `${before}${shown}${after}`.replace(/\*/g, "\\times ");
+  // The keyboard's own glyphs as the commands the draft above draws (`2×-3` → `2 \times -3`).
+  return `${before}${shown}${after}`
+    .replace(/[*×]/g, "\\times ")
+    .replace(/÷/g, "\\div ")
+    .replace(/·/g, "\\cdot ");
 }
 
 /** Relative to the values themselves: `1.41420e-5` and `1.41421e-5` are two values. */

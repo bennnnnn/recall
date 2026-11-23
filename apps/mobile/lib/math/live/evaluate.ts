@@ -164,23 +164,24 @@ const WHOLE_DOUBT_STEPS = 4096;
 
 /**
  * ⌊x⌋ or ⌈x⌉ of a floating-point value. One within its rounding of a whole number (`√2·√2` is
- * 2.0000000000000004, `(\sqrt[1000]{2})^{1000}` 2 + 2.2e-13, `e^{-40}` 4e-18) may be that number
- * or not: where the two would round apart there is no value. `10^{10}\pi` is 0.1 past a whole
- * number, well clear of its rounding: ⌊x⌋ is 31415926535.
+ * 2.0000000000000004, `(\sqrt[1000]{2})^{1000}` 2 + 2.2e-13, `1 + e^{-40}` exactly 1.0) may sit on
+ * either side of it, so floating point cannot say which way it rounds: no value. `10^{10}\pi` is
+ * 0.1 past a whole number, well clear of its rounding: ⌊x⌋ is 31415926535.
  */
 function wholeOf(x: number, round: (x: number) => number): number {
   const whole = Math.round(x);
   const doubt = Math.abs(x - whole) <= WHOLE_DOUBT_STEPS * Number.EPSILON * Math.max(1, Math.abs(x));
-  return doubt && round(x) !== whole ? fail() : round(x);
+  return doubt ? fail() : round(x);
 }
 
 /**
  * The float result of + or −. One that cancels to within its operands' rounding (`√2·√2 − 2`,
  * `π − 3.14159265358979`) may be 0 or a tiny number floating point cannot tell: no value. Two
- * equal floats (`π − π`) are 0, though only as a float: dividing by it still gives none.
+ * equal floats (`π − π`) are 0, though only as a float: dividing by it still gives none. Not
+ * when one was typed (`typed`): `π − 3.141592653589793` meets π's float by chance.
  */
-function cancelled(result: number, x: number, y: number): number {
-  if (result === 0) return 0;
+function cancelled(result: number, x: number, y: number, typed: boolean): number {
+  if (result === 0 && !typed) return 0;
   return Math.abs(result) <= CANCEL_STEPS * Number.EPSILON * Math.max(Math.abs(x), Math.abs(y)) ? fail() : result;
 }
 
@@ -422,11 +423,12 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       if (isPercent(node.left) || isPercent(node.right)) fail();
       const a = evaluate(node.left, inAngle);
       const b = evaluate(node.right, inAngle);
-      // A float sum that cancels to its operands' rounding is a doubtful 0: dividing by it gives
-      // no value (`1 ÷ (√2·√2 − 2)`), where SymPy, exact, says undefined.
+      // A float sum that cancels to its operands' rounding is a doubtful 0: no value
+      // (`√2·√2 − 2`, where SymPy, exact, says 0 and its reciprocal undefined).
+      const typed = a.kind === "exact" || b.kind === "exact";
       return node.op === "+"
-        ? combine(a, b, add, (x, y) => cancelled(x + y, x, y))
-        : combine(a, b, sub, (x, y) => cancelled(x - y, x, y));
+        ? combine(a, b, add, (x, y) => cancelled(x + y, x, y, typed))
+        : combine(a, b, sub, (x, y) => cancelled(x - y, x, y, typed));
     }
     case "mul": {
       const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);
