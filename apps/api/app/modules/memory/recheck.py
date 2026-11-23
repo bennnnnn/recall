@@ -184,6 +184,7 @@ def judge(
         explicit_remember=line is not None and is_explicit_memory_command(line.text),
         english=english,
         slot=slot,
+        named=reading.slot or fact.slot,
     )
     if grounding.line is None:
         return Verdict(fact, keep=False, reason=f"{grounding.reason}: {reading.quote!r}")

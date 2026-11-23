@@ -365,6 +365,7 @@ def _grounding(
         explicit_remember=line is not None and is_explicit_memory_command(line.text),
         english=english,
         slot=slot,
+        named=op.slot,
     )
 
 

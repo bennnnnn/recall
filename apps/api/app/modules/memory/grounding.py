@@ -139,7 +139,12 @@ def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
 
 
 def quote_gives_answer(
-    quote: str, fact: str, *, slot: str | None = None, english: bool = True
+    quote: str,
+    fact: str,
+    *,
+    slot: str | None = None,
+    english: bool = True,
+    named: str | None = None,
 ) -> bool:
     """False when a comparable quote says nothing past the question's words.
 
@@ -162,7 +167,7 @@ def quote_gives_answer(
             for parts in (_words(candidate) for candidate in names)
             if parts
         )
-    frame = frame_words(fact, slot)
+    frame = frame_words(fact, slot, named=named)
     # "User is a student": the question's word is the whole answer.
     if not frame or all(word in frame for word in _claim(fact)):
         return True
@@ -214,10 +219,12 @@ def ground_fact(
     explicit_remember: bool,
     english: bool = True,
     slot: str | None = None,
+    named: str | None = None,
 ) -> Grounding:
     """Whether ``fact`` is the user's own word about their life, and on which line.
 
-    ``slot`` is the question the fact answers (``slots.answered_slot``), if any.
+    ``slot`` is the question the fact answers (``slots.answered_slot``), if any; ``named``
+    is the slot the model gave it, kept or not, whose question's words answer nothing.
     """
     if stated_as != OWN_LIFE and not explicit_remember:
         return Grounding(None, f"said as {stated_as or 'nothing the model named'}")
@@ -226,7 +233,7 @@ def ground_fact(
         return Grounding(None, "its quote is in none of the user's lines")
     if not quote_holds_fact(quote or "", fact, english=english):
         return Grounding(None, "its quote does not say it")
-    if not quote_gives_answer(quote or "", fact, slot=slot, english=english):
+    if not quote_gives_answer(quote or "", fact, slot=slot, english=english, named=named):
         return Grounding(None, "its quote does not give the answer")
     sensitive = sensitive_slots(fact, slot)
     # "Remember: married, two kids" is the user's own word about themselves.
@@ -261,6 +268,7 @@ def grounded_source(
     explicit_remember: bool,
     english: bool = True,
     slot: str | None = None,
+    named: str | None = None,
 ) -> SourceLine | None:
     """The user line that states ``fact`` about the user, or None to drop the fact."""
     return ground_fact(
@@ -271,6 +279,7 @@ def grounded_source(
         explicit_remember=explicit_remember,
         english=english,
         slot=slot,
+        named=named,
     ).line
 
 

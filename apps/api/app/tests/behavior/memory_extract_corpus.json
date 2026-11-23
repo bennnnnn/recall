@@ -22,7 +22,7 @@
     {"id": "pref-short", "lines": ["I prefer short answers with bullet points"], "expect": [["short"]]},
     {"id": "pref-steps", "lines": ["Please always explain maths step by step for me"], "expect": [["step"]]},
     {"id": "remember-allergy", "lines": ["Remember that I'm allergic to peanuts"], "expect": [["peanut"]]},
-    {"id": "remember-wife", "lines": ["Remember my wife's name is Hana"], "expect": [["hana"]]},
+    {"id": "remember-wife", "lines": ["Remember my wife's name is Hana"], "expect": [["hana"]], "slots": [["relationship_status", "hana"]]},
     {"id": "diet-vegetarian", "lines": ["I'm vegetarian, so suggest something without meat"], "expect": [["vegetarian"]]},
     {"id": "health-diabetic", "lines": ["I'm diabetic, is this cereal ok for breakfast?"], "expect": [["diabet"]]},
     {"id": "religion-muslim", "lines": ["I'm Muslim, so no pork recipes please"], "expect": [["muslim"]], "optional": [["pork"]], "slots": [["religion", "muslim"]]},

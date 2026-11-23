@@ -37,14 +37,16 @@ _STEM = 4
 # ("User now lives", "User recently moved"): "User's sister lives in Lisbon" is no home of
 # theirs, and "User has a 7-year-old son" no age.
 # "User is vegetarian and lives in Denver" answers it after a first clause about the user.
-# "User's" is followed by its noun straight away ("User's home"): "User's family lives in
-# Lisbon" and "User's newly married sister" are someone else's.
 # "User has lived", "User has been working": the perfect says it too ("had lived" is past).
 _ADVERBS = r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*"
 _SUBJECT = (
-    r"^\s*(?:the )?user(?:'s\s+|\s+(?:is [^,;]*? and\s+)?"
-    rf"{_ADVERBS}(?:(?:has|have)\s+(?:been\s+)?{_ADVERBS})?)"
+    r"^\s*(?:the )?user\s+(?:is [^,;]*? and\s+)?"
+    rf"{_ADVERBS}(?:(?:has|have)\s+(?:been\s+)?{_ADVERBS})?"
 )
+# "User's home is in Denver": the question's own noun, then what it is. "User's family lives
+# in Lisbon", "User's married sister", "User's work hours" and "User's home office" are
+# about someone or something else (Gemini review, #2539).
+_POSSESSED = r"^\s*(?:the )?user's (?:current |new |actual )?"
 _DECADES = r"(?:\d0s|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)"
 _RELIGIONS = (
     r"christian\w*|muslim|islam\w*|jew|jewish|hindu\w*|buddhis\w*|sikh\w*|atheis\w*"
@@ -78,8 +80,9 @@ _JOB_NAMED = re.compile(
 _NOUN_SLOTS = ("school", "age", "gender", "religion", "relationship_status", "hometown")
 
 
-def _about_user(body: str, *, flags: int = re.IGNORECASE) -> re.Pattern[str]:
-    return re.compile(rf"{_SUBJECT}(?:{body})(?![\w-])", flags)
+def _about_user(body: str, *, nouns: str = "") -> re.Pattern[str]:
+    owned = rf"|{_POSSESSED}(?:{nouns}) (?:is|are|was|were)" if nouns else ""
+    return re.compile(rf"(?:{_SUBJECT}(?:{body}){owned})(?![\w-])", re.IGNORECASE)
 
 
 # What the opening of a fact that answers each question says.
@@ -90,21 +93,25 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
             r"(?:[ -]years?[ -]old|-year-old|(?=\s*(?:$|[.,;]|and\b)))"
             r"|(?:turns|turned|will turn) \d{1,3}|was born in \d{4}|age"
             rf"|is (?:\S+ ){{0,3}}?in (?:their|his|her) (?:early |late |mid-?)?{_DECADES}"
-            r"|is (?:a |an )?teen(?:ager)?"
+            r"|is (?:a |an )?teen(?:ager)?",
+            nouns="age",
         ),
     ),
     "gender": (
         _about_user(
-            r"(?:is|identifies as) (?:a |an )?(?:\S+ ){0,2}?(?:man|woman|male|female"
-            r"|non-?binary|enby|trans(?:gender)?|genderqueer|genderfluid|agender)"
-            r"|gender|pronouns"
+            # "a trans woman", never "dating a woman" or "adopting a female cat" (Gemini).
+            r"(?:is|identifies as) (?:a |an )?"
+            r"(?:(?!(?:\w+ing|to|with|for|of|by|a|an|the)\b)\S+ ){0,2}?(?:man|woman|male|female"
+            r"|non-?binary|enby|trans(?:gender)?|genderqueer|genderfluid|agender)",
+            nouns="gender|gender identity|pronouns",
         ),
     ),
     "home": (
         _about_user(
             r"lives?|lived|is living|living|is based|resides|is residing|has moved|moved"
             r"|has relocated"
-            r"|relocated|is staying|stays|is located|home|city|town|address"
+            r"|relocated|is staying|stays|is located",
+            nouns="home|city|town|address|location|residence",
         ),
         # "User is in Toronto": a place, named in upper case ("User is in 10th grade" is not).
         re.compile(r"^\s*(?:[Tt]he )?[Uu]ser\s+is (?:now |currently )?in (?:the )?[A-Z]"),
@@ -112,7 +119,8 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
     "hometown": (
         _about_user(
             r"is (?:originally )?from|comes from|grew up|was born|was raised|hometown"
-            r"|is (?:a )?native (?:of|to)"
+            r"|is (?:a )?native (?:of|to)",
+            nouns="hometown|home town|birthplace",
         ),
     ),
     "school": (
@@ -123,19 +131,23 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
             r"|(?:freshman|sophomore|junior|senior)"
             r"(?=\s*(?:$|[.,;]|(?:at|in|of|and|who|year|this|from)\b)))"
             r"|is in (?:\S+ ){0,2}?(?:grade|year|class|form|school|college|university|uni)"
-            r"|studies|is studying|attends|is attending|goes to|is enrolled"
+            r"|studies|is studying|attends|is attending|is enrolled"
+            # "goes to Lincoln High", never "goes to the gym" or "goes to church".
+            r"|goes to (?:\S+ ){0,3}?(?:school|college|university|uni|academy|high)"
             r"|(?:is taking|takes) (?:\S+ ){0,3}?(?:class|classes|course|courses|module)"
             r"|is doing (?:\S+ ){0,3}?(?:degree|course|gcses?|a-levels?|ged|phd|masters?)"
-            r"|is majoring|majors?|school|university|college"
+            r"|is majoring|majors?",
+            nouns="school|university|college|major|grade|degree",
         ),
     ),
     "job": (
         _about_user(
-            rf"{_JOB_VERBS}|job|occupation|profession|career|role|position|employer"
+            rf"{_JOB_VERBS}"
             # "User has a new job at Stripe", "User started a role at Shopify"; "a job
             # interview" is no job.
             r"|(?:has|got|started|landed|took) an? (?:\S+ ){0,2}?(?:job|role|position)"
-            r"(?=\s*(?:$|[.,;]|(?:at|as|with|in|for|and)\b))"
+            r"(?=\s*(?:$|[.,;]|(?:at|as|with|in|for|and)\b))",
+            nouns="job|job title|occupation|profession|career|role|position|employer|workplace",
         ),
     ),
     "relationship_status": (
@@ -143,7 +155,8 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
             r"is (?:\S+ )?(?:married|single|dating|engaged|divorced|separated|widowed"
             r"|a widow(?:er)?|in a (?:\S+ )?relationship|partnered)"
             rf"|(?:has|had) an? (?:\S+ )?(?:{_PARTNERS})|got married|married"
-            r"|dates|is seeing|relationship"
+            r"|dates|is seeing",
+            nouns="relationship|relationship status|marital status",
         ),
         # "User's wife is named Hana": the partner is the user's own, named straight after.
         re.compile(rf"^\s*(?:the )?user's (?:current |new )?(?:{_PARTNERS})(?![\w-])", re.I),
@@ -153,8 +166,9 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
             r"(?:is|identifies as) (?:(?:a|an|very|devout|practicing|practising|non-practicing"
             rf"|observant|not) )*(?:{_RELIGIONS})"
             rf"|(?:practices|follows) (?:(?:their|his|her|the) )?(?:{_RELIGIONS}|faith|religion)"
-            r"|believes in (?:god|allah)|religion|faith|prays"
-            r"|(?:attends|goes to) (?:church|mosque|temple|synagogue)"
+            r"|believes in (?:god|allah)|prays"
+            r"|(?:attends|goes to) (?:church|mosque|temple|synagogue)",
+            nouns="religion|faith",
         ),
     ),
 }
@@ -266,26 +280,29 @@ def answered_slot(raw: object, fact: str) -> str | None:
     return slot
 
 
-def frame_words(fact: str, slot: str | None) -> frozenset[str]:
+def frame_words(fact: str, slot: str | None, *, named: str | None = None) -> frozenset[str]:
     """The words of ``fact`` (case folded) that ask its question rather than answer it.
 
-    A fact that names the user is read as the name slot whatever the model labelled it: the
-    name must be in the quote either way.
+    Its questions are its slot, the slot the model ``named`` for it whether or not the fact
+    answers it, and every question the fact's sentence answers: "where I live" gives no
+    home for "User lives in Denver", and "call me" no name for "User is called Binne"
+    filed under name, whatever slot is kept (Gemini review, #2539).
     """
+    asked = {slot, memory_slot(named)} | {name for name in _FRAME if answers_slot(name, fact)}
     frame: set[str] = set()
-    if slot is not None:
-        frame |= _FRAME.get(slot, frozenset())
-    if slot != "name" and names_the_user(fact):
-        frame |= _FRAME["name"]
+    for name in asked:
+        if name is not None:
+            frame |= _FRAME.get(name, frozenset())
     words = set(re.findall(r"\w+", fact.casefold()))
     found = words & frame
-    if slot is not None and slot.startswith(_FAVORITE):
-        things = _thing_words(slot)
-        found |= {
-            word
-            for word in words
-            if word in _FAVORITE_FRAME or any(_names_thing(word, thing) for thing in things)
-        }
+    for name in asked:
+        if name is not None and name.startswith(_FAVORITE):
+            things = _thing_words(name)
+            found |= {
+                word
+                for word in words
+                if word in _FAVORITE_FRAME or any(_names_thing(word, thing) for thing in things)
+            }
     return frozenset(found)
 
 

@@ -620,3 +620,55 @@ def test_the_eval_reads_each_line_with_the_question_before_it() -> None:
 def test_the_perfect_and_a_new_job_answer_their_slot(slot, fact, kept) -> None:
     """ "has lived", "has a new job" (Claude review, #2539)."""
     assert (answered_slot(slot, fact) == slot) is kept
+
+
+@pytest.mark.parametrize(
+    ("slot", "fact", "kept"),
+    [
+        # "User's" then the question's own noun and what it is.
+        ("home", "User's home is in Denver", True),
+        ("age", "User's age is 34", True),
+        ("job", "User's current job is at Stripe", True),
+        ("religion", "User's religion is Islam", True),
+        ("gender", "User's pronouns are she/her", True),
+        ("school", "User's major is biology", True),
+        # Someone or something else of theirs (Gemini review, #2539).
+        ("relationship_status", "User's married sister lives in Lisbon", False),
+        ("job", "User's work hours are 9 to 5", False),
+        ("job", "User's retired father lives in Florida", False),
+        ("home", "User's home office has a standing desk", False),
+        # Going somewhere is no school; going to one is.
+        ("school", "User goes to the gym every morning", False),
+        ("school", "User goes to church", False),
+        ("school", "User goes to Lincoln High School", True),
+        # A verb before the noun is no gender.
+        ("gender", "User is dating a woman", False),
+        ("gender", "User is adopting a female cat", False),
+        ("gender", "User is a trans woman", True),
+    ],
+)
+def test_what_a_possessive_or_a_verb_says_is_held_to_the_user(slot, fact, kept) -> None:
+    assert (answered_slot(slot, fact) == slot) is kept
+
+
+def test_dating_a_woman_answers_only_whether_they_are_seeing_someone() -> None:
+    """ "Dating a woman" to "Are you seeing anyone?" is no gender (Gemini review, #2539)."""
+    assert sensitive_slots("User is dating a woman", "relationship_status") == {
+        "relationship_status"
+    }
+
+
+@pytest.mark.parametrize(
+    ("quote", "fact", "named"),
+    [
+        ("call me", "User is called Binne", "name"),
+        ("where I live", "User lives in Denver", None),
+        ("my job", "User has a job at Uber", "job"),
+    ],
+)
+def test_the_question_the_model_or_the_fact_asks_answers_nothing(quote, fact, named) -> None:
+    """The words of the slot the model named, kept or not, and of every question the fact
+    answers, give no answer (Gemini review, #2539)."""
+    from app.modules.memory.grounding import quote_gives_answer
+
+    assert not quote_gives_answer(quote, fact, slot=answered_slot(named, fact), named=named)
