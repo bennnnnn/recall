@@ -146,7 +146,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fence/registry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (8 locales; tests hold key parity, placeholders and translation: a value equals English only if `lib/__tests__/i18nTranslated.test.ts` allows it) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
+**HTTP surfaces registered in** `main.py`: the module-owned Memory, To-do, Search, Chat history, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, Notifications push-token (`/users`), Analytics, and Link preview APIs plus the legacy health, legal, admin, and models routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
 **Domain packages:** every product domain lives under `modules/`. `services/` holds only what several owners share (quota, time context, the STEM text leaves); a root file one owner uses moves into that owner (`apps/api/app/tests/architecture/test_services_root.py`). The model catalog is `models/model_catalog.py`. New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 
