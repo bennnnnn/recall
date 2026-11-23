@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from app.services.latex_groups import group_end
+
 # Maths the model marked itself: ``\(…\)``, ``\[…\]`` or ``$…$`` (a ``$`` before a space or
 # a closing one after it is a price's, never maths).
 _MARKED = re.compile(
@@ -53,19 +55,6 @@ _SIDE_LETTERS = 3
 _GLUES = frozenset({"command", "group", "number", "letters", "sign"})
 
 
-def _group_end(text: str, opening: int) -> int:
-    """Where the brace group opened at ``opening`` ends (past its ``}``), or the text's end."""
-    depth = 0
-    for at in range(opening, len(text)):
-        if text[at] == "{":
-            depth += 1
-        elif text[at] == "}":
-            depth -= 1
-            if depth == 0:
-                return at + 1
-    return len(text)
-
-
 def _token(text: str, at: int) -> tuple[int, str] | None:
     """The maths token at ``at``, its end and its kind, or None where nothing maths starts."""
     char = text[at]
@@ -73,10 +62,10 @@ def _token(text: str, at: int) -> tuple[int, str] | None:
     if command is not None:
         end = command.end()
         while end < len(text) and text[end] == "{":
-            end = _group_end(text, end)
+            end = group_end(text, end)
         return end, "command" if end == command.end() else "group"
     if char == "{":
-        return _group_end(text, at), "group"
+        return group_end(text, at), "group"
     if char in _SIGNS:
         return at + 1, "relation" if char in _RELATIONS else "sign"
     if (number := _NUMBER.match(text, at)) is not None:

@@ -31,7 +31,9 @@ _EARLIER_CHARS = 600
 
 _ASKED = (
     "The user wants to see a picture for a maths question. Say what to draw, as JSON, "
-    "from what the question states.\n"
+    "from what the question states. A question with nothing of this to draw (arithmetic, a "
+    "percentage, money, a remainder, a sequence, a word problem with no shape, points, "
+    "line or curve) is kind none: never a shape or a circle it does not state.\n"
 )
 # Not asked: a figure only where a student follows the question better with one in front of
 # them (the owner, 2026-11-15: "we don't have to ask it to draw, it must draw to teach").

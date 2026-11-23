@@ -15,7 +15,7 @@ import pytest
 from app.gateways.litellm_gateway import _call_kwargs
 from app.gateways.stream_tool_calls import ToolOffer
 from app.models import model_catalog
-from app.modules.chat import decider_read, turn_decision
+from app.modules.chat import decider_read, picture_read, turn_decision
 from app.modules.chat.turn_decision import Follow, Picture, Subject, TurnDecision
 from app.tests.fakes import isolated_settings
 
@@ -232,6 +232,29 @@ def test_the_effort_comes_from_think_and_hard(think: bool, hard: bool, effort: s
     assert read.effort == effort
 
 
+@pytest.mark.parametrize(
+    ("subject", "follow", "picture"),
+    [
+        # "can u show me a picture" after 7 notebooks at $2 each: the problem's, never painted.
+        ("maths", "draw", "diagram"),
+        ("physics", "draw", "diagram"),
+        # A chemistry problem's picture is its compound.
+        ("chemistry", "draw", "molecule"),
+        # "make it blue" after a painting, and a painting asked beside a problem, stay paintings.
+        ("everyday", "draw", "image"),
+        ("physics", "none", "image"),
+        ("maths", "change", "image"),
+    ],
+)
+def test_a_request_to_see_a_problem_is_never_a_painting(
+    subject: str, follow: str, picture: str
+) -> None:
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": subject, "follow": follow, "picture": "image"}
+    )
+    assert read.picture == picture
+
+
 def test_a_read_with_no_think_has_no_effort() -> None:
     """The word rules decide the level then (``decided_turn``)."""
     assert TurnDecision(live=False).effort is None
@@ -341,6 +364,57 @@ async def test_a_live_decision_takes_its_query_from_the_text_read(
     with patch(_STRUCTURED, ask):
         read = await turn_decision.read_decision(_SETTINGS, "who won the world cup", earlier=[])
     assert read is not None and read.searches and read.query == "World Cup winner"
+
+
+_EARLIER = [("user", "7 notebooks at $2 each, paid with $20: the change?"), ("assistant", "$6")]
+
+
+@pytest.mark.parametrize(
+    ("decider", "text", "picture"),
+    [
+        # Read "everyday" and a painting, the problem's picture is the text read's to say.
+        ({"subject": "everyday", "picture": "image"}, ("maths", "diagram"), ("maths", "diagram")),
+        (
+            {"subject": "chemistry", "picture": "none"},
+            ("chemistry", "molecule"),
+            ("chemistry", "molecule"),
+        ),
+        # A school subject's painting is asked of the text read too, before it is the
+        # problem's diagram (review): a maths curve's picture is its graph.
+        ({"subject": "maths", "picture": "image"}, ("maths", "graph"), ("maths", "graph")),
+        ({"subject": "maths", "picture": "image"}, ("everyday", "image"), ("maths", "diagram")),
+        # The text read names no school problem: the Decider's read stands.
+        ({"subject": "everyday", "picture": "image"}, ("everyday", "image"), ("everyday", "image")),
+        # The Decider names the problem's picture: nothing else is asked.
+        (
+            {"subject": "physics", "picture": "diagram"},
+            ("everyday", "image"),
+            ("physics", "diagram"),
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_request_to_see_the_problem_asks_the_text_read_when_the_decider_is_unsure(
+    monkeypatch: pytest.MonkeyPatch,
+    decider: dict[str, str],
+    text: tuple[str, str],
+    picture: tuple[str, str],
+) -> None:
+    """ "can u show me a picture" after a homework answer: the Decider read 36 of 45 as the
+    problem's picture, the text read 45 of 45 (QA round, 2026-11-22); told so itself, the
+    Decider searched more turns that need none."""
+    fields = _fields(follow="draw", **decider)
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    monkeypatch.setattr(picture_read, "_after_a_problem", AsyncMock(return_value=True))
+    said = TurnDecision.model_validate(
+        {"live": False, "subject": text[0], "picture": text[1], "follow": "draw"}
+    )
+    with patch(_STRUCTURED, AsyncMock(return_value=said)):
+        read = await turn_decision.read_decision(
+            _SETTINGS, "can u show me a picture", earlier=_EARLIER
+        )
+    assert read is not None and (read.subject, read.picture) == picture
+    assert read.searches is False
 
 
 @pytest.mark.parametrize(
@@ -672,3 +746,70 @@ def test_the_read_sees_the_end_of_a_long_last_reply() -> None:
     quoted = turn_decision.earlier_turns(recent)[-1][1]
     assert quoted.startswith("Sleep runs on a body clock.") and quoted.endswith(offer)
     assert len(quoted) <= 1500 + 3
+
+
+@pytest.mark.asyncio
+async def test_an_everyday_picture_follow_up_asks_no_text_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "show me a picture of it" after the Colosseum: no school problem before it, so the
+    Decider's photo stands and nothing waits for the text read (review)."""
+    fields = _fields(follow="draw", subject="everyday", picture="photo")
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    monkeypatch.setattr(picture_read, "_after_a_problem", AsyncMock(return_value=False))
+    said = TurnDecision.model_validate(
+        {"live": False, "subject": "maths", "picture": "diagram", "follow": "draw"}
+    )
+    with patch(_STRUCTURED, AsyncMock(return_value=said)):
+        read = await turn_decision.read_decision(
+            _SETTINGS,
+            "show me a picture of it",
+            earlier=[("user", "Tell me about the Colosseum"), ("assistant", "A Roman arena.")],
+        )
+    assert read is not None and (read.subject, read.picture) == ("everyday", "photo")
+
+
+def test_the_school_problem_gate_reads_the_chat_uncut() -> None:
+    """A long reply's answer card past the quote's cut, and a reply that is only its picture,
+    still say the chat worked a problem (review): the gate reads the stored messages."""
+    from types import SimpleNamespace
+
+    card = "```answer\nverified: true\n6\n```"
+    long_reply = "Working. " * 400 + card + " Then more words. " * 60
+    rows = [
+        SimpleNamespace(role="user", content="i bought 7 notebooks at $2 each"),
+        SimpleNamespace(role="assistant", content=long_reply),
+        SimpleNamespace(role="user", content="thanks!"),
+        SimpleNamespace(role="assistant", content="You're welcome!"),
+    ]
+    raw = picture_read.raw_turns(rows)
+    assert raw[1] == ("assistant", long_reply)
+    quoted = turn_decision.earlier_turns(rows)
+    assert card not in quoted[1][1]
+
+
+@pytest.mark.asyncio
+async def test_the_decider_s_unsure_read_is_held_to_the_raw_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[list[str]] = []
+
+    async def holds(_settings: Any, _lines: Any, replies: Any = ()) -> bool:
+        seen.append(list(replies))
+        return True
+
+    from app.modules.chat import school_problem
+
+    monkeypatch.setattr(school_problem, "chat_holds_a_school_problem", holds)
+    fields = _fields(follow="draw", subject="everyday", picture="image")
+    monkeypatch.setattr(decider_read, "decide_turn", AsyncMock(return_value=fields))
+    said = TurnDecision.model_validate(
+        {"live": False, "subject": "maths", "picture": "diagram", "follow": "draw"}
+    )
+    raw = [("user", "7 notebooks at $2 each"), ("assistant", "x" * 3000 + "```answer\n6\n```")]
+    with patch(_STRUCTURED, AsyncMock(return_value=said)):
+        read = await turn_decision.read_decision(
+            _SETTINGS, "can u show me a picture", earlier=[("user", "cut")], raw=raw
+        )
+    assert seen == [[raw[1][1]]]
+    assert read is not None and (read.subject, read.picture) == ("maths", "diagram")

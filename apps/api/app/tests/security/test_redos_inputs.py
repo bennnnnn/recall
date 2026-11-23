@@ -20,7 +20,7 @@ from app.modules.math.match.spoken import _OVER, _fraction, _tight_carets, spoke
 from app.modules.math.solve.extract_eq import _equation_spans
 from app.modules.math.tools.school.price_changes import extract_price_changes_intent
 from app.modules.math.tools.school.trig_degrees import degree_expression_intent
-from app.modules.physics import force_pictures, force_rigs
+from app.modules.physics import force_rigs
 from app.modules.physics.binding import bind_physics_intent, drop_unit_request
 from app.modules.physics.givens import unit_at
 from app.modules.physics.numbers import _LENGTH_BEFORE_PLANK, unit_names_as_symbols
@@ -148,8 +148,8 @@ def test_tight_carets_matches_the_old_substitution(text, tight):
     assert _tight_carets(text) == tight
 
 
-@pytest.mark.parametrize("angle", [force_pictures._ANGLE, force_rigs._ANGLE])
-def test_angle_reads_a_run_of_spaces_once(angle):
+def test_angle_reads_a_run_of_spaces_once():
+    angle = force_rigs.ANGLE  # the force pictures read the same pattern
     assert angle.search("1" + SPACES + "x") is None
     assert angle.search("a 30 - degree incline")[1] == "30"
     assert angle.search("banked at 15°")[1] == "15"
