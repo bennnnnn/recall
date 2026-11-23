@@ -368,6 +368,20 @@ describe("advanceStreamBlocks between list items", () => {
       headedEnd += chunk.length;
       expect(headedEnd > headedOpens && headedEnd <= headedCloses).toBe(false);
     }
+    // Under a heading in an item nothing goes on lazily: "Use Homebrew:" ends the list, and the
+    // fence after it is the top level's. So is a fence after one opened outside the item.
+    const underHeading = ["1. **Install**", "   ### On macOS", "Use Homebrew:", "   ```bash", "brew install node", "",
+      `brew install pnpm ${para}`, "", `brew doctor ${para}`, "   ```", "More text"].join("\n");
+    const afterTopFence = ["- [ ] a", "lazy", "```", "top", "```", "  ```", "x", "", `y ${para}`, "", `z ${para}`, "  ```", "End."].join("\n");
+    for (const [text, opener] of [[underHeading, "   ```bash"], [afterTopFence, "  ```\nx"]] as const) {
+      const opens = text.indexOf(opener);
+      const closes = text.lastIndexOf("```");
+      let end = 0;
+      for (const chunk of advanceStreamBlocks(null, text, text.length).chunks) {
+        end += chunk.length;
+        expect(end > opens && end <= closes).toBe(false);
+      }
+    }
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);

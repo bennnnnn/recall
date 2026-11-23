@@ -16,6 +16,8 @@ export const MIN_SETTLED_CHUNK_CHARS = 320;
 
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
+/** A line of text that is not paragraph text: an ATX heading or a table row, at any indent. */
+const NOT_PARAGRAPH_RE = /^[ \t]*(?:#{1,6}(?:[ \t]|$)|\|)/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
 
 function isBlankLine(line: string): boolean {
@@ -111,8 +113,10 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
     // An irregular list is kept, uncut, across a fence: markdown may still read the items after
-    // it as the same list (a lazy line, then the item's fence), task boxes and all.
+    // it as the same list (a lazy line, then the item's fence), task boxes and all. A fence
+    // opened outside the item ends it, though: no later fence is the item's.
     if (!inItem && !state.list?.irregular) state.list = null;
+    else if (!inItem && before == null && state.list) state.list.ended = true;
     return true;
   }
 
@@ -246,7 +250,8 @@ export function scanClosedBlocks(
     } else if (pendingList && state.list !== pendingList) {
       settlePending();
     }
-    state.prevProse = prose;
+    // Only paragraph text goes on lazily under it: not a heading or a table row.
+    state.prevProse = prose && !NOT_PARAGRAPH_RE.test(line);
     i = nl + 1;
   }
   settlePending();

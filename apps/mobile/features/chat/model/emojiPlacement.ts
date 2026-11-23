@@ -160,11 +160,19 @@ function placeLine(line: string, fenced: boolean, use: string): string {
   return use === "off" ? withoutEmoji(line) : leadingEmoji(line);
 }
 
+/** How `text` places its emoji at `level`, or null when it stays as written (the whole-text gates). */
+function placementUse(text: string, level: string | null | undefined, userWroteEmoji: boolean): string | null {
+  const use = normalizeEmojiUse(level);
+  if (use === "more" || (use === "off" && userWroteEmoji)) return null;
+  // Read over the whole text: a lesson heading may run over a line break.
+  if (use === "some" && LESSON.test(text)) return null;
+  return use;
+}
+
 /** `text` with its emoji where `level` puts them (the server's `place_emoji`). */
 export function placeEmoji(text: string, level: string | null | undefined, userWroteEmoji: boolean): string {
-  const use = normalizeEmojiUse(level);
-  if (use === "more" || (use === "off" && userWroteEmoji) || !EMOJI.test(text)) return text;
-  if (use === "some" && LESSON.test(text)) return text;
+  const use = placementUse(text, level, userWroteEmoji);
+  if (use === null || !EMOJI.test(text)) return text;
   const fenced = fencedLines(text);
   return text
     .split("\n")
@@ -230,9 +238,6 @@ export function placeLiveEmoji(
   priorUserText: string | null,
 ): string | undefined {
   if (!content) return content;
-  const use = normalizeEmojiUse(level);
-  if (use === "more" || (use === "off" && EMOJI.test(priorUserText ?? ""))) return content;
-  // Read over the whole text, as `placeEmoji` reads it: the heading may run over a line break.
-  if (use === "some" && LESSON.test(content)) return content;
-  return placeGrowingDraft(content, use);
+  const use = placementUse(content, level, EMOJI.test(priorUserText ?? ""));
+  return use === null ? content : placeGrowingDraft(content, use);
 }
