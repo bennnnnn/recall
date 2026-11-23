@@ -13,7 +13,7 @@
 import type { LiveResult } from "@/lib/math/live/evaluate";
 import { formatBranches, formatLiveResult, formatValues, type LiveAnswer } from "@/lib/math/live/format";
 import { readCalculation, type LiveNode } from "@/lib/math/live/read";
-import { workSigns, type LiveSigns } from "@/lib/math/live/signs";
+import { isTypedFraction, workSigns, type LiveSigns } from "@/lib/math/live/signs";
 
 export type { LiveAnswer };
 
@@ -26,17 +26,6 @@ function isPlainNumber(node: LiveNode): boolean {
   return node.kind === "number" || (node.kind === "neg" && node.operand.kind === "number");
 }
 
-/** `\frac{3}{4}` typed in lowest terms: only its decimal is new. */
-function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
-  return (
-    node.kind === "frac" &&
-    value.kind === "exact" &&
-    node.num.kind === "number" &&
-    node.den.kind === "number" &&
-    node.num.text === value.r.n.toString() &&
-    node.den.text === value.r.d.toString()
-  );
-}
 
 /** Spaces the keyboard may leave after the = (`\,`, `\quad`, …). */
 const LATEX_SPACE = String.raw`(?:\s|\\[,;:! ]|\\q?quad\b)*`;

@@ -6,11 +6,14 @@
  *
  * A draft with ± (`signs.ts`) shows each branch written out with its value, side by side
  * (`2 - 1 = 1,\quad 2 + 1 = 3`); with two or three signs, its distinct values
- * (`= -1,\quad 1,\quad 3`). There each value is written once, its fraction or its decimal.
+ * (`= -1,\quad 1,\quad 3`). There each value is written once, and all of a draft's values in
+ * one form: fractions when the draft wrote one or a value needs one (`\frac{1}{3}`), else
+ * decimals. A branch that is its value's own fraction (`-\frac{1}{3}`) gets its decimal.
  */
 import type { LiveResult, LiveValue } from "@/lib/math/live/evaluate";
 import { terminatingDecimal, toNumber, type Rational } from "@/lib/math/live/rational";
 import type { LiveBranch } from "@/lib/math/live/signs";
+import { spokenFormula } from "@/lib/math/spokenFormula";
 
 export type LiveAnswer = {
   /** For `MathText`: `= 5`, `\approx 1.414213562`. */
@@ -109,7 +112,7 @@ function fractionAnswer(r: Rational, options: FormatOptions): Shown {
   const top = (r.n < 0n ? -r.n : r.n).toString();
   const bottom = r.d.toString();
   const long = top.length > MAX_FRACTION_DIGITS || bottom.length > MAX_FRACTION_DIGITS;
-  if (finite && (!preferFraction || typedFraction || long || compact)) {
+  if (finite && (!preferFraction || typedFraction || long)) {
     return { latex: `= ${finite}`, spoken: finite, exact: true };
   }
   const tail = approxAnswer(toNumber(r));
@@ -147,22 +150,46 @@ export function formatLiveResult(result: LiveResult, options: FormatOptions, und
   return { ...shown, signed: false };
 }
 
+/** A short fraction that ends as no decimal (`\frac{1}{3}`): only a fraction writes it exactly. */
+function needsFraction(result: LiveResult): boolean {
+  if (result.kind !== "exact" || result.r.d === 1n) return false;
+  const size = (n: bigint) => (n < 0n ? -n : n).toString().length;
+  const short = size(result.r.n) <= MAX_FRACTION_DIGITS && size(result.r.d) <= MAX_FRACTION_DIGITS;
+  return short && terminatingDecimal(result.r, DIGITS) === null;
+}
+
+/** One form for all of a draft's values: fractions when the draft wrote one or a value needs one. */
+const oneForm = (results: LiveResult[], options: FormatOptions): FormatOptions => ({
+  preferFraction: options.preferFraction || results.some(needsFraction),
+  typedFraction: false,
+  compact: true,
+});
+
+/** `2 minus 1 = 1`: the branch read out, so a listener knows which value is which. */
+function spokenBranch(branch: LiveBranch, shown: Shown): string {
+  const rounded = shown.spoken.startsWith("≈ ");
+  return `${spokenFormula(branch.latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;
+}
+
 /** One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. */
 export function formatBranches(branches: LiveBranch[], options: FormatOptions, undefinedWord: string): LiveAnswer {
-  const compact = { ...options, typedFraction: false, compact: true };
-  const shown = branches.map((branch) => formatResult(branch.result, compact, undefinedWord));
+  const form = oneForm(branches.map((branch) => branch.result), options);
+  const shown = branches.map((branch) =>
+    formatResult(branch.result, { ...form, typedFraction: branch.typed }, undefinedWord),
+  );
   return {
     latex: branches.map((branch, i) => `${branch.latex} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
     signed: true,
     short: listed(shown),
-    spoken: shown.map((s) => s.spoken).join(", "),
+    spoken: branches.map((branch, i) => spokenBranch(branch, shown[i]!)).join(", "),
     exact: shown.every((s) => s.exact),
   };
 }
 
 /** Two or three ±: the distinct values, `= -1,\quad 1,\quad 3` (`≈` kept where a value is rounded). */
 export function formatValues(values: LiveValue[], options: FormatOptions): LiveAnswer {
-  const shown = values.map((value) => formatValue(value, { ...options, typedFraction: false, compact: true }));
+  const form = oneForm(values, options);
+  const shown = values.map((value) => formatValue(value, form));
   return {
     latex: listed(shown),
     signed: true,

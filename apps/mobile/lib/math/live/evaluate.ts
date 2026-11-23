@@ -8,8 +8,9 @@
  * log of zero, a log to base 1. Only a zero that is exactly zero makes one: a decimal that
  * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. An undefined
  * part carries through + − × and a numerator (`2 + 1 ÷ 0` is undefined, as SymPy's zoo is);
- * anywhere else it leaves no value, as SymPy gives one back there (`1 ÷ tan 90°` is 0 to it,
- * `|1 ÷ 0|` an infinity, `(1 ÷ 0)^0` 1). `0^0` is 1, as
+ * anywhere else the phone stays cautious and shows nothing: there SymPy sometimes gives a value
+ * back (`1 ÷ tan 90°` is 0 to it, `|1 ÷ 0|` an infinity, `(1 ÷ 0)^0` 1), and the turn verifies
+ * none of them. `0^0` is 1, as
  * SymPy and the server read it. Anything else the server would not call one real number gives
  * no value: a root or a log of a negative (complex numbers are the server's), an infinity
  * (`atanh 1`), `50 + 10%` (55 or 50.1), a number too big.
@@ -170,7 +171,9 @@ function logarithm(arg: LiveValue, base: LiveValue | "e"): LiveValue {
   const b = base === "e" ? Math.E : numberOf(base);
   if (x < 0 || b <= 0) fail();
   if (x === 0) atZero(arg);
-  if (b === 1) undefinedValue();
+  // Base 1 exactly (`\log_{1}`); one that only rounds to 1 has a huge log, and no value here.
+  const exactBase = base !== "e" && base.kind === "exact" ? base.r : null;
+  if (exactBase ? exactBase.n === exactBase.d : b === 1) return exactBase ? undefinedValue() : fail();
   if (base !== "e" && arg.kind === "exact" && base.kind === "exact") {
     const r = exactLog(arg.r, base.r);
     if (r) return exact(r);

@@ -20,8 +20,9 @@ import type { LiveNode, LiveReading } from "@/lib/math/live/read";
 type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
 
-/** One way a ± draft goes: its text with the sign picked, and its value. */
-export type LiveBranch = { latex: string; result: LiveResult };
+/** One way a ± draft goes: its text with the sign picked, its value, and whether that text is
+ * the value's own fraction (`-\frac{1}{3}`), so only its decimal is new. */
+export type LiveBranch = { latex: string; result: LiveResult; typed: boolean };
 
 export type LiveSigns =
   | { kind: "one"; result: LiveResult }
@@ -61,11 +62,26 @@ function written(math: string, sign: PlusMinus, pick: Pick): string {
   return text.replace(/\*/g, "\\times ");
 }
 
+/** Relative to the values themselves: `1.41420e-5` and `1.41421e-5` are two values. */
 function same(a: LiveValue, b: LiveValue): boolean {
   if (a.kind === "exact" && b.kind === "exact") return a.r.n === b.r.n && a.r.d === b.r.d;
   const x = numberOf(a);
   const y = numberOf(b);
-  return Math.abs(x - y) <= SAME * Math.max(1, Math.abs(y));
+  return Math.abs(x - y) <= SAME * Math.max(Math.abs(x), Math.abs(y));
+}
+
+/** `\frac{3}{4}` (or `-\frac{3}{4}`) typed in lowest terms: only its decimal is new. */
+export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
+  if (value.kind !== "exact") return false;
+  const negative = node.kind === "neg";
+  const frac = negative ? node.operand : node;
+  return (
+    frac.kind === "frac" &&
+    frac.num.kind === "number" &&
+    frac.den.kind === "number" &&
+    frac.num.text === (negative ? -value.r.n : value.r.n).toString() &&
+    frac.den.text === value.r.d.toString()
+  );
 }
 
 function distinct(values: LiveValue[]): LiveValue[] {
@@ -82,17 +98,22 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
   }
   if (signs.length > MAX_SIGNS) return null;
   if (new Set(signs.map((sign) => sign.op)).size > 1) return null;
-  const ways: { picks: Map<PlusMinus, Pick>; result: LiveResult }[] = [];
+  const ways: { picks: Map<PlusMinus, Pick>; result: LiveResult; typed: boolean }[] = [];
   // Bit i is sign i's pick, 0 for −: the − branch comes first.
   for (let mask = 0; mask < 2 ** signs.length; mask += 1) {
     const picks = new Map(signs.map((sign, i): [PlusMinus, Pick] => [sign, (mask >> i) & 1 ? "+" : "-"]));
-    const result = evaluateCalculation(picked(reading.node, picks));
+    const node = picked(reading.node, picks);
+    const result = evaluateCalculation(node);
     if (!result) return null;
-    ways.push({ picks, result });
+    ways.push({ picks, result, typed: isTypedFraction(node, result) });
   }
   const [only] = signs;
   if (signs.length === 1 && only) {
-    const branches = ways.map(({ picks, result }) => ({ latex: written(reading.math, only, picks.get(only)!), result }));
+    const branches = ways.map(({ picks, result, typed }) => ({
+      latex: written(reading.math, only, picks.get(only)!),
+      result,
+      typed,
+    }));
     return { kind: "branches", branches };
   }
   const values: LiveValue[] = [];

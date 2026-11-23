@@ -114,6 +114,7 @@ describe("liveAnswer", () => {
     ["a cosine that is only small, not a pole", "$\\tan(89.99999999999)$"],
     ["a sine that is only small, not a pole", "$\\csc(0.00000000001)$"],
     ["a sine near 0, not a pole", "$\\csc(0.00000000000001)$"],
+    ["a log base that only rounds to 1", "$\\log_{1.0000000000000001}(5)$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -146,10 +147,31 @@ describe("liveAnswer", () => {
     expect(shown("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")).toBe(
       "\\frac{-3-\\sqrt{9-8}}{2} = -2,\\quad \\frac{-3+\\sqrt{9-8}}{2} = -1",
     );
-    expect(shown("$\\frac{1}{1\\pm 1}$")).toBe("\\frac{1}{1- 1} = \\text{undefined},\\quad \\frac{1}{1+ 1} = 0.5");
+    expect(shown("$\\frac{1}{1\\pm 1}$")).toBe(
+      "\\frac{1}{1- 1} = \\text{undefined},\\quad \\frac{1}{1+ 1} = \\frac{1}{2}",
+    );
     expect(shown("$\\frac{1}{3}\\pm 1$")).toBe(
       "\\frac{1}{3}- 1 = -\\frac{2}{3},\\quad \\frac{1}{3}+ 1 = \\frac{4}{3}",
     );
+  });
+
+  it("writes all of a draft's values in one form", () => {
+    // A value that needs a fraction makes every value one.
+    expect(shown("$\\frac{1}{3}\\pm\\frac{1}{6}$")).toBe(
+      "\\frac{1}{3}-\\frac{1}{6} = \\frac{1}{6},\\quad \\frac{1}{3}+\\frac{1}{6} = \\frac{1}{2}",
+    );
+    // No fraction typed or needed: decimals.
+    expect(shown("$2.5\\pm 0.25$")).toBe("2.5- 0.25 = 2.25,\\quad 2.5+ 0.25 = 2.75");
+  });
+
+  it("gives a branch that is its own fraction its decimal", () => {
+    expect(shown("$\\pm\\frac{1}{3}$")).toBe(
+      "-\\frac{1}{3} \\approx -0.3333333333,\\quad +\\frac{1}{3} \\approx 0.3333333333",
+    );
+  });
+
+  it("keeps values apart that differ in the digits shown, however small", () => {
+    expect(answer("$\\sqrt{2}\\times 10^{-5}\\pm 10^{-10}\\pm 10^{-10}$")?.latex.split(",").length).toBe(3);
   });
 
   it("works = out on a ± draft too", () => {
@@ -157,8 +179,9 @@ describe("liveAnswer", () => {
   });
 
   it("speaks a ± draft's values, and draws them at the draft's size", () => {
-    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "1, 3", exact: true, signed: true, short: "= 1,\\quad 3" });
-    expect(answer("$\\frac{1}{1\\pm 1}$")?.short).toBe("= \\text{undefined},\\quad 0.5");
+    // Each branch read out, so a listener knows which value is which.
+    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "2- 1 = 1, 2+ 1 = 3", exact: true, signed: true, short: "= 1,\\quad 3" });
+    expect(answer("$\\frac{1}{1\\pm 1}$")?.short).toBe("= \\text{undefined},\\quad \\frac{1}{2}");
     expect(answer("$1\\pm 1\\pm 1$")).toMatchObject({ signed: true });
     expect(answer("$2+1$")).toMatchObject({ signed: false });
     expect(answer("$1\\pm\\sqrt{2}$")).toMatchObject({ exact: false });

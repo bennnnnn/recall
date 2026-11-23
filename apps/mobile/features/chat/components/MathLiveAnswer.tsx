@@ -8,6 +8,7 @@ import { MathText } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { ACCENTS } from "@/lib/accent";
+import { DRAFT_TEXT_SIZE } from "@/lib/math/draftText";
 import { layoutMath } from "@/lib/math/layout";
 import { liveAnswer } from "@/lib/math/live/answer";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
@@ -30,7 +31,7 @@ export function liveAnswerShows(input: string): boolean {
 /** Larger than the draft's 16, as a calculator's result is. */
 const ANSWER_SIZE = 20;
 /** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
-const BRANCH_SIZE = 16;
+const BRANCH_SIZE = DRAFT_TEXT_SIZE;
 
 const heightOf = (latex: string, size: number): number =>
   layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), size).height;
