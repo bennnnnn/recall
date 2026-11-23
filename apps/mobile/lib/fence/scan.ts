@@ -249,23 +249,23 @@ export function scanFences(text: string, loose = false): FenceSpan[] {
   // A reply's row asks for its fences several times on each flush (sources, cards, the
   // clock, each strip): the last texts read are read once.
   const memo = loose ? LOOSE_SCANS : STRICT_SCANS;
-  const known = memo.find((entry) => entry.text === text);
-  if (known) return known.spans.slice();
+  const known = memo.get(text);
+  if (known) return known.slice();
   const spans = readFences(text, loose);
-  memo.unshift({ text, spans });
-  memo.length = Math.min(memo.length, SCAN_MEMO_SIZE);
+  memo.set(text, spans);
+  // Oldest first: keep the last few texts read.
+  if (memo.size > SCAN_MEMO_SIZE) memo.delete(memo.keys().next().value!);
   return spans.slice();
 }
 
-type ScanMemo = { text: string; spans: readonly FenceSpan[] }[];
 const SCAN_MEMO_SIZE = 3;
-const STRICT_SCANS: ScanMemo = [];
-const LOOSE_SCANS: ScanMemo = [];
+const STRICT_SCANS = new Map<string, readonly FenceSpan[]>();
+const LOOSE_SCANS = new Map<string, readonly FenceSpan[]>();
 
 /** Sign-out: the texts last read were the account's. */
 export function clearFenceScanMemo(): void {
-  STRICT_SCANS.length = 0;
-  LOOSE_SCANS.length = 0;
+  STRICT_SCANS.clear();
+  LOOSE_SCANS.clear();
 }
 
 /** A word in `text` in any case: the gate before a scan for a fence that names it. */

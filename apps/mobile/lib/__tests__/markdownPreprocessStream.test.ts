@@ -2,6 +2,7 @@ import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   findStableMarkdownPrefixLen,
   preprocessMarkdownForStream,
+  preprocessSettledMarkdown,
   type StreamingPreprocessCache,
 } from "@/lib/markdown/preprocessStream";
 
@@ -285,6 +286,35 @@ describe("markdownPreprocessStream", () => {
     expect(table).toContain("| 1 | 2");
     const notTable = preprocessMarkdownForStream("| just a note |\nthen prose\n", null).prepared;
     expect(notTable).toContain("| just a note |");
+  });
+
+  it.each([
+    ["one $ holds its own line", "A $5 fee\nnext\n", "A $5 fee\nnext\n".length],
+    ["an open $ span holds the line it is on", "Intro\n\nIt is $x +\n", "Intro\n\n".length],
+    ["$$ spans lines until it closes", "A\n$$\nx\n", "A\n".length],
+    ["\\( spans lines until it closes", "A\n\\(\nx\n", "A\n".length],
+    ["a stray \\] closes nothing", "Type \\] here\nB\n", "Type \\] here\nB\n".length],
+    ["\\[ pairs lazily with the next \\]", "\\[ a \\[ b \\]\nC\n", "\\[ a \\[ b \\]\nC\n".length],
+  ])("pins the stable rule: %s", (_name, input, expected) => {
+    // Expected values, not the reference: both scans read a line with lineMathMarkers.
+    expect(findStableMarkdownPrefixLen(input)).toBe(expected);
+    expect(preprocessMarkdownForStream(input, null).cache.rawStableLen).toBe(expected);
+  });
+
+  it("settles a reply drawn whole as preprocessMarkdown does, remembered or not", () => {
+    const format = (expr: string) => expr.replace(/\*/g, "×");
+    const texts = Array.from({ length: 30 }, (_, i) => `Reply ${i}: **bold** and $2*${i}$ here.\n`);
+    for (const round of [0, 1]) {
+      for (const text of texts) {
+        for (const presented of [false, true]) {
+          for (const mathFormat of [undefined, format]) {
+            const want = preprocessMarkdown(text, mathFormat, { presented });
+            expect({ round, text, presented, got: preprocessSettledMarkdown(text, null, mathFormat, { presented }) })
+              .toEqual({ round, text, presented, got: want });
+          }
+        }
+      }
+    }
   });
 
   it("a price dollar in the first line holds only that line (audit MX-1)", () => {

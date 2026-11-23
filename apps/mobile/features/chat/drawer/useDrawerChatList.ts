@@ -223,9 +223,6 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
   const openRef = useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef });
 
   const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, ...bulkEdits } = useListEdits({ account, current, applyChatList, load, openRef });
-  const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
-    patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
-  }, [patchChatInGroups]);
 
   useEffect(() => {
     const unregisters = [
@@ -242,7 +239,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
     hasMoreArchived: Boolean(groups.archived_next_cursor), loadMoreArchivedChats, archivedPaging,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
-    moveChatArchiveState, removeChatFromGroupsById, ...bulkEdits,
+    removeChatFromGroupsById, ...bulkEdits,
   };
 }
 

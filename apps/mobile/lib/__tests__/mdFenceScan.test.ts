@@ -136,12 +136,16 @@ describe("reading a text's fences again (audit MX-4)", () => {
   it("gives the same spans for the same text, each read its own list", () => {
     const text = "Intro\n```js\nx\n```\n~~~\nopen";
     const first = scanFences(text);
+    const kept = [...first];
     const again = scanFences(`${text}`);
-    expect(again).toEqual(first);
+    expect(again).toEqual(kept);
+    expect(again).not.toBe(first);
     again.pop();
-    expect(scanFences(text)).toEqual(first);
-    expect(Object.isFrozen(first[0])).toBe(true);
-    expect(scanFences(text, true)).toEqual(first);
+    first.pop();
+    expect(scanFences(text)).toEqual(kept);
+    expect(scanFences(text)).toHaveLength(2);
+    expect(Object.isFrozen(kept[0])).toBe(true);
+    expect(scanFences(text, true)).toEqual(kept);
   });
 
   it("finds a fence's language in any case before it scans", () => {

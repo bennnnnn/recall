@@ -43,6 +43,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   // The streaming draft's lines already placed, and settled replies preprocessed whole.
   "features/chat/model/emojiPlacement.ts#placedDraft": "clearPlacedDraft",
   "lib/markdown/preprocessStream.ts#wholeMemo": "clearSettledMarkdownMemo",
+  "lib/fence/scan.ts#LOOSE_SCANS": "clearFenceScanMemo",
+  "lib/fence/scan.ts#STRICT_SCANS": "clearFenceScanMemo",
   "features/chat/model/padMathDrafts.ts#padMathTexts": "clearSavedComposerDrafts",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",

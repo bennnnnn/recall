@@ -36,9 +36,11 @@ export type StreamingPreprocessCache = {
  * Excludes partial lines and regions inside unclosed fences / block math.
  *
  * This is the simple, non-incremental reference implementation: it re-scans
- * from the start of `content` on every call. It is kept exactly as it was
- * (and is still covered directly by tests) as the ground truth that
- * `scanStableMarkdownPrefix`'s incremental fast path is checked against.
+ * from the start of `content` on every call, and the tests check
+ * `scanStableMarkdownPrefix`'s incremental fast path against it. Both read a
+ * line's maths delimiters with `lineMathMarkers`, so that cross-check covers
+ * the incremental bookkeeping, not the delimiter rule; the rule itself is
+ * pinned by expected values in `markdownPreprocessStream.test.ts`.
  *
  * The streaming hot path (`preprocessMarkdownForStream`) does NOT call this
  * function — it uses the incremental scanner instead, because re-running a

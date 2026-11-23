@@ -302,6 +302,15 @@ describe("advanceStreamBlocks between list items", () => {
       expect(offset > opensAt && offset <= closesAt).toBe(false);
     }
     expect(state.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(true);
+    // A bullet list goes on across an item's fence: the next bullet is a cut, drawn as a list that goes on.
+    const para = "lorem ipsum dolor sit amet ".repeat(14);
+    const bullets = [`- a ${para}`, "  ```", "  x", "  ```", `- b ${para}`, `- c ${para}`, "", "Done."].join("\n");
+    const bulletCut = advanceStreamBlocks(null, bullets, bullets.length);
+    expect(bulletCut.chunks[0]?.endsWith("  ```\n")).toBe(true);
+    expect(bulletCut.continued[0]).toBe(true);
+    // An item's fence left open by a bullet at the margin still keeps that list a task list.
+    const unclosed = ["- [ ] Install:", "  ```bash", "  npm i", `- Build ${para}`, `- Test ${para}`, `- [x] Lint ${para}`, "", "Done."].join("\n");
+    expect(advanceStreamBlocks(null, unclosed, unclosed.length).continued.some(Boolean)).toBe(false);
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);
