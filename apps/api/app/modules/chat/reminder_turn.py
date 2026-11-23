@@ -238,15 +238,20 @@ def _last_card(earlier: list[tuple[str, str]]) -> dict[str, Any] | None:
     return None
 
 
-_TASK_WORD = re.compile(r"[^\W\d_]{3,}")
+def _asked_tasks(reading: Any, checked: Any) -> list[str]:
+    """The tasks a status question asks about: the request's adds, or the reading's task
+    when it has no time to add yet ("did my reminder to water the plants save?")."""
+    titles = [add.title for add in checked.adds] if checked is not None else []
+    task = " ".join(str(getattr(reading, "task", "") or "").split())
+    return titles or ([task] if task else [])
 
 
-def _same_task(card: dict[str, Any], checked: Any) -> bool:
-    """The card's items share a word with the request the read wrote down."""
-    said = {w.casefold()[:4] for add in checked.adds for w in _TASK_WORD.findall(add.title)}
+def _same_task(card: dict[str, Any], tasks: list[str]) -> bool:
+    """One of the card's items is a task asked about, by the rows' own rule (two shared task
+    words, one for a one-word task: "Call mom" is not "Call my sister Margaret")."""
     items = card.get("items") or []
-    titles = " ".join(str(item.get("title", "")) for item in items if isinstance(item, dict))
-    return bool(said & {w.casefold()[:4] for w in _TASK_WORD.findall(titles)})
+    titles = [str(item.get("title", "")) for item in items if isinstance(item, dict)]
+    return any(todos_service.same_task(task, title) for task in tasks for title in titles)
 
 
 def _asked(earlier: list[tuple[str, str]]) -> Asked:
@@ -361,7 +366,8 @@ async def _status(
     request no card was offered for gets one now. ``read``: the reading and its check."""
     reading, checked = read
     card = _last_card(earlier)
-    if card is not None and checked is not None and checked.adds and not _same_task(card, checked):
+    tasks = _asked_tasks(reading, checked)
+    if card is not None and tasks and not _same_task(card, tasks):
         # The card is an earlier reminder's: this one was claimed with no card of its own.
         card = None
     if card is not None and card.get("status") == "saved":

@@ -199,22 +199,33 @@ def _with_days(
     resolved: list[SpokenAdd] = []
     # Only a day the user said carries over; "at 5pm" read as today does not.
     said: str | None = None
+    # Each later clause was given "remind me to" to be read; whether the message asks for a
+    # reminder is its own opening's to say ("translate: remind me … and to text Sam at 8").
+    opening = clauses[0] if clauses else None
     for clause, add in zip(clauses, adds, strict=True):
         own = add.day
         clocked = add.hour is not None or add.bare is not None
         if own is None and add.repeat is None and clocked and said:
             add = replace(add, day=said)
-        resolved.append(_with_day(add, clause, user_timezone))
+        resolved.append(_with_day(add, clause, user_timezone, asking=opening))
         said = own or said
     return resolved
 
 
-def _with_day(add: SpokenAdd, request: str | None, user_timezone: str | None) -> SpokenAdd:
+def _with_day(
+    add: SpokenAdd,
+    request: str | None,
+    user_timezone: str | None,
+    *,
+    asking: str | None = None,
+) -> SpokenAdd:
     """ "At 9pm every night" starts tonight; "at 7pm" alone is the next 7pm. An hour with no
     am or pm is settled by the rule (``bare_hour``) in a message that opens by asking for a
-    reminder: "remind me … tomorrow at 5" is 5 PM. One that only quotes such a request
-    ("translate: remind me to call you at 6") is the turn's read's to judge."""
-    if add.bare is not None and is_reminder_request(request):
+    reminder (``asking``, the message's own opening; else ``request``): "remind me …
+    tomorrow at 5" is 5 PM. One that only quotes such a request ("translate: remind me to
+    call you at 6") is the turn's read's to judge."""
+    opens = asking if asking is not None else request
+    if add.bare is not None and is_reminder_request(opens):
         add = settle_bare(add, user_timezone=user_timezone)
     if add.day is None and add.repeat and add.hour is not None:
         return replace(add, day="today")

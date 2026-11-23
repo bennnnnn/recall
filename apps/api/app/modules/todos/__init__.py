@@ -139,6 +139,9 @@ if TYPE_CHECKING:
     from app.modules.todos.spoken_when import (
         is_only_a_when as is_only_a_when,
     )
+    from app.modules.todos.task_words import (
+        same_task as same_task,
+    )
     from app.modules.todos.write_asks import (
         todo_screen_reply as todo_screen_reply,
     )
@@ -168,6 +171,7 @@ _EXPORTS = {
     "CheckedRequest": ("read_check", "CheckedRequest"),
     "saved_reminder_line": ("reminder_writes", "saved_reminder_line"),
     "check_reading": ("read_check", "check_reading"),
+    "same_task": ("task_words", "same_task"),
     "offer_adds": ("reminder_fences", "offer_adds"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "is_reminder_request": ("spoken_add", "is_reminder_request"),

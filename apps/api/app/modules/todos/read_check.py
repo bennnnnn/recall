@@ -101,9 +101,23 @@ def _plain(text: str) -> str:
 
 
 def grounded(quote: str, user_lines: Sequence[str]) -> bool:
-    """The quote is the user's own words: in one of their lines, up to case and marks."""
+    """The quote is the user's own words: in one of their lines, up to case and marks, and
+    never inside a longer word or number: "am" is not in "exam", "5" not in "15", "est" not
+    in "test"; "pm" is in "8pm" (review, #2535)."""
     said = _plain(quote)
-    return bool(said) and any(said in _plain(line) for line in user_lines)
+    if not said:
+        return False
+    found = re.compile(_edge(said[0], before=True) + re.escape(said) + _edge(said[-1]))
+    return any(found.search(_plain(line)) for line in user_lines)
+
+
+def _edge(char: str, *, before: bool = False) -> str:
+    """No letter beside a quote's letter, no digit beside its digit."""
+    if char.isdigit():
+        return r"(?<!\d)" if before else r"(?!\d)"
+    if char.isalpha():
+        return r"(?<![^\W\d_])" if before else r"(?![^\W\d_])"
+    return ""
 
 
 def task_title(reading: ReminderReading, user_lines: Sequence[str]) -> str | None:
@@ -316,9 +330,10 @@ def check_reading(
     title = task_title(reading, user_lines)
     if title is None:
         return None if asked.reminder else CheckedRequest(ask=ASK_TASK)
-    if _when_from_an_older_line(reading, user_lines, asked):
+    if reading.request == "add" and _when_from_an_older_line(reading, user_lines, asked):
         # "make it 7 instead" after "at 6pm": the latest when is the request's (a read that
-        # quoted the 6pm is not taken; the word rules' re-time stands).
+        # quoted the 6pm is not taken; the word rules' re-time stands). "Did that save
+        # today?" re-times nothing: a status question reads the request it asks about.
         return None
     when = _when(reading, user_lines, local.date())
     repeat, repeat_words = _repeat(reading, user_lines)

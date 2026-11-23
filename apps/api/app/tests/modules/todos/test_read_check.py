@@ -575,3 +575,49 @@ def test_a_repeat_the_read_named_without_a_quote_is_read_from_the_users_line() -
     assert checked is not None
     (add,) = checked.adds
     assert add.repeat == "daily" and _due(add) == "Sun 2026-11-22 21:00"
+
+
+@pytest.mark.parametrize(
+    ("quote", "line", "said"),
+    [
+        ("am", "remind me about my exam today at 8", False),
+        ("EST", "remind me abt my bio test tmrw at 5", False),
+        ("5", "remind me to buy 15 apples", False),
+        ("pm", "call mom at 8pm", True),
+        ("8", "call mom at 8pm", True),
+        ("am", "wake me at 6 am", True),
+    ],
+)
+def test_a_quote_is_never_part_of_a_longer_word_or_number(quote, line, said) -> None:
+    """ "am" inside "exam" turned 8 PM into 8 AM (review, #2535)."""
+    assert grounded(quote, [line]) is said
+
+
+def test_a_half_quoted_from_inside_a_word_does_not_move_the_clock() -> None:
+    checked = check_reading(
+        _read(task="exam", task_quote="my exam", day="today", day_quote="today", time="8",
+              time_quote="at 8", half="am", half_quote="am"),
+        ["remind me about my exam today at 8"],
+        user_timezone=ZONE,
+        now=NOW,
+    )  # fmt: skip
+    assert checked is not None and checked.ask is None
+    (add,) = checked.adds
+    assert _due(add) == "Sun 2026-11-22 20:00"
+
+
+def test_a_status_question_with_a_time_word_keeps_the_request() -> None:
+    """ "did that save today?" asks about the request; it re-times nothing (review, #2535)."""
+    reading = ReminderReading.model_validate(
+        {"request": "status", "task": "bio test", "task_quote": "my bio test", "day": "tmrw",
+         "day_quote": "tmrw", "time": "5", "time_quote": "at 5"}
+    )  # fmt: skip
+    checked = check_reading(
+        reading,
+        ["remind me abt my bio test tmrw at 5?", "did that save today?"],
+        user_timezone=ZONE,
+        now=NOW,
+    )
+    assert checked is not None and checked.ask is None
+    (add,) = checked.adds
+    assert _due(add) == "Mon 2026-11-23 17:00"

@@ -561,3 +561,42 @@ async def test_a_clock_in_another_zone_is_the_cards_on_the_users_own_clock() -> 
     )  # fmt: skip
     (item,) = _items(text)
     assert item["due_at"] == "2026-11-23T19:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_did_it_save_is_not_answered_by_a_card_that_only_shares_a_verb() -> None:
+    """ "Call mom" is not "call my sister Margaret": one shared word is not the same task
+    (the rows' own two-word rule, review on #2535)."""
+    history = [
+        ("user", "remind me to call mom tomorrow at 5pm"),
+        ("assistant", _card("Call mom", _MON_5PM, saved=True)),
+        ("user", "Could you remind me tmrw at 5 to call my sister Margaret"),
+        ("assistant", "Done! I'll remind you tomorrow at 5."),
+    ]
+    reading = ReminderReading.model_validate(
+        {"request": "status", "task": "call my sister Margaret",
+         "task_quote": "call my sister Margaret", **_TMRW_5}
+    )  # fmt: skip
+    text = await _finish(
+        "Did it actually save?", "Yes, it's saved!", history, ReminderRead(reading=reading)
+    )
+    assert text.startswith(NOT_SAVED_YET) and "margaret" in _items(text)[0]["title"].lower()
+
+
+@pytest.mark.asyncio
+async def test_did_it_save_about_an_untimed_task_is_not_answered_by_another_card() -> None:
+    """A request with no time yet has no adds: its task still decides whose card it is."""
+    history = [
+        ("user", "remind me to call mom tomorrow at 5pm"),
+        ("assistant", _card("Call mom", _MON_5PM, saved=True)),
+        ("user", "remind me to water the plants"),
+        ("assistant", "Done, I'll remind you!"),
+    ]
+    reading = ReminderReading.model_validate(
+        {"request": "status", "task": "water the plants", "task_quote": "water the plants"}
+    )
+    text = await _finish(
+        "did my reminder to water the plants save?", "Yes, it's saved!", history,
+        ReminderRead(reading=reading),
+    )  # fmt: skip
+    assert text.startswith(reminder_turn.NOTHING_SAVED_YET)

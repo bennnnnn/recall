@@ -105,3 +105,15 @@ def test_a_question_after_saying_it_is_done_still_marks_it() -> None:
         "done ✅ just talked to her, what's next?", user_timezone=ZONE
     )
     assert change is not None and change.action == "complete"
+
+
+def test_a_quoted_request_of_two_clauses_is_not_settled_by_the_rule() -> None:
+    """Each later clause is read as "remind me to …"; the message's own opening decides
+    whether it asks for a reminder (review, #2535)."""
+    from app.modules.todos.spoken_clauses import parse_spoken_adds
+
+    adds = parse_spoken_adds(
+        "translate to amharic: remind me to call you tomorrow at 6 and to text Sam tomorrow at 8",
+        user_timezone=ZONE,
+    )
+    assert all(add.hour is None for add in adds)
