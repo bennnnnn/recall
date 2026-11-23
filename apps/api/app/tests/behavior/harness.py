@@ -21,6 +21,7 @@ from contextlib import (
 )
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import cache
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -289,7 +290,15 @@ def _production_tools(settings: Settings) -> Iterator[None]:
 
 
 def battery_settings() -> Settings:
-    """Every feature on, no provider keys: nothing leaves the process."""
+    """Every feature on, no provider keys: nothing leaves the process.
+
+    A copy of one built per run: building ``Settings`` reads and validates every source
+    (about 3 ms), which a sweep of thousands of turns paid once a turn."""
+    return _battery_settings().model_copy()
+
+
+@cache
+def _battery_settings() -> Settings:
     return Settings(  # type: ignore[call-arg]
         _env_file=None,
         mock_llm_enabled=True,
