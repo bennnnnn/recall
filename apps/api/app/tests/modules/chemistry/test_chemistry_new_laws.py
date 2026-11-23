@@ -426,7 +426,8 @@ def test_a_dilution_finds_the_stock_volume(question: str, answer: str) -> None:
 
 
 def test_dilute_this_volume_to_a_weaker_concentration_finds_the_final_volume() -> None:
-    assert _answer("Dilute 10 mL of 2 M HCl to 0.5 M") == "V2 = 40 mL"
+    # One-figure data: 40 mL to one figure is 4 x 10^1 mL.
+    assert _answer("Dilute 10 mL of 2 M HCl to 0.5 M") == "V2 = 4 × 10^1 mL"
 
 
 def test_a_stock_weaker_than_its_dilution_has_no_answer() -> None:
@@ -532,9 +533,11 @@ def test_hydrate_water_is_an_integer_coefficient() -> None:
 @pytest.mark.parametrize(
     ("value", "figures", "shown"),
     [
-        # Zeros that are the number's own digits stay plain.
-        (200.0, 2, "200"),
-        (16700.0, 3, "16700"),
+        # Zeros that are no significant figure are a power of ten, even when they are the
+        # number's own digits: 200 to two figures is 2.0 x 10^2; to three it is plain.
+        (200.0, 2, "2.0 × 10^2"),
+        (200.0, 3, "200"),
+        (16700.0, 3, "1.67 × 10^4"),
         # A zero that is no significant figure is written as a power of ten (OpenStax
         # §1.5): 110.02 to two figures is 1.1 x 10^2, since "110" would read as three.
         (110.02, 2, "1.1 × 10^2"),

@@ -81,8 +81,9 @@ class _Rows:
 
     def substitution(self) -> tuple[str, ...]:
         """The values put in, worked to their value as physics' are: ``n = 36 g /
-        18.015 g/mol`` then ``n = 1.998 mol``. The working's last value is unrounded; the card
-        rounds it to the data's figures (2.0 mol) and says it once."""
+        18.015 g/mol`` then ``n = 1.998 mol``. Each row ends on its value unrounded
+        (``_worked_rows``); the card rounds it to the data's figures (2.0 mol) and says it
+        once."""
         rows = list(self.result.substitution)
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
@@ -127,19 +128,26 @@ _NUMBER_TEXT = re.compile(r"(?<![\w.^])-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?(?![\w.]
 def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> list[str]:
     """Each row ending on a value the solve rounded ends on it as worked (``m = 29.22 g``),
     the card alone rounding it: a limiting reagent's yield row sits above its excess row, and
-    "4 g" of hydrogen's 35.74 g is no 4 × 10^1 g there. A row stays rounded when a later row
-    works with its rounded value, and so does a row that works with one: "(1.0 mol)(6.0221 ×
-    10^23)" ending on 6.017 × 10^23 did not add up."""
+    "4 g" of hydrogen's 35.74 g is no 4 × 10^1 g there. A row stays rounded when it works with
+    a rounded value or a difference, or a later row works with its own: "(1.0 mol)(6.0221 ×
+    10^23)" ending on 6.017 × 10^23 did not add up. A closing row (``Kp = 8 × 10^-4`` under
+    ``Kp = (0.5)(2 × 10^1)^-2``) follows the row it closes."""
+    rounded = {text for text, _ in unrounded}
     ends = [_rounded_end(row, unrounded) for row in rows]
     inputs = [
         set(_NUMBER_TEXT.findall(row if end is None else row.rpartition(" = ")[0]))
         for row, end in zip(rows, ends, strict=True)
     ]
+    rounded_with: list[bool] = []
+    for index, row in enumerate(rows):
+        closing = index > 0 and " = " in row and not _NUMBER_TEXT.search(row.split(" = ")[0])
+        closing = closing and not inputs[index] - ({ends[index]} - {None})
+        own = bool(inputs[index] & rounded) or _subtracts(row)
+        rounded_with.append(rounded_with[index - 1] if closing and not own else own)
     shown: list[str] = []
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
-        earlier = {text for text in ends[:index] if text is not None}
         later = end is not None and any(end in used for used in inputs[index + 1 :])
-        if end is None or later or earlier & inputs[index] or _subtracts(row):
+        if end is None or later or rounded_with[index]:
             shown.append(row)
         else:
             shown.append(_unrounded_value(row, unrounded))

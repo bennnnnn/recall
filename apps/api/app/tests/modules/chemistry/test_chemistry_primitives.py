@@ -88,7 +88,8 @@ def test_school_units_convert_to_the_solvers_units() -> None:
 
 def test_beer_lambert_solves_absorptivity_and_path() -> None:
     epsilon = extract_chemistry_intent(
-        "Use Beer-Lambert law: absorbance=2, path length=1 cm, concentration=0.02 M, find epsilon"
+        "Use Beer-Lambert law: absorbance=2.00, path length=1.00 cm, concentration=0.0200 M, "
+        "find epsilon"
     )
     path = extract_chemistry_intent(
         "Use Beer-Lambert law: absorbance=2.0, epsilon=100, concentration=0.020 M, find path length"

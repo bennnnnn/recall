@@ -20,7 +20,11 @@ CONSTANT_FIGURES = 5
 
 
 def format_number(
-    value: float, *, significant: int = SIGNIFICANT_FIGURES, keep_zeros: bool = False
+    value: float,
+    *,
+    significant: int = SIGNIFICANT_FIGURES,
+    keep_zeros: bool = False,
+    exact_zeros: bool = False,
 ) -> str:
     """Human-readable value without calculator ``e`` or trailing zero noise.
 
@@ -36,12 +40,12 @@ def format_number(
     mantissa, exponent = round_figures(value, significant)
     # Once the answer's figures come from the data, a whole number with a zero that is no
     # significant figure is written in powers of ten, as a textbook writes it (OpenStax
-    # Chemistry 2e §1.5): 1780 to two figures is 1.8 × 10^3, and 110.02 g to two figures is
-    # 1.1 × 10^2 g, since 1800 and 110 would read as measured to the unit. A value the
-    # rounding left as it was keeps its digits: an exact 3600 s is 3600 s.
+    # Chemistry 2e §1.5): 1780 to two figures is 1.8 × 10^3, 110.02 g is 1.1 × 10^2 g and an
+    # exact 20 mL to one figure 2 × 10^1 mL, since 1800, 110 and 20 would read as measured to
+    # the unit. ``exact_zeros``: the zeros are an exact unit change's own (1 h is 3600 s).
     rounded = mantissa.scaleb(exponent)
-    rounded_to_zeros = exponent >= significant and not math.isclose(
-        float(rounded), value, rel_tol=1e-9
+    rounded_to_zeros = exponent >= significant and not (
+        exact_zeros and math.isclose(float(rounded), value, rel_tol=1e-9)
     )
     tidy = (lambda text: text) if keep_zeros else trim_zeros
     if exponent < -3 or exponent >= 6 or (keep_zeros and rounded_to_zeros):

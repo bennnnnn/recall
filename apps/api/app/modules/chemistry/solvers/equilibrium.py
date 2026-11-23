@@ -164,14 +164,14 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         value = kc * factor
         shown = f"Kp = {num(value)}"
         given = f"Kc = {inp(kc)}"
-        working = f"Kp = ({inp(kc)})({num(GAS_R * temperature)})^{delta_n}"
+        working = f"Kp = ({inp(kc)})({carried(GAS_R * temperature)})^{delta_n}"
     elif kp is not None and kc is None:
         if factor == 0:
             raise SolveServiceError("cannot convert that Kp")
         value = kp / factor
         shown = f"Kc = {num(value)}"
         given = f"Kp = {inp(kp)}"
-        working = f"Kc = ({inp(kp)}) / ({num(GAS_R * temperature)})^{delta_n}"
+        working = f"Kc = ({inp(kp)}) / ({carried(GAS_R * temperature)})^{delta_n}"
     else:
         raise SolveServiceError("give Kc or Kp, not both")
     return verified(

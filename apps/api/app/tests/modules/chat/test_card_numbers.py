@@ -166,3 +166,14 @@ def test_a_physics_card_still_follows_the_rule() -> None:
     reply = "$P = 109324.04\\,\\mathrm{Pa}$\n\n" + _card("1.09 \\times 10^{5}\\,\\mathrm{Pa}")
     state = _state(reply, "find P", VerifiedPhysicsBlock(text=""))
     assert _card("109324.04\\,\\mathrm{Pa}") in format_card_numbers(state)  # type: ignore[arg-type]
+
+
+def test_the_model_s_unchecked_card_on_a_chemistry_turn_follows_the_rule() -> None:
+    """Only the solver's checked card keeps its figures: a card the model wrote, left
+    unchecked because the reply contradicted the solve, is shown by the rule (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    verified = _chemistry(_TITRATION)
+    reply = "$m = 345.1234\\,\\mathrm{g}$\n\n" + _card("m = 345.1234\\,\\mathrm{g}")
+    state = _state(reply, _TITRATION, verified)
+    assert _card("m = 345.12\\,\\mathrm{g}") in format_card_numbers(state)  # type: ignore[arg-type]

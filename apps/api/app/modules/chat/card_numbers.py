@@ -11,9 +11,10 @@ shows the working's value rounded once: the model's own "3 significant figures" 
 a sum of money and a pH are left as written: a pH keeps the decimals its concentration's
 figures give it, the one place a chemistry answer's precision is its correctness.
 
-A chemistry solver's cards keep the significant figures of the question's data, the rule
-chemistry textbooks teach (``chemistry.sig_figs``; owner, 2026-11-23); only a precision the
-question asks for rounds them again here.
+A chemistry solver's checked cards keep the significant figures of the question's data, the
+rule chemistry textbooks teach (``chemistry.sig_figs``; owner, 2026-11-23); only a precision
+the question asks for rounds them again here. The model's own unchecked card on that turn
+follows the rule.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from app.services.answer_check import Number, read_verified_value
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
+    VERIFIED_ANSWER_MARKER,
     answer_header_and_value,
 )
 from app.services.md_fence_scan import iter_fences
@@ -63,12 +65,13 @@ def format_card_numbers(state: FinalizeState) -> str:
     data) keeps them, unless the question asks for another."""
     precision = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
-    if precision == RULE and verified is not None and verified.cards_keep_precision:
-        return state.text
-    return card_numbers(state.text, precision)
+    own = precision == RULE and verified is not None and verified.cards_keep_precision
+    return card_numbers(state.text, precision, keep_checked=own)
 
 
-def card_numbers(text: str, precision: Precision) -> str:
+def card_numbers(text: str, precision: Precision, *, keep_checked: bool = False) -> str:
+    """``keep_checked``: a card the server checked keeps its solver's precision; the
+    model's own unchecked card on that turn is still shown by the rule."""
     changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
@@ -76,6 +79,8 @@ def card_numbers(text: str, precision: Precision) -> str:
             continue
         above, previous = text[previous : fence.start], fence.end
         body = text[fence.body_start : fence.body_end]
+        if keep_checked and VERIFIED_ANSWER_MARKER in answer_header_and_value(body)[0]:
+            continue
         shown = _shown(body, above, precision)
         if shown is not None and shown != body:
             changes.append((fence.body_start, fence.body_end, shown))

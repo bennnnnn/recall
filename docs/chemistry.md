@@ -143,7 +143,7 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    of LaTeX. Either way with the green check. Image questions remain on the vision/model
    path because OCR text was not the typed extractor input. Substitution is the
    formula with the numbers put in, then (as physics') the same symbol equal to the value it
-   reaches, unrounded: `m = (0.5 mol)(58.440 g/mol)`, then `m = 29.22 g`. Only the card rounds
+   reaches, unrounded: `m = (0.50 mol)(58.440 g/mol)`, then `m = 29.22 g`. Only the card rounds
    it to the data's figures (`29 g`): `num` notes what rounding took off
    (`sig_figs.note_rounding`) and every row that reaches it shows it
    (`direct._worked_rows`). A
@@ -313,9 +313,10 @@ Numbers keep the precision the question was written in (`sig_figs.py`), the rule
 general-chemistry textbooks teach and exams grade (owner, 2026-11-23: "go by the scientific
 world / books"): OpenStax *Chemistry 2e* §1.5 and §14.2, the RSC's maths-for-chemists
 guidance, AP's "calculate" (correct units and significant figures). It is not "two digits":
-a chemistry card has the significant figures of the question's data, which may be one or
-five. Physics' and maths' cards keep the two-decimal rule (`services/rounding_rule.py`);
-the card pass leaves a chemistry solver's card as the solver wrote it
+a chemistry card has the significant figures of the question's data, from one to four.
+Physics' and maths' cards keep the two-decimal rule (`services/rounding_rule.py`);
+the card pass leaves a chemistry solver's checked card as the solver wrote it (the model's
+own unchecked card follows the rule)
 (`VerifiedSolveBlock.card_precision_own`, `chat/card_numbers.py`) unless the question asks
 for another precision ("to 3 decimal places", "2 sig figs", "don't round"), which it honours
 as it does for every subject. Extraction records how each given was typed, and the solve
@@ -327,7 +328,9 @@ formats every number from that record:
   is the card's precision; every working row that reaches a rounded value shows it unrounded,
   carried two figures further and never fewer than four (`m = 35.74 g` over a card of
   `4 × 10¹ g`), so a student sees what was rounded and the card rounds once. A row stays
-  rounded only when a later row works with that rounded value. A count (an electron number,
+  rounded when a later row works with that rounded value, when it works with a rounded
+  value itself, or when it subtracts carried values (four-figure operands lose the
+  difference: a limiting reagent's excess row); a closing row follows the row it closes. A count (an electron number,
   a van 't Hoff factor, a Hess's-law multiplier, a balanced equation's coefficients, an ion's
   charge, a shell's n, a Miller index, a phase-rule count) and a defined conversion
   (1000 mL/L) never limit the answer; nor does a zero (`0.00` electrons), nor a count typed

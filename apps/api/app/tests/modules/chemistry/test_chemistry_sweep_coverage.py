@@ -76,7 +76,10 @@ def test_amount_readers_take_names_units_and_stp(
             "of a 1.5 M solution?",
             "V1 = 63 mL",
         ),
-        ("What is the final volume when 50 mL of 2.0 M HCl is diluted to 0.50 M?", "V2 = 200 mL"),
+        (
+            "What is the final volume when 50 mL of 2.0 M HCl is diluted to 0.50 M?",
+            "V2 = 2.0 × 10^2 mL",
+        ),
     ],
 )
 def test_dilution_reads_a_stated_stock_and_a_passive_dilution(question: str, answer: str) -> None:

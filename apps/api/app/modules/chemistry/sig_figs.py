@@ -41,6 +41,12 @@ TABLE_FIGURES = 4
 # rule's components and phases, a nucleon count, a Miller index, a change in gas moles
 # ("pure integers, such as those arising from stoichiometric ratios, are exact numbers",
 # RSC). Read as measured, n = 3 made 2n^2 "2 x 10^1".
+# Counts the solve works out (a formula's atoms, an equation's ratio or Δn, a Lewis
+# structure's electrons, an ion's charge), never typed beside the data: none of them owns a
+# spelling the question typed.
+DERIVED_COUNT_KEYS = frozenset(
+    "count ratio valence bonding nonbonding neighbors delta_n charge".split()
+)
 EXACT_KEYS = frozenset(
     "i valence electrons bonding antibonding nonbonding neighbors count ratio shell_n "
     "components phases n_t2g n_eg charge charge_1 charge_2 charge_number protons neutrons "
@@ -76,8 +82,10 @@ _CONVERTIBLE = (
     ("second", "minute", "hour", "day", "year"),
     ("joule", "kilojoule", "calorie", "kilocalorie"),
     ("mole", "millimole"),
-    ("nanometer", "angstrom", "picometer", "meter"),
 )
+# Lengths, tried only when no unit above explains a value: their x10 (nm and Å) would make a
+# volume's 400 mL also 4.00 x 0.1 L, and so read neither.
+_LENGTHS = (("nanometer", "angstrom", "picometer", "meter"),)
 
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
 # formula ("H2O") follows a letter and is not one. A full stop may end the sentence after it
@@ -108,15 +116,15 @@ def _exact(op: str, key: str) -> bool:
     return key in EXACT_KEYS or (pattern is not None and pattern.fullmatch(key) is not None)
 
 
-@lru_cache(maxsize=1)
-def _unit_factors() -> tuple[float, ...]:
+@lru_cache(maxsize=2)
+def _unit_factors(groups: tuple[tuple[str, ...], ...] = _CONVERTIBLE) -> tuple[float, ...]:
     """Every factor an extractor multiplies a typed value by to change its unit."""
     registry = get_unit_registry()
     return tuple(
         sorted(
             {
                 float(registry.Quantity(1, source).to(target).magnitude)
-                for group in _CONVERTIBLE
+                for group in groups
                 for source in group
                 for target in group
                 if source != target
@@ -152,19 +160,29 @@ def _reading(value: float, forms: dict[float, list[str]]) -> tuple[list[str], st
     typed = forms.get(value)
     if typed:
         return typed, "typed"
+    sources = _sources(value, forms, _unit_factors()) or _sources(
+        value, forms, _unit_factors(_LENGTHS)
+    )
+    if len(sources) > 1:
+        # 1800 s is 30 min, or 0.50 h: two literals explain it, so both limit the answer and
+        # neither is echoed as the value typed.
+        return [form for written, _how in sources for form in written], "ambiguous"
+    return sources[0] if sources else None
+
+
+def _sources(
+    value: float, forms: _Forms, factors: tuple[float, ...]
+) -> list[tuple[list[str], str]]:
+    """The literals a Celsius offset or one of ``factors`` turns into ``value``."""
     sources: list[tuple[list[str], str]] = []
     for number, written in forms.items():
         if not written or number == 0:
             continue
         if math.isclose(value, number + CELSIUS_OFFSET_K, rel_tol=0, abs_tol=1e-9):
             sources.append((written, "celsius"))
-        elif any(math.isclose(value, number * factor, rel_tol=1e-9) for factor in _unit_factors()):
+        elif any(math.isclose(value, number * factor, rel_tol=1e-9) for factor in factors):
             sources.append((written, "scaled"))
-    if len(sources) > 1:
-        # 1800 s is 30 min, or 0.50 h: two literals explain it, so both limit the answer and
-        # neither is echoed as the value typed.
-        return [form for written, _how in sources for form in written], "ambiguous"
-    return sources[0] if sources else None
+    return sources
 
 
 def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
@@ -181,23 +199,19 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         *(("sample", value) for value in intent.samples),
     ]
     counts = _count_spellings(text, intent, measured, forms)
-    shared = {value for key, value in measured if _exact(intent.chemistry_op, key)} & {
-        value for key, value in measured if not _exact(intent.chemistry_op, key)
-    }
     for key, value in measured:
         reading = _reading(value, forms)
         if reading is None:
             continue
         typed_forms, how = reading
-        if how == "typed" and value in counts and not _exact(intent.chemistry_op, key):
+        if not _exact(intent.chemistry_op, key):
             # A count of the same value is its own literal: "i = 1" beside "1.00 mol", or
-            # "n = 2" electrons beside "2.0 A", never cuts the measured value to one figure.
-            typed_forms = [form for form in typed_forms if form != counts[value]] or typed_forms
-        if value in shared:
-            # A count and a measure of one value cannot be told apart: neither is echoed.
-            typed_forms_echo: list[str] = []
-        else:
-            typed_forms_echo = typed_forms
+            # "n = 2" electrons beside "2.0 A" or "2.00 h", never cuts the measured value to
+            # one figure.
+            mine = [form for form in typed_forms if counts.get(float(form)) != form]
+            typed_forms = mine or typed_forms
+        # A count and a measure of one value cannot be told apart: neither is echoed.
+        typed_forms_echo = [] if value in counts else typed_forms
         # A value typed two ways (cathode 0.80 V, anode 0.8 V) cannot be told apart by its
         # value, so neither is echoed; both still limit the answer.
         if how == "typed" and len(typed_forms_echo) == 1:
@@ -252,7 +266,11 @@ def _count_spellings(
     every time that spelling was typed: "2 mol NaCl (i = 2)" types "2" twice, so the 2 mol
     keeps its one figure."""
     typed_times = Counter(match.group() for match in _LITERAL.finditer(EQUATION_RE.sub(" ", text)))
-    exact_at = Counter(value for key, value in measured if _exact(intent.chemistry_op, key))
+    exact_at = Counter(
+        value
+        for key, value in measured
+        if _exact(intent.chemistry_op, key) and key not in DERIVED_COUNT_KEYS
+    )
     spellings: dict[float, str] = {}
     for value, counted in exact_at.items():
         typed = forms.get(value, [])
@@ -290,7 +308,7 @@ class WrittenNumbers:
 def note_rounding(text: str, worked: str) -> None:
     """``text`` is a computed value rounded to the data's figures, ``worked`` the same value
     as the working carries it. The answer card keeps ``text``; the working ends on ``worked``,
-    so a student sees 0.5 x 58.44 = 29.22 g before the card's 29 g."""
+    so a student sees 0.50 x 58.44 = 29.22 g before the card's 29 g."""
     written = _CURRENT.get()
     if written is None or worked == text or _value_of(worked) == _value_of(text):
         return

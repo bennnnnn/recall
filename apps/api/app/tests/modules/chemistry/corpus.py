@@ -268,7 +268,7 @@ ANALYTICAL: tuple[Case, ...] = (
     says("What is the capacity factor when tR = 5.00 and tM = 1.00?", "k' = 4.00"),
     says("What is the selectivity when k1 = 2.00 and k2 = 4.00?", "α = 2.00"),
     says("What is Rs when tR1 = 4.00, tR2 = 5.20, w1 = 0.40, and w2 = 0.40?", "Rs = 3.0"),
-    says("What is the plate number when tR = 10.0 and w = 1.00?", "N = 1600"),
+    says("What is the plate number when tR = 10.0 and w = 1.00?", "N = 1.60 × 10^3"),
     says("What is the plate height when L = 16.0 and N = 1600?", "H = 0.0100"),
 )
 

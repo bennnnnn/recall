@@ -333,14 +333,51 @@ def test_each_working_row_ends_unrounded_above_a_rounded_card() -> None:
             "n = 2",
             "m = 1.2 g",
         ),
+        # The count's "2" is not the 2.00 h a unit change made 7200 s (review).
+        (
+            "What mass of Cu is deposited by a current of 1.50 A for 2.00 h? n = 2",
+            3,
+            "t = 2.00 h = 7200 s",
+            "m = 3.56 g",
+        ),
+        # A ratio the equation gives owns no typed spelling: "1 M HCl" keeps one figure.
+        (
+            "What volume of 1.00 M NaOH is needed to neutralize 25.0 mL of 1 M HCl?",
+            1,
+            "c₂ = 1 mol/L",
+            "V₂ = 3 × 10^1 mL",
+        ),
+        # A derived count of the same value never hides a typed one: 2.0 mol is echoed.
+        ("How many oxygen atoms are in 2.0 mol of CO2?", 2, "n(CO2) = 2.0 mol", None),
+        # A length's x10 never makes a volume ambiguous: 400 mL stays the typed 0.400 L.
+        (
+            "How many grams of NaCl are needed to make 400 mL of a 4.00 M solution?",
+            3,
+            "V = 400 mL = 0.400 L",
+            "m = 93.5 g",
+        ),
+        # An exact whole answer with a zero that is no figure is a power of ten too.
+        ("How many mL of 5 M HCl make 100 mL of 1 M HCl?", 1, "c1 = 5 mol/L", "V1 = 2 × 10^1 mL"),
     ],
 )
 def test_a_count_takes_only_its_own_spelling(
-    question: str, figures: int, given: str, answer: str
+    question: str, figures: int, given: str, answer: str | None
 ) -> None:
     intent = extract_chemistry_intent(question)
     assert intent is not None
     assert intent.figures == figures
     result = solve_chemistry(intent)
     assert given in result.given
-    assert result.answer == answer
+    assert answer is None or result.answer == answer
+
+
+@pytest.mark.parametrize(
+    ("question", "row"),
+    [
+        # RT is carried into Kp's row, never its one-figure card value: (0.5)(2 x 10^1)^-2
+        # is no 8 x 10^-4.
+        ("Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3", "Kp = (0.5)(24.45)^-2"),
+    ],
+)
+def test_a_working_row_works_with_carried_values(question: str, row: str) -> None:
+    assert row in _solve(question).substitution

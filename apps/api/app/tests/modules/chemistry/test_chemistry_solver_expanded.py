@@ -50,7 +50,7 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
     (
         "Find percent yield if actual yield = 8 g and theoretical yield = 10 g",
         "percent_yield",
-        "Percent yield = 80%",
+        "Percent yield = 8 × 10^1%",
     ),
     (
         "How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?",
@@ -70,7 +70,7 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
     (
         "Dilution using M1V1: M1=2, V1=50 mL, M2=0.5, find V2",
         "dilution",
-        "V2 = 200 mL",
+        "V2 = 2 × 10^2 mL",
     ),
     (
         "Find molality for 2 mol solute in 4 kg solvent",
@@ -257,7 +257,7 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
     (
         "Find calorimetry heat when calorimeter constant Ccal=200 J/C and ΔT=2 C",
         "calorimetry",
-        "q_rxn = -400 J",
+        "q_rxn = -4 × 10^2 J",
     ),
     (
         "Use Hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
@@ -322,7 +322,7 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
     (
         "For a second-order reaction [A]0=1, k=0.1, find the half-life",
         "second_order_half_life",
-        "t₁/₂ = 10 (in the time unit of k)",
+        "t₁/₂ = 1 × 10^1 (in the time unit of k)",
     ),
     (
         "Find the rate law from experiments a1=0.1, rate1=0.02, a2=0.2, rate2=0.08",
@@ -404,7 +404,7 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
     (
         "Use Raoult's law when mole fraction=0.8 and pure pressure=100",
         "raoult",
-        "P = 80",
+        "P = 8 × 10^1",
     ),
     (
         "Use the calibration curve slope=2, intercept=0.1, signal=1.1, find concentration",

@@ -231,11 +231,11 @@ async def test_chemistry_followup_solves_the_prior_problem() -> None:
 @pytest.mark.asyncio
 async def test_two_problems_joined_by_and_also_are_both_verified() -> None:
     settings = Settings(chemistry_enabled=True, math_tools_enabled=True, web_search_enabled=False)
-    question = "Dilute 10 mL of 2 M HCl to 0.5 M, and also solve x^2 - 5x + 6 = 0."
+    question = "Dilute 10.0 mL of 2.00 M HCl to 0.500 M, and also solve x^2 - 5x + 6 = 0."
     result = await build_subject_augmentation(question, settings)
     assert result.unverified is False
     assert result.direct_text is not None
-    assert "40\\,\\mathrm{mL}" in result.direct_text
+    assert "40.0\\,\\mathrm{mL}" in result.direct_text
     assert "x = 2" in result.direct_text
     assert "x = 3" in result.direct_text
     assert "couldn't automatically verify" not in result.direct_text

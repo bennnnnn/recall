@@ -75,7 +75,7 @@ _WORKED_FIGURES = 6
 # Figures a carried value keeps beyond the answer's: two, so a line's result does not round
 # twice (3.97 x 18.015 = 71.5 reads as 72; 3.968 x 18.015 = 71.48 rounds to the 71 it is).
 _GUARD_FIGURES = 2
-# A carried value has four figures at least and five at most, the answer's own beyond that:
+# A carried value has four figures at least and five at most (an answer has four at most):
 # "4 g" of hydrogen is worked to 35.74 g before a card of 4 x 10^1 g.
 _CARRIED_FIGURES = (4, 5)
 
@@ -92,8 +92,7 @@ def carried(value: float) -> str:
         return fixed(value, written.decimals + 1)
     if written is not None and written.figures is not None:
         least, most = _CARRIED_FIGURES
-        guarded = min(max(written.figures + _GUARD_FIGURES, least), most)
-        figures = max(guarded, written.figures)
+        figures = min(max(written.figures + _GUARD_FIGURES, least), most)
         return format_number(value, significant=figures, keep_zeros=True)
     return format_number(value)
 
@@ -194,7 +193,7 @@ def converted(value: float, literal: str) -> str:
     digits = f"{abs(value):.12g}".split("e")[0].replace(".", "").strip("0")
     exact = len(digits) if len(digits) <= _EXACT_DIGITS else 0
     figures = max(sig_figs.figures_of(literal), exact, 1)
-    return format_number(value, significant=figures, keep_zeros=True)
+    return format_number(value, significant=figures, keep_zeros=True, exact_zeros=True)
 
 
 def converted_from(value: float, typed: float) -> str:

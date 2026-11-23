@@ -363,7 +363,7 @@ async def test_build_chemistry_augmentation_element_as_is_not_arsenic() -> None:
 
 async def test_build_chemistry_augmentation_dilution_ml_keeps_ml() -> None:
     block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(
-        "dilute a solution: M1=1 V1=100 mL M2=0.5",
+        "dilute a solution: M1=1.00 V1=100 mL M2=0.500",
         _SETTINGS,
     )
     assert block is not None

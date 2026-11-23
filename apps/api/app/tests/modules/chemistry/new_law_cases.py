@@ -38,7 +38,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "What is the ppb of 2.50 mg of solute in 1.00 kg of solution?",
         "parts_per_billion",
-        "ppb = 2500 ppb",
+        "ppb = 2.50 × 10^3 ppb",
     ),
     (
         "What is the volume percent of 25.0 mL of solute in 500.0 mL of solution?",
@@ -101,7 +101,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "How much heat is released when 2.00 mol of CH4 burns? ΔH = -890 kJ/mol",
         "reaction_heat",
-        "q = -1780 kJ",
+        "q = -1.78 × 10^3 kJ",
     ),
     (
         "How long does it take to deposit 10.0 g of Cu from Cu2+ with a current of 2.00 A?",
@@ -202,7 +202,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "What is the plate number when tR = 10.0 and w = 1.00?",
         "plate_number",
-        "N = 1600",
+        "N = 1.60 × 10^3",
     ),
     (
         "What is the plate height when L = 16.0 and N = 1600?",
@@ -369,7 +369,7 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "The wavelength is 500 nm. Find the wavenumber.",
         "wavenumber",
-        "ν̃ = 20000 1/cm",
+        "ν̃ = 2.00 × 10^4 1/cm",
     ),
     (
         "The event count is 50 and the photon count is 200. Find the quantum yield.",
@@ -391,7 +391,7 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "n = 2.00 mol, the molar heat capacity is 75.0 J/(mol·K), "
         "and the temperature change is 10.0 K. Find the heat.",
         "molar_heat",
-        "q = 1500 J",
+        "q = 1.50 × 10^3 J",
     ),
     (
         "The current is 1.00 A and the time is 10.0 s. Find the moles of electrons.",
