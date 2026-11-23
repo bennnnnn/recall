@@ -21,6 +21,7 @@ import re
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
@@ -134,9 +135,8 @@ async def read_shows_it(settings: Settings) -> bool:
     # the text read (``turn_decision._within``). Only a line with no problem of its own
     # after a reply asks (``augment._asks_to_see_by_read``).
     await asyncio.wait([read], timeout=settings.live_read_timeout_seconds)
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return False
-    return shows_it(read.result())
+    decision = settled_result(read)
+    return decision is not None and shows_it(decision)
 
 
 def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | None] | None:
@@ -166,9 +166,7 @@ def _figure_wanted(
     maths or chemistry question asking to see nothing, which gets a figure only if one
     helps teach it, and only with ``teaching`` (``teaching_figures_enabled``): off, a
     maths shape left to the figure was drawn by no one (review)."""
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return None
-    decision = read.result()
+    decision = settled_result(read)
     subject = _FIGURES.get(decision.subject or "") if decision is not None else None
     if decision is None or subject is None:
         return None

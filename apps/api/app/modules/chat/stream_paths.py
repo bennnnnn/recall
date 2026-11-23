@@ -17,6 +17,7 @@ from typing import Any
 
 from redis.asyncio import Redis
 
+from app.core.aio import settled_result
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
@@ -250,7 +251,7 @@ async def _denial_retry(
     if on_status is not None:
         await on_status("retract")
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DENIAL_RETRY_NOTE)
-    read = reply_calls.answered_read(ctx)
+    read = settled_result(ctx.live_read)
     forced = read is not None and read.nearly_live
     return _ReplyRound(tools=tools, lead="\n\n", require=reply_calls.REPLY_TOOL if forced else None)
 
