@@ -51,6 +51,11 @@ const INDENTED_FENCES: Reply[] = [
     "So it takes five seconds."].join("\n")],
   ["indented-tilde", ["Two ways:", "", "1. With tildes:", "", "   ~~~js", "   run()", "   ~~~", "",
     "2. With ticks:", "", `   ${F}js`, "   run()", `   ${F}`, "", "**Speed**", "Both run the same."].join("\n")],
+  // A code fence in a list item inside a worked reply: the parts still preprocess as the whole.
+  ["indented-durable-then-given", ["**Speed**", "$v = d / t$", "", "- Code:", "", `  ${F}python`, "  v = d / t", `  ${F}`, "",
+    "A paragraph.", "", "**Given**", "$d = 10$", "", "Done."].join("\n")],
+  ["indented-durable-between-givens", ["**Given**", "$d = 10$", "", "**Speed**", "$v = d / t$", "", "- Code:", "",
+    `  ${F}python`, "  v = d / t", `  ${F}`, "", "A paragraph.", "", "**Required**", "$v$", "", "**Law of speed**", "$v = 5$", "", "Done."].join("\n")],
 ];
 
 const replies: Reply[] = [

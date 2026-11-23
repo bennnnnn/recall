@@ -19,6 +19,9 @@ export type ChatListSectionKey =
   | ChatDateSection
   | typeof ARCHIVED_CHAT_SECTION;
 
+/** Every section of the list, in the order the drawer reads them. */
+const LIST_SECTIONS = [PINNED_CHAT_SECTION, ...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION] as const;
+
 export function emptyChatList(): ChatList {
   return {
     pinned: [],
@@ -67,32 +70,11 @@ export function patchChatListGroups(
   chatId: string,
   patch: Partial<Chat>,
 ): ChatList {
-  const chat = allChatsFromGroups(groups).find((row) => row.id === chatId);
-  if (!chat) return groups;
-  const updated = { ...chat, ...patch };
-  if (patch.archived === true) updated.pinned = false;
-  if (updated.pinned !== chat.pinned || updated.archived !== chat.archived || updated.updated_at !== chat.updated_at) {
-    return insertChatByRecency(removeChatFromGroups(groups, chatId), updated);
-  }
-  const next = { ...groups };
-  for (const key of [PINNED_CHAT_SECTION, ...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]) {
-    next[key] = groups[key].map((row) => row.id === chatId ? updated : row);
-  }
-  return next;
+  return patchChatListGroupsMany(groups, [[chatId, patch]]);
 }
 
 export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList {
-  const drop = (list: Chat[]) => list.filter((c) => c.id !== chatId);
-  return {
-    ...groups,
-    pinned: drop(groups.pinned),
-    today: drop(groups.today),
-    yesterday: drop(groups.yesterday),
-    last_7_days: drop(groups.last_7_days),
-    this_month: drop(groups.this_month),
-    older: drop(groups.older),
-    archived: drop(groups.archived),
-  };
+  return removeChatsFromGroups(groups, new Set([chatId]));
 }
 
 /** The server's day buckets (`group_by_recency`), in the phone's zone, which its list reads send. */
@@ -216,8 +198,6 @@ export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
   const key = sectionFor(chat);
   return { ...groups, [key]: sortedNewestFirst([...groups[key], chat]) };
 }
-
-const LIST_SECTIONS = [PINNED_CHAT_SECTION, ...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION] as const;
 
 /**
  * `groups` with each chat removed, each row edited, and each chat inserted

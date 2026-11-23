@@ -1,11 +1,11 @@
 import {
   drawerChatFetchMode,
   insertChatIntoGroups,
-  insertChatsIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
 import {
   chatRecencySection,
+  insertNewChatsByRecency,
   patchChatListGroups,
   patchChatListGroupsMany,
   regroupChatsByRecency,
@@ -259,7 +259,7 @@ describe("editing many chats at once (audit MX-5)", () => {
     const removed = removeChatsFromGroups(list, new Set(ids));
     expect(removed).toEqual(removedOneByOne);
     const back = rows.filter((_, i) => i % 4 === 1 || i === 2);
-    expect(insertChatsIntoGroups(removed, back)).toEqual(
+    expect(insertNewChatsByRecency(removed, back)).toEqual(
       back.reduce((groups, row) => insertChatIntoGroups(groups, row), removed),
     );
   });

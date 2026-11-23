@@ -47,6 +47,14 @@ describe("stream segment cuts", () => {
     expect(cutsOf(nested).state.poisoned).toBe(true);
   });
 
+  it("keeps a worked region open across a code fence indented in a list item", () => {
+    // A column-0 ```python ends the region (every pass keeps it); one in a list item may still be moved.
+    const region = (indent: string) =>
+      `**Given**\n$v = 2$\n\n- Code:\n\n${indent}\`\`\`python\n${indent}x = 1\n${indent}\`\`\`\n\nLater.\n\nMore.\n`;
+    expect(cutLines(region("  "))).not.toContain("Later.");
+    expect(cutLines(`**Given**\n$v = 2$\n\n\`\`\`python\nx = 1\n\`\`\`\n\nLater.\n\nMore.\n`)).toContain("Later.");
+  });
+
   it("cuts after a fence indented under a list item that closes cleanly (audit MX-2)", () => {
     const step = (n: number) => `${n}. Run it:\n\n   \`\`\`bash\n   npm test\n   \`\`\`\n\n   It prints the result.\n`;
     const { cuts, state } = cutsOf(`Intro.\n\n${step(1)}\n${step(2)}\n${step(3)}\nDone.\n`);

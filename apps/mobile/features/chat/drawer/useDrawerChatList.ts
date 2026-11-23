@@ -8,6 +8,7 @@ import {
   defaultChatSectionCollapsed,
   isCollapsibleChatSection,
   patchChatListGroups,
+  insertNewChatsByRecency,
   patchChatListGroupsMany,
   removeChatFromGroups,
   removeChatsFromGroups,
@@ -40,7 +41,6 @@ import {
   drawerChatFetchMode,
   emptyChatList,
   insertChatIntoGroups,
-  insertChatsIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
 import { Chat, ChatList } from "@/lib/api";
@@ -343,7 +343,7 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     updateGroups([[chat.id, titled(chat)]], (prev) => insertChatIntoGroups(prev, chat));
   }, [updateGroups]);
   const insertChatsInGroups = useCallback((chats: readonly Chat[]) => {
-    updateGroups(chats.map((chat) => [chat.id, titled(chat)] as const), (prev) => insertChatsIntoGroups(prev, chats));
+    updateGroups(chats.map((chat) => [chat.id, titled(chat)] as const), (prev) => insertNewChatsByRecency(prev, chats));
   }, [updateGroups]);
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     updateGroups([[chatId, null]], (prev) => removeChatFromGroups(prev, chatId));

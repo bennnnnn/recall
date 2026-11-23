@@ -97,7 +97,10 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     // The fence's opener or its closer. One indented inside the open list's item
     // (a numbered step's code) is part of the item: the list goes on after it.
     // A task list stays open too, so it keeps knowing it is one and is not cut (`listItemCut`).
-    const inItem = state.list != null && insideItem(state.list, line) && (before == null || state.fenceInItem);
+    // A list a line has already ended or bent (`irregular`: "Then run:" after an item's fence
+    // ends it in markdown) is read as before, its fences at the top level.
+    const inItem = state.list != null && !state.list.irregular && insideItem(state.list, line) &&
+      (before == null || state.fenceInItem);
     state.fenceInItem = state.openFence != null && inItem;
     state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;

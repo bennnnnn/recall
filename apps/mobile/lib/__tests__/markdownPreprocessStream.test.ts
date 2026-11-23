@@ -1,6 +1,8 @@
+import * as preprocess from "@/lib/markdown/preprocess";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import {
   findStableMarkdownPrefixLen,
+  clearSettledMarkdownMemo,
   preprocessMarkdownForStream,
   preprocessSettledMarkdown,
   type StreamingPreprocessCache,
@@ -301,20 +303,29 @@ describe("markdownPreprocessStream", () => {
     expect(preprocessMarkdownForStream(input, null).cache.rawStableLen).toBe(expected);
   });
 
-  it("settles a reply drawn whole as preprocessMarkdown does, remembered or not", () => {
-    const format = (expr: string) => expr.replace(/\*/g, "×");
-    const texts = Array.from({ length: 30 }, (_, i) => `Reply ${i}: **bold** and $2*${i}$ here.\n`);
-    for (const round of [0, 1]) {
-      for (const text of texts) {
-        for (const presented of [false, true]) {
-          for (const mathFormat of [undefined, format]) {
-            const want = preprocessMarkdown(text, mathFormat, { presented });
-            expect({ round, text, presented, got: preprocessSettledMarkdown(text, null, mathFormat, { presented }) })
-              .toEqual({ round, text, presented, got: want });
-          }
-        }
-      }
-    }
+  it("settles a reply drawn whole as preprocessMarkdown does, and remembers it", () => {
+    clearSettledMarkdownMemo();
+    const boxed = (expr: string) => `\\boxed{${expr}}`;
+    // Each changes with the formatter (implicit maths) or with presentation (a bold repair).
+    const texts = ["x^2 = 4\n", "A train travels at**60 km/h** and returns.\n", "y = 2x + 1\nand at**5 km**.\n"];
+    const keys = texts.flatMap((text) => [false, true].flatMap((presented) =>
+      [undefined, boxed].map((mathFormat) => ({ text, presented, mathFormat }))));
+    expect(new Set(keys.map((k) => preprocessMarkdown(k.text, k.mathFormat, { presented: k.presented }))).size)
+      .toBeGreaterThan(texts.length * 2);
+    const want = keys.map((k) => preprocessMarkdown(k.text, k.mathFormat, { presented: k.presented }));
+    const settle = () => keys.map((k) => preprocessSettledMarkdown(k.text, null, k.mathFormat, { presented: k.presented }));
+    expect(settle()).toEqual(want);
+    // A row mounting again is drawn from the memo: no preprocess at all.
+    const read = jest.spyOn(preprocess, "preprocessMarkdown");
+    expect(settle()).toEqual(want);
+    expect(read).not.toHaveBeenCalled();
+    read.mockRestore();
+    // Past its size the oldest goes, and is preprocessed again.
+    for (let i = 0; i < 30; i += 1) preprocessSettledMarkdown(`Filler ${i}\n`, null);
+    const again = jest.spyOn(preprocess, "preprocessMarkdown");
+    expect(settle()).toEqual(want);
+    expect(again).toHaveBeenCalledTimes(keys.length);
+    again.mockRestore();
   });
 
   it("a price dollar in the first line holds only that line (audit MX-1)", () => {

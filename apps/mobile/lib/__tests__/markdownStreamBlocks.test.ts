@@ -311,6 +311,17 @@ describe("advanceStreamBlocks between list items", () => {
     // An item's fence left open by a bullet at the margin still keeps that list a task list.
     const unclosed = ["- [ ] Install:", "  ```bash", "  npm i", `- Build ${para}`, `- Test ${para}`, `- [x] Lint ${para}`, "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, unclosed, unclosed.length).continued.some(Boolean)).toBe(false);
+    // "Then run:" ends the list (nothing goes on lazily after a fence): its fence is the
+    // top level's, whatever its indent, and no cut lands inside it (audit review).
+    const ended = ["- Install it:", "  ```bash", "  npm i", "  ```", "Then run:", "  ```bash", "npm run build", "",
+      `npm test ${para}`, `npm run lint ${para}`, "  ```", "Done.", "", para].join("\n");
+    const topOpens = ended.indexOf("  ```bash", ended.indexOf("Then run:"));
+    const topCloses = ended.lastIndexOf("  ```");
+    let end = 0;
+    for (const chunk of advanceStreamBlocks(null, ended, ended.length).chunks) {
+      end += chunk.length;
+      expect(end > topOpens && end <= topCloses).toBe(false);
+    }
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);
