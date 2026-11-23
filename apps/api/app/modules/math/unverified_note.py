@@ -1,7 +1,10 @@
-"""The couldn't-verify sentence a reply may carry: removed, never added.
+"""The couldn't-verify sentence a reply may carry: removed, never added. The same step
+tidies every reply: curly apostrophes become straight ones, a run of blank lines becomes
+one, and the ends are stripped.
 
-``append_unverified_math_note`` runs on every reply, on the event loop
-(``chat/finalize_subjects.append_unverified_notes``); ``math.fence`` exports it.
+``tidy_and_drop_unverified_math_note`` runs on every reply, on the event loop
+(``chat/finalize_subjects.tidy_and_drop_unverified_notes``, trace name
+``unverified_notes``); ``math.fence`` exports it.
 """
 
 from __future__ import annotations
@@ -44,12 +47,14 @@ def _without_unverified_phrases(text: str) -> str:
     return "".join(pieces)
 
 
-def append_unverified_math_note(content: str) -> str:
-    """Remove a couldn't-verify sentence. Never add one.
+def tidy_and_drop_unverified_math_note(content: str) -> str:
+    """Straighten curly apostrophes, remove a couldn't-verify sentence (never add one),
+    collapse runs of blank lines and strip the ends.
 
     This runs on every reply, including one the solver did not check. A
     verified reply shows a check. Nothing in the chat says the result was
-    not verified.
+    not verified. Passes before this one see the reply's curly apostrophes;
+    passes after it see straight ones.
     """
     if not content or not content.strip():
         return content

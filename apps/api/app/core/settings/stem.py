@@ -1,6 +1,6 @@
 """Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel
 
 
 class StemSettings(BaseModel):
@@ -23,12 +23,8 @@ class StemSettings(BaseModel):
     # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply. Every subject's solve:
-    # maths, physics and chemistry (it was math_solve_timeout_seconds; that env name
-    # is still read for one release).
-    stem_solve_timeout_seconds: float = Field(
-        default=5.0,
-        validation_alias=AliasChoices("stem_solve_timeout_seconds", "math_solve_timeout_seconds"),
-    )
+    # maths, physics and chemistry.
+    stem_solve_timeout_seconds: float = 5.0
     # Isolated 1-worker process slots (not one shared N-worker pool — a
     # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
     # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
@@ -107,14 +103,8 @@ class StemSettings(BaseModel):
     math_model_intent_budget_seconds: float = 7.0
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
-    # Per user, per hour, shared by every subject's reader (it was
-    # math_scan_read_rate_limit_per_hour; that env name is still read for one release).
-    scan_read_rate_limit_per_hour: int = Field(
-        default=60,
-        validation_alias=AliasChoices(
-            "scan_read_rate_limit_per_hour", "math_scan_read_rate_limit_per_hour"
-        ),
-    )
+    # Per user, per hour, shared by every subject's reader.
+    scan_read_rate_limit_per_hour: int = 60
     # Reads one user may have open at once, every subject together (each holds
     # its photo, up to 4 MB, in memory while it is read). Checked before the body
     # is read; the phone sends one at a time. 0 disables the cap.

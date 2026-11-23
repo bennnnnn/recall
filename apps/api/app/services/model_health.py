@@ -60,7 +60,6 @@ class ModelHealthSnapshot:
     healthy: bool
     latency_p50_ms: int | None
     sample_count: int
-    error_rate: float
     # When the newest sample was recorded (epoch seconds); None without samples.
     newest_at: float | None = None
 
@@ -75,7 +74,7 @@ class Breakers:
     half_open: frozenset[str] = frozenset()
 
 
-_NO_SAMPLES = ModelHealthSnapshot(healthy=True, latency_p50_ms=None, sample_count=0, error_rate=0.0)
+_NO_SAMPLES = ModelHealthSnapshot(healthy=True, latency_p50_ms=None, sample_count=0)
 
 
 def _model_of(alias: str) -> str:
@@ -146,7 +145,6 @@ def _snapshot(raw: Iterable[Any]) -> ModelHealthSnapshot:
     if not samples:
         return _NO_SAMPLES
     bad = [not ok or ms >= _SLOW_MS for ok, ms, _at, _cause in samples]
-    errors = sum(1 for ok, _ms, _at, _cause in samples if not ok)
     latencies = sorted(ms for ok, ms, _at, _cause in samples if ok)
     overloaded = samples[-1][3] in _OVERLOADED
     return ModelHealthSnapshot(
@@ -154,7 +152,6 @@ def _snapshot(raw: Iterable[Any]) -> ModelHealthSnapshot:
         healthy=not (bad[-1] and (overloaded or sum(bad) / len(bad) >= _BAD_RATE)),
         latency_p50_ms=latencies[len(latencies) // 2] if latencies else None,
         sample_count=len(samples),
-        error_rate=errors / len(samples),
         newest_at=samples[-1][2],
     )
 

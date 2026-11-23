@@ -119,14 +119,16 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # Italian: the worked block's language codes, the To-do screen's names, and the readers' German
 # and Italian home-chip and capability phrases gone (the owner, 2026-11-20); then a note for each
 # kind of texted reply the read names (accept, decline, pick, more, explain, react; FOLLOW_NOTES,
-# 100 texted chats, 2026-11-21); then "what do you know about me" answered with every saved fact,
+# 100 texted chats, 2026-11-21); then the notes beside a request to see the picture of the
+# problem the chat worked on (SHOW_IT_NOTE, SHOW_IT_DRAW_NOTE, SHOW_IT_CARD_NOTE, SHOWN_IT_NOTE;
+# QA round, 2026-11-22); then "what do you know about me" answered with every saved fact,
 # private ones too, and nothing the user did not say (BROAD_SELF_ANSWER_HINT, PRIVACY_HINT, live
 # QA of 100 new accounts, 2026-11-22); then ordinary chat's short layout guide and the privacy
 # rules it keeps, five shared sentences named so it can say them too (ORDINARY_FORMAT_GUIDE,
 # PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22).
-_RULES = 219
-_RULE_GRAMS = 20693
-_RULE_GRAMS_SHA = "eca4aaf71f109041"
+_RULES = 223
+_RULE_GRAMS = 20897
+_RULE_GRAMS_SHA = "8b6faf5d3f2596e5"
 
 
 def _rules() -> list[str]:

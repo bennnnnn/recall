@@ -15,7 +15,7 @@ Two pairs used to contradict:
 
 from __future__ import annotations
 
-from app.modules.math.fence import append_unverified_math_note
+from app.modules.math.fence import tidy_and_drop_unverified_math_note
 from app.modules.math.reply_policy import MATH_SOLVER_HINT
 from app.modules.math.tools.prompt import _unverified_math_note
 from app.modules.physics.prompt import unverified_physics_note
@@ -29,7 +29,9 @@ def test_math_hint_does_not_ask_for_a_disclaimer_the_server_deletes() -> None:
     note = _unverified_math_note("equation").lower()
     assert "never tell the user that a result is unverified" in note
     # The server enforces the same rule the prompts state.
-    assert append_unverified_math_note("x = 3.\n\n*I couldn't verify this result.*") == "x = 3."
+    assert (
+        tidy_and_drop_unverified_math_note("x = 3.\n\n*I couldn't verify this result.*") == "x = 3."
+    )
 
 
 def test_physics_policy_asks_for_the_result_once_on_the_answer_line() -> None:
