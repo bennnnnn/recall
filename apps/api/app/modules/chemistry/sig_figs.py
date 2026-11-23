@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -124,7 +125,10 @@ def _unit_factors() -> tuple[float, ...]:
     )
 
 
-def _forms(text: str) -> dict[float, list[str]]:
+_Forms = dict[float, list[str]]
+
+
+def _forms(text: str) -> _Forms:
     """Each number the question typed, with every way it was written ("0.80" and "0.8").
 
     A reaction's coefficients ("2 H2 + O2 -> 2 H2O") are counts, not measurements, so the
@@ -176,10 +180,9 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         *(("species", value) for value in intent.species.values()),
         *(("sample", value) for value in intent.samples),
     ]
-    counts = {
-        value: count
-        for key, value in measured
-        if _exact(intent.chemistry_op, key) and (count := _count_literal(forms.get(value, [])))
+    counts = _count_spellings(text, intent, measured, forms)
+    shared = {value for key, value in measured if _exact(intent.chemistry_op, key)} & {
+        value for key, value in measured if not _exact(intent.chemistry_op, key)
     }
     for key, value in measured:
         reading = _reading(value, forms)
@@ -190,10 +193,15 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             # A count of the same value is its own literal: "i = 1" beside "1.00 mol", or
             # "n = 2" electrons beside "2.0 A", never cuts the measured value to one figure.
             typed_forms = [form for form in typed_forms if form != counts[value]] or typed_forms
+        if value in shared:
+            # A count and a measure of one value cannot be told apart: neither is echoed.
+            typed_forms_echo: list[str] = []
+        else:
+            typed_forms_echo = typed_forms
         # A value typed two ways (cathode 0.80 V, anode 0.8 V) cannot be told apart by its
         # value, so neither is echoed; both still limit the answer.
-        if how == "typed" and len(typed_forms) == 1:
-            written[repr(value)] = typed_forms[0]
+        if how == "typed" and len(typed_forms_echo) == 1:
+            written[repr(value)] = typed_forms_echo[0]
         elif how in {"scaled", "celsius"} and len(typed_forms) == 1:
             converted[repr(value)] = typed_forms[0]
         if _exact(intent.chemistry_op, key):
@@ -236,12 +244,22 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     )
 
 
-def _count_literal(typed: list[str]) -> str | None:
-    """The whole-number spelling a count takes when its value was typed more than one way
-    ("1" of "1.00" and "1"); None when there is one spelling, shared by count and measure."""
-    if len(typed) < 2:
-        return None
-    return next((form for form in typed if form.isdigit()), None)
+def _count_spellings(
+    text: str, intent: ChemistryIntent, measured: list[tuple[str, float]], forms: _Forms
+) -> dict[float, str]:
+    """Each value a count shares with a measured given, with the whole-number spelling that is
+    the count's alone: "1" of "i = 1" beside "1.00 mol". Only when the counts account for
+    every time that spelling was typed: "2 mol NaCl (i = 2)" types "2" twice, so the 2 mol
+    keeps its one figure."""
+    typed_times = Counter(match.group() for match in _LITERAL.finditer(EQUATION_RE.sub(" ", text)))
+    exact_at = Counter(value for key, value in measured if _exact(intent.chemistry_op, key))
+    spellings: dict[float, str] = {}
+    for value, counted in exact_at.items():
+        typed = forms.get(value, [])
+        whole = next((form for form in typed if form.isdigit()), None)
+        if len(typed) > 1 and whole is not None and typed_times[whole] <= counted:
+            spellings[value] = whole
+    return spellings
 
 
 def _weighted_mean_precision(

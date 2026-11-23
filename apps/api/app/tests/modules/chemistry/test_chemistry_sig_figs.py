@@ -307,5 +307,40 @@ def test_each_working_row_ends_unrounded_above_a_rounded_card() -> None:
     reply = format_direct_chemistry_reply(verified)
     working = reply.split("**Answer**")[0]
     assert "= 33.79" in working
-    assert "= 0.2083 g" in working
     assert "10^{1}" not in working
+    # A difference of carried values loses what the full value keeps: (0.9995 − 0.9921) ×
+    # 28.014 is 0.2073, not the 0.2083 worked in full, so that row ends rounded.
+    assert "× 28.014 g/mol = 0.2 g" in working
+
+
+@pytest.mark.parametrize(
+    ("question", "figures", "given", "answer"),
+    [
+        # "i = 2" is a count; "2 mol" is measured and typed with the same spelling, so it
+        # keeps its one figure: ΔTf = 2 × 1.86 × 1 = 3.72 °C, Tf = −4 °C.
+        (
+            "What is the freezing point of a solution of 2 mol NaCl (i = 2) in 2.0 kg water? "
+            "Kf = 1.86 °C kg/mol",
+            1,
+            "n(solute) = 2 mol",
+            "Tf = -4 °C",
+        ),
+        # "n = 2" is the count alone: 2.0 A keeps two figures, and the count is never shown
+        # in the current's spelling.
+        (
+            "What mass of Cu is deposited by a current of 2.0 A for 30 min? n = 2",
+            2,
+            "n = 2",
+            "m = 1.2 g",
+        ),
+    ],
+)
+def test_a_count_takes_only_its_own_spelling(
+    question: str, figures: int, given: str, answer: str
+) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    assert intent.figures == figures
+    result = solve_chemistry(intent)
+    assert given in result.given
+    assert result.answer == answer

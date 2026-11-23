@@ -139,11 +139,23 @@ def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> lis
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
         earlier = {text for text in ends[:index] if text is not None}
         later = end is not None and any(end in used for used in inputs[index + 1 :])
-        if end is None or later or earlier & inputs[index]:
+        if end is None or later or earlier & inputs[index] or _subtracts(row):
             shown.append(row)
         else:
             shown.append(_unrounded_value(row, unrounded))
     return shown
+
+
+# A difference of two values: "(1.000 mol − 0.9921 mol)".
+_DIFFERENCE = re.compile(r"\d\s*(?:[a-zA-Z/]+\s*)?[−-]\s*\(?\d")
+
+
+def _subtracts(row: str) -> bool:
+    """Whether the row works with a difference. Its operands are carried to four figures,
+    so a difference of near values loses what the unrounded result keeps: "(1.000 mol −
+    0.9921 mol) × 31.998 g/mol" makes 0.2528 g, not the 0.2560 g worked in full. Such a row
+    ends on its rounded value, as the card does."""
+    return _DIFFERENCE.search(row.rpartition(" = ")[0]) is not None
 
 
 def _rounded_end(row: str, unrounded: tuple[tuple[str, str], ...]) -> str | None:
