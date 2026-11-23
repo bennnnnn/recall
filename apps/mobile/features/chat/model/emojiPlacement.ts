@@ -175,8 +175,8 @@ export function placeEmoji(text: string, level: string | null | undefined, userW
 /**
  * The lines of the draft placed so far. A draft only grows, so each flush
  * places its new lines, not the whole reply again: `placeEmoji` is line by
- * line, given whether a fence holds the line and whether a lesson heading is
- * anywhere in the text.
+ * line, given whether a fence holds the line (a lesson heading anywhere in
+ * the text is read over the whole of it).
  */
 type PlacedLines = {
   use: string;
@@ -185,7 +185,6 @@ type PlacedLines = {
   placed: string;
   /** The fence open after them (`fencedLines`, loose). */
   open: OpenFence | null;
-  lesson: boolean;
 };
 
 let placedDraft: PlacedLines | null = null;
@@ -199,9 +198,9 @@ export function clearPlacedDraft(): void {
 function placeGrowingDraft(content: string, use: string): string {
   let done = placedDraft;
   if (!done || done.use !== use || !content.startsWith(done.raw)) {
-    done = { use, raw: "", placed: "", open: null, lesson: false };
+    done = { use, raw: "", placed: "", open: null };
   }
-  const placeFrom = (from: number, state: { open: OpenFence | null; lesson: boolean }, upTo: number) => {
+  const placeFrom = (from: number, state: { open: OpenFence | null }, upTo: number) => {
     let placed = "";
     for (let at = from; at < upTo; ) {
       const nl = content.indexOf("\n", at);
@@ -209,7 +208,6 @@ function placeGrowingDraft(content: string, use: string): string {
       const line = content.slice(at, end);
       const before = state.open;
       state.open = fenceAfterLine(before, line, true);
-      if (LESSON.test(line)) state.lesson = true;
       placed += placeLine(line, before != null || state.open != null, use) + (end < upTo ? "\n" : "");
       at = end + 1;
     }
@@ -217,15 +215,12 @@ function placeGrowingDraft(content: string, use: string): string {
   };
   const lineEnd = content.lastIndexOf("\n") + 1;
   if (lineEnd > done.raw.length) {
-    const state = { open: done.open, lesson: done.lesson };
+    const state = { open: done.open };
     const placed = done.placed + placeFrom(done.raw.length, state, lineEnd);
-    done = { use, raw: content.slice(0, lineEnd), placed, open: state.open, lesson: state.lesson };
+    done = { use, raw: content.slice(0, lineEnd), placed, open: state.open };
   }
   placedDraft = done;
-  const tailState = { open: done.open, lesson: done.lesson };
-  const tail = placeFrom(lineEnd, tailState, content.length);
-  if (use === "some" && tailState.lesson) return content;
-  return done.placed + tail;
+  return done.placed + placeFrom(lineEnd, { open: done.open }, content.length);
 }
 
 /** The streaming draft as the saved reply will read, for the user who asked `priorUserText`. */
@@ -237,5 +232,7 @@ export function placeLiveEmoji(
   if (!content) return content;
   const use = normalizeEmojiUse(level);
   if (use === "more" || (use === "off" && EMOJI.test(priorUserText ?? ""))) return content;
+  // Read over the whole text, as `placeEmoji` reads it: the heading may run over a line break.
+  if (use === "some" && LESSON.test(content)) return content;
   return placeGrowingDraft(content, use);
 }

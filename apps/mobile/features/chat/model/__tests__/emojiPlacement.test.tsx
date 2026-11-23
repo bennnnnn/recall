@@ -25,6 +25,7 @@ describe("placeLiveEmoji", () => {
     const drafts = [
       ...cases.map((c) => [c.text, c.level, c.user_wrote_emoji ? "hi 👋" : "hi"] as const),
       [`${fenced}Then a line Lesson 2 🎉\n### Lesson 2: Loops 🔁\nmore 😀`, "some", "hi"] as const,
+      ["## Today's Lesson\n1. Intro 🎯\n##\nLesson 3 🔁", "some", "hi"] as const,
       [`${fenced}~~~\n\`\`\`\n🚀 inside\n~~~\nafter 🚀 Done`, "off", "hi"] as const,
     ];
     for (const [text, level, prior] of drafts) {

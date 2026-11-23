@@ -294,6 +294,9 @@ describe("advanceStreamBlocks between list items", () => {
     const broken = advanceStreamBlocks(null, outdented, outdented.length);
     expect(state.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(true);
     expect(broken.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(false);
+    // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
+    const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
+    expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);
   });
 
   it("ties only the pieces from a reference's first use to its definition (audit MX-3)", () => {

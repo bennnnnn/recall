@@ -19,6 +19,9 @@ export type OpenList = {
   irregular: boolean;
   content: number;
   wide: boolean;
+  /** An item so far is a task (`- [ ]`, `- [x]`): how a done one draws reads every item of the
+   * list (`listHasOpenTask`). Set only when true. */
+  task?: true;
 };
 
 /** What the chunk scan knows about the lines before the one it reads. */
@@ -38,6 +41,7 @@ const WIDE_NUMBER = MAX_NUMBERED_CUT + 1;
 export const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const BULLET_ITEM_RE = /^([-*+])([ \t]+)/;
 const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])([ \t]+)/;
+const TASK_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\](?:[ \t]|$)/;
 const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
 /** The column after `text`'s leading spaces and tabs, starting at `column` (tabs stop every 4). */
@@ -86,6 +90,7 @@ export function listItemCut(state: ListScan, line: string): boolean {
   const item = readListItem(line);
   const list = state.list;
   if (item) {
+    const task = TASK_ITEM_RE.test(line);
     const sameList =
       list != null && list.marker === item.marker && (list.next === null) === (item.number === null);
     if (!sameList) {
@@ -95,9 +100,11 @@ export function listItemCut(state: ListScan, line: string): boolean {
         irregular: false,
         content: item.content,
         wide: item.number !== null && item.number >= WIDE_NUMBER,
+        ...(task ? { task: true as const } : {}),
       };
       return false;
     }
+    if (task) list.task = true;
     list.content = item.content;
     if (item.number === null) return !list.irregular;
     const shown = list.next ?? 0;

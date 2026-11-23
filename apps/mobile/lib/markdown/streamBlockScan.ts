@@ -91,7 +91,9 @@ function trackBlockLine(state: ScanState, line: string): boolean {
   if (before != null || state.openFence != null) {
     // The fence's opener or its closer. One indented inside the open list's item
     // (a numbered step's code) is part of the item: the list goes on after it.
-    const inItem = state.list != null && insideItem(state.list, line) && (before == null || state.fenceInItem);
+    // Not in a task list: a done task drawn apart from a later open one would draw as a check.
+    const inItem = state.list != null && !state.list.task && insideItem(state.list, line) &&
+      (before == null || state.fenceInItem);
     state.fenceInItem = state.openFence != null && inItem;
     state.prevLineSafe = state.openFence == null;
     state.inBlankRun = false;
