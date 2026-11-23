@@ -1,4 +1,5 @@
-"""How a worked answer's card shows its number: the one rule every card follows.
+"""How a worked answer's card shows its number: the one rule every card follows
+(a chemistry solver's checked card keeps its data's figures, ``card_precision_own``).
 
 The working ends on its value unrounded and the card rounds it once (the owner's rule,
 2026-11-13), by ``services.rounding_rule`` (2026-11-18: two decimal places, whole numbers

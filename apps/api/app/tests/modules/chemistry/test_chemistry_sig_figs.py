@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.sig_figs import as_written, decimals_of, figures_of
+from app.modules.chemistry.sig_figs import _forms, as_written, decimals_of, figures_of
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.display import num, p_value
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -132,6 +132,12 @@ def test_one_value_typed_two_ways_is_limited_by_both() -> None:
 )
 def test_a_number_naming_the_item_never_limits_the_answer(question: str, answer: str) -> None:
     assert _solve(question).answer == answer
+
+
+def test_a_decimal_opening_a_wrapped_line_is_still_a_given() -> None:
+    # Photo text wraps: "1.8e-5." starts its line and ends a sentence, yet it is data.
+    forms = _forms("The acid has a dissociation constant of\n1.8e-5. What is the pH of 0.10 M?")
+    assert forms[1.8e-5] == ["1.8e-5"]
 
 
 @pytest.mark.parametrize(

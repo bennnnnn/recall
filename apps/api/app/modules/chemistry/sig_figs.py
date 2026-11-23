@@ -116,13 +116,15 @@ def _forms(text: str) -> dict[float, list[str]]:
 
     A reaction's coefficients ("2 H2 + O2 -> 2 H2O") are counts, not measurements, so the
     equation is not read for them. Nor is a number that names a line's item ("1) What is the
-    molarity of 1.00 mol ..."): read as a given, its one figure cut 2.00 mol/L to 2.0.
+    molarity of 1.00 mol ..."): read as a given, its one figure cut 2.00 mol/L to 2.0. Only a
+    whole number names an item: "1.8e-5." opening a wrapped line is still a given.
     """
     forms: dict[float, list[str]] = {}
     for line in EQUATION_RE.sub(" ", text).split("\n"):
         for match in _LITERAL.finditer(line):
-            if not item_number(line, match.start(), match.end()):
-                _add_form(forms, match.group())
+            typed = match.group()
+            if not (typed.isdigit() and item_number(line, match.start(), match.end())):
+                _add_form(forms, typed)
     return forms
 
 
