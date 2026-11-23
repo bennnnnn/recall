@@ -17,8 +17,8 @@ import {
   MIN_SETTLED_CHUNK_CHARS,
   scanClosedBlocks,
   type Cut,
-  type Definition,
 } from "@/lib/markdown/streamBlockScan";
+import { NO_REFS, pieceRefs, tiedSpan, type PieceRefs } from "@/lib/markdown/streamReferences";
 
 export type { OpenList } from "@/lib/markdown/streamListCuts";
 export { MIN_SETTLED_CHUNK_CHARS };
@@ -37,22 +37,28 @@ export type StreamBlocksState = {
   /** Prefix of the prepared streaming text covered by `chunks`. */
   settledText: string;
   /**
-   * A link reference definition (`[1]: https://…`) the reply holds, and
-   * where. A reference resolves only in the piece its definition is in, so a
-   * reply with one is drawn in one piece.
+   * Per chunk: the link reference labels it defines and uses. A reference
+   * resolves only in the piece its definition is in, so the pieces from the
+   * first that uses or defines a label to the last are one (`streamReferences.ts`).
    */
-  definition: Definition | null;
+  refs: PieceRefs[];
 };
 
 export function emptyStreamBlocksState(): StreamBlocksState {
-  return { chunks: [], continued: [], listAfter: [], settledText: "", definition: null };
+  return { chunks: [], continued: [], listAfter: [], settledText: "", refs: [] };
 }
 
 /** Append the chunks between consecutive cuts to the settled state. */
-function cutChunks(base: StreamBlocksState, prepared: string, cuts: Cut[]): StreamBlocksState {
+function cutChunks(
+  base: StreamBlocksState,
+  prepared: string,
+  cuts: Cut[],
+  definitions: number[],
+): StreamBlocksState {
   const chunks = base.chunks.slice();
   const continued = base.continued.slice();
   const listAfter = base.listAfter.slice();
+  const refs = base.refs.slice();
   let settledText = base.settledText;
   let chunkStart = settledText.length;
   for (const cut of cuts) {
@@ -61,10 +67,51 @@ function cutChunks(base: StreamBlocksState, prepared: string, cuts: Cut[]): Stre
     continued.push(cut.continued);
     // The list this chunk leaves open is the one the next chunk starts in.
     listAfter.push(cut.listAfter);
+    const inChunk = definitions.filter((at) => at >= chunkStart && at < cut.at);
+    refs.push(pieceRefs(chunk, inChunk, chunkStart));
     settledText += chunk;
     chunkStart = cut.at;
   }
-  return { chunks, continued, listAfter, settledText, definition: null };
+  return { chunks, continued, listAfter, settledText, refs };
+}
+
+/**
+ * `state` with the pieces a link reference ties drawn as one: the chunks
+ * from the first tied one to the last are merged, or, when the text after
+ * the chunks is tied too, left to it.
+ */
+function tieReferences(
+  state: StreamBlocksState,
+  prepared: string,
+  definitions: number[],
+): StreamBlocksState {
+  const from = state.settledText.length;
+  const after = definitions.filter((at) => at >= from);
+  // No definition anywhere: nothing to tie (the common reply skips the live text's read).
+  if (after.length === 0 && state.refs.every((refs) => refs.defines.length === 0)) return state;
+  const live = pieceRefs(prepared.slice(from), after, from);
+  const span = tiedSpan([...state.refs, live]);
+  if (!span) return state;
+  if (span.last === state.chunks.length) return trimmedTo(state, span.first);
+  if (span.last === span.first) return state;
+  return mergedChunks(state, span.first, span.last);
+}
+
+/** `state` with its chunks `first` to `last` joined into one. */
+function mergedChunks(state: StreamBlocksState, first: number, last: number): StreamBlocksState {
+  const joined = state.refs.slice(first, last + 1);
+  const refs: PieceRefs = {
+    defines: [...new Set(joined.flatMap((r) => r.defines))],
+    mentions: [...new Set(joined.flatMap((r) => r.mentions))],
+  };
+  const splice = <T,>(list: T[], value: T) => [...list.slice(0, first), value, ...list.slice(last + 1)];
+  return {
+    chunks: splice(state.chunks, state.chunks.slice(first, last + 1).join("")),
+    continued: splice(state.continued, state.continued[last]!),
+    listAfter: splice(state.listAfter, state.listAfter[last] ?? null),
+    settledText: state.settledText,
+    refs: splice(state.refs, refs.defines.length || refs.mentions.length ? refs : NO_REFS),
+  };
 }
 
 /** `state` without its last chunks that end inside a list: the list is cut again whole. */
@@ -82,13 +129,8 @@ function trimmedTo(state: StreamBlocksState, keep: number): StreamBlocksState {
     continued: state.continued.slice(0, keep),
     listAfter: state.listAfter.slice(0, keep),
     settledText: state.settledText.slice(0, length),
-    definition: null,
+    refs: state.refs.slice(0, keep),
   };
-}
-
-/** The reply still holds the definition `state` found, where it was. */
-function holdsDefinition(state: StreamBlocksState, prepared: string): boolean {
-  return state.definition !== null && prepared.startsWith(state.definition.line, state.definition.at);
 }
 
 /**
@@ -113,7 +155,7 @@ function keptPrefix(state: StreamBlocksState, prepared: string): StreamBlocksSta
     keep -= 1;
     length -= state.chunks[keep]!.length;
   }
-  return trimmedTo(state.definition ? { ...state, definition: null } : state, keep);
+  return trimmedTo(state, keep);
 }
 
 /**
@@ -130,9 +172,7 @@ export function advanceStreamBlocks(
   prepared: string,
   safeLen: number,
 ): StreamBlocksState {
-  const start = prev ?? emptyStreamBlocksState();
-  if (holdsDefinition(start, prepared)) return start;
-  let base = keptPrefix(start, prepared);
+  let base = keptPrefix(prev ?? emptyStreamBlocksState(), prepared);
 
   // Cut only in the closed text; read the live end too (see scanClosedBlocks).
   const boundedSafeLen = Math.min(Math.max(safeLen, 0), prepared.length);
@@ -145,32 +185,36 @@ export function advanceStreamBlocks(
       prepared.length,
     );
   let scan = scanFrom(base);
-  if (scan.definition) return { ...emptyStreamBlocksState(), definition: scan.definition };
   if (scan.inheritedWide) {
     base = withoutOpenListChunks(base);
     scan = scanFrom(base);
   }
-  return scan.cuts.length > 0 ? cutChunks(base, prepared, scan.cuts) : base;
+  const cut = scan.cuts.length > 0 ? cutChunks(base, prepared, scan.cuts, scan.definitions) : base;
+  return tieReferences(cut, prepared, scan.definitions);
 }
 
 /**
  * The chunks a settled reply is drawn with: those of its stream it still
  * starts with, the rest in one piece, so what was drawn is not drawn again.
- * No new cuts. A reply that holds a link reference definition is one piece,
- * and a numbered list that reached 100 is drawn whole.
+ * No new cuts. The pieces a link reference ties are one, and a numbered list
+ * that reached 100 is drawn whole.
  */
 export function settleStreamBlocks(
   prev: StreamBlocksState | null,
   prepared: string,
 ): StreamBlocksState {
-  const start = prev ?? emptyStreamBlocksState();
-  if (holdsDefinition(start, prepared)) return start;
-  const base = keptPrefix(start, prepared);
+  let base = keptPrefix(prev ?? emptyStreamBlocksState(), prepared);
   if (base.chunks.length === 0) return base;
-  const settledEnd = base.settledText.length;
-  const scan = scanClosedBlocks(prepared, settledEnd, settledEnd, lastOpenList(base), prepared.length);
-  if (scan.definition) return { ...emptyStreamBlocksState(), definition: scan.definition };
-  return scan.inheritedWide ? withoutOpenListChunks(base) : base;
+  const scanFrom = (state: StreamBlocksState) => {
+    const settledEnd = state.settledText.length;
+    return scanClosedBlocks(prepared, settledEnd, settledEnd, lastOpenList(state), prepared.length);
+  };
+  let scan = scanFrom(base);
+  if (scan.inheritedWide) {
+    base = withoutOpenListChunks(base);
+    scan = scanFrom(base);
+  }
+  return tieReferences(base, prepared, scan.definitions);
 }
 
 function lastOpenList(state: StreamBlocksState): OpenList | null {

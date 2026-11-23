@@ -101,7 +101,7 @@ describe("advanceStreamBlocks", () => {
       continued: [],
       listAfter: [],
       settledText: "",
-      definition: null,
+      refs: [],
     });
   });
 
@@ -274,12 +274,50 @@ describe("advanceStreamBlocks between list items", () => {
     const withDefinition = `${body}[1]: https://example.com/article\n`;
     const after = advanceStreamBlocks(before, withDefinition, withDefinition.length);
     expect(after.chunks).toEqual([]);
-    expect(after.definition).toEqual({ at: body.length, line: "[1]: https://example.com/article" });
-    // Later flushes find it where it was and cut nothing.
+    // Later flushes keep the reference and its use in one piece; the text after them may be cut.
     const later = `${withDefinition}\n${PARA("More text after it.")}\n\n${PARA("And more.")}\n\nend`;
-    expect(advanceStreamBlocks(after, later, later.length)).toBe(after);
+    const grown = advanceStreamBlocks(after, later, later.length);
+    const holder = grown.chunks.find((chunk) => chunk.includes("[a source][1]"));
+    expect(holder).toContain("[1]: https://example.com/article");
+    expect(grown.chunks.join("")).toBe(grown.settledText);
     // A reply whose definition is still in its last, open line settles in one piece too.
     expect(settleStreamBlocks(before, `${body}[1]: https://example.com/article`).chunks).toEqual([]);
+  });
+
+  it("ties only the pieces from a reference's first use to its definition (audit MX-3)", () => {
+    const head = `${PARA("Opening, no links.")}\n\n${PARA("Still none.")}\n\n`;
+    const cited = `${PARA("Cites [a source][1] here.")}\n\n[1]: https://example.com/article\n\n`;
+    const rest = Array.from({ length: 6 }, (_, i) => PARA(`After ${i}.`)).join("\n\n");
+    const text = `${head}${cited}${rest}\n\nend`;
+    let state = advanceStreamBlocks(null, "", 0);
+    for (let end = 30; end < text.length; end += 30) {
+      state = advanceStreamBlocks(state, text.slice(0, end), end);
+    }
+    state = advanceStreamBlocks(state, text, text.length);
+    // The chunks before the use stay; the use and its definition are one chunk; the text after is cut.
+    expect(state.chunks.slice(0, 2)).toEqual([`${PARA("Opening, no links.")}\n\n`, `${PARA("Still none.")}\n\n`]);
+    expect(state.chunks.find((c) => c.includes("[a source][1]"))).toContain("[1]: https://example.com/article");
+    expect(state.chunks.length).toBeGreaterThan(4);
+    expect(state.chunks.join("")).toBe(state.settledText);
+    // Settled, the pieces are the same.
+    expect(settleStreamBlocks(state, text).chunks).toEqual(state.chunks);
+  });
+
+  it("cuts on after a line that only looks like a definition", () => {
+    const text = `[Note]: see the list below\n\n${Array.from({ length: 6 }, (_, i) => PARA(`Para ${i}.`)).join("\n\n")}\n\nend`;
+    const state = advanceStreamBlocks(null, text, text.length);
+    expect(state.chunks.length).toBeGreaterThan(3);
+  });
+
+  it("ties a use that arrives after its definition was cut into a chunk", () => {
+    const first = `${PARA("Defines it.")}\n\n[docs]: https://docs.example.com\n\n${PARA("Gap one.")}\n\n${PARA("Gap two.")}\n\n`;
+    const cut = advanceStreamBlocks(null, first, first.length);
+    expect(cut.chunks.length).toBeGreaterThanOrEqual(2);
+    const used = `${first}${PARA("Now see [docs].")}\n\n${PARA("Tail.")}\n\n`;
+    const tied = advanceStreamBlocks(cut, used, used.length);
+    const holder = tied.chunks.find((c) => c.includes("[docs]: https"));
+    expect(holder).toContain("Now see [docs].");
+    expect(tied.chunks.join("")).toBe(tied.settledText);
   });
 
   it("cuts a numbered list that reaches 100 nowhere, even after it was cut while shorter", () => {

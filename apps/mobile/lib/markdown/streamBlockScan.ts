@@ -10,9 +10,6 @@ import {
 } from "@/lib/markdown/streamListCuts";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
-/** A link reference definition the reply holds, and where. */
-export type Definition = { at: number; line: string };
-
 /** Group small blocks together so long replies don't spawn hundreds of renderers. */
 export const MIN_SETTLED_CHUNK_CHARS = 320;
 
@@ -131,8 +128,8 @@ export type Cut = { at: number; continued: boolean; listAfter: OpenList | null }
 
 type Scan = {
   cuts: Cut[];
-  /** A link reference definition the scan read: no cut may stand. */
-  definition: Definition | null;
+  /** Where each line that may open a link reference definition starts (`streamReferences.ts`). */
+  definitions: number[];
   /** The list open where the scan began (the last chunk goes on in it) reached 100. */
   inheritedWide: boolean;
 };
@@ -147,8 +144,9 @@ type Scan = {
  * and `list` is the list open there.
  *
  * The text after `cutEnd` (to `readEnd`, its last line too, however far it
- * has come) is read but never cut: a link reference definition there, or a
- * numbered list reaching 100, still takes back the cuts it changes. A cut
+ * has come) is read but never cut: a link reference definition there still
+ * ties the pieces that use it (`streamReferences.ts`), and a numbered list
+ * reaching 100 still takes back the cuts it changes. A cut
  * inside a numbered list stands only while the list stays under 100: one
  * that reaches it is drawn wider than its pieces were.
  */
@@ -161,6 +159,7 @@ export function scanClosedBlocks(
 ): Scan {
   const inherited = list ? { ...list } : null;
   const cuts: Cut[] = [];
+  const definitions: number[] = [];
   let pending: Cut[] = [];
   let pendingList: OpenList | null = null;
   let inheritedWide = false;
@@ -194,9 +193,7 @@ export function scanClosedBlocks(
     if (readOnly && readEnd === cutEnd) break;
     const line = prepared.slice(i, nl);
     if (!trackBlockLine(state, line)) {
-      if (REFERENCE_DEFINITION_RE.test(line)) {
-        return { cuts: [], definition: { at: i, line }, inheritedWide: false };
-      }
+      if (REFERENCE_DEFINITION_RE.test(line)) definitions.push(i);
       const listBefore = state.list ? { ...state.list } : null;
       const nextItem = listItemCut(state, line);
       if (inherited?.wide) inheritedWide = true;
@@ -225,5 +222,5 @@ export function scanClosedBlocks(
     i = nl + 1;
   }
   settlePending();
-  return { cuts, definition: null, inheritedWide };
+  return { cuts, definitions, inheritedWide };
 }
