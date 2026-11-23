@@ -124,7 +124,7 @@ async def test_exception_fallback_dispatches_to_chemistry_owner(
     deps = _deps()
     math_safe = MagicMock(return_value="math-safe")
     deps.math_fence.recover = math_safe
-    intent = extract_chemistry_intent("Find pH when [H+] = 0.001")
+    intent = extract_chemistry_intent("Find pH when [H+] = 0.0010")
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
@@ -542,7 +542,7 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     deps.math_fence.check = MagicMock(
         side_effect=AssertionError("math fences must not rewrite chemistry")
     )
-    question = "Find pH when [H+] = 0.001"
+    question = "Find pH when [H+] = 0.0010"
     intent = extract_chemistry_intent(question)
     assert intent is not None
     verified = build_verified_chemistry(intent)
