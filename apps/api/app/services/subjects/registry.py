@@ -220,8 +220,9 @@ class SubjectFence(Protocol):
         pictures. A question in parts keeps the fences that are one of its parts' own."""
         ...
 
-    def unverified_note(self, text: str) -> str:
-        """The reply with the note an answer the subject could not verify carries."""
+    def drop_unverified_note(self, text: str) -> str:
+        """The reply without the note that says the subject could not verify its answer
+        (the note stays in the prompt). Maths' also tidies every reply's text."""
         ...
 
     def draws(self, text: str, settings: Settings) -> bool:

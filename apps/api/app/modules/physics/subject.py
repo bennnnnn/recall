@@ -173,7 +173,7 @@ class PhysicsFence:
         block = _physics_block(verified)
         return solver_cards(block) if block is not None else ()
 
-    def unverified_note(self, text: str) -> str:
+    def drop_unverified_note(self, text: str) -> str:
         # An unverified physics turn's note is in its prompt, not under the reply.
         return text
 
