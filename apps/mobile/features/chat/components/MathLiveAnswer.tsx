@@ -38,7 +38,7 @@ export const mathCardStyles = StyleSheet.create({
 });
 
 /**
- * At the bottom of the composer while the math keyboard is open, between + and Send: the
+ * At the bottom of the composer while the math keyboard is open, in the row's middle: the
  * draft's value as each key lands (`= 5` for `3+1×2`), worked on the phone
  * (`lib/math/live/answer.ts`), in the green accent whatever accent the app wears. Send still
  * asks the server.
@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     height: MATH_LIVE_ANSWER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     paddingHorizontal: Space.sm,
     overflow: "hidden",
   },

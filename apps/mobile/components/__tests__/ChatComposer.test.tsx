@@ -4,7 +4,6 @@ import { act, fireEvent, render, waitFor, within } from "@testing-library/react-
 import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import { ChatComposer, COMPOSER_HEIGHT } from "@/features/chat/components/ChatComposer";
 import { MATH_LIVE_ANSWER_HEIGHT } from "@/features/chat/components/MathLiveAnswer";
-import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ACCENTS } from "@/lib/accent";
@@ -128,6 +127,34 @@ describe("ChatComposer math keyboard", () => {
     expectMathEditor();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expectMessaging();
+  });
+
+  it("folds back to the small composer when the pad goes down on an empty draft", async () => {
+    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+    const surface = () => StyleSheet.flatten(getByTestId("composer-surface").props.style);
+    expect(surface().flex).toBeUndefined();
+    await openMathKeyboard();
+    expect(surface().flex).toBe(1);
+    await fireEvent.press(getByTestId("math-keyboard-abc"));
+    expect(surface().flex).toBeUndefined();
+    expect(queryByTestId("composer-expand")).toBeNull();
+  });
+
+  it("hides +, mic, live talk and the placeholder beside the maths pad, and clears the draft at once", async () => {
+    const { getByTestId, queryByTestId } = await render(
+      <DraftHarness>
+        <ChatComposer {...baseProps} onLiveTalkPress={jest.fn()} />
+      </DraftHarness>,
+    );
+    await openMathKeyboard();
+    expect(queryByTestId("chat-composer-placeholder")).toBeNull();
+    expect(queryByTestId("composer-math-clear")).toBeNull();
+    await fireEvent.press(getByTestId("math-key-digit-3"));
+    await fireEvent.press(getByTestId("math-key-digit-4"));
+    expect(getByTestId("chat-composer-input").props.value).toContain("34");
+    await fireEvent.press(getByTestId("composer-math-clear"));
+    expect(getByTestId("chat-composer-input").props.value).toBe("");
+    expect(queryByTestId("composer-math-clear")).toBeNull();
   });
 
   it("does not enable preview just by opening and closing an empty math pad", async () => {
@@ -725,25 +752,18 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await openMathKeyboard();
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    // As its expand control would make it: pinned under the top bar, the draft over the pad.
-    const top = () => StyleSheet.flatten(getByTestId("chat-composer").props.style).top;
+    // The whole screen, the strip under the status bar included, the draft over the pad.
+    const block = () => StyleSheet.flatten(getByTestId("chat-composer").props.style);
+    const top = () => block().paddingTop;
+    expect(block().top).toBe(0);
     expect(top()).toBeGreaterThan(0);
     expect(queryByTestId("composer-scroll-fade")).toBeNull();
     // An emptied draft does not fold it while the keyboard is open.
     await fireEvent.press(getByTestId("math-key-digit-3"));
     await fireEvent.press(getByTestId("math-key-backspace"));
     expect(top()).toBeGreaterThan(0);
-    await fireEvent.press(getByTestId("composer-expand"));
-    // The pad's ground runs on past the screen's bottom edge (a negative bottom margin), so
-    // its top, where the fade sits, is its height less that overrun.
-    const pad = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style);
-    const padTop = (pad.height as number) + (pad.marginBottom as number);
-    const fade = StyleSheet.flatten(getByTestId("composer-scroll-fade").props.style);
-    expect(pad.marginBottom).toBeLessThan(0);
-    expect(fade.top).toBeUndefined();
-    expect(fade.bottom).toBe(padTop);
-    expect(fade.height).toBe(MATH_KEYBOARD_GAP_FADE_HEIGHT);
-    expect(StyleSheet.flatten(getByTestId("chat-composer").props.style).top).toBeUndefined();
+    // The pad keeps it full height: no expand control beside it (the owner, 2026-11-23).
+    expect(queryByTestId("composer-expand")).toBeNull();
     expect(queryByTestId("math-keyboard-dismiss")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
