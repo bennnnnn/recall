@@ -396,6 +396,17 @@ describe("advanceStreamBlocks between list items", () => {
   });
 
   it.each([
+    ["a label broken over a quote's lines", "> As the [style\n> guide] says.", "[style guide]: https://x.com"],
+    ["an escaped bracket in the label", "See [a\\]b] here.", "[a\\]b]: https://x.com"],
+  ])("ties a use to its definition: %s", (_name, use, definition) => {
+    const filler = Array.from({ length: 4 }, (_, i) => PARA(`Filler ${i}.`)).join("\n\n");
+    const text = `${use}\n\n${filler}\n\n${definition}\n\n${PARA("After.")}\n\n${PARA("End.")}\n\nend`;
+    const state = advanceStreamBlocks(null, text, text.length);
+    const holder = state.chunks.find((chunk) => chunk.includes(use));
+    expect(holder ?? "").toContain(definition);
+  });
+
+  it.each([
     ["a quote", "> [1]: https://x.com"],
     ["a list item", "- [1]: https://x.com"],
   ])("ties a use to a definition in %s", (_name, definition) => {

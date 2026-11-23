@@ -42,8 +42,6 @@ export type FlushStats = {
 
 export type StreamRun = {
   stats: FlushStats;
-  /** What the stream drew at each flush: the chunks joined with the live piece. */
-  frames: string[];
   /** The prepared text once the reply settled. */
   settled: string;
 };
@@ -61,11 +59,14 @@ export function rowMarkdown(content: string, generating: boolean): string {
 }
 
 /** Stream `reply` in `step`-character flushes through the row's pipeline, then settle it. */
-export function streamReply(reply: string, step = 30, keepFrames = false): StreamRun {
+export function streamReply(
+  reply: string,
+  step = 30,
+  mathFormat?: (expr: string) => string,
+): StreamRun {
   let pre: StreamingPreprocessCache | null = null;
   let blocks: StreamBlocksState | null = null;
   let preview: PreviewScanState | null = null;
-  const frames: string[] = [];
   const stats: FlushStats = { flushes: 0, ms: 0, parsedChars: 0, unstableChars: 0, chunks: 0, chunkDrops: 0, rowMs: 0, parseMs: 0 };
   const started = performance.now();
   for (let end = Math.min(step, reply.length); ; end = Math.min(end + step, reply.length)) {
@@ -73,7 +74,7 @@ export function streamReply(reply: string, step = 30, keepFrames = false): Strea
     const content = rowMarkdown(reply.slice(0, end), true);
     stats.rowMs += performance.now() - rowStart;
     preview = advancePreviewFilesScan(preview, content);
-    const result = preprocessMarkdownForStream(content, pre);
+    const result = preprocessMarkdownForStream(content, pre, mathFormat);
     pre = result.cache;
     const before = blocks?.chunks ?? [];
     blocks = advanceStreamBlocks(blocks, result.prepared, pre.preparedStable.length);
@@ -91,12 +92,11 @@ export function streamReply(reply: string, step = 30, keepFrames = false): Strea
     stats.parseMs += performance.now() - parseStart;
     stats.unstableChars += content.length - pre.rawStableLen;
     stats.flushes += 1;
-    if (keepFrames) frames.push(blocks.chunks.join("") + tail.live);
     if (end >= reply.length) break;
   }
   stats.ms = performance.now() - started;
   stats.chunks = blocks?.chunks.length ?? 0;
   const content = rowMarkdown(reply, false);
-  const settled = preprocessSettledMarkdown(content, pre, undefined, {});
-  return { stats, frames, settled };
+  const settled = preprocessSettledMarkdown(content, pre, mathFormat, {});
+  return { stats, settled };
 }

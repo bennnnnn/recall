@@ -151,6 +151,21 @@ analytics schedulers page by keyset over partial indexes.
 
 ## P1: mobile streaming (O(n²) over a reply)
 
+**Status: done in #2555, except as noted below.** MX-1 to MX-7 were all real, and are fixed with
+before/after numbers in the PR (bench: `components/markdown/__tests__/streamFlushBench.test.tsx`,
+`STREAM_BENCH=1`). Do not redo them. What is still open:
+
+- MX-2: a fence indented 4+ spaces (steps 10 and up, nested lists) still poisons the segment
+  cuts, because strict passes read it as prose. The worked-region part was left as it was:
+  answer fences already end each region.
+- MX-7: the prefix `startsWith` compares are left (memcmp). An open data fence is classified on
+  every flush, because classifying it once would change its result as its body grows.
+- MX-6: fixed, but the gain is too small to measure.
+- `eslint-plugin-regexp` is not added: `regexp/no-super-linear-backtracking` flags 54 places in
+  23 files (see Tooling notes).
+
+The text below is the audit as written.
+
 n is the reply length (2-40k chars); a "flush" is one throttled UI update while a reply
 streams (~30/s, `useStreamingDraft`), so 300-2000 per reply. `node_modules` was not
 installed in the audit container: nothing here was run. Profile with the React DevTools
@@ -229,5 +244,7 @@ history ~1.0-1.3k.
 
 - Backend ReDoS is already gated in CI (`scripts/check_regex_redos.py` with regexploit).
 - Mobile has no regex backtracking lint: `eslint-plugin-regexp`
-  (`regexp/no-super-linear-backtracking`) would catch MX-class regressions in CI.
+  (`regexp/no-super-linear-backtracking`) would catch MX-class regressions in CI. Version 3.3.3
+  flags 54 places in 23 files today. 4 are exponential, at three places: `lib/codeTokenize.ts:434`,
+  `lib/copyBlock.ts:49` and `lib/math/latexStructure.ts:287` (twice). Fix those before turning it on.
 - For a suspected quadratic, time it at 4k, 8k, 16k, 32k: ~4x per doubling is O(n²).

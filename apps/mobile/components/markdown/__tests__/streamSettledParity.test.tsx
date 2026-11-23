@@ -10,6 +10,7 @@ import { BENCH_REPLIES } from "@/lib/__tests__/fixtures/benchReplies";
 import { STREAMING_REPLIES } from "@/lib/__tests__/fixtures/streamingReplies";
 import { rowMarkdown, streamReply } from "@/lib/__tests__/support/streamBench";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { formatAssistantMathExpr } from "@/lib/math/formatInput";
 
 import chemistry from "../../../../../docs/fixtures/chemistry_replies.json";
 import physics from "../../../../../docs/fixtures/physics_replies.json";
@@ -44,8 +45,9 @@ const replies: Reply[] = [
 /** The replies whose streamed and whole texts differ, with the first place they do. */
 function differences(list: Reply[], step: number): { name: string; at: number }[] {
   return list.flatMap(([name, text]) => {
-    const whole = preprocessMarkdown(rowMarkdown(text, false));
-    const { settled } = streamReply(text, step);
+    // With the maths formatter the reply row passes (ReplyMarkdown).
+    const whole = preprocessMarkdown(rowMarkdown(text, false), formatAssistantMathExpr);
+    const { settled } = streamReply(text, step, formatAssistantMathExpr);
     if (settled === whole) return [];
     let at = 0;
     while (at < whole.length && settled[at] === whole[at]) at += 1;

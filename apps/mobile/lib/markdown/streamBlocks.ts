@@ -196,14 +196,9 @@ export function settleStreamBlocks(
 ): StreamBlocksState {
   let base = keptPrefix(prev ?? emptyStreamBlocksState(), prepared);
   if (base.chunks.length === 0) return base;
-  const scanFrom = (state: StreamBlocksState) => {
-    const settledEnd = state.settledText.length;
-    return scanClosedBlocks(prepared, settledEnd, settledEnd, lastOpenList(state), prepared.length);
-  };
-  let scan = scanFrom(base);
-  if (scan.inheritedWide) {
+  const settledEnd = base.settledText.length;
+  if (scanClosedBlocks(prepared, settledEnd, settledEnd, lastOpenList(base), prepared.length).inheritedWide) {
     base = withoutOpenListChunks(base);
-    scan = scanFrom(base);
   }
   return tieReferences(base, prepared);
 }

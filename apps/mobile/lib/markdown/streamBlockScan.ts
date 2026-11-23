@@ -1,7 +1,7 @@
 /**
  * Reading a streaming reply's prepared text line by line for the places a
- * chunk may end (`streamBlocks.ts`): fences, display maths, blank runs, the
- * open list, and what stops every cut.
+ * chunk may end (`streamBlocks.ts`): fences, display maths, blank runs and
+ * the open list.
  */
 import {
   columnAfterWhitespace,

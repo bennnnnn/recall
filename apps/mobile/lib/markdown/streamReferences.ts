@@ -15,7 +15,10 @@ export type PieceRefs = { defines: string[]; mentions: string[] };
 
 export const NO_REFS: PieceRefs = { defines: [], mentions: [] };
 
-const BRACKETED_RE = /\[([^[\]]{1,999})\]/g;
+/** A bracketed run: escapes (`\]`) stay inside it, as in a markdown label. */
+const BRACKETED_RE = /\[((?:\\.|[^[\]\\]){1,999})\]/g;
+/** A line break and the quote markers a label continues after, which markdown reads past. */
+const CONTAINER_BREAK_RE = /\n[ \t]*(?:>[ \t]?)*/g;
 
 const normalize = (label: string) => markdownItInstance.utils.normalizeReference(label);
 
@@ -36,7 +39,7 @@ function mentionedLabels(text: string): string[] {
   if (!text.includes("]")) return [];
   const labels = new Set<string>();
   for (const match of text.matchAll(BRACKETED_RE)) {
-    const label = normalize(match[1] ?? "");
+    const label = normalize((match[1] ?? "").replace(CONTAINER_BREAK_RE, "\n"));
     if (label) labels.add(label);
   }
   return [...labels];
