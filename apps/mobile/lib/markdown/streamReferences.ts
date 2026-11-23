@@ -22,7 +22,7 @@ const DEFINITION_LINES = 3;
 const normalize = (label: string) => markdownItInstance.utils.normalizeReference(label);
 
 /** The labels the definition starting at `at` defines, as markdown-it reads it. */
-export function definedLabels(text: string, at: number): string[] {
+function definedLabels(text: string, at: number): string[] {
   let end = at;
   for (let line = 0; line < DEFINITION_LINES && end < text.length; line += 1) {
     const nl = text.indexOf("\n", end);
@@ -36,7 +36,7 @@ export function definedLabels(text: string, at: number): string[] {
 }
 
 /** Every bracketed run in `text`: any of them may be a reference's label. */
-export function mentionedLabels(text: string): string[] {
+function mentionedLabels(text: string): string[] {
   if (!text.includes("]")) return [];
   const labels = new Set<string>();
   for (const match of text.matchAll(BRACKETED_RE)) {

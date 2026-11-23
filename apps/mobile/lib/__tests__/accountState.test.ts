@@ -40,6 +40,9 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/attachments/model/openedDocument.ts#held": "clearOpenedDocument",
   "features/chat/model/chatListCache.ts#resource": "invalidateChatListCache",
   "features/chat/model/composerDraftFile.ts#draftsFile": "clearSavedComposerDrafts",
+  // The streaming draft's lines already placed, and settled replies preprocessed whole.
+  "features/chat/model/emojiPlacement.ts#placedDraft": "clearPlacedDraft",
+  "lib/markdown/preprocessStream.ts#wholeMemo": "clearSettledMarkdownMemo",
   "features/chat/model/padMathDrafts.ts#padMathTexts": "clearSavedComposerDrafts",
   "features/chat/model/draftLogic.ts#knownAssistantChats": "invalidateChatListCache",
   "features/chat/model/messageCache.ts#backgroundAt": "clearAllCachedChatMessages",
@@ -111,6 +114,9 @@ const SCOPED_TO_SESSION = [
 
 /** Work in progress for one chat, request or clip, keyed by ids another account never has. */
 const IN_FLIGHT = [
+  // What a reply's parsed markdown says about a node, kept with that parse's own nodes.
+  "components/markdown/markdownAstHelpers.ts#OPEN_TASK_LISTS",
+  "components/markdown/markdownAstHelpers.ts#SOURCES",
   "features/account/model/profilePhoto.ts#generatedPhotos",
   "features/attachments/model/localAttachmentFile.ts#ownedCopies",
   "features/attachments/model/openedDocument.ts#copying",
@@ -142,6 +148,10 @@ const IN_FLIGHT = [
 
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
+  // A pattern per fence language, and an id per maths formatter function.
+  "lib/fence/scan.ts#WORD_PATTERNS",
+  "lib/markdown/preprocessStream.ts#formatterIds",
+  "lib/markdown/preprocessStream.ts#nextFormatterId",
   "components/LaunchReveal.tsx#played",
   "components/CodeBlock.tsx#cachedTokenizer",
   "components/CodeBlock.tsx#tokenStyles",

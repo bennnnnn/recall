@@ -5,6 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
+import { pairLazily } from "@/lib/markdown/streamSegments";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
@@ -148,18 +149,6 @@ function lineMathMarkers(
     bracketOpen: pairLazily(line, bracketOpen, "\\[", "\\]"),
     parenOpen: pairLazily(line, parenOpen, "\\(", "\\)"),
   };
-}
-
-/** Lazy pairing on one line: whether an opener is still waiting for its closer after it. */
-function pairLazily(line: string, open: boolean, opener: string, closer: string): boolean {
-  let pending = open;
-  for (let i = 0; i < line.length; ) {
-    const next = line.indexOf(pending ? closer : opener, i);
-    if (next < 0) break;
-    pending = !pending;
-    i = next + 2;
-  }
-  return pending;
 }
 
 /** True when the last complete line is a GFM pipe-table row (still growing). */
@@ -444,6 +433,11 @@ export function preprocessSettledMarkdown(
  */
 const WHOLE_MEMO_SIZE = 24;
 const wholeMemo = new Map<string, string>();
+
+/** Sign-out: the replies remembered were the account's. */
+export function clearSettledMarkdownMemo(): void {
+  wholeMemo.clear();
+}
 const formatterIds = new WeakMap<(expr: string) => string, number>();
 let nextFormatterId = 1;
 

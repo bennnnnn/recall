@@ -190,6 +190,11 @@ type PlacedLines = {
 
 let placedDraft: PlacedLines | null = null;
 
+/** Sign-out: the draft placed was the account's. */
+export function clearPlacedDraft(): void {
+  placedDraft = null;
+}
+
 /** `placeEmoji(content, …)` for a draft, from the lines its last flush placed. */
 function placeGrowingDraft(content: string, use: string): string {
   let done = placedDraft;

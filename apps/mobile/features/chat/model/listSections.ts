@@ -252,7 +252,7 @@ function editChatListGroups(
  */
 export function patchChatListGroupsMany(
   groups: ChatList,
-  patches: ReadonlyArray<readonly [string, Partial<Chat>]>,
+  patches: readonly (readonly [string, Partial<Chat>])[],
 ): ChatList {
   if (new Set(patches.map(([id]) => id)).size !== patches.length) {
     return patches.reduce((list, [id, patch]) => patchChatListGroups(list, id, patch), groups);

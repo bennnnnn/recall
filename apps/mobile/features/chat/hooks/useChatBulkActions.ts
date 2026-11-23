@@ -21,7 +21,7 @@ type Params = {
   token: string | null;
   isDrawerOpen: boolean;
   insertChatsInGroups: (chats: readonly Chat[]) => void;
-  patchChatsInGroups: (patches: ReadonlyArray<readonly [string, Partial<Chat>]>) => void;
+  patchChatsInGroups: (patches: readonly (readonly [string, Partial<Chat>])[]) => void;
   removeChatsFromGroupsById: (chatIds: readonly string[]) => void;
   reloadChats: () => void;
   showActionBanner: (message: string, icon?: IconName) => void;

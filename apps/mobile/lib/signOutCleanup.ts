@@ -8,6 +8,8 @@ import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
+import { clearFenceScanMemo } from "@/lib/fence/scan";
+import { clearSettledMarkdownMemo } from "@/lib/markdown/preprocessStream";
 import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 
@@ -24,6 +26,9 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   clearCalculatorPositions();
   clearLinkPreviewCache();
   clearSvgMathCache();
+  // The replies the markdown passes remembered, and the fences they read.
+  clearSettledMarkdownMemo();
+  clearFenceScanMemo();
   publishStreamingDraft(null);
   await Promise.allSettled([
     deleteAccountFiles(),
@@ -38,6 +43,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/openedDocument").then(({ clearOpenedDocument }) => clearOpenedDocument()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
+    // The streaming draft's lines already given their emoji.
+    import("@/features/chat/model/emojiPlacement").then(({ clearPlacedDraft }) => clearPlacedDraft()),
     // The unsent text of each chat's composer, kept for the next run.
     import("@/features/chat/model/composerDraftFile").then(({ clearSavedComposerDrafts }) => clearSavedComposerDrafts()),
     // A reply read aloud stops with the account, and its player closes.

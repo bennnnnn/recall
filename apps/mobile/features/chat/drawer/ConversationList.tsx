@@ -100,9 +100,7 @@ export function ConversationList() {
     hasMoreArchived,
     loadMoreArchivedChats,
     archivedPaging,
-    patchChatsInGroups,
-    insertChatsInGroups,
-    removeChatsFromGroupsById,
+    patchChatsInGroups, insertChatsInGroups, removeChatsFromGroupsById,
   } = useDrawerChatList({ isDrawerOpen: isOpen });
 
   const {

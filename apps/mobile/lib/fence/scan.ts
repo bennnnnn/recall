@@ -262,6 +262,12 @@ const SCAN_MEMO_SIZE = 3;
 const STRICT_SCANS: ScanMemo = [];
 const LOOSE_SCANS: ScanMemo = [];
 
+/** Sign-out: the texts last read were the account's. */
+export function clearFenceScanMemo(): void {
+  STRICT_SCANS.length = 0;
+  LOOSE_SCANS.length = 0;
+}
+
 /** A word in `text` in any case: the gate before a scan for a fence that names it. */
 export function mentionsWord(text: string, word: string): boolean {
   let pattern = WORD_PATTERNS.get(word);

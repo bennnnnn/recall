@@ -55,6 +55,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/chatListCache.ts",
     "model/composerDraftFile.ts",
     "model/composerDraftReset.ts",
+    "model/emojiPlacement.ts",
     "model/messageCache.ts",
     "model/quotaNudgeDismissal.ts",
     "model/streamingDraftStore.ts",

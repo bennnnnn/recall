@@ -143,7 +143,7 @@ function ticksPairOnLine(line: string): boolean {
 }
 
 /** Lazy pairing, as the display-maths regexes read it: an opener waits for the next closer. */
-function pairLazily(line: string, open: boolean, opener: string, closer: string): boolean {
+export function pairLazily(line: string, open: boolean, opener: string, closer: string): boolean {
   let pending = open;
   for (let i = 0; i < line.length; ) {
     const next = pending ? line.indexOf(closer, i) : line.indexOf(opener, i);

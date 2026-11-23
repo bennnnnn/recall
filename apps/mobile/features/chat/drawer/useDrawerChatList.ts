@@ -222,8 +222,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
 
   const openRef = useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoadedOnceRef });
 
-  const edits = useListEdits({ account, current, applyChatList, load, openRef });
-  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById } = edits;
+  const { patchChatInGroups, insertChatInGroups, removeChatFromGroupsById, ...bulkEdits } = useListEdits({ account, current, applyChatList, load, openRef });
   const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
     patchChatInGroups(chatId, archived ? { archived, pinned: false } : { archived });
   }, [patchChatInGroups]);
@@ -243,10 +242,7 @@ export function useDrawerChatList({ isDrawerOpen }: Params) {
     hasOlderChats: Boolean(groups.next_cursor), loadOlderChats,
     hasMoreArchived: Boolean(groups.archived_next_cursor), loadMoreArchivedChats, archivedPaging,
     patchChatInGroups, insertChatInGroups, isSectionCollapsed, toggleSectionCollapsed,
-    moveChatArchiveState, removeChatFromGroupsById,
-    patchChatsInGroups: edits.patchChatsInGroups,
-    insertChatsInGroups: edits.insertChatsInGroups,
-    removeChatsFromGroupsById: edits.removeChatsFromGroupsById,
+    moveChatArchiveState, removeChatFromGroupsById, ...bulkEdits,
   };
 }
 
@@ -329,7 +325,7 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     else scheduleIdleTask(() => void load(true));
   }), [current, applyChatList, load, openRef]);
   // One edit for many chats (a bulk archive or delete): the list is copied, cached and drawn once.
-  const updateGroups = useCallback((changes: ReadonlyArray<readonly [string, Partial<Chat> | null]>, update: (previous: ChatList) => ChatList) => {
+  const updateGroups = useCallback((changes: readonly (readonly [string, Partial<Chat> | null])[], update: (previous: ChatList) => ChatList) => {
     if (!account || !current() || changes.length === 0) return;
     applyChatList(updateChatListCache(update) ?? update, false);
     for (const [chatId, patch] of changes) {
@@ -337,7 +333,7 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
       publishChatChange(chatId, patch);
     }
   }, [account, current, applyChatList]);
-  const patchChatsInGroups = useCallback((patches: ReadonlyArray<readonly [string, Partial<Chat>]>) => {
+  const patchChatsInGroups = useCallback((patches: readonly (readonly [string, Partial<Chat>])[]) => {
     const normalized = patches.map(([chatId, patch]) =>
       [chatId, patch.archived === true ? { ...patch, pinned: false } : patch] as const);
     updateGroups(normalized, (prev) => patchChatListGroupsMany(prev, normalized));
