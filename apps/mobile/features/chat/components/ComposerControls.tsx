@@ -151,12 +151,14 @@ export function ComposerScanHint({
 
 /** Opens a long draft in the full-height editor, and closes it again. */
 /** Top right of the composer while the maths pad is open: clears the whole draft at once. */
-export function ComposerClearControl({ s, onPress }: { s: ComposerStyles; onPress: () => void }) {
+/** The maths pad's clear-all: its row stays while the draft is empty (no button), so the
+ *  first key or a clear never moves the draft up or down. */
+export function ComposerClearControl({ s, onPress }: { s: ComposerStyles; onPress?: () => void }) {
   const { t } = useTranslation();
   const theme = useTheme();
   return (
-    <View style={s.expandControlRow}>
-      <Pressable
+    <View style={s.expandControlRow} testID="composer-math-clear-row">
+      {onPress ? <Pressable
         style={s.expandControl}
         onPress={() => {
           hapticSelection();
@@ -167,7 +169,7 @@ export function ComposerClearControl({ s, onPress }: { s: ComposerStyles; onPres
         testID="composer-math-clear"
       >
         <Icon name="close-circle" size={IconSize.sm} color={theme.textSecondary} />
-      </Pressable>
+      </Pressable> : null}
     </View>
   );
 }

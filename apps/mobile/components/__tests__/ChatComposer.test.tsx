@@ -143,18 +143,26 @@ describe("ChatComposer math keyboard", () => {
   it("hides +, mic, live talk and the placeholder beside the maths pad, and clears the draft at once", async () => {
     const { getByTestId, queryByTestId } = await render(
       <DraftHarness>
-        <ChatComposer {...baseProps} onLiveTalkPress={jest.fn()} />
+        <ChatComposer {...baseProps} voiceAvailable onVoicePress={jest.fn()} onLiveTalkPress={jest.fn()} />
       </DraftHarness>,
     );
+    expect(getByTestId("live-talk-button")).toBeTruthy();
+    expect(getByTestId("voice-mic-button")).toBeTruthy();
+    expect(getByTestId("chat-composer-placeholder", HIDDEN_TOO)).toBeTruthy();
     await openMathKeyboard();
-    expect(queryByTestId("chat-composer-placeholder")).toBeNull();
+    for (const id of ["chat-composer-placeholder", "composer-attachment-button", "voice-mic-button", "live-talk-button"]) {
+      expect(queryByTestId(id, HIDDEN_TOO)).toBeNull();
+    }
     expect(queryByTestId("composer-math-clear")).toBeNull();
+    // The clear row is there before the first key, so typing never moves the draft.
+    expect(getByTestId("composer-math-clear-row")).toBeTruthy();
     await fireEvent.press(getByTestId("math-key-digit-3"));
     await fireEvent.press(getByTestId("math-key-digit-4"));
     expect(getByTestId("chat-composer-input").props.value).toContain("34");
     await fireEvent.press(getByTestId("composer-math-clear"));
     expect(getByTestId("chat-composer-input").props.value).toBe("");
     expect(queryByTestId("composer-math-clear")).toBeNull();
+    expect(getByTestId("composer-math-clear-row")).toBeTruthy();
   });
 
   it("does not enable preview just by opening and closing an empty math pad", async () => {
@@ -757,7 +765,6 @@ describe("ChatComposer math keyboard", () => {
     const top = () => block().paddingTop;
     expect(block().top).toBe(0);
     expect(top()).toBeGreaterThan(0);
-    expect(queryByTestId("composer-scroll-fade")).toBeNull();
     // An emptied draft does not fold it while the keyboard is open.
     await fireEvent.press(getByTestId("math-key-digit-3"));
     await fireEvent.press(getByTestId("math-key-backspace"));
@@ -767,7 +774,6 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-keyboard-dismiss")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
-    expect(queryByTestId("composer-scroll-fade")).toBeNull();
     await fireEvent(getByTestId("chat-composer-input"), "focus");
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
   });

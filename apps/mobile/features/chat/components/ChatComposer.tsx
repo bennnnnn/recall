@@ -16,8 +16,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-  BOTTOM_CHROME_FADE_LOCATIONS,
-  bottomChromeFadeColors,
   COMPOSER_GAP_FADE_LOCATIONS,
   composerGapFadeColors,
 } from "@/features/chat/components/chromeFade";
@@ -357,7 +355,7 @@ export const ChatComposer = memo(function ChatComposer({
                 onRemove={onRemoveAttachment}
               />
             ) : null}
-            {mathBarOpen ? (input ? <ComposerClearControl s={s} onPress={() => { onChangeInput(""); math.moveCaret(0); }} /> : null) : showExpandControl ? (
+            {mathBarOpen ? <ComposerClearControl s={s} onPress={input ? () => { onChangeInput(""); math.moveCaret(0); } : undefined} /> : showExpandControl ? (
               <ComposerExpandControl
                 s={s}
                 expanded={composerExpanded}
@@ -493,15 +491,6 @@ export const ChatComposer = memo(function ChatComposer({
             ) : null}
           </View>
           </View>
-          {mathBarOpen && !composerExpanded ? (
-            <LinearGradient
-              pointerEvents="none"
-              colors={bottomChromeFadeColors(theme) as [string, string, ...string[]]}
-              locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
-              style={[s.keyboardGapFade, { bottom: math.padHeight }]}
-              testID="composer-scroll-fade"
-            />
-          ) : null}
           {math.mathBarOpen ? (
             <MathKeyboardBar
               open

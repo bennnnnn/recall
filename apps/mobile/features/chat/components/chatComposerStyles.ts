@@ -12,8 +12,6 @@ import { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 const COMPOSER_VERTICAL_PADDING = 6;
-/** Pill padding plus the keypad's top margin. The dim sits in that strip. */
-const MATH_KEYBOARD_GAP_FADE_HEIGHT = Space.xs + COMPOSER_VERTICAL_PADDING;
 
 export function makeChatComposerStyles(theme: Theme) {
   return StyleSheet.create({
@@ -26,13 +24,6 @@ export function makeChatComposerStyles(theme: Theme) {
       backgroundColor: "transparent",
       paddingHorizontal: Space.md,
       paddingTop: Space.xxs,
-    },
-    keyboardGapFade: {
-      position: "absolute",
-      left: -Space.md,
-      right: -Space.md,
-      height: MATH_KEYBOARD_GAP_FADE_HEIGHT,
-      zIndex: 2,
     },
     composerBlockExpanded: {
       zIndex: Layer.composerExpanded,
