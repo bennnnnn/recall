@@ -98,21 +98,21 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
   }
   if (signs.length > MAX_SIGNS) return null;
   if (new Set(signs.map((sign) => sign.op)).size > 1) return null;
-  const ways: { picks: Map<PlusMinus, Pick>; result: LiveResult; typed: boolean }[] = [];
+  const ways: { picks: Map<PlusMinus, Pick>; node: LiveNode; result: LiveResult }[] = [];
   // Bit i is sign i's pick, 0 for −: the − branch comes first.
   for (let mask = 0; mask < 2 ** signs.length; mask += 1) {
     const picks = new Map(signs.map((sign, i): [PlusMinus, Pick] => [sign, (mask >> i) & 1 ? "+" : "-"]));
     const node = picked(reading.node, picks);
     const result = evaluateCalculation(node);
     if (!result) return null;
-    ways.push({ picks, result, typed: isTypedFraction(node, result) });
+    ways.push({ picks, node, result });
   }
   const [only] = signs;
   if (signs.length === 1 && only) {
-    const branches = ways.map(({ picks, result, typed }) => ({
+    const branches = ways.map(({ picks, node, result }) => ({
       latex: written(reading.math, only, picks.get(only)!),
       result,
-      typed,
+      typed: isTypedFraction(node, result),
     }));
     return { kind: "branches", branches };
   }

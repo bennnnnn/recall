@@ -4,15 +4,13 @@ import { useTranslation } from "react-i18next";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
-import { MathText } from "@/components/rich/MathText";
+import { MathText, mathHeight } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { ACCENTS } from "@/lib/accent";
 import { DRAFT_TEXT_SIZE } from "@/lib/math/draftText";
-import { layoutMath } from "@/lib/math/layout";
 import { liveAnswer } from "@/lib/math/live/answer";
-import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
-import { MATH_TALL_LINE_HEIGHT, parseSimpleLatex } from "@/lib/math/text";
+import { MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 
@@ -33,15 +31,12 @@ const ANSWER_SIZE = 20;
 /** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
 const BRANCH_SIZE = DRAFT_TEXT_SIZE;
 
-const heightOf = (latex: string, size: number): number =>
-  layoutMath(parseSimpleLatex(fixImplicitExponents(latex.trim())), size).height;
-
 /**
  * The tallest the row holds: a fraction answer (`= \frac{5}{6}`) at the answer's size, as
  * `MathText` lays it out. Text size scales both alike, so the comparison leaves it out.
  */
-const ROW_LIMIT = heightOf("= \\frac{5}{6}", ANSWER_SIZE);
-const fitsRow = (latex: string, size: number): boolean => heightOf(latex, size) <= ROW_LIMIT;
+const ROW_LIMIT = mathHeight("= \\frac{5}{6}", ANSWER_SIZE);
+const fitsRow = (latex: string, size: number): boolean => mathHeight(latex, size) <= ROW_LIMIT;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control

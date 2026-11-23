@@ -141,6 +141,14 @@ function InlineMathScroll({
   );
 }
 
+/** The segments `MathText` draws for `latex`. */
+const mathSegments = (latex: string) => parseSimpleLatex(fixImplicitExponents(latex.trim()));
+
+/** How tall `MathText` lays `latex` out at `fontSize`, before the system text size scales it. */
+export function mathHeight(latex: string, fontSize: number): number {
+  return layoutMath(mathSegments(latex), fontSize).height;
+}
+
 /** Memoized: a markdown run re-renders on every streamed flush, and its unchanged formulas
  * keep their layout instead of being laid out again. */
 export const MathText = memo(function MathText({
@@ -159,10 +167,7 @@ export const MathText = memo(function MathText({
     () => makeStyles(theme, textColor, compact, fontSize, fontScale),
     [theme, textColor, compact, fontSize, fontScale],
   );
-  const segments = useMemo(
-    () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
-    [latex],
-  );
+  const segments = useMemo(() => mathSegments(latex), [latex]);
   const layout = useMemo(() => layoutMath(segments, fontSize), [segments, fontSize]);
   const tall = useMemo(() => hasTallMath(segments), [segments]);
   const stacked = useMemo(() => hasStackedMath(segments), [segments]);

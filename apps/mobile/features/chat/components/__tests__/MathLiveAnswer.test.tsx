@@ -27,7 +27,24 @@ async function sizeOf(input: string): Promise<number> {
   return Math.max(...sizes(getByTestId("math-live-answer") as unknown as Styled));
 }
 
+type Scrolled = { props: { horizontal?: boolean; contentContainerStyle?: unknown }; children?: (Scrolled | string)[] | null };
+const scrollsOf = (node: Scrolled | string): Scrolled[] =>
+  typeof node === "string"
+    ? []
+    : [...(node.props.horizontal ? [node] : []), ...(node.children ?? []).flatMap(scrollsOf)];
+
 describe("MathLiveAnswer", () => {
+  it("scrolls an answer wider than its row sideways, centred while it fits", async () => {
+    const { getByTestId } = await render(<MathLiveAnswer input={"$123456\\times 7\\pm 98765\\times 4$"} />);
+    const [scroll] = scrollsOf(getByTestId("math-live-answer") as unknown as Scrolled);
+    expect(scroll).toBeDefined();
+    expect(StyleSheet.flatten(scroll!.props.contentContainerStyle as never)).toMatchObject({
+      flexGrow: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    });
+  });
+
   it("draws a value larger than the draft, and ± branches at the draft's own size", async () => {
     expect(await sizeOf("$2+1$")).toBe(20);
     expect(await sizeOf("$2\\pm 1$")).toBe(DRAFT_TEXT_SIZE);

@@ -4,8 +4,9 @@
  * A value stays an exact fraction while every step allows it (+ − × ÷, whole powers, perfect
  * roots, %, !, |x|, mod, logs that come out whole); π, e, trig, other logs and other roots
  * give a decimal. A value with no number at all is undefined, as the server says it is: a zero
- * divisor (`1 ÷ 0`, `0 ÷ 0`, `5 mod 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`), a
- * log of zero, a log to base 1. Only a zero that is exactly zero makes one: a decimal that
+ * divisor (`1 ÷ 0`, `0 ÷ 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`), a log of zero, a
+ * log to base 1. `5 mod 0` and `\frac{1}{0}` are undefined on the phone only: the turn does not
+ * verify them yet (SymPy's `Mod(5, 0)` raises). Only a zero that is exactly zero makes one: a decimal that
  * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. An undefined
  * part carries through + − × and a numerator (`2 + 1 ÷ 0` is undefined, as SymPy's zoo is);
  * anywhere else the phone stays cautious and shows nothing: there SymPy sometimes gives a value

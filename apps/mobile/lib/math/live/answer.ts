@@ -67,7 +67,7 @@ export function liveAnswer(draft: string, undefinedWord: string): LiveAnswer | n
   if (!found) return null;
   const { node, signs } = found;
   const preferFraction = /\\[dt]?frac\{/.test(draft);
-  if (signs.kind === "branches") return formatBranches(signs.branches, { preferFraction, typedFraction: false }, undefinedWord);
-  if (signs.kind === "values") return formatValues(signs.values, { preferFraction, typedFraction: false });
+  if (signs.kind === "branches") return formatBranches(signs.branches, preferFraction, undefinedWord);
+  if (signs.kind === "values") return formatValues(signs.values, preferFraction);
   return formatLiveResult(signs.result, { preferFraction, typedFraction: isTypedFraction(node, signs.result) }, undefinedWord);
 }

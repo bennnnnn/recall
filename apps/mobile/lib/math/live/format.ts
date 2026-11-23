@@ -159,8 +159,8 @@ function needsFraction(result: LiveResult): boolean {
 }
 
 /** One form for all of a draft's values: fractions when the draft wrote one or a value needs one. */
-const oneForm = (results: LiveResult[], options: FormatOptions): FormatOptions => ({
-  preferFraction: options.preferFraction || results.some(needsFraction),
+const oneForm = (results: LiveResult[], preferFraction: boolean): FormatOptions => ({
+  preferFraction: preferFraction || results.some(needsFraction),
   typedFraction: false,
   compact: true,
 });
@@ -172,8 +172,8 @@ function spokenBranch(branch: LiveBranch, shown: Shown): string {
 }
 
 /** One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. */
-export function formatBranches(branches: LiveBranch[], options: FormatOptions, undefinedWord: string): LiveAnswer {
-  const form = oneForm(branches.map((branch) => branch.result), options);
+export function formatBranches(branches: LiveBranch[], preferFraction: boolean, undefinedWord: string): LiveAnswer {
+  const form = oneForm(branches.map((branch) => branch.result), preferFraction);
   const shown = branches.map((branch) =>
     formatResult(branch.result, { ...form, typedFraction: branch.typed }, undefinedWord),
   );
@@ -187,9 +187,13 @@ export function formatBranches(branches: LiveBranch[], options: FormatOptions, u
 }
 
 /** Two or three ±: the distinct values, `= -1,\quad 1,\quad 3` (`≈` kept where a value is rounded). */
-export function formatValues(values: LiveValue[], options: FormatOptions): LiveAnswer {
-  const form = oneForm(values, options);
-  const shown = values.map((value) => formatValue(value, form));
+export function formatValues(values: LiveValue[], preferFraction: boolean): LiveAnswer {
+  const form = oneForm(values, preferFraction);
+  // Two values the display rounds alike (`10^{20} ± 1`, `1 ± 10^{-12}`) are written once.
+  const digits = (s: Shown) => s.latex.replace(/^(?:=|\\approx) /, "");
+  const shown = values
+    .map((value) => formatValue(value, form))
+    .filter((s, i, all) => i === 0 || digits(s) !== digits(all[i - 1]!));
   return {
     latex: listed(shown),
     signed: true,
