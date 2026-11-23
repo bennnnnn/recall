@@ -970,6 +970,13 @@
       "why": "a cosine only rounded to 0 is no pole: about 5.7e12, too near the edge to show"
     },
     {
+      "id": "tan-nearer-pole",
+      "draft": "$\\tan(89.99999999999999)$",
+      "sympy": null,
+      "value": null,
+      "why": "exact degrees short of 90 are no pole: about 5.7e15, too near the edge to show"
+    },
+    {
       "id": "comma-thousands",
       "draft": "$1,000$",
       "sympy": null,

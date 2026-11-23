@@ -11,7 +11,7 @@
  * the phone's test checks this module against the same file.
  */
 import type { LiveResult } from "@/lib/math/live/evaluate";
-import { formatBranches, formatLiveResult, formatValues, type LiveAnswer } from "@/lib/math/live/format";
+import { formatBranches, formatLiveResult, formatValues, shownValues, type LiveAnswer } from "@/lib/math/live/format";
 import { readCalculation, type LiveNode } from "@/lib/math/live/read";
 import { isTypedFraction, workSigns, type LiveSigns } from "@/lib/math/live/signs";
 
@@ -50,12 +50,16 @@ function read(draft: string): { node: LiveNode; signs: LiveSigns } | null {
   return signs ? { node: reading.node, signs } : null;
 }
 
-/** The draft's values (one, or a ± draft's each), or `null` when it shows no answer. */
+/** The draft writes a fraction, so its answer is one too. */
+const prefersFraction = (draft: string): boolean => /\\[dt]?frac\{/.test(draft);
+
+/** The draft's values as the composer shows them (one, or a ± draft's each), or `null`. */
 export function liveValuesForTest(draft: string): LiveResult[] | null {
   const signs = read(draft)?.signs;
   if (!signs) return null;
   if (signs.kind === "one") return [signs.result];
-  return signs.kind === "branches" ? signs.branches.map((branch) => branch.result) : signs.values;
+  if (signs.kind === "branches") return signs.branches.map((branch) => branch.result);
+  return shownValues(signs.values, prefersFraction(draft));
 }
 
 /**
@@ -66,7 +70,7 @@ export function liveAnswer(draft: string, undefinedWord: string): LiveAnswer | n
   const found = read(draft);
   if (!found) return null;
   const { node, signs } = found;
-  const preferFraction = /\\[dt]?frac\{/.test(draft);
+  const preferFraction = prefersFraction(draft);
   if (signs.kind === "branches") return formatBranches(signs.branches, preferFraction, undefinedWord);
   if (signs.kind === "values") return formatValues(signs.values, preferFraction);
   return formatLiveResult(signs.result, { preferFraction, typedFraction: isTypedFraction(node, signs.result) }, undefinedWord);

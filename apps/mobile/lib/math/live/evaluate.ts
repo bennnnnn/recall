@@ -193,40 +193,55 @@ const contains = (node: LiveNode, kinds: ReadonlySet<LiveNode["kind"]>): boolean
 const DEGREES = new Set<LiveNode["kind"]>(["degrees"]);
 const RADIANS = new Set<LiveNode["kind"]>(["pi", "radians"]);
 
-/** The angle in radians, read as the server reads it. */
-function angle(arg: LiveNode): number {
+/** An angle in radians; in degrees too when they are exact (`90°`, `89.99999999999999`). */
+type Angle = { radians: number; degrees: Rational | null };
+
+const exactDegrees = (value: LiveValue, negative: boolean): Rational | null =>
+  value.kind === "exact" ? (negative ? rational(-value.r.n, value.r.d) : value.r) : null;
+
+/** The angle, read as the server reads it. */
+function angle(arg: LiveNode): Angle {
   const signed = arg.kind === "neg" ? arg.operand : arg;
   if (contains(arg, DEGREES)) {
     // `30^{\circ}` or `-30^{\circ}`; `30^{\circ} + 15` mixes two units.
     if (signed.kind !== "degrees" || contains(arg, RADIANS)) return fail();
-    return numberOf(defined(arg, true));
+    const degrees = exactDegrees(defined(signed.operand, true), arg.kind === "neg");
+    return { radians: numberOf(defined(arg, true)), degrees };
   }
-  if (contains(arg, RADIANS)) return numberOf(defined(arg, true));
+  if (contains(arg, RADIANS)) return { radians: numberOf(defined(arg, true)), degrees: null };
   if (signed.kind !== "number") return fail();
-  return (numberOf(defined(arg)) * Math.PI) / 180;
+  const value = defined(arg);
+  return { radians: (numberOf(value) * Math.PI) / 180, degrees: exactDegrees(value, false) };
 }
 
+/** Whether exact degrees are `offset` plus a whole number of half turns (`270°` for 90). */
+const onHalfTurn = (degrees: Rational, offset: bigint): boolean =>
+  (degrees.n - offset * degrees.d) % (180n * degrees.d) === 0n;
+
 /**
- * A sine or cosine within floating point's own error of 0 is exactly 0 (`cos 90°`): there tan
- * or sec has a pole and is undefined, and the value is an exact 0 (`1 ÷ sin 180°` is undefined,
- * as csc 180° is). One that is only small (`cos 89.99999999999°`, 1.7e-13) is shown as 0 but is
- * no pole: dividing by it leaves no value.
+ * A sine or cosine that is exactly 0 (`cos 90°`) makes tan or sec a pole, undefined, and is an
+ * exact 0 (`1 ÷ sin 180°` is undefined, as csc 180° is). Exact degrees decide it exactly (a
+ * whole number of half turns); an angle in π, within floating point's own error. One that is
+ * only small (`cos 89.99999999999999°`) is shown as 0 but is no pole: dividing by it leaves
+ * no value.
  */
-function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number): LiveValue {
+function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degrees }: Angle): LiveValue {
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   // Relative to the angle: near 0, sin r is r to full precision, so only r = 0 is a zero.
-  const exactZero = (x: number) => Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
+  const nearZero = (x: number) => Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
   const sine = Math.sin(radians);
   const cosine = Math.cos(radians);
+  const sineZero = degrees ? onHalfTurn(degrees, 0n) : nearZero(sine);
+  const cosineZero = degrees ? onHalfTurn(degrees, 90n) : nearZero(cosine);
   const s = zero(sine);
   const c = zero(cosine);
-  if ((fn === "tan" || fn === "sec") && c === 0) atZero(exactZero(cosine) ? ZERO : SMALL);
-  if ((fn === "cot" || fn === "csc") && s === 0) atZero(exactZero(sine) ? ZERO : SMALL);
+  if ((fn === "tan" || fn === "sec") && c === 0) atZero(cosineZero ? ZERO : SMALL);
+  if ((fn === "cot" || fn === "csc") && s === 0) atZero(sineZero ? ZERO : SMALL);
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];
   const snapped = zero(value);
   if (snapped !== 0) return approx(snapped);
   const fromSine = fn === "sin" || fn === "tan";
-  return exactZero(fromSine ? sine : cosine) ? ZERO : SMALL;
+  return (fromSine ? sineZero : cosineZero) ? ZERO : SMALL;
 }
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());

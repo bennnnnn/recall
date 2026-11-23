@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
@@ -33,7 +33,18 @@ const scrollsOf = (node: Scrolled | string): Scrolled[] =>
     ? []
     : [...(node.props.horizontal ? [node] : []), ...(node.children ?? []).flatMap(scrollsOf)];
 
+const atTextSize = (fontScale: number) =>
+  jest.spyOn(Dimensions, "get").mockReturnValue({ width: 390, height: 844, scale: 3, fontScale });
+
 describe("MathLiveAnswer", () => {
+  beforeEach(() => atTextSize(1));
+  afterEach(() => jest.restoreAllMocks());
+
+  it("shows only the values when a larger text size makes the branches taller than the row", async () => {
+    atTextSize(1.3);
+    expect(await shown("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")).toMatch(/^\W*= −2, −1$/);
+  });
+
   it("scrolls an answer wider than its row sideways, centred while it fits", async () => {
     const { getByTestId } = await render(<MathLiveAnswer input={"$123456\\times 7\\pm 98765\\times 4$"} />);
     const [scroll] = scrollsOf(getByTestId("math-live-answer") as unknown as Scrolled);

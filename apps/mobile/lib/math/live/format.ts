@@ -187,13 +187,24 @@ export function formatBranches(branches: LiveBranch[], preferFraction: boolean, 
 }
 
 /** Two or three ±: the distinct values, `= -1,\quad 1,\quad 3` (`≈` kept where a value is rounded). */
-export function formatValues(values: LiveValue[], preferFraction: boolean): LiveAnswer {
+/**
+ * The values the display writes, each with how: two it rounds alike (`10^{20} ± 1`,
+ * `1 ± 10^{-12}`) are written once, the first of them kept.
+ */
+function writtenValues(values: LiveValue[], preferFraction: boolean): { value: LiveValue; shown: Shown }[] {
   const form = oneForm(values, preferFraction);
-  // Two values the display rounds alike (`10^{20} ± 1`, `1 ± 10^{-12}`) are written once.
   const digits = (s: Shown) => s.latex.replace(/^(?:=|\\approx) /, "");
-  const shown = values
-    .map((value) => formatValue(value, form))
-    .filter((s, i, all) => i === 0 || digits(s) !== digits(all[i - 1]!));
+  return values
+    .map((value) => ({ value, shown: formatValue(value, form) }))
+    .filter((v, i, all) => i === 0 || digits(v.shown) !== digits(all[i - 1]!.shown));
+}
+
+/** The values a draft with two or three ± shows, as the composer writes them. */
+export const shownValues = (values: LiveValue[], preferFraction: boolean): LiveValue[] =>
+  writtenValues(values, preferFraction).map((v) => v.value);
+
+export function formatValues(values: LiveValue[], preferFraction: boolean): LiveAnswer {
+  const shown = writtenValues(values, preferFraction).map((v) => v.shown);
   return {
     latex: listed(shown),
     signed: true,

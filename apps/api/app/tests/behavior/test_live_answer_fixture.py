@@ -119,7 +119,9 @@ def test_live_answer_fixture_is_sympys_value() -> None:
     data = _load()
     if os.environ.get("UPDATE_LIVE_ANSWER_FIXTURE"):
         for case in data["cases"]:
-            case["value"] = _sympy_values(case["sympy"]) if case["sympy"] else None
+            # A null ``sympy`` keeps its value: no answer, or one SymPy cannot write.
+            if case["sympy"]:
+                case["value"] = _sympy_values(case["sympy"])
         FIXTURE.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     ids = [case["id"] for case in data["cases"]]
     assert len(ids) == len(set(ids)), "case ids repeat"

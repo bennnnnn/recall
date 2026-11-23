@@ -1,5 +1,5 @@
 import { memo, useMemo, type ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
@@ -31,8 +31,12 @@ const ANSWER_SIZE = 20;
 /** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
 const BRANCH_SIZE = DRAFT_TEXT_SIZE;
 
-/** Whether `latex` at `size`, as `MathText` lays it out, is no taller than the row that clips it. */
-const fitsRow = (latex: string, size: number): boolean => mathHeight(latex, size) <= MATH_LIVE_ANSWER_HEIGHT;
+/**
+ * Whether `latex` at `size`, as `MathText` lays it out and the system text size scales it, is no
+ * taller than the row that clips it.
+ */
+const fitsRow = (latex: string, size: number, fontScale: number): boolean =>
+  mathHeight(latex, size) * fontScale <= MATH_LIVE_ANSWER_HEIGHT;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
@@ -47,13 +51,6 @@ export const mathCardStyles = StyleSheet.create({
   answerBalance: { width: COMPOSER_CONTROL_SIZE },
 });
 
-/**
- * At the bottom of the composer while the math keyboard is open, in the row's middle: the
- * draft's value as each key lands (`= 5` for `3+1×2`, `= undefined` for `1÷0`, both branches
- * of `2±1`), worked on the phone (`lib/math/live/answer.ts`), in the green accent whatever
- * accent the app wears. An answer wider than the row scrolls sideways. Send still asks the
- * server.
- */
 /**
  * The answer's sideways scroll, one per answer shown (its caller keys it): wider than the row,
  * its bar shows once, so a cut edge reads as more to see, again for each new wide answer.
@@ -74,17 +71,25 @@ function AnswerScroll({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * At the bottom of the composer while the math keyboard is open, in the row's middle: the
+ * draft's value as each key lands (`= 5` for `3+1×2`, `= undefined` for `1÷0`, both branches
+ * of `2±1`), worked on the phone (`lib/math/live/answer.ts`), in the green accent whatever
+ * accent the app wears. An answer wider than the row scrolls sideways. Send still asks the
+ * server.
+ */
 export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
   const undefinedWord = t("chat.math_live_undefined");
   const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
   const color = ACCENTS.green[theme.scheme].primary;
+  const { fontScale } = useWindowDimensions();
   const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
   // Branches that echo a tall draft (a fraction in a fraction) show their values alone.
   const latex = useMemo(
-    () => (answer?.short && !fitsRow(answer.latex, size) ? answer.short : answer?.latex),
-    [answer, size],
+    () => (answer?.short && !fitsRow(answer.latex, size, fontScale) ? answer.short : answer?.latex),
+    [answer, size, fontScale],
   );
   return (
     <View

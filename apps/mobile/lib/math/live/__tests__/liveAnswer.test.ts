@@ -30,6 +30,9 @@ describe("liveAnswer", () => {
     ["$0.000001\\times 3$", "= 0.000003"],
     ["$10^{-7}$", "= 0.0000001"],
     ["$123456789012\\times 10$", "= 1234567890120"],
+    // A typed fraction, negative or not, is shown by its decimal: only that is new.
+    ["$-\\frac{3}{4}$", "= -0.75"],
+    ["$-\\frac{1}{3}$", "\\approx -0.3333333333"],
   ])("%s shows %s", (draft, latex) => {
     expect(shown(draft)).toBe(latex);
   });
@@ -112,6 +115,7 @@ describe("liveAnswer", () => {
     ["an undefined inside |x|, which SymPy calls infinite", "$\\left|1\\div 0\\right|$"],
     ["an undefined to the power 0, which SymPy calls 1", "$(1\\div 0)^{0}$"],
     ["a cosine that is only small, not a pole", "$\\tan(89.99999999999)$"],
+    ["a cosine within rounding of 0, not a pole", "$\\tan(89.99999999999999)$"],
     ["a sine that is only small, not a pole", "$\\csc(0.00000000001)$"],
     ["a sine near 0, not a pole", "$\\csc(0.00000000000001)$"],
     ["a log base that only rounds to 1", "$\\log_{1.0000000000000001}(5)$"],
