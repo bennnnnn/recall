@@ -74,8 +74,9 @@ def test_a_lowercase_word_with_another_reading_is_not(token: str) -> None:
     ("text", "answer"),
     [
         ("What is the molarity of 0.25 mol NaCl in 500. mL of solution?", "c = 0.50 mol/L"),
-        ("What is the pH of 0.01 M hcl?", "pH = 2.00"),
-        ("What is the pH of 0.01 M naoh?", "pH = 12.00"),
+        # 0.01 M has one figure, so the pH has one decimal (OpenStax §14.2).
+        ("What is the pH of 0.01 M hcl?", "pH = 2.0"),
+        ("What is the pH of 0.01 M naoh?", "pH = 12.0"),
         ("How many moles are in 36 g of h2o?", "n(H2O) = 2.0 mol"),
         # 3(14.007) + 12(1.008) + 30.974 + 4(15.999) = 149.087
         ("What is the molar mass of (NH4)3PO4?", "M((NH4)3PO4) = 149.09 g/mol"),

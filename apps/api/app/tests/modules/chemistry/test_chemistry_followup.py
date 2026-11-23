@@ -77,7 +77,8 @@ def test_a_followup_after_a_non_chemistry_turn_declines() -> None:
     ("line", "answer"),
     [
         ("what if the concentration doubles", "pH = 1.70"),
-        ("and 0.001 M?", "pH = 3.00"),
+        # 0.001 M has one figure, so its pH has one decimal.
+        ("and 0.001 M?", "pH = 3.0"),
     ],
 )
 def test_chemistry_followup_scales_or_replaces_the_one_given(line: str, answer: str) -> None:

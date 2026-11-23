@@ -77,13 +77,13 @@ def test_a_reaction_question_it_cannot_read_whole_declines(question: str) -> Non
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        ("2H2 + O2 -> 2H2O. How many H2O molecules form from 4 g of H2?", "1.2 × 10^24"),
-        ("how many water molecules form when i burn 4 g of h2", "N(H2O) = 1.2 × 10^24"),
-        ("how many h2o molecules do i get if i burn 4 g of h2", "N(H2O) = 1.2 × 10^24"),
+        ("2H2 + O2 -> 2H2O. How many H2O molecules form from 4 g of H2?", "1 × 10^24"),
+        ("how many water molecules form when i burn 4 g of h2", "N(H2O) = 1 × 10^24"),
+        ("how many h2o molecules do i get if i burn 4 g of h2", "N(H2O) = 1 × 10^24"),
         ("N2 + 3H2 -> 2NH3. How many NH3 molecules from 28 g of N2?", "N(NH3) = 1.2 × 10^24"),
-        ("how many molecules of oxygen are needed to burn 4 g of h2", "N(O2) = 6.0 × 10^23"),
+        ("how many molecules of oxygen are needed to burn 4 g of h2", "N(O2) = 6 × 10^23"),
         # Main's mole answers stay moles.
-        ("2H2 + O2 -> 2H2O. How many H2O form from 4 g of H2?", "n(H2O) = 2.0 mol"),
+        ("2H2 + O2 -> 2H2O. How many H2O form from 4.0 g of H2?", "n(H2O) = 2.0 mol"),
         ("N2 + 3H2 -> 2NH3. How much NH3 is made from 2.0 mol N2?", "n(NH3) = 4.0 mol"),
         ("how many moles of O2 are needed to burn 3.0 mol of CH4? CH4 + 2O2 → CO2 + 2H2O", "6.0"),
         # The oxide a non-table fuel burns to, named.
@@ -91,8 +91,8 @@ def test_a_reaction_question_it_cannot_read_whole_declines(question: str) -> Non
         ("how much SO3 forms when 64 g of SO2 reacts with O2", "m(SO3) = 80 g"),
         # Known asks and the substances they ask.
         ("how much oxygen do i need to burn 16 g methane", "m(O2) = 64 g"),
-        ("OK so how much water do i get if i burn 4 g of h2", "m(H2O) = 36 g"),
-        ("how much water vapour forms when 1 mol of methane burns", "n(H2O) = 2.0 mol"),
+        ("OK so how much water do i get if i burn 4 g of h2", "m(H2O) = 4 × 10^1 g"),
+        ("how much water vapour forms when 1.0 mol of methane burns", "n(H2O) = 2.0 mol"),
     ],
 )
 def test_a_reaction_question_read_whole_is_answered(question: str, answer: str) -> None:

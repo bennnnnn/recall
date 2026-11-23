@@ -163,6 +163,26 @@ def test_scaled_value_writes_the_number_a_student_would(
     assert scaled_value(value, factor) == written
 
 
+@pytest.mark.parametrize(
+    ("literal", "factor", "written"),
+    [
+        ("0.010", 2.0, "0.020"),  # a scaling is exact: the typed figures stay
+        ("2.50", 2.0, "5.00"),
+        ("2", 2.0, "4"),
+        ("20", 0.5, "10"),
+        ("0.010", 0.5, "0.0050"),
+        ("1.0e-5", 2.0, "2.0e-5"),
+        ("3.0e7", 3.0, "9.0e7"),
+        ("0.00006", 2.0, "0.00012"),  # never a digit of the value lost
+        ("7", 3.0, "21"),
+    ],
+)
+def test_scaled_value_keeps_the_figures_it_was_typed_with(
+    literal: str, factor: float, written: str
+) -> None:
+    assert scaled_value(float(literal), factor, literal) == written
+
+
 def _dimension(expression: str | None) -> str | None:
     reading = unit_dimension(expression or "")
     return None if reading is None else reading[0]

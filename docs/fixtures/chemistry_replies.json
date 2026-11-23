@@ -3,7 +3,7 @@
   "replies": {
     "ph_from_hydrogen": {
       "question": "Find pH when [H+] = 0.001",
-      "reply": "**Given**  \n$[\\mathrm{H⁺}] = 0.001\\,\\mathrm{mol/L}$\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Definition of pH formula**  \n$\\mathrm{pH} = -\\log_{10} [\\mathrm{H⁺}]$\n\n**Substitution**  \n$\\mathrm{pH} = -\\log_{10} (0.001)$  \n$\\mathrm{pH} = 3.00$\n\n**Answer**\n\n```answer\n\\mathrm{pH} = 3.00\n```\n"
+      "reply": "**Given**  \n$[\\mathrm{H⁺}] = 0.001\\,\\mathrm{mol/L}$\n\n**Required**  \n$\\mathrm{pH}$\n\n**Solution**\n\n**Definition of pH formula**  \n$\\mathrm{pH} = -\\log_{10} [\\mathrm{H⁺}]$\n\n**Substitution**  \n$\\mathrm{pH} = -\\log_{10} (0.001)$  \n$\\mathrm{pH} = 3.0$\n\n**Answer**\n\n```answer\n\\mathrm{pH} = 3.0\n```\n"
     },
     "molar_mass_water": {
       "question": "What is the molar mass of H2O?",

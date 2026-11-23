@@ -27,16 +27,49 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
-# A measured value has at least one figure; data typed to more than six figures (an atomic
-# mass to the microunit) is more precision than a card spells out.
+# A measured value has at least one figure. An answer has four at most: the reader does not
+# follow a figure count through a difference inside a product (an NMR shift subtracts two
+# six-figure frequencies, 4.00004e8 Hz and 4.00000e8 Hz), so more could claim precision the
+# data lost; four is under-claiming at worst.
 MIN_FIGURES = 1
-MAX_FIGURES = 6
+MAX_FIGURES = 4
 # A tabulated atomic mass's figures, which an average of isotope masses carries.
 TABLE_FIGURES = 4
 # Counts, not measurements: an electron count, a van 't Hoff factor, the atoms of an element
-# in a formula or a neutralization's mole ratio never limits an answer.
+# in a formula, a neutralization's mole ratio, an ion's charge, a shell's number, a phase
+# rule's components and phases, a nucleon count, a Miller index or a reaction's change in gas
+# moles never
+# limits an answer ("pure integers, such as those arising from stoichiometric ratios, are
+# exact numbers", RSC). One figure, read as measured, made 2n^2 for n = 3 "2 x 10^1".
 EXACT_KEYS = frozenset(
-    {"i", "valence", "electrons", "bonding", "nonbonding", "neighbors", "count", "ratio"}
+    {
+        "i",
+        "valence",
+        "electrons",
+        "bonding",
+        "antibonding",
+        "nonbonding",
+        "neighbors",
+        "count",
+        "ratio",
+        "shell_n",
+        "components",
+        "phases",
+        "n_t2g",
+        "n_eg",
+        "charge",
+        "charge_1",
+        "charge_2",
+        "charge_number",
+        "protons",
+        "neutrons",
+        "mass_number",
+        "atomic_number",
+        "delta_n",
+        "miller_h",
+        "miller_k",
+        "miller_l",
+    }
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 # A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.
@@ -68,6 +101,7 @@ _CONVERTIBLE = (
     ("second", "minute", "hour", "day", "year"),
     ("joule", "kilojoule", "calorie", "kilocalorie"),
     ("mole", "millimole"),
+    ("nanometer", "angstrom", "picometer", "meter"),
 )
 
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
@@ -168,11 +202,20 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         *(("species", value) for value in intent.species.values()),
         *(("sample", value) for value in intent.samples),
     ]
+    counts = {
+        value: count
+        for key, value in measured
+        if _exact(intent.chemistry_op, key) and (count := _count_literal(forms.get(value, [])))
+    }
     for key, value in measured:
         reading = _reading(value, forms)
         if reading is None:
             continue
         typed_forms, how = reading
+        if how == "typed" and value in counts and not _exact(intent.chemistry_op, key):
+            # A count of the same value is its own literal: "i = 1" beside "1.00 mol", or
+            # "n = 2" electrons beside "2.0 A", never cuts the measured value to one figure.
+            typed_forms = [form for form in typed_forms if form != counts[value]] or typed_forms
         # A value typed two ways (cathode 0.80 V, anode 0.8 V) cannot be told apart by its
         # value, so neither is echoed; both still limit the answer.
         if how == "typed" and len(typed_forms) == 1:
@@ -188,6 +231,10 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
                 places.append(typed_places)
             if how == "typed" and key in LOG_KEYS:
                 log_places.append(typed_places)
+            elif value == 0:
+                # A zero has no significant figure to give: "0.00" eg electrons or an
+                # entropy of 0 J/(mol·K) limits nothing (it made a CFSE "-2 x 10^2").
+                continue
             elif how == "celsius" or key in CELSIUS_KEYS:
                 # 25 °C is 298 K: adding 273.15 keeps the decimal places, not the figures.
                 kelvin = value if how == "celsius" else value + CELSIUS_OFFSET_K
@@ -213,6 +260,14 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
             "converted": converted,
         }
     )
+
+
+def _count_literal(typed: list[str]) -> str | None:
+    """The whole-number spelling a count takes when its value was typed more than one way
+    ("1" of "1.00" and "1"); None when there is one spelling, shared by count and measure."""
+    if len(typed) < 2:
+        return None
+    return next((form for form in typed if form.isdigit()), None)
 
 
 def _weighted_mean_precision(

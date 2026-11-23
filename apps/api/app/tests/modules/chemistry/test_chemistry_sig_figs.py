@@ -2,7 +2,7 @@
 """Answers keep the precision their question was written in.
 
 Each given's significant figures are read from the text: the answer takes the fewest, as
-chemistry textbooks do (OpenStax Chemistry 2e §1.5; owner, 2026-11-23), one figure to six. A
+chemistry textbooks do (OpenStax Chemistry 2e §1.5; owner, 2026-11-23), one figure to four. A
 typed value is echoed as typed, a pH has as many decimals as its data
 have figures, a sum of givens keeps their decimal places, and a molar mass stays at full
 precision until the answer.
@@ -69,15 +69,15 @@ def test_a_typed_value_keeps_its_trailing_zero() -> None:
     [
         # One significant figure is one: no floor raises it to two.
         ("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?", "n(H2O) = 4 mol H2O"),
-        # Six figures are six; seven are cut to the six a card spells out.
-        ("How many moles are in 36.0400 g of H2O?", "n(H2O) = 2.00056 mol"),
-        ("How many moles are in 36.04000 g of H2O?", "n(H2O) = 2.00056 mol"),
+        # Six figures are cut to four: a figure count is not followed through a difference
+        # inside a product, so more could claim precision the data lost.
+        ("How many moles are in 36.0400 g of H2O?", "n(H2O) = 2.001 mol"),
         (
             "Find the freezing point depression when i=1, Kf=1.86, and molality=0.500",
             "ΔTf = 0.930 °C",
         ),
     ],
-    ids=["one-figure", "six-figures", "seven-figures", "count-does-not-limit"],
+    ids=["one-figure", "ceiling", "count-does-not-limit"],
 )
 def test_the_answer_has_the_fewest_figures_of_the_measured_givens(
     question: str, answer: str
@@ -216,9 +216,9 @@ def test_a_long_literal_is_not_recorded() -> None:
         # 2026-11-06: "4.0 × 18.015 = 71" looked wrong, and the student's "isn't it 72?" was
         # conceded. A value carried into the next line keeps two figures past the answer's.
         (
-            "how many grams of water are made when 8 g of hydrogen gas reacts with enough oxygen",
+            "how many grams of water are made when 8.0 g of hydrogen gas reacts with enough oxygen",
             (
-                "n(H2) = 8 g / 2.016 g/mol = 3.968 mol",
+                "n(H2) = 8.0 g / 2.016 g/mol = 3.968 mol",
                 "m(H2O) = 3.968 mol × 18.015 g/mol = 71 g",
             ),
             "m(H2O) = 71 g",

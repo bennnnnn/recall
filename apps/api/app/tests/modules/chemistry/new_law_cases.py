@@ -289,7 +289,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "Use the phase rule. The component count is 2 and the phase count is 2. "
         "Find the degrees of freedom.",
         "phase_rule",
-        "F = 2.0",
+        "F = 2",
     ),
     (
         "The first concentration is 1.00 M, the first volume is 100 mL, "
@@ -328,13 +328,13 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "the activation enthalpy is 50.0 kJ/mol, and the activation entropy is 0 J/(mol·K). "
         "Find the rate constant.",
         "eyring",
-        "k = 1.2 × 10^4 1/s",
+        "k = 1.23 × 10^4 1/s",
     ),
     (
         "The t2g count is 6.00, the eg count is 0.00, and delta_o is 100.0 kJ/mol. "
         "Find the crystal field stabilization energy.",
         "crystal_field_stabilization",
-        "CFSE = -240 kJ/mol",
+        "CFSE = -240.0 kJ/mol",
     ),
     (
         "The conductivity is 1.00 S/m and the concentration is 0.100 M. "
@@ -364,7 +364,7 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "The bonding electron count is 8 and the antibonding electron count is 4. "
         "Find the bond order.",
         "bond_order",
-        "BO = 2.0",
+        "BO = 2",
     ),
     (
         "The wavelength is 500 nm. Find the wavenumber.",
@@ -487,7 +487,7 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "Use the cubic crystal spacing. The lattice constant is 0.400 nm, "
         "h = 1, k = 1, and l = 1. Find the interplanar spacing.",
         "cubic_spacing",
-        "d = 0.23 nm",
+        "d = 0.231 nm",
     ),
     (
         "Use the lever rule. The alpha composition is 0.200, the beta composition is 0.800, "

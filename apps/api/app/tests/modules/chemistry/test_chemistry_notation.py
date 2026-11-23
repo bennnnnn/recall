@@ -238,7 +238,7 @@ def test_an_ice_formula_is_products_over_reactants() -> None:
 
 
 def test_stoichiometry_prints_this_reaction_ratio() -> None:
-    result = _solve("How many moles of NH3 from 2 mol N2 in N2 + 3 H2 -> NH3?")
+    result = _solve("How many moles of NH3 from 2.0 mol N2 in N2 + 3 H2 -> NH3?")
     assert result.formula == "n(NH3) = n(N2) × (2 / 1)"
     assert result.answer == "n(NH3) = 4.0 mol NH3"
 

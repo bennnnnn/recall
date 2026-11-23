@@ -102,7 +102,7 @@ def test_gas_over_water_accepts_a_degree_sign() -> None:
 
 
 def test_first_order_half_life_uses_the_time_unit_of_k() -> None:
-    result = _solve("Find first-order half-life when k = 0.05 min^-1")
+    result = _solve("Find first-order half-life when k = 0.050 min^-1")
     assert result.answer.endswith(" min")
     assert _first_number(result.answer) == _shown(math.log(2) / 0.05, 2)
 
@@ -112,7 +112,7 @@ def test_first_order_half_life_without_a_unit_is_not_verified() -> None:
 
 
 def test_first_order_concentration_converts_k_to_the_time_unit_of_t() -> None:
-    result = _solve("For a first-order reaction [A]0=1, k=6 min^-1, t=10 s, find [A]")
+    result = _solve("For a first-order reaction [A]0=1.0, k=6.0 min^-1, t=10 s, find [A]")
     assert _first_number(result.answer) == _shown(math.exp(-1.0), 2)
 
 
@@ -122,7 +122,7 @@ def test_zero_order_with_k_per_minute_and_t_in_seconds_is_not_verified() -> None
 
 
 def test_calorimeter_constant_in_kilojoules_is_converted() -> None:
-    result = _solve("Find calorimetry heat when calorimeter constant Ccal=3.2 kJ/C and ΔT=2 C")
+    result = _solve("Find calorimetry heat when calorimeter constant Ccal=3.2 kJ/C and ΔT=2.0 C")
     assert _first_number(result.answer) == pytest.approx(-6400)
 
 
@@ -160,7 +160,7 @@ def test_nernst_temperature_without_a_unit_is_not_replaced_by_25_celsius() -> No
 
 def test_electrolysis_time_in_minutes_is_converted() -> None:
     result = _solve(
-        "Find mass deposited by electrolysis when molar mass=63.55 g/mol, current=2 A, "
+        "Find mass deposited by electrolysis when molar mass=63.55 g/mol, current=2.0 A, "
         "time=60 min, n=2"
     )
     assert _first_number(result.answer) == _shown(63.55 * 2 * 3600 / (2 * 96485.33212), 2)
@@ -190,13 +190,13 @@ def test_a_reactant_is_not_answered_as_a_product() -> None:
 
 
 def test_atoms_are_counted_as_atoms() -> None:
-    result = _solve("How many atoms are in 2 mol of H2O?")
+    result = _solve("How many atoms are in 2.0 mol of H2O?")
     assert result.answer.endswith(" atoms")
     assert _first_number(result.answer) == _shown(2 * 3 * 6.02214076e23, 2)
 
 
 def test_molecules_stay_molecules() -> None:
-    result = _solve("How many molecules are in 2 mol of H2O?")
+    result = _solve("How many molecules are in 2.0 mol of H2O?")
     assert result.answer.endswith(" particles")
     assert _first_number(result.answer) == _shown(2 * 6.02214076e23, 2)
 
@@ -229,12 +229,12 @@ def test_standard_deviation_of_a_sentence_with_a_count_is_not_verified() -> None
 
 
 def test_buffer_addition_reads_the_reagent_that_was_added() -> None:
-    base = _solve("Buffer after adding NaOH: pKa=4.76, HA=0.10 mol, A-=0.10 mol, added=0.02 mol")
+    base = _solve("Buffer after adding NaOH: pKa=4.76, HA=0.10 mol, A-=0.10 mol, added=0.020 mol")
     # pKa = 4.76 has two decimals, so the pH has two.
     assert base.answer == f"pH = {4.76 + math.log10(0.12 / 0.08):.2f}"
     acid = _solve(
         "Buffer after adding strong acid to the conjugate base A-: pKa=4.76, HA=0.10 mol, "
-        "A-=0.10 mol, added=0.02 mol"
+        "A-=0.10 mol, added=0.020 mol"
     )
     assert acid.answer == f"pH = {4.76 + math.log10(0.08 / 0.12):.2f}"
 
@@ -245,7 +245,7 @@ def test_buffer_addition_without_a_reagent_is_not_verified() -> None:
 
 
 def test_michaelis_menten_reads_bracketed_substrate() -> None:
-    assert _solve("Michaelis-Menten Vmax = 10 Km = 2 [S] = 2").answer == "v = 5.0"
+    assert _solve("Michaelis-Menten Vmax = 10 Km = 2.0 [S] = 2.0").answer == "v = 5.0"
 
 
 def test_ir_peak_after_the_word_at() -> None:
@@ -278,7 +278,9 @@ def test_every_common_arrow_splits_and_balances(arrow: str) -> None:
 
 @pytest.mark.parametrize("arrow", ["<=>", "⇌", "-->"])
 def test_reversible_arrows_reach_the_equilibrium_constant(arrow: str) -> None:
-    result = _solve(f"Find Kc for N2 + 3H2 {arrow} 2NH3 when [N2]=0.5 M, [H2]=0.5 M, [NH3]=0.2 M")
+    result = _solve(
+        f"Find Kc for N2 + 3H2 {arrow} 2NH3 when [N2]=0.50 M, [H2]=0.50 M, [NH3]=0.20 M"
+    )
     assert result.answer == "Kc = 0.64"
 
 
@@ -398,7 +400,7 @@ def test_limiting_reagent_reports_a_tie() -> None:
     result = limiting_reagent("H2 + Cl2 -> 2HCl", {"H2": 1.0, "Cl2": 1.0}, "HCl")
     assert result.limiting_reagent == "H2" and result.tied == ("Cl2",)
     verified = _solve(
-        "Find the limiting reagent and moles of HCl from 1 mol H2 and 1 mol Cl2 in H2 + Cl2 -> 2HCl"
+        "Find the limiting reagent and moles of HCl from 1.0 mol H2 and 1.0 mol Cl2 in H2 + Cl2 -> 2HCl"
     )
     assert verified.answer == "Limiting reagent = H2 and Cl2; 2.0 mol HCl"
 
@@ -423,11 +425,12 @@ def test_a_balance_check_compares_the_written_coefficients() -> None:
 
 
 def test_arrhenius_rate_constant_has_the_unit_of_the_frequency_factor() -> None:
-    # k is 19.7; A = 1e10 has one significant figure, so it shows the two-figure floor.
+    # k is 19.7; A = 1e10 has one significant figure, so k has one: 2 x 10^1, as a
+    # textbook writes it ("20" would read as two figures).
     bare = _solve("Use Arrhenius equation with A=1e10, Ea=50 kJ, T=300 K")
-    assert bare.answer == "k = 20"
+    assert bare.answer == "k = 2 × 10^1"
     timed = _solve("Use Arrhenius equation with A=1e10 min^-1, Ea=50 kJ, T=300 K")
-    assert timed.answer == "k = 20 min⁻¹"
+    assert timed.answer == "k = 2 × 10^1 min⁻¹"
 
 
 def test_arrhenius_temperature_in_celsius_is_converted() -> None:
@@ -448,22 +451,23 @@ def test_rate_law_refuses_a_held_second_reactant() -> None:
 
 def test_rate_law_with_only_a_is_first_order() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=2, rate2=4")
-    assert result.answer == "rate = 2.0 [A]"
+    # One-figure rates give k one figure: 2, as a textbook rounds it.
+    assert result.answer == "rate = 2 [A]"
 
 
 def test_rate_law_can_change_the_second_reactant() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=1, rate2=8, b1=1, b2=2")
-    assert result.answer == "rate = 2.0 [B]^2"
+    assert result.answer == "rate = 2 [B]^2"
     # [A] stays 3 while [B] doubles twice, so k is rate1 / [B]^2, not rate1 / [A]^2.
     shifted = _solve("Find the rate law: a1=3, rate1=8, a2=3, rate2=32, b1=2, b2=4")
-    assert shifted.answer == "rate = 2.0 [B]^2"
-    assert shifted.substitution[-1] == "k = rate1 / [B]^2 = 8 / (2)^2 = 2.0"
+    assert shifted.answer == "rate = 2 [B]^2"
+    assert shifted.substitution[-1] == "k = rate1 / [B]^2 = 8 / (2)^2 = 2"
     assert shifted.given[0] == "experiment 1: [A] = 3, [B] = 2, rate = 8"
 
 
 def test_half_equivalence_uses_charge_balance_when_ka_is_not_small() -> None:
     result = _solve(
-        "Weak acid strong base titration: Ma=0.01, Va=1 L, Mb=0.01, Vb=0.5 L, Ka=0.1, find pH"
+        "Weak acid strong base titration: Ma=0.010, Va=1.0 L, Mb=0.010, Vb=0.50 L, Ka=0.10, find pH"
     )
     assert result.answer == "pH = 2.50"
     assert any("charge balance" in line or "c − [H+]" in line for line in result.substitution)
@@ -472,7 +476,7 @@ def test_half_equivalence_uses_charge_balance_when_ka_is_not_small() -> None:
 def test_titration_regions_scale_with_the_amounts() -> None:
     """A 1e-5 mol titration used to be judged by an absolute 1e-6 mol tolerance."""
     half = _solve(
-        "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.005 L, "
+        "Weak acid strong base titration: Ma=0.0010, Va=0.010 L, Mb=0.0010, Vb=0.0050 L, "
         "Ka=1.8e-5, find pH"
     )
     # Ka is about 5% of this buffer, so half-equivalence is the charge-balance root, not pKa.
@@ -514,7 +518,7 @@ def test_a_missing_ice_reactant_is_declined() -> None:
 
 
 def test_an_omitted_ice_product_stays_zero() -> None:
-    result = _solve("Solve the ICE equilibrium for N2O4 <=> 2NO2 when K=0.2 and [N2O4]=0.5")
+    result = _solve("Solve the ICE equilibrium for N2O4 <=> 2NO2 when K=0.20 and [N2O4]=0.50")
     assert "x = 0.14" in result.answer
     assert "[NO2] = 0.27 mol/L" in result.answer
 

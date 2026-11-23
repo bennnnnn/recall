@@ -10,10 +10,12 @@
 - The precision the question asks for wins: decimal places, significant figures, or none.
 
 A 5 rounds up (``school_rounding``). The working ends on the value unrounded; only the card
-rounds, once. A chemistry solver's card is the exception: it keeps the significant figures of
-the question's data, as chemistry textbooks write it (``chemistry.sig_figs``; owner,
-2026-11-23), and only a precision the question asks for rounds it again. Cards had switched between 1.09 × 10⁵ and 109324 for one pressure, as the
+rounds, once. Cards had switched between 1.09 × 10⁵ and 109324 for one pressure, as the
 model or a subject's own policy chose (the owner's chat, 2026-11-18).
+
+A chemistry solver's card is the exception: it keeps the significant figures of the
+question's data, as chemistry textbooks write it (``chemistry.sig_figs``; owner, 2026-11-23),
+and only a precision the question asks for rounds it again.
 """
 
 from __future__ import annotations

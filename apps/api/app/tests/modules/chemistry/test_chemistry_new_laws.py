@@ -393,7 +393,7 @@ def test_an_ions_electron_configuration_is_not_the_atoms() -> None:
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        ("What is the pH of 5 mM HCl?", "pH = 2.30"),
+        ("What is the pH of 5.0 mM HCl?", "pH = 2.30"),
         ("What is the pH of a 250 µM HNO3 solution?", "pH = 3.602"),
         ("How much heat is released when 2.0 mol react if ΔH = -10 kcal/mol?", "q = -84 kJ"),
         (
@@ -535,7 +535,9 @@ def test_hydrate_water_is_an_integer_coefficient() -> None:
         # Zeros that are the number's own digits stay plain.
         (200.0, 2, "200"),
         (16700.0, 3, "16700"),
-        (110.02, 2, "110"),
+        # A zero that is no significant figure is written as a power of ten (OpenStax
+        # §1.5): 110.02 to two figures is 1.1 x 10^2, since "110" would read as three.
+        (110.02, 2, "1.1 × 10^2"),
         # Rounding that replaces a whole number's digits with zeros writes a power of ten.
         (1780.0, 2, "1.8 × 10^3"),
         (125.0, 2, "1.3 × 10^2"),

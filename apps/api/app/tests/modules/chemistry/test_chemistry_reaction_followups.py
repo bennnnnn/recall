@@ -53,7 +53,8 @@ def test_the_live_chats_follow_up_past_numbers_goes_to_the_model() -> None:
     assert _resolved(_LIVE_CHAT, line) is None
     # Asked right after the problem, the same line verifies.
     problem = chemistry_followup_problem(line, _recent(_BURN_H2))
-    assert "Limiting reagent = O2; 18 g H2O" in (_answer(problem) or "")
+    # 4 g and 16 g have one and two figures: 17.87 g of water is 2 x 10^1 g.
+    assert "Limiting reagent = O2; 2 × 10^1 g H2O" in (_answer(problem) or "")
 
 
 @pytest.mark.parametrize(
@@ -174,7 +175,7 @@ def test_a_lowercase_problem_in_between_is_the_one_a_follow_up_changes() -> None
     )
     problem = chemistry_followup_problem("what if it was 3 mol of h2", _recent(*lines))
     assert problem == "how many molecules are in 3 mol of h2"
-    assert "1.8" in (_answer(problem) or "")
+    assert "N(H2) = 2 × 10^24" in (_answer(problem) or "")
 
 
 @pytest.mark.parametrize("between", ["whats a mole again", "lol ok", "wait im confused"])
@@ -183,4 +184,4 @@ def test_lines_with_no_number_are_passed(between: str) -> None:
     problem = chemistry_followup_problem(
         "ok back to the first one. what if i only had 16g of o2", _recent(*lines)
     )
-    assert "18 g H2O" in (_answer(problem) or "")
+    assert "2 × 10^1 g H2O" in (_answer(problem) or "")

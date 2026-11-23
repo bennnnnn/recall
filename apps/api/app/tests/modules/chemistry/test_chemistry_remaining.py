@@ -96,7 +96,7 @@ def test_stoich_and_ice_scenes_are_tables_not_curves() -> None:
     assert len(chain.steps) >= 2
 
     ice = extract_chemistry_intent(
-        "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1"
+        "Solve the ICE equilibrium for N2O4 -> NO2 when K=4.0 and [N2O4]=1.0"
     )
     assert ice is not None
     table = solve_chemistry(ice).scene

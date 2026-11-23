@@ -32,6 +32,7 @@ from app.services.scaled_followup import (
     thrown_at,
     written_owner,
 )
+from app.services.school_rounding import round_figures
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -147,9 +148,34 @@ def _quoted_numbers(text: str) -> set[float]:
     return {float(number) for number in re.findall(r"\d+(?:\.\d+)?", text)}
 
 
-def scaled_value(value: float, factor: float) -> str:
-    """The scaled number as a student would write it: 2 kg doubled is ``4``, not ``4.0``."""
-    return f"{value * factor:.6g}"
+def scaled_value(value: float, factor: float, literal: str | None = None) -> str:
+    """The scaled number as a student would write it: 2 kg doubled is ``4``, not ``4.0``.
+
+    A scaling is exact, so the number keeps the significant figures of ``literal``, the
+    given as typed: 0.010 M doubled is ``0.020``, 2.50 g ``5.00``, never ``0.02``, which
+    would cut a chemistry answer to one figure. It never loses a digit of the value itself."""
+    scaled = value * factor
+    exact = f"{scaled:.6g}"
+    figures = _typed_figures(literal) if literal else 0
+    if not figures or scaled == 0 or not math.isfinite(scaled):
+        return exact
+    # Never fewer figures than the scaled value has: 0.00006 C doubled is 0.00012, not 1e-4.
+    figures = max(figures, _typed_figures(exact))
+    mantissa, exponent = round_figures(scaled, figures)
+    if exponent < _PLAIN_BELOW or exponent >= _PLAIN_FROM:
+        return f"{mantissa:.{figures - 1}f}e{exponent}"
+    return f"{scaled:.{max(figures - 1 - exponent, 0)}f}"
+
+
+# Powers of ten a scaled value is written in full between, as ``:.6g`` writes it.
+_PLAIN_BELOW, _PLAIN_FROM = -4, 6
+
+
+def _typed_figures(literal: str) -> int:
+    """Significant figures of a number as typed: ``0.010`` has 2, ``1.0e-3`` 2, ``200`` 3."""
+    mantissa = re.split(r"[eE]", literal.strip().lstrip("+-\u2212"))[0]
+    digits = mantissa.replace(".", "").lstrip("0")
+    return len(digits) if digits.isdigit() else 0
 
 
 def in_unit(prior: str, unit: str) -> str:
@@ -452,7 +478,10 @@ class GivenRewriter:
         if scaling.thrown and not thrown_at(prior, given, scaling.thrown):
             return None
         rewritten = replace_given(
-            prior, given, scaled_value(given.value, scaling.factor), given.unit
+            prior,
+            given,
+            scaled_value(given.value, scaling.factor, prior[given.start : given.end]),
+            given.unit,
         )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None
 

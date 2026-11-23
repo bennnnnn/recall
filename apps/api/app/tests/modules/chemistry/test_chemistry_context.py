@@ -230,8 +230,8 @@ async def test_build_chemistry_augmentation_ph() -> None:
     )
     assert block is not None
     assert "Verified pH calculation" in block
-    # 0.001 has one significant figure, raised to the two-figure floor: two decimals.
-    assert "pH = 3.00" in block
+    # 0.001 has one significant figure, so its pH has one decimal (OpenStax §14.2).
+    assert "pH = 3.0" in block
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +292,8 @@ async def test_build_chemistry_augmentation_molarity_verified() -> None:
     )
     assert block is not None
     assert "Verified molarity" in block
-    assert "0.2500" in block or "0.25" in block
+    # 0.5 mol and 2 L have one figure each: 0.25 M is 0.3 M.
+    assert "c = 0.3 mol/L" in block
 
 
 async def test_build_chemistry_augmentation_poh() -> None:

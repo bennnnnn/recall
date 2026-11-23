@@ -71,11 +71,11 @@ def test_redox_balance_checks_atoms_and_charge() -> None:
 
 
 def test_explicit_phases_drop_out_of_the_equilibrium_expression() -> None:
-    question = "Find Kc for CaCO3(s) -> CaO(s) + CO2(g) when [CO2]=0.2 M"
+    question = "Find Kc for CaCO3(s) -> CaO(s) + CO2(g) when [CO2]=0.20 M"
     intent = extract_chemistry_intent(question)
     assert intent is not None
     assert intent.chemistry_op == "equilibrium_constant"
-    assert intent.species == {"CO2(g)": 0.2}
+    assert intent.species == {"CO2(g)": 0.20}
     assert solve_chemistry(intent).answer == "Kc = 0.20"
 
 
@@ -91,7 +91,7 @@ def test_beer_lambert_solves_absorptivity_and_path() -> None:
         "Use Beer-Lambert law: absorbance=2, path length=1 cm, concentration=0.02 M, find epsilon"
     )
     path = extract_chemistry_intent(
-        "Use Beer-Lambert law: absorbance=2, epsilon=100, concentration=0.02 M, find path length"
+        "Use Beer-Lambert law: absorbance=2.0, epsilon=100, concentration=0.020 M, find path length"
     )
     assert epsilon is not None and path is not None
     assert solve_chemistry(epsilon).answer == "ε = 100 L/(mol·cm)"
@@ -166,8 +166,8 @@ def test_stoichiometry_chain_converts_moles_and_particles_and_reports_excess() -
     assert grams is not None and particles is not None and limiting is not None
     assert grams.chemistry_op == "mass_stoichiometry"
     assert particles.chemistry_op == "mass_stoichiometry"
-    # 2 mol limits the answer to two figures; 1.2044e24 molecules carry four (1.99995 mol).
-    assert solve_chemistry(grams).answer == "m(H2O) = 36 g"
+    # 2 mol limits the answer to one figure; 1.2044e24 molecules carry four (1.99995 mol).
+    assert solve_chemistry(grams).answer == "m(H2O) = 4 × 10^1 g"
     assert solve_chemistry(particles).answer == "m(H2O) = 36.03 g"
     limited = solve_chemistry(limiting)
     assert any(line.startswith("excess H2 =") for line in limited.substitution)

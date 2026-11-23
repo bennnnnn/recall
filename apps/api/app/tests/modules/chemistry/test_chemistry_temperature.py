@@ -131,8 +131,9 @@ def test_kc_converts_to_kp_at_a_temperature_in_celsius() -> None:
     expected = 0.5 * (0.082057366 * 773.15) ** -2
     assert answer is not None
     mantissa, exponent = answer.split("=")[1].split("× 10^")
-    # Kc = 0.5 has one figure, so the card keeps two.
-    assert float(mantissa) * 10 ** int(exponent) == pytest.approx(expected, rel=0.05)
+    # Kc = 0.5 has one figure, so the card has one: 1.24 x 10^-4 is 1 x 10^-4.
+    assert mantissa.strip() == "1"
+    assert float(mantissa) * 10 ** int(exponent) == pytest.approx(expected, abs=0.5e-4)
 
 
 @pytest.mark.parametrize(

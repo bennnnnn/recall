@@ -92,7 +92,7 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
         "h = 1, k = 0, and l = 0. Find the interplanar spacing."
     )
     assert spacing is not None
-    assert solve_chemistry(spacing).answer == "d = 0.40 nm"
+    assert solve_chemistry(spacing).answer == "d = 0.400 nm"
     spread = extract_chemistry_intent(
         "The diffusion coefficient is 1.00e-9 m^2/s and the time is 10.0 s. "
         "Find the mean-square displacement."

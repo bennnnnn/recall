@@ -40,13 +40,15 @@ def _recent(*problems: str) -> list[tuple[str, str]]:
     return turns
 
 
+# The casual questions type one-figure data ("4 g"), so their answers have one figure, as a
+# textbook rounds them (OpenStax Chemistry 2e §1.5): 35.74 g of water is 4 x 10^1 g.
 @pytest.mark.parametrize(
     ("question", "equation", "answer"),
     [
-        (_BURN_H2, "2 H2 + O2 -> 2 H2O", "m(H2O) = 36 g"),
-        ("how much water do i get if i burn 4 g of hydrogen", "2 H2 + O2 -> 2 H2O", "36 g"),
-        ("how many grams of water form when 4 g of H2 burns in oxygen", "2 H2 + O2", "36 g"),
-        ("4 g of H2 reacts with excess O2. what mass of water is produced?", "2 H2", "36 g"),
+        (_BURN_H2, "2 H2 + O2 -> 2 H2O", "m(H2O) = 4 × 10^1 g"),
+        ("how much water do i get if i burn 4 g of hydrogen", "2 H2 + O2 -> 2 H2O", "4 × 10^1 g"),
+        ("how many grams of water form when 4 g of H2 burns in oxygen", "2 H2 + O2", "4 × 10^1 g"),
+        ("4 g of H2 reacts with excess O2. what mass of water is produced?", "2 H2", "4 × 10^1 g"),
         ("how many grams of CO2 are made when 10.0 g of propane burns", "3 CO2", "29.9 g"),
         (_BURN_CH4, "CH4 + 2 O2 -> CO2 + 2 H2O", "m(O2) = 64 g"),
         ("how many grams of co2 form when 18.0 g of glucose burns", "6 CO2", "26.4 g"),
@@ -58,10 +60,10 @@ def _recent(*problems: str) -> list[tuple[str, str]]:
             "",
             "12 g",
         ),
-        ("how many moles of water form when 2 mol of h2 burns", "2 H2 + O2", "2.0 mol"),
+        ("how many moles of water form when 2 mol of h2 burns", "2 H2 + O2", "= 2 mol"),
         ("how many grams of H2 must burn to make 36 g of water", "2 H2", "m(H2) = 4.0 g"),
         ("how much water if 3.0 g of hydrogen and 16.0 g of oxygen react", "", "= O2; 18 g"),
-        ("4 g of H2 and 16 g of O2 react. Which is the limiting reagent?", "", "= O2; 18 g"),
+        ("4 g of H2 and 16 g of O2 react. Which is the limiting reagent?", "", "= O2; 2 × 10^1 g"),
         (
             "If 4.0 g of H2 reacts with 16.0 g of O2 to make water, which is the limiting "
             "reagent and how many grams of water form?",
@@ -70,7 +72,7 @@ def _recent(*problems: str) -> list[tuple[str, str]]:
             "Limiting reagent = O2; 18 g H2O",
         ),
         ("how many grams of NH3 can be made from 28 g of nitrogen and 6 g of hydrogen", "", "H2"),
-        ("2 g of hydrogen combines with oxygen, how much water", "", "m(H2O) = 18 g"),
+        ("2 g of hydrogen combines with oxygen, how much water", "", "m(H2O) = 2 × 10^1 g"),
         (
             "When 10.0 g of N2 reacts with excess H2, 10.0 g of NH3 forms. What is the percent "
             "yield?",
@@ -219,11 +221,11 @@ def test_substances_named_in_words(text: str, formulas: list[str] | None) -> Non
         ("What mass of CO2 is produced from 10.0 g of C3H8? C3H8 + 5O2 -> 3CO2 + 4H2O", "29.9 g"),
         ("C3H8 + 5O2 -> 3CO2 + 4H2O. Find the mass of CO2 produced from 10.0 g of C3H8.", "29.9 g"),
         # A head that names only the substance asks in the unit the amount is given in.
-        ("2H2 + O2 -> 2H2O. how much H2O from 4 g of H2?", "m(H2O) = 36 g"),
+        ("2H2 + O2 -> 2H2O. how much H2O from 4 g of H2?", "m(H2O) = 4 × 10^1 g"),
         ("N2 + 3H2 -> 2NH3. How much NH3 is made from 2.0 mol N2?", "4.0 mol"),
         # Its substances named in words or lowercase beside the written equation.
-        ("2H2 + O2 -> 2H2O how much water from 4g of h2", "m(H2O) = 36 g"),
-        ("2H2 + O2 -> 2H2O. how many grams of water from 4 g of hydrogen?", "m(H2O) = 36 g"),
+        ("2H2 + O2 -> 2H2O how much water from 4g of h2", "m(H2O) = 4 × 10^1 g"),
+        ("2H2 + O2 -> 2H2O. how many grams of water from 4 g of hydrogen?", "m(H2O) = 4 × 10^1 g"),
         ("C3H8 + 5O2 -> 3CO2 + 4H2O. what mass of co2 from 10.0 g of propane", "29.9 g"),
     ],
 )
@@ -235,20 +237,24 @@ def test_a_written_equation_answers_what_mass_and_how_much(question: str, answer
 @pytest.mark.parametrize(
     ("prior", "line", "answer"),
     [
-        (_BURN_H2, "ok back to the first one. what if i only had 16g of o2", "= O2; 18 g H2O"),
-        (_BURN_H2, "what if i only had 16g of o2", "= O2; 18 g H2O"),
+        (
+            _BURN_H2,
+            "ok back to the first one. what if i only had 16g of o2",
+            "= O2; 2 × 10^1 g H2O",
+        ),
+        (_BURN_H2, "what if i only had 16g of o2", "= O2; 2 × 10^1 g H2O"),
         (_BURN_H2, "what about 10 g instead", "m(H2O) = 89 g"),
         (_BURN_H2, "what if it was 10 g of h2", "m(H2O) = 89 g"),
-        (_BURN_H2, "and 2 mol of h2?", "m(H2O) = 36 g"),
-        (_BURN_H2, "and how much o2 do i need", "m(O2) = 32 g"),
-        (_BURN_H2, "how much oxygen is needed", "m(O2) = 32 g"),
+        (_BURN_H2, "and 2 mol of h2?", "m(H2O) = 4 × 10^1 g"),
+        (_BURN_H2, "and how much o2 do i need", "m(O2) = 3 × 10^1 g"),
+        (_BURN_H2, "how much oxygen is needed", "m(O2) = 3 × 10^1 g"),
         (_BURN_CH4, "what about the co2", "m(CO2) = 44 g"),
         (_BURN_CH4, "and how many grams of water", "m(H2O) = 36 g"),
-        (_BURN_CH4, "what if it was 8 g of ch4", "m(O2) = 32 g"),
+        (_BURN_CH4, "what if it was 8 g of ch4", "m(O2) = 3 × 10^1 g"),
         (
             "2H2 + O2 -> 2H2O. 4 g of H2 and 16 g of O2, how many grams of water?",
             "what about 8 g of o2",
-            "= O2; 9.0 g H2O",
+            "= O2; 9 g H2O",
         ),
     ],
 )
@@ -264,7 +270,7 @@ def test_a_follow_up_finds_the_reaction_two_exchanges_back() -> None:
         "ok back to the first one. what if i only had 16g of o2", recent
     )
     assert problem is not None
-    assert "18 g H2O" in (_answer(problem) or "")
+    assert "2 × 10^1 g H2O" in (_answer(problem) or "")
     assert effective_presentation_subject("what if i only had 16g of o2", recent) == "chemistry"
 
 

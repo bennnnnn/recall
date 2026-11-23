@@ -33,7 +33,7 @@ def test_the_solver_card_carries_the_marker_before_its_value() -> None:
     """One quantity is maths, as every subject's card is; an equation keeps the chemistry
     notation line under the marker."""
     out = validate_chemistry_fences("Strong acid.", verified=_verified(_HCL))
-    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n\\mathrm{{pH}} = 2.00\n```" in out
+    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n\\mathrm{{pH}} = 2.0\n```" in out
     balanced = validate_chemistry_fences("Balanced.", verified=_verified("Balance H2 + O2 -> H2O"))
     assert (
         f"```answer\n{VERIFIED_ANSWER_MARKER}\nnotation: chemistry\n2 H₂ + O₂ → 2 H₂O" in balanced
@@ -44,7 +44,7 @@ def test_wrong_prose_beside_the_card_gets_one_correction_line() -> None:
     prose = "HCl fully dissociates, so [H⁺] = 0.1 M, which gives pH = 1.00 because −log(0.1) = 1."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))
     assert "pH = 1.00" in out
-    correction = "The verified answer is $\\mathrm{pH} = 2.00$."
+    correction = "The verified answer is $\\mathrm{pH} = 2.0$."
     assert out.count(correction) == 1
     assert out.index(correction) < out.index("```answer")
 

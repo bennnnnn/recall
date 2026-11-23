@@ -218,7 +218,7 @@ def test_an_equation_mole_ratio_never_answers_a_heat_question() -> None:
             "ΔTb = 1.02 °C",
         ),
         (
-            "Find the freezing point depression of 0.5 m glucose in water. Kf = 1.86 °C/m.",
+            "Find the freezing point depression of 0.50 m glucose in water. Kf = 1.86 °C/m.",
             "freezing_depression",
             "ΔTf = 0.93 °C",
         ),

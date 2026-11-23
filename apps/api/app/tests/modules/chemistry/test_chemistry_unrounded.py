@@ -26,7 +26,7 @@ def _reply(question: str) -> str:
     ("question", "worked", "card"),
     [
         (
-            "How many grams are in 0.5 mol of NaCl?",
+            "How many grams are in 0.50 mol of NaCl?",
             "$m = 29.22\\,\\mathrm{g}$",
             "m(\\mathrm{NaCl}) = 29\\,\\mathrm{g}",
         ),

@@ -163,7 +163,7 @@ def test_acid_base_readers_take_dilute_solutions_and_stated_constants(
 
 def test_a_ph_of_a_concentration_is_not_a_stated_ph() -> None:
     """ "the pH of 0.01 M HCl" asks the pH; 0.01 is never read as one."""
-    assert _answer("What is the pH of 0.01 M HCl?") == ("strong_acid_ph", "pH = 2.00")
+    assert _answer("What is the pH of 0.010 M HCl?") == ("strong_acid_ph", "pH = 2.00")
     assert extract_chemistry_intent("Find the [OH-] of a solution with pH 4.75") is None
 
 
