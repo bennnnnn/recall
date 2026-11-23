@@ -436,18 +436,26 @@ async def test_a_pass_reads_its_first_line_with_the_question_before_it(context, 
     from app.modules.memory import extract_backlog
 
     rows = [
-        SimpleNamespace(id=uuid4(), created_at=_NOW.replace(minute=i), content=text)
+        SimpleNamespace(id=uuid4(), role="user", created_at=_NOW.replace(minute=i), content=text)
         for i, text in enumerate(said)
     ]
     with (
         patch.object(
             extract_backlog.chat_history, "user_lines_since", AsyncMock(return_value=rows)
         ),
-        patch.object(extract_backlog.chat_history, "replies_between", AsyncMock(return_value=[])),
         patch.object(
             extract_backlog.chat_history,
             "messages_before",
-            AsyncMock(return_value=[SimpleNamespace(role=r, content=c) for r, c in context]),
+            # The messages before the last unread row: the context, then the rows before it.
+            AsyncMock(
+                return_value=[
+                    SimpleNamespace(
+                        id=uuid4(), role=r, content=c, created_at=_NOW.replace(hour=1, minute=i)
+                    )
+                    for i, (r, c) in enumerate(context)
+                ]
+                + rows[:-1]
+            ),
         ),
         patch.object(extract_backlog, "get_redis_client", MagicMock(return_value=_no_cursor())),
     ):

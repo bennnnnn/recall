@@ -53,11 +53,7 @@ def test_a_line_that_only_says_when_teaches_memory_nothing():
 @pytest.mark.asyncio
 async def test_expand_includes_unprocessed_user_lines():
     session = AsyncMock()
-    older = SimpleNamespace(
-        id=uuid4(),
-        created_at=datetime(2026, 9, 3, 10, 0, tzinfo=UTC),
-        content="I'm allergic to peanuts.",
-    )
+    older = _message("user", "I'm allergic to peanuts.", 10, 0)
     newer = SimpleNamespace(
         id=uuid4(),
         created_at=datetime(2026, 9, 3, 10, 1, tzinfo=UTC),
@@ -76,11 +72,8 @@ async def test_expand_includes_unprocessed_user_lines():
         ),
         patch(
             "app.modules.memory.extract_backlog.chat_history.messages_before",
-            AsyncMock(return_value=[SimpleNamespace(role="assistant", content="What can I make?")]),
-        ),
-        patch(
-            "app.modules.memory.extract_backlog.chat_history.replies_between",
-            AsyncMock(return_value=[]),
+            # The messages before the last unread line: the reply before the first, and it.
+            AsyncMock(return_value=[_message("assistant", "What can I make?", 9, 59), older]),
         ),
     ):
         read = await expand_memory_extract_transcript(
@@ -101,57 +94,60 @@ async def test_expand_includes_unprocessed_user_lines():
     assert read.context == (("assistant", "What can I make?"),)
 
 
+def _message(role: str, content: str, hour: int, minute: int) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=uuid4(),
+        role=role,
+        content=content,
+        created_at=datetime(2026, 9, 3, hour, minute, tzinfo=UTC),
+    )
+
+
 @pytest.mark.asyncio
 async def test_a_lagging_pass_reads_each_line_with_the_reply_it_answers():
     """Two unread lines: the second keeps the question asked between them, so a bare "34"
-    answers "How old are you?" (review, #2539)."""
-    base = datetime(2026, 9, 3, 10, 0, tzinfo=UTC)
-    hi = SimpleNamespace(id=uuid4(), created_at=base, content="Hi")
-    asked = SimpleNamespace(
-        id=uuid4(), created_at=base.replace(minute=1), content="Hi! How old are you?"
-    )
-    answer = SimpleNamespace(id=uuid4(), created_at=base.replace(minute=2), content="34")
+    answers "How old are you?" (review, #2539). The chat before them and the replies
+    between them are one read, so the job makes no more round trips."""
+    before = _message("assistant", "Hey! What's up?", 9, 59)
+    hi = _message("user", "Hi", 10, 0)
+    asked = _message("assistant", "Hi! How old are you?", 10, 1)
+    answer = _message("user", "34", 10, 2)
     redis = redis_mock()
     redis.get = AsyncMock(return_value=None)
-    replies = AsyncMock(return_value=[asked])
+    window = AsyncMock(return_value=[before, hi, asked])
     with (
         patch(
             "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=[hi, answer]),
         ),
-        patch("app.modules.memory.extract_backlog.chat_history.replies_between", replies),
         patch(
             "app.modules.memory.extract_backlog.get_redis_client",
             MagicMock(return_value=redis),
         ),
-        patch(
-            "app.modules.memory.extract_backlog.chat_history.messages_before",
-            AsyncMock(return_value=[]),
-        ),
+        patch("app.modules.memory.extract_backlog.chat_history.messages_before", window),
     ):
         read = await expand_memory_extract_transcript(
             AsyncMock(), user_id=uuid4(), chat_id=uuid4(), fallback_transcript="User: 34"
         )
     assert [(line.text, line.asked) for line in read.sources] == [
-        ("Hi", ""),
+        ("Hi", "Hey! What's up?"),
         ("34", "Hi! How old are you?"),
     ]
-    assert replies.await_args.args[2:] == (hi, answer)
+    assert read.context == (("assistant", "Hey! What's up?"),)
+    window.assert_awaited_once()
+    assert window.await_args.args[2] is answer
 
 
 @pytest.mark.asyncio
-async def test_a_failed_replies_read_keeps_the_lines():
-    rows = [
-        SimpleNamespace(id=uuid4(), created_at=datetime(2026, 9, 3, 10, m, tzinfo=UTC), content=t)
-        for m, t in ((0, "Hi"), (2, "I live in Denver"))
-    ]
+async def test_a_failed_window_read_keeps_the_lines():
+    rows = [_message("user", "Hi", 10, 0), _message("user", "I live in Denver", 10, 2)]
     with (
         patch(
             "app.modules.memory.extract_backlog.chat_history.user_lines_since",
             AsyncMock(return_value=rows),
         ),
         patch(
-            "app.modules.memory.extract_backlog.chat_history.replies_between",
+            "app.modules.memory.extract_backlog.chat_history.messages_before",
             AsyncMock(side_effect=RuntimeError("db down")),
         ),
     ):

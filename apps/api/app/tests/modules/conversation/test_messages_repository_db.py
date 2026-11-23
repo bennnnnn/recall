@@ -196,37 +196,3 @@ async def test_put_above_puts_a_late_photo_over_the_reply_in_its_own_chat_only(d
     assert text == f"{marker}\n\nEthiopia lies in the Horn of Africa."
     found = await messages_repo.get_by_id(db_session, reply.id, chat.id)
     assert found is not None and found.content == text
-
-
-@pytest.mark.asyncio
-async def test_list_replies_between_reads_only_the_chats_replies_between_two_messages(
-    db_session,
-):
-    user = await _make_user(db_session)
-    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
-    other = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
-    base = datetime(2026, 1, 1, tzinfo=UTC)
-    said = [
-        ("assistant", "before"),
-        ("user", "Hi"),
-        ("assistant", "How old are you?"),
-        ("user", "34"),
-        ("assistant", "after"),
-    ]
-    rows = [
-        _build_message(
-            chat.id, user.id, created_at=base + timedelta(minutes=i), role=role, content=text
-        )
-        for i, (role, text) in enumerate(said)
-    ]
-    stray = _build_message(
-        other.id, user.id, created_at=base + timedelta(minutes=2), role="assistant", content="x"
-    )
-    db_session.add_all([*rows, stray])
-    await db_session.flush()
-
-    found = await messages_repo.list_replies_between(
-        db_session, chat.id, after=rows[1], before=rows[3], limit=5
-    )
-
-    assert [m.content for m in found] == ["How old are you?"]

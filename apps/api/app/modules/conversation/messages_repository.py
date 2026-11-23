@@ -296,37 +296,6 @@ async def list_range(
     return list(result.scalars().all())
 
 
-async def list_replies_between(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    after: Message,
-    before: Message,
-    limit: int,
-) -> list[Message]:
-    """Up to ``limit`` assistant messages strictly between two messages, oldest first."""
-    if limit <= 0:
-        return []
-    result = await session.execute(
-        select(Message)
-        .where(
-            Message.chat_id == chat_id,
-            Message.role == "assistant",
-            or_(
-                Message.created_at > after.created_at,
-                and_(Message.created_at == after.created_at, Message.id > after.id),
-            ),
-            or_(
-                Message.created_at < before.created_at,
-                and_(Message.created_at == before.created_at, Message.id < before.id),
-            ),
-        )
-        .order_by(Message.created_at.asc(), Message.id.asc())
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
 async def list_before(
     session: AsyncSession,
     chat_id: UUID,
