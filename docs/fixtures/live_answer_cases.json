@@ -1070,6 +1070,13 @@
       "why": "no comma: a decimal comma is not read either"
     },
     {
+      "id": "comma-in-permutation",
+      "draft": "$P(10,000)$",
+      "sympy": null,
+      "value": null,
+      "why": "no comma: 10,000 is not read as a number, and 000 is no k"
+    },
+    {
       "id": "letter",
       "draft": "$x+1$",
       "sympy": null,

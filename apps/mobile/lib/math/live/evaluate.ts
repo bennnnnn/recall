@@ -159,25 +159,27 @@ function choose(n: bigint, k: bigint, ordered: boolean): LiveValue {
   return exact(rational(product / kFactorial));
 }
 
-/** Floating point's rounding steps a value may carry and still be a whole number. */
-const WHOLE_STEPS = 64;
-
-/** Within this many rounding steps of a whole number, a value a long chain of steps reached may be it. */
+/** Within this many rounding steps of a whole number, a value floating point reached may be it. */
 const WHOLE_DOUBT_STEPS = 4096;
 
 /**
- * A floating-point value within its own rounding of a whole number is that number (for ⌊x⌋,
- * ⌈x⌉). Relative to its rounding, not to its size: `10^{10}\pi` is 31415926535.9, not …536. One
- * a little further, still within `WHOLE_DOUBT_STEPS` (`(\sqrt[1000]{2})^{1000}` is 2 + 2.2e-13), may be
- * the whole number or not: no value.
+ * ⌊x⌋ or ⌈x⌉ of a floating-point value. One within its rounding of a whole number (`√2·√2` is
+ * 2.0000000000000004, `(\sqrt[1000]{2})^{1000}` 2 + 2.2e-13, `e^{-40}` 4e-18) may be that number
+ * or not: where the two would round apart there is no value. `10^{10}\pi` is 0.1 past a whole
+ * number, well clear of its rounding: ⌊x⌋ is 31415926535.
  */
-function nearWhole(x: number): number {
-  const rounded = Math.round(x);
-  const off = Math.abs(x - rounded);
-  const step = Number.EPSILON * Math.max(1, Math.abs(x));
-  if (off <= WHOLE_STEPS * step) return rounded;
-  return off <= WHOLE_DOUBT_STEPS * step ? fail() : x;
+function wholeOf(x: number, round: (x: number) => number): number {
+  const whole = Math.round(x);
+  const doubt = Math.abs(x - whole) <= WHOLE_DOUBT_STEPS * Number.EPSILON * Math.max(1, Math.abs(x));
+  return doubt && round(x) !== whole ? fail() : round(x);
 }
+
+/** The float result of + or −: within the operands' rounding of 0 (`√2·√2 − 2`) it is a doubtful 0. */
+const cancelled = (result: number, x: number, y: number): number =>
+  Math.abs(result) <= CANCEL_STEPS * Number.EPSILON * Math.max(Math.abs(x), Math.abs(y)) ? 0 : result;
+
+/** Rounding steps a sum of floats may carry and still be 0. */
+const CANCEL_STEPS = 8;
 
 /** `log_b(x)` exactly when `b^k = x` for a whole `k`, as `log(1000)` or `log_2(8)`. */
 function exactLog(x: Rational, b: Rational): Rational | null {
@@ -414,7 +416,11 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       if (isPercent(node.left) || isPercent(node.right)) fail();
       const a = evaluate(node.left, inAngle);
       const b = evaluate(node.right, inAngle);
-      return node.op === "+" ? combine(a, b, add, (x, y) => x + y) : combine(a, b, sub, (x, y) => x - y);
+      // A float sum that cancels to its operands' rounding is a doubtful 0: dividing by it gives
+      // no value (`1 ÷ (√2·√2 − 2)`), where SymPy, exact, says undefined.
+      return node.op === "+"
+        ? combine(a, b, add, (x, y) => cancelled(x + y, x, y))
+        : combine(a, b, sub, (x, y) => cancelled(x - y, x, y));
     }
     case "mul": {
       const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);
@@ -448,10 +454,7 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
     case "floor":
     case "ceil": {
       const v = defined(node.operand, inAngle);
-      if (v.kind === "approx") {
-        const x = nearWhole(v.x);
-        return approx(node.kind === "floor" ? Math.floor(x) : Math.ceil(x));
-      }
+      if (v.kind === "approx") return approx(wholeOf(v.x, node.kind === "floor" ? Math.floor : Math.ceil));
       const down = floor(v.r);
       return exact(rational(node.kind === "floor" || isInteger(v.r) ? down : down + 1n));
     }

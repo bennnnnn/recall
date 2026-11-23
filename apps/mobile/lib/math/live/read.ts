@@ -264,6 +264,8 @@ class Reader {
     if (number) {
       this.pos += number[0].length;
       if (this.src[this.pos] === ".") this.fail(); // `3.` or `1.2.3`: still being typed
+      // `05` or the `000` of `P(10,000)`: no number is written so; a comma is no separator.
+      if (/^0\d/.test(number[0])) this.fail();
       return { kind: "number", text: number[0] };
     }
     if (c === "(") return this.closed("(", ")");
