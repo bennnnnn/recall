@@ -156,7 +156,8 @@ before/after numbers in the PR (bench: `components/markdown/__tests__/streamFlus
 `STREAM_BENCH=1`). Do not redo them. What is still open:
 
 - MX-2: a fence indented 4+ spaces (steps 10 and up, nested lists) still poisons the segment
-  cuts, because strict passes read it as prose. The worked-region part was left as it was:
+  cuts, because strict passes read it as prose. So does a step line or heading inside a bare or
+  maths fence, which `closeInterruptedMathFences` closes there. The worked-region part was left as it was:
   answer fences already end each region.
 - MX-7: the prefix `startsWith` compares are left (memcmp). An open data fence is classified on
   every flush, because classifying it once would change its result as its body grows.

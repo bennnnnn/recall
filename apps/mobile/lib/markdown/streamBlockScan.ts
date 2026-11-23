@@ -60,6 +60,8 @@ type ScanState = {
   prevLineSafe: boolean;
   inBlankRun: boolean;
   list: OpenList | null;
+  /** The last line was a line of text, not a fence, maths or a blank (`listItemCut`). */
+  prevProse: boolean;
   /** The open fence is indented inside the open list's item, so the list goes on after it. */
   fenceInItem: boolean;
   /**
@@ -82,9 +84,13 @@ function trackBlockLine(state: ScanState, line: string): boolean {
   if (state.fenceInItem && line.trim() && !insideItem(state.list, line)) {
     // A line left of the item's content ends the item, and its fence with it (a fence
     // has no lazy lines): markdown reads this line outside both, a ``` one as an opener.
-    // The list itself is the next item's to keep or end (`listItemCut`), with its flags.
+    // The list goes on only if this line is its next item (`listItemCut` keeps its flags).
     state.openFence = null;
     state.fenceInItem = false;
+    if (state.list && !LIST_LINE_RE.test(line)) {
+      state.list.irregular = true;
+      state.list.ended = true;
+    }
   }
   const before = state.openFence;
   state.openFence = fenceAfterLine(before, line);
@@ -96,9 +102,9 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     // The fence's opener or its closer. One indented inside the open list's item
     // (a numbered step's code) is part of the item: the list goes on after it.
     // A task list stays open too, so it keeps knowing it is one and is not cut (`listItemCut`).
-    // A list a line has already ended or bent (`irregular`: "Then run:" after an item's fence
-    // ends it in markdown) is read as before, its fences at the top level.
-    const inItem = state.list != null && !state.list.irregular && insideItem(state.list, line) &&
+    // A list a line has ended ("Then run:" after an item's fence) reads its fences at the top
+    // level; one a lazy line only bent still holds its item's fence.
+    const inItem = state.list != null && !state.list.ended && insideItem(state.list, line) &&
       (before == null || state.fenceInItem);
     state.fenceInItem = state.openFence != null && inItem;
     state.prevLineSafe = state.openFence == null;
@@ -188,6 +194,7 @@ export function scanClosedBlocks(
     prevLineSafe: false,
     inBlankRun: false,
     list: inherited,
+    prevProse: false,
     fenceInItem: false,
     hasRichBlockSinceChunkStart: false,
   };
@@ -212,7 +219,8 @@ export function scanClosedBlocks(
     const readOnly = nl >= cutEnd;
     if (readOnly && readEnd === cutEnd) break;
     const line = prepared.slice(i, nl);
-    if (!trackBlockLine(state, line)) {
+    const prose = !trackBlockLine(state, line);
+    if (prose) {
       const listBefore = state.list ? { ...state.list } : null;
       const nextItem = listItemCut(state, line);
       if (inherited?.wide) inheritedWide = true;
@@ -238,6 +246,7 @@ export function scanClosedBlocks(
     } else if (pendingList && state.list !== pendingList) {
       settlePending();
     }
+    state.prevProse = prose;
     i = nl + 1;
   }
   settlePending();

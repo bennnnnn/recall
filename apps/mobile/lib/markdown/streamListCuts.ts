@@ -22,10 +22,18 @@ export type OpenList = {
   /** An item so far is a task (`- [ ]`, `- [x]`): how a done one draws reads every item of the
    * list (`listHasOpenTask`), so the list is not cut from here on. Set only when true. */
   task?: true;
+  /** Markdown no longer reads the lines after as this list's items (a line ended it, or it was
+   * text all along): kept only so nothing in it is cut, its fences read at the top level. */
+  ended?: true;
 };
 
 /** What the chunk scan knows about the lines before the one it reads. */
-type ListScan = { list: OpenList | null; inBlankRun: boolean };
+type ListScan = {
+  list: OpenList | null;
+  inBlankRun: boolean;
+  /** The line before was a line of text (a paragraph can go on lazily under it). */
+  prevProse?: boolean;
+};
 
 /**
  * A numbered list's number column is as wide as its largest number. A chunk
@@ -105,6 +113,7 @@ export function listItemCut(state: ListScan, line: string): boolean {
         content: item.content,
         wide: item.number !== null && item.number >= WIDE_NUMBER,
         ...(task ? { task: true as const } : {}),
+        ...(mayBeText ? { ended: true as const } : {}),
       };
       return false;
     }
@@ -124,15 +133,19 @@ export function listItemCut(state: ListScan, line: string): boolean {
   if (CONTINUATION_LINE_RE.test(line)) {
     // Indented less than the item's content, a line is not inside the item:
     // `10. Step` then `   - detail` ends the numbered list in markdown.
-    if (list && columnAfterWhitespace(line) < list.content) list.irregular = true;
+    if (list && columnAfterWhitespace(line) < list.content) {
+      list.irregular = true;
+      list.ended = true;
+    }
     return false;
   }
   if (!list) return false;
   if (state.inBlankRun) {
     state.list = null;
   } else {
-    // A lazy continuation, or a block that ends the list: either way, no cut.
+    // A lazy continuation (under a line of text) or a block that ends the list: either way, no cut.
     list.irregular = true;
+    if (!state.prevProse) list.ended = true;
   }
   return false;
 }

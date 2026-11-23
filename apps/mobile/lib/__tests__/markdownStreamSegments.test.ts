@@ -47,6 +47,15 @@ describe("stream segment cuts", () => {
     expect(cutsOf(nested).state.poisoned).toBe(true);
   });
 
+  it("cuts on after a code fence whose comment looks like a heading", () => {
+    // `# install deps` is a step line to closeInterruptedMathFences, which leaves bash fences alone.
+    const step = (n: number) => `${n}. Run it:\n\n   \`\`\`bash\n   # install deps\n   npm i\n   \`\`\`\n\n   Done ${n}.\n`;
+    const { cuts, state } = cutsOf(`Intro.\n\n${step(1)}\n${step(2)}\n${step(3)}\nEnd.\n`);
+    expect(state.poisoned).toBe(false);
+    expect(cuts.length).toBeGreaterThan(1);
+    expect(cutsOf("Intro.\n\n```\nx = 1\n2. **Next** step\n```\n\nLater.\n\nMore.\n").state.poisoned).toBe(true);
+  });
+
   it("keeps a worked region open across a code fence indented in a list item", () => {
     // A column-0 ```python ends the region (every pass keeps it); one in a list item may still be moved.
     const region = (indent: string) =>

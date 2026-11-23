@@ -37,8 +37,12 @@ const sweep: Reply[] = [chatCode, followups, lifeAdmin, mathScience, wordProblem
 /** A step line inside an indented maths fence: the passes close the fence there (review). */
 const INTERRUPTED: Reply = ["interrupted-indented-math", ["1. **Set up:**", "   ```math", "   x + 2 = 5", "2. **Simplify:** take 2 away.", "   ```", "", "Then we check the result.", "", "$$", "x = 3", "$$", ""].join("\n")];
 
+/** The same at the margin: the passes close a maths fence at a step line whatever its indent. */
+const INTERRUPTED_AT_MARGIN: Reply = ["interrupted-math", ["Set up:", "```math", "x + 2 = 5", "2. **Simplify:** take 2 away.", "```", "", "Then we check the result.", "", "$$", "x = 3", "$$", ""].join("\n")];
+
 const replies: Reply[] = [
   INTERRUPTED,
+  INTERRUPTED_AT_MARGIN,
   ...Object.entries(STREAMING_REPLIES),
   ...Object.entries(physics.replies).map(([name, entry]): Reply => [name, entry.reply]),
   ...Object.entries(chemistry.replies).map(([name, entry]): Reply => [name, entry.reply]),

@@ -339,6 +339,15 @@ describe("advanceStreamBlocks between list items", () => {
     // A lazy line bends a task list; its items after a fence are still that list, never cut.
     const lazyTasks = ["- [x] Install it:", "Then run:", "  ```", "  npm i", "  ```", `- Build ${para}`, `- Test ${para}`, `- [ ] Lint ${para}`, "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, lazyTasks, lazyTasks.length).continued.some(Boolean)).toBe(false);
+    // The same with the fence's body at the margin: that line ends the item, and the next
+    // indented ``` opens a top-level fence that runs to the end: nothing after it is cut.
+    const outdented = ["- [x] Install it:", "Then run:", "  ```", "npm i", "  ```", "- Build", "", `First ${para}`, "", `Second ${para}`].join("\n");
+    const runsFrom = outdented.indexOf("  ```\n- Build");
+    let outEnd = 0;
+    for (const chunk of advanceStreamBlocks(null, outdented, outdented.length).chunks) {
+      outEnd += chunk.length;
+      expect(outEnd > runsFrom).toBe(false);
+    }
     // Under a line of text "2." is that text, not a list (markdown starts one there only at 1):
     // its fence is the top level's and no cut lands inside it.
     const notList = ["Continuing from step 1:", "2. Add the services:", "   ```yaml", "services:", `- web ${para}`, `- db ${para}`, "   ```", "", "Done."].join("\n");
