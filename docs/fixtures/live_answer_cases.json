@@ -1035,6 +1035,13 @@
       "why": "exact degrees short of 90 are no pole: about 5.7e15, too near the edge to show"
     },
     {
+      "id": "difference-near-zero",
+      "draft": "$\\pi-3.14159265358979$",
+      "sympy": null,
+      "value": null,
+      "why": "about 3.2e-15, within floating point's rounding of 0: too near to tell"
+    },
+    {
       "id": "comma-thousands",
       "draft": "$1,000$",
       "sympy": null,

@@ -4,6 +4,18 @@ import { render } from "@testing-library/react-native";
 import { MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
 import { DRAFT_TEXT_SIZE } from "@/lib/math/draftText";
 
+// Each mount of the answer's scroll, so a test sees it start again for each new answer.
+const mockScrollMounts: number[] = [];
+jest.mock("@/components/rich/clippedScroll", () => {
+  const { useState } = jest.requireActual<typeof import("react")>("react");
+  return {
+    useFlashWhenClipped: () => {
+      const [mount] = useState(() => mockScrollMounts.push(mockScrollMounts.length + 1));
+      return { onScrollBeginDrag: () => mount };
+    },
+  };
+});
+
 // `t` that fills in `{{value}}`, so the screen reader's words can be checked.
 jest.mock("react-i18next", () => {
   const words: Record<string, string> = { "chat.math_live_undefined": "undefined", "chat.math_live_answer_a11y": "Answer: {{value}}" };
@@ -69,14 +81,23 @@ describe("MathLiveAnswer", () => {
   });
 
   it("scrolls an answer wider than its row sideways, centred while it fits", async () => {
-    const { getByTestId } = await render(<MathLiveAnswer input={"$123456\\times 7\\pm 98765\\times 4$"} />);
+    const wide = "$123456\\times 7\\pm 98765\\times 4$";
+    const { getByTestId, rerender } = await render(<MathLiveAnswer input={wide} />);
     const [scroll] = scrollsOf(getByTestId("math-live-answer") as unknown as Scrolled);
-    expect(scroll).toBeDefined();
+    expect(scroll?.props).toMatchObject({ horizontal: true, accessible: false, importantForAccessibility: "no" });
     expect(StyleSheet.flatten(scroll!.props.contentContainerStyle as never)).toMatchObject({
       flexGrow: 1,
       alignItems: "center",
       justifyContent: "center",
     });
+    // The flash hook's handlers reach the scroll, and each new answer starts it again, so
+    // its bar flashes once per wide answer.
+    expect((scroll!.props as { onScrollBeginDrag?: unknown }).onScrollBeginDrag).toBeInstanceOf(Function);
+    const mounts = mockScrollMounts.length;
+    await rerender(<MathLiveAnswer input={wide} />);
+    expect(mockScrollMounts.length).toBe(mounts);
+    await rerender(<MathLiveAnswer input={"$123456\\times 8\\pm 98765\\times 4$"} />);
+    expect(mockScrollMounts.length).toBe(mounts + 1);
   });
 
   it("draws a value larger than the draft, and ± branches at the draft's own size", async () => {

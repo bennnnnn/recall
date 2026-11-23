@@ -130,6 +130,7 @@ describe("liveAnswer", () => {
     ["a negative percent in a sum", "$2\\pm -3\\%$"],
     ["a radian angle too big to keep ten digits", "$\\cos(10^{15}\\pi+1)$"],
     ["a divisor that cancels to a doubtful 0", "$\\frac{1}{\\sqrt{2}\\sqrt{2}-2}$"],
+    ["a difference within its rounding of 0", "$\\pi-3.14159265358979$"],
     ["a ceiling of a value only near 0", "$\\lceil e^{-40}\\rceil$"],
     ["a thousands comma in P(n, k)", "$P(10,000)$"],
     ["a number with a leading zero", "$05+1$"],
@@ -268,6 +269,11 @@ describe("liveAnswer", () => {
   it("never calls a sine that is only near 0 exactly 0", () => {
     expect(shown("$\\sin(10^{-13}\\pi)$")).toBeNull();
     expect(shown("$\\frac{\\sin(10^{-13}\\pi)}{10^{-13}\\pi}$")).toBeNull();
+  });
+
+  it("calls two equal floats' difference 0", () => {
+    expect(shown("$\\pi-\\pi$")).toBe("= 0");
+    expect(shown("$\\frac{1}{\\pi-\\pi}$")).toBeNull();
   });
 
   it("works an angle of 0π out exactly", () => {

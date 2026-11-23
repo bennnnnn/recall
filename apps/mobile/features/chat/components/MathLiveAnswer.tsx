@@ -60,6 +60,9 @@ function AnswerScroll({ children }: { children: ReactNode }) {
   return (
     <ScrollView
       {...flash}
+      // The row's View is the one screen-reader stop; on Android a scroll view would be another.
+      accessible={false}
+      importantForAccessibility="no"
       horizontal
       showsHorizontalScrollIndicator
       bounces={false}

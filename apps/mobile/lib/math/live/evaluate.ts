@@ -174,9 +174,15 @@ function wholeOf(x: number, round: (x: number) => number): number {
   return doubt && round(x) !== whole ? fail() : round(x);
 }
 
-/** The float result of + or −: within the operands' rounding of 0 (`√2·√2 − 2`) it is a doubtful 0. */
-const cancelled = (result: number, x: number, y: number): number =>
-  Math.abs(result) <= CANCEL_STEPS * Number.EPSILON * Math.max(Math.abs(x), Math.abs(y)) ? 0 : result;
+/**
+ * The float result of + or −. One that cancels to within its operands' rounding (`√2·√2 − 2`,
+ * `π − 3.14159265358979`) may be 0 or a tiny number floating point cannot tell: no value. Two
+ * equal floats (`π − π`) are 0, though only as a float: dividing by it still gives none.
+ */
+function cancelled(result: number, x: number, y: number): number {
+  if (result === 0) return 0;
+  return Math.abs(result) <= CANCEL_STEPS * Number.EPSILON * Math.max(Math.abs(x), Math.abs(y)) ? fail() : result;
+}
 
 /** Rounding steps a sum of floats may carry and still be 0. */
 const CANCEL_STEPS = 8;
