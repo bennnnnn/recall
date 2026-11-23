@@ -126,6 +126,8 @@ export function collectClosedFenceBodies(text: string, lang: string): string[] {
 /** Closed fences whose language (``parseFenceLang``) is ``lang``. */
 function closedLangFences(text: string, lang: string): FenceSpan[] {
   const want = lang.toLowerCase();
+  // A fence names its language in the text: with no mention there is nothing to scan for.
+  if (!mentionsWord(text, want)) return [];
   return scanFences(text).filter((span) => span.closed && parseFenceLang(span.info) === want);
 }
 
@@ -176,7 +178,7 @@ export function dropFences(text: string, drop: (span: FenceSpan) => boolean): st
 export function stripLangFence(text: string, lang: string): string {
   const want = lang.toLowerCase();
   // A fence names its language in the text: with no mention there is nothing to scan for.
-  if (!text.toLowerCase().includes(want)) return text;
+  if (!mentionsWord(text, want)) return text;
   return dropFences(text, (span) => parseFenceLang(span.info) === want);
 }
 
@@ -244,6 +246,35 @@ export type FenceSpan = {
  * reads a fence indented 4+ spaces, as in a list item.
  */
 export function scanFences(text: string, loose = false): FenceSpan[] {
+  // A reply's row asks for its fences several times on each flush (sources, cards, the
+  // clock, each strip): the last texts read are read once.
+  const memo = loose ? LOOSE_SCANS : STRICT_SCANS;
+  const known = memo.find((entry) => entry.text === text);
+  if (known) return known.spans.slice();
+  const spans = readFences(text, loose);
+  memo.unshift({ text, spans });
+  memo.length = Math.min(memo.length, SCAN_MEMO_SIZE);
+  return spans.slice();
+}
+
+type ScanMemo = { text: string; spans: readonly FenceSpan[] }[];
+const SCAN_MEMO_SIZE = 3;
+const STRICT_SCANS: ScanMemo = [];
+const LOOSE_SCANS: ScanMemo = [];
+
+/** A word in `text` in any case: the gate before a scan for a fence that names it. */
+export function mentionsWord(text: string, word: string): boolean {
+  let pattern = WORD_PATTERNS.get(word);
+  if (!pattern) {
+    // `iu`: every text `parseFenceLang` lower-cases to `word` holds it (a Kelvin sign is a k).
+    pattern = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "iu");
+    WORD_PATTERNS.set(word, pattern);
+  }
+  return pattern.test(text);
+}
+const WORD_PATTERNS = new Map<string, RegExp>();
+
+function readFences(text: string, loose: boolean): FenceSpan[] {
   const read = loose ? readFenceMarkerLoose : readFenceMarker;
   const lines = text.split("\n");
   const starts: number[] = [];
@@ -270,7 +301,7 @@ export function scanFences(text: string, loose = false): FenceSpan[] {
     }
     const last = close < 0 ? lines.length - 1 : close;
     const bodyStart = Math.min(text.length, starts[i]! + lines[i]!.length + 1);
-    spans.push({
+    spans.push(Object.freeze({
       info: marker.info,
       body: lines.slice(i + 1, close < 0 ? lines.length : close).join("\n"),
       start: starts[i]!,
@@ -278,7 +309,7 @@ export function scanFences(text: string, loose = false): FenceSpan[] {
       bodyStart,
       bodyEnd: close < 0 ? text.length : starts[close]!,
       closed: close >= 0,
-    });
+    }));
     i = last + 1;
   }
   return spans;

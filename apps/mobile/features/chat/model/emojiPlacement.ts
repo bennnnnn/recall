@@ -8,7 +8,7 @@
  * cases (`docs/fixtures/emoji_placement_cases.json`), so the draft is already the
  * reply that will be saved.
  */
-import { fencedLines } from "@/lib/fence/scan";
+import { fenceAfterLine, fencedLines, type OpenFence } from "@/lib/fence/scan";
 import { normalizeEmojiUse } from "@/lib/responseTone";
 
 // The server's `prompt_constants.routing.EMOJI` (emoji, flags and their joiners), as
@@ -154,6 +154,12 @@ function leadingEmoji(line: string): string {
   return rest ? `${lead}${emoji} ${rest}` : line;
 }
 
+/** One line placed: a fenced line, a table row and a line with no emoji stay as they are. */
+function placeLine(line: string, fenced: boolean, use: string): string {
+  if (fenced || line.trimStart().startsWith("|") || !EMOJI.test(line)) return line;
+  return use === "off" ? withoutEmoji(line) : leadingEmoji(line);
+}
+
 /** `text` with its emoji where `level` puts them (the server's `place_emoji`). */
 export function placeEmoji(text: string, level: string | null | undefined, userWroteEmoji: boolean): string {
   const use = normalizeEmojiUse(level);
@@ -162,11 +168,59 @@ export function placeEmoji(text: string, level: string | null | undefined, userW
   const fenced = fencedLines(text);
   return text
     .split("\n")
-    .map((line, index) => {
-      if (fenced[index] || line.trimStart().startsWith("|") || !EMOJI.test(line)) return line;
-      return use === "off" ? withoutEmoji(line) : leadingEmoji(line);
-    })
+    .map((line, index) => placeLine(line, fenced[index] === true, use))
     .join("\n");
+}
+
+/**
+ * The lines of the draft placed so far. A draft only grows, so each flush
+ * places its new lines, not the whole reply again: `placeEmoji` is line by
+ * line, given whether a fence holds the line and whether a lesson heading is
+ * anywhere in the text.
+ */
+type PlacedLines = {
+  use: string;
+  /** Raw text of the lines placed, each with its line break. */
+  raw: string;
+  placed: string;
+  /** The fence open after them (`fencedLines`, loose). */
+  open: OpenFence | null;
+  lesson: boolean;
+};
+
+let placedDraft: PlacedLines | null = null;
+
+/** `placeEmoji(content, …)` for a draft, from the lines its last flush placed. */
+function placeGrowingDraft(content: string, use: string): string {
+  let done = placedDraft;
+  if (!done || done.use !== use || !content.startsWith(done.raw)) {
+    done = { use, raw: "", placed: "", open: null, lesson: false };
+  }
+  const placeFrom = (from: number, state: { open: OpenFence | null; lesson: boolean }, upTo: number) => {
+    let placed = "";
+    for (let at = from; at < upTo; ) {
+      const nl = content.indexOf("\n", at);
+      const end = nl < 0 || nl >= upTo ? upTo : nl;
+      const line = content.slice(at, end);
+      const before = state.open;
+      state.open = fenceAfterLine(before, line, true);
+      if (LESSON.test(line)) state.lesson = true;
+      placed += placeLine(line, before != null || state.open != null, use) + (end < upTo ? "\n" : "");
+      at = end + 1;
+    }
+    return placed;
+  };
+  const lineEnd = content.lastIndexOf("\n") + 1;
+  if (lineEnd > done.raw.length) {
+    const state = { open: done.open, lesson: done.lesson };
+    const placed = done.placed + placeFrom(done.raw.length, state, lineEnd);
+    done = { use, raw: content.slice(0, lineEnd), placed, open: state.open, lesson: state.lesson };
+  }
+  placedDraft = done;
+  const tailState = { open: done.open, lesson: done.lesson };
+  const tail = placeFrom(lineEnd, tailState, content.length);
+  if (use === "some" && tailState.lesson) return content;
+  return done.placed + tail;
 }
 
 /** The streaming draft as the saved reply will read, for the user who asked `priorUserText`. */
@@ -176,5 +230,7 @@ export function placeLiveEmoji(
   priorUserText: string | null,
 ): string | undefined {
   if (!content) return content;
-  return placeEmoji(content, level, EMOJI.test(priorUserText ?? ""));
+  const use = normalizeEmojiUse(level);
+  if (use === "more" || (use === "off" && EMOJI.test(priorUserText ?? ""))) return content;
+  return placeGrowingDraft(content, use);
 }

@@ -20,6 +20,23 @@ describe("placeLiveEmoji", () => {
     expect(placeLiveEmoji("Hey bini 👋", "off", "hi 👋")).toBe("Hey bini 👋");
   });
 
+  it("places every flush of a growing draft as placing the whole draft does (audit MX-4)", () => {
+    const fenced = "Steps 🧠\n\n```js\nconst x = \"🚀 go\";\n```\n\n## 🎯 Goal\n- 🔥 **Fast** wins 🎉\n| a 🌟 | b |\n";
+    const drafts = [
+      ...cases.map((c) => [c.text, c.level, c.user_wrote_emoji ? "hi 👋" : "hi"] as const),
+      [`${fenced}Then a line Lesson 2 🎉\n### Lesson 2: Loops 🔁\nmore 😀`, "some", "hi"] as const,
+      [`${fenced}~~~\n\`\`\`\n🚀 inside\n~~~\nafter 🚀 Done`, "off", "hi"] as const,
+    ];
+    for (const [text, level, prior] of drafts) {
+      for (const step of [1, 3, 17]) {
+        for (let end = 1; end < text.length + step; end += step) {
+          const draft = text.slice(0, Math.min(end, text.length));
+          expect(placeLiveEmoji(draft, level, prior)).toBe(placeEmoji(draft, level, prior.includes("👋")));
+        }
+      }
+    }
+  });
+
   it("leaves an empty draft alone", () => {
     expect(placeLiveEmoji(undefined, "some", null)).toBeUndefined();
     expect(placeLiveEmoji("", "some", null)).toBe("");
