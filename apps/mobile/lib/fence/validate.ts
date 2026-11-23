@@ -8,11 +8,12 @@
 
 import { isJsonRecord } from "@/lib/fence/json";
 
+/** Its message is the refusal's reason, empty for a plain one. */
 class Refused extends Error {}
 
-/** Refuse the fence being read. */
-export function refuse(): never {
-  throw new Refused();
+/** Refuse the fence being read; `reason` names a refusal `guardReason` tells apart. */
+export function refuse(reason?: string): never {
+  throw new Refused(reason);
 }
 
 /** `read()`, or null when it refused the fence; any other error is a bug and still throws. */
@@ -21,6 +22,16 @@ export function guard<T>(read: () => T): T | null {
     return read();
   } catch (error) {
     if (error instanceof Refused) return null;
+    throw error;
+  }
+}
+
+/** As `guard`, but a refusal keeps its reason: `{ refused: "undefined" }` (`lib/math/live/evaluate.ts`). */
+export function guardReason<T>(read: () => T): { value: T } | { refused: string | undefined } {
+  try {
+    return { value: read() };
+  } catch (error) {
+    if (error instanceof Refused) return { refused: error.message || undefined };
     throw error;
   }
 }

@@ -13,7 +13,7 @@
  * radians, and a bare number is degrees (`\sin(30)` is ½, the school shorthand the server
  * keeps). An angle that is none of these (`\sin(1+1)`) gives no value.
  */
-import { guard, refuse } from "@/lib/fence/validate";
+import { guardReason, refuse } from "@/lib/fence/validate";
 import type { LiveFunction, LiveNode } from "@/lib/math/live/read";
 import {
   add,
@@ -38,12 +38,10 @@ export type LiveResult = LiveValue | { kind: "undefined" };
 /** No value: the calculation is not one real number. */
 const fail = (): never => refuse();
 
-class Undefined extends Error {}
+const UNDEFINED_REASON = "undefined";
 
 /** Undefined: no number at all, real or not (`1 ÷ 0`, `tan 90°`, `log 0`). */
-const undefinedValue = (): never => {
-  throw new Undefined();
-};
+const undefinedValue = (): never => refuse(UNDEFINED_REASON);
 
 /** The largest n in n!, nCk and nPk. */
 const MAX_COUNT = 170;
@@ -301,10 +299,7 @@ const UNDEFINED: LiveResult = { kind: "undefined" };
 
 /** The calculation's value, `undefined` when it has none, `null` when it is not one real number. */
 export function evaluateCalculation(node: LiveNode): LiveResult | null {
-  try {
-    return guard(() => evaluate(node));
-  } catch (error) {
-    if (error instanceof Undefined) return UNDEFINED;
-    throw error;
-  }
+  const read = guardReason(() => evaluate(node));
+  if ("value" in read) return read.value;
+  return read.refused === UNDEFINED_REASON ? UNDEFINED : null;
 }
