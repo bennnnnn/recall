@@ -68,13 +68,34 @@ def _marked(message: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _last_reply_index(messages: list[dict[str, Any]]) -> int | None:
-    """The last assistant message before the turn's own user line, if the prompt ends so."""
-    if not messages or messages[-1].get("role") != "user":
+    """The last assistant message before the turn's own user line, if the prompt ends so.
+
+    A tool round's second call ends with the round (the reply's tool-call message, the
+    tool results, the notes they bring); the turn's line is the one before them, so the
+    mark stays where the first call wrote it and that call's cache is read.
+    """
+    line = _turn_line_index(messages)
+    if line is None:
         return None
-    for index in range(len(messages) - 2, 1, -1):
+    for index in range(line - 1, 1, -1):
         role = messages[index].get("role")
         if role == "assistant":
             return index
         if role == "user":
             return None
     return None
+
+
+def _turn_line_index(messages: list[dict[str, Any]]) -> int | None:
+    """The turn's user line: the last message, or the last one before a tool round."""
+    index = len(messages) - 1
+    while index >= 0 and _in_tool_round(messages[index]):
+        index -= 1
+    if index < 0 or messages[index].get("role") != "user":
+        return None
+    return index
+
+
+def _in_tool_round(message: dict[str, Any]) -> bool:
+    role = message.get("role")
+    return role in ("tool", "system") or (role == "assistant" and bool(message.get("tool_calls")))

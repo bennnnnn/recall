@@ -365,6 +365,64 @@ async def test_a_backlog_folds_a_window_at_a_time():
     assert chat.summary_message_count == 40
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("count", "queued"), [(500, True), (60, False)])
+async def test_a_backlog_queues_its_next_window_until_it_drains(count, queued):
+    """One run folds one window; while more waits the job queues the next run, after the
+    lock is released, or the prompt keeps sliding and the rows between the summary's edge
+    and its window are in neither."""
+    chat = MagicMock()
+    chat.summary = None
+    chat.summary_message_count = 0
+    session = fake_session(get=AsyncMock(return_value=chat))
+    redis = _fake_redis()
+    order: list[str] = []
+    redis.eval = AsyncMock(side_effect=lambda *_a, **_k: order.append("release") or 1)
+    enqueue = AsyncMock(side_effect=lambda *_a, **_k: order.append("enqueue"))
+    chat_id, user_id = uuid4(), uuid4()
+    with ExitStack() as stack:
+        for p in _over_window_patches(session, AsyncMock(return_value="SUMMARY"), count=count):
+            stack.enter_context(p)
+        stack.enter_context(
+            patch("app.modules.chat.compaction.get_redis_client", return_value=redis)
+        )
+        stack.enter_context(patch("app.modules.chat.compaction.jobs.enqueue", enqueue))
+        stack.enter_context(
+            patch("app.modules.conversation.history.get_chat", AsyncMock(return_value=chat))
+        )
+        await compaction.compress_chat_history(_OVER_WINDOW, chat_id, user_id=user_id)
+    if not queued:
+        enqueue.assert_not_awaited()
+        return
+    assert order == ["release", "enqueue"]
+    args = enqueue.await_args
+    assert args.args[1:] == ("compress", {"chat_id": str(chat_id), "user_id": str(user_id)})
+    assert args.kwargs["dedupe_key"].startswith(f"compress:{chat_id}")
+
+
+@pytest.mark.asyncio
+async def test_a_backlog_fold_saved_by_no_one_queues_nothing():
+    """A fold another run already saved (or a chat deleted meanwhile) leaves the next
+    window to that run: nothing more is queued here."""
+    chat = MagicMock()
+    chat.summary = None
+    chat.summary_message_count = 0
+    fold = compaction._Fold(None, [], 0, 40, more=True)
+    enqueue = AsyncMock()
+    with (
+        patch("app.modules.chat.compaction.get_redis_client", return_value=_fake_redis()),
+        patch("app.modules.chat.compaction._pending_fold", AsyncMock(return_value=fold)),
+        patch(
+            "app.modules.chat.compaction.summarize_conversation",
+            AsyncMock(return_value="SUMMARY"),
+        ),
+        patch("app.modules.chat.compaction._save_summary", AsyncMock(return_value=False)),
+        patch("app.modules.chat.compaction.jobs.enqueue", enqueue),
+    ):
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4(), user_id=uuid4())
+    enqueue.assert_not_awaited()
+
+
 def _rows(count: int) -> list[SimpleNamespace]:
     """A chat whose replies are long: the user's short lines, each answered at length."""
     return [
@@ -537,3 +595,28 @@ async def test_a_regenerated_reply_stays_out_of_the_anchored_history():
 
     assert [m.id for m in window.recent] == [m.id for m in rows[:-1]]
     assert window.anchored
+
+
+@pytest.mark.asyncio
+async def test_a_regenerated_reply_does_not_count_against_the_anchored_caps():
+    """The old reply is not sent, so it cannot be the row that tips the history past the
+    message cap (or the token budget) and makes the prompt slide."""
+    rows = _short_rows(10)
+    old_reply = rows[-1]
+    chat = Chat(id=uuid4(), user_id=uuid4(), summary=None, summary_message_count=0)
+    from app.modules.chat.prompt_context import load_anchored_history
+
+    kept = await load_anchored_history(
+        chat.id,
+        chat,
+        rows,
+        loaded_limit=20,
+        budget=32_000,
+        max_count=9,
+        current_user_message_id=None,
+        prior_count=len(rows),
+        omit_message_ids={old_reply.id},
+    )
+
+    assert kept is not None
+    assert [m.id for m in kept] == [m.id for m in rows[:-1]]

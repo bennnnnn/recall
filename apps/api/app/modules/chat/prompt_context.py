@@ -380,7 +380,9 @@ async def load_anchored_history(
         return None
     skip_ids = {message.id for message in persisted[: max(0, summarized - first)]}
     missing = max(0, first - summarized)
-    kept = [message for message in window if message.id not in skip_ids]
+    # A regenerate's old reply is left out before the caps are checked: it is not sent.
+    dropped = skip_ids | set(omit_message_ids or ())
+    kept = [message for message in window if message.id not in dropped]
     if missing + len(kept) > max_count or not fits_whole(kept, budget, max_count):
         return None
     older: list[Any] = []

@@ -88,6 +88,20 @@ def test_the_history_mark_goes_on_the_last_reply_before_the_turns_line() -> None
     assert [marked[i] for i in unmarked] == [_HISTORY[i] for i in unmarked]
 
 
+def test_a_tool_rounds_second_call_keeps_the_history_mark() -> None:
+    """The second call of a turn that searched ends with the round, not the turn's line;
+    the mark stays on the reply the first call marked, so that call's cache is read."""
+    second_call: list[dict[str, Any]] = [
+        *_HISTORY,
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1"}]},
+        {"role": "tool", "tool_call_id": "1", "content": "results"},
+        {"role": "system", "content": "Answer from the results."},
+    ]
+    marked = with_cache_breakpoint(second_call, model_catalog.get("free-chat"), history=True)
+    assert marked[5]["content"][0]["cache_control"] == EPHEMERAL
+    assert marked[8:] == second_call[8:]
+
+
 def test_the_history_mark_is_off_unless_asked() -> None:
     marked = with_cache_breakpoint(_HISTORY, model_catalog.get("free-chat"))
     assert marked[1:] == _HISTORY[1:]
