@@ -392,6 +392,16 @@ describe("advanceStreamBlocks between list items", () => {
       ruledEnd += chunk.length;
       expect(ruledEnd > ruledOpens && ruledEnd <= ruledCloses).toBe(false);
     }
+    // The same after an item's fence indented 4 spaces, which only the loose reader sees.
+    const fourSpace = ["- Install the tools:", "    ```bash", "    npm i", "    ```", "Then run:", "  ```bash", "npm run build", "",
+      `npm test ${para}`, "", `npm run lint ${para}`, "  ```", "", "Done."].join("\n");
+    const fourOpens = fourSpace.indexOf("  ```bash\nnpm run build");
+    const fourCloses = fourSpace.lastIndexOf("  ```");
+    let fourEnd = 0;
+    for (const chunk of advanceStreamBlocks(null, fourSpace, fourSpace.length).chunks) {
+      fourEnd += chunk.length;
+      expect(fourEnd > fourOpens && fourEnd <= fourCloses).toBe(false);
+    }
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);

@@ -65,6 +65,8 @@ type ScanState = {
   list: OpenList | null;
   /** The last line was a line of text, not a fence, maths or a blank (`listItemCut`). */
   prevProse: boolean;
+  /** A fence as the loose reader reads them (one indented 4+ spaces in an item too). */
+  looseFence: OpenFence | null;
   /** The open fence is indented inside the open list's item, so the list goes on after it. */
   fenceInItem: boolean;
   /**
@@ -200,6 +202,7 @@ export function scanClosedBlocks(
     inBlankRun: false,
     list: inherited,
     prevProse: false,
+    looseFence: null,
     fenceInItem: false,
     hasRichBlockSinceChunkStart: false,
   };
@@ -224,6 +227,10 @@ export function scanClosedBlocks(
     const readOnly = nl >= cutEnd;
     if (readOnly && readEnd === cutEnd) break;
     const line = prepared.slice(i, nl);
+    // A line of a fence only the loose reader sees (4+ spaces in an item) is code, not text.
+    const looseBefore = state.looseFence;
+    state.looseFence = fenceAfterLine(looseBefore, line, true);
+    const inLooseFence = looseBefore != null || state.looseFence != null;
     const prose = !trackBlockLine(state, line);
     if (prose) {
       const listBefore = state.list ? { ...state.list } : null;
@@ -251,8 +258,8 @@ export function scanClosedBlocks(
     } else if (pendingList && state.list !== pendingList) {
       settlePending();
     }
-    // Only paragraph text goes on lazily under it: not a heading, table row, rule or underline.
-    state.prevProse = prose && !NOT_PARAGRAPH_RE.test(line);
+    // Only paragraph text goes on lazily under it: not a heading, table row, rule, underline or code.
+    state.prevProse = prose && !inLooseFence && !NOT_PARAGRAPH_RE.test(line);
     i = nl + 1;
   }
   settlePending();
