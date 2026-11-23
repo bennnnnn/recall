@@ -35,41 +35,15 @@ MIN_FIGURES = 1
 MAX_FIGURES = 4
 # A tabulated atomic mass's figures, which an average of isotope masses carries.
 TABLE_FIGURES = 4
-# Counts, not measurements: an electron count, a van 't Hoff factor, the atoms of an element
-# in a formula, a neutralization's mole ratio, an ion's charge, a shell's number, a phase
-# rule's components and phases, a nucleon count, a Miller index or a reaction's change in gas
-# moles never
-# limits an answer ("pure integers, such as those arising from stoichiometric ratios, are
-# exact numbers", RSC). One figure, read as measured, made 2n^2 for n = 3 "2 x 10^1".
+# Counts, not measurements, never limit an answer: an electron count, a van 't Hoff factor,
+# the atoms of an element in a formula, a mole ratio, an ion's charge, a shell's n, a phase
+# rule's components and phases, a nucleon count, a Miller index, a change in gas moles
+# ("pure integers, such as those arising from stoichiometric ratios, are exact numbers",
+# RSC). Read as measured, n = 3 made 2n^2 "2 x 10^1".
 EXACT_KEYS = frozenset(
-    {
-        "i",
-        "valence",
-        "electrons",
-        "bonding",
-        "antibonding",
-        "nonbonding",
-        "neighbors",
-        "count",
-        "ratio",
-        "shell_n",
-        "components",
-        "phases",
-        "n_t2g",
-        "n_eg",
-        "charge",
-        "charge_1",
-        "charge_2",
-        "charge_number",
-        "protons",
-        "neutrons",
-        "mass_number",
-        "atomic_number",
-        "delta_n",
-        "miller_h",
-        "miller_k",
-        "miller_l",
-    }
+    "i valence electrons bonding antibonding nonbonding neighbors count ratio shell_n "
+    "components phases n_t2g n_eg charge charge_1 charge_2 charge_number protons neutrons "
+    "mass_number atomic_number delta_n miller_h miller_k miller_l".split()
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 # A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.

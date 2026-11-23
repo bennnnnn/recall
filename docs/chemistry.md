@@ -328,10 +328,15 @@ formats every number from that record:
   carried two figures further and never fewer than four (`m = 35.74 g` over a card of
   `4 × 10¹ g`), so a student sees what was rounded and the card rounds once. A row stays
   rounded only when a later row works with that rounded value. A count (an electron number,
-  a van 't Hoff factor, a Hess's-law multiplier, a balanced equation's coefficients) and a
-  defined conversion (1000 mL/L) never limit the answer, and a Celsius reading counts the
-  figures of its kelvin value (`25 °C` is `298 K`, three). Data typed to more than six
-  figures is answered to six. A trailing zero of a whole number without a decimal point
+  a van 't Hoff factor, a Hess's-law multiplier, a balanced equation's coefficients, an ion's
+  charge, a shell's n, a Miller index, a phase-rule count) and a defined conversion
+  (1000 mL/L) never limit the answer; nor does a zero (`0.00` electrons), nor a count typed
+  beside a measured value of the same value (`i = 1` beside `1.00 mol`). A Celsius reading
+  counts the figures of its kelvin value (`25 °C` is `298 K`, three). An answer has four
+  figures at most: the reader does not follow a figure count through a difference inside a
+  product (an NMR shift subtracts two six-figure frequencies), so more could claim precision
+  the data lost. A follow-up that scales a given keeps its typed figures (`0.010 M` doubled
+  is `0.020 M`). A trailing zero of a whole number without a decimal point
   (`500 mL`) is read as significant: textbooks call it ambiguous (OpenStax), and their own
   problems mean `500 mL` as three figures. When no given is measured (a molar mass, a
   formula's percent composition), the table's precision stands (below).
