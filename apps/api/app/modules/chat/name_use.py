@@ -155,17 +155,82 @@ def first_name(user: User | None) -> str | None:
     return name[0] if name and len(name[0]) >= 2 else None
 
 
+def _sparable_name(user: User | None, asked: str) -> str | None:
+    """The user's name when a reply may be held to it at all: never in a reply to a message
+    about the name, or one that says it."""
+    name = first_name(user)
+    if name is None or _ABOUT_THE_NAME.search(asked) or name in asked:
+        return None
+    return name
+
+
+def name_to_spare(user: User | None, asked: str, recent: Sequence[Any]) -> str | None:
+    """The name a streaming reply leaves out of its opening (``OpeningNameHold``): when one of
+    the last two replies used it, or the message is a few words and no greeting, as the
+    finalize pass decides."""
+    name = _sparable_name(user, asked)
+    if name is None:
+        return None
+    few_words = len(asked.split()) <= _SHORT_MESSAGE_WORDS and not is_social_opener(asked)
+    return name if few_words or named_lately(name, recent) else None
+
+
 def spare_name_pass(state: FinalizeState) -> str:
     """The finalize pass: no name in a reply when one of the last two used it, nor in a few
     words answering a few words."""
-    name = first_name(state.ctx.user)
     asked = state.ctx.user_message_content or ""
-    if state.server_text or name is None or _ABOUT_THE_NAME.search(asked) or name in asked:
+    name = _sparable_name(state.ctx.user, asked)
+    if state.server_text or name is None:
         return state.text
     short = _a_short_exchange(asked, state.text)
     if not short and not named_lately(name, state.ctx.recent_messages or []):
         return state.text
     return without_name(state.text, name, short=short)
+
+
+class OpeningNameHold:
+    """The streaming reply's opening, held until it is clear whether it addresses the user by
+    a name the turn spares ("Hi Bini!", "Bini, here's…"), then sent without it.
+
+    The finalize pass took the name out only once the reply had streamed, so the phone showed
+    "Hi Bini" and then swapped in "Hi" (the owner, 2026-11-23). The opening is held while its
+    first few words could still be a greeting and the name, and, once the name is in it, to
+    the end of that sentence; then everything passes straight through. A name further in is
+    still the finalize pass's.
+    """
+
+    _WORDS = 4
+    _MAX_CHARS = 200
+    _SENTENCE_END = re.compile(r"[.!?\n]")
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._word = re.compile(rf"(?:{_spellings(name)})\b")
+        self._held = ""
+        self._open = True
+
+    def feed(self, token: str) -> str:
+        if not self._open:
+            return token
+        self._held += token
+        return self._release() if self._settled() else ""
+
+    def flush(self) -> str:
+        return self._release() if self._open else ""
+
+    def _settled(self) -> bool:
+        held = self._held
+        if len(held) >= self._MAX_CHARS:
+            return True
+        named = self._word.search(held)
+        if named is None:
+            # More words than an opening holds, the last one complete: no name leads it.
+            return len(held.split()) > self._WORDS
+        return self._SENTENCE_END.search(held, named.end()) is not None
+
+    def _release(self) -> str:
+        self._open = False
+        return without_name(self._held, self._name)
 
 
 # "ok" answered "Got it, Sam 👍", "thanks" "Anytime, Sam!", "night" "Night, Sam 🌙": in 100

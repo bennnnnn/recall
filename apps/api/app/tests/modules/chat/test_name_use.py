@@ -142,3 +142,60 @@ def test_a_short_reply_to_a_short_message_names_no_one(asked: str, reply: str, o
     )
     state = SimpleNamespace(server_text=False, ctx=ctx, text=reply)
     assert spare_name_pass(state) == out  # type: ignore[arg-type]
+
+
+def _streamed(name: str, tokens: list[str]) -> tuple[str, list[str]]:
+    from app.modules.chat.name_use import OpeningNameHold
+
+    hold = OpeningNameHold(name)
+    sent = [hold.feed(token) for token in tokens]
+    sent.append(hold.flush())
+    return "".join(sent), sent
+
+
+@pytest.mark.parametrize(
+    ("tokens", "shown"),
+    [
+        (["Hi", " Bi", "ni", "! Here", "'s the", " plan."], "Hi! Here's the plan."),
+        (["Bini", ", here", "'s what", " I found."], "Here's what I found."),
+        (["Hey", " bini", "!", " Sure", " thing."], "Hey! Sure thing."),
+        (
+            ["Sure", " thing", " — here", " are three", " ideas."],
+            "Sure thing — here are three ideas.",
+        ),
+    ],
+)
+def test_a_spared_name_never_streams_in_the_opening(tokens: list[str], shown: str) -> None:
+    """The phone showed "Hi Bini" and then swapped in "Hi" (the owner, 2026-11-23): the
+    opening is held until it is clear, so the name is never sent."""
+    text, sent = _streamed("bini", tokens)
+    assert text == shown
+    assert not any("ini" in piece.lower() for piece in sent)
+
+
+def test_an_opening_with_no_name_is_held_for_a_few_words_only() -> None:
+    _, sent = _streamed(
+        "bini", ["Sure", " thing", " here", " are", " three", " ideas", " for", " you."]
+    )
+    # Past four words with no name, the rest passes straight through.
+    assert sent[4] and sent[5:8] == [" ideas", " for", " you."]
+
+
+@pytest.mark.parametrize(
+    ("asked", "lately", "spared"),
+    [
+        ("allow", False, True),
+        ("can you help me plan a trip to lisbon next month", True, True),
+        ("can you help me plan a trip to lisbon next month", False, False),
+        ("hi", False, False),
+        ("what's my name?", True, False),
+    ],
+)
+def test_the_stream_spares_the_name_when_the_finalize_pass_would(
+    asked: str, lately: bool, spared: bool
+) -> None:
+    from app.modules.chat.name_use import name_to_spare
+
+    user = SimpleNamespace(name="Bini")
+    recent = [SimpleNamespace(role="assistant", content="Sure, Bini!" if lately else "Sure!")]
+    assert (name_to_spare(user, asked, recent) == "Bini") is spared  # type: ignore[arg-type]

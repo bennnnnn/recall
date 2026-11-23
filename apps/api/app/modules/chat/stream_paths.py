@@ -25,6 +25,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.control_tokens import until_control_run
+from app.modules.chat.name_use import name_to_spare
 from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_leaks import reply_quotes_the_prompt
@@ -313,7 +314,8 @@ async def run_llm_token_stream(
     requested_model = ctx.model
     health = ReplyHealth()
     may_try = probe_gate(redis, settings, ctx.probe_models)
-    scaffold = ReplyFilter(accum, ctx.worked)
+    spare = name_to_spare(ctx.user, ctx.user_message_content or "", ctx.recent_messages or [])
+    scaffold = ReplyFilter(accum, ctx.worked, spare_name=spare)
     if on_status is not None:
         # The model is writing now: a tool or search label must not linger.
         await on_status("composing")
@@ -350,7 +352,7 @@ async def run_llm_token_stream(
             )  # fmt: skip
             if again is not None:
                 # A held "!" or "[" was the old round's, never drawn: the new round starts clean.
-                scaffold = ReplyFilter(accum, ctx.worked)
+                scaffold = ReplyFilter(accum, ctx.worked, spare_name=spare)
                 reply_round, retry_tools = again
                 continue
             # Only a call that carried tools leads to another: one search a turn.
@@ -371,7 +373,7 @@ async def run_llm_token_stream(
             ):
                 break
             # A clean filter for the answer: the old one held nothing, or text taken back.
-            scaffold = ReplyFilter(accum, ctx.worked)
+            scaffold = ReplyFilter(accum, ctx.worked, spare_name=spare)
             reply_round = _ReplyRound(tools=[], lead=reply_round.lead)
         if not accum.was_cancelled and (tail := scaffold.flush()):
             accum.shown.append(tail)
