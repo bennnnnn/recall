@@ -151,13 +151,13 @@ class GuardedFollowups:
         )
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         return neutral_on_error(
             self._subject,
             "followups.shown_problem",
             None,
-            lambda: self._inner.shown_problem(line, recent, referent),
+            lambda: self._inner.shown_problem(line, recent, referent, asked=asked),
         )
 
     def changed_problem(

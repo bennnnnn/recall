@@ -143,12 +143,12 @@ class MathFollowups:
         return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         # The curve or the shape of the message read as "it": never a photo of "it".
         from app.modules.math.tools.graph_followup import drawing_of
 
-        return drawing_of(referent) if referent and asks_to_see(line) else None
+        return drawing_of(referent) if referent and (asked or asks_to_see(line)) else None
 
 
 @dataclass(frozen=True)

@@ -14,10 +14,16 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.core.readings import read_off_loop
-from app.modules.chat.figure_turn import will_draw
+from app.modules.chat.figure_turn import earlier_user_lines, read_shows_it, will_draw
 from app.modules.chat.posed_read import posed_for_turn
 from app.modules.chat.prompt_builder import SubjectFetch, fetch_subject, inject_subject_block
-from app.modules.chat.referent_read import Referent, continuation_for_turn, referent_for_turn
+from app.modules.chat.referent_read import (
+    Referent,
+    asks_for_a_referent,
+    continuation_for_turn,
+    referent_for_turn,
+)
+from app.modules.chat.school_problem import chat_holds_a_school_problem
 from app.modules.chat.turn_prep.followups import (
     SubjectFollowup,
     resolve_posed_followup,
@@ -293,6 +299,8 @@ async def augment_after_prompt(
         settings,
         prompt_messages,
         small_talk=mode.lightweight or mode.lightweight_reason == "answers_offer",
+        # A reply the server already has (the time in Tokyo, a money card) shows no problem.
+        answered=instant_reply is not None or money is not None,
     )
     if followup.asked is not None:
         # "Do it" after a posed problem: the turn is the problem, as if typed, and read so,
@@ -327,7 +335,12 @@ async def augment_after_prompt(
     if timing is not None:
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
-    if instant_reply is None:
+    # A problem worked again because the read alone says the line asks to see it ("can u
+    # show me a picture") is the model's to present around its picture, told so beside the
+    # line (``SHOWN_IT_NOTE``): a solver's own reply would be its working again, the scene
+    # it answers "draw it" with being for the words alone (review, 2026-11-22).
+    shown_by_read = referent is not None and not asks_for_a_referent(request.content)
+    if instant_reply is None and not (shown_by_read and followup.found):
         instant_reply = await augmented.direct_reply(request, followup, settings)
     subject = augmented.subject or followup.subject
     # A question with no answer as written is answered by the note that says why.
@@ -364,12 +377,16 @@ async def _turn_followup(
     prompt_messages: list[dict[str, str]],
     *,
     small_talk: bool,
+    answered: bool = False,
 ) -> tuple[SubjectFollowup, Referent | None]:
     """The earlier problem the line follows up, and what "it" is in "draw it"."""
     # What "it" is: the turn's read, kept since the photo intercept asked it. And the
     # problem "3" or "the area" continues, which a model reads too.
     recent = reads_window(request)
-    referent = await referent_for_turn(settings, request.content, recent)
+    # Whether the line asks to see what the chat is about, by the turn's read, when its
+    # words do not say so: only after a reply, which "it" could be in.
+    asked = await _asks_to_see_by_read(request, settings, recent, small_talk=small_talk or answered)
+    referent = await referent_for_turn(settings, request.content, recent, asked=asked)
     continued = await continuation_for_turn(settings, request.content, recent)
     timeout = settings.subject_read_timeout_seconds
     # A shape the line asks to see is the figure's only when the figure will be drawn.
@@ -381,6 +398,7 @@ async def _turn_followup(
         referent.problem if referent is not None else None,
         continued,
         figures,
+        asked,
         timeout=timeout,
     )
     if followup is not None and followup.found:
@@ -404,6 +422,41 @@ async def _turn_followup(
                 timeout=timeout,
             )
     return followup or SubjectFollowup(), referent
+
+
+# The replies whose cards say the chat worked a problem: the last few exchanges.
+_REPLIES_READ = 6
+
+
+async def _asks_to_see_by_read(
+    request: TurnRequest, settings: Settings, recent: list[Any], *, small_talk: bool
+) -> bool:
+    """Whether the turn's read says the line asks to see the problem the chat is about,
+    when its words do not say so. Only a line with no problem of its own after a reply
+    in a chat that holds a school problem waits for the read ("can u show me a picture"): small talk, a reply the server has
+    already (an instant reply, a money card), a photo, and a question a subject reads alone
+    ("solve 2x + 5 = 17") go on at once (review: every later turn of a chat waited for it
+    before its solve)."""
+    if not recent or small_talk or request.has_image_attachment:
+        return False
+    if asks_for_a_referent(request.content):  # the words ask: the referent read runs on them
+        return False
+    own = subject_of(
+        request.content,
+        has_image_attachment=request.has_image_attachment,
+        chemistry_enabled=settings.chemistry_enabled,
+    )
+    if own is not None:
+        return False
+    earlier = earlier_user_lines(recent, request.content)
+    replies = [
+        content
+        for row in recent[-_REPLIES_READ:]
+        if getattr(row, "role", None) == "assistant"
+        and isinstance(content := getattr(row, "content", None), str)
+    ]
+    held = await chat_holds_a_school_problem(settings, earlier, replies)
+    return held and await read_shows_it(settings)
 
 
 def reads_window(request: TurnRequest) -> list[Any]:

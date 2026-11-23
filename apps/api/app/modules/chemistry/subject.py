@@ -103,8 +103,9 @@ class ChemistryFollowups:
         return recent is None or could_ask_a_shape(last_question_line(recent))
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
+        # A molecule asked to see by the read alone is the figure's (``chemistry.figure``).
         return shape_followup_problem(line, recent)
 
 
@@ -199,17 +200,16 @@ class ChemistryPhoto:
 
 @dataclass(frozen=True)
 class ChemistryFigure:
-    """The structure that helps teach a question about one compound (``chemistry.figure``).
-    A question that asks to see a molecule gets it from its solve: an asked draw is none."""
+    """The structure that helps teach a question about one compound, and the one a message
+    asks to see that no solve drew ("can u show me a picture" after a question about it):
+    ``chemistry.figure``."""
 
     async def draw(
         self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
     ) -> str | None:
-        if asked:
-            return None
         from app.modules.chemistry.figure import draw_structure
 
-        return await draw_structure(question, earlier, settings)
+        return await draw_structure(question, earlier, settings, asked=asked)
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
         from app.modules.chemistry.figure import solve_drew_a_structure
