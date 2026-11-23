@@ -302,7 +302,7 @@ physics' is (`n = 36 g / 18.015 g/mol`, then `n = 2.0 mol`). An operation that i
 than an equation (balancing, a correlation table, a structure match, an electron
 configuration: `catalog.METHODS`) shows its rule under **Method** and checks it under
 **Working**. Substitutions carry units (`n = 36 g / 18.015 g/mol`, `c = 0.5 mol / 2.0 L`),
-and a unit change is a row of its own (`ΔG° = -2.1 × 10^5 J/mol = -2.1 × 10^2 kJ/mol`). A
+and a unit change is a row of its own (`ΔG° = -2.123 × 10^5 J/mol = -2.1 × 10^2 kJ/mol`, the value as worked, then the answer). A
 given an extractor converted is shown as typed, then as used: `V = 500 mL = 0.500 L`,
 `ΔS = -200 J/(mol·K) = -0.200 kJ/(mol·K)`, `T = 37 °C = 310.15 K`, `t = 1 h = 3600 s`. The
 converted value keeps the typed figures without rounding away the conversion's own digits,

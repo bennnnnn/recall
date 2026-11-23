@@ -27,6 +27,7 @@ from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
+from app.services.problem_followup import item_number
 from app.services.school_rounding import typed_figures
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
@@ -107,6 +108,13 @@ _LITERAL = re.compile(
 )
 
 
+def _literals(text: str) -> Iterator[re.Match[str]]:
+    """The typed numbers of ``text``, without an item's number ("1) What is ...", "2. ")."""
+    for match in _LITERAL.finditer(text):
+        if not item_number(text, match.start(), match.end()):
+            yield match
+
+
 def figures_of(literal: str) -> int:
     """Significant figures of a typed number: 0.0050 has 2, 1.10 has 3, 200 has 3."""
     return max(typed_figures(literal), 1)
@@ -175,7 +183,7 @@ def _forms(text: str) -> _Forms:
     equation is not read for them.
     """
     forms: dict[float, list[str]] = {}
-    for match in _LITERAL.finditer(EQUATION_RE.sub(" ", text)):
+    for match in _literals(EQUATION_RE.sub(" ", text)):
         typed = match.group()
         written = forms.setdefault(float(typed), [])
         if typed not in written and len(typed) <= MAX_WRITTEN:
@@ -312,9 +320,9 @@ def _count_spellings(
     "2 mol NaCl (i = 2)" types "2" twice, and in "2.00 A for 2 h" the "2" is the time's,
     whatever count a solver fills in (two electrons for copper)."""
     read = EQUATION_RE.sub(" ", text)
-    typed_times = Counter(match.group() for match in _LITERAL.finditer(read))
+    typed_times = Counter(match.group() for match in _literals(read))
     measured_spellings = {
-        match.group() for match in _LITERAL.finditer(read) if _unit_after(read, match.end())
+        match.group() for match in _literals(read) if _unit_after(read, match.end())
     }
     exact_at = Counter(
         value

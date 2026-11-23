@@ -8,7 +8,7 @@ import math
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import KW, KW_TEXT, PKW, weak_dissociation
-from app.modules.chemistry.solvers.display import carried, inp, num, p_value, verified
+from app.modules.chemistry.solvers.display import carried, fixed, inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
@@ -18,7 +18,7 @@ def _weakph_text(constant: float, concentration: float, *, acid: bool) -> tuple[
     amount = weak_dissociation(constant, concentration)
     share = amount / concentration * 100
     note = (
-        f"x/c = {num(share)}% > 5%, so the exact quadratic is used, not x ≈ √(K c)"
+        f"x/c = {fixed(share, 1)}% > 5%, so the exact quadratic is used, not x ≈ √(K c)"
         if share > 5
         else ""
     )

@@ -464,6 +464,9 @@ def test_a_negative_power_is_no_rounded_number() -> None:
             "How many grams of H2O from 22.4 L of H2 at 1 atm and 273 K in 2H2 + O2 -> 2H2O",
             "m(H2O) = 18.0 g",
         ),
+        # A question's item number is no second spelling of a given (review).
+        ("1) What is the molarity of 1.00 mol NaCl in 0.500 L?", "c = 2.00 mol/L"),
+        ("2. What is the mass of 2.00 mol of H2O?", "m(H2O) = 36.0 g"),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
@@ -565,7 +568,9 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
         # A table's range is shown as tabulated, never to the data's one figure.
         ("NMR peak at 9 ppm", "9 is within aldehyde CHO 9–10 ppm"),
         # Kw is a defined constant: 1.0 × 10^-14 whatever the data's figures.
-        ("What is Kb for the conjugate base if Ka = 1.8e-5?", "Kw = 1.0 × 10⁻¹⁴ at 25 °C"),
+        ("What is Kb for the conjugate base if Ka = 1.80e-5?", "Kw = 1.0 × 10⁻¹⁴ at 25 °C"),
+        # The x/c share is a working value, to one decimal place, never the data's figure.
+        ("What is the pH of 0.01 M acetic acid with Ka = 3e-5?", "x/c = 5.3% > 5%"),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),
     ],
