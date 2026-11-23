@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_trace import note_prompt_rule
@@ -38,9 +39,7 @@ async def instant_reply_by_read(ctx: StreamContext, settings: Settings) -> None:
         return
     if not task.done():
         await asyncio.wait([task], timeout=settings.live_read_wait_seconds)
-    if not task.done() or task.cancelled() or task.exception() is not None:
-        return
-    read = task.result()
+    read = settled_result(task)
     if read is None:
         return
     if location_ask and not read.searches:

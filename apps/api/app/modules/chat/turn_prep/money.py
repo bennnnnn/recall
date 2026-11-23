@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from redis.asyncio import Redis
 
-from app.core.aio import gather_or_cancel
+from app.core.aio import gather_or_cancel, settled_result
 from app.core.config import Settings
 from app.core.readings import kept_for_turn, kept_reading
 from app.modules import todos as todos_service
@@ -109,10 +109,7 @@ async def _read_says_money(settings: Settings, identity: TurnIdentity) -> bool:
     if not isinstance(read, asyncio.Task) or identity.mode.lightweight:
         return False
     await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return False
-    decision = read.result()
-    return getattr(decision, "subject", None) == "money"
+    return getattr(settled_result(read), "subject", None) == "money"
 
 
 def _conversation(recent: list[Any], line: str) -> list[tuple[str, str]]:

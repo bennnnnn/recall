@@ -41,6 +41,7 @@ import asyncio
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
@@ -211,9 +212,7 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
     if task is None:
         return None
     if task.done():
-        if task.cancelled() or task.exception() is not None:
-            return None
-        return task.result()
+        return settled_result(task)
     if not (
         _lane_may_move(ctx)
         or _layout_at_stake(ctx)

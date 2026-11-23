@@ -45,6 +45,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
@@ -335,9 +336,7 @@ async def picked(task: asyncio.Task[Any], seconds: float | None = None) -> Posed
     """The begun read's answer, waited for at most ``seconds``; None when it gave none.
     Waiting never cancels it: another part of the turn may still ask."""
     await asyncio.wait({task}, timeout=seconds)
-    if not task.done() or task.cancelled() or task.exception() is not None:
-        return None
-    pick: PosedPick | None = task.result()
+    pick: PosedPick | None = settled_result(task)
     return pick
 
 

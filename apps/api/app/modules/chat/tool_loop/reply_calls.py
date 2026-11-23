@@ -278,14 +278,6 @@ async def search_the_live_read(
     return read
 
 
-def answered_read(ctx: StreamContext) -> TurnDecision | None:
-    """The turn's read once it has answered; None while it runs, or when it failed."""
-    task = ctx.live_read
-    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
-        return None
-    return task.result()
-
-
 def _without_search(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The reply's tools less ``web_search`` (``recall_chats`` stays)."""
     return [tool for tool in tools if (tool.get("function") or {}).get("name") != REPLY_TOOL]

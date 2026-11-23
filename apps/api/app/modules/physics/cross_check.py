@@ -36,6 +36,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.services.solving import VerifiedPhysicsBlock
 
@@ -197,7 +198,7 @@ async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Sett
     if late:
         logger.info("physics cross-check: no reading in %.2f s, the check stands", waited)
         return "unread"
-    reading = None if task.cancelled() or task.exception() is not None else task.result()
+    reading = settled_result(task)
     if reading is None:
         return "unread"
     found = verdict(answers, reading_asks(reading.setup, reading.result))

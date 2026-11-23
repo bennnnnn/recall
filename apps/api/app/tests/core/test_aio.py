@@ -1,4 +1,5 @@
-"""``gather_or_cancel``: a failed branch cancels its siblings and raises its own error."""
+"""``gather_or_cancel``: a failed branch cancels its siblings and raises its own error.
+``settled_result``: a task's result only once it has one."""
 
 from __future__ import annotations
 
@@ -6,7 +7,7 @@ import asyncio
 
 import pytest
 
-from app.core.aio import gather_or_cancel
+from app.core.aio import gather_or_cancel, settled, settled_result
 
 
 async def test_a_failed_branch_cancels_the_others() -> None:
@@ -87,3 +88,35 @@ async def test_finish_despite_cancel_returns_the_result_when_nothing_cancels() -
         return 7
 
     assert await finish_despite_cancel(save()) == 7
+
+
+async def _finished[T](result: T) -> T:
+    return result
+
+
+async def _failing() -> None:
+    raise ValueError("the read failed")
+
+
+async def test_settled_result_is_the_result_of_a_finished_task() -> None:
+    answered = asyncio.ensure_future(_finished("physics"))
+    empty = asyncio.ensure_future(_finished(None))
+    await asyncio.wait([answered, empty])
+    assert (settled(answered), settled_result(answered)) == (True, "physics")
+    # Finished with no answer: settled, and its result is None.
+    assert (settled(empty), settled_result(empty)) == (True, None)
+
+
+async def test_settled_result_is_none_for_no_task_a_running_one_a_cancelled_one_or_a_failure() -> (
+    None
+):
+    running = asyncio.ensure_future(asyncio.sleep(30))
+    cancelled = asyncio.ensure_future(asyncio.sleep(30))
+    cancelled.cancel()
+    failed = asyncio.ensure_future(_failing())
+    await asyncio.wait([cancelled, failed])
+    for task in (None, running, cancelled, failed):
+        assert settled(task) is False
+        assert settled_result(task) is None
+    running.cancel()
+    await asyncio.gather(running, return_exceptions=True)
