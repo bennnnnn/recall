@@ -706,3 +706,18 @@ def test_a_line_of_a_user_whose_app_is_not_in_english_is_the_models_to_read() ->
     assert said_of_themselves("Soy musulmán, no como cerdo", english=False)
     assert said_of_themselves("34", english=False)
     assert not said_of_themselves("With female")
+
+
+@pytest.mark.parametrize(
+    ("line", "theirs"),
+    [
+        ("Estoy casado", True),
+        ("Ich bin verheiratet", True),
+        ("I'm married", True),
+        ("With female", False),
+        ("female", False),
+    ],
+)
+def test_an_english_app_reads_a_foreign_line_as_the_models(line, theirs) -> None:
+    """Several words, none English: the model's to read (Claude review, #2539)."""
+    assert said_of_themselves(line) is theirs
