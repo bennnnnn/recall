@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,15 +169,19 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
         # a run, oldest first, so the summary model never reads hundreds of messages at once.
         more = fold > settings.history_max_messages
         fold = min(fold, settings.history_max_messages)
-        summarized_count = already + fold
+        # A capped run reads one row past its window, to end it before a question's answer.
         slice_messages = await conversation_history.messages_page(
             session,
             chat_id,
             offset=already,
-            limit=fold,
+            limit=fold + 1 if more else fold,
         )
+        if more:
+            slice_messages = _without_a_split_exchange(slice_messages, fold)
+            fold = len(slice_messages)
         if not slice_messages:
             return None
+        summarized_count = already + fold
         transcript = [
             {
                 "role": message.role,
@@ -189,6 +194,20 @@ async def _pending_fold(settings: Settings, chat_id: UUID, user_id: UUID | None)
             for message in slice_messages
         ]
         return _Fold(chat.summary, transcript, already, summarized_count, more)
+
+
+def _without_a_split_exchange(rows: list[Any], fold: int) -> list[Any]:
+    """The first ``fold`` rows, less a last question whose answer is the next row: the
+    summary would hold it as still open, and the history would start at its answer."""
+    window = rows[:fold]
+    if (
+        len(window) > 1
+        and len(rows) > fold
+        and window[-1].role == "user"
+        and rows[fold].role == "assistant"
+    ):
+        return window[:-1]
+    return window
 
 
 async def _save_summary(chat_id: UUID, user_id: UUID | None, fold: _Fold, summary: str) -> bool:

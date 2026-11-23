@@ -361,8 +361,43 @@ async def test_a_backlog_folds_a_window_at_a_time():
         mocks = [stack.enter_context(p) for p in patches]
         await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
     list_range = mocks[4]
-    assert list_range.await_args.kwargs["limit"] == 40
+    # One row past the window, to see whether its last question's answer follows.
+    assert list_range.await_args.kwargs["limit"] == 41
     assert chat.summary_message_count == 40
+
+
+def _line(role: str) -> MagicMock:
+    row = _msg(role)
+    row.role = role
+    return row
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("roles", "folded"),
+    [
+        # The window's last row is a question answered just after it: it waits for the next run.
+        (["assistant", "user"] * 20 + ["assistant"], 39),
+        # The window ends on an answer: the whole window folds.
+        (["user", "assistant"] * 20 + ["user"], 40),
+    ],
+)
+async def test_a_capped_backlog_fold_never_ends_on_an_answered_question(roles, folded):
+    chat = MagicMock()
+    chat.summary = None
+    chat.summary_message_count = 0
+    session = fake_session(get=AsyncMock(return_value=chat))
+    rows = [_line(role) for role in roles]
+    summarize = AsyncMock(return_value="SUMMARY")
+    with ExitStack() as stack:
+        mocks = [
+            stack.enter_context(p)
+            for p in _over_window_patches(session, summarize, rows, count=500)
+        ]
+        await compaction.compress_chat_history(_OVER_WINDOW, uuid4())
+    assert mocks[4].await_args.kwargs["limit"] == 41
+    assert chat.summary_message_count == folded
+    assert len(summarize.await_args.args[2]) == folded
 
 
 @pytest.mark.asyncio
