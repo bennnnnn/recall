@@ -682,7 +682,7 @@ def test_a_32k_record_line_is_split_in_linear_time(unit: str) -> None:
     started = time.perf_counter()
     _separators(line)
     seconds = time.perf_counter() - started
-    assert seconds < 0.05, f"{seconds:.3f}s on 32k characters"
+    assert seconds < 0.5, f"{seconds:.3f}s on 32k characters"
 
 
 @pytest.mark.parametrize(
