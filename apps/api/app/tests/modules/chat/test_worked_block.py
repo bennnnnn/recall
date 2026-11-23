@@ -667,3 +667,35 @@ def test_a_ph_keeps_its_decimals() -> None:
     """Review: a pH's decimals are its concentration's figures, never the card rule's."""
     shown = render_worked(_solution("required: pH | pH\nanswer: pH | 2.874 |\n"), OTHER)
     assert "2.874" in shown
+
+
+# CX-2 (2026-11-22): every "|" matched the line's brackets again and searched the bars it had
+# paired, a list: 1.8 s for a 16k line, 14 s for a 32k line of |x|.
+@pytest.mark.wall_clock
+@pytest.mark.parametrize("unit", ["(a|b) x | ", "|x| ", "a | "], ids=repr)
+def test_a_32k_record_line_is_split_in_linear_time(unit: str) -> None:
+    import time
+
+    from app.modules.chat.worked_solution import _separators
+
+    line = unit * (32_000 // len(unit))
+    started = time.perf_counter()
+    _separators(line)
+    seconds = time.perf_counter() - started
+    assert seconds < 0.5, f"{seconds:.3f}s on 32k characters"
+
+
+@pytest.mark.parametrize(
+    ("line", "cuts"),
+    [
+        ("a | (b|c) | d", [2, 10]),
+        ("v|3.33|m/s", [1, 6]),
+        ("|x| | y", [4]),
+        ("\\mathrm{m/s | m/s | east", [12, 18]),
+        ("(a | b) | {c | d}", [8]),
+    ],
+)
+def test_a_record_splits_only_at_its_own_bars(line: str, cuts: list[int]) -> None:
+    from app.modules.chat.worked_solution import _separators
+
+    assert _separators(line) == cuts

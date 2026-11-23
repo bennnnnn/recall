@@ -7,7 +7,8 @@ and only count at the start of a clause, after nothing but "please", "can you" o
 
 from __future__ import annotations
 
-from itertools import pairwise
+import re
+from itertools import islice, pairwise
 from typing import Literal
 
 MemoryReset = Literal["clear", "off"]
@@ -165,6 +166,9 @@ _RESET_OFF_MARKERS = (
 # Only as the whole ask: "turn off memory leak warnings in Xcode" is not one.
 _RESET_OFF_ALONE = ("turn off memory", "disable memory", "disable your memory")
 _ALONE_TAIL = frozenset({"", "please", "pls", "now", "for me", "thanks", "thank you"})
+_ALONE_STRIP = " .!?,"
+_NOT_ALONE_STRIP = re.compile(r"[^ .!?,]")
+_ALONE_LONGEST = max(map(len, _ALONE_TAIL))
 
 # "That's wrong, I'm at Stripe now", "I switched from FastAPI to Django": a saved
 # fact may have changed. Read anywhere in the line; it only makes the memory pass run.
@@ -231,6 +235,12 @@ _POLITE_LEADS: tuple[tuple[str, ...], ...] = (
     ("from", "now", "on"),
 )
 _CLAUSE_BREAKS = ".!?;:,\n\u2014\u2013"
+_CLAUSE_BREAK = re.compile(f"[{re.escape(_CLAUSE_BREAKS)}]")
+# Every word that may come before an instruction: a clause with any other word is no command.
+_LEAD_WORDS = _CONNECTIVES | {word for lead in _POLITE_LEADS for word in lead}
+# A word as ``str.split`` cuts one (``\s`` is ``str.isspace``).
+_WORD = re.compile(r"\S+")
+_PHRASE_END = re.compile(r"[.!?;,\n]")
 # "Forget about the previous question" drops a turn, not a saved fact.
 _CHAT_PARTS = frozenset(
     {
@@ -313,8 +323,11 @@ def is_explicit_mute_command(text: str) -> bool:
         for index in _marker_positions(lowered, marker):
             if not _is_command_at(lowered, marker, index):
                 continue
-            words = [word.strip(".,!?;:") for word in lowered[index + len(marker) :].split()]
-            if _DRAFT_WORDS.intersection(words[:_DRAFT_SCOPE_WORDS]):
+            words = [
+                word.strip(".,!?;:")
+                for word in _words_from(lowered, index + len(marker), _DRAFT_SCOPE_WORDS)
+            ]
+            if _DRAFT_WORDS.intersection(words):
                 continue
             if lasting or (marker in _MUTE_ONGOING and words and words[0] == "my"):
                 return True
@@ -355,9 +368,8 @@ def _named_after(text: str, markers: tuple[str, ...], *, forget: bool) -> list[s
                 if marker.endswith(f" {lead}") or marker.endswith(f" {lead.strip()}"):
                     start -= len(lead)
                     break
-            rest = source[start:]
-            cut = min((pos for mark in ".!?;,\n" if (pos := rest.find(mark)) >= 0), default=-1)
-            phrase = (rest[:cut] if cut >= 0 else rest).strip()
+            cut = _PHRASE_END.search(source, start)
+            phrase = source[start : cut.start() if cut else len(source)].strip()
             if phrase and all(phrase not in seen and seen not in phrase for seen in named):
                 named.append(phrase)
     return named
@@ -376,20 +388,34 @@ def memory_reset_request(text: str) -> MemoryReset | None:
             return "off"
     for marker in _RESET_OFF_ALONE:
         for index in _marker_positions(lowered, marker):
-            tail = lowered[index + len(marker) :].strip(" .!?,")
-            if _is_command_at(lowered, marker, index) and tail in _ALONE_TAIL:
+            if _is_command_at(lowered, marker, index) and _alone_after(
+                lowered, index + len(marker)
+            ):
                 return "off"
+    # Where each phrase about the user last stands: one is after a marker when that is later.
+    about_user = {cue: _last_phrase(lowered, cue) for cue in _ABOUT_THE_USER}
     for marker in _RESET_CLEAR_MARKERS:
         for index in _marker_positions(lowered, marker):
             if not _is_command_at(lowered, marker, index):
                 continue
-            rest = lowered[index + len(marker) :]
+            rest = index + len(marker)
             if marker.startswith("forget") and not any(
-                _has_phrase(rest, cue) for cue in _ABOUT_THE_USER
+                _phrase_at(lowered, cue, rest) or last > rest for cue, last in about_user.items()
             ):
                 continue
             return "clear"
     return None
+
+
+def _alone_after(lowered: str, start: int) -> bool:
+    """``lowered[start:].strip(" .!?,") in _ALONE_TAIL``, read no further than the longest
+    tail and the next character: one past that is never a tail."""
+    while start < len(lowered) and lowered[start] in _ALONE_STRIP:
+        start += 1
+    reach = start + _ALONE_LONGEST + 1
+    if _NOT_ALONE_STRIP.search(lowered, reach):
+        return False
+    return lowered[start:reach].rstrip(_ALONE_STRIP) in _ALONE_TAIL
 
 
 def is_memory_correction(text: str) -> bool:
@@ -416,6 +442,22 @@ def _has_phrase(lowered: str, phrase: str) -> bool:
     )
 
 
+def _phrase_at(lowered: str, phrase: str, index: int) -> bool:
+    """``phrase`` at ``index``, ending a word."""
+    end = index + len(phrase)
+    return lowered.startswith(phrase, index) and (end >= len(lowered) or not lowered[end].isalnum())
+
+
+def _last_phrase(lowered: str, phrase: str) -> int:
+    """Where the last of ``phrase`` as whole words (``_has_phrase``) starts, or -1."""
+    index = lowered.rfind(phrase)
+    while index >= 0:
+        if (index == 0 or not lowered[index - 1].isalnum()) and _phrase_at(lowered, phrase, index):
+            return index
+        index = lowered.rfind(phrase, 0, index + len(phrase) - 1)
+    return -1
+
+
 def _marker_positions(lowered: str, marker: str) -> list[int]:
     positions: list[int] = []
     start = 0
@@ -428,28 +470,57 @@ def _marker_positions(lowered: str, marker: str) -> list[int]:
 
 def _is_command_at(lowered: str, marker: str, index: int) -> bool:
     """The marker starts its clause, after nothing but "please", "can you" or "and"."""
-    before = lowered[:index]
-    cut = max(before.rfind(mark) for mark in _CLAUSE_BREAKS)
-    clause = before[cut + 1 :].split()
+    clause = _clause_before(lowered, index)
+    if clause is None:
+        return False
+    at = 0
     led = False
-    while clause:
-        if clause[0] in _CONNECTIVES:
-            clause = clause[1:]
+    while at < len(clause):
+        if clause[at] in _CONNECTIVES:
+            at += 1
             continue
-        lead = next((lead for lead in _POLITE_LEADS if tuple(clause[: len(lead)]) == lead), None)
+        lead = next(
+            (lead for lead in _POLITE_LEADS if tuple(clause[at : at + len(lead)]) == lead), None
+        )
         if lead is None:
             break
-        clause = clause[len(lead) :]
+        at += len(lead)
         led = True
-    if clause:
+    if at < len(clause):
         return False
-    after = lowered[index + len(marker) :].split()
+    after = _words_from(lowered, index + len(marker), 3)
     if (marker.startswith("forget") or marker in _MUTE_MARKERS) and _names_a_chat_part(after):
         return False
-    if marker.startswith("forget") and _withdraws_the_ask(lowered[index + len("forget") :]):
+    if marker.startswith("forget") and _withdraws_the_ask(lowered, index + len("forget")):
         return False
     # "Remember that song from Titanic?" asks; "can you remember that …?" tells.
     return not (marker in _REMEMBER_MARKERS and not led and lowered.rstrip().endswith("?"))
+
+
+def _clause_before(lowered: str, index: int) -> list[str] | None:
+    """The words of the clause before ``index`` (from the last clause break), or None when
+    one of them is no lead word, so the clause holds no command.
+
+    Read back from ``index`` and stopped at the first other word: a long line asked about
+    each of its markers read no further than the marker before (CX-2)."""
+    start = index
+    word_end: int | None = None
+    while start > 0 and lowered[start - 1] not in _CLAUSE_BREAKS:
+        start -= 1
+        if not lowered[start].isspace():
+            word_end = start + 1 if word_end is None else word_end
+            continue
+        if word_end is not None and lowered[start + 1 : word_end] not in _LEAD_WORDS:
+            return None
+        word_end = None
+    if word_end is not None and lowered[start:word_end] not in _LEAD_WORDS:
+        return None
+    return lowered[start:index].split()
+
+
+def _words_from(text: str, start: int, count: int) -> list[str]:
+    """``text[start:].split()[:count]``, read no further than those words."""
+    return [word.group() for word in islice(_WORD.finditer(text, start), count)]
 
 
 def _names_a_chat_part(words: list[str]) -> bool:
@@ -473,12 +544,11 @@ _SAVE_ASKS = frozenset(
 )
 
 
-def _withdraws_the_ask(rest: str) -> bool:
-    """True when what follows "forget" drops the user's request, not a saved fact."""
-    clause = rest
-    for mark in _CLAUSE_BREAKS:
-        clause = clause.split(mark, 1)[0]
-    words = clause.split()
+def _withdraws_the_ask(lowered: str, start: int) -> bool:
+    """True when what follows "forget" (from ``start``) drops the user's request, not a
+    saved fact. Its clause is read to the next clause break."""
+    end = _CLAUSE_BREAK.search(lowered, start)
+    words = lowered[start : end.start() if end else len(lowered)].split()
     if words[:1] == ["that"]:
         words = words[1:]
     if words[:1] not in (["i"], ["i'd"], ["i've"]):
@@ -490,5 +560,4 @@ def _withdraws_the_ask(rest: str) -> bool:
 
 
 def _forget_marker_is_negated(lowered: str, index: int) -> bool:
-    before = lowered[:index]
-    return before.endswith("don't ") or before.endswith("do not ") or before.endswith("dont ")
+    return lowered.endswith(("don't ", "do not ", "dont "), 0, index)

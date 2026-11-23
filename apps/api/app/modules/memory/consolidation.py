@@ -44,16 +44,16 @@ _CONSOLIDATION_ANCHOR_STOP = frozenset(
 _NEAR_DUP_JACCARD = 0.8
 
 
-def _fact_tokens(text: str) -> frozenset[str]:
+def fact_tokens(text: str) -> frozenset[str]:
+    """The words two facts are compared by (``tokens_jaccard``)."""
     return frozenset(part for part in normalize_memory_text(text).lower().split() if part)
 
 
-def fact_text_jaccard(left: str, right: str) -> float:
-    a = _fact_tokens(left)
-    b = _fact_tokens(right)
+def tokens_jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     if not a or not b:
         return 0.0
-    return len(a & b) / len(a | b)
+    shared = len(a & b)
+    return shared / (len(a) + len(b) - shared)
 
 
 def facts_need_consolidation(memories: Iterable[Any]) -> bool:
@@ -80,16 +80,18 @@ def facts_need_consolidation(memories: Iterable[Any]) -> bool:
             return True
         seen.add(key)
         active.append(key)
-    for index, (left_type, left_text) in enumerate(active):
-        left_tokens = _fact_tokens(left_text)
-        if not left_tokens:
-            continue
-        for right_type, right_text in active[index + 1 :]:
-            if left_type != right_type:
-                continue
-            if fact_text_jaccard(left_text, right_text) >= _NEAR_DUP_JACCARD:
-                return True
-    return False
+    # Each fact's words once, and only facts of one type compared: every pair was read
+    # again per pair, 41 ms at 150 facts on each memory list (CX-3).
+    by_type: dict[str, list[frozenset[str]]] = {}
+    for memory_type, text in active:
+        if tokens := fact_tokens(text):
+            by_type.setdefault(memory_type, []).append(tokens)
+    return any(
+        tokens_jaccard(left, right) >= _NEAR_DUP_JACCARD
+        for group in by_type.values()
+        for index, left in enumerate(group)
+        for right in group[index + 1 :]
+    )
 
 
 def extract_consolidation_anchors(text: str) -> frozenset[str]:
