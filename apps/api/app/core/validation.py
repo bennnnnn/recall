@@ -120,7 +120,11 @@ def proper_name(name: str) -> str:
         if unicodedata.category(char).startswith("M"):
             out.append(char)
             continue
-        out.append(char.upper() if char.isalpha() and not in_part else char)
+        upper = char.upper()
+        # A letter whose capital is two ("ß" to "SS") keeps as typed: a name never grows
+        # past the length it was checked at (review, #2538).
+        starts = char.isalpha() and not in_part and len(upper) == 1
+        out.append(upper if starts else char)
         in_part = char.isalnum()
     return "".join(out)
 

@@ -41,6 +41,9 @@ def test_normalize_display_name(raw: str | None, expected: str | None):
         ("n\u0303andu\u0301", "N\u0303andu\u0301"),
         ("\u043c\u0430\u0438\u0306\u044f", "\u041c\u0430\u0438\u0306\u044f"),
         ("mary_ann", "Mary_Ann"),
+        # A letter whose capital is two keeps as typed, so the name keeps its length.
+        ("ßa" + "a" * 78, "ßa" + "a" * 78),
+        ("anna ßa", "Anna ßa"),
         ("bini2", "Bini2"),
         # A capital the user typed keeps the name as written.
         ("McDonald", "McDonald"),
