@@ -41,6 +41,7 @@ const WIDE_NUMBER = MAX_NUMBERED_CUT + 1;
 export const CONTINUATION_LINE_RE = /^(?: {2,}|\t)/;
 const BULLET_ITEM_RE = /^([-*+])([ \t]+)/;
 const NUMBERED_ITEM_RE = /^(\d{1,9})([.)])([ \t]+)/;
+const EMPTY_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]*$/;
 const TASK_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]+\[[ xX]\](?:[ \t]|$)/;
 const THEMATIC_BREAK_RE = /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
 
@@ -94,10 +95,13 @@ export function listItemCut(state: ListScan, line: string): boolean {
     const sameList =
       list != null && list.marker === item.marker && (list.next === null) === (item.number === null);
     if (!sameList) {
+      // Right under a line of text, markdown starts a list only at "1." and with words in the
+      // item ("Continuing from step 1:" then "2. Add…" is that paragraph's text): read it so.
+      const mayBeText = !state.inBlankRun && (item.number !== null ? item.number !== 1 : EMPTY_ITEM_RE.test(line));
       state.list = {
         marker: item.marker,
         next: item.number === null ? null : item.number + 1,
-        irregular: false,
+        irregular: mayBeText,
         content: item.content,
         wide: item.number !== null && item.number >= WIDE_NUMBER,
         ...(task ? { task: true as const } : {}),

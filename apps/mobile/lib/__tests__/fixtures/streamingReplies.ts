@@ -264,8 +264,45 @@ export const CODE_STEPS_REPLY = [
   "",
 ].join("\n");
 
+/** Bullet steps, each with its command in a fence indented under it: cut between the steps. */
+export const BULLET_CODE_STEPS_REPLY = [
+  "Set it up like this:",
+  "",
+  ...Array.from({ length: 6 }, (_, i) => [
+    `- Run step ${i + 1}. ${LONG_SENTENCE}`,
+    "",
+    "  ```bash",
+    `  npm run step-${i + 1}`,
+    "  ```",
+    "",
+  ]).flat(),
+  "Everything is set up.",
+  "",
+].join("\n");
+
+/** A reference used and defined mid-reply, with long paragraphs before and after it. */
+export const MID_REFERENCES_REPLY = [
+  `An opening paragraph with no links. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  `A second plain paragraph. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  `Here the [guide][1] is cited, and [the docs] too. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "[1]: https://example.com/guide",
+  "[the docs]: https://docs.example.com",
+  "",
+  `A closing paragraph after the definitions. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  `And one more to cut after. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+  `The last paragraph. ${LONG_SENTENCE.repeat(5)}`,
+  "",
+].join("\n");
+
 export const STREAMING_REPLIES: Record<string, string> = {
   codeSteps: CODE_STEPS_REPLY,
+  bulletCodeSteps: BULLET_CODE_STEPS_REPLY,
+  midReferences: MID_REFERENCES_REPLY,
   maths: MATHS_REPLY,
   tips: TIPS_REPLY,
   steps: STEPS_REPLY,
