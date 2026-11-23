@@ -1,9 +1,7 @@
-"""The image types a file's leading bytes show: one table for uploads and scans.
+"""The image types a file's leading bytes show.
 
 Attachments check stored bytes against the type a client claimed
-(``modules/attachments/content_types.py``); a scan read-back checks the photo it
-forwards to a paid reader (``services/scan_read.py``). Both read these
-signatures, so a type added here is recognised by both.
+(``modules/attachments/content_types.py``).
 """
 
 from __future__ import annotations

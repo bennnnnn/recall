@@ -117,13 +117,9 @@ class Memory(Base):
         ForeignKey("memories.id", ondelete="SET NULL"),
         nullable=True,
     )
-    # Neither vector copy is loaded with the row: recall ranks in SQL
-    # (``repository.list_scored_for_user``), and a read of either raises instead of
-    # quietly fetching ~50 KB a fact. ``embedding_json`` is no longer written; a later
-    # contract migration drops it.
-    embedding_json: Mapped[str | None] = mapped_column(
-        Text, nullable=True, deferred=True, deferred_raiseload=True
-    )
+    # The vector is not loaded with the row: recall ranks in SQL
+    # (``repository.list_scored_for_user``), and a read of it raises instead of
+    # quietly fetching ~50 KB a fact.
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
     )

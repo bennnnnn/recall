@@ -750,7 +750,6 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         updated_at=0,
         slot=None,
         embedding=[0.1, 0.2, 0.3],
-        embedding_json="[0.1,0.2,0.3]",
         embedding_text_hash=embedding_text_hash(text),
     )
     extra = SimpleNamespace(
@@ -761,7 +760,6 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
         last_confirmed_at=None,
         updated_at=0,
         embedding=[0.1, 0.2, 0.3],
-        embedding_json="[0.1,0.2,0.3]",
         embedding_text_hash=embedding_text_hash(text),
         slot=None,
     )

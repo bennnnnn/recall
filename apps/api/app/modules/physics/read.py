@@ -1,10 +1,10 @@
 # ruff: noqa: RUF001, RUF002 -- the point of this module is the symbols OCR spells in LaTeX.
 """Read a photographed physics problem back as the text a student would type.
 
-The student confirms the reading in the scanner, then the chat solves that
+The turn states the reading as the confirmed line, then the chat solves that
 text like a typed question: verified, with the five-part reply. A vision
 model often answers in LaTeX (``2 \\times 10^{-6}\\,\\mathrm{C}``,
-``30^{\\circ}``), which the student should not have to read or edit, so the
+``30^{\\circ}``), which the student should not have to read, so the
 reading is turned into plain text first (``2 × 10^-6 C``, ``30°``).
 """
 
@@ -101,7 +101,6 @@ async def read_physics_problem(
     *,
     content_type: str,
     data: bytes,
-    timeout_seconds: float | None = None,
 ) -> str:
     """The written problem as plain text, or empty when the page cannot be read."""
     reading = await read_problem_text(
@@ -110,6 +109,5 @@ async def read_physics_problem(
         content_type=content_type,
         data=data,
         mock_reading=_MOCK_READING,
-        timeout_seconds=timeout_seconds,
     )
     return readable_physics(reading)

@@ -56,62 +56,6 @@
    "sign_in_with": "apple"
   }
  },
- "scan_not_available": {
-  "status": 404,
-  "detail": {
-   "code": "not_available",
-   "message": "Not available"
-  }
- },
- "scan_too_large": {
-  "status": 413,
-  "detail": {
-   "code": "image_too_large",
-   "message": "Image too large"
-  }
- },
- "scan_invalid_image": {
-  "status": 400,
-  "detail": {
-   "code": "invalid_image",
-   "message": "Invalid image payload"
-  }
- },
- "scan_rate_limited": {
-  "status": 429,
-  "detail": {
-   "code": "scan_rate_limited",
-   "message": "Too many scans in a row. Try again in a few minutes."
-  }
- },
- "scan_spend_cap": {
-  "status": 429,
-  "detail": {
-   "code": "scan_spend_cap",
-   "message": "Reading photos is paused for now. Type the problem, or try again later."
-  }
- },
- "scan_quota_exceeded": {
-  "status": 429,
-  "detail": {
-   "code": "quota_exceeded",
-   "message": "You've used up today's free limit. Upgrade for more — or try again after midnight UTC."
-  }
- },
- "scan_busy": {
-  "status": 429,
-  "detail": {
-   "code": "scan_busy",
-   "message": "Still reading your last photo. Try again in a moment."
-  }
- },
- "scan_not_a_photo": {
-  "status": 400,
-  "detail": {
-   "code": "invalid_image",
-   "message": "Not a photo"
-  }
- },
  "presign_unsupported_type": {
   "status": 400,
   "detail": {

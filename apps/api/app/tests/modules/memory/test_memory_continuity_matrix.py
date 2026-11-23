@@ -132,7 +132,7 @@ DURABLE_MEMORY_STATEMENTS = [
 ]
 
 
-def _memory(memory_type: str, text: str, embedding: str) -> Memory:
+def _memory(memory_type: str, text: str, embedding: list[float]) -> Memory:
     now = datetime.now(UTC)
     return Memory(
         type=memory_type,
@@ -143,7 +143,7 @@ def _memory(memory_type: str, text: str, embedding: str) -> Memory:
         importance=0.9,
         updated_at=now,
         last_confirmed_at=now,
-        embedding_json=embedding,
+        embedding=embedding,
     )
 
 
@@ -159,8 +159,8 @@ def test_current_employer_remains_available_for_related_google_questions(query: 
         memory_inject_limit=5,
         memory_min_similarity=0.99,
     )
-    current_job = _memory("profile", "Bini currently works as a software engineer at Uber", "[0,1]")
-    unrelated = _memory("fact", "Bini enjoys landscape photography", "[0,1]")
+    current_job = _memory("profile", "Bini currently works as a software engineer at Uber", [0, 1])
+    unrelated = _memory("fact", "Bini enjoys landscape photography", [0, 1])
 
     selected = select_memories_semantic(
         scored([current_job, unrelated], [1.0, 0.0]),
@@ -177,10 +177,10 @@ def test_current_employer_remains_available_for_related_google_questions(query: 
 def test_job_and_city_stay_out_of_an_unrelated_question() -> None:
     """Only the name and reply preferences ride along on every memory turn."""
     settings = Settings(memory_min_confidence=0.0, memory_min_similarity=0.35)
-    name = _memory("profile", "User's name is Bini", "[0,1]")
-    job = _memory("profile", "Bini currently works as a nurse at a clinic", "[0,1]")
-    city = _memory("profile", "Bini lives in Addis Ababa", "[0,1]")
-    concise = _memory("preference", "Bini prefers concise answers", "[0,1]")
+    name = _memory("profile", "User's name is Bini", [0, 1])
+    job = _memory("profile", "Bini currently works as a nurse at a clinic", [0, 1])
+    city = _memory("profile", "Bini lives in Addis Ababa", [0, 1])
+    concise = _memory("preference", "Bini prefers concise answers", [0, 1])
 
     selected = select_memories_semantic(
         scored([name, job, city, concise], [1.0, 0.0]),

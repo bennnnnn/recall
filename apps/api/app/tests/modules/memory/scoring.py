@@ -1,13 +1,12 @@
 """What ``repository.list_scored_for_user`` returns, for facts built in memory.
 
-Recall ranks in SQL now. A test gives a fact its stored vector with ``embedding_json``
+Recall ranks in SQL now. A test gives a fact its stored vector with ``embedding``
 (a transient row keeps it) and this pairs each fact with the cosine similarity Postgres
 would compute against ``query``, or None for a fact with no vector.
 """
 
 from __future__ import annotations
 
-import json
 import math
 from typing import Any
 
@@ -21,8 +20,7 @@ def cosine(a: list[float], b: list[float]) -> float:
 def scored(memories: list[Any], query: list[float]) -> list[tuple[Any, float | None]]:
     pairs: list[tuple[Any, float | None]] = []
     for memory in memories:
-        raw = vars(memory).get("embedding_json") if hasattr(memory, "__dict__") else None
-        vector = json.loads(raw) if raw else None
+        vector = vars(memory).get("embedding") if hasattr(memory, "__dict__") else None
         pairs.append((memory, None if vector is None else cosine(query, vector)))
     return pairs
 

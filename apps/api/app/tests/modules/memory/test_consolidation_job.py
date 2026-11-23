@@ -35,7 +35,6 @@ def _fact(
         last_confirmed_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
         embedding=None,
-        embedding_json=None,
         embedding_text_hash=None,
     )
 

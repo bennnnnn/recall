@@ -1,8 +1,8 @@
 """Read a photographed problem back as plain text, with a subject's prompt.
 
 This is not the math scanner: it does not call Mathpix and it asks for no
-equation kinds. Chemistry and physics confirm the text with the student, and
-the chat then solves that text like a typed question.
+equation kinds. The turn states the chemistry or physics reading as the
+confirmed line and solves that text like a typed question.
 """
 
 from __future__ import annotations
@@ -52,12 +52,11 @@ async def read_problem_text(
     content_type: str,
     data: bytes,
     mock_reading: str,
-    timeout_seconds: float | None = None,
 ) -> str:
     """The written problem, or empty when the page cannot be read.
 
-    ``timeout_seconds`` (default ``math_image_extract_timeout_seconds``) is
-    the whole read's budget, the backup vision model included.
+    ``math_image_extract_timeout_seconds`` is the whole read's budget, the backup vision
+    model included.
     """
     if not data:
         return ""
@@ -82,11 +81,7 @@ async def read_problem_text(
                 }
             ],
             max_tokens=512,
-            timeout_seconds=(
-                settings.math_image_extract_timeout_seconds
-                if timeout_seconds is None
-                else timeout_seconds
-            ),
+            timeout_seconds=settings.math_image_extract_timeout_seconds,
         )
     except Exception:
         logger.warning("scan text read failed", exc_info=True)

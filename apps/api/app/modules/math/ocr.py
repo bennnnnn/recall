@@ -162,8 +162,8 @@ def _from_extract(
     confidence: float | None = None,
     uncertain: bool = False,
 ) -> MathOcrResult:
-    # The student confirms the whole transcription, not an equation rebuilt
-    # from the parse: a rebuilt one drops whatever the parse did not keep.
+    # The turn shows the whole transcription, not an equation rebuilt from the
+    # parse: a rebuilt one drops whatever the parse did not keep.
     shown = (
         display_text
         or student_reading(extract.source_text or "")
@@ -184,13 +184,9 @@ async def extract_math_from_image(
     *,
     content_type: str,
     data: bytes,
-    timeout_seconds: float | None = None,
 ) -> MathOcrResult:
-    """Mathpix first when keyed; Gemini for semantic/ambiguous pages.
-
-    ``timeout_seconds`` bounds the whole read, Mathpix and vision together:
-    vision gets what Mathpix left. Without it each step keeps its own setting.
-    """
+    """Mathpix first when keyed; Gemini for semantic/ambiguous pages, each step on its own
+    timeout."""
     if not data:
         return _empty()
     if mock_llm.should_mock_llm(settings):
@@ -203,17 +199,9 @@ async def extract_math_from_image(
         )
         return _from_extract(extract, source="vision")
 
-    loop = asyncio.get_running_loop()
-    deadline = None if timeout_seconds is None else loop.time() + timeout_seconds
-
-    def time_left(step_seconds: float) -> float:
-        if deadline is None:
-            return step_seconds
-        return max(0.0, min(step_seconds, deadline - loop.time()))
-
     mathpix: mathpix_gateway.MathpixOcrResult | None = None
     try:
-        async with asyncio.timeout(time_left(settings.mathpix_timeout_seconds)):
+        async with asyncio.timeout(settings.mathpix_timeout_seconds):
             mathpix = await mathpix_gateway.ocr_image(
                 settings, content_type=content_type, data=data
             )
@@ -253,7 +241,7 @@ async def extract_math_from_image(
         content_type=content_type,
         data=data,
         ocr_hint=mathpix_source_text or mathpix_text or None,
-        timeout_seconds=time_left(settings.math_image_extract_timeout_seconds),
+        timeout_seconds=settings.math_image_extract_timeout_seconds,
     )
     if vision is not None and vision.found:
         source_text = (vision.source_text or mathpix_source_text or mathpix_text).strip()

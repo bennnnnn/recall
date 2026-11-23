@@ -19,13 +19,10 @@ from app.modules.billing import api as webhooks
 from app.modules.chat import api as chats
 from app.modules.chat import stream_api as chat_stream
 from app.modules.chat import ws_api as ws
-from app.modules.chemistry import api as chemistry_api
 from app.modules.images import api as images
 from app.modules.link_preview import api as link_preview
-from app.modules.math import api as math_api
 from app.modules.memory import api as memories
 from app.modules.notifications import api as users
-from app.modules.physics import api as physics_api
 from app.modules.search import api as search
 from app.modules.speech import api as speech
 from app.modules.speech import realtime as speech_realtime
@@ -45,8 +42,6 @@ UPLOAD_BODY_PATHS = (
     r"/speech/transcribe",
     r"/attachments/[^/]+/upload",
 )
-# Scan read-backs: one cropped photo, ``max_scan_request_body_bytes``.
-SCAN_BODY_PATHS = (r"/(math|physics|chemistry)/scan/read",)
 
 
 @asynccontextmanager
@@ -79,9 +74,7 @@ def create_app() -> FastAPI:
     # still gets Access-Control-* headers (browsers otherwise report a network
     # error). Security headers wrap the whole stack last. The body cap is
     # innermost so its 413 still carries CORS / request-id / security headers.
-    app.add_middleware(
-        RequestBodyLimitMiddleware, upload_paths=UPLOAD_BODY_PATHS, scan_paths=SCAN_BODY_PATHS
-    )
+    app.add_middleware(RequestBodyLimitMiddleware, upload_paths=UPLOAD_BODY_PATHS)
     app.add_middleware(RestRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
@@ -123,9 +116,6 @@ def create_app() -> FastAPI:
     app.include_router(memories.router)
     app.include_router(models.router)
     app.include_router(todos.router)
-    app.include_router(math_api.router)
-    app.include_router(physics_api.router)
-    app.include_router(chemistry_api.router)
     app.include_router(search.router)
     app.include_router(attachments.router)
     app.include_router(speech.router)

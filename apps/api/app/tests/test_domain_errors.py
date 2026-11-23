@@ -34,7 +34,6 @@ from app.modules.speech.gates import SpeechRefusedError
 from app.modules.todos.crud import TodosError
 from app.modules.todos.proposals import ProposalError
 from app.repositories.keyset import InvalidCursorError
-from app.services.scan_read import ScanRefusedError
 
 # (refusal, status, code) for every subclass.
 CASES: list[tuple[DomainError, int, str]] = [
@@ -52,7 +51,6 @@ CASES: list[tuple[DomainError, int, str]] = [
     (MemoryOffError(), 409, "memory_off"),
     (MemoryInstructionFailedError(), 502, "memory_edit_failed"),
     (SpeechRefusedError("Too many requests", status_code=429), 429, "rate_limited"),
-    (ScanRefusedError("Image too large", status_code=413, code="image_too_large"), 413, "image_too_large"),
     (ConsentRefusedError(), 403, "consent_required"),
     (AccountExistsError("apple"), 409, "account_exists"),
     (SignInRefusedError("Invalid Google ID token", code="google_token_invalid"), 401, "google_token_invalid"),

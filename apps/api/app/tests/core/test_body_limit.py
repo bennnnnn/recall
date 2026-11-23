@@ -16,7 +16,6 @@ from app.core.config import Settings
 
 _LIMIT = 1024
 _UPLOAD_LIMIT = 4096
-_SCAN_LIMIT = 2048
 
 
 class _Body(BaseModel):
@@ -41,11 +40,6 @@ def _app(read_log: list[int]) -> ASGIApp:
         data = await request.body()
         return {"bytes": len(data)}
 
-    @app.post("/math/scan/read")
-    async def scan_route(request: Request) -> dict[str, int]:
-        data = await request.body()
-        return {"bytes": len(data)}
-
     async def counting_app(scope: Scope, receive: Receive, send: Send) -> None:
         async def counted() -> Message:
             message = await receive()
@@ -55,21 +49,16 @@ def _app(read_log: list[int]) -> ASGIApp:
 
         await app(scope, counted, send)
 
-    return RequestBodyLimitMiddleware(
-        counting_app,
-        upload_paths=(r"/speech/transcribe",),
-        scan_paths=(r"/(math|physics|chemistry)/scan/read",),
-    )
+    return RequestBodyLimitMiddleware(counting_app, upload_paths=(r"/speech/transcribe",))
 
 
-_PATH_LIMITS = {"/speech/transcribe": _UPLOAD_LIMIT, "/math/scan/read": _SCAN_LIMIT}
+_PATH_LIMITS = {"/speech/transcribe": _UPLOAD_LIMIT}
 
 
 def _settings() -> Settings:
     return Settings(
         max_request_body_bytes=_LIMIT,
         max_upload_request_body_bytes=_UPLOAD_LIMIT,
-        max_scan_request_body_bytes=_SCAN_LIMIT,
     )
 
 
@@ -96,10 +85,6 @@ def _json_body(size: int) -> bytes:
         ("/speech/transcribe", _LIMIT * 3, False, 200),
         ("/speech/transcribe", _UPLOAD_LIMIT + 1, False, 413),
         ("/speech/transcribe", _UPLOAD_LIMIT + 1, True, 413),
-        # A scan read-back gets its own cap, below the upload cap.
-        ("/math/scan/read", _SCAN_LIMIT - 10, False, 200),
-        ("/math/scan/read", _SCAN_LIMIT + 1, False, 413),
-        ("/math/scan/read", _SCAN_LIMIT + 1, True, 413),
     ],
 )
 async def test_body_limit_rejects_oversized_bodies(
@@ -163,14 +148,3 @@ async def test_body_limit_is_mounted_on_the_api() -> None:
     assert response.json()["detail"]["code"] == "too_large"
     assert declared.status_code == 413
     assert declared.json() == response.json()
-
-
-def test_the_scan_cap_fits_the_largest_scan_and_stays_below_the_upload_cap() -> None:
-    from app.main import SCAN_BODY_PATHS, UPLOAD_BODY_PATHS
-    from app.models.schemas.scan import SCAN_MAX_REQUEST_BYTES
-
-    settings = Settings()
-    assert SCAN_MAX_REQUEST_BYTES <= settings.max_scan_request_body_bytes
-    assert settings.max_scan_request_body_bytes < settings.max_upload_request_body_bytes
-    assert not any("scan" in pattern for pattern in UPLOAD_BODY_PATHS)
-    assert SCAN_BODY_PATHS == (r"/(math|physics|chemistry)/scan/read",)
