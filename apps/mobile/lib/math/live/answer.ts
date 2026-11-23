@@ -31,8 +31,16 @@ function isTypedFraction(node: LiveNode, value: LiveValue): boolean {
   );
 }
 
+/**
+ * `3+4=` asks for its value, as a calculator's = key does: one = at the very end is dropped
+ * before the draft is read. `2+2=4` keeps its = and stays an equation, no calculation.
+ */
+function withoutClosingEquals(draft: string): string {
+  return draft.replace(/=\s*(\$?)\s*$/, "$1");
+}
+
 function read(draft: string): { node: LiveNode; value: LiveValue } | null {
-  const node = readCalculation(draft);
+  const node = readCalculation(withoutClosingEquals(draft));
   if (!node || isPlainNumber(node)) return null;
   const value = evaluateCalculation(node);
   return value ? { node, value } : null;

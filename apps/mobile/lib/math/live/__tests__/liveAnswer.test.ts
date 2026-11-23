@@ -33,6 +33,16 @@ describe("liveAnswer", () => {
     expect(shown(draft)).toBe(latex);
   });
 
+  it("works a draft out when = is pressed at its end, as a calculator does", () => {
+    expect(shown("$3+4=$")).toBe("= 7");
+    expect(shown("$3\\times (2+1) = $")).toBe("= 9");
+    expect(shown("$\\frac{1}{3}=$")).toBe("\\approx 0.3333333333");
+    // An equation, a lone number or a letter before = is no calculation.
+    expect(shown("$2+2=4$")).toBeNull();
+    expect(shown("$3=$")).toBeNull();
+    expect(shown("$x+1=$")).toBeNull();
+  });
+
   it("says when the value shown is rounded", () => {
     expect(liveAnswer("$\\sqrt{2}$")).toMatchObject({ exact: false, spoken: "≈ 1.414213562" });
     expect(liveAnswer("$2+3$")).toMatchObject({ exact: true, spoken: "5" });
