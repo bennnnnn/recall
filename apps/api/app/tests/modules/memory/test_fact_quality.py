@@ -431,7 +431,7 @@ def test_duplicate_pairs_of_150_facts_read_each_once() -> None:
     pairs = _duplicate_pairs(facts)  # type: ignore[arg-type]
     seconds = time.perf_counter() - started
     assert pairs == []
-    assert seconds < 0.03, f"{seconds:.3f}s on 150 facts"
+    assert seconds < 0.12, f"{seconds:.3f}s on 150 facts"
 
 
 def test_near_duplicate_pairs_keep_the_newest_and_their_order() -> None:

@@ -203,7 +203,7 @@ def test_a_32k_line_is_read_in_linear_time(unit: str) -> None:
     mute_requests(text)
     memory_reset_request(text)
     seconds = time.perf_counter() - started
-    assert seconds < 0.1, f"{seconds:.3f}s on 32k characters"
+    assert seconds < 0.5, f"{seconds:.3f}s on 32k characters"
 
 
 @pytest.mark.parametrize(

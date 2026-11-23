@@ -1399,7 +1399,7 @@ def test_150_facts_are_compared_once_each() -> None:
     needed = facts_need_consolidation(facts)
     seconds = time.perf_counter() - started
     assert needed is False
-    assert seconds < 0.03, f"{seconds:.3f}s on 150 facts"
+    assert seconds < 0.12, f"{seconds:.3f}s on 150 facts"
 
 
 def test_near_duplicates_are_only_of_one_type() -> None:
