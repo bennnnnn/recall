@@ -148,6 +148,17 @@ describe("reading a text's fences again (audit MX-4)", () => {
     expect(scanFences(text, true)).toEqual(kept);
   });
 
+  it("reads a text's fences once, and not at all for a language it never names", () => {
+    const text = "Intro\n```js\nx\n```\n";
+    const span = scanFences(text)[0];
+    expect(scanFences(text)[0]).toBe(span);
+    // Three texts that never name "sources": skipped, so the memo still holds `text`.
+    for (const other of ["a\n```js\n1\n```", "b\n```js\n2\n```", "c\n```js\n3\n```"]) {
+      expect(collectClosedFenceBodies(other, "sources")).toEqual([]);
+    }
+    expect(scanFences(text)[0]).toBe(span);
+  });
+
   it("keeps a strict read and a loose read of one text apart", () => {
     const text = "- step\n    ```html\n    <p>x</p>\n    ```";
     expect(scanFences(text)).toHaveLength(0);

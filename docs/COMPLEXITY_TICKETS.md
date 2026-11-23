@@ -160,6 +160,9 @@ before/after numbers in the PR (bench: `components/markdown/__tests__/streamFlus
   answer fences already end each region.
 - MX-7: the prefix `startsWith` compares are left (memcmp). An open data fence is classified on
   every flush, because classifying it once would change its result as its body grows.
+- MX-1: a `\(` inside inline code (`` `\(` ``) still holds the stable prefix until a `\)`, because
+  some preprocess patterns (e.g. `normalizeImplicit`'s display-span regex) do not skip code spans,
+  so skipping it in the scan is not proven safe yet.
 - MX-6: fixed, but the gain is too small to measure.
 - `eslint-plugin-regexp` is not added: `regexp/no-super-linear-backtracking` flags 54 places in
   23 files (see Tooling notes).

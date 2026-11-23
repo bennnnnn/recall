@@ -34,7 +34,11 @@ const sweep: Reply[] = [chatCode, followups, lifeAdmin, mathScience, wordProblem
     typeof turn.reply === "string" ? [[turn.id, turn.reply]] : [],
   );
 
+/** A step line inside an indented maths fence: the passes close the fence there (review). */
+const INTERRUPTED: Reply = ["interrupted-indented-math", ["1. **Set up:**", "   ```math", "   x + 2 = 5", "2. **Simplify:** take 2 away.", "   ```", "", "Then we check the result.", "", "$$", "x = 3", "$$", ""].join("\n")];
+
 const replies: Reply[] = [
+  INTERRUPTED,
   ...Object.entries(STREAMING_REPLIES),
   ...Object.entries(physics.replies).map(([name, entry]): Reply => [name, entry.reply]),
   ...Object.entries(chemistry.replies).map(([name, entry]): Reply => [name, entry.reply]),

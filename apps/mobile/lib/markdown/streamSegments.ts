@@ -32,8 +32,9 @@ import { isMathFenceLang, isStructuredFenceLang } from "@/lib/fence/registry";
 import { escapedAt } from "@/lib/markdown/inlineCode";
 import { ANSWER_WORDS_SOURCE } from "@/lib/markdown/workedWords";
 import { ENGLISH_OPENING_HEADINGS, isWorkedReply } from "@/lib/markdown/workoutSection";
+import { isMathFenceInterruptLine } from "@/lib/math/fenceRetag";
 
-type OpenFence = { char: "`" | "~"; len: number; durable: boolean };
+type OpenFence = { char: "`" | "~"; len: number; durable: boolean; indented: boolean };
 
 type SegmentHooks = {
   /** Preprocess the open part cut at `start` and compare; cut and return true when they agree. */
@@ -189,7 +190,7 @@ function foldFenceLine(state: SegmentScanState, line: string, next: number): boo
   const char = marker[0] as "`" | "~";
   if (!state.fence) {
     // An indented fence sits in a list item, whose passes may still move it: never a region's end.
-    state.fence = { char, len: marker.length, durable: !indented && isDurableFence(info) };
+    state.fence = { char, len: marker.length, durable: !indented && isDurableFence(info), indented };
     return true;
   }
   if (char !== state.fence.char || marker.length < state.fence.len || info.trim()) {
@@ -225,6 +226,9 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
 /** Fold one complete raw line into the state. */
 function foldLine(state: SegmentScanState, line: string, next: number, hooks: SegmentHooks): void {
   if (POISON_RE.test(line)) state.poisoned = true;
+  // A step line inside an indented fence: the passes close a maths fence there
+  // (closeInterruptedMathFences), so its closer below would read as an opener to them.
+  if (state.fence?.indented && isMathFenceInterruptLine(line)) state.poisoned = true;
   const blank = line.trim() === "";
   const fenceLine = foldFenceLine(state, line, next);
   if (!fenceLine && !state.fence && !blank) foldProseLine(state, line, hooks);
