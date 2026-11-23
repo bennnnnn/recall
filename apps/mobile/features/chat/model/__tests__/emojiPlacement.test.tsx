@@ -1,5 +1,6 @@
 import cases from "../../../../../../docs/fixtures/emoji_placement_cases.json";
 import { placeEmoji, placeLiveEmoji } from "@/features/chat/model/emojiPlacement";
+import * as fenceScan from "@/lib/fence/scan";
 
 // The server's finalize pass reads the same cases (test_emoji_placement.py): what
 // streams is what will be saved, so nothing changes when the reply settles. A .tsx
@@ -36,6 +37,18 @@ describe("placeLiveEmoji", () => {
         }
       }
     }
+  });
+
+  it("places only a growing draft's new lines on each flush", () => {
+    const lines = Array.from({ length: 200 }, (_, i) => `- 🎯 **Step ${i}** done`);
+    const first = `${lines.join("\n")}\n`;
+    placeLiveEmoji(first, "some", "hi");
+    const read = jest.spyOn(fenceScan, "fenceAfterLine");
+    const grown = `${first}- 🔥 **Step 200** done\nmore`;
+    expect(placeLiveEmoji(grown, "some", "hi")).toBe(placeEmoji(grown, "some", false));
+    // The 200 lines placed before are reused: only the new line and the open tail are read.
+    expect(read).toHaveBeenCalledTimes(2);
+    read.mockRestore();
   });
 
   it("places a draft again when the emoji setting changes mid-stream", () => {
