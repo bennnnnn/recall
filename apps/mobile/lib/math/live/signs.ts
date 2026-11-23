@@ -31,7 +31,8 @@ export type LiveSigns =
 
 const MAX_SIGNS = 3;
 const MAX_VALUES = 4;
-const SAME = 1e-9;
+/** Below the 10 digits shown: values this close are one value. */
+const SAME = 1e-12;
 
 const childrenOf = (node: LiveNode): LiveNode[] =>
   Object.values(node).filter((value): value is LiveNode => typeof value === "object" && value !== null);
@@ -84,9 +85,14 @@ export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
   );
 }
 
+/** Smallest first, each compared with the last one kept, so close values never merge in a chain. */
 function distinct(values: LiveValue[]): LiveValue[] {
-  const sorted = [...values].sort((a, b) => numberOf(a) - numberOf(b));
-  return sorted.filter((value, i) => i === 0 || !same(sorted[i - 1]!, value));
+  const kept: LiveValue[] = [];
+  for (const value of [...values].sort((a, b) => numberOf(a) - numberOf(b))) {
+    const last = kept.at(-1);
+    if (!last || !same(last, value)) kept.push(value);
+  }
+  return kept;
 }
 
 /** What a reading works out to, each ± branch on its own; `null` when nothing is shown. */

@@ -175,6 +175,10 @@ describe("liveAnswer", () => {
     expect(shown("$1\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 1");
   });
 
+  it("keeps values apart that differ in the tenth digit", () => {
+    expect(shown("$\\pi\\pm 10^{-9}\\pm 10^{-9}$")?.split(",").length).toBe(3);
+  });
+
   it("keeps values apart that differ in the digits shown, however small", () => {
     expect(answer("$\\sqrt{2}\\times 10^{-5}\\pm 10^{-10}\\pm 10^{-10}$")?.latex.split(",").length).toBe(3);
   });

@@ -61,5 +61,7 @@ describe("MathLiveAnswer", () => {
   it("shows only the values when the branches would be taller than the row", async () => {
     // A fraction in a fraction, echoed in each branch, is taller than the row holds.
     expect(await shown("$\\frac{1}{1+\\frac{1}{2}}\\pm 1$")).toContain("= −13, 53");
+    // A raised power under the root lifts its bar past the row's top.
+    expect(await shown("$\\frac{-3\\pm\\sqrt{3^{2}-4\\cdot 1\\cdot 2}}{2}$")).toMatch(/^\W*= −2, −1$/);
   });
 });

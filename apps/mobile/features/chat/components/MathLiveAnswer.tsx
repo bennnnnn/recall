@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -31,12 +31,8 @@ const ANSWER_SIZE = 20;
 /** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
 const BRANCH_SIZE = DRAFT_TEXT_SIZE;
 
-/**
- * The tallest the row holds: a fraction answer (`= \frac{5}{6}`) at the answer's size, as
- * `MathText` lays it out. Text size scales both alike, so the comparison leaves it out.
- */
-const ROW_LIMIT = mathHeight("= \\frac{5}{6}", ANSWER_SIZE);
-const fitsRow = (latex: string, size: number): boolean => mathHeight(latex, size) <= ROW_LIMIT;
+/** Whether `latex` at `size`, as `MathText` lays it out, is no taller than the row that clips it. */
+const fitsRow = (latex: string, size: number): boolean => mathHeight(latex, size) <= MATH_LIVE_ANSWER_HEIGHT;
 
 /**
  * While the math keyboard is open the composer opens full height, as its expand control
@@ -58,6 +54,26 @@ export const mathCardStyles = StyleSheet.create({
  * accent the app wears. An answer wider than the row scrolls sideways. Send still asks the
  * server.
  */
+/**
+ * The answer's sideways scroll, one per answer shown (its caller keys it): wider than the row,
+ * its bar shows once, so a cut edge reads as more to see, again for each new wide answer.
+ */
+function AnswerScroll({ children }: { children: ReactNode }) {
+  const flash = useFlashWhenClipped();
+  return (
+    <ScrollView
+      {...flash}
+      horizontal
+      showsHorizontalScrollIndicator
+      bounces={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.content}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
 export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: string }) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -70,8 +86,6 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
     () => (answer?.short && !fitsRow(answer.latex, size) ? answer.short : answer?.latex),
     [answer, size],
   );
-  // Wider than the row, its scroll bar shows once, so a cut edge reads as more to see.
-  const flash = useFlashWhenClipped();
   return (
     <View
       style={styles.line}
@@ -81,16 +95,9 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
     >
       {answer ? (
         <AccessibleElementChildren>
-          <ScrollView
-            {...flash}
-            horizontal
-            showsHorizontalScrollIndicator
-            bounces={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.content}
-          >
+          <AnswerScroll key={latex}>
             <MathText latex={latex ?? answer.latex} textColor={color} fontSize={size} />
-          </ScrollView>
+          </AnswerScroll>
         </AccessibleElementChildren>
       ) : null}
     </View>

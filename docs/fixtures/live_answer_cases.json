@@ -1,5 +1,5 @@
 {
-  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), \"undefined\" for a draft with no number at all (1 ÷ 0, tan 90°, log 0: SymPy's zoo or nan; a real infinity, as atanh(1), shows nothing), null for no live answer. A draft with ± has a list for each: one sign, its − branch then its + branch; two or three, all ± or all ∓, the distinct values, smallest first. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
+  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), \"undefined\" for a draft with no number at all (1 ÷ 0, tan 90°, log 0: SymPy's zoo or nan; a real infinity, as atanh(1), shows nothing), null for no live answer. A case SymPy cannot write (Mod(5, 0) raises) has a null sympy, its value, a why and a server_gap. A draft with ± has a list for each: one sign, its − branch then its + branch; two or three, all ± or all ∓, the distinct values, smallest first. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
   "cases": [
     {
       "id": "sum-then-product",
@@ -672,6 +672,14 @@
       "sympy": "1/0",
       "value": "undefined",
       "server_gap": "the turn does not verify a fraction over 0: the model answers it"
+    },
+    {
+      "id": "mod-zero",
+      "draft": "$5\\bmod 0$",
+      "sympy": null,
+      "value": "undefined",
+      "why": "SymPy's Mod(5, 0) raises rather than giving zoo",
+      "server_gap": "the turn does not verify a remainder by 0: the model answers it"
     },
     {
       "id": "zero-negative-power",

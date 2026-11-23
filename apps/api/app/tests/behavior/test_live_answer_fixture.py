@@ -125,7 +125,11 @@ def test_live_answer_fixture_is_sympys_value() -> None:
     assert len(ids) == len(set(ids)), "case ids repeat"
     for case in data["cases"]:
         if case["sympy"] is None:
-            assert case["value"] is None and case.get("why"), f"{case['id']}: say why no answer"
+            # No answer, or one SymPy cannot write (``Mod(5, 0)`` raises): say why.
+            assert case.get("why"), f"{case['id']}: say why SymPy has no value"
+            assert case["value"] is None or case.get("server_gap"), (
+                f"{case['id']}: a value SymPy cannot check is a server_gap"
+            )
             continue
         values = _sympy_values(case["sympy"])
         assert values == case["value"], (
