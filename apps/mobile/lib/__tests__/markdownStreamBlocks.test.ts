@@ -5,6 +5,7 @@ import {
   MIN_SETTLED_CHUNK_CHARS,
 } from "@/lib/markdown/streamBlocks";
 import { CODE_STEPS_REPLY } from "@/lib/__tests__/fixtures/streamingReplies";
+import { pieceRefs } from "@/lib/markdown/streamReferences";
 
 const PARA = (label: string) =>
   `${label} ${"lorem ipsum dolor sit amet ".repeat(16).trim()}`;
@@ -323,6 +324,11 @@ describe("advanceStreamBlocks between list items", () => {
     expect(state.chunks.join("")).toBe(state.settledText);
     // Settled, the pieces are the same.
     expect(settleStreamBlocks(state, text).chunks).toEqual(state.chunks);
+  });
+
+  it("reads a definition whose title runs over several lines", () => {
+    const text = 'Intro.\n\n[docs]: https://docs.example.com "one\ntwo\nthree\nfour"\n\nAfter.';
+    expect(pieceRefs(text, [text.indexOf("[docs]")], 0).defines).toEqual(["DOCS"]);
   });
 
   it("cuts on after a line that only looks like a definition", () => {

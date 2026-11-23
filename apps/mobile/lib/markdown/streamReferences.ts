@@ -16,8 +16,8 @@ export type PieceRefs = { defines: string[]; mentions: string[] };
 export const NO_REFS: PieceRefs = { defines: [], mentions: [] };
 
 const BRACKETED_RE = /\[([^[\]]{1,999})\]/g;
-/** A definition is its label line, then at most a destination and a title line. */
-const DEFINITION_LINES = 3;
+/** A definition runs to the next blank line (a title may span lines); read at most this many. */
+const DEFINITION_LINES = 20;
 
 const normalize = (label: string) => markdownItInstance.utils.normalizeReference(label);
 
