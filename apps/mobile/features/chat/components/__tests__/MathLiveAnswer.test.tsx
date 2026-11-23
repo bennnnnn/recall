@@ -4,6 +4,14 @@ import { render } from "@testing-library/react-native";
 import { MathLiveAnswer } from "@/features/chat/components/MathLiveAnswer";
 import { DRAFT_TEXT_SIZE } from "@/lib/math/draftText";
 
+// `t` that fills in `{{value}}`, so the screen reader's words can be checked.
+jest.mock("react-i18next", () => {
+  const words: Record<string, string> = { "chat.math_live_undefined": "undefined", "chat.math_live_answer_a11y": "Answer: {{value}}" };
+  const t = (key: string, options?: { value?: string }) =>
+    (words[key] ?? key).replace("{{value}}", options?.value ?? "");
+  return { useTranslation: () => ({ t, i18n: { language: "en" }, ready: true }) };
+});
+
 type Node = { children: (Node | string)[] };
 const text = (node: Node | string): string =>
   typeof node === "string" ? node : node.children.map(text).join("");
@@ -39,6 +47,15 @@ const atTextSize = (fontScale: number) =>
 describe("MathLiveAnswer", () => {
   beforeEach(() => atTextSize(1));
   afterEach(() => jest.restoreAllMocks());
+
+  it("tells a screen reader the value: undefined, or each branch", async () => {
+    const label = async (input: string) => {
+      const { getByTestId } = await render(<MathLiveAnswer input={input} />);
+      return getByTestId("math-live-answer").props.accessibilityLabel as string;
+    };
+    expect(await label("$1\\div 0$")).toBe("Answer: undefined");
+    expect(await label("$1\\pm 1$")).toBe("Answer: 1 - 1 = 0, 1 + 1 = 2");
+  });
 
   it("keeps the branches when their values alone would be no lower", async () => {
     atTextSize(1.12);

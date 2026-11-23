@@ -81,6 +81,9 @@ describe("liveAnswer", () => {
     ["a tangent pole in radians", "$\\tan(\\frac{\\pi}{2})$"],
     ["a cotangent pole", "$\\cot(180^{\\circ})$"],
     ["a hyperbolic pole", "$\\coth(0)$"],
+    ["one over the natural log of 1", "$\\frac{1}{\\ln(1)}$"],
+    ["one over sinh 0", "$\\frac{1}{\\sinh(0)}$"],
+    ["one over tanh 0", "$\\frac{1}{\\tanh(0)}$"],
     ["a log of zero", "$\\log(0)$"],
     ["a natural log of zero", "$\\ln(0)$"],
     ["a log to base 1", "$\\log_{1}(5)$"],
@@ -128,6 +131,8 @@ describe("liveAnswer", () => {
     ["a radian angle too big to keep ten digits", "$\\cos(10^{15}\\pi+1)$"],
     ["a power that rounded to 0", "$10^{-400}$"],
     ["a product that rounded to 0", "$10^{-400}\\times 10^{300}$"],
+    ["a product of two small numbers that rounded to 0", "$10^{-200}\\times 10^{-200}$"],
+    ["a quotient that rounded to 0", "$\\frac{10^{-200}}{10^{200}}$"],
     ["an exponential that rounded to 0", "$\\exp(-1000)$"],
     ["a hyperbolic secant that rounded to 0", "$\\sech(1000)$"],
     ["a ceiling a long chain of steps leaves in doubt", "$\\lceil(\\sqrt[1000]{2})^{1000}\\rceil$"],
@@ -216,6 +221,9 @@ describe("liveAnswer", () => {
     expect(shown("$2\\pm -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2-\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2--\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
+    // Across the spaces the reader skips too.
+    expect(shown("$2-\\,\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
+    expect(shown("$2\\pm\\, -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
     expect(shown("$2\\times\\pm 3$")).toBe("2 \\times -3 = -6,\\quad 2 \\times +3 = 6");
   });
@@ -245,13 +253,18 @@ describe("liveAnswer", () => {
     expect(shown("$\\sin(36000000000000030^{\\circ})$")).toBe("= 0.5");
   });
 
+  it("never calls a sine that is only near 0 exactly 0", () => {
+    expect(shown("$\\sin(10^{-13}\\pi)$")).toBeNull();
+    expect(shown("$\\frac{\\sin(10^{-13}\\pi)}{10^{-13}\\pi}$")).toBeNull();
+  });
+
   it("works an angle of 0π out exactly", () => {
     expect(shown("$\\cos(0\\pi)$")).toBe("= 1");
   });
 
   it("works nested degree angles once each, not twice per level", () => {
     let draft = "1";
-    for (let i = 0; i < 24; i += 1) draft = "\\sin(" + draft + "^{\\circ})";
+    for (let i = 0; i < 24; i += 1) draft = "\\cos(" + draft + "^{\\circ})";
     const started = Date.now();
     expect(shown("$" + draft + "$")).not.toBeNull();
     expect(Date.now() - started).toBeLessThan(1000);

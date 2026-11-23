@@ -59,7 +59,12 @@ function picked(node: LiveNode, picks: ReadonlyMap<PlusMinus, Pick>): LiveNode {
 
 /** A run of signs and one more as one sign: `-` then `-` is `+`, `--` then `+` is `+`. */
 const merged = (run: string, pick: Pick): Pick =>
-  [...run.replace(/\s/g, "")].reduce<Pick>((sign, next) => ((next === "+") === (sign === "+") ? "+" : "-"), pick);
+  [...run.replace(/[^+\-−]/g, "")].reduce<Pick>((sign, next) => ((next === "+") === (sign === "+") ? "+" : "-"), pick);
+
+/** Signs and the spaces the reader skips between them (`\,`, `\quad`). */
+const RUN = String.raw`(?:[+\-−]|\s|\\[,;:! ]|\\q?quad\b)*`;
+const RUN_BEFORE = new RegExp(String.raw`[+\-−]${RUN}$`);
+const RUN_AFTER = new RegExp(String.raw`^(?:\s|\\[,;:! ]|\\q?quad\b)*[+\-−]${RUN}`);
 
 /**
  * The draft as written, its sign replaced (`2\pm 3` → `2-3`); a typed `*` drawn as ×. The
@@ -72,12 +77,12 @@ function written(math: string, sign: PlusMinus, pick: Pick): string | null {
   let before = math.slice(0, sign.at);
   let after = math.slice(sign.at + sign.width).replace(/^\s+/, "");
   let shown = pick;
-  const operators = /[+\-−][+\-−\s]*$/.exec(before);
+  const operators = RUN_BEFORE.exec(before);
   if (!sign.left && operators) {
     shown = merged(operators[0], shown);
     before = before.slice(0, operators.index);
   }
-  const next = /^[+\-−][+\-−\s]*/.exec(after);
+  const next = RUN_AFTER.exec(after);
   if (next) {
     shown = merged(next[0], shown);
     after = after.slice(next[0].length);

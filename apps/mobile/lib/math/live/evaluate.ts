@@ -195,6 +195,8 @@ function logarithm(arg: LiveValue, base: LiveValue | "e"): LiveValue {
   // Base 1 exactly (`\log_{1}`); one that only rounds to 1 has a huge log, and no value here.
   const exactBase = base !== "e" && base.kind === "exact" ? base.r : null;
   if (exactBase ? exactBase.n === exactBase.d : b === 1) return exactBase ? undefinedValue() : fail();
+  // The log of exactly 1 is exactly 0, in any base, so `1 ÷ ln 1` is undefined as `1 ÷ log 1` is.
+  if (arg.kind === "exact" && arg.r.n === arg.r.d) return ZERO;
   if (base !== "e" && arg.kind === "exact" && base.kind === "exact") {
     const r = exactLog(arg.r, base.r);
     if (r) return exact(r);
@@ -316,7 +318,8 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degr
   const snapped = zero(value);
   if (snapped !== 0) return approx(snapped);
   const fromSine = fn === "sin" || fn === "tan";
-  return (fromSine ? sineZero : cosineZero) ? ZERO : SMALL;
+  // Only near 0 (`sin(10^{-13}\pi)`): floating point cannot say how near, so no value.
+  return (fromSine ? sineZero : cosineZero) ? ZERO : fail();
 }
 
 /** sin(30k°) for k in one turn: rational at 0°, 30°, 90°, 150°, …; `null` where it is a root. */
@@ -354,6 +357,8 @@ function exactTrig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", degrees: R
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());
 
+const ZERO_AT_ZERO = new Set<LiveFunction>(["sinh", "tanh", "asin", "atan", "asinh", "atanh"]);
+
 function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue {
   if (fn === "sin" || fn === "cos" || fn === "tan" || fn === "cot" || fn === "sec" || fn === "csc") {
     return trig(fn, angle(arg));
@@ -362,6 +367,8 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   const value = defined(arg);
   if (fn === "log") return logarithm(value, base ? defined(base) : exact(rational(10n)));
   if (fn === "ln") return logarithm(value, "e");
+  // Exactly 0 at exactly 0, so `1 ÷ sinh 0` is undefined as `csch 0` is.
+  if (isZero(value) && ZERO_AT_ZERO.has(fn)) return ZERO;
   const x = numberOf(value);
   switch (fn) {
     case "exp": return approx(held(Math.exp(x), 1));
