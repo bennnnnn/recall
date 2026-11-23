@@ -459,6 +459,10 @@ def test_a_negative_power_is_no_rounded_number() -> None:
             "How many grams of H2O from 22.4 L of H2 at 1 atm and 0 C in 2H2 + O2 -> 2H2O",
             "m(H2O) = 18.0 g",
         ),
+        (
+            "How many grams of H2O from 22.4 L of H2 at 1 atm and 273 K in 2H2 + O2 -> 2H2O",
+            "m(H2O) = 18.0 g",
+        ),
         # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
         (
             "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
@@ -544,6 +548,16 @@ def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
             "25.0 mL of 0.100 M acetic acid (Ka = 1.8e-5) is titrated with 30.0 mL of "
             "0.100 M NaOH. What is the pH?",
             "where c = −0.0091 mol/L",
+        ),
+        # A ratio of exactly 1 shares "1.00" with one rounded to it: the row is left as is.
+        (
+            "A compound is 40.0% C, 6.71% H, 53.3% O. What is its empirical formula?",
+            "C: 40.0 g / 12.011 g/mol = 3.3303 mol; / 3.3303 = 1.00 → 1",
+        ),
+        # The 2 of "ln(2)" is a constant, no rounded 2: the closing row ends unrounded.
+        (
+            "A first order reaction has a half-life of 0.3 min. What is the rate constant k?",
+            "k = 2.310\\,\\mathrm{min⁻¹}$",
         ),
         # RT to five figures: (0.003) / (24.453)^-2 is the 1.794 the closing row ends on.
         ("Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3", "K_{c} = 1.794"),

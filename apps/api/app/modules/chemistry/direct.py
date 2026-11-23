@@ -140,7 +140,7 @@ def _worked_rows(
     rounded = {text for text, _ in unrounded} - typed
     ends = [_rounded_end(row, unrounded) for row in rows]
     heads = [
-        row if end is None else row.rpartition(" = ")[0]
+        _CONSTANT_ARGUMENT.sub(" ", row if end is None else row.rpartition(" = ")[0])
         for row, end in zip(rows, ends, strict=True)
     ]
     inputs = [set(_NUMBER_TEXT.findall(head)) for head in heads]
@@ -165,8 +165,12 @@ def _worked_rows(
             if end is not None:
                 kept.add(end.lstrip("-−"))
         else:
-            shown.append(_unrounded_value(row, unrounded))
+            shown.append(_unrounded_value(row, end, unrounded))
     return shown
+
+
+# A whole number a function takes is a constant, no rounded value: the 2 of "ln(2)".
+_CONSTANT_ARGUMENT = re.compile(r"\b(?:ln|log(?:10)?)\s*\(\d+\)")
 
 
 # A difference of two values: "(1.000 mol − 0.9921 mol)", "1/350 − 1/300", and in powers
@@ -224,14 +228,11 @@ def _rounded_end(row: str, unrounded: tuple[tuple[str, str], ...]) -> str | None
     return None
 
 
-def _unrounded_value(row: str, unrounded: tuple[tuple[str, str], ...]) -> str:
-    """``m = 29 g`` → ``m = 29.22 g``: a row ending on a value the solve rounded ends on it
-    unrounded, as worked; a row whose value nothing rounded stays."""
-    text = _rounded_end(row, unrounded)
-    if text is None:
-        return row
+def _unrounded_value(row: str, end: str, unrounded: tuple[tuple[str, str], ...]) -> str:
+    """``m = 29 g`` → ``m = 29.22 g``: a row ending on ``end``, a value the solve rounded,
+    ends on it unrounded, as worked."""
     head, _equals, value = row.rpartition(" = ")
-    return f"{head} = {dict(unrounded)[text]}{value.strip()[len(text) :]}"
+    return f"{head} = {dict(unrounded)[end]}{value.strip()[len(end) :]}"
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:

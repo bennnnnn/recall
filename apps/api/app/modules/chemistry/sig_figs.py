@@ -65,6 +65,7 @@ _EXACT_IN_OP = {
 PRESSURE_KEYS = frozenset({"pressure", "p", "p1", "p2"})
 _TEMPERATURE_KEYS = ("temperature", "t", "t1", "t2")
 _STP = re.compile(r"\bSTP\b", re.IGNORECASE)
+_STP_KELVIN_TOLERANCE = 0.5
 # One atmosphere in the units a pressure is given in: atm, kPa, Pa, mmHg (torr).
 _ONE_ATM = (1.0, 101.325, 101325.0, 760.0)
 # Given as logarithms: their precision is their decimal places.
@@ -125,14 +126,15 @@ def as_written(literal: str) -> str:
 
 def _at_stp(text: str, intent: ChemistryIntent) -> bool:
     """Whether the question is at standard temperature and pressure: it says STP, or its
-    temperature is 0 °C (273.15 K)."""
+    temperature is 0 °C (273.15 K, or 273 K as typed)."""
     if _STP.search(text):
         return True
     params = intent.params
     if params.get("temperature_c") == 0:
         return True
+    # 273.15 K, or 273 K as typed.
     return any(
-        key in params and math.isclose(params[key], CELSIUS_OFFSET_K, abs_tol=1e-9)
+        key in params and abs(params[key] - CELSIUS_OFFSET_K) < _STP_KELVIN_TOLERANCE
         for key in _TEMPERATURE_KEYS
     )
 
@@ -363,7 +365,12 @@ def note_rounding(text: str, worked: str) -> None:
     as the working carries it. The answer card keeps ``text``; the working ends on ``worked``,
     so a student sees 0.50 x 58.44 = 29.22 g before the card's 29 g."""
     written = _CURRENT.get()
-    if written is None or worked == text or _value_of(worked) == _value_of(text):
+    if written is None:
+        return
+    if worked == text or _value_of(worked) == _value_of(text):
+        # A value that is exactly ``text`` ("1.00" of an empirical ratio of 1) shares its
+        # spelling with any value rounded to it: which one a row ends on is unknown.
+        written.rounded[text] = None
         return
     if written.rounded.setdefault(text, worked) != worked:
         written.rounded[text] = None
