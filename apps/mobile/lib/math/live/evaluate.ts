@@ -22,7 +22,7 @@
  * keeps). An angle that is none of these (`\sin(1+1)`) gives no value.
  */
 import { guardReason, refuse } from "@/lib/fence/validate";
-import type { LiveFunction, LiveNode } from "@/lib/math/live/read";
+import { childrenOf, mapChildren, type LiveFunction, type LiveNode } from "@/lib/math/live/read";
 import {
   add,
   bitLength,
@@ -124,7 +124,7 @@ function power(base: LiveValue, exponent: LiveValue): LiveValue {
       const root = rootExact(b, e.d);
       const r = root && powInteger(root, e.n);
       if (r) return exact(r);
-      const magnitude = Math.abs(toNumber(b)) ** toNumber(e);
+      const magnitude = held(Math.abs(toNumber(b)) ** toNumber(e), toNumber(b));
       return approx(b.n < 0n && e.n % 2n !== 0n ? -magnitude : magnitude);
     }
   }
@@ -181,11 +181,11 @@ function wholeOf(x: number, round: (x: number) => number): number {
 /**
  * The float result of + or −. One that cancels to within its operands' rounding (`√2·√2 − 2`,
  * `π − 3.14159265358979`) may be 0 or a tiny number floating point cannot tell: no value. Two
- * equal floats (`π − π`) are 0, though only as a float: dividing by it still gives none. Not
- * when one was typed (`typed`): `π − 3.141592653589793` meets π's float by chance.
+ * sides written alike (`π − π`) are 0, though only as a float: dividing by it still gives none.
+ * Any other 0 is a coincidence of rounding (`π − 3.141592653589793`, `π + 10^{-20} − π`).
  */
-function cancelled(result: number, x: number, y: number, typed: boolean): number {
-  if (result === 0 && !typed) return 0;
+function cancelled(result: number, x: number, y: number, alike: boolean): number {
+  if (result === 0 && alike) return 0;
   return Math.abs(result) <= CANCEL_STEPS * Number.EPSILON * Math.max(Math.abs(x), Math.abs(y)) ? fail() : result;
 }
 
@@ -220,9 +220,7 @@ function logarithm(arg: LiveValue, base: LiveValue | "e"): LiveValue {
 const contains = (node: LiveNode, kinds: ReadonlySet<LiveNode["kind"]>): boolean => {
   if (kinds.has(node.kind)) return true;
   if (node.kind === "call") return false; // an inner call reads its own angle
-  return Object.values(node).some(
-    (child) => typeof child === "object" && child !== null && contains(child as LiveNode, kinds),
-  );
+  return childrenOf(node).some((child) => contains(child, kinds));
 };
 
 const DEGREES = new Set<LiveNode["kind"]>(["degrees"]);
@@ -234,7 +232,7 @@ const RADIANS = new Set<LiveNode["kind"]>(["pi", "radians"]);
  * exactly. Any other (`1.5\mathrm{rad}`, `\frac{\pi}{2}+10^{-15}`) has one only at exactly 0
  * (`atZero`): the sine of any other such number is not 0, nor is its cosine.
  */
-type Angle = { radians: number; degrees: Rational | null; atZero: boolean };
+type Angle = { degrees: Rational } | { degrees: null; radians: number; atZero: boolean };
 
 /** Inside an angle, what keeps it from being read with π as a number: a function (worked out
  * three times a level), or a floor or ceiling (`\lfloor 10^{10}\pi\rfloor` reads as a whole
@@ -244,11 +242,7 @@ const NOT_PI_MULTIPLE = new Set<LiveNode["kind"]>(["call", "floor", "ceil"]);
 /** The angle with π read as `degrees` (180 or 360): a multiple of π becomes exact degrees. */
 function withPi(node: LiveNode, degrees: string): LiveNode {
   if (node.kind === "pi") return { kind: "number", text: degrees };
-  const copy: Record<string, unknown> = { ...node };
-  for (const [key, value] of Object.entries(node)) {
-    if (typeof value === "object" && value !== null) copy[key] = withPi(value as LiveNode, degrees);
-  }
-  return copy as LiveNode;
+  return mapChildren(node, (child) => withPi(child, degrees));
 }
 
 /**
@@ -277,10 +271,7 @@ function inDegrees(value: LiveValue, negative: boolean): Angle {
   if (value.kind !== "exact") {
     return { radians: ((negative ? -1 : 1) * value.x * Math.PI) / 180, degrees: null, atZero: false };
   }
-  const degrees = rational(negative ? -value.r.n : value.r.n, value.r.d) ?? fail();
-  const turn = 360n * degrees.d;
-  const within = ((degrees.n % turn) + turn) % turn;
-  return { radians: (Number(within) / Number(degrees.d) * Math.PI) / 180, degrees, atZero: false };
+  return { degrees: rational(negative ? -value.r.n : value.r.n, value.r.d) ?? fail() };
 }
 
 /** The angle, read as the server reads it. */
@@ -330,12 +321,13 @@ const onHalfTurn = (degrees: Rational, offset: bigint): boolean =>
  * One that is only small (`cos 89.99999999999999°`, `cos 1.5707963267948966 rad`) is shown as
  * 0 but is no pole: dividing by it leaves no value.
  */
-function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degrees, atZero: zeroAngle }: Angle): LiveValue {
+function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", angle: Angle): LiveValue {
+  const { degrees } = angle;
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   // A radian angle this large keeps fewer digits than the answer shows.
-  if (!degrees && TRIG_ROUNDING_STEPS * Number.EPSILON * Math.abs(radians) > TRIG_DIGITS) fail();
-  const [sine, cosine] = degrees ? quarterTurns(degrees) : [Math.sin(radians), Math.cos(radians)];
-  const sineZero = degrees ? onHalfTurn(degrees, 0n) : zeroAngle;
+  if (!degrees && TRIG_ROUNDING_STEPS * Number.EPSILON * Math.abs(angle.radians) > TRIG_DIGITS) fail();
+  const [sine, cosine] = degrees ? quarterTurns(degrees) : [Math.sin(angle.radians), Math.cos(angle.radians)];
+  const sineZero = degrees ? onHalfTurn(degrees, 0n) : angle.atZero;
   const cosineZero = degrees ? onHalfTurn(degrees, 90n) : false;
   // Exact degrees on a zero are 0 however much converting a large angle rounded (`tan 9000090°`).
   const s = sineZero ? 0 : zero(sine);
@@ -448,10 +440,10 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       const b = evaluate(node.right, inAngle);
       // A float sum that cancels to its operands' rounding is a doubtful 0: no value
       // (`√2·√2 − 2`, where SymPy, exact, says 0 and its reciprocal undefined).
-      const typed = a.kind === "exact" || b.kind === "exact";
+      const alike = node.op === "-" && JSON.stringify(node.left) === JSON.stringify(node.right);
       return node.op === "+"
-        ? combine(a, b, add, (x, y) => cancelled(x + y, x, y, typed))
-        : combine(a, b, sub, (x, y) => cancelled(x - y, x, y, typed));
+        ? combine(a, b, add, (x, y) => cancelled(x + y, x, y, false))
+        : combine(a, b, sub, (x, y) => cancelled(x - y, x, y, alike));
     }
     case "mul": {
       const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);

@@ -15,7 +15,7 @@
  * any such draft has.
  */
 import { evaluateCalculation, numberOf, type LiveResult, type LiveValue } from "@/lib/math/live/evaluate";
-import type { LiveNode, LiveReading } from "@/lib/math/live/read";
+import { childrenOf, mapChildren, type LiveNode, type LiveReading } from "@/lib/math/live/read";
 
 type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
@@ -34,9 +34,6 @@ const MAX_SIGNS = 3;
 /** Below the 10 digits shown: values this close are one value. */
 const SAME = 1e-12;
 
-const childrenOf = (node: LiveNode): LiveNode[] =>
-  Object.values(node).filter((value): value is LiveNode => typeof value === "object" && value !== null);
-
 function signsOf(node: LiveNode): PlusMinus[] {
   const own = node.kind === "pm" ? [node] : [];
   return [...own, ...childrenOf(node).flatMap(signsOf)];
@@ -50,11 +47,7 @@ function picked(node: LiveNode, picks: ReadonlyMap<PlusMinus, Pick>): LiveNode {
     if (!node.left) return op === "+" ? right : { kind: "neg", operand: right };
     return { kind: "add", op, left: picked(node.left, picks), right };
   }
-  const copy: Record<string, unknown> = { ...node };
-  for (const [key, value] of Object.entries(node)) {
-    if (typeof value === "object" && value !== null) copy[key] = picked(value as LiveNode, picks);
-  }
-  return copy as LiveNode;
+  return mapChildren(node, (child) => picked(child, picks));
 }
 
 /** A run of signs and one more as one sign: `-` then `-` is `+`, `--` then `+` is `+`. */

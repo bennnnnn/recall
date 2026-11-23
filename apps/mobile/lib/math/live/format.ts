@@ -223,9 +223,17 @@ const MAX_VALUES = 4;
 function writtenValues(values: LiveValue[], preferFraction: boolean): { value: LiveValue; shown: Shown }[] | null {
   const form = oneForm(values, preferFraction);
   const digits = (s: Shown) => s.latex.replace(/^(?:=|\\approx) /, "");
-  const written = values
-    .map((value) => ({ value, shown: formatValue(value, form) }))
-    .filter((v, i, all) => i === 0 || digits(v.shown) !== digits(all[i - 1]!.shown));
+  const written: { value: LiveValue; shown: Shown }[] = [];
+  for (const value of values) {
+    const shown = formatValue(value, form);
+    const last = written.at(-1);
+    if (!last || digits(last.shown) !== digits(shown)) {
+      written.push({ value, shown });
+    } else if (!shown.exact && last.shown.exact) {
+      // Merged with a rounded value: the one written is rounded too.
+      last.shown = { latex: `\\approx ${digits(shown)}`, spoken: `≈ ${shown.spoken.replace(/^≈ /, "")}`, exact: false };
+    }
+  }
   return written.length > MAX_VALUES ? null : written;
 }
 

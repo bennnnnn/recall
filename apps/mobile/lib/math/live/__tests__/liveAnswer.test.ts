@@ -154,6 +154,9 @@ describe("liveAnswer", () => {
     ["an angle in π only near a pole", "$\\tan(\\frac{\\pi}{2}+10^{-15})$"],
     ["an angle holding a power that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
     ["a typed decimal that meets π's float by chance", "$\\pi-3.141592653589793$"],
+    ["a small term a float swallowed", "$\\pi+10^{-20}-\\pi$"],
+    ["a whole term a float swallowed", "$e^{40}+1-e^{40}$"],
+    ["a fractional power that rounded to 0", "$10^{-400.5}$"],
     ["a ceiling floating point cannot place", "$\\lceil 1+e^{-40}\\rceil$"],
     ["a floor floating point cannot place", "$\\lfloor\\sqrt{2}\\sqrt{2}\\rfloor$"],
     ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
@@ -228,6 +231,8 @@ describe("liveAnswer", () => {
     expect(shown("$1\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 1");
     // A fraction too long to show makes every value a decimal, so one value is written once.
     expect(shown("$\\frac{1}{3}\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 0.3333333333");
+    // An exact 1 merged with a rounded one is written rounded: ≈, never =.
+    expect(answer("$(\\pm 10^{-6})^{2}\\pm 10^{-12}+1$")).toMatchObject({ latex: "\\approx 1", exact: false });
   });
 
   it("keeps values apart that differ in the tenth digit", () => {

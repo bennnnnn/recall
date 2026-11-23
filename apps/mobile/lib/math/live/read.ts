@@ -40,6 +40,19 @@ export type LiveNode =
   /** `2 \pm 3` (`left` null for `\pm 3`); `at` and `width` place the sign in the read text. */
   | { kind: "pm"; op: "pm" | "mp"; left: LiveNode | null; right: LiveNode; at: number; width: number };
 
+/** A node's children (`left`, `operand`, `arg`, …), in their order. */
+export const childrenOf = (node: LiveNode): LiveNode[] =>
+  Object.values(node).filter((value): value is LiveNode => typeof value === "object" && value !== null);
+
+/** A copy of `node` with each child replaced by `map(child)`. */
+export function mapChildren(node: LiveNode, map: (child: LiveNode) => LiveNode): LiveNode {
+  const copy: Record<string, unknown> = { ...node };
+  for (const [key, value] of Object.entries(node)) {
+    if (typeof value === "object" && value !== null) copy[key] = map(value as LiveNode);
+  }
+  return copy as LiveNode;
+}
+
 /** The calculation, and the text it was read from (`math`, where a ± node's `at` points). */
 export type LiveReading = { node: LiveNode; math: string };
 
