@@ -155,8 +155,14 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
             current_user_message_id=_row_id(current) if current is not None else None,
             **kwargs,
         )
-    # Recorded as ``out``: the stats the prompt filled in (none but a summary here).
-    return messages, {name: value for name, value in asdict(stats).items() if value}
+    # Recorded as ``out``: the stats the prompt filled in (none but a summary here), and the
+    # rules message ordinary chat would send instead of the second one (``ordinary_prompt``).
+    ordinary, stats.ordinary = stats.ordinary, None
+    out = {name: value for name, value in asdict(stats).items() if value}
+    if ordinary is not None:
+        assert ordinary.full == messages[1]["content"]
+        out["ordinary"] = ordinary.compact
+    return messages, out
 
 
 def prompt_copy() -> dict[str, str]:
@@ -193,16 +199,27 @@ def load_golden() -> tuple[Case, list[str], list[Case]]:
     return data["defaults"], data["texts"], data["cases"]
 
 
-def expected_of(texts: list[str], case: Case) -> list[dict[str, str]]:
+def _decode(texts: list[str], tokens: str) -> str:
     copy = prompt_copy()
+    return "".join(
+        copy[token[1:]] if token.startswith("@") else texts[int(token)]
+        for token in tokens.split(" ")
+    )
 
-    def text_of(token: str) -> str:
-        return copy[token[1:]] if token.startswith("@") else texts[int(token)]
 
+def expected_of(texts: list[str], case: Case) -> list[dict[str, str]]:
     return [
-        {"role": role, "content": "".join(text_of(token) for token in tokens.split(" "))}
+        {"role": role, "content": _decode(texts, tokens)}
         for role, tokens in case["expected"]["messages"]
     ]
+
+
+def expected_out(texts: list[str], case: Case) -> dict[str, object]:
+    """The case's ``out``, its ordinary rules message decoded like a message."""
+    out = dict(case["expected"]["out"])
+    if "ordinary" in out:
+        out["ordinary"] = _decode(texts, str(out["ordinary"]))
+    return out
 
 
 async def write_golden(defaults: Case, cases: list[Case]) -> None:
@@ -240,6 +257,8 @@ async def write_golden(defaults: Case, cases: list[Case]) -> None:
     stored = []
     for case in cases:
         messages, out = await render(resolve(case, defaults))
+        if "ordinary" in out:
+            out["ordinary"] = encode(str(out["ordinary"]))
         expected = {"messages": [[m["role"], encode(m["content"])] for m in messages], "out": out}
         stored.append({**{k: v for k, v in case.items() if k != "expected"}, "expected": expected})
     data = {"defaults": defaults, "texts": texts, "cases": stored}
@@ -268,7 +287,7 @@ async def test_prompt_matches_golden(case: Case) -> None:
     messages, out = await render(resolve(case, _DEFAULTS))
     want = expected_of(_TABLE, case)
     assert messages == want, _difference(want, messages)
-    assert out == case["expected"]["out"]
+    assert out == expected_out(_TABLE, case)
 
 
 def test_golden_has_one_battery_case_per_category() -> None:

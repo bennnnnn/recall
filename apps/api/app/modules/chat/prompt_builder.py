@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import UUID
 
@@ -13,6 +13,7 @@ from app.core.config import Settings
 from app.core.readings import read_off_loop
 from app.models.orm import Chat, User
 from app.modules.attachments import service as attachments_service
+from app.modules.chat.ordinary_prompt import OrdinaryPrompt
 from app.modules.chat.practice_asked import practice_questions
 from app.modules.chat.prompt_context import _load_context_blocks
 from app.modules.chat.prompt_inject import append_after_history, inject_before_last_user
@@ -30,6 +31,7 @@ from app.modules.chat.prompt_sections import (
     STABLE_SECTIONS,
     TURN_SECTIONS,
     PromptTurn,
+    may_be_ordinary,
 )
 from app.modules.chat.prompt_window import (
     PromptWindow,
@@ -38,6 +40,7 @@ from app.modules.chat.prompt_window import (
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chat.turn_prep.followups import read_prompt_inputs, role_content_dicts
+from app.modules.chat.turn_trace import untraced
 from app.modules.conversation import history_rag as chat_history_rag_service
 from app.modules.memory.switch import memory_switch_on
 from app.modules.turn_reading.plan import TurnPlan
@@ -166,13 +169,16 @@ def inject_subject_block(
 
 @dataclass
 class PromptStats:
-    """What the prompt drew on, for the turn's ``done``."""
+    """What the prompt drew on, for the turn's ``done``, and the shorter rules message the
+    turn's read may choose (``ordinary_prompt``)."""
 
     # Memory sections loaded into the prompt, and the first three of their names.
     recalled: int = 0
     memory_hints: list[str] = field(default_factory=list)
     # Older messages the chat summary stands in for.
     context_summarized: int = 0
+    # The rules message for ordinary chat, when the turn may take one and it is shorter.
+    ordinary: OrdinaryPrompt | None = None
 
 
 @dataclass(frozen=True)
@@ -309,10 +315,10 @@ async def _history_rag_block(
 
 
 def _assemble(
-    turn: PromptTurn, window: PromptWindow, *, math_followup: bool
+    turn: PromptTurn, window: PromptWindow, *, math_followup: bool, stats: PromptStats | None
 ) -> list[dict[str, str]]:
     """The two system messages, the history, then the turn's context and the contracts
-    kept beside the user turn."""
+    kept beside the user turn; ``stats`` gets the rules message for ordinary chat."""
     # A subject's reply policy stated twice keeps its copy closest to the user turn.
     stable, rules, context, nearby = last_policy_parts(
         render_rules(STABLE_SECTIONS, turn, table="stable"),
@@ -320,6 +326,8 @@ def _assemble(
         render_rules(CONTEXT_SECTIONS, turn, table="context"),
         render_rules(NEARBY_CONTRACTS, turn, table="nearby"),
     )
+    if stats is not None:
+        stats.ordinary = _ordinary_prompt(turn, "\n\n".join(rules))
     messages = [
         *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),
         *history_messages(window, math_followup=math_followup),
@@ -329,6 +337,17 @@ def _assemble(
         if block:
             messages = append_after_history(messages, "\n\n".join(block))
     return messages
+
+
+def _ordinary_prompt(turn: PromptTurn, rules: str) -> OrdinaryPrompt | None:
+    """The turn's rules message for ordinary chat beside ``rules``, the one built; None when
+    the turn may not take it or its words gave it no other (``prompt_format._plain``).
+    Rendered untraced: the trace names what the turn sends (``read.ordinary_prompt``)."""
+    if not may_be_ordinary(turn):
+        return None
+    with untraced():
+        compact = "\n\n".join(render_rules(TURN_SECTIONS, replace(turn, ordinary=True)))
+    return OrdinaryPrompt(full=rules, compact=compact) if compact != rules else None
 
 
 async def _read_prompt_inputs(
@@ -474,4 +493,4 @@ async def build_prompt_messages(
         asked_practice=asked_practice,
         summarized=_fill_stats(stats, blocks.recalled, blocks.memory_hints, blocks.chat),
     )
-    return _assemble(turn, window, math_followup=followup == "math")
+    return _assemble(turn, window, math_followup=followup == "math", stats=stats)
