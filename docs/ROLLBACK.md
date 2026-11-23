@@ -37,18 +37,9 @@ after it:
    safe with a comment the CI guard looks for:
    `# expand-contract: release <sha/PR> stopped reading users.legacy_flag`.
 
-Contracts waiting for a later release:
-
-- `memories.embedding_json`, `message_chunks.embedding_json`,
-  `attachment_chunks.embedding_json`: no longer read; new writes store NULL (the
-  release that ranks memory in SQL, migration `0118`). Drop once no image that ranks
-  memory from the JSON copy is a rollback candidate.
-- `users.response_style`: no longer read, returned or accepted by `/auth/me` (the
-  release that removed the account-wide reply length), and no longer mapped on `User`
-  (the release after migration `0123`, so its queries stop selecting it;
-  `alembic/env.py` `_RETIRED_COLUMNS` keeps `alembic check` from proposing the drop).
-  Drop, with its `_RETIRED_COLUMNS` entry, once that release is the oldest rollback
-  candidate: every earlier image selects the column with each user row.
+Contracts waiting for a later release: none. The `embedding_json` columns,
+`users.response_style` and the retired `suggestions` table were dropped by migration
+`0133` before any release shipped, so no deployed image could still read them.
 
 `app/tests/architecture/test_migration_safety.py` fails on a migration after
 `0111` whose `upgrade()` drops, renames or retypes without that comment, and on

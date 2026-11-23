@@ -28,9 +28,6 @@ _ROUTES = [
     ("post", "/speech/tts", {"text": "hello"}),
     ("post", "/speech/live/session", {}),
     ("post", "/speech/live/tool", {"call_id": "call-123456", "name": "web_search"}),
-    ("post", "/math/scan/read", None),
-    ("post", "/physics/scan/read", None),
-    ("post", "/chemistry/scan/read", None),
     ("post", "/images/generate", {"chat_id": str(uuid4()), "prompt": "a lighthouse at dusk"}),
     ("post", "/images/intent", {"text": "draw a lighthouse at dusk"}),
     ("post", "/memories/instruct", {"instruction": "remember that I prefer metric units"}),
@@ -75,10 +72,7 @@ def test_a_request_without_consent_is_refused(method: str, path: str, body: Any)
 
 @pytest.mark.parametrize(
     ("path", "off"),
-    [
-        ("/speech/transcribe", {"speech_transcription_enabled": False}),
-        ("/math/scan/read", {"math_tools_enabled": False}),
-    ],
+    [("/speech/transcribe", {"speech_transcription_enabled": False})],
 )
 def test_consent_given_on_another_machine_lets_the_request_through(
     path: str, off: dict[str, Any]

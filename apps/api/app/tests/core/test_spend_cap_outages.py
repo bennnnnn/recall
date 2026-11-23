@@ -47,7 +47,6 @@ _LIVE_TALK = Settings(
     openai_api_key="sk-test",
     daily_global_spend_usd=_CAP_USD,
 )
-_PHOTO = {"image_base64": base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()}
 
 Spend = Literal["down", "capped"]
 
@@ -67,11 +66,6 @@ class _Gate:
 
 
 GATES: dict[str, _Gate] = {
-    "photo scans": _Gate(
-        send=lambda c: c.post("/math/scan/read", headers=_AUTH, json=_PHOTO),
-        capped=(429, "scan_spend_cap"),
-        redis_at=("app.services.scan_read.get_redis_client",),
-    ),
     "memory edits": _Gate(
         send=lambda c: c.post(
             "/memories/instruct", headers=_AUTH, json={"instruction": "Be brief"}
@@ -251,5 +245,4 @@ def test_every_spend_gate_is_listed() -> None:
         # A physics setup: no read past the cap (a prototype). services/test_formal_solve.py.
         "modules/physics/formal_read.py",
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
-        "services/scan_read.py",  # photo scans, every subject
     ]

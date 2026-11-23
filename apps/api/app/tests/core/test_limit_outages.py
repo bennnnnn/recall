@@ -39,7 +39,6 @@ _UNAVAILABLE = {
 _CHAT_ID = uuid4()
 _CALL_ID = "issued-session"
 _LIVE_TALK = Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
-_PHOTO = {"image_base64": base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()}
 
 
 @dataclass(frozen=True)
@@ -114,11 +113,6 @@ LIMITS: dict[str, _Limit] = {
         ),
         over="rate_limited",
         redis_at=("app.modules.link_preview.api.get_redis_client",),
-    ),
-    "photo scans": _Limit(
-        send=lambda c: c.post("/math/scan/read", headers=_AUTH, json=_PHOTO),
-        over="scan_rate_limited",
-        redis_at=("app.services.scan_read.get_redis_client",),
     ),
     "data export": _Limit(
         send=lambda c: c.get("/auth/me/export", headers=_AUTH),
@@ -220,5 +214,4 @@ def test_every_route_limit_is_listed() -> None:
         "modules/memory/api.py",
         "modules/speech/gates.py",  # dictation, speech, live talk's session
         "modules/speech/realtime.py",  # live talk saves and lookups
-        "services/scan_read.py",  # photo scans, every subject
     ]

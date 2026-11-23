@@ -44,8 +44,6 @@ class PlanAllowanceSettings(BaseModel):
     daily_image_searches: int = 15
     daily_image_searches_plus: int = 60
     daily_image_searches_pro: int = 60
-    # Photo read-backs (POST /{math,physics,chemistry}/scan/read) have no count of their
-    # own: each takes ``scan_read_tokens`` from ``daily_token_limit``, the chat's allowance.
     # Bytes one account may keep in its Library at once (every attachment row:
     # uploads, the copies a resend makes, generated pictures and reference photos).
     # Checked at presign; the daily upload counts alone let a free account keep

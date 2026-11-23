@@ -54,7 +54,7 @@ from app.services.quota.messages import (
 from app.services.quota.spend import (
     IMAGE_GEN_SPEND_USD,
     IMAGE_SEARCH_SPEND_USD,
-    MATH_SCAN_READ_SPEND_USD,
+    MATHPIX_READ_SPEND_USD,
     STT_SPEND_USD,
     TTS_SPEND_USD,
     get_global_spend_micro_usd,
@@ -89,7 +89,7 @@ __all__ = [
     "LIVE_TALK_RATE_LIMIT_MESSAGE",
     "LIVE_TALK_SAVES_PER_MINUTE",
     "LIVE_TALK_SAVES_USED_MESSAGE",
-    "MATH_SCAN_READ_SPEND_USD",
+    "MATHPIX_READ_SPEND_USD",
     "SPEECH_NOT_IN_PLAN_MESSAGE",
     "SPEECH_RATE_LIMIT_MESSAGE",
     "SPEECH_TTS_NOT_IN_PLAN_MESSAGE",
