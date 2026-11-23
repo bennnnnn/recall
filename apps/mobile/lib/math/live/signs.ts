@@ -5,16 +5,17 @@
  * - One sign: both branches, written out with their values, the − branch first, for ± and ∓
  *   alike (`2 - 3 = -1` and `2 + 3 = 5`; `10 \pm 2\times 3` is `10 - 2\times 3 = 4` and
  *   `10 + 2\times 3 = 16`). A branch with no value says undefined (`\frac{1}{1 \pm 1}`).
- * - Two or three signs: each goes either way on its own, and the distinct values are shown,
- *   smallest first (`1 \pm 1 \pm 1` is −1, 1 and 3). More than four of them, a branch that
- *   is undefined, or a fourth sign shows nothing: the line would not hold them.
+ * - Two or three signs, all ± or all ∓: each goes either way on its own, and the distinct
+ *   values are shown, smallest first (`1 \pm 1 \pm 1` is −1, 1 and 3). More than four of them,
+ *   a branch that is undefined, or a fourth sign shows nothing: the line would not hold them.
+ * - ± and ∓ together (`a \pm b \mp c`) show nothing: there ∓ means the sign opposite the ±,
+ *   two values in all, and a reading that treated each sign as its own would show four.
  *
  * A branch that is not one real number (`\sqrt{1 \pm 2}`) leaves the draft with no answer, as
  * any such draft has.
  */
-import { evaluateCalculation, type LiveResult, type LiveValue } from "@/lib/math/live/evaluate";
+import { evaluateCalculation, numberOf, type LiveResult, type LiveValue } from "@/lib/math/live/evaluate";
 import type { LiveNode, LiveReading } from "@/lib/math/live/read";
-import { toNumber } from "@/lib/math/live/rational";
 
 type PlusMinus = Extract<LiveNode, { kind: "pm" }>;
 type Pick = "-" | "+";
@@ -60,8 +61,6 @@ function written(math: string, sign: PlusMinus, pick: Pick): string {
   return text.replace(/\*/g, "\\times ");
 }
 
-const numberOf = (value: LiveValue): number => (value.kind === "exact" ? toNumber(value.r) : value.x);
-
 function same(a: LiveValue, b: LiveValue): boolean {
   if (a.kind === "exact" && b.kind === "exact") return a.r.n === b.r.n && a.r.d === b.r.d;
   const x = numberOf(a);
@@ -82,6 +81,7 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
     return result && { kind: "one", result };
   }
   if (signs.length > MAX_SIGNS) return null;
+  if (new Set(signs.map((sign) => sign.op)).size > 1) return null;
   const ways: { picks: Map<PlusMinus, Pick>; result: LiveResult }[] = [];
   // Bit i is sign i's pick, 0 for −: the − branch comes first.
   for (let mask = 0; mask < 2 ** signs.length; mask += 1) {

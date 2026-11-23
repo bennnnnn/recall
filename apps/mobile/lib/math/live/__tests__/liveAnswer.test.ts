@@ -83,12 +83,7 @@ describe("liveAnswer", () => {
     ["a log to base 1", "$\\log_{1}(5)$"],
     ["a divisor that works out to zero", "$\\frac{3}{\\sin(180^{\\circ})}$"],
   ])("says undefined for %s", (_label, draft) => {
-    expect(answer(draft)).toEqual({
-      latex: "= \\text{undefined}",
-      lines: ["= \\text{undefined}"],
-      spoken: "undefined",
-      exact: true,
-    });
+    expect(answer(draft)).toEqual({ latex: "= \\text{undefined}", signed: false, spoken: "undefined", exact: true });
   });
 
   it("says undefined in the app's language", () => {
@@ -103,6 +98,10 @@ describe("liveAnswer", () => {
   it.each([
     ["a root of a negative", "$\\sqrt{-4}$"],
     ["a log of a negative", "$\\log(-1)$"],
+    ["an infinity, which the server does not call undefined", "$\\tanh^{-1}(1)$"],
+    ["a divisor that rounded to 0", "$\\frac{1}{10^{-400}}$"],
+    ["a log of a number that rounded to 0", "$\\ln(e^{-1000})$"],
+    ["± and ∓ together", "$1\\pm 2\\mp 4$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -127,35 +126,34 @@ describe("liveAnswer", () => {
     ["$(2\\pm 1)^{2}$", ["(2- 1)^{2} = 1", "(2+ 1)^{2} = 9"]],
     ["$1\\pm\\sqrt{2}$", ["1-\\sqrt{2} \\approx -0.4142135624", "1+\\sqrt{2} \\approx 2.414213562"]],
     ["$5\\times\\pm 2$", ["5\\times- 2 = -10", "5\\times+ 2 = 10"]],
-  ])("writes out both branches of %s, the minus first", (draft, lines) => {
-    expect(answer(draft)?.lines).toEqual(lines);
-    expect(shown(draft)).toBe(lines.join(",\\quad "));
+  ])("writes out both branches of %s side by side, the minus first", (draft, branches) => {
+    expect(shown(draft)).toBe(branches.join(",\\quad "));
   });
 
-  it("writes stacked branches side by side, each value once", () => {
-    expect(answer("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")?.lines).toEqual([
+  it("writes each branch's value once", () => {
+    expect(shown("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")).toBe(
       "\\frac{-3-\\sqrt{9-8}}{2} = -2,\\quad \\frac{-3+\\sqrt{9-8}}{2} = -1",
-    ]);
-    expect(answer("$\\frac{1}{1\\pm 1}$")?.lines).toEqual([
-      "\\frac{1}{1- 1} = \\text{undefined},\\quad \\frac{1}{1+ 1} = 0.5",
-    ]);
-    expect(answer("$\\frac{1}{3}\\pm 1$")?.lines).toEqual([
+    );
+    expect(shown("$\\frac{1}{1\\pm 1}$")).toBe("\\frac{1}{1- 1} = \\text{undefined},\\quad \\frac{1}{1+ 1} = 0.5");
+    expect(shown("$\\frac{1}{3}\\pm 1$")).toBe(
       "\\frac{1}{3}- 1 = -\\frac{2}{3},\\quad \\frac{1}{3}+ 1 = \\frac{4}{3}",
-    ]);
+    );
   });
 
   it("works = out on a ± draft too", () => {
-    expect(answer("$2\\pm 1=$")?.lines).toEqual(["2- 1 = 1", "2+ 1 = 3"]);
+    expect(shown("$2\\pm 1=$")).toBe("2- 1 = 1,\\quad 2+ 1 = 3");
   });
 
-  it("speaks a ± draft's values", () => {
-    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "1, 3", exact: true });
+  it("speaks a ± draft's values, and draws them at the draft's size", () => {
+    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "1, 3", exact: true, signed: true });
+    expect(answer("$1\\pm 1\\pm 1$")).toMatchObject({ signed: true });
+    expect(answer("$2+1$")).toMatchObject({ signed: false });
     expect(answer("$1\\pm\\sqrt{2}$")).toMatchObject({ exact: false });
   });
 
   it.each([
     ["$1\\pm 1\\pm 1$", "= -1,\\quad 1,\\quad 3"],
-    ["$1\\pm 2\\mp 4$", "= -5,\\quad -1,\\quad 3,\\quad 7"],
+    ["$1\\mp 2\\mp 4$", "= -5,\\quad -1,\\quad 3,\\quad 7"],
     ["$1\\pm 0\\pm 0$", "= 1"],
     ["$\\pm 1\\pm 1$", "= -2,\\quad 0,\\quad 2"],
     ["$\\sqrt{2}\\pm 1\\pm 1$", "\\approx -0.5857864376,\\quad \\approx 1.414213562,\\quad \\approx 3.414213562"],

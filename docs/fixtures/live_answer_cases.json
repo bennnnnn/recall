@@ -1,5 +1,5 @@
 {
-  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), \"undefined\" for a draft with no number at all (1 ÷ 0, tan 90°, log 0: SymPy's zoo, nan or an infinity), null for no live answer. A draft with ± has a list for each: one sign, its − branch then its + branch; two or three, the distinct values, smallest first. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
+  "about": "Math keyboard drafts and the value the composer shows live under them (apps/mobile/lib/math/live/answer.ts). sympy is the calculation in SymPy's words; value is SymPy's result (a fraction, or 15 significant digits), \"undefined\" for a draft with no number at all (1 ÷ 0, tan 90°, log 0: SymPy's zoo or nan; a real infinity, as atanh(1), shows nothing), null for no live answer. A draft with ± has a list for each: one sign, its − branch then its + branch; two or three, all ± or all ∓, the distinct values, smallest first. The server test (apps/api/app/tests/behavior/test_live_answer_fixture.py) writes value with UPDATE_LIVE_ANSWER_FIXTURE=1 and checks the chat turn reads each draft to the same value; the phone's test checks the live answer to 1e-9. A case may carry server_gap, a draft the turn still misreads: a strict expected failure until the fix deletes the line. See docs/math.md.",
   "cases": [
     {
       "id": "sum-then-product",
@@ -875,6 +875,27 @@
       "sympy": null,
       "value": null,
       "why": "more values than the line holds"
+    },
+    {
+      "id": "plus-minus-with-minus-plus",
+      "draft": "$1\\pm 2\\mp 4$",
+      "sympy": null,
+      "value": null,
+      "why": "∓ beside ± is the opposite sign, not a sign of its own"
+    },
+    {
+      "id": "atanh-one",
+      "draft": "$\\tanh^{-1}(1)$",
+      "sympy": null,
+      "value": null,
+      "why": "an infinity: the turn verifies no value, so it is not called undefined"
+    },
+    {
+      "id": "divide-by-underflow",
+      "draft": "$\\frac{1}{10^{-400}}$",
+      "sympy": null,
+      "value": null,
+      "why": "10^400: too big to show, not undefined"
     },
     {
       "id": "comma-thousands",

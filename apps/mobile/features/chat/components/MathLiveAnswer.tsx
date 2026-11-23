@@ -26,7 +26,7 @@ export function liveAnswerShows(input: string): boolean {
 
 /** Larger than the draft's 16, as a calculator's result is. */
 const ANSWER_SIZE = 20;
-/** A ± draft's branches, one under the other in the same row: the draft's own size. */
+/** A ± draft's branches echo the draft, so they take its size: a stacked one still fits the row. */
 const BRANCH_SIZE = 16;
 
 /**
@@ -55,7 +55,7 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
   const undefinedWord = t("chat.math_live_undefined");
   const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
   const color = ACCENTS.green[theme.scheme].primary;
-  const size = answer && answer.lines.length > 1 ? BRANCH_SIZE : ANSWER_SIZE;
+  const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
   return (
     <View
       style={styles.line}
@@ -69,13 +69,9 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
             horizontal
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.lines}
+            contentContainerStyle={styles.content}
           >
-            {answer.lines.map((line, i) => (
-              <View key={line} testID={`math-live-answer-line-${i}`}>
-                <MathText latex={line} textColor={color} fontSize={size} />
-              </View>
-            ))}
+            <MathText latex={answer.latex} textColor={color} fontSize={size} />
           </ScrollView>
         </AccessibleElementChildren>
       ) : null}
@@ -94,5 +90,5 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   // Centred while the answer fits the row; wider, it scrolls from its start.
-  lines: { flexGrow: 1, flexDirection: "column", alignItems: "center", justifyContent: "center" },
+  content: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
 });

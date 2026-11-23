@@ -4,10 +4,12 @@
  * A value stays an exact fraction while every step allows it (+ − × ÷, whole powers, perfect
  * roots, %, !, |x|, mod, logs that come out whole); π, e, trig, other logs and other roots
  * give a decimal. A value with no number at all is undefined, as the server says it is: a zero
- * divisor (`1 ÷ 0`, `0 ÷ 0`, `5 mod 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`,
- * `atanh 1`), a log of zero, a log to base 1. `0^0` is 1, as SymPy and the server read it.
- * Anything else the server would not call one real number gives no value: a root or a log of
- * a negative (complex numbers are the server's), `50 + 10%` (55 or 50.1), a number too big.
+ * divisor (`1 ÷ 0`, `0 ÷ 0`, `5 mod 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`), a
+ * log of zero, a log to base 1. Only a zero that is exactly zero makes one: a decimal that
+ * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. `0^0` is 1, as
+ * SymPy and the server read it. Anything else the server would not call one real number gives
+ * no value: a root or a log of a negative (complex numbers are the server's), an infinity
+ * (`atanh 1`), `50 + 10%` (55 or 50.1), a number too big.
  *
  * Angles follow the server's reading: `30^{\circ}` is degrees, an angle with π (or `rad`) is
  * radians, and a bare number is degrees (`\sin(30)` is ½, the school shorthand the server
@@ -43,6 +45,11 @@ const UNDEFINED_REASON = "undefined";
 /** Undefined: no number at all, real or not (`1 ÷ 0`, `tan 90°`, `log 0`). */
 const undefinedValue = (): never => refuse(UNDEFINED_REASON);
 
+const isZero = (value: LiveValue): boolean => value.kind === "exact" && value.r.n === 0n;
+
+/** At an exact zero, undefined; at a decimal that rounded to 0, no value. */
+const atZero = (value: LiveValue): never => (isZero(value) ? undefinedValue() : fail());
+
 /** The largest n in n!, nCk and nPk. */
 const MAX_COUNT = 170;
 /** A trig value this close to 0 is 0 (sin 180° is 1.2e-16 in floating point). */
@@ -55,7 +62,7 @@ function approx(x: number): LiveValue {
   return { kind: "approx", x };
 }
 
-const num = (value: LiveValue): number => (value.kind === "exact" ? toNumber(value.r) : value.x);
+export const numberOf = (value: LiveValue): number => (value.kind === "exact" ? toNumber(value.r) : value.x);
 
 /** Both exact: the exact operation; otherwise the floating-point one. */
 function combine(
@@ -68,11 +75,11 @@ function combine(
     const r = onExact(a.r, b.r);
     if (r) return exact(r);
   }
-  return approx(onApprox(num(a), num(b)));
+  return approx(onApprox(numberOf(a), numberOf(b)));
 }
 
 function divide(a: LiveValue, b: LiveValue): LiveValue {
-  if (num(b) === 0 || (b.kind === "exact" && b.r.n === 0n)) undefinedValue();
+  if (numberOf(b) === 0) atZero(b);
   return combine(a, b, div, (x, y) => x / y);
 }
 
@@ -101,10 +108,10 @@ function power(base: LiveValue, exponent: LiveValue): LiveValue {
       return approx(b.n < 0n && e.n % 2n !== 0n ? -magnitude : magnitude);
     }
   }
-  const x = num(base);
-  const y = num(exponent);
+  const x = numberOf(base);
+  const y = numberOf(exponent);
   if (x < 0 && !Number.isInteger(y)) fail();
-  if (x === 0 && y < 0) undefinedValue();
+  if (x === 0 && y < 0) atZero(base);
   return approx(x ** y);
 }
 
@@ -114,7 +121,7 @@ function root(radicand: LiveValue, index: bigint): LiveValue {
     const r = rootExact(radicand.r, index);
     if (r) return exact(r);
   }
-  const x = num(radicand);
+  const x = numberOf(radicand);
   if (x < 0 && index % 2n === 0n) fail();
   const magnitude = Math.abs(x) ** (1 / Number(index));
   return approx(x < 0 ? -magnitude : magnitude);
@@ -151,10 +158,11 @@ function exactLog(x: Rational, b: Rational): Rational | null {
 }
 
 function logarithm(arg: LiveValue, base: LiveValue | "e"): LiveValue {
-  const x = num(arg);
-  const b = base === "e" ? Math.E : num(base);
+  const x = numberOf(arg);
+  const b = base === "e" ? Math.E : numberOf(base);
   if (x < 0 || b <= 0) fail();
-  if (x === 0 || b === 1) undefinedValue();
+  if (x === 0) atZero(arg);
+  if (b === 1) undefinedValue();
   if (base !== "e" && arg.kind === "exact" && base.kind === "exact") {
     const r = exactLog(arg.r, base.r);
     if (r) return exact(r);
@@ -179,11 +187,11 @@ function angle(arg: LiveNode): number {
   if (contains(arg, DEGREES)) {
     // `30^{\circ}` or `-30^{\circ}`; `30^{\circ} + 15` mixes two units.
     if (signed.kind !== "degrees" || contains(arg, RADIANS)) return fail();
-    return num(evaluate(arg, true));
+    return numberOf(evaluate(arg, true));
   }
-  if (contains(arg, RADIANS)) return num(evaluate(arg, true));
+  if (contains(arg, RADIANS)) return numberOf(evaluate(arg, true));
   if (signed.kind !== "number") return fail();
-  return (num(evaluate(arg)) * Math.PI) / 180;
+  return (numberOf(evaluate(arg)) * Math.PI) / 180;
 }
 
 function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number): LiveValue {
@@ -193,12 +201,12 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number
   if ((fn === "tan" || fn === "sec") && c === 0) undefinedValue();
   if ((fn === "cot" || fn === "csc") && s === 0) undefinedValue();
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];
-  return approx(zero(value));
+  // A value snapped to 0 is exactly 0 (`sin 180°`), so `1 ÷ sin 180°` is undefined, as csc 180° is.
+  const snapped = zero(value);
+  return snapped === 0 ? exact(rational(0n)) : approx(snapped);
 }
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());
-/** A pole: `coth 0` or `atanh 1` has no value. */
-const offPole = (x: number, ok: boolean) => (ok ? x : undefinedValue());
 
 function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue {
   if (fn === "sin" || fn === "cos" || fn === "tan" || fn === "cot" || fn === "sec" || fn === "csc") {
@@ -208,7 +216,7 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   const value = evaluate(arg);
   if (fn === "log") return logarithm(value, base ? evaluate(base) : exact(rational(10n)));
   if (fn === "ln") return logarithm(value, "e");
-  const x = num(value);
+  const x = numberOf(value);
   switch (fn) {
     case "exp": return approx(Math.exp(x));
     case "asin": return approx(Math.asin(inRange(x, Math.abs(x) <= 1)));
@@ -220,12 +228,12 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
     case "sinh": return approx(Math.sinh(x));
     case "cosh": return approx(Math.cosh(x));
     case "tanh": return approx(Math.tanh(x));
-    case "coth": return approx(1 / Math.tanh(offPole(x, x !== 0)));
+    case "coth": return approx(1 / Math.tanh(x === 0 ? atZero(value) : x));
     case "sech": return approx(1 / Math.cosh(x));
-    case "csch": return approx(1 / Math.sinh(offPole(x, x !== 0)));
+    case "csch": return approx(1 / Math.sinh(x === 0 ? atZero(value) : x));
     case "asinh": return approx(Math.asinh(x));
     case "acosh": return approx(Math.acosh(inRange(x, x >= 1)));
-    case "atanh": return approx(Math.atanh(offPole(inRange(x, Math.abs(x) <= 1), Math.abs(x) < 1)));
+    case "atanh": return approx(Math.atanh(inRange(x, Math.abs(x) < 1)));
   }
   return fail();
 }
@@ -267,7 +275,7 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
     case "percent": return divide(evaluate(node.operand, inAngle), exact(rational(100n)));
     case "degrees": {
       if (!inAngle) fail();
-      return approx((num(evaluate(node.operand, inAngle)) * Math.PI) / 180);
+      return approx((numberOf(evaluate(node.operand, inAngle)) * Math.PI) / 180);
     }
     case "radians": return inAngle ? evaluate(node.operand, inAngle) : fail();
     case "abs": {

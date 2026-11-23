@@ -756,8 +756,8 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-live-answer")).toBeNull();
   });
 
-  it("says a value is undefined, and shows each branch of ± on its own line", async () => {
-    const { getByTestId, getAllByTestId } = await render(
+  it("says a value is undefined, and shows each branch of ±", async () => {
+    const { getByTestId } = await render(
       <DraftHarness>
         <ChatComposer {...baseProps} />
       </DraftHarness>,
@@ -771,15 +771,12 @@ describe("ChatComposer math keyboard", () => {
       for (const key of keys) await fireEvent.press(getByTestId(`math-key-${key}`));
     };
     await press("digit-1", "div", "digit-0");
-    // In the app's language (`chat.math_live_undefined`; the test's t gives the key).
-    expect(answer()).toContain("undefined");
+    // In the app's language: the test's t gives the key, `chat.math_live_undefined`, drawn
+    // as plain letters.
+    expect(answer()).toContain("mathliveundefined");
     expect(getByTestId("math-live-answer").props.accessibilityLabel).toBe("chat.math_live_answer_a11y");
     await press("backspace", "backspace", "pm", "digit-1");
-    expect(answer()).toContain("= 0");
-    expect(answer()).toContain("= 2");
-    const lines = within(getByTestId("math-live-answer")).getAllByTestId(/^math-live-answer-line-/);
-    expect(lines).toHaveLength(2);
-    expect(getAllByTestId("math-live-answer")).toHaveLength(1);
+    expect(answer()).toBe("1− 1 = 0, 1+ 1 = 2");
   });
 
   it("opens full height with the math keyboard, and leaves the thread free to scroll once folded", async () => {

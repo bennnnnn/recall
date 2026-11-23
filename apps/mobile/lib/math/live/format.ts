@@ -4,20 +4,19 @@
  * significant digits; one that rounded nothing away (`sin 30°` is 0.49999999999999994 in
  * floating point, shown 0.5) takes `=`, the rest `≈`.
  *
- * A draft with ± (`signs.ts`) shows each branch written out with its value, one a line
- * (`2 - 1 = 1` over `2 + 1 = 3`), or side by side when a branch has a stacked fraction; with
- * two or three signs, its distinct values (`= -1,\quad 1,\quad 3`). There each value is
- * written once, its fraction or its decimal.
+ * A draft with ± (`signs.ts`) shows each branch written out with its value, side by side
+ * (`2 - 1 = 1,\quad 2 + 1 = 3`); with two or three signs, its distinct values
+ * (`= -1,\quad 1,\quad 3`). There each value is written once, its fraction or its decimal.
  */
 import type { LiveResult, LiveValue } from "@/lib/math/live/evaluate";
 import { terminatingDecimal, toNumber, type Rational } from "@/lib/math/live/rational";
 import type { LiveBranch } from "@/lib/math/live/signs";
 
 export type LiveAnswer = {
-  /** For `MathText`: `= 5`, `\approx 1.414213562`; every line, side by side. */
+  /** For `MathText`: `= 5`, `\approx 1.414213562`. */
   latex: string;
-  /** The lines the composer draws, one under the other: one, or a ± draft's two branches. */
-  lines: string[];
+  /** A ± draft's branches or values: drawn at the draft's size, as they echo the draft. */
+  signed: boolean;
   /** For a screen reader: `5`, `5/6, about 0.8333333333`. */
   spoken: string;
   /** False when the value shown is rounded. */
@@ -33,7 +32,7 @@ const MAX_FRACTION_DIGITS = 6;
 const SMALL = 1e-6;
 
 type Decimal = { latex: string; spoken: string; plain: string };
-type Shown = Omit<LiveAnswer, "lines">;
+type Shown = Omit<LiveAnswer, "signed">;
 type FormatOptions = {
   preferFraction: boolean;
   typedFraction: boolean;
@@ -136,23 +135,19 @@ function formatResult(result: LiveResult, options: FormatOptions, undefinedWord:
 }
 
 const SIDE_BY_SIDE = ",\\quad ";
-/** A fraction stacked in each of two lines would not fit the answer's row. */
-const STACKED = /\\(?:[dt]?frac|binom)\{/;
 
 export function formatLiveResult(result: LiveResult, options: FormatOptions, undefinedWord: string): LiveAnswer {
   const shown = formatResult(result, options, undefinedWord);
-  return { ...shown, lines: [shown.latex] };
+  return { ...shown, signed: false };
 }
 
 /** One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. */
 export function formatBranches(branches: LiveBranch[], options: FormatOptions, undefinedWord: string): LiveAnswer {
   const compact = { ...options, typedFraction: false, compact: true };
   const shown = branches.map((branch) => formatResult(branch.result, compact, undefinedWord));
-  const lines = branches.map((branch, i) => `${branch.latex} ${shown[i]!.latex}`);
-  const latex = lines.join(SIDE_BY_SIDE);
   return {
-    latex,
-    lines: STACKED.test(latex) ? [latex] : lines,
+    latex: branches.map((branch, i) => `${branch.latex} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
+    signed: true,
     spoken: shown.map((s) => s.spoken).join(", "),
     exact: shown.every((s) => s.exact),
   };
@@ -164,7 +159,7 @@ export function formatValues(values: LiveValue[], options: FormatOptions): LiveA
   const latex = shown.map((s, i) => (i === 0 ? s.latex : s.latex.replace(/^= /, ""))).join(SIDE_BY_SIDE);
   return {
     latex,
-    lines: [latex],
+    signed: true,
     spoken: shown.map((s) => s.spoken).join(", "),
     exact: shown.every((s) => s.exact),
   };

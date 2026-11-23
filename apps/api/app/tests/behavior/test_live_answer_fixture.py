@@ -12,7 +12,8 @@ Send, must verify that value too. A case with a ``server_gap`` is one the turn s
 a strict expected failure until the fix deletes the line. A null ``value`` is a draft that
 shows no live answer (``why`` says why); the phone's test holds those. A ``value`` of
 ``"undefined"`` is a draft with no number at all (``1 ÷ 0``, ``tan 90°``, ``log 0``): SymPy's
-``zoo``, ``nan`` or an infinity, and the turn must say undefined. A draft with ± shows more than
+``zoo`` or ``nan``, and the turn must say undefined. A real infinity (``atanh(1)`` is ``oo``) is
+not undefined: the turn verifies no value for it, and the phone shows none. A draft with ± shows more than
 one value: its ``sympy`` and ``value`` are lists, in the order the phone shows them (one sign:
 the minus branch, then the plus; more: the distinct values, smallest first), and the turn must verify
 the same values.
@@ -57,9 +58,9 @@ _ANSWER_PIECES = re.compile(r",|\\quad|\\text\{\s*or\s*\}|\bor\b")
 
 def _sympy_value(text: str) -> str | None:
     """SymPy's value: an exact fraction, else 15 significant digits; ``undefined`` for no number
-    at all (``1/0``, ``0/0``, ``log(0)``); ``None`` if not real."""
+    at all (``1/0``, ``0/0``, ``log(0)``: ``zoo`` or ``nan``); ``None`` if not real or infinite."""
     value = simplify(parse_expr(text, transformations=_TRANSFORMATIONS))
-    if value is S.NaN or value.is_infinite:
+    if value is S.NaN or value is S.ComplexInfinity:
         return _UNDEFINED
     if value.is_Rational:
         return str(value)
