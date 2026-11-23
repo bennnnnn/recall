@@ -94,13 +94,15 @@ export function ConversationList() {
     insertChatInGroups,
     isSectionCollapsed,
     toggleSectionCollapsed,
-    moveChatArchiveState,
     removeChatFromGroupsById,
     hasOlderChats,
     loadOlderChats,
     hasMoreArchived,
     loadMoreArchivedChats,
     archivedPaging,
+    patchChatsInGroups,
+    insertChatsInGroups,
+    removeChatsFromGroupsById,
   } = useDrawerChatList({ isDrawerOpen: isOpen });
 
   const {
@@ -133,10 +135,9 @@ export function ConversationList() {
   const { bulkArchiveChats, bulkDeleteChats } = useChatBulkActions({
     token,
     isDrawerOpen: isOpen,
-    patchChatInGroups,
-    insertChatInGroups,
-    moveChatArchiveState,
-    removeChatFromGroupsById,
+    patchChatsInGroups,
+    insertChatsInGroups,
+    removeChatsFromGroupsById,
     reloadChats: () => void load(false, true),
     showActionBanner,
   });

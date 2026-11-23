@@ -145,6 +145,17 @@ export function getCachedChat(id: string): Chat | undefined {
   return list ? allChatsFromGroups(list).find((chat) => chat.id === id) : undefined;
 }
 
+/** `getCachedChat` for many ids: the list read once. */
+export function getCachedChats(ids: readonly string[]): Map<string, Chat> {
+  const list = getCachedChatList();
+  const wanted = new Set(ids);
+  const found = new Map<string, Chat>();
+  for (const chat of list ? allChatsFromGroups(list) : []) {
+    if (wanted.has(chat.id) && !found.has(chat.id)) found.set(chat.id, chat);
+  }
+  return found;
+}
+
 /**
  * The drawer row as the server sent it this session. A list restored from disk
  * paints the drawer, but its titles may predate a rename on another device.

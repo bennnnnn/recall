@@ -7,7 +7,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
-import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { getCachedChats } from "@/features/chat/model/chatListCache";
 import { emitAppEvent } from "@/lib/appEvents";
 import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { archiveBulkTargets, bulkInParts } from "@/features/chat/drawer/drawerChatSelection";
@@ -16,21 +16,27 @@ import type { IconName } from "@/ui/icons/names";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
+/** Each edit takes every chat at once: the drawer list is copied, sorted and drawn once. */
 type Params = {
   token: string | null;
   isDrawerOpen: boolean;
-  insertChatInGroups: (chat: Chat) => void;
-  patchChatInGroups: (chatId: string, patch: Partial<Chat>) => void;
-  moveChatArchiveState: (chatId: string, archived: boolean) => void;
-  removeChatFromGroupsById: (chatId: string) => void;
+  insertChatsInGroups: (chats: readonly Chat[]) => void;
+  patchChatsInGroups: (patches: ReadonlyArray<readonly [string, Partial<Chat>]>) => void;
+  removeChatsFromGroupsById: (chatIds: readonly string[]) => void;
   reloadChats: () => void;
   showActionBanner: (message: string, icon?: IconName) => void;
 };
 
+/** Each chat as the drawer holds it now, else as it was selected. */
+function snapshotsOf(targets: Chat[]): Chat[] {
+  const cached = getCachedChats(targets.map((chat) => chat.id));
+  return targets.map((chat) => ({ ...(cached.get(chat.id) ?? chat) }));
+}
+
 /** Multi-select bulk archive/delete for the drawer's selection mode. */
 export function useChatBulkActions({
-  token, isDrawerOpen, insertChatInGroups, patchChatInGroups, moveChatArchiveState,
-  removeChatFromGroupsById, reloadChats, showActionBanner,
+  token, isDrawerOpen, insertChatsInGroups, patchChatsInGroups, removeChatsFromGroupsById,
+  reloadChats, showActionBanner,
 }: Params) {
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -57,9 +63,9 @@ export function useChatBulkActions({
         if (!currentView()) return;
         const release = beginChatMutation(session, targets.map((chat) => chat.id));
         if (!release) return;
-        const snapshots = targets.map((chat) => ({ ...(getCachedChat(chat.id) ?? chat) }));
+        const snapshots = snapshotsOf(targets);
         try {
-          for (const chat of targets) moveChatArchiveState(chat.id, true);
+          patchChatsInGroups(targets.map((chat) => [chat.id, { archived: true, pinned: false }] as const));
           // One request per 200 chats: one per chat passed the REST rate limit.
           const archived = await bulkInParts(
             targets.map((chat) => chat.id),
@@ -67,13 +73,15 @@ export function useChatBulkActions({
           );
           if (!currentSession()) return;
           const failed = snapshots.filter((chat) => !archived.has(chat.id));
-          for (const chat of targets) {
-            if (archived.has(chat.id)) patchChatInGroups(chat.id, { pinned: false, archived: true });
-          }
           const archivedCount = archived.size;
           // Archiving clears pins too. Restore the whole failed row, and
           // only after every sibling request has settled before reloading.
-          for (const chat of failed) patchChatInGroups(chat.id, chat);
+          patchChatsInGroups([
+            ...targets
+              .filter((chat) => archived.has(chat.id))
+              .map((chat) => [chat.id, { pinned: false, archived: true }] as const),
+            ...failed.map((chat) => [chat.id, chat] as const),
+          ]);
           if (failed.length > 0) {
             reloadChats();
             if (currentView()) reportRecoverableError(feedback, t("chat.archive_failed"));
@@ -86,7 +94,7 @@ export function useChatBulkActions({
         } finally { release(); }
       });
     },
-    [token, currentView, t, session, moveChatArchiveState, currentSession, patchChatInGroups, reloadChats, feedback, showActionBanner],
+    [token, currentView, t, session, currentSession, patchChatsInGroups, reloadChats, feedback, showActionBanner],
   );
 
   const bulkDeleteChats = useCallback(
@@ -104,23 +112,19 @@ export function useChatBulkActions({
         if (!currentView()) return;
         const release = beginChatMutation(session, targets.map((chat) => chat.id));
         if (!release) return;
-        const snapshots = targets.map((chat) => ({ ...(getCachedChat(chat.id) ?? chat) }));
+        const snapshots = snapshotsOf(targets);
         try {
-          for (const chat of targets) removeChatFromGroupsById(chat.id);
+          removeChatsFromGroupsById(targets.map((chat) => chat.id));
           const deleted = await bulkInParts(
             targets.map((chat) => chat.id),
             (part) => api.bulkChats(token, "delete", part),
           );
           if (!currentSession()) return;
-          const deletedIds: string[] = [];
-          for (const chat of snapshots) {
-            if (!deleted.has(chat.id)) insertChatInGroups(chat);
-            else {
-              removeChatFromGroupsById(chat.id);
-              deletedIds.push(chat.id);
-              void clearCachedChatMessages(chat.id);
-            }
-          }
+          const deletedIds = snapshots.filter((chat) => deleted.has(chat.id)).map((chat) => chat.id);
+          // A row a failed delete took out comes back; a deleted one stays out.
+          insertChatsInGroups(snapshots.filter((chat) => !deleted.has(chat.id)));
+          removeChatsFromGroupsById(deletedIds);
+          for (const chatId of deletedIds) void clearCachedChatMessages(chatId);
           if (deletedIds.length > 0) {
             emitAppEvent("chatsDeleted", { chatIds: deletedIds });
             abandonActiveChatIfDeleted(deletedIds);
@@ -136,7 +140,7 @@ export function useChatBulkActions({
         } finally { release(); }
       });
     },
-    [token, currentView, t, session, removeChatFromGroupsById, currentSession, insertChatInGroups, reloadChats, feedback, showActionBanner],
+    [token, currentView, t, session, removeChatsFromGroupsById, currentSession, insertChatsInGroups, reloadChats, feedback, showActionBanner],
   );
 
   return { bulkArchiveChats, bulkDeleteChats };

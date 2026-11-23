@@ -1,5 +1,10 @@
 import type { Chat, ChatList } from "@/lib/api";
-import { activeChatsFromGroups, emptyChatList, insertChatByRecency } from "@/features/chat/model/listSections";
+import {
+  activeChatsFromGroups,
+  emptyChatList,
+  insertChatByRecency,
+  insertNewChatsByRecency,
+} from "@/features/chat/model/listSections";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 
 /** How long a GET /chats response stays fresh for drawer paint / prefetch. */
@@ -42,6 +47,11 @@ export function insertChatIntoGroups(groups: ChatList, chat: Chat): ChatList {
   }
 
   return insertChatByRecency(groups, chat);
+}
+
+/** `insertChatIntoGroups` for many chats at once: the same list as inserting them in turn. */
+export function insertChatsIntoGroups(groups: ChatList, chats: readonly Chat[]): ChatList {
+  return insertNewChatsByRecency(groups, chats);
 }
 
 export { emptyChatList };

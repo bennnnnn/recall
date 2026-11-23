@@ -1,13 +1,16 @@
 import {
   drawerChatFetchMode,
   insertChatIntoGroups,
+  insertChatsIntoGroups,
   shouldWarmClosedDrawerChatList,
 } from "@/features/chat/drawer/drawerChatList";
 import {
   chatRecencySection,
   patchChatListGroups,
+  patchChatListGroupsMany,
   regroupChatsByRecency,
   removeChatFromGroups,
+  removeChatsFromGroups,
 } from "@/features/chat/model/listSections";
 import type { Chat, ChatList } from "@/lib/api";
 
@@ -218,5 +221,46 @@ describe("regroupChatsByRecency", () => {
       yesterday: [chat("nine", { updated_at: at(2026, 5, 30, 9) })],
     };
     expect(ids(regroupChatsByRecency(mixed).yesterday)).toEqual(["nine", "eight"]);
+  });
+});
+
+describe("editing many chats at once (audit MX-5)", () => {
+  // A list of 60 chats over every section, some out of order as a page from disk may be.
+  const day = (n: number) => `2026-0${1 + (n % 6)}-${String(1 + (n % 27)).padStart(2, "0")}T${String(n % 24).padStart(2, "0")}:00:00Z`;
+  const rows = Array.from({ length: 60 }, (_, i) =>
+    chat(`c${i}`, { updated_at: day(i), pinned: i % 7 === 0, archived: i % 11 === 0 ? true : undefined }));
+  const list: ChatList = {
+    ...empty,
+    pinned: rows.filter((r) => r.pinned && !r.archived),
+    today: rows.slice(0, 5).filter((r) => !r.pinned && !r.archived),
+    older: rows.slice(5).filter((r) => !r.pinned && !r.archived).reverse(),
+    archived: rows.filter((r) => r.archived),
+  };
+
+  it("archives as archiving them one by one does, pins cleared", () => {
+    const patches = rows.filter((_, i) => i % 3 === 0).map((r) => [r.id, { archived: true, pinned: false }] as const);
+    const oneByOne = patches.reduce((groups, [id, patch]) => patchChatListGroups(groups, id, patch), list);
+    expect(patchChatListGroupsMany(list, patches)).toEqual(oneByOne);
+  });
+
+  it("restores rows and edits in place as patching them one by one does", () => {
+    const patches = [
+      ...rows.slice(0, 20).map((r) => [r.id, { ...r, title: `T ${r.id}` }] as const),
+      ["missing", { archived: true }] as const,
+      ...rows.slice(20, 30).map((r) => [r.id, { pinned: !r.pinned, updated_at: "2026-07-01T09:00:00Z" }] as const),
+    ];
+    const oneByOne = patches.reduce((groups, [id, patch]) => patchChatListGroups(groups, id, patch), list);
+    expect(patchChatListGroupsMany(list, patches)).toEqual(oneByOne);
+  });
+
+  it("removes and inserts as doing it one by one does", () => {
+    const ids = rows.filter((_, i) => i % 4 === 1).map((r) => r.id);
+    const removedOneByOne = ids.reduce((groups, id) => removeChatFromGroups(groups, id), list);
+    const removed = removeChatsFromGroups(list, new Set(ids));
+    expect(removed).toEqual(removedOneByOne);
+    const back = rows.filter((_, i) => i % 4 === 1 || i === 2);
+    expect(insertChatsIntoGroups(removed, back)).toEqual(
+      back.reduce((groups, row) => insertChatIntoGroups(groups, row), removed),
+    );
   });
 });

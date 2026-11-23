@@ -109,8 +109,19 @@ export function chatRecencySection(chat: Chat, now = new Date()): ChatDateSectio
   return "older";
 }
 
-const newestFirst = (a: Chat, b: Chat) =>
-  Date.parse(b.updated_at) - Date.parse(a.updated_at) || b.id.localeCompare(a.id);
+/** `chats` newest first (ties by id), each date parsed once rather than at every comparison. */
+function sortedNewestFirst(chats: Chat[]): Chat[] {
+  const times = new Map<Chat, number>();
+  const time = (chat: Chat) => {
+    let at = times.get(chat);
+    if (at === undefined) {
+      at = Date.parse(chat.updated_at);
+      times.set(chat, at);
+    }
+    return at;
+  };
+  return chats.sort((a, b) => time(b) - time(a) || b.id.localeCompare(a.id));
+}
 
 /**
  * The dated chats under the headings they have now, in the phone's zone. A list read
@@ -132,7 +143,7 @@ export function regroupChatsByRecency(groups: ChatList, now = new Date()): ChatL
   }
   if (!moved) return groups;
   // Chats filed on different days can meet in one section out of order.
-  for (const key of CHAT_DATE_SECTIONS) sections[key].sort(newestFirst);
+  for (const key of CHAT_DATE_SECTIONS) sortedNewestFirst(sections[key]);
   return { ...groups, ...sections };
 }
 
@@ -197,7 +208,89 @@ export function keepLoadedPages(shown: ChatList, fresh: ChatList): ChatList {
   return next;
 }
 
+function sectionFor(chat: Chat): ChatListSectionKey {
+  return chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
+}
+
 export function insertChatByRecency(groups: ChatList, chat: Chat): ChatList {
-  const key = chat.archived ? ARCHIVED_CHAT_SECTION : chat.pinned ? PINNED_CHAT_SECTION : chatRecencySection(chat);
-  return { ...groups, [key]: [...groups[key], chat].sort(newestFirst) };
+  const key = sectionFor(chat);
+  return { ...groups, [key]: sortedNewestFirst([...groups[key], chat]) };
+}
+
+const LIST_SECTIONS = [PINNED_CHAT_SECTION, ...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION] as const;
+
+/**
+ * `groups` with each chat removed, each row edited, and each chat inserted
+ * under the heading it belongs to, in one pass: what removing, patching and
+ * inserting them one at a time gives (a section that takes a chat is sorted
+ * whole either way, and newest-first is one order), without copying and
+ * sorting the list once per chat.
+ */
+function editChatListGroups(
+  groups: ChatList,
+  remove: ReadonlySet<string>,
+  replace: ReadonlyMap<string, Chat>,
+  insert: readonly Chat[],
+): ChatList {
+  const next: ChatList = { ...groups };
+  for (const key of LIST_SECTIONS) {
+    next[key] = groups[key].flatMap((row) => (remove.has(row.id) ? [] : [replace.get(row.id) ?? row]));
+  }
+  const filled = new Set<ChatListSectionKey>();
+  for (const chat of insert) {
+    const key = sectionFor(chat);
+    next[key].push(chat);
+    filled.add(key);
+  }
+  for (const key of filled) sortedNewestFirst(next[key]);
+  return next;
+}
+
+/**
+ * `patchChatListGroups` for many chats at once (bulk archive), the same
+ * result as patching them one after another.
+ */
+export function patchChatListGroupsMany(
+  groups: ChatList,
+  patches: ReadonlyArray<readonly [string, Partial<Chat>]>,
+): ChatList {
+  if (new Set(patches.map(([id]) => id)).size !== patches.length) {
+    return patches.reduce((list, [id, patch]) => patchChatListGroups(list, id, patch), groups);
+  }
+  const rows = new Map<string, Chat>();
+  for (const row of allChatsFromGroups(groups)) if (!rows.has(row.id)) rows.set(row.id, row);
+  const moved = new Set<string>();
+  const replace = new Map<string, Chat>();
+  const insert: Chat[] = [];
+  for (const [id, patch] of patches) {
+    const chat = rows.get(id);
+    if (!chat) continue;
+    const updated = { ...chat, ...patch };
+    if (patch.archived === true) updated.pinned = false;
+    if (updated.pinned !== chat.pinned || updated.archived !== chat.archived || updated.updated_at !== chat.updated_at) {
+      moved.add(id);
+      insert.push(updated);
+    } else {
+      replace.set(id, updated);
+    }
+  }
+  if (moved.size === 0 && replace.size === 0) return groups;
+  return editChatListGroups(groups, moved, replace, insert);
+}
+
+/** `removeChatFromGroups` for many chats at once. */
+export function removeChatsFromGroups(groups: ChatList, chatIds: ReadonlySet<string>): ChatList {
+  return editChatListGroups(groups, chatIds, new Map(), []);
+}
+
+/** `insertChatByRecency` for each of `chats` the list does not hold yet, the first of each id. */
+export function insertNewChatsByRecency(groups: ChatList, chats: readonly Chat[]): ChatList {
+  const listed = new Set(allChatsFromGroups(groups).map((row) => row.id));
+  const insert: Chat[] = [];
+  for (const chat of chats) {
+    if (listed.has(chat.id)) continue;
+    listed.add(chat.id);
+    insert.push(chat);
+  }
+  return insert.length === 0 ? groups : editChatListGroups(groups, new Set(), new Map(), insert);
 }
