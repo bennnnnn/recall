@@ -418,9 +418,19 @@ describe("advanceStreamBlocks between list items", () => {
   });
 
   it("cuts on after a line that only looks like a definition", () => {
-    const text = `[Note]: see the list below\n\n${Array.from({ length: 6 }, (_, i) => PARA(`Para ${i}.`)).join("\n\n")}\n\nend`;
+    const paras = Array.from({ length: 6 }, (_, i) => PARA(`Para ${i}.`)).join("\n\n");
+    const text = `[Note]: see the list below\n\n${paras}\n\n${PARA("As in [Note].")}\n\n${PARA("Last.")}\n\nend`;
+    expect(pieceRefs("[Note]: see the list below\n").defines).toEqual([]);
     const state = advanceStreamBlocks(null, text, text.length);
-    expect(state.chunks.length).toBeGreaterThan(3);
+    // The line defines nothing, so the later "[Note]" ties nothing: the pieces between stay cut.
+    expect(state.chunks.length).toBeGreaterThan(5);
+    expect(state.chunks[0]).not.toContain("As in [Note].");
+  });
+
+  it("reads an empty numbered item under a line of text as that text, not a list to cut", () => {
+    const items = Array.from({ length: 12 }, (_, i) => `${i + 2}. ${"word ".repeat(12)}`).join("\n");
+    const text = `Steps:\n1. \n${items}\n\nDone.`;
+    expect(advanceStreamBlocks(null, text, text.length).continued.some(Boolean)).toBe(false);
   });
 
   it("ties a use that arrives after its definition was cut into a chunk", () => {

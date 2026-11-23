@@ -76,7 +76,8 @@ export function MarkdownContent({
   );
   // Streaming input arrives already throttled at the draft→UI boundary
   // (useStreamingDraft, ~30fps), so parse immediately — a second throttle here
-  // only added latency. Settled chunks parse once ever; per flush, only the
+  // only added latency. Settled chunks parse once (unless a link reference
+  // merges them or takes them back, streamReferences.ts); per flush, only the
   // live piece is re-tokenized.
   const streamPreprocessRef = useRef<StreamingPreprocessCache | null>(null);
   const streamBlocksRef = useRef<StreamBlocksState | null>(null);

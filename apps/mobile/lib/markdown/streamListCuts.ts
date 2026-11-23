@@ -97,7 +97,7 @@ export function listItemCut(state: ListScan, line: string): boolean {
     if (!sameList) {
       // Right under a line of text, markdown starts a list only at "1." and with words in the
       // item ("Continuing from step 1:" then "2. Add…" is that paragraph's text): read it so.
-      const mayBeText = !state.inBlankRun && (item.number !== null ? item.number !== 1 : EMPTY_ITEM_RE.test(line));
+      const mayBeText = !state.inBlankRun && (EMPTY_ITEM_RE.test(line) || (item.number !== null && item.number !== 1));
       state.list = {
         marker: item.marker,
         next: item.number === null ? null : item.number + 1,
