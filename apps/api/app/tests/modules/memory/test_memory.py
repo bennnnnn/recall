@@ -26,6 +26,7 @@ from app.modules.memory.text import (
     strip_memory_as_of,
 )
 from app.tests.fakes import FakeSessionCM, fake_session
+from app.tests.modules.memory.many_facts import many_facts
 from app.tests.modules.memory.scoring import scored, scored_reader
 
 
@@ -1385,3 +1386,25 @@ def test_fact_lines_say_when_and_how_sure():
 
     assert "- Works at Stripe (said 2026-05)" in block
     assert "- Might be moving to Lisbon (said 2026-09, unconfirmed)" in block
+
+
+# CX-3 (2026-11-22): every pair of active facts was tokenized again, 41 ms at 150 facts on
+# each memory list, on the event loop.
+@pytest.mark.wall_clock
+def test_150_facts_are_compared_once_each() -> None:
+    import time
+
+    facts = many_facts(150)
+    started = time.perf_counter()
+    needed = facts_need_consolidation(facts)
+    seconds = time.perf_counter() - started
+    assert needed is False
+    assert seconds < 0.03, f"{seconds:.3f}s on 150 facts"
+
+
+def test_near_duplicates_are_only_of_one_type() -> None:
+    a = _memory("fact", "Bini likes green tea in the morning", 1.0)
+    b = _memory("preference", "Bini likes green tea in the morning now", 1.0)
+    c = _memory("fact", "Bini likes green tea in the morning now", 1.0)
+    assert facts_need_consolidation([a, b]) is False
+    assert facts_need_consolidation([a, b, c]) is True

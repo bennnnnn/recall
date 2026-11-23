@@ -359,3 +359,111 @@ def test_profile_fact_question_is_a_short_ask(text: str, asks: bool) -> None:
     from app.modules.turn_reading.profile_ask import is_profile_fact_question
 
     assert is_profile_fact_question(text) is asks
+
+
+# CX-1 (2026-11-22): the follow-up scan after a how-to asked each sentence's rest whether
+# it starts a draft, a quote whether it closes later, and an abbreviation's whole prefix:
+# each read on to the message's end. A 32k message of short sentences took 3.7 s (of "ΑΣ. ", 27 s), and
+# ``writing_request_kind`` runs on the event loop when the pool read times out.
+_HOWTO_HEAD = "How do I write a cover letter? "
+_LONG_SHAPES = {
+    "short sentences": "The sky is blue today. ",
+    "open quotes": " 'x",
+    "quoted sentences": "'Hi.' ",
+    "abbreviations": "Dr. Smith etc. ",
+    "another language": "Hola amigo mío. ",
+    "greek capitals": "ΑΣ. ",
+    "polite words": "please ",
+}
+
+
+def _long_message(unit: str) -> str:
+    return (_HOWTO_HEAD + unit * (32_000 // len(unit) + 1))[:32_000]
+
+
+@pytest.mark.wall_clock
+def test_a_32k_how_to_message_reads_in_linear_time() -> None:
+    import time
+
+    text = _long_message(_LONG_SHAPES["short sentences"])
+    started = time.perf_counter()
+    kind = writing_request_kind(text)
+    seconds = time.perf_counter() - started
+    assert kind is None
+    assert seconds < 0.05, f"{seconds:.3f}s on 32k characters"
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize("unit", _LONG_SHAPES.values(), ids=_LONG_SHAPES)
+def test_no_32k_shape_reads_the_message_again_per_sentence(unit: str) -> None:
+    import time
+
+    started = time.perf_counter()
+    writing_request_kind(_long_message(unit))
+    seconds = time.perf_counter() - started
+    assert seconds < 0.25, f"{seconds:.3f}s on 32k characters"
+
+
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [
+        # The draft after a how-to is found in whichever later sentence starts it.
+        (_HOWTO_HEAD + "The sky is blue. " * 50 + "Then, write me an email to my boss.", "email"),
+        (_HOWTO_HEAD + "Dr. Smith said hi. Now draft a tweet about it.", "social"),
+        (_HOWTO_HEAD + "He said 'hi.' Write a poem about it.", "prose"),
+        (_HOWTO_HEAD + "It is late etc. then write a letter.", "prose"),
+        (_HOWTO_HEAD + "Es tarde. Escribe un correo a mi jefe.", "email"),
+        (_HOWTO_HEAD + "Hava güzel. Patronuma bir e-posta yaz", "email"),
+        (_HOWTO_HEAD + "The sky is blue. " * 50, None),
+    ],
+)
+def test_the_follow_up_scan_finds_the_sentence_that_asks(text: str, kind: str | None) -> None:
+    assert writing_request_kind.__wrapped__(text) == kind  # type: ignore[attr-defined]
+
+
+def test_each_draft_pattern_opens_on_a_word_edge() -> None:
+    """The follow-up scan tries the draft patterns only where a word starts or ends (outside
+    a turn's memo, ``writing_request_kind`` reads each time): every branch of each must open
+    on ``\\b`` for that to find every match."""
+    import re._parser as sre_parse
+    from typing import Any
+
+    from app.modules.turn_reading.writing_kind import _DRAFT_PATTERNS
+
+    # The parser's items are (opcode, argument) pairs, the argument's shape by opcode.
+    def opens_on_an_edge(items: Any) -> bool:
+        op, value = items[0]
+        if op is sre_parse.AT:
+            return bool(value is sre_parse.AT_BOUNDARY)
+        if op is sre_parse.BRANCH:
+            return all(opens_on_an_edge(branch) for branch in value[1])
+        if op is sre_parse.SUBPATTERN:
+            return opens_on_an_edge(value[-1])
+        return False
+
+    for pattern in _DRAFT_PATTERNS:
+        assert opens_on_an_edge(sre_parse.parse(pattern.pattern, pattern.flags)), pattern
+
+
+def test_a_tail_reads_as_it_reads_alone() -> None:
+    from app.modules.turn_reading.writing_locales import DraftTails, locale_draft_kind
+    from app.services.text_normalize import collapse_ws
+
+    text = collapse_ws(
+        "Hola. ¿Escribe un correo a mi jefe? Ok, escribe un texto. ΑΣ, ኢሜይል ጻፍልኝ. "
+        "İyi günler, patronuma bir e-posta yaz"
+    )
+    tails = DraftTails(text)
+    starts = [0] + [at + 1 for at, char in enumerate(text) if char in " ,"]
+    for start in starts:
+        assert tails.kind(start) == locale_draft_kind(text[start:]), text[start:]
+
+
+def test_opening_at_refuses_a_pattern_not_opened_on_a_caret() -> None:
+    import re
+
+    from app.modules.turn_reading.writing_locales import opening_at
+
+    assert opening_at(re.compile(r"^ab")).match("xab", 1) is not None
+    with pytest.raises(ValueError):
+        opening_at(re.compile(r"ab"))

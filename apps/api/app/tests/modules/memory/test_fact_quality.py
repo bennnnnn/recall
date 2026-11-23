@@ -416,3 +416,44 @@ def test_facts_the_user_states_while_asking_are_kept(lines, op):
     writes, skipped = _compose(lines, [op])
     assert [w.text for w in writes if w.op == "add"] == [op["text"]]
     assert skipped == 0
+
+
+# CX-5 (2026-11-22): the consolidation job tokenized both facts of every pair again.
+@pytest.mark.wall_clock
+def test_duplicate_pairs_of_150_facts_read_each_once() -> None:
+    import time
+
+    from app.modules.memory.consolidation_workflow import _duplicate_pairs
+    from app.tests.modules.memory.many_facts import many_facts
+
+    facts = many_facts(150)
+    started = time.perf_counter()
+    pairs = _duplicate_pairs(facts)  # type: ignore[arg-type]
+    seconds = time.perf_counter() - started
+    assert pairs == []
+    assert seconds < 0.03, f"{seconds:.3f}s on 150 facts"
+
+
+def test_near_duplicate_pairs_keep_the_newest_and_their_order() -> None:
+    from app.modules.memory.consolidation_workflow import _duplicate_pairs
+
+    def fact(text: str, memory_type: str, minute: int) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=uuid4(),
+            type=memory_type,
+            text=text,
+            status="active",
+            last_confirmed_at=None,
+            updated_at=_NOW.replace(minute=minute),
+        )
+
+    facts = [
+        fact("User likes green tea in the morning", "preference", 1),
+        fact("User likes green tea in the morning now", "preference", 2),
+        fact("User works at Stripe in Dublin office", "fact", 3),
+        fact("User works at Stripe in Dublin office now", "fact", 4),
+    ]
+    assert [(pair.keep_text, pair.drop_text) for pair in _duplicate_pairs(facts)] == [  # type: ignore[arg-type]
+        ("User works at Stripe in Dublin office now", "User works at Stripe in Dublin office"),
+        ("User likes green tea in the morning now", "User likes green tea in the morning"),
+    ]

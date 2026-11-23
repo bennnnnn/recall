@@ -431,3 +431,37 @@ def test_a_place_asked_is_the_sentence_asked() -> None:
         "Where is the image and how big is it",
         r"15\,\mathrm{cm};\quad -0.5",
     )
+
+
+@pytest.mark.parametrize(
+    ("question", "asked"),
+    [
+        (
+            "A car moves at 3 m/s. Find its speed. What is the time?",
+            " Find its speed  What is the time?",
+        ),
+        ("Find x.\n\nwork out y", "Find x \n\nwork out y"),
+        ("x = 2.\nwhat is y\n? z", "\nwhat is y ?"),
+        ("The ball falls. It lands.", "The ball falls. It lands."),
+    ],
+)
+def test_the_sentences_that_ask(question: str, asked: str) -> None:
+    from app.modules.chat.whole_question import _asked
+
+    assert _asked(question) == asked
+
+
+# CX-2 (2026-11-22): the "sentences that ask" pattern was retried at every character, and
+# read a sentence with no "?" to its end each time: 410 ms at 16k, 16k line breaks 6 s.
+@pytest.mark.wall_clock
+@pytest.mark.parametrize("unit", ["a b c ", "\n", "\n ", "what? "], ids=repr)
+def test_a_32k_question_is_read_in_linear_time(unit: str) -> None:
+    import time
+
+    from app.modules.chat.whole_question import _asked
+
+    question = unit * (32_000 // len(unit))
+    started = time.perf_counter()
+    _asked(question)
+    seconds = time.perf_counter() - started
+    assert seconds < 0.05, f"{seconds:.3f}s on 32k characters"

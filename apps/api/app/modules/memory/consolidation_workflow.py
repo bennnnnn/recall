@@ -14,8 +14,9 @@ from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.consolidation import (
     accept_memory_section_rewrite,
-    fact_text_jaccard,
+    fact_tokens,
     facts_need_consolidation,
+    tokens_jaccard,
 )
 from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
 from app.modules.memory.facts import is_active_memory
@@ -71,13 +72,15 @@ def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
     remaining = [fact for fact in active if fact.id not in used]
     remaining.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)
     claimed: set[UUID] = set()
+    # Each fact's words once, not again for every pair (CX-5).
+    tokens = [fact_tokens(fact.text) for fact in remaining]
     for index, left in enumerate(remaining):
         if left.id in claimed:
             continue
-        for right in remaining[index + 1 :]:
+        for offset, right in enumerate(remaining[index + 1 :], index + 1):
             if right.id in claimed or right.type != left.type:
                 continue
-            if fact_text_jaccard(left.text, right.text) < _NEAR_DUP_JACCARD:
+            if tokens_jaccard(tokens[index], tokens[offset]) < _NEAR_DUP_JACCARD:
                 continue
             claimed.add(right.id)
             pairs.append(

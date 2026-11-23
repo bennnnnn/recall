@@ -173,3 +173,53 @@ def test_forget_tells_a_dropped_request_from_a_saved_fact(text, forget):
     assert is_explicit_memory_command(text) is forget
     if not forget:
         assert forget_requests(text) == []
+
+
+# CX-2 (2026-11-22): each marker's check copied the line before it, split the whole rest to
+# read three words, and read the rest again for an "about me" or a bare tail: a 32k line of
+# "forget i asked, " took 160-200 ms a call, and asks_to_remember makes several.
+_LONG_LINES = {
+    "withdrawn asks": "forget i asked, ",
+    "saved facts": "remember that x, ",
+    "mutes": "stop mentioning my job, ",
+    "resets": "forget everything, ",
+    "memory off": "turn off memory now, ",
+    "leads only": "and ",
+}
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize("unit", _LONG_LINES.values(), ids=_LONG_LINES)
+def test_a_32k_line_is_read_in_linear_time(unit: str) -> None:
+    import time
+
+    from app.modules.memory.commands import asks_to_remember, forget_requests
+
+    text = (unit * (32_000 // len(unit) + 1))[:32_000]
+    started = time.perf_counter()
+    asks_to_remember(text)
+    forget_requests(text)
+    remember_requests(text)
+    mute_requests(text)
+    memory_reset_request(text)
+    seconds = time.perf_counter() - started
+    assert seconds < 0.1, f"{seconds:.3f}s on 32k characters"
+
+
+@pytest.mark.parametrize(
+    ("text", "reset"),
+    [
+        ("forget everything you know about me", "clear"),
+        ("forget everything, it was about me", "clear"),
+        ("forget everything", None),
+        # Read from the marker's end, a phrase there starts its rest.
+        ("forget everythingabout me", "clear"),
+        ("turn off memory", "off"),
+        ("turn off memory now!!", "off"),
+        ("turn off memory , thank you", "off"),
+        ("turn off memory now please", None),
+        ("turn off memory" + " " * 50, "off"),
+    ],
+)
+def test_a_reset_reads_what_follows_its_marker(text: str, reset: str | None) -> None:
+    assert memory_reset_request(text) == reset

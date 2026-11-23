@@ -23,6 +23,7 @@ from app.modules.turn_reading.derivative_notation import asks_at_a_point
 from app.modules.turn_reading.readable import unreadable
 from app.services.question_parts import labelled_parts
 from app.services.solving import VerifiedSolveBlock
+from app.services.text_match import NextMatch
 
 # A reaction: "→", "->", "⟶", "=>" between two sides.
 _ARROW = re.compile(r"→|⟶|->|=>|⇌")
@@ -168,17 +169,47 @@ def _right_side(answer: str) -> str:
 # The words a sentence asks with: an instruction ("find", "work out") or a question word.
 ASK_VERBS = r"find|calculate|compute|evaluate|determine|state|give|work\s+out"
 ASK_QUESTION_WORDS = r"how|what|which|where"
-# The sentences that ask: "… Find its acceleration.", "What is the radius?"
-_ASKED_SENTENCE = re.compile(
-    rf"[^.?!\n]*\?|(?:^|(?<=[.!\n]))\s*(?:{ASK_VERBS}|{ASK_QUESTION_WORDS})\b[^.?!\n]*",
-    re.IGNORECASE,
-)
+# The sentences that ask: "… Find its acceleration.", "What is the radius?" (``_asked``).
+_ASKING = re.compile(rf"(?:{ASK_VERBS}|{ASK_QUESTION_WORDS})\b[^.?!\n]*", re.IGNORECASE)
+_SENTENCE_END = re.compile(r"[.?!\n]")
+_NOT_SPACE = re.compile(r"\S")
 
 
 def _asked(question: str) -> str:
     """The sentences of ``question`` that ask, or the whole of it when none does."""
-    asked = " ".join(match.group(0) for match in _ASKED_SENTENCE.finditer(question))
+    asked = " ".join(_asked_sentences(question))
     return asked or question
+
+
+def _asked_sentences(question: str) -> list[str]:
+    """What ``re.finditer`` of ``[^.?!\\n]*\\?|(?:^|(?<=[.!\\n]))\\s*`` and ``_ASKING`` finds:
+    a sentence that ends in "?", or one that opens on an asking word after the start or a
+    sentence end, its spaces first.
+
+    Read in one pass (CX-2): the pattern retried at every character read a long sentence
+    with no "?" to its end each time, 410 ms at 16k, and 16k line breaks 6 s. A
+    sentence ends at its first ".", "?", "!" or line break, so from anywhere in it the "?"
+    reading answers the same; only its first character may follow a sentence end."""
+    ends = NextMatch(_SENTENCE_END, question)
+    words = NextMatch(_NOT_SPACE, question)
+    found: list[str] = []
+    at = 0
+    while at < len(question):
+        end_match = ends.from_(at)
+        end = end_match.start() if end_match else len(question)
+        if end < len(question) and question[end] == "?":
+            found.append(question[at : end + 1])
+            at = end + 1
+            continue
+        if at == 0 or question[at - 1] in ".!\n":
+            word = words.from_(at)
+            asking = _ASKING.match(question, word.start()) if word else None
+            if asking is not None:
+                found.append(question[at : asking.end()])
+                at = asking.end()
+                continue
+        at = end + 1
+    return found
 
 
 def _restates(question: str, answer: str) -> bool:
