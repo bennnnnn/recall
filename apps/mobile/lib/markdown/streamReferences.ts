@@ -16,22 +16,18 @@ export type PieceRefs = { defines: string[]; mentions: string[] };
 export const NO_REFS: PieceRefs = { defines: [], mentions: [] };
 
 const BRACKETED_RE = /\[([^[\]]{1,999})\]/g;
-/** A definition runs to the next blank line (a title may span lines); read at most this many. */
-const DEFINITION_LINES = 20;
 
 const normalize = (label: string) => markdownItInstance.utils.normalizeReference(label);
 
-/** The labels the definition starting at `at` defines, as markdown-it reads it. */
-function definedLabels(text: string, at: number): string[] {
-  let end = at;
-  for (let line = 0; line < DEFINITION_LINES && end < text.length; line += 1) {
-    const nl = text.indexOf("\n", end);
-    const next = nl < 0 ? text.length : nl + 1;
-    if (line > 0 && text.slice(end, next).trim() === "") break;
-    end = next;
-  }
+/**
+ * The labels `text` defines, as markdown-it's own block parse reads them: a
+ * definition at the margin, in a quote or in a list item alike. A text with no
+ * `]:` defines none, and is not parsed.
+ */
+function definedLabels(text: string): string[] {
+  if (!text.includes("]:")) return [];
   const env: Parameters<typeof markdownItInstance.parse>[1] = {};
-  markdownItInstance.block.parse(text.slice(at, end), markdownItInstance, env, []);
+  markdownItInstance.block.parse(text, markdownItInstance, env, []);
   return Object.keys(env.references ?? {});
 }
 
@@ -46,9 +42,9 @@ function mentionedLabels(text: string): string[] {
   return [...labels];
 }
 
-/** The refs of `text`, whose definitions start at `definitions`. */
-export function pieceRefs(text: string, definitions: number[], offset: number): PieceRefs {
-  const defines = definitions.flatMap((at) => definedLabels(text, at - offset));
+/** The labels `text` defines and the bracketed runs it holds. */
+export function pieceRefs(text: string): PieceRefs {
+  const defines = definedLabels(text);
   const mentions = mentionedLabels(text);
   return defines.length === 0 && mentions.length === 0 ? NO_REFS : { defines, mentions };
 }

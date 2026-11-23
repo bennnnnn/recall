@@ -392,7 +392,18 @@ describe("advanceStreamBlocks between list items", () => {
 
   it("reads a definition whose title runs over several lines", () => {
     const text = 'Intro.\n\n[docs]: https://docs.example.com "one\ntwo\nthree\nfour"\n\nAfter.';
-    expect(pieceRefs(text, [text.indexOf("[docs]")], 0).defines).toEqual(["DOCS"]);
+    expect(pieceRefs(text).defines).toEqual(["DOCS"]);
+  });
+
+  it.each([
+    ["a quote", "> [1]: https://x.com"],
+    ["a list item", "- [1]: https://x.com"],
+  ])("ties a use to a definition in %s", (_name, definition) => {
+    const filler = Array.from({ length: 4 }, (_, i) => PARA(`Filler ${i}.`)).join("\n\n");
+    const text = `${PARA("See [1].")}\n\n${filler}\n\n${definition}\n\n${PARA("After.")}\n\n${PARA("End.")}\n\nend`;
+    const state = advanceStreamBlocks(null, text, text.length);
+    const holder = state.chunks.find((chunk) => chunk.includes("See [1]."));
+    expect(holder).toContain(definition);
   });
 
   it("cuts on after a line that only looks like a definition", () => {

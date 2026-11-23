@@ -29,8 +29,9 @@ const MORE_CHILDREN = <Text key="dotdotdot">...</Text>;
 
 /**
  * One piece of a reply: a settled chunk, or the live end after the chunks. A
- * settled chunk's string never changes while the reply streams, so it parses
- * and mounts once. The live piece parses on every flush, and its nodes keep
+ * settled chunk's string does not change while the reply streams, so it
+ * parses and mounts once (unless a link reference merges it with its
+ * neighbours, `streamReferences.ts`). The live piece parses on every flush, and its nodes keep
  * their keys (`withStableNodeKeys`), so a flush updates its views instead of
  * mounting them again.
  *

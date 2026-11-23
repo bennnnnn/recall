@@ -148,6 +148,13 @@ describe("reading a text's fences again (audit MX-4)", () => {
     expect(scanFences(text, true)).toEqual(kept);
   });
 
+  it("keeps a strict read and a loose read of one text apart", () => {
+    const text = "- step\n    ```html\n    <p>x</p>\n    ```";
+    expect(scanFences(text)).toHaveLength(0);
+    expect(scanFences(text, true)).toHaveLength(1);
+    expect(scanFences(text)).toHaveLength(0);
+  });
+
   it("finds a fence's language in any case before it scans", () => {
     expect(mentionsWord("```SOURCES\n[]\n```", "sources")).toBe(true);
     expect(mentionsWord("```cloc\u212A\n12:00\n```", "clock")).toBe(true);

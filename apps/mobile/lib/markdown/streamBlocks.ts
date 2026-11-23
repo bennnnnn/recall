@@ -8,8 +8,10 @@
  * its own memoized `<Markdown>`) plus a small growing tail keeps per-flush
  * work proportional to the tail, ChatGPT-style.
  *
- * Chunks only ever append while the same reply streams; each chunk's string
- * never changes, so its parse/render is done exactly once.
+ * Chunks append while the same reply streams, and a chunk's string does not
+ * change, so its parse/render is done once. The exceptions: a preprocess pass
+ * that rewrote earlier text, a list that went wide, and a link reference,
+ * which may merge settled chunks or take them back (`streamReferences.ts`).
  */
 
 import { listGoesOn, type OpenList } from "@/lib/markdown/streamListCuts";
@@ -49,12 +51,7 @@ export function emptyStreamBlocksState(): StreamBlocksState {
 }
 
 /** Append the chunks between consecutive cuts to the settled state. */
-function cutChunks(
-  base: StreamBlocksState,
-  prepared: string,
-  cuts: Cut[],
-  definitions: number[],
-): StreamBlocksState {
+function cutChunks(base: StreamBlocksState, prepared: string, cuts: Cut[]): StreamBlocksState {
   const chunks = base.chunks.slice();
   const continued = base.continued.slice();
   const listAfter = base.listAfter.slice();
@@ -67,8 +64,7 @@ function cutChunks(
     continued.push(cut.continued);
     // The list this chunk leaves open is the one the next chunk starts in.
     listAfter.push(cut.listAfter);
-    const inChunk = definitions.filter((at) => at >= chunkStart && at < cut.at);
-    refs.push(pieceRefs(chunk, inChunk, chunkStart));
+    refs.push(pieceRefs(chunk));
     settledText += chunk;
     chunkStart = cut.at;
   }
@@ -80,16 +76,11 @@ function cutChunks(
  * from the first tied one to the last are merged, or, when the text after
  * the chunks is tied too, left to it.
  */
-function tieReferences(
-  state: StreamBlocksState,
-  prepared: string,
-  definitions: number[],
-): StreamBlocksState {
+function tieReferences(state: StreamBlocksState, prepared: string): StreamBlocksState {
   const from = state.settledText.length;
-  const after = definitions.filter((at) => at >= from);
   // No definition anywhere: nothing to tie (the common reply skips the live text's read).
-  if (after.length === 0 && state.refs.every((refs) => refs.defines.length === 0)) return state;
-  const live = pieceRefs(prepared.slice(from), after, from);
+  if (!prepared.includes("]:", from) && state.refs.every((refs) => refs.defines.length === 0)) return state;
+  const live = pieceRefs(prepared.slice(from));
   const span = tiedSpan([...state.refs, live]);
   if (!span) return state;
   if (span.last === state.chunks.length) return trimmedTo(state, span.first);
@@ -189,8 +180,8 @@ export function advanceStreamBlocks(
     base = withoutOpenListChunks(base);
     scan = scanFrom(base);
   }
-  const cut = scan.cuts.length > 0 ? cutChunks(base, prepared, scan.cuts, scan.definitions) : base;
-  return tieReferences(cut, prepared, scan.definitions);
+  const cut = scan.cuts.length > 0 ? cutChunks(base, prepared, scan.cuts) : base;
+  return tieReferences(cut, prepared);
 }
 
 /**
@@ -214,7 +205,7 @@ export function settleStreamBlocks(
     base = withoutOpenListChunks(base);
     scan = scanFrom(base);
   }
-  return tieReferences(base, prepared, scan.definitions);
+  return tieReferences(base, prepared);
 }
 
 function lastOpenList(state: StreamBlocksState): OpenList | null {
