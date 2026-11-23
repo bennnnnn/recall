@@ -6,6 +6,7 @@ emergency role-play included, which also told the user when to fire a gun.
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -142,3 +143,119 @@ def test_a_short_reply_to_a_short_message_names_no_one(asked: str, reply: str, o
     )
     state = SimpleNamespace(server_text=False, ctx=ctx, text=reply)
     assert spare_name_pass(state) == out  # type: ignore[arg-type]
+
+
+def _streamed(
+    name: str, tokens: list[str], *, short_message: bool = False, lately: bool = True
+) -> tuple[str, list[str]]:
+    from app.modules.chat.name_use import NameSpare, OpeningNameHold
+
+    hold = OpeningNameHold(NameSpare(name, short_message, lately))
+    sent = [hold.feed(token) for token in tokens]
+    sent.append(hold.flush())
+    return "".join(sent), sent
+
+
+@pytest.mark.parametrize(
+    ("tokens", "shown"),
+    [
+        (["Hi", " Bi", "ni", "! Here", "'s the", " plan."], "Hi! Here's the plan."),
+        (["Bini", ", here", "'s what", " I found."], "Here's what I found."),
+        (["Hey", " bini", "!", " Sure", " thing."], "Hey! Sure thing."),
+        (
+            ["Sure", " thing", " — here", " are three", " ideas."],
+            "Sure thing — here are three ideas.",
+        ),
+        # The name as the fifth word, split across tokens (review, #2554).
+        (
+            ["Okay,", " that", " makes", " sense,", " Bi", "ni.", " Next", " step."],
+            "Okay, that makes sense. Next step.",
+        ),
+    ],
+)
+def test_a_spared_name_never_streams_in_the_opening(tokens: list[str], shown: str) -> None:
+    """The phone showed "Hi Bini" and then swapped in "Hi" (the owner, 2026-11-23): the
+    opening is held until it is clear, so the name is never sent."""
+    text, sent = _streamed("bini", tokens)
+    assert text == shown
+    assert not any("ini" in piece.lower() for piece in sent)
+
+
+def test_an_opening_with_no_name_is_held_for_a_few_words_only() -> None:
+    _, sent = _streamed(
+        "bini", ["Sure", " thing", " here", " are", " three", " ideas", " for", " you."]
+    )
+    # Past four finished words with no name, the rest passes straight through.
+    assert sent[5] and sent[6:8] == [" for", " you."]
+
+
+_LONG = " Here is the whole plan for the week, day by day, with every stop on the way." * 4
+
+
+def _pieces(text: str, size: int) -> list[str]:
+    if size == 0:  # word tokens, the space leading each
+        return [m.group(0) for m in re.finditer(r"\s*\S+", text)]
+    return [text[i : i + size] for i in range(0, len(text), size)]
+
+
+@pytest.mark.parametrize("size", [0, 1, 2, 3, 5, 8])
+@pytest.mark.parametrize(
+    ("asked", "lately", "reply"),
+    [
+        ("allow", False, "Hi Bini! Done, it's on."),
+        ("allow", False, "Hi Bini!" + _LONG),  # a long reply keeps the name
+        ("ok", False, "Got it, Bini 👍"),
+        ("thanks", False, "Anytime, Bini"),
+        ("ok", True, "Great, Bini." + _LONG),
+        ("can you help me plan a trip to lisbon next month", True, "Bini, here's a plan." + _LONG),
+        (
+            "can you help me plan a trip to lisbon next month",
+            True,
+            "Okay, that makes sense, Bini." + _LONG,
+        ),
+        (
+            "can you help me plan a trip to lisbon next month",
+            True,
+            "Sure thing, here it is." + _LONG,
+        ),
+    ],
+)
+def test_the_stream_shows_what_the_finalize_pass_saves(
+    asked: str, lately: bool, reply: str, size: int
+) -> None:
+    """However the reply's tokens split, the streamed text is the saved text, so nothing on
+    the phone changes when the reply is done (review, #2554)."""
+    from app.modules.chat.name_use import name_to_spare, spare_name_pass
+
+    recent = [SimpleNamespace(role="assistant", content="Sure, Bini!" if lately else "Sure!")]
+    user = SimpleNamespace(name="Bini")
+    spare = name_to_spare(user, asked, recent)  # type: ignore[arg-type]
+    assert spare is not None
+    from app.modules.chat.name_use import OpeningNameHold
+
+    hold = OpeningNameHold(spare)
+    streamed = "".join(hold.feed(piece) for piece in _pieces(reply, size)) + hold.flush()
+    ctx = SimpleNamespace(user=user, user_message_content=asked, recent_messages=recent)
+    state = SimpleNamespace(server_text=False, ctx=ctx, text=reply)
+    assert streamed == spare_name_pass(state)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("asked", "lately", "spared"),
+    [
+        ("allow", False, True),
+        ("can you help me plan a trip to lisbon next month", True, True),
+        ("can you help me plan a trip to lisbon next month", False, False),
+        ("hi", False, False),
+        ("what's my name?", True, False),
+    ],
+)
+def test_the_stream_spares_the_name_when_the_finalize_pass_would(
+    asked: str, lately: bool, spared: bool
+) -> None:
+    from app.modules.chat.name_use import name_to_spare
+
+    user = SimpleNamespace(name="Bini")
+    recent = [SimpleNamespace(role="assistant", content="Sure, Bini!" if lately else "Sure!")]
+    spare = name_to_spare(user, asked, recent)  # type: ignore[arg-type]
+    assert (spare is not None and spare.name == "Bini") is spared

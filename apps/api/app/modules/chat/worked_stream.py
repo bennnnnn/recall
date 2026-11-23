@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 
 from app.modules.chat.draw_stream import DrawFilter
+from app.modules.chat.name_use import NameSpare, OpeningNameHold
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_scaffold import ScaffoldFilter
 from app.modules.chat.worked_asks import fitted, plain_notes, worked_givens
@@ -162,9 +163,17 @@ class ReplyFilter:
     extending what was sent, ``accum.shown`` from there is set to the text itself.
     """
 
-    def __init__(self, accum: StreamAccum, layout: WorkedLayout | None) -> None:
+    def __init__(
+        self,
+        accum: StreamAccum,
+        layout: WorkedLayout | None,
+        *,
+        spare_name: NameSpare | None = None,
+    ) -> None:
         self._scaffold = ScaffoldFilter()
         self._draw = DrawFilter(accum)
+        # The user's name kept out of the opening as it streams (``name_use``).
+        self._name = OpeningNameHold(spare_name) if spare_name else None
         self._worked = WorkedFilter(layout) if layout is not None else None
         self._accum = accum
         self._start = len(accum.shown)
@@ -172,6 +181,8 @@ class ReplyFilter:
 
     def feed(self, token: str) -> str:
         visible = self._draw.feed(self._scaffold.feed(token))
+        if self._name is not None:
+            visible = self._name.feed(visible)
         if self._worked is None:
             return visible
         self._worked.feed(visible)
@@ -181,6 +192,8 @@ class ReplyFilter:
     def flush(self) -> str:
         scaffold = self._scaffold.flush()
         tail = self._draw.feed(scaffold) + self._draw.flush()
+        if self._name is not None:
+            tail = self._name.feed(tail) + self._name.flush()
         if self._worked is None:
             return tail
         self._worked.feed(tail)
