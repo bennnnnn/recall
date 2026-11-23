@@ -716,6 +716,18 @@
       "value": "undefined"
     },
     {
+      "id": "coth-zero",
+      "draft": "$\\coth(0)$",
+      "sympy": "coth(0)",
+      "value": "undefined"
+    },
+    {
+      "id": "undefined-in-sum",
+      "draft": "$2+1\\div 0$",
+      "sympy": "2+1/0",
+      "value": "undefined"
+    },
+    {
       "id": "sqrt-negative",
       "draft": "$\\sqrt{-4}$",
       "sympy": null,
@@ -856,6 +868,23 @@
       "server_gap": "the turn does not verify a ± draft: the model answers it"
     },
     {
+      "id": "plus-minus-unsorted",
+      "draft": "$1\\pm 4\\pm 2$",
+      "sympy": [
+        "1-4-2",
+        "1-4+2",
+        "1+4-2",
+        "1+4+2"
+      ],
+      "value": [
+        "-5",
+        "-1",
+        "3",
+        "7"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
       "id": "plus-minus-alone",
       "draft": "$\\pm 3$",
       "sympy": null,
@@ -896,6 +925,41 @@
       "sympy": null,
       "value": null,
       "why": "10^400: too big to show, not undefined"
+    },
+    {
+      "id": "divide-by-undefined",
+      "draft": "$1\\div\\tan(90^{\\circ})$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls 1/zoo 0: an undefined divisor leaves no value"
+    },
+    {
+      "id": "divide-by-log-zero",
+      "draft": "$1\\div\\ln(0)$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls 1/zoo 0: an undefined divisor leaves no value"
+    },
+    {
+      "id": "abs-of-undefined",
+      "draft": "$\\left|1\\div 0\\right|$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls Abs(zoo) an infinity"
+    },
+    {
+      "id": "undefined-to-power-zero",
+      "draft": "$(1\\div 0)^{0}$",
+      "sympy": null,
+      "value": null,
+      "why": "SymPy calls zoo**0 1"
+    },
+    {
+      "id": "tan-near-pole",
+      "draft": "$\\tan(89.99999999999)$",
+      "sympy": null,
+      "value": null,
+      "why": "a cosine only rounded to 0 is no pole: about 5.7e12, too near the edge to show"
     },
     {
       "id": "comma-thousands",

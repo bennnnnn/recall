@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
+import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import { MathText } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
 import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
@@ -56,6 +57,8 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
   const answer = useMemo(() => liveAnswer(input, undefinedWord), [input, undefinedWord]);
   const color = ACCENTS.green[theme.scheme].primary;
   const size = answer?.signed ? BRANCH_SIZE : ANSWER_SIZE;
+  // Wider than the row, its scroll bar shows once, so a cut edge reads as more to see.
+  const flash = useFlashWhenClipped();
   return (
     <View
       style={styles.line}
@@ -66,8 +69,10 @@ export const MathLiveAnswer = memo(function MathLiveAnswer({ input }: { input: s
       {answer ? (
         <AccessibleElementChildren>
           <ScrollView
+            {...flash}
             horizontal
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator
+            bounces={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.content}
           >

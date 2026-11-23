@@ -6,7 +6,10 @@
  * give a decimal. A value with no number at all is undefined, as the server says it is: a zero
  * divisor (`1 ÷ 0`, `0 ÷ 0`, `5 mod 0`, `0^{-1}`), a pole (`tan 90°`, `cot 0°`, `coth 0`), a
  * log of zero, a log to base 1. Only a zero that is exactly zero makes one: a decimal that
- * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. `0^0` is 1, as
+ * rounded to 0 (`10^{-400}`) is a number too small to hold, and shows nothing. An undefined
+ * part carries through + − × and a numerator (`2 + 1 ÷ 0` is undefined, as SymPy's zoo is);
+ * anywhere else it leaves no value, as SymPy gives one back there (`1 ÷ tan 90°` is 0 to it,
+ * `|1 ÷ 0|` an infinity, `(1 ÷ 0)^0` 1). `0^0` is 1, as
  * SymPy and the server read it. Anything else the server would not call one real number gives
  * no value: a root or a log of a negative (complex numbers are the server's), an infinity
  * (`atanh 1`), `50 + 10%` (55 or 50.1), a number too big.
@@ -46,14 +49,19 @@ const UNDEFINED_REASON = "undefined";
 const undefinedValue = (): never => refuse(UNDEFINED_REASON);
 
 const isZero = (value: LiveValue): boolean => value.kind === "exact" && value.r.n === 0n;
+const ZERO: LiveValue = { kind: "exact", r: { n: 0n, d: 1n } };
+/** 0 as shown, but only rounded there: no pole, and no undefined from it. */
+const SMALL: LiveValue = { kind: "approx", x: 0 };
 
 /** At an exact zero, undefined; at a decimal that rounded to 0, no value. */
 const atZero = (value: LiveValue): never => (isZero(value) ? undefinedValue() : fail());
 
 /** The largest n in n!, nCk and nPk. */
 const MAX_COUNT = 170;
-/** A trig value this close to 0 is 0 (sin 180° is 1.2e-16 in floating point). */
+/** A trig value this close to 0 is shown as 0 (sin 180° is 1.2e-16 in floating point). */
 const TRIG_ZERO = 1e-12;
+/** Within this many rounding steps of the angle's size, a sine or cosine is exactly 0. */
+const TRIG_EXACT_STEPS = 4;
 
 const exact = (r: Rational | null): LiveValue => ({ kind: "exact", r: r ?? fail() });
 
@@ -187,23 +195,34 @@ function angle(arg: LiveNode): number {
   if (contains(arg, DEGREES)) {
     // `30^{\circ}` or `-30^{\circ}`; `30^{\circ} + 15` mixes two units.
     if (signed.kind !== "degrees" || contains(arg, RADIANS)) return fail();
-    return numberOf(evaluate(arg, true));
+    return numberOf(defined(arg, true));
   }
-  if (contains(arg, RADIANS)) return numberOf(evaluate(arg, true));
+  if (contains(arg, RADIANS)) return numberOf(defined(arg, true));
   if (signed.kind !== "number") return fail();
-  return (numberOf(evaluate(arg)) * Math.PI) / 180;
+  return (numberOf(defined(arg)) * Math.PI) / 180;
 }
 
+/**
+ * A sine or cosine within floating point's own error of 0 is exactly 0 (`cos 90°`): there tan
+ * or sec has a pole and is undefined, and the value is an exact 0 (`1 ÷ sin 180°` is undefined,
+ * as csc 180° is). One that is only small (`cos 89.99999999999°`, 1.7e-13) is shown as 0 but is
+ * no pole: dividing by it leaves no value.
+ */
 function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", radians: number): LiveValue {
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
-  const s = zero(Math.sin(radians));
-  const c = zero(Math.cos(radians));
-  if ((fn === "tan" || fn === "sec") && c === 0) undefinedValue();
-  if ((fn === "cot" || fn === "csc") && s === 0) undefinedValue();
+  const exactZero = (x: number) =>
+    Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.max(1, Math.abs(radians));
+  const sine = Math.sin(radians);
+  const cosine = Math.cos(radians);
+  const s = zero(sine);
+  const c = zero(cosine);
+  if ((fn === "tan" || fn === "sec") && c === 0) atZero(exactZero(cosine) ? ZERO : SMALL);
+  if ((fn === "cot" || fn === "csc") && s === 0) atZero(exactZero(sine) ? ZERO : SMALL);
   const value = { sin: s, cos: c, tan: s / c, cot: c / s, sec: 1 / c, csc: 1 / s }[fn];
-  // A value snapped to 0 is exactly 0 (`sin 180°`), so `1 ÷ sin 180°` is undefined, as csc 180° is.
   const snapped = zero(value);
-  return snapped === 0 ? exact(rational(0n)) : approx(snapped);
+  if (snapped !== 0) return approx(snapped);
+  const fromSine = fn === "sin" || fn === "tan";
+  return exactZero(fromSine ? sine : cosine) ? ZERO : SMALL;
 }
 
 const inRange = (x: number, ok: boolean) => (ok ? x : fail());
@@ -213,8 +232,8 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
     return trig(fn, angle(arg));
   }
   if (contains(arg, DEGREES)) fail();
-  const value = evaluate(arg);
-  if (fn === "log") return logarithm(value, base ? evaluate(base) : exact(rational(10n)));
+  const value = defined(arg);
+  if (fn === "log") return logarithm(value, base ? defined(base) : exact(rational(10n)));
   if (fn === "ln") return logarithm(value, "e");
   const x = numberOf(value);
   switch (fn) {
@@ -238,6 +257,12 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   return fail();
 }
 
+/** A part whose undefined does not carry through what holds it: there it leaves no value. */
+function defined(node: LiveNode, inAngle = false): LiveValue {
+  const read = guardReason(() => evaluate(node, inAngle));
+  return "value" in read ? read.value : fail();
+}
+
 function evaluate(node: LiveNode, inAngle = false): LiveValue {
   switch (node.kind) {
     case "number": return exact(parseDecimal(node.text));
@@ -255,8 +280,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       return node.op === "+" ? combine(a, b, add, (x, y) => x + y) : combine(a, b, sub, (x, y) => x - y);
     }
     case "mul": {
-      const a = evaluate(node.left, inAngle);
-      const b = evaluate(node.right, inAngle);
+      const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);
+      const b = node.op === "*" ? evaluate(node.right, inAngle) : defined(node.right, inAngle);
       if (node.op === "*") return combine(a, b, mul, (x, y) => x * y);
       if (node.op === "/") return divide(a, b);
       // SymPy's Mod: the remainder takes the divisor's sign. Exact values only.
@@ -265,13 +290,13 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       const q = div(a.r, b.r) ?? fail();
       return exact(sub(a.r, mul(b.r, rational(floor(q)) ?? fail()) ?? fail()));
     }
-    case "frac": return divide(evaluate(node.num, inAngle), evaluate(node.den, inAngle));
-    case "pow": return power(evaluate(node.base, inAngle), evaluate(node.exponent));
+    case "frac": return divide(evaluate(node.num, inAngle), defined(node.den, inAngle));
+    case "pow": return power(defined(node.base, inAngle), defined(node.exponent));
     case "root": {
-      const index = node.index ? whole(evaluate(node.index), 2, 1000) : 2n;
-      return root(evaluate(node.radicand, inAngle), index);
+      const index = node.index ? whole(defined(node.index), 2, 1000) : 2n;
+      return root(defined(node.radicand, inAngle), index);
     }
-    case "factorial": return factorial(whole(evaluate(node.operand), 0, MAX_COUNT));
+    case "factorial": return factorial(whole(defined(node.operand), 0, MAX_COUNT));
     case "percent": return divide(evaluate(node.operand, inAngle), exact(rational(100n)));
     case "degrees": {
       if (!inAngle) fail();
@@ -279,12 +304,12 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
     }
     case "radians": return inAngle ? evaluate(node.operand, inAngle) : fail();
     case "abs": {
-      const v = evaluate(node.operand, inAngle);
+      const v = defined(node.operand, inAngle);
       return v.kind === "exact" ? exact(rational(v.r.n < 0n ? -v.r.n : v.r.n, v.r.d)) : approx(Math.abs(v.x));
     }
     case "floor":
     case "ceil": {
-      const v = evaluate(node.operand, inAngle);
+      const v = defined(node.operand, inAngle);
       if (v.kind === "approx") {
         const x = nearWhole(v.x);
         return approx(node.kind === "floor" ? Math.floor(x) : Math.ceil(x));
@@ -297,8 +322,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
     case "pm": return fail();
     case "binom":
     case "perm": {
-      const n = whole(evaluate(node.n), 0, MAX_COUNT);
-      return choose(n, whole(evaluate(node.k), 0, MAX_COUNT), node.kind === "perm");
+      const n = whole(defined(node.n), 0, MAX_COUNT);
+      return choose(n, whole(defined(node.k), 0, MAX_COUNT), node.kind === "perm");
     }
   }
 }

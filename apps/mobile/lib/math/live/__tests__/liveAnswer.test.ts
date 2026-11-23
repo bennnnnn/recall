@@ -82,6 +82,10 @@ describe("liveAnswer", () => {
     ["a natural log of zero", "$\\ln(0)$"],
     ["a log to base 1", "$\\log_{1}(5)$"],
     ["a divisor that works out to zero", "$\\frac{3}{\\sin(180^{\\circ})}$"],
+    ["an undefined term in a sum", "$2+1\\div 0$"],
+    ["an undefined factor", "$3\\times\\frac{1}{0}$"],
+    ["an undefined numerator", "$\\frac{\\tan(90^{\\circ})}{2}$"],
+    ["a pole far round the circle", "$\\tan(1890^{\\circ})$"],
   ])("says undefined for %s", (_label, draft) => {
     expect(answer(draft)).toEqual({ latex: "= \\text{undefined}", signed: false, spoken: "undefined", exact: true });
   });
@@ -102,6 +106,13 @@ describe("liveAnswer", () => {
     ["a divisor that rounded to 0", "$\\frac{1}{10^{-400}}$"],
     ["a log of a number that rounded to 0", "$\\ln(e^{-1000})$"],
     ["± and ∓ together", "$1\\pm 2\\mp 4$"],
+    ["a sign after a minus with nothing to work out", "$-\\pm 3$"],
+    ["an undefined divisor, which SymPy calls 0", "$1\\div\\tan(90^{\\circ})$"],
+    ["a log of zero as a divisor", "$1\\div\\ln(0)$"],
+    ["an undefined inside |x|, which SymPy calls infinite", "$\\left|1\\div 0\\right|$"],
+    ["an undefined to the power 0, which SymPy calls 1", "$(1\\div 0)^{0}$"],
+    ["a cosine that is only small, not a pole", "$\\tan(89.99999999999)$"],
+    ["a sine that is only small, not a pole", "$\\csc(0.00000000001)$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -154,6 +165,7 @@ describe("liveAnswer", () => {
   it.each([
     ["$1\\pm 1\\pm 1$", "= -1,\\quad 1,\\quad 3"],
     ["$1\\mp 2\\mp 4$", "= -5,\\quad -1,\\quad 3,\\quad 7"],
+    ["$1\\pm 4\\pm 2$", "= -5,\\quad -1,\\quad 3,\\quad 7"],
     ["$1\\pm 0\\pm 0$", "= 1"],
     ["$\\pm 1\\pm 1$", "= -2,\\quad 0,\\quad 2"],
     ["$\\sqrt{2}\\pm 1\\pm 1$", "\\approx -0.5857864376,\\quad \\approx 1.414213562,\\quad \\approx 3.414213562"],

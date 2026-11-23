@@ -17,9 +17,12 @@ import { workSigns, type LiveSigns } from "@/lib/math/live/signs";
 
 export type { LiveAnswer };
 
-/** `5`, `-2.5`, `(3)` or `\pm 3` has nothing to work out. */
+const isSignOnly = (node: LiveNode): boolean => node.kind === "pm" && !node.left;
+
+/** `5`, `-2.5`, `(3)`, `\pm 3` or `-\pm 3` has nothing to work out. */
 function isPlainNumber(node: LiveNode): boolean {
   if (node.kind === "pm" && !node.left) return isPlainNumber(node.right);
+  if (node.kind === "neg" && isSignOnly(node.operand)) return isPlainNumber(node.operand);
   return node.kind === "number" || (node.kind === "neg" && node.operand.kind === "number");
 }
 
