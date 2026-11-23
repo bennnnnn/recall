@@ -51,7 +51,7 @@ jobs:
     name: claude review (${{ github.event.label.name }})
     if: ${{ github.event.label.name == 'review' }}
     runs-on: ubuntu-latest
-    # Opus took 2 to 11 minutes a review when measured; a big change with subagents more.
+    # Opus took 2 to 13 minutes a review when measured (the larger, the longer).
     timeout-minutes: 60
     permissions:
       contents: read
