@@ -104,16 +104,18 @@ function unsigned(node: LiveNode): { node: LiveNode; negative: boolean } {
   return { node: inner, negative };
 }
 
-/** `\frac{3}{4}`, `-\frac{3}{4}` or `\frac{-3}{4}` (any signs) typed in lowest terms: only its decimal is new. */
+/** `\frac{3}{4}`, `-\frac{3}{4}`, `\frac{-3}{4}` or `\frac{3}{-4}` typed in lowest terms: only its decimal is new. */
 export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
   if (value.kind !== "exact") return false;
   const outside = unsigned(node);
   const frac = outside.node;
-  if (frac.kind !== "frac" || frac.den.kind !== "number") return false;
-  const inside = unsigned(frac.num);
-  if (inside.node.kind !== "number") return false;
-  const top = outside.negative !== inside.negative ? -value.r.n : value.r.n;
-  return inside.node.text === top.toString() && frac.den.text === value.r.d.toString();
+  if (frac.kind !== "frac") return false;
+  const top = unsigned(frac.num);
+  const bottom = unsigned(frac.den);
+  if (top.node.kind !== "number" || bottom.node.kind !== "number") return false;
+  // The signs outside, on top and below together: `\frac{1}{-3}` is −1/3.
+  const negative = [outside, top, bottom].filter((part) => part.negative).length % 2 === 1;
+  return top.node.text === (negative ? -value.r.n : value.r.n).toString() && bottom.node.text === value.r.d.toString();
 }
 
 /** Smallest first, each compared with the last one kept, so close values never merge in a chain. */

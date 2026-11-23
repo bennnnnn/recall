@@ -893,6 +893,58 @@
       "server_gap": "the turn does not verify a ± draft: the model answers it"
     },
     {
+      "id": "plus-minus-before-term",
+      "draft": "$\\pm 3+1$",
+      "sympy": [
+        "-3+1",
+        "3+1"
+      ],
+      "value": [
+        "-2",
+        "4"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-after-minus",
+      "draft": "$2-\\pm 3$",
+      "sympy": [
+        "2-(-3)",
+        "2-3"
+      ],
+      "value": [
+        "5",
+        "-1"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-denominator",
+      "draft": "$\\frac{1}{\\pm 2}$",
+      "sympy": [
+        "1/(-2)",
+        "1/2"
+      ],
+      "value": [
+        "-1/2",
+        "1/2"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
+      "id": "plus-minus-beside-mod",
+      "draft": "$5-\\pm 2\\bmod 3$",
+      "sympy": [
+        "5-Mod(-2,3)",
+        "5-Mod(2,3)"
+      ],
+      "value": [
+        "4",
+        "3"
+      ],
+      "server_gap": "the turn does not verify a ± draft: the model answers it"
+    },
+    {
       "id": "plus-minus-alone",
       "draft": "$\\pm 3$",
       "sympy": null,

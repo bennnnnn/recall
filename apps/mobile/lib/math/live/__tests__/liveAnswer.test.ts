@@ -122,7 +122,8 @@ describe("liveAnswer", () => {
     ["a sine near 0, not a pole", "$\\csc(0.00000000000001)$"],
     ["a log base that only rounds to 1", "$\\log_{1.0000000000000001}(5)$"],
     ["a negative percent in a sum", "$2\\pm -3\\%$"],
-    ["an angle in π too big to know", "$\\cos(10^{15}\\pi)$"],
+    ["a radian angle too big to keep ten digits", "$\\cos(10^{15}\\pi+1)$"],
+    ["an angle in π only near a pole", "$\\tan(\\frac{\\pi}{2}+10^{-15})$"],
     ["an angle in π that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
     ["a radian angle only near a pole", "$\\tan(1.5707963267948966\\mathrm{rad})$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
@@ -180,6 +181,7 @@ describe("liveAnswer", () => {
 
   it("gives a branch that is its own fraction its decimal, the sign inside or out", () => {
     expect(shown("$\\frac{\\pm 1}{2}$")).toBe("\\frac{- 1}{2} = -0.5,\\quad \\frac{+ 1}{2} = 0.5");
+    expect(shown("$\\frac{1}{\\pm 3}$")).toMatch(/\\approx -0\.3333333333,.*\\approx 0\.3333333333$/);
     // Two minus signs cancel: the + branch of -±1/3 is its own fraction too.
     expect(answer("$-\\pm\\frac{1}{3}$")?.latex).toMatch(/^\+ ?\\frac\{1\}\{3\} \\approx 0\.3333333333,/);
     expect(shown("$\\pm\\frac{1}{3}$")).toBe(
@@ -217,6 +219,10 @@ describe("liveAnswer", () => {
 
   it("works large angles away from any pole", () => {
     expect(shown("$\\cos(400\\pi)$")).toBe("= 1");
+    // An exact multiple of π is worked as exact degrees, however large or cancelled.
+    expect(shown("$\\cos(10^{15}\\pi)$")).toBe("= 1");
+    expect(shown("$\\sin(\\pi-\\pi)$")).toBe("= 0");
+    expect(shown("$\\cos(2\\pi-2\\pi)$")).toBe("= 1");
     expect(shown("$\\sin(400\\pi+\\frac{\\pi}{6})$")).toMatch(/^(=|\\approx) 0\.5$/);
     // Exact degrees are taken within one turn first: 36000000000000030° is 30°.
     expect(shown("$\\sin(36000000000000030^{\\circ})$")).toBe("= 0.5");
