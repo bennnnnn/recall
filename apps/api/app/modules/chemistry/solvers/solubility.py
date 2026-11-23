@@ -49,7 +49,7 @@ def _ion_product_text(ions: list[tuple[str, int]]) -> str:
         + ("" if coefficient == 1 else f"^{coefficient}")
         for _species, coefficient in ions
     )
-    collected = f"{num(factor)}s" if factor != 1 else "s"
+    collected = f"{factor:g}s" if factor != 1 else "s"
     collected += "" if power == 1 else f"^{power}"
     return f"Ksp = {bracketed} = {in_s} = {collected}"
 
@@ -68,7 +68,7 @@ def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
         value = (ksp / factor) ** (1 / power)
         shown = f"s = {num(value)} mol/L"
         detail = f"Ksp = {inp(ksp)}"
-        divisor = "" if factor == 1 else f" / {num(factor)}"
+        divisor = "" if factor == 1 else f" / {factor:g}"
         lines.append(f"s = (Ksp{divisor})^(1/{power}) = (({inp(ksp)}){divisor})^(1/{power})")
     elif solubility is not None and ksp is None:
         if solubility <= 0:
@@ -76,7 +76,7 @@ def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
         value = factor * solubility**power
         shown = f"Ksp = {num(value)}"
         detail = f"s = {inp(solubility)} mol/L"
-        lines.append(f"Ksp = ({num(factor)})({inp(solubility)})^{power}")
+        lines.append(f"Ksp = ({factor:g})({inp(solubility)})^{power}")
     else:
         raise SolveServiceError("give Ksp or the molar solubility, not both")
     return verified(

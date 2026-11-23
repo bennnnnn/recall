@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from app.modules.chat.card_numbers import card_numbers
+from app.modules.chemistry.block import VerifiedChemistry
 from app.services.rounding_rule import Precision
 
 
@@ -107,13 +110,15 @@ def _state(text: str, question: str, verified: object) -> object:
     return SimpleNamespace(text=text, ctx=ctx)
 
 
-def _chemistry(question: str) -> object:
+def _chemistry(question: str) -> VerifiedChemistry:
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
 
     intent = extract_chemistry_intent(question)
     assert intent is not None
-    return build_verified_chemistry(intent)
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    return verified
 
 
 _TITRATION = (
@@ -163,9 +168,15 @@ def test_a_physics_card_still_follows_the_rule() -> None:
     from app.modules.chat.card_numbers import format_card_numbers
     from app.services.solving import VerifiedPhysicsBlock
 
-    reply = "$P = 109324.04\\,\\mathrm{Pa}$\n\n" + _card("1.09 \\times 10^{5}\\,\\mathrm{Pa}")
+    reply = "$P = 109324.04\\,\\mathrm{Pa}$\n\n" + _card(
+        "1.09 \\times 10^{5}\\,\\mathrm{Pa}", "true"
+    )
     state = _state(reply, "find P", VerifiedPhysicsBlock(text=""))
-    assert _card("109324.04\\,\\mathrm{Pa}") in format_card_numbers(state)  # type: ignore[arg-type]
+    assert _card("109324.04\\,\\mathrm{Pa}", "true") in format_card_numbers(state)  # type: ignore[arg-type]
+    # A chemistry turn with a physics part: every card follows the rule (review).
+    mixed = replace(_chemistry(_TITRATION), question_parts=(VerifiedPhysicsBlock(text=""),))
+    state = _state(reply, "find P", mixed)
+    assert _card("109324.04\\,\\mathrm{Pa}", "true") in format_card_numbers(state)  # type: ignore[arg-type]
 
 
 def test_the_model_s_unchecked_card_on_a_chemistry_turn_follows_the_rule() -> None:

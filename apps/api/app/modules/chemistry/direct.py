@@ -122,7 +122,7 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
 
 # A number as a solver writes it: "1.0", "6.0221 × 10^23"; never a formula's subscript (the
 # 2 of "H2O" is no rounded 2 g).
-_NUMBER_TEXT = re.compile(r"(?<![\w.^])-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?(?![\w.])")
+_NUMBER_TEXT = re.compile(r"(?<![\w.^])(?<!\^-)(?<!\^−)-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?(?![\w.])")
 
 
 def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> list[str]:

@@ -258,14 +258,24 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     )
 
 
+# A unit after a number ("2 h", "2 kg"): the number was measured. A count's own noun is no
+# unit ("n = 2 electrons").
+_UNIT_AFTER = re.compile(r"[ \t]*(?!electrons?\b|e-|e−)[A-Za-zµμΩ°%]")
+
+
 def _count_spellings(
     text: str, intent: ChemistryIntent, measured: list[tuple[str, float]], forms: _Forms
 ) -> dict[float, str]:
     """Each value a count shares with a measured given, with the whole-number spelling that is
     the count's alone: "1" of "i = 1" beside "1.00 mol". Only when the counts account for
-    every time that spelling was typed: "2 mol NaCl (i = 2)" types "2" twice, so the 2 mol
-    keeps its one figure."""
-    typed_times = Counter(match.group() for match in _LITERAL.finditer(EQUATION_RE.sub(" ", text)))
+    every time that spelling was typed, and each time it stands bare, with no unit after it:
+    "2 mol NaCl (i = 2)" types "2" twice, and in "2.00 A for 2 h" the "2" is the time's,
+    whatever count a solver fills in (two electrons for copper)."""
+    read = EQUATION_RE.sub(" ", text)
+    typed_times = Counter(match.group() for match in _LITERAL.finditer(read))
+    measured_spellings = {
+        match.group() for match in _LITERAL.finditer(read) if _UNIT_AFTER.match(read, match.end())
+    }
     exact_at = Counter(
         value
         for key, value in measured
@@ -275,7 +285,12 @@ def _count_spellings(
     for value, counted in exact_at.items():
         typed = forms.get(value, [])
         whole = next((form for form in typed if form.isdigit()), None)
-        if len(typed) > 1 and whole is not None and typed_times[whole] <= counted:
+        if (
+            len(typed) > 1
+            and whole is not None
+            and typed_times[whole] <= counted
+            and whole not in measured_spellings
+        ):
             spellings[value] = whole
     return spellings
 

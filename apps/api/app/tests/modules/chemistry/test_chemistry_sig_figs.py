@@ -356,6 +356,22 @@ def test_each_working_row_ends_unrounded_above_a_rounded_card() -> None:
             "V = 400 mL = 0.400 L",
             "m = 93.5 g",
         ),
+        # A count the solver fills in (copper's two electrons) owns no spelling: "2 h" is
+        # the time's, so the answer has one figure (review).
+        (
+            "What mass of Cu is deposited by a current of 2.00 A for 2 h?",
+            1,
+            "n = 2",
+            "m = 5 g",
+        ),
+        # The same for a van 't Hoff factor read from the formula: "2 kg" keeps one figure.
+        (
+            "What is the freezing point of a solution of 2.00 mol NaCl in 2 kg water? "
+            "Kf = 1.86 °C kg/mol",
+            1,
+            "i = 2",
+            "Tf = -4 °C",
+        ),
         # An exact whole answer with a zero that is no figure is a power of ten too.
         ("How many mL of 5 M HCl make 100 mL of 1 M HCl?", 1, "c1 = 5 mol/L", "V1 = 2 × 10^1 mL"),
     ],
@@ -377,7 +393,21 @@ def test_a_count_takes_only_its_own_spelling(
         # RT is carried into Kp's row, never its one-figure card value: (0.5)(2 x 10^1)^-2
         # is no 8 x 10^-4.
         ("Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3", "Kp = (0.5)(24.45)^-2"),
+        # A stoichiometric factor is exact: 27, never one figure's 3 x 10^1 (review).
+        ("The Ksp of Fe(OH)3 is 4 × 10^-38. Find its molar solubility.", "= (s)(3s)^3 = 27s^4"),
     ],
 )
 def test_a_working_row_works_with_carried_values(question: str, row: str) -> None:
-    assert row in _solve(question).substitution
+    assert any(row in line for line in _solve(question).substitution)
+
+
+def test_a_negative_power_is_no_rounded_number() -> None:
+    """``(24.45)^-2`` works with no rounded 2: the closing row ends unrounded (review)."""
+    intent = extract_chemistry_intent(
+        "Convert Kp to Kc: Kp=0.003 at T=298 K for N2 + 3 H2 -> 2 NH3"
+    )
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    working = format_direct_chemistry_reply(verified).split("**Answer**")[0]
+    assert "K_{c} = 1.794" in working

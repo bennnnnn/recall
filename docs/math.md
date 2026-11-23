@@ -88,7 +88,8 @@ working ends on its value, as a textbook's does, and the card under **Answer** f
 working. From 2026-11-09 to 2026-11-11 the last line was dropped as the card's restatement,
 and the owner's phone test read the working as stopping one step short. A formula with no
 name has no heading of its own: its lines follow **Solution**, never a bare **Formula**. A
-card that rounds has the value unrounded once, as the working's last line:
+card that rounds has the value unrounded once, as the working's last line (in chemistry
+every row that reaches a rounded value ends on it unrounded, `chemistry/direct._worked_rows`):
 an exact multiple of π (`V = \frac{32}{3}\pi`, `direct_geometry_working/layout.pi_value`), a
 root (`c = \sqrt{34}`), or in physics and chemistry the worked number
 (`a = 4.905 m/s²` over 4.9 m/s², `m = 29.22 g` over 29 g). That line differs from the card by

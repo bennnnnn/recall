@@ -56,8 +56,9 @@ def fixed(value: float, places: int) -> str:
 def num(value: float) -> str:
     """A computed value, to the significant figures the question's data carry.
 
-    What rounding took off is noted (``sig_figs.note_rounding``): the working shows the value
-    unrounded once, and only the card rounds it."""
+    What rounding took off is noted (``sig_figs.note_rounding``): each working row that
+    reaches the value shows it unrounded (``direct._worked_rows``), and only the card rounds
+    it."""
     written = sig_figs.current()
     if written is not None and written.additive and written.decimals is not None:
         text = fixed(value, written.decimals)

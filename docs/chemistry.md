@@ -326,7 +326,7 @@ formats every number from that record:
   and division): `4 g` of H₂ makes `4 × 10¹ g` of water, `4.0 g` makes `36 g`, `4.000 g`
   makes `35.74 g`; a titration's `25.00 mL`, `0.1000 M` and `32.45 mL` give `0.1298 M`. That
   is the card's precision; every working row that reaches a rounded value shows it unrounded,
-  carried two figures further and never fewer than four (`m = 35.74 g` over a card of
+  carried two figures further, with four figures at least and five at most (`m = 35.74 g` over a card of
   `4 × 10¹ g`), so a student sees what was rounded and the card rounds once. A row stays
   rounded when a later row works with that rounded value, when it works with a rounded
   value itself, or when it subtracts carried values (four-figure operands lose the
@@ -357,8 +357,9 @@ formats every number from that record:
   A galvanic-table potential is a hundredth of a volt.
 - **A whole number with a zero that is no significant figure** is written in powers of
   ten, as OpenStax advises: `1780` to two figures is `1.8 × 10^3`, since `1800` would read as
-  measured, and `110.02 g` to two figures is `1.1 × 10^2 g`. A value the rounding left as it
-  was keeps its digits (`200 mL` to three figures, an exact `3600 s`).
+  measured, `110.02 g` to two figures is `1.1 × 10^2 g`, and an exact `20 mL` to one figure
+  is `2 × 10^1 mL`. A number whose zeros are all significant stays plain (`200 mL` to three
+  figures), and so do an exact unit conversion's own zeros (`1 h = 3600 s`).
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.
