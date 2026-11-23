@@ -134,6 +134,10 @@ async def render(case: Case) -> tuple[list[dict[str, str]], dict[str, object]]:
         "app.modules.conversation.messages_repository.count_for_chat": AsyncMock(
             return_value=case["total"]
         ),
+        # The rows before the oldest loaded one: ``total`` counts the chat before the turn's line.
+        "app.modules.conversation.messages_repository.count_before": AsyncMock(
+            return_value=case["total"] - len(history) + (current is not None)
+        ),
         "app.modules.conversation.messages_repository.list_before": AsyncMock(return_value=older),
         "app.modules.conversation.history_rag.retrieve_for_prompt": AsyncMock(
             return_value=case["history_rag_block"]

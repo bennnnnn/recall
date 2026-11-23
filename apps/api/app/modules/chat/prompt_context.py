@@ -339,6 +339,15 @@ async def _messages_before(chat_id: UUID, oldest: Any, limit: int) -> list[Any]:
         )
 
 
+# How many of a chat's messages come before one of its rows: that row's offset.
+RowOffset = Callable[[UUID, Any], Awaitable[int]]
+
+
+async def _offset_of(chat_id: UUID, row: Any) -> int:
+    async with SessionLocal() as session:
+        return await conversation_history.count_before(session, chat_id, row)
+
+
 async def load_anchored_history(
     chat_id: UUID,
     chat: Chat | None,
@@ -351,6 +360,7 @@ async def load_anchored_history(
     prior_count: int | None,
     omit_message_ids: Collection[UUID] | None = None,
     read_older: OlderRows | None = None,
+    read_offset: RowOffset | None = None,
 ) -> list[Any] | None:
     """Every message after the summary's edge, oldest first, when all of them fit the
     budget; None when they do not (the prompt then slides, ``load_prompt_window``).
@@ -359,9 +369,13 @@ async def load_anchored_history(
     the current line last even before it is saved. Older unsummarized rows are read here.
     The history then starts at the same message until the next fold, so the prompt's
     prefix repeats the last turn's (``context_window.FoldRule``). ``read_older`` reads those
-    rows (``_messages_before``: its own short session).
+    rows (``_messages_before``: its own short session); ``read_offset``, when the turn passed
+    no count, where the oldest loaded row sits (``_offset_of``).
     """
-    summarized = (chat.summary_message_count or 0) if chat is not None and chat.summary else 0
+    # Without the chat its summary's edge is unknown: anchoring could repeat what it holds.
+    if chat is None:
+        return None
+    summarized = (chat.summary_message_count or 0) if chat.summary else 0
     if not isinstance(summarized, int):
         return None
     persisted = _persisted_messages(window, current_user_message_id)
@@ -369,13 +383,14 @@ async def load_anchored_history(
     readable = bool(persisted) and getattr(persisted[0], "created_at", None) is not None
     if prior_count is not None:
         first = prior_count - len(persisted)
-    elif len(persisted) < loaded_limit:
+    elif len(window) < loaded_limit:
+        # Fewer rows than the turn loads, its own line counted: the whole chat.
         first = 0
     elif not readable:
         return None
     else:
-        async with SessionLocal() as session:
-            first = await conversation_history.message_count(session, chat_id) - len(persisted)
+        # Counted from the oldest loaded row, so the turn's line, saved or not, is no matter.
+        first = await (read_offset or _offset_of)(chat_id, persisted[0])
     if first < 0:
         return None
     skip_ids = {message.id for message in persisted[: max(0, summarized - first)]}

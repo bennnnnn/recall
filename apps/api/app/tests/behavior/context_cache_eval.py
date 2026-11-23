@@ -198,13 +198,16 @@ def _compact(chat: _Chat, policy: Policy) -> None:
 def _prompt(chat: _Chat, policy: Policy, turn: int) -> list[tuple[str, int]]:
     """The prompt as segments: a provider's cache serves the run that repeats the last
     prompt's from the start. The summary lives in the turn's system message, so a fold
-    changes it; the context after the history carries the clock, new on every turn."""
+    changes it; the context carries the clock, new on every turn, and goes just before the
+    turn's own line, as ``prompt_builder`` puts it, so the next turn reuses none of that line."""
     rules = TURN_RULES_TOKENS + chat.summary_tokens
+    history = _history(chat, policy)
     return [
         ("stable", STABLE_TOKENS),
         (f"rules+summary{chat.summary_version}", rules),
-        *_history(chat, policy),
+        *history[:-1],
         (f"context{turn}", CONTEXT_TOKENS),
+        *history[-1:],
     ]
 
 

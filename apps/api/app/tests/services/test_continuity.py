@@ -113,6 +113,10 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
             AsyncMock(return_value=100),
         ),
         patch(
+            "app.modules.conversation.messages_repository.count_before",
+            AsyncMock(return_value=80),
+        ),
+        patch(
             "app.modules.conversation.messages_repository.list_before",
             AsyncMock(return_value=older),
         ) as list_before,
@@ -176,6 +180,10 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
         patch(
             "app.modules.conversation.messages_repository.count_for_chat",
             AsyncMock(return_value=20),
+        ),
+        patch(
+            "app.modules.conversation.messages_repository.count_before",
+            AsyncMock(return_value=0),
         ),
         patch(
             "app.modules.conversation.messages_repository.list_before",
