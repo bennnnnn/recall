@@ -439,3 +439,36 @@ def test_a_pass_reads_the_question_its_first_line_answers():
         earlier="User: plan my week\nAssistant: Happy to tailor it. How old are you?",
     )
     assert [(w.text, w.slot) for w in writes] == [("User is 34 years old", "age")]
+
+
+def _update(slot: str | None, text: str, new_slot: str | None) -> str | None:
+    from typing import Any, cast
+
+    from app.modules.memory.writes_repository import _apply_update
+
+    fact = SimpleNamespace(text="old", topic="profile", slot=slot)
+    write = SimpleNamespace(
+        topic="profile", type="profile", confidence=0.9, sensitivity="normal", importance=3,
+        source_chat_id=None, source_message_id=None, slot=new_slot,
+    )  # fmt: skip
+    _apply_update(cast(Any, fact), cast(Any, write), text)
+    return fact.slot
+
+
+def test_a_reworded_fact_keeps_only_a_slot_its_new_text_answers() -> None:
+    """A slot filed before the check ("User earns 180k" under name) is cleared once the
+    fact is reworded; one the new text answers stays (review, #2539)."""
+    assert _update("name", "User earns 200k a year", None) is None
+    assert _update("name", "User's name is Bini", None) == "name"
+    assert _update(None, "User lives in Toronto", "home") == "home"
+
+
+def test_an_assistant_message_over_several_lines_still_asks_its_question() -> None:
+    """The earlier chat is one line per message, so the reply's closing question is the
+    last ``Assistant:`` line's end, however many lines the reply had (review, #2539)."""
+    from app.modules.memory.extract_backlog import format_context
+    from app.modules.memory.pass_writes import answering
+
+    earlier = format_context([("assistant", "Happy to tailor it.\n\nHow old are you?")])
+    (line,) = answering(_lines("34"), earlier)
+    assert line.asked.endswith("How old are you?")

@@ -269,8 +269,9 @@ def _apply_update(fact: Memory, write: MemoryFactWrite, clean: str) -> None:
         fact.source_chat_id = write.source_chat_id
     if write.source_message_id is not None:
         fact.source_message_id = write.source_message_id
-    if write.slot is not None:
-        fact.slot = write.slot
+    # A slot the new text does not answer is cleared: "User earns 200k" filed under name
+    # before the check keeps no name slot once it is reworded (review, #2539).
+    fact.slot = write.slot if write.slot is not None else answered_slot(fact.slot, clean)
     fact.updated_at = datetime.now(UTC)
 
 
