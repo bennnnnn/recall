@@ -153,7 +153,9 @@ jobs:
                   When the change adds or removes a file, module, route, flag, job or constant, also
                   go through each list in CLAUDE.md that names such things, entry by entry: the
                   domain catalog, the HTTP surfaces registered in main.py, the flags, the jobs, the
-                  golden rules. Flag a sentence the change makes false.
+                  golden rules. For each file the change deletes, Grep those docs for its path, its
+                  module and the plain name of what it served ("Math" for modules/math/api.py). Do
+                  this check yourself, not in a subagent. Flag a sentence the change makes false.
                e. Rules. A CLAUDE.md or docs/ENGINEERING_STANDARDS.md rule the change breaks (quote
                   it), including the same logic written twice where one copy should serve both.
 
@@ -178,7 +180,8 @@ jobs:
                - low: real but minor: dead code, a test that cannot fail or misses the change, a doc
                  sentence made false, a rare edge.
             Report the low ones too, but at most eight: when you have more, keep first those a user or
-            the data would feel, then dead code and tests that cannot fail, then docs and comments.
+            the data would feel, then dead code and tests that cannot fail, then docs (CLAUDE.md
+            first) and comments.
 
             Post each finding once with mcp__github_inline_comment__create_inline_comment
             (confirmed: true), in at most five short lines, starting with its severity in brackets
