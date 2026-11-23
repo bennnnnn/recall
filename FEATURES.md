@@ -1061,7 +1061,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
 - ✅ **Screen transitions** — shared stack presets: iOS-native push + back gestures on nested
   stacks, fade for auth/onboarding, fade-from-bottom for drawer utility screens (memory, todos).
-- ✅ **Shared Button / type / space / motion tokens** — primary CTAs via `components/Button`;
+- ✅ **Shared Button / type / space / motion tokens** — primary CTAs via `ui/controls/Button.tsx`;
   `lib/type.ts`, `lib/space.ts`, `lib/motion.ts` for high-traffic roles (incremental migration).
 - ✅ **Full typography/spacing ownership on screens** — `app/*` screens and settings
   chrome use `Type` / `Space` for body, caption, label, title, and display roles.
@@ -1335,7 +1335,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair. Verified compute coverage is
   [docs/chemistry.md](./docs/chemistry.md); do not treat SMILES rendering as the
   whole chemistry product.
-- ✅ **Chemistry intent boundary** — `modules/chemistry/schemas/ChemistryIntent` separates
+- ✅ **Chemistry intent boundary** — `ChemistryIntent` (`modules/chemistry/schemas/intent.py`) separates
   extraction, solving, and presentation. Incomplete questions deliberately stay on the
   model path; only successful deterministic results receive verified labels.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,

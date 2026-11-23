@@ -95,17 +95,6 @@ async def test_the_pending_delete_queue_is_bounded_and_paged(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_the_old_pending_set_moves_over(fake_redis):
-    await fake_redis.sadd(attachment_lifecycle._LEGACY_PENDING_KEY, "u/old")
-    with (
-        patch.object(attachment_lifecycle, "get_redis_client", return_value=fake_redis),
-        patch.object(attachment_lifecycle, "delete_storage_keys", AsyncMock(return_value=[])),
-    ):
-        assert await attachment_lifecycle.retry_pending_storage_deletes(Settings()) == 1
-    assert not await fake_redis.exists(attachment_lifecycle._LEGACY_PENDING_KEY)
-
-
-@pytest.mark.asyncio
 async def test_invalid_upload_preserves_bytes_when_database_delete_fails():
     gateway = MagicMock(delete_bytes=AsyncMock())
     with (

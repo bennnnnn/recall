@@ -34,7 +34,7 @@ _KEPT_LINE = re.compile(r"^\s*(?:\||[-*+•]\s|\d{1,3}[.)]\s|>|#)")
 # Marks that grade or compare: never a sign-off.
 _MARKS = frozenset("✅❌✔☑✓✗✘❎")
 # "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it (``emoji_placement``).
-_LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
+LESSON_HEADING = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
 # What may stand before an emoji that leads its line: a heading or list marker, bold.
 _LABEL_LEAD = re.compile(r"\s*(?:#{1,6}\s+|(?:[-*+]|\d{1,3}[.)])\s+)?(?:\*\*|__)?\s*")
 
@@ -97,7 +97,7 @@ def without_closing(text: str, repeated: set[str]) -> str:
 
 def repeated_emoji_pass(state: FinalizeState) -> str:
     """The finalize pass: no sign-off emoji that one of the last two replies signed off on."""
-    if state.server_text or _LESSON.search(state.text):
+    if state.server_text or LESSON_HEADING.search(state.text):
         return state.text
     replies = _recent_replies(state.ctx.recent_messages or [])
     repeated = set().union(*(closing_emoji(reply) for reply in replies))

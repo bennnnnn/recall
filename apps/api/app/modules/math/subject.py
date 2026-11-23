@@ -143,12 +143,12 @@ class MathFollowups:
         return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         # The curve or the shape of the message read as "it": never a photo of "it".
         from app.modules.math.tools.graph_followup import drawing_of
 
-        return drawing_of(referent) if referent and asks_to_see(line) else None
+        return drawing_of(referent) if referent and (asked or asks_to_see(line)) else None
 
 
 @dataclass(frozen=True)
@@ -183,10 +183,10 @@ class MathFence:
         block = _math_block(verified)
         return solver_cards(block) if block is not None else ()
 
-    def unverified_note(self, text: str) -> str:
-        from app.modules.math.fence import append_unverified_math_note
+    def drop_unverified_note(self, text: str) -> str:
+        from app.modules.math.fence import tidy_and_drop_unverified_math_note
 
-        return append_unverified_math_note(text)
+        return tidy_and_drop_unverified_math_note(text)
 
     def draws(self, text: str, settings: Settings) -> bool:
         # A chart the model wrote as a formula: the phone never evaluates one.

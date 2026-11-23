@@ -414,11 +414,9 @@ async def test_verified_math_markers_are_stripped_from_final_content(
 async def test_unverified_math_note_appended_to_final_content(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.modules.math import fence as math_fence_mod
 
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
-    deps.math_fence.append_unverified_math_note = math_fence_mod.append_unverified_math_note
     ctx = _ctx()
     ctx.solver_unverified = True
     persisted = await enrich_final_content(

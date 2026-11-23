@@ -47,7 +47,8 @@ class MemoryUpdate(BaseModel):
 
 
 class MemorySectionItem(BaseModel):
-    """Legacy whole-section rewrite (pair-merge still uses summary + confidence)."""
+    """Two near-duplicate facts merged into one: its text and confidence
+    (``llm.merge_memory_section``)."""
 
     type: MemoryType
     summary: str = Field(default="", max_length=MEMORY_TEXT_MAX_LENGTH)
