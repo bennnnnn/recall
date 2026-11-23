@@ -1,7 +1,7 @@
 """Drop the retired JSON vector copies, users.response_style and the suggestions table.
 
-Revision ID: 0133_drop_retired_columns
-Revises: 0132_drop_german_italian_locales
+Revision ID: 0134_drop_retired_columns
+Revises: 0133_proper_case_names
 
 No code reads or writes any of them: recall ranks the ``embedding`` vector in SQL (0118),
 the account-wide reply length is gone and ``User`` stopped mapping ``response_style``
@@ -23,8 +23,8 @@ from sqlalchemy.dialects.postgresql import UUID
 
 from alembic import op
 
-revision: str = "0133_drop_retired_columns"
-down_revision: Union[str, None] = "0132_drop_german_italian_locales"
+revision: str = "0134_drop_retired_columns"
+down_revision: Union[str, None] = "0133_proper_case_names"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

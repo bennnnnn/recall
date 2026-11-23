@@ -18,6 +18,7 @@ from app.modules.account.profile import (
     [
         ("  Ada   Lovelace  ", "Ada Lovelace"),
         ("Cher", "Cher"),
+        ("  bini  ", "Bini"),
         ("", None),
         ("   ", None),
         ("x" * 81, None),
@@ -26,6 +27,37 @@ from app.modules.account.profile import (
 )
 def test_normalize_display_name(raw: str | None, expected: str | None):
     assert normalize_display_name(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "typed, shown",
+    [
+        ("bini", "Bini"),
+        ("jean-luc o'neil", "Jean-Luc O'Neil"),
+        ("o\u2019brien", "O\u2019Brien"),
+        ("ñandú pérez", "Ñandú Pérez"),
+        # An accent typed as its own mark belongs to the letter before it.
+        ("pe\u0301rez", "Pe\u0301rez"),
+        ("n\u0303andu\u0301", "N\u0303andu\u0301"),
+        ("\u043c\u0430\u0438\u0306\u044f", "\u041c\u0430\u0438\u0306\u044f"),
+        ("mary_ann", "Mary_Ann"),
+        # A letter whose capital is two keeps as typed, so the name keeps its length.
+        ("ßa" + "a" * 78, "ßa" + "a" * 78),
+        ("anna ßa", "Anna ßa"),
+        ("bini2", "Bini2"),
+        # A capital the user typed keeps the name as written.
+        ("McDonald", "McDonald"),
+        ("de Silva", "de Silva"),
+        ("BINI", "BINI"),
+        # A script with no case.
+        ("አበበ", "አበበ"),
+        ("李雷", "李雷"),
+    ],
+)
+def test_proper_name_capitalizes_only_a_name_typed_in_lowercase(typed: str, shown: str):
+    from app.core.validation import proper_name
+
+    assert proper_name(typed) == shown
 
 
 def test_user_update_normalizes_name():

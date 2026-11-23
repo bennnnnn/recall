@@ -39,7 +39,7 @@ after it:
 
 Contracts waiting for a later release: none. The `embedding_json` columns,
 `users.response_style` and the retired `suggestions` table were dropped by migration
-`0133` before any release shipped, so no deployed image could still read them.
+`0134` before any release shipped, so no deployed image could still read them.
 
 `app/tests/architecture/test_migration_safety.py` fails on a migration after
 `0111` whose `upgrade()` drops, renames or retypes without that comment, and on
@@ -115,6 +115,27 @@ the worker answers its health check and `alembic current` on Fly equals the
 repository's head; it lists anything it could not check. If configuration
 changed, restore the prior reviewed `fly.toml` and secrets separately, then
 deploy the known-good image again.
+
+## Turning one feature off
+
+When one feature is the problem, turn it off instead of rolling the image back. Each
+`*_enabled` setting in `apps/api/app/core/settings/` is read from the environment variable
+of the same name in capitals, and CLAUDE.md's flag list says what each one turns off.
+A secret applies to both process groups (`app` and `worker`, one Fly app), and setting it
+restarts the Machines as a new release of the same image:
+
+```bash
+fly secrets set MCP_TOOL_LOOP_ENABLED=false --app recall-api   # off
+fly secrets unset MCP_TOOL_LOOP_ENABLED --app recall-api       # back to the default
+```
+
+The switches built for a chat turn's riskiest steps: `mcp_tool_loop_enabled` (the tool
+loop; nothing searches), `live_read_enabled` (the fast read of each message; word rules
+decide instead), `reply_search_tool_enabled`, `formal_reader_enabled`,
+`physics_cross_check_enabled`, `money_enabled`, `image_generation_enabled`,
+`image_search_enabled` and `chat_history_rag_enabled`. The worker's schedulers have their
+own: `server_todo_push_enabled`, `email_reminders_scheduler_enabled`,
+`billing_reconcile_enabled`; `email_enabled` stops every email.
 
 ## Database migration failure
 

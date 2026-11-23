@@ -1,6 +1,6 @@
 """Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel
 
 
 class StemSettings(BaseModel):
@@ -23,12 +23,8 @@ class StemSettings(BaseModel):
     # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply. Every subject's solve:
-    # maths, physics and chemistry (it was math_solve_timeout_seconds; that env name
-    # is still read for one release).
-    stem_solve_timeout_seconds: float = Field(
-        default=5.0,
-        validation_alias=AliasChoices("stem_solve_timeout_seconds", "math_solve_timeout_seconds"),
-    )
+    # maths, physics and chemistry.
+    stem_solve_timeout_seconds: float = 5.0
     # Isolated 1-worker process slots (not one shared N-worker pool — a
     # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
     # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.

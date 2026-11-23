@@ -19,7 +19,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from app.modules.physics.force_rigs import listed, rig_picture
+from app.modules.physics.force_rigs import ANGLE, ROUND_BODY, SLOPE, listed, rig_picture
 from app.modules.physics.schemas import (
     SimulationAngle,
     SimulationBlockSpec,
@@ -45,7 +45,6 @@ _BODY = re.compile(
     r"bus|bike|bicycle|cyclist|motorcycle|vehicle)\b",
     re.IGNORECASE,
 )
-_INCLINE = re.compile(r"\b(?:incline[sd]?|inclined\s+plane|ramp|slope)\b", re.IGNORECASE)
 _HANGING = re.compile(
     r"\b(?:hang(?:s|ing)?|hung|suspended|dangl(?:es|ing))\b"
     r"|\bfrom\s+(?:a|the)\s+(?:ceiling|rope|string|cable|hook|chain|thread|beam)\b",
@@ -133,10 +132,6 @@ _DOWNHILL = re.compile(
 _HORIZONTAL = re.compile(r"\bhorizontal(?:ly)?\b", re.IGNORECASE)
 _RISING = re.compile(r"\b(?:thrown|tossed|launched|going|moving)\s+(?:straight\s+)?up", re.I)
 _AIR = re.compile(r"\b(?:air\s+resistance|drag\s+force|air\s+friction|with\s+drag)\b", re.I)
-_ROUND = re.compile(r"\b(?:ball|stone|rock|apple|bob|puck)\b", re.IGNORECASE)
-# "a 30 degree incline", "30°", "at 25 degrees above the horizontal".
-# One ``\s*`` before the unit and one after a hyphen: a run of spaces is read one way only.
-_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|(?:-\s*)?deg(?:rees?)?\b)", re.IGNORECASE)
 # A rope or a second body: more than one free-body picture, or one this file does not draw.
 _TOO_MANY = re.compile(
     r"\b(?:two|three|both|pair\s+of)\s+(?:ropes|strings|cables|blocks|boxes|masses)\b"
@@ -172,7 +167,7 @@ def force_picture(text: str) -> ForcePicture | None:
     )
     if _VEHICLE.fullmatch(_subject(text)) is not None:
         return _vehicle(text)
-    if _INCLINE.search(text) is not None:
+    if SLOPE.search(text) is not None:
         return _on_incline(text, rubs)
     if _HANGING.search(text) is not None:
         return _hanging()
@@ -193,7 +188,7 @@ def _subject(text: str) -> str:
 
 
 def _angle(text: str) -> float | None:
-    match = _ANGLE.search(text)
+    match = ANGLE.search(text)
     if match is None:
         return None
     deg = float(match[1])
@@ -291,7 +286,7 @@ def _in_the_air(text: str) -> ForcePicture:
             )
         )
         forces.append(f"air resistance {'down' if rising else 'up'}")
-    shape = "circle" if _ROUND.search(text) else "box"
+    shape = "circle" if ROUND_BODY.search(text) else "box"
     alt = "A body in the air: " + listed(forces) + "."
     spec = free_body_scene(vectors, shape=shape, alt=alt)
     return ForcePicture(spec[0], "a body in the air with " + listed(forces))

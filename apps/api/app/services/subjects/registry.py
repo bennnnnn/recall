@@ -151,11 +151,12 @@ class SubjectFollowups(Protocol):
         ...
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         """The problem whose card draws what the line asks to see, read in the pool.
         ``referent``: the earlier message a model read as the "it" the line asks to see
-        (``chat.referent_read``), when the turn read one."""
+        (``chat.referent_read``), when the turn read one. ``asked``: the turn's read says
+        the line asks to see it, whatever its words ("can u show me a picture")."""
         ...
 
     def changed_problem(
@@ -219,8 +220,9 @@ class SubjectFence(Protocol):
         pictures. A question in parts keeps the fences that are one of its parts' own."""
         ...
 
-    def unverified_note(self, text: str) -> str:
-        """The reply with the note an answer the subject could not verify carries."""
+    def drop_unverified_note(self, text: str) -> str:
+        """The reply without the note that says the subject could not verify its answer
+        (the note stays in the prompt). Maths' also tidies every reply's text."""
         ...
 
     def draws(self, text: str, settings: Settings) -> bool:

@@ -79,10 +79,9 @@ def test_every_listed_key_is_still_deployed() -> None:
     assert set(_DEPLOY_ONLY) <= deployed, sorted(set(_DEPLOY_ONLY) - deployed)
 
 
-def test_a_renamed_setting_still_reads_its_old_env_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    # One release: MATH_SOLVE_TIMEOUT_SECONDS bounds every subject's solve now.
+def test_a_setting_reads_its_own_env_name(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in [key for key in os.environ if key.endswith("SOLVE_TIMEOUT_SECONDS")]:
         monkeypatch.delenv(name)
-    monkeypatch.setenv("MATH_SOLVE_TIMEOUT_SECONDS", "7")
+    monkeypatch.setenv("STEM_SOLVE_TIMEOUT_SECONDS", "7")
     settings = isolated_settings()
     assert settings.stem_solve_timeout_seconds == 7.0

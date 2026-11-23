@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 # next attempt is due. A plain set had no bound and was read whole every cycle.
 PENDING_STORAGE_DELETE_KEY = "recall:storage:pending_delete:due"
 _PENDING_ATTEMPTS_KEY = "recall:storage:pending_delete:attempts"
-# The set before it kept order and attempts; its members move over on the next retry pass.
-_LEGACY_PENDING_KEY = "recall:storage:pending_delete"
 _PENDING_MAX = 50_000
 _PENDING_PAGE = 500
 _PENDING_MAX_ATTEMPTS = 10
@@ -102,19 +100,10 @@ async def enqueue_failed_storage_deletes(keys: list[str]) -> None:
         logger.warning("Could not enqueue failed storage deletes", exc_info=True)
 
 
-async def _move_legacy_pending(redis: Redis) -> None:
-    raw = await redis.smembers(_LEGACY_PENDING_KEY)
-    keys = [item for item in raw if isinstance(item, str)]
-    if keys:
-        await redis.zadd(PENDING_STORAGE_DELETE_KEY, dict.fromkeys(keys, time.time()), nx=True)
-    await redis.delete(_LEGACY_PENDING_KEY)
-
-
 async def retry_pending_storage_deletes(settings: Settings) -> int:
     """Retry the deletes that are due, a page at a time, backing off up to a day each."""
     try:
         redis = get_redis_client()
-        await _move_legacy_pending(redis)
         now = time.time()
         keys = cast(
             list[str],

@@ -62,7 +62,7 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     # the fixture created: a refresh session, caches with memory and reply
     # text, today's usage, and the follow-up questions under a reply.
     await tokens.issue_token_pair(redis, a.id, world.settings)
-    await redis.set(f"memblock:{a.id}", f"User is planning {data.secret_word}")
+    await redis.set(f"memblock2:{a.id}", f"0\nUser is planning {data.secret_word}")
     await redis.set(f"memquery:{a.id}:0:abc:a", f"User is planning {data.secret_word}")
     await redis.set(f"home:{a.id}:1:UTC:20261015", json.dumps({"overdue": data.secret_word}))
     await redis.set(f"websearch:{a.id}:5:abc", json.dumps({"q": data.secret_word}))
@@ -71,7 +71,7 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     related_key = f"related_prompts:{data.assistant_message_id}"
     await redis.set(related_key, json.dumps([f"More about {data.secret_word}?"]))
     # B's cache must survive A's delete.
-    await redis.set(f"memblock:{b.id}", "B's memory")
+    await redis.set(f"memblock2:{b.id}", "0\nB's memory")
     # Finished and failed jobs keep the turn's text in the jobs streams.
     a_job = {"user_id": str(a.id), "chat_id": str(data.chat_id), "transcript": data.secret_word}
     b_job = {"user_id": str(b.id), "chat_id": str(world.b_chat_id), "transcript": "B's turn"}
@@ -99,7 +99,7 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     leftover = await _keys_naming(redis, a.id)
     # Only the marker that keeps A's already-issued access tokens dead stays.
     assert leftover == [f"revoked_since:{a.id}"], leftover
-    assert await redis.get(f"memblock:{b.id}") == "B's memory"
+    assert await redis.get(f"memblock2:{b.id}") == "0\nB's memory"
     streams = json.dumps(
         [await redis.xrange(jobs.JOBS_STREAM), await redis.xrange(jobs.JOBS_DLQ_STREAM)]
     )

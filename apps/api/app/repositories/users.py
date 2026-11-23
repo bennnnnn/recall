@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import object_session
 
 from app.core.user_cache import forget_user, publish_change, remember_user
+from app.core.validation import proper_name
 from app.models.orm import Chat, Message, PushToken, UsageDaily, User
 from app.models.schemas.auth import chosen_model_id
 from app.repositories.batch_delete import delete_in_batches
@@ -68,7 +69,8 @@ async def create(
         google_sub=google_sub,
         apple_sub=apple_sub,
         email=email,
-        name=name,
+        # Every sign-in writes the name here: Google's, Apple's, dev login's, as typed.
+        name=proper_name(name) if name else name,
         avatar_url=avatar_url,
     )
     session.add(user)
@@ -92,6 +94,8 @@ async def update(session: AsyncSession, user: User, *, commit: bool = True, **fi
     after the commit. With ``commit=False`` the caller commits, then awaits
     ``user_cache.publish_change(user.id)``.
     """
+    if isinstance(fields.get("name"), str):
+        fields["name"] = proper_name(fields["name"])
     if "enabled_models" in fields:
         # default_model is a stored copy of the chosen model, never set on its own.
         fields["default_model"] = chosen_model_id(fields["enabled_models"])

@@ -436,8 +436,6 @@ class Reduction:
 
     rows: tuple[str, ...]
     value: float
-    # The value is an angle, in degrees.
-    in_degrees: bool
     # The substituted side again, each number with its unit (None when none were given).
     substituted: str | None = None
     # The unit the value is in, when the numbers carry units (None for a pure number).
@@ -505,4 +503,4 @@ def _reduced(
     reached = _value(tree, reading)
     worked = math.degrees(reached) if degrees else reached
     unit = unit_of_node(tree) if units is not None else None
-    return Reduction(tuple(rows), worked, degrees, written, unit)
+    return Reduction(tuple(rows), worked, written, unit)
