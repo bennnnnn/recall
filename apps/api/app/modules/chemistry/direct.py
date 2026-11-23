@@ -88,7 +88,8 @@ class _Rows:
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
             rows.append(closing)
-        return tuple(self.line(row) for row in _worked_rows(rows, self.result.unrounded))
+        worked = _worked_rows(rows, self.result.unrounded, self.result.given)
+        return tuple(self.line(row) for row in worked)
 
 
 def _lower_first(text: str, *, upper: bool = False) -> str:
@@ -125,14 +126,18 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
 _NUMBER_TEXT = re.compile(r"(?<![\w.^])(?<!\^-)(?<!\^−)-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?(?![\w.])")
 
 
-def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> list[str]:
+def _worked_rows(
+    rows: list[str], unrounded: tuple[tuple[str, str], ...], given: tuple[str, ...] = ()
+) -> list[str]:
     """Each row ending on a value the solve rounded ends on it as worked (``m = 29.22 g``),
     the card alone rounding it: a limiting reagent's yield row sits above its excess row, and
     "4 g" of hydrogen's 35.74 g is no 4 × 10^1 g there. A row stays rounded when it works with
-    a rounded value or a difference, or a later row works with its own: "(1.0 mol)(6.0221 ×
-    10^23)" ending on 6.017 × 10^23 did not add up. A closing row (``Kp = 8 × 10^-4`` under
-    ``Kp = (0.5)(2 × 10^1)^-2``) follows the row it closes."""
-    rounded = {text for text, _ in unrounded}
+    a rounded value or with a difference of carried values, or a later row works with its
+    own: "(1.0 mol)(6.0221 × 10^23)" ending on 6.017 × 10^23 did not add up. A number the
+    question typed (``given``) is never a rounded one, though it reads alike: "2 A" beside a
+    card of 2 g. A closing row (``Kp = 8 × 10^-4``) follows the row it closes."""
+    typed = {number for row in given for number in _NUMBER_TEXT.findall(row)}
+    rounded = {text for text, _ in unrounded} - typed
     ends = [_rounded_end(row, unrounded) for row in rows]
     inputs = [
         set(_NUMBER_TEXT.findall(row if end is None else row.rpartition(" = ")[0]))
@@ -142,7 +147,8 @@ def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> lis
     for index, row in enumerate(rows):
         closing = index > 0 and " = " in row and not _NUMBER_TEXT.search(row.split(" = ")[0])
         closing = closing and not inputs[index] - ({ends[index]} - {None})
-        own = bool(inputs[index] & rounded) or _subtracts(row)
+        reached = {_last_number(earlier) for earlier in rows[:index]} - {None}
+        own = bool(inputs[index] & rounded) or _subtracts_carried(row, reached)
         rounded_with.append(rounded_with[index - 1] if closing and not own else own)
     shown: list[str] = []
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
@@ -154,16 +160,29 @@ def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> lis
     return shown
 
 
-# A difference of two values: "(1.000 mol − 0.9921 mol)".
-_DIFFERENCE = re.compile(r"\d\s*(?:[a-zA-Z/]+\s*)?[−-]\s*\(?\d")
+# A difference of two values: "(1.000 mol − 0.9921 mol)", "1/350 − 1/300".
+_DIFFERENCE = re.compile(
+    r"(?P<left>\d+(?:\.\d+)?)\s*(?:[a-zA-Z/]+\s*)?[−-]\s*\(?(?P<right>\d+(?:\.\d+)?)"
+)
 
 
-def _subtracts(row: str) -> bool:
-    """Whether the row works with a difference. Its operands are carried to four figures,
-    so a difference of near values loses what the unrounded result keeps: "(1.000 mol −
-    0.9921 mol) × 31.998 g/mol" makes 0.2528 g, not the 0.2560 g worked in full. Such a row
-    ends on its rounded value, as the card does."""
-    return _DIFFERENCE.search(row.rpartition(" = ")[0]) is not None
+def _subtracts_carried(row: str, reached: set[str | None]) -> bool:
+    """Whether the row takes a difference of values earlier rows reached. They are carried to
+    four figures, so a difference of near ones loses what the unrounded result keeps:
+    "(1.000 mol − 0.9921 mol) × 31.998 g/mol" makes 0.2528 g, not the 0.2560 g worked in
+    full. Such a row ends on its rounded value, as the card does. A difference of typed
+    values ("1/350 − 1/300") is exact and works as written."""
+    return any(
+        {found["left"], found["right"]} & reached
+        for found in _DIFFERENCE.finditer(row.rpartition(" = ")[0])
+    )
+
+
+def _last_number(row: str) -> str | None:
+    """The number a row ends on ("1.000" of "n = 0.5000 mol × 2 = 1.000 mol")."""
+    _head, equals, value = row.rpartition(" = ")
+    numbers = _NUMBER_TEXT.findall(value) if equals else []
+    return numbers[0] if numbers else None
 
 
 def _rounded_end(row: str, unrounded: tuple[tuple[str, str], ...]) -> str | None:

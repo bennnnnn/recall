@@ -9,6 +9,7 @@ from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.display import (
+    carried,
     const,
     converted_from,
     fixed,
@@ -263,7 +264,7 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
         molality = moles / kilograms
         given.insert(0, f"n(solute) = {inp(moles)} mol")
         working.append(f"b = {qty(moles, 'mol')} / {solvent} kg = {num(molality)} mol/kg")
-        return molality, num(molality), given, working
+        return molality, carried(molality), given, working
     solute = require(intent, "solute_mass", positive=True)
     molar = require(intent, "molar_mass", positive=True)
     name = intent.formula or "solute"
@@ -273,10 +274,10 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
     working.extend(
         (
             f"n = {qty(solute, 'g')} / {molar_mass_working(molar)} g/mol = {num(amount)} mol",
-            f"b = {num(amount)} mol / {solvent} kg = {num(molality)} mol/kg",
+            f"b = {carried(amount)} mol / {solvent} kg = {num(molality)} mol/kg",
         )
     )
-    return molality, num(molality), given, working
+    return molality, carried(molality), given, working
 
 
 def _decimals_shown(text: str) -> int:

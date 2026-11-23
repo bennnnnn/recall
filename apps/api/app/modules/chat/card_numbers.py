@@ -65,13 +65,14 @@ def format_card_numbers(state: FinalizeState) -> str:
     data) keeps them, unless the question asks for another."""
     precision = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
-    own = precision == RULE and verified is not None and verified.cards_keep_precision
+    own = verified is not None and verified.cards_keep_precision
     return card_numbers(state.text, precision, keep_checked=own)
 
 
 def card_numbers(text: str, precision: Precision, *, keep_checked: bool = False) -> str:
-    """``keep_checked``: a card the server checked keeps its solver's precision; the
-    model's own unchecked card on that turn is still shown by the rule."""
+    """``keep_checked``: a card the server checked keeps its solver's precision, and takes
+    a precision the question asks for only when the working knows the value to it (a card
+    of 2.4 is no 2.400); the model's own unchecked card on that turn follows the rule."""
     changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
@@ -80,7 +81,8 @@ def card_numbers(text: str, precision: Precision, *, keep_checked: bool = False)
         above, previous = text[previous : fence.start], fence.end
         body = text[fence.body_start : fence.body_end]
         if keep_checked and VERIFIED_ANSWER_MARKER in answer_header_and_value(body)[0]:
-            continue
+            if precision == RULE or not _known_to(body, above, precision):
+                continue
         shown = _shown(body, above, precision)
         if shown is not None and shown != body:
             changes.append((fence.body_start, fence.body_end, shown))

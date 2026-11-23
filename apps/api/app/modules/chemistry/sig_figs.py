@@ -23,6 +23,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
 
+from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
@@ -54,10 +55,7 @@ EXACT_KEYS = frozenset(
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 # A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.
-_EXACT_IN_OP = {
-    "hess": re.compile(r"m\d+"),
-    "neutron_count": re.compile(r"mass_number|atomic_number"),
-}
+_EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
 # Given as logarithms: their precision is their decimal places.
 LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb", "pka1", "pka2"})
 # A Celsius reading, whose precision is that of the kelvin value it becomes.
@@ -90,7 +88,7 @@ _LENGTHS = (("nanometer", "angstrom", "picometer", "meter"),)
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
 # formula ("H2O") follows a letter and is not one. A full stop may end the sentence after it
 # ("Ka = 1.8e-5."); only a decimal point followed by a digit continues it.
-_LITERAL = re.compile(r"(?<![\w.])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
+_LITERAL = re.compile(r"(?<![\w.)\]·])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
 
 
 def figures_of(literal: str) -> int:
@@ -258,9 +256,10 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     )
 
 
-# A unit after a number ("2 h", "2 kg"): the number was measured. A count's own noun is no
-# unit ("n = 2 electrons").
-_UNIT_AFTER = re.compile(r"[ \t]*(?!electrons?\b|e-|e−)[A-Za-zµμΩ°%]")
+def _unit_after(text: str, end: int) -> bool:
+    """A unit the chemistry table reads right after a number ("2 h", "2 kg", "25%"): the
+    number was measured. A word that is no unit ("n = 2 and ...") says nothing."""
+    return CHEMISTRY_UNITS.at(text, end) is not None or text[end : end + 2].strip()[:1] == "%"
 
 
 def _count_spellings(
@@ -274,7 +273,7 @@ def _count_spellings(
     read = EQUATION_RE.sub(" ", text)
     typed_times = Counter(match.group() for match in _LITERAL.finditer(read))
     measured_spellings = {
-        match.group() for match in _LITERAL.finditer(read) if _UNIT_AFTER.match(read, match.end())
+        match.group() for match in _LITERAL.finditer(read) if _unit_after(read, match.end())
     }
     exact_at = Counter(
         value

@@ -12,7 +12,7 @@ from app.modules.chemistry.nuclear import (
 )
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import MEV_PER_U, NEUTRON_U, PROTON_U
-from app.modules.chemistry.solvers.display import inp, num, verified
+from app.modules.chemistry.solvers.display import carried, inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -71,8 +71,8 @@ def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:
         (
             f"Δm = {protons}({inp(proton_u)}) + {neutrons}({inp(neutron_u)}) − {inp(mass)} "
             f"= {num(defect)} u",
-            f"E = Δm × {inp(mev_per_u)} = {num(defect)} × {inp(mev_per_u)} = {num(energy)} MeV",
-            f"E/A = {num(energy)} / {mass_number} = {num(per_nucleon)} MeV/nucleon",
+            f"E = Δm × {inp(mev_per_u)} = {carried(defect)} × {inp(mev_per_u)} = {num(energy)} MeV",
+            f"E/A = {carried(energy)} / {mass_number} = {num(per_nucleon)} MeV/nucleon",
         ),
         shown,
         shown,

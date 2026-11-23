@@ -160,9 +160,11 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
     if not figures or scaled == 0 or not math.isfinite(scaled):
         return exact
     # Never fewer figures than the scaled value has: 0.00006 C doubled is 0.00012, not 1e-4.
-    figures = max(figures, _typed_figures(exact))
+    figures = max(figures, _typed_figures(exact, whole_zeros=False))
     mantissa, exponent = round_figures(scaled, figures)
-    if exponent < _PLAIN_BELOW or exponent >= _PLAIN_FROM:
+    # A whole number's zeros that are no figure are a power of ten: 5 g doubled is 1e1 g,
+    # since "10" would read as two figures.
+    if exponent < _PLAIN_BELOW or exponent >= min(_PLAIN_FROM, figures):
         return f"{mantissa:.{figures - 1}f}e{exponent}"
     return f"{scaled:.{max(figures - 1 - exponent, 0)}f}"
 
@@ -171,9 +173,12 @@ def scaled_value(value: float, factor: float, literal: str | None = None) -> str
 _PLAIN_BELOW, _PLAIN_FROM = -4, 6
 
 
-def _typed_figures(literal: str) -> int:
-    """Significant figures of a number as typed: ``0.010`` has 2, ``1.0e-3`` 2, ``200`` 3."""
+def _typed_figures(literal: str, *, whole_zeros: bool = True) -> int:
+    """Significant figures of a number as typed: ``0.010`` has 2, ``1.0e-3`` 2, ``200`` 3
+    (``whole_zeros``; without it, a whole number's trailing zeros are no figures: 1)."""
     mantissa = re.split(r"[eE]", literal.strip().lstrip("+-\u2212"))[0]
+    if not whole_zeros and "." not in mantissa:
+        mantissa = mantissa.rstrip("0") or "0"
     digits = mantissa.replace(".", "").lstrip("0")
     return len(digits) if digits.isdigit() else 0
 
@@ -388,6 +393,9 @@ class GivenRewriter:
     # The quantities a problem asks for, by name ("range", "height"): two of one dimension
     # are told apart by it.
     asked_names: Callable[[str], Collection[str]] | None = None
+    # A scaled given keeps the significant figures it was typed with (chemistry, whose
+    # answers carry the data's figures): 0.010 M doubled is 0.020 M.
+    keep_figures: bool = False
 
     def changed(self, prior: str, name: str | None, value: str, unit: str | None) -> str | None:
         """``and after 10 s``, ``what if the mass was 4 kg``: that given replaced."""
@@ -480,7 +488,11 @@ class GivenRewriter:
         rewritten = replace_given(
             prior,
             given,
-            scaled_value(given.value, scaling.factor, prior[given.start : given.end]),
+            scaled_value(
+                given.value,
+                scaling.factor,
+                prior[given.start : given.end] if self.keep_figures else None,
+            ),
             given.unit,
         )
         return rewritten if rewritten != prior and self.verifies(rewritten) else None

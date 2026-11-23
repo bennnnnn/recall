@@ -339,7 +339,7 @@ formats every number from that record:
   figures at most: the reader does not follow a figure count through a difference inside a
   product (an NMR shift subtracts two six-figure frequencies), so more could claim precision
   the data lost. A follow-up that scales a given keeps its typed figures (`0.010 M` doubled
-  is `0.020 M`). A trailing zero of a whole number without a decimal point
+  is `0.020 M`, `5 g` doubled is `1 × 10^1 g`). A trailing zero of a whole number without a decimal point
   (`500 mL`) is read as significant: textbooks call it ambiguous (OpenStax), and their own
   problems mean `500 mL` as three figures. When no given is measured (a molar mass, a
   formula's percent composition), the table's precision stands (below).

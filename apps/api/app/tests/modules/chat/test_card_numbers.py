@@ -188,3 +188,32 @@ def test_the_model_s_unchecked_card_on_a_chemistry_turn_follows_the_rule() -> No
     reply = "$m = 345.1234\\,\\mathrm{g}$\n\n" + _card("m = 345.1234\\,\\mathrm{g}")
     state = _state(reply, _TITRATION, verified)
     assert _card("m = 345.12\\,\\mathrm{g}") in format_card_numbers(state)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("question", "working", "card", "shown"),
+    [
+        # The working knows 2.361 to three places: the asked precision takes it.
+        (
+            "Clausius-Clapeyron: P1=1.0, T1=300, T2=350, dH=15000. Find P2.",
+            "$P_{2} = 1.0 \\times \\exp [-(15000) / (8.3145) \\times (1/350 - 1/300)] = 2.361$",
+            "P_{2} = 2.4",
+            "P_{2} = 2.361",
+        ),
+        # A working that stops on the rounded value knows no more: the card stays (review).
+        (
+            "Clausius-Clapeyron: P1=1.0, T1=300, T2=350, dH=15000. Find P2.",
+            "$P_{2} = 2.4$",
+            "P_{2} = 2.4",
+            "P_{2} = 2.4",
+        ),
+    ],
+)
+def test_an_asked_precision_takes_a_chemistry_card_only_as_far_as_the_working_knows(
+    question: str, working: str, card: str, shown: str
+) -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = f"{working}\n\n**Answer**\n\n" + _card(card, "true")
+    state = _state(reply, question + " to 3 decimal places", _chemistry(question))
+    assert format_card_numbers(state).endswith(_card(shown, "true"))  # type: ignore[arg-type]

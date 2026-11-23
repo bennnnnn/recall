@@ -188,7 +188,9 @@ def _dimension_of_phrase(phrase: str) -> str | None:
     return None if expression is None else dimension_of(expression)
 
 
-_GIVENS = GivenRewriter(CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies)
+_GIVENS = GivenRewriter(
+    CHEMISTRY_UNITS, _dimension_of_unit, _dimension_of_phrase, _verifies, keep_figures=True
+)
 
 
 def chemistry_states_new(problem: str, line: str) -> bool:
