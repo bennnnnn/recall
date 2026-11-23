@@ -6,7 +6,7 @@ lock, asks the model, and applies what ``compose_writes`` returns.
 
 import logging
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -103,12 +103,12 @@ def compose_writes(
 ) -> tuple[list[MemoryFactWrite], int]:
     """Every write a pass makes, from the model's ops and the user's own words; no IO.
 
-    ``sources`` are the lines read with their messages: every fact the model writes is
-    held to one of them (``grounding``). ``earlier`` is the exchange before ``lines``: a
+    ``sources`` are the lines read with their messages, each with the reply it answers
+    (``extract_backlog``): every fact the model writes is held to one of them
+    (``grounding``). ``earlier`` is the exchange before ``lines``: a
     lone "forget that" drops what the line before it asked to remember.
     """
     ops, joined = without_joined_facts(ops)
-    sources = answering(sources, earlier)
     writes, skipped = writes_from_ops(
         ops,
         chat_id=chat_id,
@@ -158,18 +158,6 @@ def compose_writes(
 
 
 _TEXT_OPS = frozenset({"add", "update", "supersede"})
-_ASSISTANT = "Assistant:"
-
-
-def answering(sources: Sequence[SourceLine], earlier: str) -> Sequence[SourceLine]:
-    """The lines, the first one with the assistant's message it answers (the last line of
-    ``earlier``, the chat just before them), so "34" stands as an answer to "How old are
-    you?" (``grounding.answers_their_question``)."""
-    said = [line for line in earlier.splitlines() if line.strip()]
-    if not sources or not said or not said[-1].startswith(_ASSISTANT):
-        return sources
-    first = replace(sources[0], asked=said[-1].removeprefix(_ASSISTANT).strip())
-    return (first, *sources[1:])
 
 
 def without_joined_facts(ops: list[MemoryFactOp]) -> tuple[list[MemoryFactOp], int]:

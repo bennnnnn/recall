@@ -37,9 +37,11 @@ _STEM = 4
 # ("User now lives", "User recently moved"): "User's sister lives in Lisbon" is no home of
 # theirs, and "User has a 7-year-old son" no age.
 # "User is vegetarian and lives in Denver" answers it after a first clause about the user.
+# "User's" is followed by its noun straight away ("User's home"): "User's family lives in
+# Lisbon" and "User's newly married sister" are someone else's.
 _SUBJECT = (
-    r"^\s*(?:the )?user(?:'s)?\s+(?:is [^,;]*? and\s+)?"
-    r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*"
+    r"^\s*(?:the )?user(?:'s\s+|\s+(?:is [^,;]*? and\s+)?"
+    r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*)"
 )
 _DECADES = r"(?:\d0s|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)"
 _RELIGIONS = (
@@ -62,14 +64,15 @@ _NOUN_WORD = r"(?!(?:of|about|to|for|with|in|on|at|from|by|who|that|which|than|a
 # at Stripe", "User is a nurse who works at Denver Health": the job named outright, the whole
 # first clause ("User is a nurse and is 30"). An "of" is a title's only with its employer.
 _JOB_NAMED = re.compile(
-    rf"^\s*(?:the )?user is an? (?:{_NOUN_WORD} ){{0,3}}{_NOUN_WORD}"
+    rf"^\s*(?:the )?user is (?P<noun>an? (?:{_NOUN_WORD} ){{0,3}}{_NOUN_WORD})"
     rf"(?:(?: of (?:{_NOUN_WORD} ){{0,2}}{_NOUN_WORD})? (?:at|for) [^,;]+?"
     rf"| who (?:{_JOB_VERBS})(?![\w-])[^,;]*?)?"
     r"(?=\.?\s*$|,| and )",
     re.IGNORECASE,
 )
-# The other questions a noun after "is a" answers: "a student", "a teenager", "a woman",
-# "a Christian", "a widow" name no job.
+# The other questions a noun after "is a" answers when it is that noun: "a student", "a
+# teenager", "a woman", "a Christian", "a widow" name no job; "a male nurse" and "a Christian
+# counselor" do.
 _NOUN_SLOTS = ("school", "age", "gender", "religion", "relationship_status", "hometown")
 
 
@@ -233,8 +236,14 @@ def answers_slot(slot: str, fact: str) -> bool:
 def _names_job(fact: str) -> bool:
     """ "User is a nurse": a noun after "is a" that no other question claims."""
     named = _JOB_NAMED.match(fact)
-    return named is not None and not any(
-        answers_slot(other, named.group(0)) for other in _NOUN_SLOTS
+    if named is None:
+        return False
+    noun = fact[: named.end("noun")]
+    return not any(
+        found.end() == len(noun)
+        for other in _NOUN_SLOTS
+        for pattern in _ASKS[other]
+        if (found := pattern.search(noun))
     )
 
 

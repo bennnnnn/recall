@@ -415,31 +415,52 @@ def test_a_short_answer_to_their_own_question_is_said_about_themselves(fact, sai
     assert (grounding.line is not None) is kept
 
 
-def test_a_pass_reads_the_question_its_first_line_answers():
-    lines = "User: 34"
-    writes, _ = compose_writes(
-        _snapshot(),
-        lines,
-        Asks.of(lines),
-        [
-            MemoryFactOp.model_validate(
-                {
-                    "op": "add",
-                    "confidence": 0.9,
-                    "stated_as": "own_life",
-                    "slot": "age",
-                    "text": "User is 34 years old",
-                    "quote": "34",
-                }
-            )
-        ],
-        chat_id=uuid4(),
-        from_history=False,
-        min_confidence=0.5,
-        sources=_lines("34"),
-        earlier="User: plan my week\nAssistant: Happy to tailor it. How old are you?",
-    )
-    assert [(w.text, w.slot) for w in writes] == [("User is 34 years old", "age")]
+@pytest.mark.parametrize(
+    ("context", "said", "asked"),
+    [
+        # The reply before the first unread line asks it.
+        ([("user", "plan my week"), ("assistant", "Happy to tailor it. How old are you?")],
+         ["34"], ["Happy to tailor it. How old are you?"]),
+        # A reply over several lines keeps its closing question (review, #2539).
+        ([("assistant", "Happy to tailor it.\n\nHow old are you?")], ["34"],
+         ["Happy to tailor it.\n\nHow old are you?"]),
+        # A line that gives none ("6pm") still answers the question before it: the "42"
+        # after it answers nothing (Gemini review, #2539).
+        ([("assistant", "How old are you?")], ["6pm", "42"], [""]),
+        # The context ends on the user: no question.
+        ([("user", "hi")], ["34"], [""]),
+    ],
+)  # fmt: skip
+@pytest.mark.asyncio
+async def test_a_pass_reads_its_first_line_with_the_question_before_it(context, said, asked):
+    from app.modules.memory import extract_backlog
+
+    rows = [
+        SimpleNamespace(id=uuid4(), created_at=_NOW.replace(minute=i), content=text)
+        for i, text in enumerate(said)
+    ]
+    with (
+        patch.object(
+            extract_backlog.chat_history, "user_lines_since", AsyncMock(return_value=rows)
+        ),
+        patch.object(extract_backlog.chat_history, "replies_between", AsyncMock(return_value=[])),
+        patch.object(
+            extract_backlog.chat_history,
+            "messages_before",
+            AsyncMock(return_value=[SimpleNamespace(role=r, content=c) for r, c in context]),
+        ),
+        patch.object(extract_backlog, "get_redis_client", MagicMock(return_value=_no_cursor())),
+    ):
+        read = await extract_backlog.expand_memory_extract_transcript(
+            AsyncMock(), user_id=uuid4(), chat_id=uuid4(), fallback_transcript=""
+        )
+    assert [line.asked for line in read.sources] == asked
+
+
+def _no_cursor() -> MagicMock:
+    redis = MagicMock()
+    redis.get = AsyncMock(return_value=None)
+    return redis
 
 
 def test_a_lagging_pass_reads_its_second_line_with_the_question_before_it():
@@ -483,17 +504,6 @@ def test_a_reworded_fact_keeps_only_a_slot_its_new_text_answers() -> None:
     assert _update(None, "User lives in Toronto", "home") == "home"
 
 
-def test_an_assistant_message_over_several_lines_still_asks_its_question() -> None:
-    """The earlier chat is one line per message, so the reply's closing question is the
-    last ``Assistant:`` line's end, however many lines the reply had (review, #2539)."""
-    from app.modules.memory.extract_backlog import format_context
-    from app.modules.memory.pass_writes import answering
-
-    earlier = format_context([("assistant", "Happy to tailor it.\n\nHow old are you?")])
-    (line,) = answering(_lines("34"), earlier)
-    assert line.asked.endswith("How old are you?")
-
-
 @pytest.mark.parametrize(
     ("fact", "slot"),
     [
@@ -522,6 +532,11 @@ def test_the_repository_keeps_only_a_slot_the_text_answers() -> None:
         ("User is a director of engineering at Stripe", "job"),
         ("User is a senior software engineer at Google.", "job"),
         ("User is a junior developer", "job"),
+        # A word another question claims only describes the noun (Claude review, #2539).
+        ("User is a male nurse", "job"),
+        ("User is a female software engineer at Google", "job"),
+        ("User is a Christian counselor", "job"),
+        ("User is a 30-year-old nurse", "job"),
         ("User is a senior at NYU", "school"),
         ("User is a high school senior", "school"),
         ("User's wife is named Hana", "relationship_status"),
@@ -548,8 +563,10 @@ def test_a_job_named_outright_keeps_its_slot(fact, slot) -> None:
         ("User is a woman", "job"),
         ("User is a Christian", "job"),
         ("User is a widow", "job"),
-        ("User is a 30-year-old nurse", "job"),
         ("User is a junior developer", "school"),
+        # "User's" is followed by its own noun: someone else's home or marriage.
+        ("User's family lives in Lisbon", "home"),
+        ("User's newly married sister lives in Lisbon", "relationship_status"),
         # A partner word answers only of the user's own partner.
         ("User is friendly and wife of the manager", "relationship_status"),
         ("User's brother's wife is a doctor", "relationship_status"),

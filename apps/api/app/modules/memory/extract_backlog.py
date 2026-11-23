@@ -128,11 +128,15 @@ def answering_lines(rows: Iterable[tuple[UUID | None, str, str]]) -> list[Source
 
 
 async def _sources(
-    session: AsyncSession, chat_id: UUID, rows: Sequence[Message]
+    session: AsyncSession,
+    chat_id: UUID,
+    rows: Sequence[Message],
+    context: Sequence[tuple[str, str]] = (),
 ) -> tuple[SourceLine, ...]:
-    """The user rows' lines, each from the second on with the reply between it and the
-    row before: a pass that lagged reads "34" with the "How old are you?" it answers. The
-    first row's reply is the pass's context (``pass_writes.answering``)."""
+    """The user rows' lines, each with the reply just before it: the last message of
+    ``context`` (the chat before them) for the first, the reply between it and the row
+    before for the rest. A pass that lagged reads "34" with the "How old are you?" it
+    answers, and a row that gives no line ("6pm") still ends the question before it."""
     replies: list[Message] = []
     if len(rows) > 1:
         try:
@@ -147,7 +151,10 @@ async def _sources(
             said + [(reply, "assistant") for reply in replies],
             key=lambda pair: (pair[0].created_at, pair[0].id),
         )
-    return tuple(answering_lines((message.id, role, message.content) for message, role in said))
+    before = [(None, *context[-1])] if context and context[-1][0] == "assistant" else []
+    return tuple(
+        answering_lines([*before, *((message.id, role, message.content) for message, role in said)])
+    )
 
 
 def format_context(messages: Sequence[tuple[str, str]]) -> str:
@@ -224,13 +231,14 @@ async def expand_memory_extract_transcript(
     if not rows:
         return _fallback_lines(fallback_transcript)
     last = rows[-1]
+    context = await _chat_before(session, chat_id, rows[0])
     return PassLines(
-        context=await _chat_before(session, chat_id, rows[0]),
+        context=context,
         transcript=cap_text_head_tail(
             format_user_memory_transcript([row.content for row in rows]),
             _MEMORY_TRANSCRIPT_MAX_CHARS,
         ),
-        sources=await _sources(session, chat_id, rows),
+        sources=await _sources(session, chat_id, rows, context),
         cursor=format_extract_cursor(last.created_at, last.id),
     )
 
