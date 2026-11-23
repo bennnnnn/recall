@@ -50,8 +50,6 @@ export type StreamRun = {
   frames: string[];
   /** The prepared text once the reply settled. */
   settled: string;
-  /** The settled reply's pieces (chunks it kept, then the rest). */
-  settledPieces: string[];
 };
 
 export function rowMarkdown(content: string, generating: boolean): string {
@@ -104,12 +102,7 @@ export function streamReply(reply: string, step = 30, keepFrames = false): Strea
   stats.chunks = blocks?.chunks.length ?? 0;
   const content = rowMarkdown(reply, false);
   const settled = preprocessSettledMarkdown(content, pre, undefined, {});
-  const settledBlocks = settleStreamBlocks(blocks, settled);
-  const rest = settled.slice(settledBlocks.settledText.length);
-  return {
-    stats,
-    frames,
-    settled,
-    settledPieces: rest ? [...settledBlocks.chunks, rest] : settledBlocks.chunks,
-  };
+  // The settled pieces, as the row draws them (markdownStreamPieces.test.tsx holds their look).
+  settleStreamBlocks(blocks, settled);
+  return { stats, frames, settled };
 }

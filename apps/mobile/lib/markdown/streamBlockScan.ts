@@ -80,11 +80,16 @@ type ScanState = {
  * say so; a plain prose line (false) is where a cut may land.
  */
 function trackBlockLine(state: ScanState, line: string): boolean {
+  if (state.fenceInItem && line.trim() && !insideItem(state.list, line)) {
+    // A line left of the item's content ends the item, and its fence with it (a fence
+    // has no lazy lines): markdown reads this line outside both, a ``` one as an opener.
+    state.openFence = null;
+    state.fenceInItem = false;
+    state.list = null;
+  }
   const before = state.openFence;
   state.openFence = fenceAfterLine(before, line);
   if (before != null && state.openFence != null) {
-    // A line of an item's fence left of the item's content ends the item in markdown.
-    if (state.fenceInItem && line.trim() && !insideItem(state.list, line)) state.list!.irregular = true;
     state.inBlankRun = false;
     return true;
   }

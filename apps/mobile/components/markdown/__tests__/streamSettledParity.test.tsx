@@ -1,7 +1,8 @@
 /**
- * A reply streamed flush by flush settles to exactly what the same reply
- * gives when it is drawn whole, as a saved row is: the stream's caches and
- * cuts only save work, they never change what is drawn. Real replies (the
+ * A reply streamed flush by flush settles to exactly the text the same reply
+ * is preprocessed to whole, as a saved row is: the stream's caches and cuts
+ * only save work. (That its pieces draw as the whole does is
+ * markdownStreamPieces.test.tsx, which renders both.) Real replies (the
  * streaming fixtures, the physics and chemistry replies, the API's sweep
  * corpus) and the flush benchmark's long ones, in 30- and 7-character flushes.
  */
@@ -40,15 +41,14 @@ const replies: Reply[] = [
   ...sweep,
 ];
 
-/** The replies whose streamed and whole renders differ, with the first place they do. */
+/** The replies whose streamed and whole texts differ, with the first place they do. */
 function differences(list: Reply[], step: number): { name: string; at: number }[] {
   return list.flatMap(([name, text]) => {
     const whole = preprocessMarkdown(rowMarkdown(text, false));
-    const run = streamReply(text, step);
-    const drawn = run.settledPieces.join("");
-    if (run.settled === whole && drawn === whole) return [];
+    const { settled } = streamReply(text, step);
+    if (settled === whole) return [];
     let at = 0;
-    while (at < whole.length && drawn[at] === whole[at]) at += 1;
+    while (at < whole.length && settled[at] === whole[at]) at += 1;
     return [{ name, at }];
   });
 }

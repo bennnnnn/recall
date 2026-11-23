@@ -291,10 +291,17 @@ describe("advanceStreamBlocks between list items", () => {
     expect(state.continued.filter(Boolean).length).toBeGreaterThan(1);
     expect(state.chunks.join("")).toBe(state.settledText);
     // A fence line left of the item's content ends the item: no cut in that list after it.
-    const outdented = CODE_STEPS_REPLY.replace("   npm run step-3\n", "npm run step-3\n");
-    const broken = advanceStreamBlocks(null, outdented, outdented.length);
+    // A closer left of the item's content ends the item and its fence, and opens a fence of
+    // its own (markdown-it), which runs to the next bare one: no cut lands inside it.
+    const opener = CODE_STEPS_REPLY.replace("   ```\n\n   It prints `done 3`", "```\n\n   It prints `done 3`");
+    const opensAt = opener.indexOf("```\n\n   It prints `done 3`");
+    const closesAt = opener.indexOf("   ```\n", opener.indexOf("npm run step-4"));
+    let offset = 0;
+    for (const chunk of advanceStreamBlocks(null, opener, opener.length).chunks) {
+      offset += chunk.length;
+      expect(offset > opensAt && offset <= closesAt).toBe(false);
+    }
     expect(state.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(true);
-    expect(broken.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(false);
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);
