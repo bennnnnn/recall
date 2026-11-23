@@ -66,10 +66,9 @@ async def test_memory_similarity_is_computed_in_sql_and_matches_python(db_sessio
         score = by_text[text]
         assert score is not None
         assert score == pytest.approx(_cosine(query, vector), abs=1e-5)
-    # Neither vector copy travelled with the rows.
+    # The vector did not travel with the rows.
     for memory, _score in scored:
         assert "embedding" not in vars(memory)
-        assert "embedding_json" not in vars(memory)
 
 
 async def test_memory_selection_ranks_the_sql_scores(db_session) -> None:
@@ -218,26 +217,6 @@ async def test_chunks_beyond_the_search_window_are_deleted(db_session) -> None:
     # The user's newest five stay; another user's chunks are not touched.
     assert sorted(i for owner, i in rows if owner == user.id) == [3, 4, 5, 6, 7]
     assert len([i for owner, i in rows if owner == other.id]) == 8
-
-
-async def test_chunks_are_stored_without_the_json_copy(db_session) -> None:
-    user = await _user(db_session)
-    chat, message = await _chat_with_message(db_session, user.id)
-
-    await chunks_repo.replace_chunks_of_messages(
-        db_session,
-        user_id=user.id,
-        messages=[(message.id, chat.id, "user", [(0, "hello", _vector(40))])],
-    )
-
-    stored = (
-        await db_session.execute(
-            select(MessageChunk.embedding_json, MessageChunk.embedding.isnot(None)).where(
-                MessageChunk.message_id == message.id
-            )
-        )
-    ).one()
-    assert stored == (None, True)
 
 
 async def test_forgetting_a_fact_drops_the_snippets_that_repeat_it(db_session) -> None:

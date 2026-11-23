@@ -322,12 +322,10 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
     existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes Python"
-    existing.embedding_json = "[0.1,0.2]"
     updated = MagicMock()
     updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
-    updated.embedding_json = "[0.1,0.2]"
     updated.embedding = [0.1, 0.2]
     updated.embedding_text_hash = "stale"
 
@@ -399,12 +397,10 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
     existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes TypeScript"
-    existing.embedding_json = "[0.1,0.2]"
     updated = MagicMock()
     updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
-    updated.embedding_json = "[0.1,0.2]"
     updated.embedding = None
     updated.embedding_text_hash = None
 
@@ -478,13 +474,11 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     existing.id = memory_id
     existing.type = "preference"
     existing.text = "likes TypeScript"
-    existing.embedding_json = "[0.1,0.2]"
     updated = MagicMock()
     updated.id = memory_id
     updated.type = "preference"
     updated.text = "likes TypeScript"
     updated.embedding = [0.1, 0.2]
-    updated.embedding_json = "[0.1,0.2]"
     updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])

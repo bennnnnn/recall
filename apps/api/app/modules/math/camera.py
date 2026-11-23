@@ -93,16 +93,13 @@ async def read_camera_maths(
 
 
 async def _read_equation(settings: Settings, content_type: str, data: bytes) -> MathOcrResult:
-    """The OCR read of one photo, its Mathpix call counted toward the day's spend.
-
-    Only the scanner's old read-back (``services/scan_read``) counted one, and the phone no
-    longer calls it: every photo the turn read was billed and never metered (audit SCAN-07).
-    """
+    """The OCR read of one photo, its Mathpix call counted toward the day's spend (audit
+    SCAN-07: every photo the turn read was billed and never metered)."""
     from app.gateways import mathpix_gateway, mock_llm
     from app.gateways.llm_spend import meter_reported_cost
     from app.modules.math.ocr import extract_math_from_image
-    from app.services.quota import MATH_SCAN_READ_SPEND_USD
+    from app.services.quota import MATHPIX_READ_SPEND_USD
 
     if mathpix_gateway.is_configured(settings) and not mock_llm.should_mock_llm(settings):
-        meter_reported_cost("mathpix", MATH_SCAN_READ_SPEND_USD)
+        meter_reported_cost("mathpix", MATHPIX_READ_SPEND_USD)
     return await extract_math_from_image(settings, content_type=content_type, data=data)

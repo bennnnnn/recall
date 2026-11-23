@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { AccessibleElementChildren } from "@/components/rich/accessibleElement";
 import { MathText } from "@/components/rich/MathText";
 import { MATH_DRAFT_PREVIEW_HEIGHT } from "@/features/chat/components/MathDraftPreview";
+import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { ACCENTS } from "@/lib/accent";
 import { liveAnswer } from "@/lib/math/live/answer";
 import { MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
@@ -35,10 +36,12 @@ export const mathCardStyles = StyleSheet.create({
   // The field fills the card's height, so the draft starts at its top, not by the buttons.
   field: { alignSelf: "stretch", justifyContent: "flex-start" },
   emptyCaret: { bottom: undefined, height: MATH_DRAFT_PREVIEW_HEIGHT },
+  // Where + stood beside the answer, so the answer sits in the row's middle.
+  answerBalance: { width: COMPOSER_CONTROL_SIZE },
 });
 
 /**
- * At the bottom of the composer while the math keyboard is open, between + and Send: the
+ * At the bottom of the composer while the math keyboard is open, in the row's middle: the
  * draft's value as each key lands (`= 5` for `3+1×2`), worked on the phone
  * (`lib/math/live/answer.ts`), in the green accent whatever accent the app wears. Send still
  * asks the server.
@@ -69,7 +72,7 @@ const styles = StyleSheet.create({
     height: MATH_LIVE_ANSWER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     paddingHorizontal: Space.sm,
     overflow: "hidden",
   },

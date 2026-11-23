@@ -292,41 +292,46 @@ def _separators(text: str) -> list[int]:
     \\ln (2026-11-13). Every other bar splits, "||" an empty field and "v |3.33" included."""
     bars = [at for at, char in enumerate(text) if char == "|"]
     maths = set(_paired_bars(text, bars))
-    maths.update(at for at in bars if _inside_a_closed_bracket(text, at))
+    maths.update(_bars_in_closed_brackets(text, bars))
     maths.update(at for at in bars if _SIZED_BAR.search(text[max(0, at - _SIZED_REACH) : at + 1]))
     return [at for at in bars if at not in maths]
 
 
-def _inside_a_closed_bracket(text: str, at: int) -> bool:
-    """The bar at ``at`` sits inside a bracket that closes later on the line. One that never
-    closes holds no maths to keep whole: "\\mathrm{m/s | m/s | east" left its brace open, and
-    the unit and the note went into the card's value (the owner's chat, 2026-11-20)."""
+def _bars_in_closed_brackets(text: str, bars: list[int]) -> set[int]:
+    """The bars inside a bracket that closes later on the line. One that never closes holds
+    no maths to keep whole: "\\mathrm{m/s | m/s | east" left its brace open, and the unit
+    and the note went into the card's value (the owner's chat, 2026-11-20). The brackets are
+    matched once for the line, not again for each bar (CX-2)."""
     opened: list[int] = []
-    closes: dict[int, int] = {}
+    # +1 just inside each closed bracket, -1 at its closer: a running sum over 0 is inside.
+    marks = [0] * (len(text) + 1)
     for index, char in enumerate(text):
         if char in "([{":
             opened.append(index)
         elif char in ")]}" and opened:
-            closes[opened.pop()] = index
-    return any(start < at < closes.get(start, -1) for start in closes)
+            marks[opened.pop() + 1] += 1
+            marks[index] -= 1
+    depth = list(itertools.accumulate(marks))
+    return {at for at in bars if depth[at] > 0}
 
 
 def _paired_bars(text: str, bars: list[int]) -> list[int]:
     """Bars that close around something: |x|, opened and closed against what they hold. Two
     bars between words on both sides ("v|3.33|m/s") are a record's separators, written tight."""
     paired: list[int] = []
+    taken: set[int] = set()
     for opening, closing in itertools.pairwise(bars):
-        inside = text[opening + 1 : closing]
         before = text[opening - 1] if opening else " "
         after = text[closing + 1] if closing + 1 < len(text) else " "
         if (
-            opening not in paired
-            and inside
-            and not inside[0].isspace()
-            and not inside[-1].isspace()
+            opening not in taken
+            and closing > opening + 1
+            and not text[opening + 1].isspace()
+            and not text[closing - 1].isspace()
             and not (before.isalnum() and after.isalnum())
         ):
             paired += [opening, closing]
+            taken.update((opening, closing))
     return paired
 
 

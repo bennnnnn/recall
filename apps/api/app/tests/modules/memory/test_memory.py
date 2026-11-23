@@ -26,6 +26,7 @@ from app.modules.memory.text import (
     strip_memory_as_of,
 )
 from app.tests.fakes import FakeSessionCM, fake_session
+from app.tests.modules.memory.many_facts import many_facts
 from app.tests.modules.memory.scoring import scored, scored_reader
 
 
@@ -416,11 +417,11 @@ def test_select_memories_semantic_scores_unembedded_facts_by_words():
         memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.35
     )
     profile = _memory("profile", "Name is Sam", 1.0)
-    profile.embedding_json = "[1.0, 0.0, 0.0]"
+    profile.embedding = [1.0, 0.0, 0.0]
     fact = _memory("fact", "Favorite color is blue", 1.0)
-    fact.embedding_json = None
+    fact.embedding = None
     chess = _memory("fact", "Plays chess on weekends", 1.0)
-    chess.embedding_json = None
+    chess.embedding = None
 
     off_topic = select_memories_semantic(
         scored([profile, fact, chess], [1.0, 0.0, 0.0]),
@@ -443,15 +444,15 @@ def test_semantic_tech_query_omits_offtopic_location_and_job():
         memory_min_confidence=0.0, memory_inject_limit=8, memory_min_similarity=0.35
     )
     name = _memory("profile", "User's name is Bini", 1.0)
-    name.embedding_json = "[0.0, 1.0, 0.0]"
+    name.embedding = [0.0, 1.0, 0.0]
     job = _memory("profile", "Works as a nurse at a clinic", 1.0)
-    job.embedding_json = "[0.0, 1.0, 0.0]"
+    job.embedding = [0.0, 1.0, 0.0]
     city = _memory("profile", "Lives in Addis Ababa", 1.0)
-    city.embedding_json = "[0.0, 0.0, 1.0]"
+    city.embedding = [0.0, 0.0, 1.0]
     chess = _memory("fact", "Plays chess", 1.0)
-    chess.embedding_json = None
+    chess.embedding = None
     concise = _memory("preference", "Prefers concise answers", 1.0)
-    concise.embedding_json = "[0.0, 1.0, 0.0]"
+    concise.embedding = [0.0, 1.0, 0.0]
 
     selected = select_memories_semantic(
         scored([name, job, city, chess, concise], [1.0, 0.0, 0.0]),
@@ -467,9 +468,9 @@ def test_select_memories_semantic_ranks_by_similarity():
         memory_min_confidence=0.0, memory_inject_limit=2, memory_min_similarity=0.15
     )
     python = _memory("fact", "Python programming", 1.0)
-    python.embedding_json = "[1.0, 0.0, 0.0]"
+    python.embedding = [1.0, 0.0, 0.0]
     cooking = _memory("fact", "Cooking recipes", 1.0)
-    cooking.embedding_json = "[0.0, 1.0, 0.0]"
+    cooking.embedding = [0.0, 1.0, 0.0]
     selected = select_memories_semantic(scored([python, cooking], [0.95, 0.05, 0.0]), settings)
     assert selected[0].text == "Python programming"
 
@@ -481,9 +482,9 @@ def test_select_memories_semantic_keeps_profile_drops_off_topic_fact():
     )
     profile = _memory("profile", "Name is Sam", 1.0)
     health = _memory("fact", "Has a peanut allergy and sees Dr. Chen weekly", 1.0)
-    health.embedding_json = "[0.0, 1.0, 0.0]"  # orthogonal to cooking query
+    health.embedding = [0.0, 1.0, 0.0]  # orthogonal to cooking query
     cooking = _memory("fact", "Loves Italian cooking and pasta", 1.0)
-    cooking.embedding_json = "[1.0, 0.0, 0.0]"
+    cooking.embedding = [1.0, 0.0, 0.0]
     selected = select_memories_semantic(
         scored([profile, health, cooking], [1.0, 0.0, 0.0]),
         settings,
@@ -505,9 +506,9 @@ def test_select_memories_semantic_injects_diet_fact_on_milk_query():
         "Bini has started learning Spanish. Bini consumes oat milk",
         1.0,
     )
-    oat.embedding_json = "[0.0, 1.0, 0.0]"  # orthogonal to a milk query vector
+    oat.embedding = [0.0, 1.0, 0.0]  # orthogonal to a milk query vector
     salary = _memory("fact", "Salary is $200k", 1.0)
-    salary.embedding_json = "[0.0, 1.0, 0.0]"
+    salary.embedding = [0.0, 1.0, 0.0]
     selected = select_memories_semantic(
         scored([profile, oat, salary], [1.0, 0.0, 0.0]),
         settings,
@@ -578,7 +579,7 @@ async def test_load_relevant_memories_ranks_in_process_from_list():
     settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.4)
 
     db_hit = _memory("fact", "Hikes every weekend", 0.9)
-    db_hit.embedding_json = "[0.1, 0.2, 0.3]"
+    db_hit.embedding = [0.1, 0.2, 0.3]
 
     with (
         patch("app.modules.memory.repository.list_scored_for_user", scored_reader([db_hit])),
@@ -610,10 +611,8 @@ async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
 
     unembedded_profile = _memory("profile", "Name is Sam", 0.9)
     unembedded_profile.embedding = None
-    unembedded_profile.embedding_json = None
     unembedded_fact = _memory("fact", "Hikes every weekend", 0.9)
     unembedded_fact.embedding = None
-    unembedded_fact.embedding_json = None
 
     with (
         patch(
@@ -644,7 +643,7 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
     )
 
     fact = _memory("fact", "Hikes every weekend", 0.9)
-    fact.embedding_json = "[1.0, 0.0, 0.0]"
+    fact.embedding = [1.0, 0.0, 0.0]
 
     with (
         patch("app.modules.memory.repository.list_scored_for_user", scored_reader([fact])),
@@ -656,7 +655,7 @@ async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
-    """Ranks from embedding_json on the list_for_user rows — one round-trip."""
+    """Ranks from the stored vectors on the list_for_user rows — one round-trip."""
     from app.modules.memory.retrieval import load_relevant_memories
 
     user = AsyncMock()
@@ -668,8 +667,7 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
     )
 
     in_memory_hit = _memory("fact", "Python programming", 1.0)
-    in_memory_hit.embedding = None
-    in_memory_hit.embedding_json = "[1.0, 0.0, 0.0]"
+    in_memory_hit.embedding = [1.0, 0.0, 0.0]
 
     with (
         patch(
@@ -699,7 +697,7 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
 
     profile = _memory("profile", "Name is Sam", 0.9)
     fact = _memory("fact", "Off-topic allergy detail", 0.9)
-    fact.embedding_json = "[1.0, 0.0, 0.0]"
+    fact.embedding = [1.0, 0.0, 0.0]
     read = AsyncMock(side_effect=scored_reader([profile, fact]))
     with (
         patch("app.modules.memory.repository.list_scored_for_user", read),
@@ -1219,10 +1217,10 @@ async def test_delete_all_memories_releases_lock():
     release_lock.assert_awaited_once()
 
 
-def _fact(type_: str, text: str, *, topic: str | None = None, vec: str | None = None):
+def _fact(type_: str, text: str, *, topic: str | None = None, vec: list[float] | None = None):
     memory = _memory(type_, text, 1.0)
     memory.topic = topic
-    memory.embedding_json = vec
+    memory.embedding = vec
     return memory
 
 
@@ -1385,3 +1383,25 @@ def test_fact_lines_say_when_and_how_sure():
 
     assert "- Works at Stripe (said 2026-05)" in block
     assert "- Might be moving to Lisbon (said 2026-09, unconfirmed)" in block
+
+
+# CX-3 (2026-11-22): every pair of active facts was tokenized again, 41 ms at 150 facts on
+# each memory list, on the event loop.
+@pytest.mark.wall_clock
+def test_150_facts_are_compared_once_each() -> None:
+    import time
+
+    facts = many_facts(150)
+    started = time.perf_counter()
+    needed = facts_need_consolidation(facts)
+    seconds = time.perf_counter() - started
+    assert needed is False
+    assert seconds < 0.12, f"{seconds:.3f}s on 150 facts"
+
+
+def test_near_duplicates_are_only_of_one_type() -> None:
+    a = _memory("fact", "Bini likes green tea in the morning", 1.0)
+    b = _memory("preference", "Bini likes green tea in the morning now", 1.0)
+    c = _memory("fact", "Bini likes green tea in the morning now", 1.0)
+    assert facts_need_consolidation([a, b]) is False
+    assert facts_need_consolidation([a, b, c]) is True

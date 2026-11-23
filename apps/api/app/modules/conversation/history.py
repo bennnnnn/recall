@@ -107,6 +107,13 @@ async def messages_before(
     )
 
 
+async def count_before(session: AsyncSession, chat_id: UUID, message: Message) -> int:
+    """How many messages come before ``message``: its offset in the chat."""
+    return await _messages.count_before(
+        session, chat_id, before_created_at=message.created_at, before_id=message.id
+    )
+
+
 async def chats_for_export(session: AsyncSession, user_id: UUID, *, limit: int) -> list[Chat]:
     """The user's chats, archived ones too, each with its summary (the data export)."""
     return await _chats.list_for_user(

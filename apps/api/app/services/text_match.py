@@ -10,6 +10,8 @@ reach a string scanner. See docs/SUBJECT_SEPARATION_TICKETS.md (S4).
 
 from __future__ import annotations
 
+import re
+
 
 def word_index(lower: str, phrase: str) -> int:
     """First index of ``phrase`` not glued inside a longer letter-run."""
@@ -66,3 +68,23 @@ def after_spaces(text: str, index: int) -> int:
     while index < length and text[index].isspace():
         index += 1
     return index
+
+
+class NextMatch:
+    """A pattern's first match in one text from a position on, for a reader that asks it of
+    positions that only move forward: one search, kept until a position passes the match it
+    found. Each ask is ``pattern.search(text, at)``; asked in order, together they read the
+    text once, where a fresh search from each position read to its end every time."""
+
+    def __init__(self, pattern: re.Pattern[str], text: str) -> None:
+        self._pattern = pattern
+        self._text = text
+        self._searched = -1
+        self._found: re.Match[str] | None = None
+
+    def from_(self, at: int) -> re.Match[str] | None:
+        found = self._found
+        if not (0 <= self._searched <= at and (found is None or found.start() >= at)):
+            found = self._found = self._pattern.search(self._text, at)
+            self._searched = at
+        return found

@@ -64,6 +64,66 @@ def test_no_mark_without_a_stable_message_before_the_turns(messages: list[dict[s
     assert with_cache_breakpoint(messages, model_catalog.get("free-chat")) is messages
 
 
+_HISTORY = [
+    {"role": "system", "content": "Stable instructions"},
+    {"role": "system", "content": "This kind of turn's rules"},
+    {"role": "user", "content": "first question"},
+    {"role": "assistant", "content": "first answer"},
+    {"role": "user", "content": "second question"},
+    {"role": "assistant", "content": "second answer"},
+    {"role": "system", "content": "Current local time: 9:00 AM"},
+    {"role": "user", "content": "third question"},
+]
+
+
+def test_the_history_mark_goes_on_the_last_reply_before_the_turns_line() -> None:
+    """The next turn repeats every message up to that reply until the chat's next fold."""
+    marked = with_cache_breakpoint(_HISTORY, model_catalog.get("free-chat"), history=True)
+    assert marked[0]["content"][0]["cache_control"] == EPHEMERAL
+    assert marked[5] == {
+        "role": "assistant",
+        "content": [{"type": "text", "text": "second answer", "cache_control": EPHEMERAL}],
+    }
+    unmarked = [i for i in range(len(marked)) if i not in (0, 5)]
+    assert [marked[i] for i in unmarked] == [_HISTORY[i] for i in unmarked]
+
+
+def test_a_tool_rounds_second_call_keeps_the_history_mark() -> None:
+    """The second call of a turn that searched ends with the round, not the turn's line;
+    the mark stays on the reply the first call marked, so that call's cache is read."""
+    second_call: list[dict[str, Any]] = [
+        *_HISTORY,
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1"}]},
+        {"role": "tool", "tool_call_id": "1", "content": "results"},
+        {"role": "system", "content": "Answer from the results."},
+    ]
+    marked = with_cache_breakpoint(second_call, model_catalog.get("free-chat"), history=True)
+    assert marked[5]["content"][0]["cache_control"] == EPHEMERAL
+    assert marked[8:] == second_call[8:]
+
+
+def test_the_history_mark_is_off_unless_asked() -> None:
+    marked = with_cache_breakpoint(_HISTORY, model_catalog.get("free-chat"))
+    assert marked[1:] == _HISTORY[1:]
+    assert Settings().prompt_cache_history_breakpoint_enabled is False
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        # A first turn: no reply yet.
+        _PROMPT,
+        # A prompt that does not end with the turn's line.
+        _HISTORY[:-1],
+    ],
+)
+def test_no_history_mark_without_a_reply_before_the_turns_line(
+    messages: list[dict[str, Any]],
+) -> None:
+    marked = with_cache_breakpoint(messages, model_catalog.get("free-chat"), history=True)
+    assert all(not isinstance(m["content"], list) for m in marked[1:])
+
+
 def test_litellm_forwards_the_mark_to_openrouter_for_claude() -> None:
     route = model_catalog.get("free-chat")
     body = OpenrouterConfig().transform_request(
@@ -273,3 +333,18 @@ def test_the_turn_cost_line_shows_the_cache(caplog: pytest.LogCaptureFixture) ->
     assert "input_tokens=5000 output_tokens=40" in caplog.text
     assert "cached_input_tokens=4096 cache_write_tokens=12" in caplog.text
     assert "est_cost_usd=0.000520" in caplog.text
+
+
+def test_a_tool_call_message_with_no_content_is_counted_as_empty() -> None:
+    """A tool call's assistant message carries content None; the turn's charge must not crash
+    on it, or the turn is never saved (test_turn_whole_trips on PR #2548)."""
+    from app.modules.chat.turn_settle import _turn_charge
+
+    messages = [
+        {"role": "user", "content": "where is the Eiffel Tower?"},
+        {"role": "assistant", "content": None, "tool_calls": [{"id": "1"}]},
+        {"role": "tool", "content": "Paris"},
+    ]
+    ctx = SimpleNamespace(user_id=uuid4(), model="free-chat", prompt_messages=messages)
+    charge = _turn_charge(ctx, "In Paris.", {"input": 100, "output": 5})  # type: ignore[arg-type]
+    assert charge.input_tokens == 100 and charge.est_prompt_tokens > 0

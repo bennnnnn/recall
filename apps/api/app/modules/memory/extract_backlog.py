@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -111,6 +111,67 @@ def source_lines(rows: Iterable[tuple[UUID | None, str]]) -> tuple[SourceLine, .
     )
 
 
+def answering_lines(rows: Iterable[tuple[UUID | None, str, str]]) -> list[SourceLine]:
+    """The user lines of ``(message id, role, text)`` rows, oldest first, each with the
+    assistant message just before it: "34" answers the "How old are you?" before it."""
+    lines: list[SourceLine] = []
+    asked = ""
+    for message_id, role, content in rows:
+        if role == "assistant":
+            asked = content
+        elif role == "user":
+            lines.extend(
+                replace(line, asked=asked) for line in source_lines([(message_id, content)])
+            )
+            asked = ""
+    return lines
+
+
+def _sources(
+    rows: Sequence[Message], window: Sequence[Message], context: Sequence[tuple[str, str]] = ()
+) -> tuple[SourceLine, ...]:
+    """The user rows' lines, each with the reply just before it: the last message of
+    ``context`` (the chat before them) for the first, the reply between it and the row
+    before, found in ``window`` (the messages before the last row), for the rest. A pass
+    that lagged reads "34" with the "How old are you?" it answers, and a row that gives no
+    line ("6pm") still ends the question before it."""
+    said = [(row, "user") for row in rows]
+    replies = [reply for reply in _after_first(rows, window) if reply.role == "assistant"]
+    if replies:
+        said = sorted(
+            said + [(reply, "assistant") for reply in replies],
+            key=lambda pair: (pair[0].created_at, pair[0].id),
+        )
+    return lines_after(context, [(message.id, role, message.content) for message, role in said])
+
+
+def _after_first(rows: Sequence[Message], window: Sequence[Message]) -> list[Message]:
+    """The messages of ``window`` after the first row: those between the rows."""
+    if len(rows) < 2:
+        return []
+    first = (rows[0].created_at, rows[0].id)
+    return [message for message in window if (message.created_at, message.id) > first]
+
+
+def _before_first(rows: Sequence[Message], window: Sequence[Message]) -> list[Message]:
+    """The messages of ``window`` before the first row: the chat the rows go on from."""
+    if len(rows) < 2:
+        return list(window)
+    first = (rows[0].created_at, rows[0].id)
+    return [message for message in window if (message.created_at, message.id) < first]
+
+
+def lines_after(
+    context: Sequence[tuple[str, str]], said: Sequence[tuple[UUID | None, str, str]]
+) -> tuple[SourceLine, ...]:
+    """The user lines of ``said`` (oldest first), the first with the last message of
+    ``context`` when it is the assistant's: the question it answers."""
+    before: list[tuple[UUID | None, str, str]] = []
+    if context and context[-1][0] == "assistant":
+        before.append((None, "assistant", context[-1][1]))
+    return tuple(answering_lines([*before, *said]))
+
+
 def format_context(messages: Sequence[tuple[str, str]]) -> str:
     """The chat before the unread lines for the prompt: ``User:`` / ``Assistant:`` lines,
     each cut (a reply's question is usually at its end, so head and tail are kept)."""
@@ -148,12 +209,14 @@ async def history_chat_transcript(
     rows = await chat_history.user_lines_since(
         session, chat_id, newer_than=newer_than, limit=_MEMORY_EXTRACT_BACKLOG
     )
+    # The replies between the rows: what a short line answers.
+    window = await _messages_before(session, chat_id, rows, context=0) if len(rows) > 1 else []
     return PassLines(
         transcript=cap_text_head_tail(
             format_user_memory_transcript([row.content for row in rows]),
             _MEMORY_TRANSCRIPT_MAX_CHARS,
         ),
-        sources=source_lines((row.id, row.content) for row in rows),
+        sources=_sources(rows, window),
     )
 
 
@@ -185,31 +248,36 @@ async def expand_memory_extract_transcript(
     if not rows:
         return _fallback_lines(fallback_transcript)
     last = rows[-1]
+    # One read: the chat before the unread lines and the replies between them.
+    window = await _messages_before(session, chat_id, rows, context=_CONTEXT_MESSAGES)
+    context = tuple(
+        (message.role, message.content)
+        for message in _before_first(rows, window)[-_CONTEXT_MESSAGES:]
+    )
     return PassLines(
-        context=await _chat_before(session, chat_id, rows[0]),
+        context=context,
         transcript=cap_text_head_tail(
             format_user_memory_transcript([row.content for row in rows]),
             _MEMORY_TRANSCRIPT_MAX_CHARS,
         ),
-        sources=source_lines((row.id, row.content) for row in rows),
+        sources=_sources(rows, window, context),
         cursor=format_extract_cursor(last.created_at, last.id),
     )
 
 
-async def _chat_before(
-    session: AsyncSession, chat_id: UUID, first_unread: Message
-) -> tuple[tuple[str, str], ...]:
-    """The messages just before the unread lines. Earlier passes read them; they say what
-    "forget that" or a one-word answer points at, and whether the lines go on with a story.
-    """
+async def _messages_before(
+    session: AsyncSession, chat_id: UUID, rows: Sequence[Message], *, context: int
+) -> list[Message]:
+    """The messages before the last unread row, oldest first: up to ``context`` before the
+    first (earlier passes read them; they say what "forget that" or a one-word answer
+    points at, and whether the lines go on with a story), and those between the rows."""
     try:
-        earlier = await chat_history.messages_before(
-            session, chat_id, first_unread, limit=_CONTEXT_MESSAGES
+        return await chat_history.messages_before(
+            session, chat_id, rows[-1], limit=context + 2 * (len(rows) - 1)
         )
     except Exception:
         logger.debug("memory extract context read failed chat_id=%s", chat_id, exc_info=True)
-        return ()
-    return tuple((message.role, message.content) for message in earlier)
+        return []
 
 
 def _fallback_lines(transcript: str) -> PassLines:

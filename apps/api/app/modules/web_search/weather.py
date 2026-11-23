@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 
 from app.modules.turn_reading.turn import is_homework
+from app.services.text_match import NextMatch
 
 # Weather is always live; "under the weather" or a poem about it is no forecast.
 _WEATHER = re.compile(
@@ -29,18 +30,15 @@ _WEATHER = re.compile(
     r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out|here))\b",
     re.IGNORECASE,
 )
-WEATHER_NOT_A_FORECAST = re.compile(
+# A figure of speech, a writing task, or weather somewhere no forecast reaches. The checks
+# that read on to a line's or a sentence's end are ``_names_the_word`` and
+# ``_science_temperature``: as alternatives here, each "weather" or "temperature" of a long
+# message read on to its end, 320 ms on one 32k line (CX-2).
+_NOT_A_FORECAST = re.compile(
     r"\b(?:under\s+the\s+weather|weather\s+(?:the|this|that|a)\s+\w+"
     r"|fair[- ]weather|weather(?:ing)?\s+(?:out|through)"
     r"|(?:poem|story|song|essay|haiku|joke|sentence|paragraph)s?\s+(?:about|on)\s+(?:the\s+)?weather"
-    r"|(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b.*\bweather"
-    r"|weather\b.*\b(?:mean(?:s|ing)?|definition|synonyms?)"
     r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs)"
-    # A temperature science asks about: a scale, or a thing's own ("of boiling water").
-    r"|temperature(?![^.?!]*\b(?:today|tonight|tomorrow|now|this\s+(?:week|weekend))\b)"
-    r"\s+(?:in\s+(?:kelvin|celsius|fahrenheit|centigrade)|at\s+which"
-    r"|of\s+(?:a\s+|an\s+|the\s+)?(?:boiling|melting|freezing|ice|water|steam|sun|human\s+body"
-    r"|body|object|substance|liquid|gas|flame|metal|core|surface\s+of))"
     # Weather on/in/of a planet is science ("in mars" found Marseille); "Mars, PA" searches.
     r"|(?:weather|forecast|temperature|climate)(?:\s+[\w'\u2019]+){0,3}?\s+(?:(?:on|in|of|at)"
     r"\s+(?:the\s+)?(?:planet\s+)?(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto"
@@ -49,6 +47,60 @@ WEATHER_NOT_A_FORECAST = re.compile(
     re.IGNORECASE,
 )
 
+# "What does weather mean", "the meaning of weather", "spell weather": the word, on one line.
+_DEFINITION = re.compile(r"\b(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b", re.I)
+_WEATHER_WORD = re.compile(r"\bweather", re.IGNORECASE)
+_WEATHER_THEN = re.compile(r"\bweather\b", re.IGNORECASE)
+_MEANING = re.compile(r"\b(?:mean(?:s|ing)?|definition|synonyms?)", re.IGNORECASE)
+# A temperature science asks about: a scale, or a thing's own ("of boiling water"), unless
+# its sentence asks about a day ("the temperature of the water at the beach today").
+_SCIENCE_TEMPERATURE = re.compile(
+    r"\btemperature(?=\s+(?:in\s+(?:kelvin|celsius|fahrenheit|centigrade)|at\s+which"
+    r"|of\s+(?:a\s+|an\s+|the\s+)?(?:boiling|melting|freezing|ice|water|steam|sun|human\s+body"
+    r"|body|object|substance|liquid|gas|flame|metal|core|surface\s+of)))",
+    re.IGNORECASE,
+)
+_A_DAY = re.compile(r"\b(?:today|tonight|tomorrow|now|this\s+(?:week|weekend))\b", re.I)
+_SENTENCE_END = re.compile(r"[.?!]")
+
+
+def not_a_forecast(text: str) -> bool:
+    """Weather words that ask for no forecast: a figure of speech, a writing task, the word
+    itself, a temperature science asks about, or weather on another planet."""
+    return (
+        _NOT_A_FORECAST.search(text) is not None
+        or _names_the_word(text)
+        or _science_temperature(text)
+    )
+
+
+def _names_the_word(text: str) -> bool:
+    """A definition word and then "weather" on one line, or "weather" and then one. The
+    first of each on a line leaves the most after it, so it alone is read."""
+    for line in text.split("\n"):
+        definition = _DEFINITION.search(line)
+        if definition is not None and _WEATHER_WORD.search(line, definition.end()):
+            return True
+        weather = _WEATHER_THEN.search(line)
+        if weather is not None and _MEANING.search(line, weather.end()):
+            return True
+    return False
+
+
+def _science_temperature(text: str) -> bool:
+    """A science temperature with no day named before its sentence ends. Each next day and
+    sentence end is found once, for every temperature before it."""
+    days = NextMatch(_A_DAY, text)
+    ends = NextMatch(_SENTENCE_END, text)
+    for temperature in _SCIENCE_TEMPERATURE.finditer(text):
+        day = days.from_(temperature.end())
+        if day is None:
+            return True
+        end = ends.from_(temperature.end())
+        if end is not None and day.start() >= end.start():
+            return True
+    return False
+
 
 def is_weather_request(text: str) -> bool:
     """A real forecast or conditions question, not a figure of speech or a writing task.
@@ -56,7 +108,7 @@ def is_weather_request(text: str) -> bool:
     "It's forecast to be 24°C. What is that in Fahrenheit?" converts a stated
     temperature; it asks for no forecast.
     """
-    if _WEATHER.search(text) is None or WEATHER_NOT_A_FORECAST.search(text) is not None:
+    if _WEATHER.search(text) is None or not_a_forecast(text):
         return False
     if is_worked_problem(text) and not around_the_user(text):
         return False

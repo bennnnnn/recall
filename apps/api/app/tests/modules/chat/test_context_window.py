@@ -2,13 +2,15 @@
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.chat.context_window import (
+    FoldRule,
     cap_summary,
-    compute_history_split,
     estimate_tokens,
+    fits_whole,
     messages_within_token_budget,
     select_recent_window,
-    should_run_compression,
+    total_tokens,
     trim_message_for_summary,
     unsummarized_gap_bounds,
 )
@@ -68,49 +70,75 @@ def test_select_keeps_min_even_when_over_budget():
     assert select_recent_window(msgs, budget=50, max_count=40, min_count=2) == 2
 
 
-def test_compute_history_split():
-    msgs = [_M("a" * 400) for _ in range(40)]
-    split = compute_history_split(60, msgs, budget=6000, max_count=40)
-    # All 40 recent messages fit the budget, so the 20 older ones are summarized.
-    assert split.summarized_count == 20
+_RULE = FoldRule(trigger_tokens=1000, trigger_count=10, target_tokens=400, target_count=4)
 
 
-def test_should_run_compression_batch():
-    split = compute_history_split(60, [_M("x")] * 40, budget=6000, max_count=40)
-    # summarized_count = 20; pending = 20 - 0 = 20 >= batch(10) → run
-    assert should_run_compression(split, already_summarized=0, batch=10) is True
-    # pending = 20 - 18 = 2 < urgent_min_pending(3) → wait (small gap amortizes)
-    assert should_run_compression(split, already_summarized=18, batch=10) is False
+def test_fits_whole_holds_every_message_to_the_budget_and_the_count():
+    rows = [_M("a" * 400) for _ in range(4)]  # 111 tokens each
+    assert fits_whole(rows, budget=444, max_count=4)
+    assert not fits_whole(rows, budget=443, max_count=4)
+    assert not fits_whole(rows, budget=10_000, max_count=3)
+    assert not fits_whole([], budget=10_000, max_count=3)
+    assert total_tokens(rows) == 444
 
 
-def test_should_run_compression_urgent_without_token_pressure():
-    """H5: a gap >= urgent_min_pending must compress even without token
-    pressure — otherwise the middle-history hole drops messages that are
-    neither in the summary nor in the recent window."""
-    msgs = [_M("x")] * 40
-    split = compute_history_split(60, msgs, budget=6000, max_count=40)
-    # No token pressure: the whole recent window is kept.
-    assert split.summarized_count == 20
-    assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
+def test_fold_rule_folds_nothing_under_the_trigger():
+    """Between folds the history's first message stays put: that is the cache's prefix."""
+    assert _RULE.to_fold([_M("x")] * 10) == 0
+    assert _RULE.to_fold([_M("a" * 400)] * 9) == 0  # 999 tokens
 
 
-def test_should_run_compression_urgent_under_token_pressure():
-    msgs = [_M("a" * 400) for _ in range(40)]
-    split = compute_history_split(60, msgs, budget=250, max_count=40)
-    # Token pressure: the budget trims the window to its 2-message minimum.
-    assert split.summarized_count == 58
-    assert should_run_compression(split, already_summarized=0, batch=10, urgent_min_pending=3)
+def test_fold_rule_folds_back_to_the_target_past_the_message_trigger():
+    # 11 short rows pass the count: the newest 4 (the target count) stay.
+    assert _RULE.to_fold([_M("x")] * 11) == 7
 
 
-def test_should_run_compression_small_gap_waits():
-    """A 1-2 message gap is too small to justify an LLM summarization call;
-    wait for it to grow to urgent_min_pending."""
-    split = compute_history_split(60, [_M("x")] * 40, budget=6000, max_count=40)
-    # summarized_count = 60 - 40 = 20; already = 18 → pending = 2
-    assert (
-        should_run_compression(split, already_summarized=18, batch=10, urgent_min_pending=3)
-        is False
-    )
+def test_fold_rule_folds_back_to_the_target_past_the_token_trigger():
+    # 10 rows of 111 tokens pass 1000 tokens: 3 of them fit the 400-token target.
+    assert _RULE.to_fold([_M("a" * 400)] * 10) == 7
+
+
+def test_fold_rule_folds_every_unseen_older_message():
+    """A backlog the job did not load is folded whatever its size."""
+    assert _RULE.to_fold([_M("x")] * 4, unseen=20) == 20
+
+
+def test_fold_rule_keeps_the_last_exchange_even_when_it_alone_is_over():
+    huge = [_M("a" * 4000), _M("a" * 4000), _M("a" * 4000)]
+    assert _RULE.to_fold(huge) == 1
+
+
+class _Line(_M):
+    def __init__(self, role: str, content: str):
+        super().__init__(content)
+        self.role = role
+
+
+@pytest.mark.parametrize(
+    ("rows", "folded"),
+    [
+        # Long replies: the target holds the newest 3 rows, a reply first. Its question goes
+        # with it, so the reply goes too and the kept rows start at a question.
+        ([_Line(r, "a" * 400) for r in ["user", "assistant"] * 5], 8),
+        # The next line was saved before the job ran: 11 rows, the newest 4 a reply first.
+        ([_Line(r, "x") for r in ["user", "assistant"] * 5 + ["user"]], 8),
+        # Already starting at a question: the fold is the target's.
+        ([_Line(r, "x") for r in ["user", "assistant"] * 6], 8),
+    ],
+)
+def test_fold_rule_never_keeps_a_reply_without_its_question(rows, folded):
+    assert _RULE.to_fold(rows) == folded
+    assert rows[folded].role == "user"
+
+
+def test_shipped_fold_rule_leaves_room_for_the_turns_a_fold_takes():
+    """The trigger sits under the prompt's caps, so a chat whose fold is still running is
+    carried whole for a few turns more instead of sliding."""
+    settings = Settings()
+    rule = FoldRule.of(settings)
+    assert rule.target_tokens < rule.trigger_tokens < settings.context_token_budget
+    assert rule.target_count < rule.trigger_count < settings.history_max_messages
+    assert settings.history_max_messages >= settings.recent_message_window
 
 
 def test_unsummarized_gap_bounds_takes_the_hole_before_the_window():

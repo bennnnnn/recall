@@ -1,8 +1,8 @@
 """Read a photographed chemistry problem back as plain text.
 
 This is not the math scanner. It does not call Mathpix and it does not ask
-for equation, system, or inequality kinds. The student confirms the text,
-then the chat solves that text alone.
+for equation, system, or inequality kinds. The turn states the reading as
+the confirmed line and solves that text.
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ async def read_chemistry_problem(
     *,
     content_type: str,
     data: bytes,
-    timeout_seconds: float | None = None,
 ) -> str:
     """The written problem, or empty when the page cannot be read."""
     return await read_problem_text(
@@ -34,5 +33,4 @@ async def read_chemistry_problem(
         content_type=content_type,
         data=data,
         mock_reading=_MOCK_READING,
-        timeout_seconds=timeout_seconds,
     )

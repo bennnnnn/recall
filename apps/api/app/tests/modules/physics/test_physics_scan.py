@@ -1,63 +1,15 @@
-"""A photographed physics problem is read back, confirmed, then verified like typed text."""
+"""A photographed physics problem is read as typed text, then verified like a typed one."""
 
 from __future__ import annotations
 
-import base64
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
-
-import fakeredis.aioredis
 import pytest
-from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_settings_dep
-from app.main import create_app
-from app.models.orm import User
 from app.modules.physics.read import PHYSICS_READ_PROMPT, read_physics_problem, readable_physics
 from app.services.subject_scan import PHYSICS_CAMERA_PROMPT, SCAN_CONFIRMED_PREFIX
 from app.services.subjects.dispatch import build_subject_augmentation, maybe_direct_subject_reply
 
-_IMAGE = base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()
 _SETTINGS = Settings(math_tools_enabled=True)
-
-
-def _fake_redis() -> fakeredis.aioredis.FakeRedis:
-    """A fresh Redis for the scan's per-user slots, open reads and daily count."""
-    return fakeredis.aioredis.FakeRedis(decode_responses=True)
-
-
-def _client(settings: Settings | None = None) -> TestClient:
-    user = MagicMock(spec=User)
-    user.id = uuid4()
-    app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: settings or _SETTINGS
-    return TestClient(app)
-
-
-def _guards(*, allowed: bool = True) -> Any:
-    return (
-        patch("app.services.scan_read.get_redis_client", return_value=_fake_redis()),
-        patch(
-            "app.services.scan_read.quota_service.global_spend_exceeded",
-            AsyncMock(return_value=False),
-        ),
-        patch(
-            "app.services.scan_read.quota_service.record_global_spend",
-            AsyncMock(return_value=0),
-        ),
-        patch("app.services.scan_read.allow_request_unless_down", AsyncMock(return_value=allowed)),
-    )
-
-
-def _post(client: TestClient) -> Any:
-    return client.post(
-        "/physics/scan/read",
-        headers={"Authorization": "Bearer tok"},
-        json={"image_base64": _IMAGE, "content_type": "image/jpeg"},
-    )
 
 
 def test_the_vision_prompt_asks_for_the_problem_as_written() -> None:
@@ -93,70 +45,6 @@ def test_the_vision_prompt_asks_for_the_problem_as_written() -> None:
 )
 def test_ocr_latex_reads_as_typed_text(raw: str, reading: str) -> None:
     assert readable_physics(raw) == reading
-
-
-def test_scan_read_returns_the_problem_as_plain_text() -> None:
-    latex = r"A ball is launched at $20\,\mathrm{m/s}$ at $30^{\circ}$. Find the range."
-    guards = _guards()
-    with (
-        guards[0],
-        guards[1],
-        guards[2] as spend,
-        guards[3] as rate,
-        patch("app.modules.physics.read.read_problem_text", AsyncMock(return_value=latex)) as read,
-    ):
-        response = _post(_client())
-    assert response.status_code == 200
-    assert response.json() == {
-        "reading": "A ball is launched at 20 m/s at 30°. Find the range.",
-        "uncertain": False,
-        "source": "vision",
-    }
-    assert read.await_args is not None
-    assert read.await_args.kwargs["prompt"] == PHYSICS_READ_PROMPT
-    assert read.await_args.kwargs["content_type"] == "image/jpeg"
-    assert rate.await_args is not None
-    # One per-user budget across subjects, not one per subject.
-    assert rate.await_args.args[1].startswith("scan_read_rl:")
-    assert 0 < read.await_args.kwargs["timeout_seconds"] <= Settings().scan_read_deadline_seconds
-    spend.assert_awaited_once()
-
-
-def test_a_failed_read_is_an_empty_uncertain_reading() -> None:
-    guards = _guards()
-    with (
-        guards[0],
-        guards[1],
-        guards[2] as spend,
-        guards[3],
-        patch(
-            "app.modules.physics.api.read_physics_problem",
-            AsyncMock(side_effect=RuntimeError("down")),
-        ),
-    ):
-        response = _post(_client())
-    assert response.status_code == 200
-    assert response.json() == {"reading": "", "uncertain": True, "source": "none"}
-    spend.assert_awaited_once()
-
-
-def test_scan_read_is_rate_limited_per_user() -> None:
-    guards = _guards(allowed=False)
-    with (
-        guards[0],
-        guards[1],
-        guards[2],
-        guards[3],
-        patch("app.modules.physics.api.read_physics_problem", AsyncMock()) as read,
-    ):
-        response = _post(_client())
-    assert response.status_code == 429
-    read.assert_not_awaited()
-
-
-def test_scan_read_is_off_without_physics() -> None:
-    response = _post(_client(Settings(physics_enabled=False)))
-    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

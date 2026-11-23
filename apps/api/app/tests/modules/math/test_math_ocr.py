@@ -334,9 +334,9 @@ async def test_camera_maths_carries_the_reads_certainty_to_the_turn(
 async def test_camera_maths_counts_its_mathpix_call_toward_the_days_spend() -> None:
     """Only the scanner's old read-back counted a Mathpix call; the turn's own were never
     metered (audit SCAN-07)."""
-    from app.services.quota import MATH_SCAN_READ_SPEND_USD
+    from app.services.quota import MATHPIX_READ_SPEND_USD
 
     _, meter = await _camera(_keyed(), 0.95)
-    meter.assert_called_once_with("mathpix", MATH_SCAN_READ_SPEND_USD)
+    meter.assert_called_once_with("mathpix", MATHPIX_READ_SPEND_USD)
     _, unkeyed = await _camera(Settings(mock_llm_enabled=False, openrouter_api_key="k"), 0.95)
     unkeyed.assert_not_called()

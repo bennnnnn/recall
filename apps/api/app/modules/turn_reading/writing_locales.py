@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 
 from app.core.validation import unify_devanagari
+from app.services.text_match import NextMatch
 from app.services.text_normalize import collapse_ws
 
 _POLITE_WORD = (
@@ -104,9 +105,12 @@ _BARE_FILLERS = frozenset({"एक", "को", "के", "लिए"})
 
 
 def _folded(text: str) -> str:
+    return _letters_folded(collapse_ws(text)).lstrip("¿¡")
+
+
+def _letters_folded(text: str) -> str:
     # Turkish İ lowercases to i and a combining dot; the dot breaks "ingilizce".
-    folded = collapse_ws(unify_devanagari(text)).lower().replace("\u0307", "")
-    return folded.lstrip("¿¡")
+    return unify_devanagari(text).lower().replace("\u0307", "")
 
 
 def _draft_match(text: str) -> re.Match[str] | None:
@@ -121,13 +125,93 @@ def _draft_match(text: str) -> re.Match[str] | None:
 def locale_draft_kind(text: str) -> str | None:
     """ "email", "message" or "social" for a draft request in a non-English locale."""
     match = _draft_match(text)
-    if match is None:
-        return None
+    return None if match is None else _kind_of(match, _folded(text), 0)
+
+
+def _kind_of(match: re.Match[str], folded: str, start: int) -> str | None:
+    """The draft ``match`` names, in the folded request that starts at ``start``."""
     if match.group("message") == "texto":
-        start = _folded(text).removeprefix("por favor").lstrip(" ,")
-        if _SPANISH_PORTUGUESE_TEXT.match(start):
+        if folded.startswith("por favor", start):
+            start += len("por favor")
+        while start < len(folded) and folded[start] in " ,":
+            start += 1
+        if _SPANISH_PORTUGUESE_TEXT_AT.match(folded, start):
             return None
     return next(kind for kind in _NOUNS if match.group(kind))
+
+
+def opening_at(pattern: re.Pattern[str]) -> re.Pattern[str]:
+    """``pattern``, which opens on ``^``, to ``match`` a text from a position: there, as at
+    the start of a text cut from it, the ``^`` holds. Nothing else the pattern reads at its
+    start (``\\b``) needs more than the character before, so it agrees with the cut text
+    wherever that one is not a letter."""
+    source = pattern.pattern
+    if not source.startswith(("^", "(?:^")):
+        raise ValueError(f"not opened on ^: {source[:40]!r}")
+    return re.compile(source.replace("^", "", 1), pattern.flags)
+
+
+_SPANISH_PORTUGUESE_TEXT_AT = opening_at(_SPANISH_PORTUGUESE_TEXT)
+_VERB_THEN_NOUN_AT = opening_at(_VERB_THEN_NOUN)
+_NOUN_THEN_VERB_AT = opening_at(_NOUN_THEN_VERB)
+_HINDI_REQUEST_AT = opening_at(_HINDI_REQUEST)
+
+
+class DraftTails:
+    """``locale_draft_kind`` of each tail of one message (``text[start:]``), for a reader
+    that asks it of every sentence's rest: ``writing_kind``'s follow-up scan (CX-1).
+
+    Asked of each tail alone, the patterns that may match anywhere read on to the message's
+    end every time, so a 32k message of short sentences took seconds. Here the message is
+    folded once, and each such pattern's next match is found by one forward search, kept
+    until a tail starts past it. They look only forward from where a match starts, so a
+    match in a tail is one in the message. ``text`` is a ``collapse_ws`` result, and a tail
+    starts after a space or a comma: there, folding the tail alone and folding the message
+    agree (a lowercased Σ reads its neighbours, and neither passes them on). Any other tail
+    is read alone, as ``locale_draft_kind`` reads it.
+    """
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+        self._collapsed = collapse_ws(text) == text
+        self._folded = _letters_folded(text) if self._collapsed else ""
+        # A start in ``text`` and where its folding starts: no letter folds to a length its
+        # neighbours decide, so the next start's adds the folded length of the text between.
+        self._mark = (0, 0)
+        self._noun_then_verb = NextMatch(_NOUN_THEN_VERB, self._folded)
+        self._hindi_request = NextMatch(_HINDI_REQUEST, self._folded)
+
+    def kind(self, start: int) -> str | None:
+        """``locale_draft_kind(text[start:])``."""
+        text = self._text
+        if not (
+            self._collapsed
+            and 0 <= start < len(text)
+            and not text[start].isspace()
+            and (start == 0 or text[start - 1] in " ,")
+        ):
+            return locale_draft_kind(text[start:])
+        folded = self._folded
+        at = self._folded_at(start)
+        while at < len(folded) and folded[at] in "¿¡":
+            at += 1
+        # A pattern's ``search`` of the tail: a match at its start, else the next one after.
+        match = (
+            _VERB_THEN_NOUN_AT.match(folded, at)
+            or _NOUN_THEN_VERB_AT.match(folded, at)
+            or self._noun_then_verb.from_(at + 1)
+            or _HINDI_REQUEST_AT.match(folded, at)
+            or self._hindi_request.from_(at + 1)
+        )
+        return None if match is None else _kind_of(match, folded, at)
+
+    def _folded_at(self, start: int) -> int:
+        marked, folded_at = self._mark
+        if start < marked:
+            marked, folded_at = 0, 0
+        folded_at += len(_letters_folded(self._text[marked:start]))
+        self._mark = (start, folded_at)
+        return folded_at
 
 
 def is_bare_locale_draft(text: str) -> bool:

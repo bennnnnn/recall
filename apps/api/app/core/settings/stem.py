@@ -101,23 +101,6 @@ class StemSettings(BaseModel):
     # (two 3 s translation attempts), so it only stops a call that outlives its
     # own timeout; a finished extraction is used when the translation runs long.
     math_model_intent_budget_seconds: float = 7.0
-    # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
-    # so the student can confirm what the camera read before it is solved.
-    # Per user, per hour, shared by every subject's reader.
-    scan_read_rate_limit_per_hour: int = 60
-    # Reads one user may have open at once, every subject together (each holds
-    # its photo, up to 4 MB, in memory while it is read). Checked before the body
-    # is read; the phone sends one at a time. 0 disables the cap.
-    scan_read_max_in_flight: int = 2
-    # One read answers within this many seconds of arriving, every reader and
-    # fallback included (later steps get what earlier ones left). It stays
-    # below the timeout older app builds wait for a read (this plus 5 s for the
-    # upload), so a slow read ends as "could not read".
-    scan_read_deadline_seconds: float = 20.0
-    # Chat tokens one read takes from the day's allowance (``daily_token_limit``): the
-    # photo, as a chat turn's image is reserved (``image_attachment_reserve_tokens``),
-    # and the reading the vision model writes. The scan's limit is the chat's limit.
-    scan_read_tokens: int = 2_000
     # Dedicated math OCR (Mathpix). Empty keys keep the Gemini vision path.
     # Images always send metadata.improve_mathpix=false — student homework is
     # not opted into Mathpix QA storage.

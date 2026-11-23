@@ -729,8 +729,7 @@ A photographed problem goes through the same pipeline as a typed one.
    stored message (so a follow-up or a regenerate finds the problem, and the chat shows what
    was read under the photo). The turn verifies that reading
    (`_physics_request_text`), and the model writes the reply with the photo, since it may hold
-   a diagram the text does not. `POST /physics/scan/read` (`api.py`) stays for older app
-   builds, which send the checked reading themselves.
+   a diagram the text does not.
 
 A physics caption is physics, never math: math neither OCRs the photo nor claims the
 confirmed reading. A photo with no reading gets the unverified physics note.

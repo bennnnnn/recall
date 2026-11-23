@@ -7,7 +7,8 @@ only to decide whether a draft should load profile context.
 import re
 
 from app.core.readings import kept_per_turn
-from app.modules.turn_reading.writing_locales import locale_draft_kind
+from app.modules.turn_reading.writing_locales import DraftTails, locale_draft_kind, opening_at
+from app.services.text_match import after_spaces
 from app.services.text_normalize import collapse_ws
 
 # The words that name what an email or message is for may stand between the
@@ -190,50 +191,105 @@ def _is_rewrite(cleaned: str, written: str) -> bool:
     return True
 
 
-_WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
-
-_DIRECT_REQUEST_PREFIX = re.compile(r"^" + _DIRECT_REQUEST_INTRO, re.IGNORECASE)
+# "Then", "now": a later sentence that goes on with the request.
+_WRITING_SEQUENCE = re.compile(r"(?:then|now|also|next)[,\s]+", re.IGNORECASE)
 
 _WRITING_HOWTO = re.compile(
     r"^(?:how (?:do|can|should|would) i|how to)\b",
     re.IGNORECASE,
 )
 
+# The checks a sentence after a how-to opens on, read from its start in the message.
+_TRANSLATION_AT = opening_at(_TRANSLATION_WRITING)
+_UNSPACED_TRANSLATION_AT = opening_at(_UNSPACED_TRANSLATION_COMMAND)
+_EDIT_AT = opening_at(_EDIT_WRITING)
+_DIRECT_REQUEST_AT = re.compile(_DIRECT_REQUEST_INTRO, re.IGNORECASE)
+_DRAFT_PATTERNS = (_EMAIL_WRITING, _MESSAGE_WRITING, _SOCIAL_WRITING, _PROSE_WRITING)
+# Where a word starts or ends: each of ``_DRAFT_PATTERNS`` opens on one (``\b``).
+_WORD_EDGE = re.compile(r"\b")
 
-def _normalize_writing_followup(text: str) -> str:
-    return _WRITING_SEQUENCE_PREFIX.sub("", text.strip(), count=1)
+# "Dr.", "etc.", "e.g.": a period that ends no sentence. Its longest form ("prof." and the
+# letter before it) is the last six characters; a run of initials ("u.s.a.") reads two.
+_ABBREVIATION = re.compile(r"(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc)\.|(?:\b[a-z]\.){2,})$")
+_ABBREVIATION_REACH = 8
+
+_QUOTE_CLOSERS = {
+    '"': '"',
+    "'": "'",
+    "“": "”",
+    "\u2018": "\u2019",
+    "「": "」",
+    "『": "』",
+}
 
 
-def _starts_direct_writing_request(text: str) -> bool:
-    candidate = _normalize_writing_followup(text)
+class _Rest:
+    """A message read sentence by sentence after a how-to (CX-1). ``text`` is a
+    ``collapse_ws`` result, and each sentence is read from where it starts in it.
+
+    Asked of every sentence's rest, "does it start a draft?" and "does this quote close
+    later?" each read on to the message's end: a 32k message of short sentences took 3.7 s
+    (``writing_request_kind`` may run on the event loop). Here each is read once for the
+    whole message and kept, and no rest is copied out of it.
+    """
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.drafts = DraftTails(text)
+        self._last_closer: dict[str, int] = {}
+
+    def closes_later(self, index: int, quote: str) -> bool:
+        """Whether a closer of ``quote`` comes after ``index``. Whether a quote closes
+        depends only on its neighbours, so the message's last closer answers for every
+        index."""
+        if quote not in self._last_closer:
+            self._last_closer[quote] = _last_closing_single_quote(self.text, quote)
+        return self._last_closer[quote] > index
+
+
+def _request_start(text: str, start: int) -> int:
+    """Where the request in the sentence at ``start`` opens: after "then", "now", ..."""
+    sequence = _WRITING_SEQUENCE.match(text, start)
+    return sequence.end() if sequence else start
+
+
+def _starts_direct_writing_request(rest: _Rest, start: int) -> bool:
+    text = rest.text
+    at = _request_start(text, start)
     if (
-        _TRANSLATION_WRITING.search(candidate)
-        or _UNSPACED_TRANSLATION_COMMAND.search(candidate)
-        or _EDIT_WRITING.search(candidate)
-        or locale_draft_kind(candidate) is not None
+        _TRANSLATION_AT.match(text, at)
+        or _UNSPACED_TRANSLATION_AT.match(text, at)
+        or _EDIT_AT.match(text, at)
+        or rest.drafts.kind(at) is not None
     ):
         return True
-    prefix = _DIRECT_REQUEST_PREFIX.match(candidate)
-    prefix_end = prefix.end() if prefix else 0
+    intro = _DIRECT_REQUEST_AT.match(text, at)
+    intro_end = intro.end() if intro else at
+    # A draft that opens at or before the request's opening words end: tried only there,
+    # never searched for through the rest of the message.
+    edges = [edge.start() for edge in _WORD_EDGE.finditer(text, at, intro_end + 1)]
     return any(
-        (match := pattern.search(candidate)) is not None and match.start() <= prefix_end
-        for pattern in (_EMAIL_WRITING, _MESSAGE_WRITING, _SOCIAL_WRITING, _PROSE_WRITING)
+        pattern.match(text, edge) is not None
+        for pattern in _DRAFT_PATTERNS
+        for edge in edges
+        if edge <= intro_end
     )
 
 
-def _has_later_closing_single_quote(text: str, index: int, quote: str) -> bool:
-    """Check for a later quote terminator, ignoring contraction apostrophes."""
-    for later in range(index + 1, len(text)):
-        if text[later] != quote:
-            continue
-        if 0 < later < len(text) - 1:
-            if text[later - 1].isalnum() and text[later + 1].isalnum():
-                continue
-        before = text[later - 1] if later > 0 else ""
-        after = text[later + 1] if later + 1 < len(text) else ""
-        if not after or before in ".!?" or after in ".!?;:,":
-            return True
-    return False
+def _last_closing_single_quote(text: str, quote: str) -> int:
+    """Where the last of ``quote`` that closes a single-quoted span is, or -1.
+
+    An apostrophe between two letters (a contraction) never closes one, and a closer is
+    the end of the text or a strong one (``_is_strong_single_quote_closer``)."""
+    later = text.rfind(quote)
+    while later > 0:
+        contraction = (
+            later < len(text) - 1 and text[later - 1].isalnum() and text[later + 1].isalnum()
+        )
+        if not contraction and _is_strong_single_quote_closer(text, later):
+            return later
+        later = text.rfind(quote, 0, later)
+    return -1
 
 
 def _is_strong_single_quote_closer(text: str, index: int) -> bool:
@@ -242,21 +298,28 @@ def _is_strong_single_quote_closer(text: str, index: int) -> bool:
     return not after or before in ".!?" or after in ".!?;:,"
 
 
-def _next_sentence_tail(text: str) -> str | None:
-    """Return text after the next plausible sentence boundary."""
-    quote_closers = {
-        '"': '"',
-        "'": "'",
-        "“": "”",
-        "\u2018": "\u2019",
-        "「": "」",
-        "『": "』",
-    }
+def _ends_no_sentence(text: str, start: int, end: int) -> bool:
+    """The period before ``end`` closes an abbreviation ("Dr.", "e.g."), not the sentence
+    that began at ``start``, unless it is "etc." and the next sentence goes on ("then").
+
+    Only the last characters are read and lowercased: lowercasing a letter never shortens
+    the text, and changes no neighbour the pattern reads (only Σ's form depends on them,
+    and both forms are letters)."""
+    before = text[max(start, end - _ABBREVIATION_REACH) : end].lower()
+    if not _ABBREVIATION.search(before):
+        return False
+    return not (before.endswith("etc.") and _WRITING_SEQUENCE.match(text, after_spaces(text, end)))
+
+
+def _next_sentence_start(rest: _Rest, start: int) -> int | None:
+    """Where the text after the sentence that begins at ``start`` begins, or None."""
+    text = rest.text
     closing_quote: str | None = None
     require_strong_single_quote_closer = False
     delimiter_stack: list[str] = []
     boundary_end: int | None = None
-    for index, char in enumerate(text):
+    for index in range(start, len(text)):
+        char = text[index]
         if closing_quote is not None:
             if char in ".!?" and index + 1 < len(text):
                 quote_end = index + 1
@@ -265,11 +328,11 @@ def _next_sentence_tail(text: str) -> str | None:
                     if not delimiter_stack and (
                         quote_end == len(text) or text[quote_end].isspace()
                     ):
-                        tail = text[quote_end:].strip()
-                        if tail and _starts_direct_writing_request(tail):
+                        tail = after_spaces(text, quote_end)
+                        if tail < len(text) and _starts_direct_writing_request(rest, tail):
                             return tail
             if char == closing_quote:
-                if char in {"'", "\u2019"} and 0 < index < len(text) - 1:
+                if char in {"'", "\u2019"} and start < index < len(text) - 1:
                     if text[index - 1].isalnum() and text[index + 1].isalnum():
                         continue
                     if require_strong_single_quote_closer and not _is_strong_single_quote_closer(
@@ -279,14 +342,14 @@ def _next_sentence_tail(text: str) -> str | None:
                 closing_quote = None
                 require_strong_single_quote_closer = False
             continue
-        if char in quote_closers:
+        if char in _QUOTE_CLOSERS:
             # Apostrophes following a word are contractions or possessives,
             # never the opening delimiter for a new single-quoted span.
-            if char == "'" and index > 0 and text[index - 1].isalnum():
+            if char == "'" and index > start and text[index - 1].isalnum():
                 continue
-            closing_quote = quote_closers[char]
+            closing_quote = _QUOTE_CLOSERS[char]
             require_strong_single_quote_closer = char in {"'", "\u2018"} and (
-                _has_later_closing_single_quote(text, index, closing_quote)
+                rest.closes_later(index, closing_quote)
             )
             continue
         if char in "([{":
@@ -304,40 +367,23 @@ def _next_sentence_tail(text: str) -> str | None:
             next_index += 1
         if next_index < len(text) and not text[next_index].isspace():
             continue
-        if char == ".":
-            prefix = text[:next_index].lower()
-            abbreviation = re.search(
-                r"(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc)\.|(?:\b[a-z]\.){2,})$",
-                prefix,
-            )
-            if abbreviation:
-                is_etc_sequence = prefix.endswith("etc.") and _WRITING_SEQUENCE_PREFIX.match(
-                    text[next_index:].lstrip()
-                )
-                if not is_etc_sequence:
-                    continue
+        if char == "." and _ends_no_sentence(text, start, next_index):
+            continue
         boundary_end = next_index
         break
     if boundary_end is None:
         return None
-    tail = text[boundary_end:].strip()
-    return tail or None
+    tail = after_spaces(text, boundary_end)
+    return tail if tail < len(text) else None
 
 
-def _after_initial_writing_howto(text: str) -> str | None:
-    """Drop a leading how-to sentence, but retain later text."""
-    if not _WRITING_HOWTO.search(text):
-        return text
-    return _next_sentence_tail(text)
-
-
-def _find_direct_writing_followup(text: str) -> str | None:
-    """Find the first sentence after a how-to that starts a writing command."""
-    candidate: str | None = text
-    while candidate:
-        if _starts_direct_writing_request(candidate):
-            return _normalize_writing_followup(candidate)
-        candidate = _next_sentence_tail(candidate)
+def _find_direct_writing_followup(rest: _Rest, start: int) -> str | None:
+    """Find the first sentence from ``start`` on that starts a writing command."""
+    at: int | None = start
+    while at is not None:
+        if _starts_direct_writing_request(rest, at):
+            return rest.text[_request_start(rest.text, at) :]
+        at = _next_sentence_start(rest, at)
     return None
 
 
@@ -356,13 +402,12 @@ def writing_request_kind(text: str) -> str | None:
     # Questions about how to produce or manage a writing artifact are advice,
     # not requests for Recall to draft it. A later sentence can still contain
     # an explicit deliverable request and must keep its output contract.
-    had_initial_howto = bool(_WRITING_HOWTO.search(cleaned))
-    writing_candidate = _after_initial_writing_howto(cleaned)
-    if writing_candidate is None:
-        return None
-    cleaned = writing_candidate
-    if had_initial_howto:
-        direct_followup = _find_direct_writing_followup(cleaned)
+    if _WRITING_HOWTO.search(cleaned):
+        rest = _Rest(cleaned)
+        after_howto = _next_sentence_start(rest, 0)
+        direct_followup = (
+            None if after_howto is None else _find_direct_writing_followup(rest, after_howto)
+        )
         if direct_followup is None:
             return None
         cleaned = direct_followup

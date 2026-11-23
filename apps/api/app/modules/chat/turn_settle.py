@@ -90,16 +90,17 @@ class _TurnCharge:
     # Logged so production can see cache hits; prices and quota ignore them.
     cached_input_tokens: int = 0
     cache_write_tokens: int = 0
+    # The prompt's tokens as ``estimate_tokens`` counts them, logged beside the provider's
+    # count so the estimate the history budget trusts can be checked (``context_cache_eval``).
+    est_prompt_tokens: int = 0
 
 
 def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int]) -> _TurnCharge:
     """The provider's reported usage, or an estimate where it reported none."""
     usage_input = usage.get("input")
-    input_tokens = (
-        usage_input
-        if usage_input is not None
-        else sum(estimate_tokens(m["content"]) for m in ctx.prompt_messages)
-    )
+    # A tool call's message has no content (None): it counts as empty, never as a crash.
+    est_prompt_tokens = sum(estimate_tokens(m.get("content") or "") for m in ctx.prompt_messages)
+    input_tokens = usage_input if usage_input is not None else est_prompt_tokens
     usage_output = usage.get("output")
     output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
     multiplier = model_catalog.quota_multiplier(ctx.model)
@@ -117,6 +118,7 @@ def _turn_charge(ctx: StreamContext, assistant_text: str, usage: dict[str, int])
         ),
         cached_input_tokens=usage.get("cached_input", 0),
         cache_write_tokens=usage.get("cache_write", 0),
+        est_prompt_tokens=est_prompt_tokens,
     )
 
 
@@ -124,13 +126,15 @@ def _log_turn_cost(ctx: StreamContext, charge: _TurnCharge) -> None:
     est_cost = f"{charge.est_cost:.6f}" if charge.est_cost is not None else "unknown"
     logger.info(
         "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
-        "cached_input_tokens=%s cache_write_tokens=%s est_cost_usd=%s quota_multiplier=%s",
+        "cached_input_tokens=%s cache_write_tokens=%s est_prompt_tokens=%s est_cost_usd=%s "
+        "quota_multiplier=%s",
         ctx.user_id,
         ctx.model,
         charge.input_tokens,
         charge.output_tokens,
         charge.cached_input_tokens,
         charge.cache_write_tokens,
+        charge.est_prompt_tokens,
         est_cost,
         charge.multiplier,
     )

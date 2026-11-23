@@ -309,22 +309,32 @@ async def list_before(
         return []
     result = await session.execute(
         select(Message)
-        .where(
-            Message.chat_id == chat_id,
-            or_(
-                Message.created_at < before_created_at,
-                and_(
-                    Message.created_at == before_created_at,
-                    Message.id < before_id,
-                ),
-            ),
-        )
+        .where(Message.chat_id == chat_id, _before(before_created_at, before_id))
         .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(limit)
     )
     rows = list(result.scalars().all())
     rows.reverse()
     return rows
+
+
+async def count_before(
+    session: AsyncSession, chat_id: UUID, *, before_created_at: datetime, before_id: UUID
+) -> int:
+    """How many messages come strictly before a cursor (``list_before``'s order)."""
+    result = await session.execute(
+        select(func.count())
+        .select_from(Message)
+        .where(Message.chat_id == chat_id, _before(before_created_at, before_id))
+    )
+    return result.scalar_one()
+
+
+def _before(created_at: datetime, message_id: UUID) -> ColumnElement[bool]:
+    return or_(
+        Message.created_at < created_at,
+        and_(Message.created_at == created_at, Message.id < message_id),
+    )
 
 
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:

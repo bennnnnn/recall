@@ -705,6 +705,45 @@
       "why": "an equation"
     },
     {
+      "id": "equals-key",
+      "draft": "$3+4=$",
+      "sympy": "3+4",
+      "value": "7"
+    },
+    {
+      "id": "equals-key-spaced",
+      "draft": "$3\\times (2+1) = $",
+      "sympy": "3*(2+1)",
+      "value": "9"
+    },
+    {
+      "id": "equals-key-thin-space",
+      "draft": "$12\\div 4=\\,$",
+      "sympy": "12/4",
+      "value": "3"
+    },
+    {
+      "id": "equals-with-answer",
+      "draft": "$2+2=4$",
+      "sympy": null,
+      "value": null,
+      "why": "an equation: the answer is written"
+    },
+    {
+      "id": "equals-outside-maths",
+      "draft": "$3+4$=",
+      "sympy": null,
+      "value": null,
+      "why": "text outside the maths"
+    },
+    {
+      "id": "equals-key-letter",
+      "draft": "$x+1=$",
+      "sympy": null,
+      "value": null,
+      "why": "a letter"
+    },
+    {
       "id": "inequality",
       "draft": "$x^{2}<9$",
       "sympy": null,

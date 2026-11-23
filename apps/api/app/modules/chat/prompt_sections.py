@@ -84,6 +84,7 @@ from app.modules.chat.prompt_profile import (
 )
 from app.modules.chat.prompt_rules import PromptRule
 from app.modules.chat.prompt_subjects import SUBJECT_HINTS
+from app.modules.chat.turn_prep.intents import asks_a_reminder, asks_a_setting
 from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.capabilities import is_capabilities_question, names_a_setting
 from app.modules.turn_reading.conversation import greeting_run, is_correction, is_social_opener
@@ -156,6 +157,8 @@ class PromptTurn:
     asked_practice: tuple[str, ...] = ()  # what the chat's practice cards already asked
     # How many of the chat's first messages ``summary`` stands for.
     summarized: int = 0
+    # Rendered for ordinary chat (``ordinary_prompt``): the turn's shorter rules message.
+    ordinary: bool = False
 
     @property
     def query(self) -> str:
@@ -226,6 +229,31 @@ def _style_hints(turn: PromptTurn) -> list[str]:
         prior_messages=exchange_pairs(turn.exchange),
         multi=turn.multi,
         resuming=resumes_course(query, turn.memory_block),
+        ordinary=turn.ordinary,
+    )
+
+
+def may_be_ordinary(turn: PromptTurn) -> bool:
+    """The turn may take ordinary chat's rules when its read calls it everyday chat: a
+    question to answer, not small talk (already short), a reminder, a setting, a picture, a
+    subject's follow-up, several requests or a file or photo of its own, and not about the
+    user, their email or what they said before, whose privacy and memory rules it keeps
+    whole."""
+    query = turn.query
+    if not (turn.settings.ordinary_prompt_enabled and query) or turn.lightweight:
+        return False
+    if turn.followup is not None or turn.multi or turn.holds_attachment:
+        return False
+    if turn.recalls_shared_past or turn.minimal_personal_context:
+        return False
+    # A reminder or a setting is its own path's, as the plan reads it (``intents.part_kind``);
+    # a picture, a photo or a problem is the read's to name.
+    if asks_a_reminder(query) or asks_a_setting(query):
+        return False
+    return not (
+        is_profile_fact_question(query)
+        or is_profile_recall_pushback(query)
+        or should_include_profile_email(query)
     )
 
 

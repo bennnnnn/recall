@@ -8,10 +8,16 @@ server's, no IO:
   no line to stand on, and that line's message becomes the fact's source;
 - the fact shares a word with the quote where the two can be compared, so "Lawer" (a
   typo of "lawyer?") never becomes "User is a lawyer";
+- the quote gives the fact's answer, not only its question: "my name" shares "name" with
+  "User's name is Binne" and states no name (``slots.frame_words``);
+- a gender, age, religion or relationship is said by the user about themselves, in a line
+  that speaks in the first person: "With female", picking a voice, is no gender;
 - only what the user stated about their own life is kept, unless they asked to remember it.
 
 The owner's memory held "User is a lawyer", a 97-year-old wife, a job at Uber and a salary
-from one provocative story, and "User is male (7M)" (2026-11-20).
+from one provocative story, and "User is male (7M)" (2026-11-20); then "User's name is
+Binne" from "Why did you write my name in lower case" and "User identifies as female" from
+"With female" (2026-11-21).
 """
 
 from __future__ import annotations
@@ -22,6 +28,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
+from app.modules.memory.name_claim import assigned_user_names
+from app.modules.memory.slots import asked_about_themselves, frame_words, sensitive_slots
+from app.modules.memory.user_name import user_name_given
 from app.services.text_normalize import straighten_apostrophes
 
 # How a fact was said (``schemas.MemoryFactOp.stated_as``): only this one is kept.
@@ -53,6 +62,9 @@ class SourceLine:
 
     text: str
     message_id: UUID | None = None
+    # The assistant's message just before it, when the pass read one: what a short answer
+    # answers ("34" to "How old are you?").
+    asked: str = ""
 
 
 def _fold(text: str) -> str:
@@ -94,10 +106,25 @@ def _comparable(quote_words: list[str], *, english: bool) -> bool:
     return english or len(quote_words) == 1 or any(word in _FILLER for word in quote_words)
 
 
+_DIGITS = re.compile(r"\d+")
+
+
 def _same_word(left: str, right: str) -> bool:
     if left == right:
         return True
+    left_digits, right_digits = _DIGITS.findall(left), _DIGITS.findall(right)
+    if left_digits and right_digits:
+        # A number is the same number however it is written: "10th" and "10".
+        return left_digits == right_digits
     return len(left) >= _STEM and len(right) >= _STEM and left[:_STEM] == right[:_STEM]
+
+
+def _content(words: list[str]) -> list[str]:
+    return [word for word in words if word not in _FILLER and (len(word) > 1 or word.isdigit())]
+
+
+def _claim(fact: str) -> list[str]:
+    return _content(_words(_PARENTHETICAL.sub(" ", fact)))
 
 
 def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
@@ -105,14 +132,78 @@ def quote_holds_fact(quote: str, fact: str, *, english: bool = True) -> bool:
     quote_words = _words(quote)
     if not _comparable(quote_words, english=english):
         return True
-    claim = [
-        word
-        for word in _words(_PARENTHETICAL.sub(" ", fact))
-        if word not in _FILLER and (len(word) > 1 or word.isdigit())
-    ]
+    claim = _claim(fact)
     if not claim:
         return True
     return any(_same_word(word, said) for word in claim for said in quote_words)
+
+
+def quote_gives_answer(
+    quote: str,
+    fact: str,
+    *,
+    slot: str | None = None,
+    english: bool = True,
+    named: str | None = None,
+) -> bool:
+    """False when a comparable quote says nothing past the question's words.
+
+    "my name" states no name for "User's name is Binne"; "I live in NYC" says more than
+    "live", so the model's "User lives in New York City" stands. A fact that names the
+    user is held by the name itself: names are not paraphrased, and "User's name is Bini;
+    User is a 29-year-old woman" from "I'm a 29-year-old woman" names no one.
+    """
+    quote_words = _words(quote)
+    if not _comparable(quote_words, english=english):
+        return True
+    name = user_name_given(fact)
+    if name is not None:
+        # Any one name it gives, said whole: "User's name is Bini; also goes by Bee" from
+        # "call me Bee" keeps the saved name beside the new one, but "User's name is Bini
+        # Smith" from "my brother Smith" names no one the user said (review, #2539).
+        names = [name, *assigned_user_names(fact)]
+        return any(
+            all(any(_same_word(part, said) for said in quote_words) for part in parts)
+            for parts in (_words(candidate) for candidate in names)
+            if parts
+        )
+    frame = frame_words(fact, slot, named=named)
+    # "User is a student": the question's word is the whole answer.
+    if not frame or all(word in frame for word in _claim(fact)):
+        return True
+    said = _content(quote_words) + _initials(quote)
+    return any(not any(_same_word(word, asked) for asked in frame) for word in said)
+
+
+# "the US", "in IT", "L.A.", "D.C.": letters that name something, which the model writes
+# out ("the United States"). Folded, "us" and "it" are filler and "l", "a" too short.
+_INITIALS = re.compile(r"(?<![\w.])(?:(?:[A-Z]\.){2,}|[A-Z]{2,}(?![\w]))")
+
+
+def _initials(quote: str) -> list[str]:
+    """The initialisms in ``quote``, unless it is all capitals (then every word is one)."""
+    if quote.upper() == quote:
+        return []
+    return [found.replace(".", "").casefold() for found in _INITIALS.findall(quote)]
+
+
+# How a line speaks in the first person. English only, as ``_comparable`` reads only then.
+_FIRST_PERSON = frozenset("i im ive id me my mine myself we our ours us".split())
+
+
+def said_of_themselves(line: str, *, english: bool = True) -> bool:
+    """Whether a comparable line speaks about its writer: "I'm a woman", "my husband".
+
+    A line in another language or script is the model's to read: any line of a user whose
+    app is not in English ("Soy musulmán, no como cerdo" holds an English "no" and no
+    English "I", and the questions it may answer are asked in their language), and, in an
+    English app, a line of several words with no English one among them ("Estoy casado",
+    "Ich bin verheiratet"). A lone word ("female") is read either way (review, #2539).
+    """
+    words = _words(line)
+    if not english or not _comparable(words, english=False):
+        return True
+    return any(word in _FIRST_PERSON for word in words)
 
 
 @dataclass(frozen=True)
@@ -131,8 +222,14 @@ def ground_fact(
     lines: Sequence[SourceLine],
     explicit_remember: bool,
     english: bool = True,
+    slot: str | None = None,
+    named: str | None = None,
 ) -> Grounding:
-    """Whether ``fact`` is the user's own word about their life, and on which line."""
+    """Whether ``fact`` is the user's own word about their life, and on which line.
+
+    ``slot`` is the question the fact answers (``slots.answered_slot``), if any; ``named``
+    is the slot the model gave it, kept or not, whose question's words answer nothing.
+    """
     if stated_as != OWN_LIFE and not explicit_remember:
         return Grounding(None, f"said as {stated_as or 'nothing the model named'}")
     line = quoted_line(quote, lines)
@@ -140,7 +237,30 @@ def ground_fact(
         return Grounding(None, "its quote is in none of the user's lines")
     if not quote_holds_fact(quote or "", fact, english=english):
         return Grounding(None, "its quote does not say it")
+    if not quote_gives_answer(quote or "", fact, slot=slot, english=english, named=named):
+        return Grounding(None, "its quote does not give the answer")
+    sensitive = sensitive_slots(fact, slot)
+    # "Remember: married, two kids" is the user's own word about themselves.
+    if (
+        sensitive
+        and not explicit_remember
+        and not said_of_themselves(line.text, english=english)
+        and not answers_their_question(line, sensitive)
+    ):
+        return Grounding(None, "not said by the user about themselves")
     return Grounding(line, "stated")
+
+
+# A line this short answers the question before it ("34", "married", "Muslim").
+_SHORT_ANSWER_WORDS = 4
+
+
+def answers_their_question(line: SourceLine, slots: frozenset[str]) -> bool:
+    """A short line answering the assistant's own question about the user: "34" to "How old
+    are you?". "With female" to "a male or a female voice?" answers no question about them."""
+    return len(line.text.split()) <= _SHORT_ANSWER_WORDS and asked_about_themselves(
+        slots, line.asked
+    )
 
 
 def grounded_source(
@@ -151,6 +271,8 @@ def grounded_source(
     lines: Sequence[SourceLine],
     explicit_remember: bool,
     english: bool = True,
+    slot: str | None = None,
+    named: str | None = None,
 ) -> SourceLine | None:
     """The user line that states ``fact`` about the user, or None to drop the fact."""
     return ground_fact(
@@ -160,6 +282,8 @@ def grounded_source(
         lines=lines,
         explicit_remember=explicit_remember,
         english=english,
+        slot=slot,
+        named=named,
     ).line
 
 

@@ -206,3 +206,47 @@ def test_a_science_temperature_is_no_forecast(text: str, weather: bool) -> None:
     from app.modules.web_search.patterns import is_weather_request
 
     assert is_weather_request(text) is weather
+
+
+@pytest.mark.parametrize(
+    ("text", "forecast"),
+    [
+        # The word itself, on one line: a definition word before it or after it.
+        ("what's the weather today? what does weather mean", False),
+        ("what's the weather today, the meaning of the word weather", False),
+        ("what's the weather today\nmeaning of life", True),
+        ("what's the weather today\nthe definition of a cloud", True),
+        # A science temperature is no forecast unless its sentence names a day.
+        ("what's the weather today and the temperature of water", False),
+        ("what's the weather and the temperature of the water at the beach today", True),
+        ("what's the weather today? The temperature of water. Today it rained", False),
+    ],
+)
+def test_what_reads_on_to_a_line_or_sentence_end(text: str, forecast: bool) -> None:
+    from app.modules.web_search.patterns import is_weather_request
+
+    assert is_weather_request(text) is forecast
+
+
+# CX-2 (2026-11-22): "weather … meaning" and a science temperature with no day were
+# alternatives of one pattern, retried at each "weather" or "temperature" of a long line
+# and read on to its end: 320 ms on one 32k line, asked several times a turn.
+_LONG_WEATHER = {
+    "weather words": "weather ",
+    "definition words": "meaning ",
+    "temperatures": "temperature of water ",
+}
+
+
+@pytest.mark.wall_clock
+@pytest.mark.parametrize("unit", _LONG_WEATHER.values(), ids=_LONG_WEATHER)
+def test_a_32k_weather_line_is_read_in_linear_time(unit: str) -> None:
+    import time
+
+    from app.modules.web_search.patterns import is_weather_request
+
+    text = "what's the weather today " + unit * (32_000 // len(unit)) + "today"
+    started = time.perf_counter()
+    is_weather_request(text)
+    seconds = time.perf_counter() - started
+    assert seconds < 0.15, f"{seconds:.3f}s on 32k characters"

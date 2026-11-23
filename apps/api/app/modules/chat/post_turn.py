@@ -12,7 +12,6 @@ queued for indexing as soon as the user's message commits (``turn_prep/persist.p
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
@@ -23,7 +22,7 @@ from app.core.config import Settings
 from app.core.log_text import log_safe
 from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
-from app.modules.chat.context_window import compute_history_split, should_run_compression
+from app.modules.chat.context_window import FoldRule, estimate_tokens, total_tokens
 from app.modules.chat.titles import title_job_key, title_job_payload
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.memory import (
@@ -73,6 +72,9 @@ class SavedTurn:
     # (``StreamContext.recent_messages``). None when the turn did not read them, or
     # replaced a reply (a regenerate): the rows saved then are not these plus the reply.
     window: Sequence[Any] | None = None
+    # Messages and tokens after the summary's edge as the prompt carried them, this turn's
+    # line included (``StreamContext.history_size``); None when it did not carry them all.
+    history_size: tuple[int, int] | None = None
     # The user's message as its row keeps it (``StreamContext.stored_user_message``):
     # the title's, which reads a photo's marker. None: ``user_message`` is that already.
     title_message: str | None = None
@@ -90,6 +92,7 @@ class SavedTurn:
             run_title=ctx.run_title,
             skip_memory_jobs=ctx.skip_memory_jobs,
             window=None if ctx.regenerate_backup is not None else ctx.recent_messages,
+            history_size=ctx.history_size,
             title_message=ctx.stored_user_message,
         )
 
@@ -212,28 +215,23 @@ async def _compress_job(turn: FinishedTurn) -> list[PostTurnJob]:
 
 
 def _nothing_to_fold(settings: Settings, saved: SavedTurn) -> bool:
-    """The chat as the turn just saved it has no message out of its window to fold.
+    """The chat as the turn just saved it is still under the fold trigger (``FoldRule``).
 
-    The compress job decides from the chat's message count, its newest window and how
-    many it already summarized (``compaction._pending_fold``). The turn holds the first
-    two exactly: the window it read, then its reply. It takes none as summarized, which
-    can only find more to fold, so a chat this finds nothing in is one where the job
-    would read the chat and return. Most chats are shorter than the window: their every
-    turn queued a job that read three statements and its own Redis to do nothing.
+    The compress job decides from the messages after the summary's edge
+    (``compaction._pending_fold``). A turn whose prompt carried all of them knows their
+    size (``history_size``), plus its reply; a turn whose window holds the whole chat
+    knows it too. Any other turn queues the job, which reads the chat. Most turns are
+    under the trigger: each one queued a job that read three statements and its own Redis
+    to do nothing.
     """
-    if saved.window is None:
+    rule = FoldRule.of(settings)
+    reply_tokens = estimate_tokens(saved.assistant_text)
+    if saved.history_size is not None:
+        count, tokens = saved.history_size
+        return not rule.over(count + 1, tokens + reply_tokens)
+    if saved.window is None or saved.prior_count + 1 > len(saved.window):
         return False
-    limit = settings.recent_message_window
-    window = [*saved.window, SimpleNamespace(content=saved.assistant_text)][-limit:]
-    split = compute_history_split(
-        saved.prior_count + 2, window, settings.context_token_budget, limit
-    )
-    return not should_run_compression(
-        split,
-        0,
-        settings.history_summary_batch,
-        urgent_min_pending=settings.history_summary_urgent_pending,
-    )
+    return not rule.over(len(saved.window) + 1, total_tokens(saved.window) + reply_tokens)
 
 
 async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:

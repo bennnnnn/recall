@@ -1,8 +1,10 @@
 """The history a turn's prompt carries: the recent window, the gap, and the last exchange.
 
-Never the whole chat (CLAUDE.md, Golden Rule 3): the recent rows the token budget
-keeps, plus the unsummarized gap before them, cut to the tokens the window left.
-Omitted rows (a regenerated reply) are dropped by id.
+Never the whole chat (CLAUDE.md, Golden Rule 3): every message after the summary's edge
+while they fit the token budget (``load_anchored_history``), so the history starts where
+the last turn's did; past the budget, the recent rows it keeps plus the unsummarized gap
+before them, cut to the tokens the window left. Omitted rows (a regenerated reply) are
+dropped by id.
 """
 
 from __future__ import annotations
@@ -21,9 +23,10 @@ from app.modules.chat.clarify_turn import card_as_line
 from app.modules.chat.context_window import (
     estimate_tokens,
     select_recent_window,
+    total_tokens,
     trim_message_for_summary,
 )
-from app.modules.chat.prompt_context import _load_unsummarized_gap
+from app.modules.chat.prompt_context import _load_unsummarized_gap, load_anchored_history
 from app.modules.chat.shown_pictures import ShownPictures
 from app.services.answer_fence import answer_fence_value
 from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
@@ -45,6 +48,17 @@ class PromptWindow:
     exchange: list[Any]
     # What each picture the replies showed was, read beside the turn (``shown_pictures``).
     pictures: ShownPictures = field(default_factory=dict)
+    # ``recent`` is every message after the summary's edge: the compress job's fold rule
+    # can read the chat's unsummarized size from it (``history_size``).
+    anchored: bool = False
+
+    @property
+    def history_size(self) -> tuple[int, int] | None:
+        """Messages and estimated tokens after the summary's edge, this turn's line
+        included; None when the prompt slid and they were not all read."""
+        if not self.anchored:
+            return None
+        return len(self.recent), total_tokens(self.recent)
 
     @property
     def message_ids(self) -> set[UUID]:
@@ -62,8 +76,34 @@ async def load_prompt_window(
     current_user_message_id: UUID | None,
     prior_count: int | None = None,
 ) -> PromptWindow:
-    """Keep what the token budget allows of the loaded rows, then the gap before them."""
+    """Every message after the summary's edge when they fit; else what the token budget
+    allows of the loaded rows, then the gap before them."""
     recent_limit = settings.recent_message_window
+    anchored = await load_anchored_history(
+        chat_id,
+        chat,
+        recent_all,
+        loaded_limit=recent_limit,
+        budget=settings.context_token_budget,
+        max_count=settings.history_max_messages,
+        current_user_message_id=current_user_message_id,
+        prior_count=prior_count,
+        omit_message_ids=omit_message_ids,
+    )
+    if anchored is not None:
+        return PromptWindow(
+            recent=anchored,
+            gap=[],
+            exchange=_completed_exchange(
+                anchored,
+                recent_all,
+                query_text=query_text,
+                omit_message_ids=omit_message_ids,
+                current_user_message_id=current_user_message_id,
+            ),
+            pictures=await shown_pictures.labels_for_turn(),
+            anchored=True,
+        )
     source = recent_all
     if omit_message_ids:
         source = [m for m in source if m.id not in omit_message_ids]

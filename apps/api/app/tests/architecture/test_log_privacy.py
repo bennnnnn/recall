@@ -32,7 +32,6 @@ _WRAPPERS_THAT_KEEP = frozenset({"log_safe"})
 _PROVIDER_RESPONSES = frozenset({"response", "resp"})
 # (file, name): why the name holds no user text there.
 _ALLOWED = {
-    ("services/scan_read.py", "subject"): "the STEM subject's name: maths, physics, chemistry",
     ("services/subjects/guard.py", "subject"): "the subject's name: maths, physics, chemistry",
     ("services/subjects/order.py", "subject"): "the subject's name: maths, physics, chemistry",
     ("services/subjects/order.py", "name"): "the step of the order that failed",

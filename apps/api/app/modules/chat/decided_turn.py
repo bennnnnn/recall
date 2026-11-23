@@ -59,6 +59,7 @@ from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
 )
+from app.modules.chat.ordinary_prompt import is_ordinary
 from app.modules.chat.prompt_constants.conversation import (
     FOLLOW_NOTES,
     SHOW_IT_CARD_NOTE,
@@ -130,6 +131,8 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # One wait for the read, shared by Auto's lane and a picture's contract.
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _the_read(ctx, settings)
+    # First, before any note or hint is added or taken: the swap needs the rules as built.
+    _take_the_ordinary_prompt(ctx, read)
     _settle_the_photo(ctx, read)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
@@ -163,6 +166,28 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     else:
         _worked_layout(ctx, settings, read)
     _follow_note(ctx, read)
+
+
+def _take_the_ordinary_prompt(ctx: StreamContext, read: TurnDecision | None) -> None:
+    """Ordinary chat's shorter rules when the read calls the message everyday chat
+    (``ordinary_prompt``). Not on a turn a server path worked, a calculation laid out, an
+    instant reply, a photo the model reads, a regenerate or dispute, or a change to the draft
+    before ("In Amharic" after an ```email: its drafting rules stand), which keeps every rule
+    it had; the read late or saying anything else, the full prompt stands."""
+    ordinary = ctx.ordinary_prompt
+    if ordinary is None or read is None or not is_ordinary(read):
+        return
+    if read.follow == "change" and _last_reply_draft(ctx) is not None:
+        return
+    if _worked(ctx) or ctx.worked is not None or ctx.solver_unverified or ctx.instant_reply:
+        return
+    if ctx.regenerate_backup is not None or ctx.thinking == "escalate" or _shows_a_picture(ctx):
+        return
+    compact = ordinary.apply(ctx.prompt_messages)
+    if compact is None:
+        return
+    note_prompt_rule("read.ordinary_prompt")
+    ctx.prompt_messages = compact
 
 
 def _talked_through(ctx: StreamContext) -> None:

@@ -237,6 +237,24 @@ SHORT_RESPONSE_FORMAT_HINT = (
 
 # Compact baseline injected on ALL non-lightweight turns (short, day-plan, quiz).
 # Covers the artifacts that make output ugly regardless of turn type.
+# Said on every turn, ordinary chat's included (``ORDINARY_FORMAT_GUIDE``).
+ANSWER_AS_ASKED_RULE = (
+    "Answer the question as asked: when it has a standard answer (a definition, a "
+    "textbook or exam answer), that answer comes first, at the question's level. Never "
+    "open by disputing it, calling it a trick, or asking where it came from; question a "
+    "premise only when it is false, in one line after the answer."
+)
+PAINFUL_NEWS_RULE = (
+    "When the user shares something painful or frightening (a loss, bad news, panic), the "
+    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
+    "not an intro."
+)
+REPLY_MISSED_RULE = (
+    "When the user says a reply missed without saying why, never blame a glitch or a "
+    "formatting error; give it again another way (simpler, shorter, another method) or "
+    "ask which part missed."
+)
+
 _UNIVERSAL_FORMAT_CORE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
@@ -244,18 +262,11 @@ _UNIVERSAL_FORMAT_CORE = (
     "shape wins. Avoid 3+ consecutive blank lines. "
     "Lead with the answer (a calculation leads with its working); explanation after. No "
     "intro paragraph before the conclusion. "
-    "Answer the question as asked: when it has a standard answer (a definition, a "
-    "textbook or exam answer), that answer comes first, at the question's level. Never "
-    "open by disputing it, calling it a trick, or asking where it came from; question a "
-    "premise only when it is false, in one line after the answer. "
+    f"{ANSWER_AS_ASKED_RULE} "
     "A calculation is worked before its result is stated: its number appears once, after "
     "the working, never as a first line the working then contradicts. "
-    "When the user shares something painful or frightening (a loss, bad news, panic), the "
-    "first line briefly and sincerely acknowledges it, then the help follows; that line is "
-    "not an intro. "
-    "When the user says a reply missed without saying why, never blame a glitch or a "
-    "formatting error; give it again another way (simpler, shorter, another method) or "
-    "ask which part missed. "
+    f"{PAINFUL_NEWS_RULE} "
+    f"{REPLY_MISSED_RULE} "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"). Headings only when they group real sections. '
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
@@ -345,4 +356,44 @@ TONE_FORMAT_GUARD = (
     "is one numbered list, never a schedule table; a quotation ask leads with a "
     "`>` blockquote whose last line is `— Name` of the person quoted, never "
     'italic `"…" - Author` prose.'
+)
+
+
+# Ordinary chat's layout rules: FORMAT_CONTRACT's list, heading, table and ending rules and the
+# baseline's spacing, in one short guide. Said beside every message, READER_NOTE already asks
+# for the answer first with its key part bold, short paragraphs, steps as a numbered list and
+# parallel points as bullets with bold labels; this guide does not say them again.
+ORDINARY_FORMAT_GUIDE = (
+    f"{ANSWER_AS_ASKED_RULE} {PAINFUL_NEWS_RULE} {REPLY_MISSED_RULE}\n"
+    "Layout. An explicit format request wins: one paragraph stays one paragraph, a table or a "
+    "number of items asked for is given.\n"
+    '- Numbers are for steps, rankings, chronology and ideas the user may point back to ("the '
+    'second one"); bullets for parallel unordered items; letters only for answer choices.\n'
+    "- The layout follows what the reply holds, not how the question was worded: three or "
+    "more points are a list. Steps done in order are numbered. Several ways, tips, ideas, "
+    "reasons or picks (dishes, places, books, gifts) are at most one lead sentence, then a "
+    "numbered list of about 5-8 items, each opening with a **bold label of 2-5 words** "
+    "(after an emoji when the Emoji line asks for one), a dash, then one or two short "
+    "sentences. Over 8 items: group them under 2-4 short ### headings.\n"
+    "- When the answer depends on something they did not say (budget, taste, level), state "
+    "the assumption in one short clause and answer in full.\n"
+    "- Sub-items only when an item has parts: one level deep, bullets under bullets and "
+    "numbers under numbers.\n"
+    "- Headings only when they group real sections (the days of a trip, the phases of a "
+    "plan). No decorative headings (Introduction, Overview, Conclusion), no intro paragraph, "
+    "no rhetorical hook, no restating the question.\n"
+    "- A pipe table for a feature, product or spec comparison, a timetable or a lookup grid, "
+    "or when asked (a casual preference such as tea vs coffee is a short paragraph): 2-3 columns, one short phrase per cell, every row starting and ending "
+    "with |, never in a code fence, never code or HTML in a cell. Never a table for tips, "
+    "how-tos or advice.\n"
+    "- `>` is only a cited quotation whose last line is `— Name`, or a true `> Warning:` or "
+    "`> Note:`.\n"
+    "- End on your last point. A closing question only when you need the answer to help; at "
+    'most one offer of a concrete thing you can do now, under 15 words, never "Let me know '
+    'if you have any other questions".\n'
+    "- A space goes outside bold markers (at **40 km/h**, never at**40 km/h**); bold a key "
+    "value or term, never a whole paragraph. No colon alone on a line. Links are named "
+    "([OpenAI docs](url)), not raw URLs.\n"
+    "- Money is plain text ($48, $7.20), never inside `$...$`; maths, if any, is inline "
+    "`$...$`, never a ```latex fence."
 )

@@ -65,7 +65,6 @@ def _memory(sync_session):
         type="fact",
         text="Owns a bicycle. Likes hiking.",
         embedding=[0.1] * 1536,
-        embedding_json="[0.1]",
         embedding_text_hash="old-hash",
     )
     sync_session.add(row)
@@ -87,11 +86,8 @@ async def test_memory_text_change_discards_stale_embeddings(
     with patch("app.gateways.embedding_gateway.embed_text", embed):
         await crud.update_memory(session, Settings(), row.user_id, row.id, "Owns a scooter.")
 
-    sync_session.refresh(
-        row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
-    )
+    sync_session.refresh(row, attribute_names=["text", "embedding", "embedding_text_hash"])
     assert row.embedding is None
-    assert row.embedding_json is None
     assert row.embedding_text_hash is None
     assert "bicycle" not in row.text
     assert "scooter" in row.text
@@ -216,7 +212,6 @@ async def test_late_background_embedding_cannot_replace_manual_edit_vector(
         current = sync_session.get(Memory, memory_id)
         current.text = "Manual replacement."
         current.embedding = None
-        current.embedding_json = None
         current.embedding_text_hash = None
         sync_session.commit()
         return [0.3] * 1536
@@ -229,9 +224,7 @@ async def test_late_background_embedding_cannot_replace_manual_edit_vector(
             session_factory=lambda: session,
         )
 
-    sync_session.refresh(
-        row, attribute_names=["text", "embedding", "embedding_json", "embedding_text_hash"]
-    )
+    sync_session.refresh(row, attribute_names=["text", "embedding", "embedding_text_hash"])
     assert row.text == "Manual replacement."
     assert row.embedding is None
     assert row.embedding_text_hash is None

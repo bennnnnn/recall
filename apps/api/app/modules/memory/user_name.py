@@ -106,12 +106,18 @@ def stated_user_name(text: str) -> str | None:
     return found[0] if found else None
 
 
+def user_name_given(text: str) -> str | None:
+    """The user's own name or the name they go by that the fact gives, else None."""
+    stated = stated_user_name(text)
+    if stated is not None:
+        return stated
+    match = _NICKNAME.match(_clean(text))
+    return _as_name(match.group("name")) if match is not None else None
+
+
 def names_the_user(text: str) -> bool:
     """The fact gives the user's own name or the name they go by."""
-    if stated_user_name(text) is not None:
-        return True
-    match = _NICKNAME.match(_clean(text))
-    return match is not None and _as_name(match.group("name")) is not None
+    return user_name_given(text) is not None
 
 
 def _name_parts(name: object) -> list[str]:

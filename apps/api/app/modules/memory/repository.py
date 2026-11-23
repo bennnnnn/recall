@@ -231,7 +231,6 @@ async def update_text(
         return None
     memory.text = normalize_memory_text(text)
     memory.embedding = None
-    memory.embedding_json = None
     memory.embedding_text_hash = None
     memory.last_confirmed_at = func_now()
     if commit:
@@ -268,7 +267,6 @@ async def update_text_and_embedding(
         return None
     memory.text = normalize_memory_text(text)
     memory.embedding = embedding
-    memory.embedding_json = None
     memory.last_confirmed_at = func_now()
     if embedding_text_hash is not None:
         memory.embedding_text_hash = embedding_text_hash

@@ -78,12 +78,12 @@ class Ceiling:
     queued: tuple[str, ...]
 
 
-# A chat's first reply is titled; compress runs only when the chat has messages out of
-# its window, or when the turn cannot tell (a picture, a regenerate).
+# A chat's first reply is titled; compress runs only when the prompt's history passed the
+# fold trigger (``context_window.FoldRule``), or when the turn cannot tell (a picture). A
+# long chat under the trigger, or a regenerate of a turn that measured it, queues none.
 _FIRST = ("memory", "topic", "message_index")
 _NEXT = ("memory", "message_index")
 _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
-_NEXT_FOLDS = ("memory", "compress", "message_index")
 # The day's chat message is counted when a turn starts (an INCR and its EXPIRE, two calls).
 # Measured with the user, today's usage and the chat already known to Redis, as for
 # every message after the day's first. To update: ``pytest -s`` prints every count.
@@ -96,9 +96,9 @@ _NEXT_FOLDS = ("memory", "compress", "message_index")
 # A short line after a reply gets the follow-up read as the turn loads (one model call and
 # its spend check, ``posed_read.start_posed_read``): which message and part it follows, for
 # the reply's note and the questions under it (the Grade 8 chat, 2026-11-18).
-# The memory job reads the chat before its unread lines (one SELECT,
-# ``extract_backlog._chat_before``): what a one-word answer replies to, and whether the
-# lines go on with a story (the owner's memory, 2026-11-20).
+# The memory job reads the chat before its unread lines and the replies between them (one
+# SELECT, ``extract_backlog._messages_before``): what a one-word answer replies to, and
+# whether the lines go on with a story (the owner's memory, 2026-11-20).
 # A turn that names nothing personal (not a greeting or homework) reads memory too, the
 # "ambient" scope: the store's whole-store block, cached under the memory generation (two
 # Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named
@@ -122,7 +122,7 @@ CEILINGS: dict[str, Ceiling] = {
     "follow-up, long chat": Ceiling(
         Counts(sql=8, checkouts=5, transactions=5, redis=30, models=3),
         Counts(sql=18, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
-        _NEXT_FOLDS,
+        _NEXT,
     ),
     "maths": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
@@ -161,7 +161,7 @@ CEILINGS: dict[str, Ceiling] = {
     "regenerate": Ceiling(
         Counts(sql=10, checkouts=3, transactions=3, redis=31, models=3),
         Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
-        _NEXT_FOLDS,
+        _NEXT,
     ),
     "clarify picks": Ceiling(
         Counts(sql=9, checkouts=7, transactions=7, redis=34, models=2, embeds=1),

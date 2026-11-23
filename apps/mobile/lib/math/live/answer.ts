@@ -31,8 +31,24 @@ function isTypedFraction(node: LiveNode, value: LiveValue): boolean {
   );
 }
 
+/** Spaces the keyboard may leave after the = (`\,`, `\quad`, …). */
+const LATEX_SPACE = String.raw`(?:\s|\\[,;:! ]|\\q?quad\b)*`;
+const CLOSING_EQUALS_IN_MATH = new RegExp(String.raw`=${LATEX_SPACE}\$\s*$`);
+const CLOSING_EQUALS_PLAIN = new RegExp(String.raw`=${LATEX_SPACE}$`);
+
+/**
+ * `3+4=` asks for its value, as a calculator's = key does: one = at the very end of the maths
+ * is dropped before the draft is read. `2+2=4` keeps its = and stays an equation, and an =
+ * after the closing `$` is text outside the maths, no calculation.
+ */
+function withoutClosingEquals(draft: string): string {
+  return draft.includes("$")
+    ? draft.replace(CLOSING_EQUALS_IN_MATH, "$")
+    : draft.replace(CLOSING_EQUALS_PLAIN, "");
+}
+
 function read(draft: string): { node: LiveNode; value: LiveValue } | null {
-  const node = readCalculation(draft);
+  const node = readCalculation(withoutClosingEquals(draft));
   if (!node || isPlainNumber(node)) return null;
   const value = evaluateCalculation(node);
   return value ? { node, value } : null;
