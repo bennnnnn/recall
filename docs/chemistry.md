@@ -315,8 +315,16 @@ records how each given was typed, and the solve formats every number from that r
   2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. That is the card's
   precision; the working's last row is the value unrounded, carried two figures further
   (`m = 35.74 g` over a card of `36 g`), so a student sees what was rounded. A count (an electron
-  number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, and a
-  Celsius reading counts the figures of its kelvin value (`25 °C` is `298 K`, three).
+  number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, nor does
+  the number that names a question's item (`1) What is the molarity of 1.00 mol …` is
+  `2.00 mol/L`), and a Celsius reading counts the figures of its kelvin value (`25 °C` is
+  `298 K`, three).
+- **The card keeps them.** The finalize pass that writes every card by the two-decimal rule
+  (`chat/card_numbers.py`) leaves a chemistry solver's card as the solver wrote it
+  (`VerifiedSolveBlock.card_precision_own`, set on `VerifiedChemistry`): a titration to four
+  figures shows `0.1298 M`, not `0.130 M`, and a dilution `0.0500 M`, not `0.05 M`. A
+  precision the question asks for ("to 2 decimal places", "3 sig figs") still applies, as
+  far as the working knows the value. Physics and maths cards are unchanged.
 - **Trailing zeros are significant**: `pH = 3.00`, `n = 2.0 mol`. The model prompt tells the
   model to copy each verified number exactly, neither adding nor dropping a zero. A percent
   composition from a formula alone has the table's four figures: N in NH4NO3 is `35.00%`.

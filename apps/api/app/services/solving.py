@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from app.services.workout import GIVEN
 
@@ -103,6 +103,15 @@ class VerifiedSolveBlock:
     # This block (the first part's) stands for the turn; the fence check keeps each
     # part's card and pictures (``chat.finalize_subjects``).
     question_parts: tuple[VerifiedSolveBlock, ...] = ()
+    # The solver writes its card's numbers to the precision the subject grades, and the card
+    # pass leaves them so unless the user asks another (``chat.card_numbers``): chemistry's
+    # significant figures of the data. False: the card is shown by the one rule.
+    card_precision_own: ClassVar[bool] = False
+
+    @property
+    def cards_keep_precision(self) -> bool:
+        """Every card of the turn (each part's) keeps the solver's own precision."""
+        return all(block.card_precision_own for block in (self, *self.question_parts))
 
 
 @dataclass(frozen=True)

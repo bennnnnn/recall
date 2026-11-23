@@ -366,7 +366,8 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     # Layout, after the passes that read the model's fences as it wrote them.
     FinalizePass("close_fences", close_open_fences, kind=TEXT, after=FENCE_READERS),
     # Every card written, whoever wrote it, closed or left open by the model: its numbers
-    # by the one rule (rounding_rule). After the closer, so an open card is one too.
+    # by the one rule (rounding_rule), save a chemistry solver's card, which keeps its data's
+    # figures. After the closer, so an open card is one too.
     FinalizePass(
         "card_numbers",
         format_card_numbers,

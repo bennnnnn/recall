@@ -1,10 +1,14 @@
-"""Every card's number by the one rule, whoever wrote it (``chat.card_numbers``)."""
+"""Every card's number by the one rule, whoever wrote it, save a chemistry solver's checked card,
+which keeps its data's figures (``chat.card_numbers``)."""
 
 from __future__ import annotations
+
+from dataclasses import replace
 
 import pytest
 
 from app.modules.chat.card_numbers import card_numbers
+from app.modules.chemistry.block import VerifiedChemistry
 from app.services.rounding_rule import Precision
 
 
@@ -98,3 +102,168 @@ def test_a_card_the_model_left_open_follows_the_rule_once_closed() -> None:
     reply = "$v = 160 / 12$\n\n```answer\nv = 13.333333\\,\\mathrm{m/s}"
     shown = card_numbers(close_unclosed_fences(reply), Precision())
     assert "v = 13.33\\,\\mathrm{m/s}" in shown and "13.333333" not in shown
+
+
+def _state(text: str, question: str, verified: object) -> object:
+    from types import SimpleNamespace
+
+    ctx = SimpleNamespace(
+        user_message_content=question, verified_subject=verified, photo_uncertain=None
+    )
+    return SimpleNamespace(text=text, ctx=ctx)
+
+
+def _chemistry(question: str) -> VerifiedChemistry:
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    return verified
+
+
+_TITRATION = (
+    "25.00 mL of HCl is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach the "
+    "endpoint. What is the concentration of HCl?"
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "working", "card", "shown"),
+    [
+        # Four figures of data: the card keeps 0.1298, never the rule's 0.130.
+        (
+            _TITRATION,
+            "$c = 0.12980\\,\\mathrm{mol/L}$",
+            "c_{2} = 0.1298\\,\\mathrm{mol/L}",
+            "c_{2} = 0.1298\\,\\mathrm{mol/L}",
+        ),
+        # Two figures of data (4 g, raised to the two-figure floor): 36 g over a working of
+        # 35.74 g stays so, never the rule's 35.74.
+        (
+            "how much water do i get if i burn 4 g of hydrogen",
+            "$m = 35.74\\,\\mathrm{g}$",
+            "m = 36\\,\\mathrm{g}",
+            "m = 36\\,\\mathrm{g}",
+        ),
+        # Three figures: a dilution to 0.0500 M keeps its zeros, never the rule's 0.05.
+        (
+            "25.0 mL of 0.200 M HCl is diluted to 100.0 mL. What is the new concentration?",
+            "$c_{2} = 0.05\\,\\mathrm{mol/L}$",
+            "c_{2} = 0.0500\\,\\mathrm{mol/L}",
+            "c_{2} = 0.0500\\,\\mathrm{mol/L}",
+        ),
+        # A question that asks a precision still gets it, from the working's value.
+        (
+            "how much water do i get if i burn 4 g of hydrogen, to 2 decimal places",
+            "$m = 35.74\\,\\mathrm{g}$",
+            "m = 36\\,\\mathrm{g}",
+            "m = 35.74\\,\\mathrm{g}",
+        ),
+    ],
+)
+def test_a_chemistry_card_keeps_its_data_s_figures(
+    question: str, working: str, card: str, shown: str
+) -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    verified = _chemistry(question.removesuffix(", to 2 decimal places"))
+    reply = f"{working}\n\n**Answer**\n\n" + _card(card, "true")
+    state = _state(reply, question, verified)
+    assert format_card_numbers(state) == f"{working}\n\n**Answer**\n\n" + _card(shown, "true")  # type: ignore[arg-type]
+
+
+def test_a_physics_card_still_follows_the_rule() -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.services.solving import VerifiedPhysicsBlock
+
+    reply = "$P = 109324.04\\,\\mathrm{Pa}$\n\n" + _card(
+        "1.09 \\times 10^{5}\\,\\mathrm{Pa}", "true"
+    )
+    state = _state(reply, "find P", VerifiedPhysicsBlock(text=""))
+    assert _card("109324.04\\,\\mathrm{Pa}", "true") in format_card_numbers(state)  # type: ignore[arg-type]
+    # A chemistry turn with a physics part: every card follows the rule (review).
+    mixed = replace(_chemistry(_TITRATION), question_parts=(VerifiedPhysicsBlock(text=""),))
+    state = _state(reply, "find P", mixed)
+    assert _card("109324.04\\,\\mathrm{Pa}", "true") in format_card_numbers(state)  # type: ignore[arg-type]
+
+
+def test_the_model_s_unchecked_card_on_a_chemistry_turn_follows_the_rule() -> None:
+    """Only the solver's checked card keeps its figures: a card the model wrote, left
+    unchecked because the reply contradicted the solve, is shown by the rule (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    verified = _chemistry(_TITRATION)
+    reply = "$m = 345.1234\\,\\mathrm{g}$\n\n" + _card("m = 345.1234\\,\\mathrm{g}")
+    state = _state(reply, _TITRATION, verified)
+    assert _card("m = 345.12\\,\\mathrm{g}") in format_card_numbers(state)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("question", "working", "card", "shown"),
+    [
+        # The working knows 2.361 to three places: the asked precision takes it.
+        (
+            "Clausius-Clapeyron: P1=1.0, T1=300, T2=350, dH=15000. Find P2.",
+            "$P_{2} = 1.0 \\times \\exp [-(15000) / (8.3145) \\times (1/350 - 1/300)] = 2.361$",
+            "P_{2} = 2.4",
+            "P_{2} = 2.361",
+        ),
+        # A working that stops on the rounded value knows no more: the card stays (review).
+        (
+            "Clausius-Clapeyron: P1=1.0, T1=300, T2=350, dH=15000. Find P2.",
+            "$P_{2} = 2.4$",
+            "P_{2} = 2.4",
+            "P_{2} = 2.4",
+        ),
+    ],
+)
+def test_an_asked_precision_takes_a_chemistry_card_only_as_far_as_the_working_knows(
+    question: str, working: str, card: str, shown: str
+) -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = f"{working}\n\n**Answer**\n\n" + _card(card, "true")
+    state = _state(reply, question + " to 3 decimal places", _chemistry(question))
+    assert format_card_numbers(state).endswith(_card(shown, "true"))  # type: ignore[arg-type]
+
+
+def test_a_power_of_ten_card_knows_only_its_mantissa_s_figures() -> None:
+    """3.4 x 10^2 g knows two figures: "to 3 significant figures" with no working that reached
+    the value leaves the card as written, never 340 g (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    question = "What is the mass of 3.5 mol of H2SO4 in grams"
+    reply = "$m \\approx 340\\,\\mathrm{g}$\n\n**Answer**\n\n" + _card(
+        "m = 3.4 \\times 10^{2}\\,\\mathrm{g}", "true"
+    )
+    state = _state(reply, question + ", to 3 significant figures", _chemistry(question))
+    assert format_card_numbers(state) == reply  # type: ignore[arg-type]
+
+
+def test_an_uncertain_photo_s_unchecked_solver_card_keeps_its_figures() -> None:
+    """A photo read uncertainly unchecks the solver's card; it keeps 0.1298, never the rule's
+    0.130 (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = "$c = 0.12980\\,\\mathrm{mol/L}$\n\n**Answer**\n\n" + _card(
+        "c_{2} = 0.1298\\,\\mathrm{mol/L}"
+    )
+    state = _state(reply, _TITRATION, _chemistry(_TITRATION))
+    state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
+    assert format_card_numbers(state) == reply  # type: ignore[arg-type]
+
+
+def test_an_uncertain_photo_s_model_card_still_follows_the_rule() -> None:
+    """On that photo the model's own card, a value the solver did not reach, is rounded by the
+    rule (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    reply = "$c = 0.12980\\,\\mathrm{mol/L}$\n\n**Answer**\n\n" + _card(
+        "c_{2} = 0.1312\\,\\mathrm{mol/L}"
+    )
+    state = _state(reply, _TITRATION, _chemistry(_TITRATION))
+    state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
+    assert "0.1312" not in format_card_numbers(state)  # type: ignore[arg-type]

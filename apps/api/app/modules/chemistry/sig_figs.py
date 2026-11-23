@@ -23,6 +23,7 @@ from functools import lru_cache
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
+from app.services.problem_followup import item_number
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
 MIN_FIGURES = 2
@@ -114,15 +115,21 @@ def _forms(text: str) -> dict[float, list[str]]:
     """Each number the question typed, with every way it was written ("0.80" and "0.8").
 
     A reaction's coefficients ("2 H2 + O2 -> 2 H2O") are counts, not measurements, so the
-    equation is not read for them.
+    equation is not read for them. Nor is a number that names a line's item ("1) What is the
+    molarity of 1.00 mol ..."): read as a given, its one figure cut 2.00 mol/L to 2.0.
     """
     forms: dict[float, list[str]] = {}
-    for match in _LITERAL.finditer(EQUATION_RE.sub(" ", text)):
-        typed = match.group()
-        written = forms.setdefault(float(typed), [])
-        if typed not in written and len(typed) <= MAX_WRITTEN:
-            written.append(typed)
+    for line in EQUATION_RE.sub(" ", text).split("\n"):
+        for match in _LITERAL.finditer(line):
+            if not item_number(line, match.start(), match.end()):
+                _add_form(forms, match.group())
     return forms
+
+
+def _add_form(forms: dict[float, list[str]], typed: str) -> None:
+    written = forms.setdefault(float(typed), [])
+    if typed not in written and len(typed) <= MAX_WRITTEN:
+        written.append(typed)
 
 
 def _reading(value: float, forms: dict[float, list[str]]) -> tuple[list[str], str] | None:
