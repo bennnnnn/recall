@@ -1,5 +1,6 @@
 """Await several coroutines as one: if any fails, the rest are cancelled. Or run one save
-to its end though its caller is cancelled (``finish_despite_cancel``).
+to its end though its caller is cancelled (``finish_despite_cancel``). Or read a task's
+result only once it has one (``settled``, ``settled_result``).
 
 ``asyncio.gather`` leaves the siblings of a failed branch running: a paid model
 call, a search or a download keeps going after its turn already failed, and its
@@ -91,3 +92,17 @@ async def finish_despite_cancel[T](
     if cancelled:
         raise asyncio.CancelledError
     return result
+
+
+def settled(task: asyncio.Future[Any] | None) -> bool:
+    """``task`` has finished with a result: it is not running, was not cancelled and did not
+    fail. Nothing is waited for. A failure is read here, so asyncio never reports it."""
+    return task is not None and task.done() and not task.cancelled() and task.exception() is None
+
+
+def settled_result[T](task: asyncio.Future[T] | None) -> T | None:
+    """``task``'s result once it has one; None while it runs, or when it was cancelled or
+    failed. Nothing is waited for."""
+    if task is None or not settled(task):
+        return None
+    return task.result()

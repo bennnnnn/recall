@@ -260,7 +260,7 @@ def no_answer_chemistry_note(reason: str) -> str:
     )
 
 
-def append_unverified_chemistry_note(content: str) -> str:
+def drop_unverified_chemistry_note(content: str) -> str:
     """Keep the chemistry decline in the prompt. Do not paste it under the answer."""
     note = unverified_chemistry_note()
     if note not in content:

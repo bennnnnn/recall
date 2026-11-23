@@ -14,13 +14,14 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.clarify_card import CLARIFY_FENCE
-from app.modules.chat.follow_up_latex import plain_follow_up
+from app.modules.chat.follow_up_latex import MATH_SPAN, plain_follow_up
 from app.modules.chat.follow_up_repeats import changes_a_kept_symbol, repeats_earlier
 from app.modules.chat.follow_up_thread import Followed, subject_for_related, thread_problem
 from app.modules.chat.follow_up_words import LATIN, STOP_WORDS, TOPIC_WORD, topic_words
 from app.modules.turn_reading.personal import is_personal_disclosure_turn
 from app.modules.turn_reading.routing import is_lightweight_chat_turn
 from app.modules.turn_reading.writing_kind import writing_request_kind
+from app.services.latex_groups import group_end
 from app.services.md_fence_scan import iter_fences, read_fence_marker
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
@@ -35,7 +36,6 @@ _VAGUE_WHAT_IF = re.compile(
 )
 # A word in any script: "Какой", "ዶሮ" and "pâte" count as words, not only ASCII.
 _WORD = re.compile(r"[^\W\d_]{2,}")
-_MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # A digit glued to a radical (`^5\sqrt{x}`) or to a variable (`x5`).
 _GLUED_RADICAL = re.compile(r"\^\s*\d+\s*\\sqrt")
 _GLUED_VARIABLE = re.compile(r"(?<![A-Za-z\\^_{])[A-Za-z]\d+")
@@ -79,17 +79,7 @@ def _space_math_span(span: str) -> str:
             continue
         if ch in "^_":
             if i + 1 < n and span[i + 1] == "{":
-                depth = 0
-                j = i + 1
-                while j < n:
-                    if span[j] == "{":
-                        depth += 1
-                    elif span[j] == "}":
-                        depth -= 1
-                        if depth == 0:
-                            j += 1
-                            break
-                    j += 1
+                j = group_end(span, i + 1)
                 out.append(span[i:j])
                 i = j
                 continue
@@ -119,7 +109,7 @@ _QUESTION_OPENER = re.compile(
 
 
 def _symbols_stay_apart(text: str) -> bool:
-    for span in _MATH_SPAN.findall(text):
+    for span in MATH_SPAN.findall(text):
         if _GLUED_RADICAL.search(span) or _GLUED_VARIABLE.search(span):
             return False
     return True
@@ -131,7 +121,7 @@ def _visible_text(text: str) -> str:
     def _inner(match: re.Match[str]) -> str:
         return re.sub(r"\\[A-Za-z]+|[{}]", "", match.group(1))
 
-    return collapse_ws(_MATH_SPAN.sub(_inner, text))
+    return collapse_ws(MATH_SPAN.sub(_inner, text))
 
 
 def _one_short_line(text: str) -> bool:
@@ -163,7 +153,7 @@ def _typeset_symbols(text: str) -> str:
     """Each bare subscripted symbol outside a maths span, in $...$ for the phone."""
     pieces: list[str] = []
     last = 0
-    for span in _MATH_SPAN.finditer(text):
+    for span in MATH_SPAN.finditer(text):
         pieces.append(_BARE_SUBSCRIPT.sub(_symbol, text[last : span.start()]))
         pieces.append(span.group())
         last = span.end()
@@ -216,7 +206,7 @@ def _prepare_question(candidate: str) -> str | None:
     def _spaced(match: re.Match[str]) -> str:
         return f"${_space_math_span(match.group(1))}$"
 
-    return _MATH_SPAN.sub(_spaced, cleaned)
+    return MATH_SPAN.sub(_spaced, cleaned)
 
 
 # "What if it took 10 s?" and "Why does that work?" point back at the

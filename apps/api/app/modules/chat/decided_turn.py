@@ -41,6 +41,7 @@ import asyncio
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
@@ -48,6 +49,7 @@ from app.modules.chat.answer_photo_offer import offers_photo_in, without_answer_
 from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
+from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.follow_up_read import note_the_follow_up
 from app.modules.chat.instant_by_read import TALKED_THROUGH
 from app.modules.chat.json_output import is_json_request
@@ -57,7 +59,14 @@ from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
 )
-from app.modules.chat.prompt_constants.conversation import FOLLOW_NOTES, draft_change_note
+from app.modules.chat.prompt_constants.conversation import (
+    FOLLOW_NOTES,
+    SHOW_IT_CARD_NOTE,
+    SHOW_IT_DRAW_NOTE,
+    SHOW_IT_NOTE,
+    SHOWN_IT_NOTE,
+    draft_change_note,
+)
 from app.modules.chat.prompt_constants.lesson_flow import LESSON_ASIDE_NOTE, lesson_next_contract
 from app.modules.chat.prompt_constants.list_reference import OPTION_PICK_MARK
 from app.modules.chat.prompt_constants.practice import QUIZ_WHICH_NOTE, quiz_verdict_note
@@ -65,6 +74,7 @@ from app.modules.chat.prompt_format import without_confirmation_hints
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
+from app.modules.chat.referent_read import asks_for_a_referent
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -145,7 +155,8 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     _goes_on_with_the_lesson(ctx, read, answered, unplaced=unplaced)
     if _grades_the_card(ctx, answered, unplaced=unplaced):
         return
-    if _replies_to_the_card(ctx, read):
+    # A request to see the problem works nothing out: its note asks for no working (review).
+    if _replies_to_the_card(ctx, read) or shows_it(read):
         _without_worked_layout(ctx)
     elif read.follow in TALKED_THROUGH:
         _talked_through(ctx)
@@ -187,7 +198,8 @@ def _leave_the_picture(ctx: StreamContext, settings: Settings, read: TurnDecisio
     ctx.prompt_messages = with_problem_pictures(
         ctx.prompt_messages, plan_of(ctx.user_message_content or "", settings)
     )
-    if not solve_draws(ctx.verified_subject, read.picture):
+    # A request to see what the conversation is about has its own note (``_follow_note``).
+    if not solve_draws(ctx.verified_subject, read.picture) or shows_it(read):
         return
     note_prompt_rule("drawn_picture")
     ctx.prompt_messages = inject_before_last_user(ctx.prompt_messages, DRAWN_PICTURE_NOTE)
@@ -200,9 +212,7 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
     if task is None:
         return None
     if task.done():
-        if task.cancelled() or task.exception() is not None:
-            return None
-        return task.result()
+        return settled_result(task)
     if not (
         _lane_may_move(ctx)
         or _layout_at_stake(ctx)
@@ -220,7 +230,11 @@ def _picture_at_stake(ctx: StreamContext, settings: Settings) -> bool:
     review: unwaited, a verified solve's prompt asked for a photo finalize then dropped)."""
     if ctx.instant_reply is not None:
         return False
-    return bool(plan_of(ctx.user_message_content or "", settings).of_kind("image", "photo"))
+    line = ctx.user_message_content or ""
+    # "a picture of it": the read says whether it is the problem's, and its note (review).
+    if asks_for_a_referent(line):
+        return True
+    return bool(plan_of(line, settings).of_kind("image", "photo"))
 
 
 def _photo_at_stake(ctx: StreamContext) -> bool:
@@ -482,13 +496,29 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     own way (``message_notes``); numbers a server path worked are the reply's to present, and
     a calculation the subject readers gave the ```worked contract is laid out by it."""
     note = FOLLOW_NOTES.get(read.follow or "")
-    if note is None or ctx.after_card:
-        return
+    if shows_it(read):
+        # A request to see the problem: the same note whether or not a solve worked it again
+        # for its picture ("can u show me a picture" after a ball thrown up).
+        drawn = solve_draws(ctx.verified_subject, read.picture)
+        note = SHOWN_IT_NOTE if drawn else SHOW_IT_NOTE
+        if not drawn and ctx.drawing is not None:
+            note = f"{note} {SHOW_IT_DRAW_NOTE}"
+        # A solve worked it again for its picture: its card comes with the reply (review).
+        if _worked(ctx):
+            note = f"{note} {SHOW_IT_CARD_NOTE}"
     # Numbers a server path worked are the reply's to present, unless the message asks them
     # explained: then the note says how (``TALKED_THROUGH``).
-    if (_worked(ctx) or ctx.worked is not None) and read.follow not in TALKED_THROUGH:
+    elif (_worked(ctx) or ctx.worked is not None) and read.follow not in TALKED_THROUGH:
         return
-    if active_lesson_step(ctx.recent_messages) or outline_awaits_pick(ctx.recent_messages):
+    if note is None or ctx.after_card:
+        return
+    # A request to see the problem is told the app draws it in a lesson too (a quiz answer
+    # was graded already, ``_grades_the_card``).
+    in_a_lesson = active_lesson_step(ctx.recent_messages) or outline_awaits_pick(
+        ctx.recent_messages
+    )
+    # One that goes on to the next lesson gets that lesson's contract alone (review).
+    if in_a_lesson and (not shows_it(read) or read.goes_on):
         return
     note_prompt_rule(f"read.follow_{read.follow}")
     messages = ctx.prompt_messages

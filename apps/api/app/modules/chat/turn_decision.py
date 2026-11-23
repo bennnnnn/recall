@@ -40,6 +40,7 @@ from app.models.routing_lanes import ROUTING
 from app.modules.chat import shown_pictures
 from app.modules.chat.decider_read import NEAR_LIVE_AT, RESUME_QUESTION, lesson_questions
 from app.modules.chat.model_routing.thinking import follows_a_cut_off_reply
+from app.modules.chat.picture_read import asked_of_the_text_read, raw_turns, unsure_whose_picture
 from app.modules.chat.quiz_cards import (
     block_end_of_cards,
     last_reply_cards,
@@ -69,6 +70,8 @@ _MAX_TOKENS = 120
 _BACKUP_MIN_SECONDS = 0.8
 
 Subject = Literal["everyday", "maths", "physics", "chemistry", "money", "code"]
+# The school subjects, whose pictures the app draws itself (``decider_read.READ_SUBJECTS``).
+_STEM = frozenset({"maths", "physics", "chemistry"})
 Effort = Literal["none", "low", "high"]
 Picture = Literal["none", "graph", "diagram", "molecule", "photo", "image"]
 # How the message leans on the last reply. A texted reply is most of a chat ("yap", "nah",
@@ -125,7 +128,8 @@ _SYSTEM = (
     "Earlier turns, when given, show what the last message refers to; decide for the last "
     "message.\n\n"
     "subject is what the message is about, a follow-up taking the subject of what it "
-    'follows ("draw it" after a circuit is physics):\n'
+    'follows ("draw it" after a circuit is physics, "can u show me a picture" after a '
+    "percentage problem is maths):\n"
     "- maths, physics or chemistry: that school subject: a problem to work out, a concept, "
     "a practice question, a molecule to draw; gas laws and heat are physics\n"
     "- money: the user's own money worked out with amounts: a loan, mortgage or card "
@@ -157,7 +161,10 @@ _SYSTEM = (
     "mind map; molecule: a molecule's structure, flat or 3D; photo: a real thing, place, "
     "animal or person; image: an imagined picture to paint (a scene, an animal doing "
     'something, a logo, a poster). A map is none. "Draw it" shows what the conversation '
-    "is about: a circuit is a diagram, a compound a molecule, a curve a graph. A change to "
+    "is about: a circuit is a diagram, a compound a molecule, a curve a graph. So does a "
+    "request for a picture or an image that names nothing, after a maths, physics or "
+    "chemistry problem: that problem's graph, diagram or molecule (a word problem's is a "
+    "diagram), never a photo or a painting. A change to "
     'a picture just shown ("make it blue", "now at night") asks for that picture again; a '
     'remark, complaint or question about a picture already shown ("I can\'t see it", '
     '"why did you send that", "what is it") is none.\n\n'
@@ -277,6 +284,17 @@ class TurnDecision(BaseModel):
         return not self.searches and (self.live_odds or 0.0) >= NEAR_LIVE_AT
 
     @model_validator(mode="after")
+    def _problem_picture(self) -> TurnDecision:
+        """A request to see what the conversation is about, after a maths, physics or
+        chemistry problem, is that problem's picture, the app's to draw: never a painting.
+        "can u show me a picture" after 7 notebooks at $2 each, read as an image to paint,
+        was answered "Sure — here's a picture of a cute puppy" (QA round, 2026-11-22)."""
+        if self.follow == "draw" and self.subject in _STEM and self.picture == "image":
+            # A chemistry problem's picture is its compound, the figure chemistry draws.
+            self.picture = "molecule" if self.subject == "chemistry" else "diagram"
+        return self
+
+    @model_validator(mode="after")
     def _effort(self) -> TurnDecision:
         """none, low or high, from whether the answer must be reasoned out and how deeply.
         Two yes-or-no answers held the measured ``think`` wording (2026-11-09): asked for a
@@ -367,8 +385,11 @@ async def read_decision(
     earlier: list[tuple[str, str]],
     model_alias: str | None = None,
     lesson: dict[str, dict[str, Any]] | None = None,
+    raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
-    """How to handle the message; None: no read. ``model_alias`` is for measurement."""
+    """How to handle the message; None: no read. ``model_alias`` is for measurement.
+    ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
+    show (``picture_read``); ``earlier`` when not given."""
     question = text.strip()
     if not question:
         return None
@@ -411,6 +432,7 @@ async def read_decision(
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
             lesson=lesson,
+            raw=earlier if raw is None else raw,
         )
     finally:
         # Whatever ends the read (an answer that needs no query, the reply's wait running
@@ -427,6 +449,7 @@ async def _join(
     ask_work: bool = False,
     ask_photo: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
+    raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
     """The Decider's read, with the text read's query when it calls the turn live or asked;
     the text read's own when the Decider gives none."""
@@ -446,7 +469,13 @@ async def _join(
         # The Decider gave no answer (refused at once, at busy hours): the text read decides.
         return _followed(await text_read, earlier)
     if not (decided["live"] or decided["asked"]):
-        return TurnDecision(**decided)
+        decision = TurnDecision(**decided)
+        # Asked of the Decider's own answer: the read's validators turn its painting into
+        # the problem's diagram, which the text read may name better.
+        if not unsure_whose_picture(decided):
+            return decision
+        chat = earlier if raw is None else raw
+        return await asked_of_the_text_read(settings, decision, text_read, chat, started)
     # The search query is text the Decider cannot write: the text read's, begun beside it.
     # It waits no longer than the reply waits for the read, which starts later, so a slow
     # query never costs the Decider's subject and effort: the read comes back without it
@@ -546,7 +575,11 @@ def start_turn_decision(
     async def read() -> TurnDecision | None:
         labels = await shown_pictures.settled_labels(pictures)
         return await read_decision(
-            settings, text, earlier=earlier_turns(recent, labels), lesson=lesson
+            settings,
+            text,
+            earlier=earlier_turns(recent, labels),
+            lesson=lesson,
+            raw=raw_turns(recent),
         )
 
     return asyncio.create_task(read())

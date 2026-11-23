@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Literal
 
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.drawn_picture import DRAWN_PICTURES, answered_read
+from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
@@ -104,7 +105,12 @@ def mermaid_stands_in(decision: TurnDecision | None, line: str) -> bool:
     architecture, a process, a dependency graph) stays the model's to draw as one, and a
     message that names a flowchart, a flow or tree diagram, a mind map or another such
     diagram keeps it whatever its subject."""
-    if decision is None or decision.picture in (None, "none") or is_mermaid_question(line):
+    if decision is None or is_mermaid_question(line):
+        return False
+    # Asked to see the chat's problem, whatever picture the read names (review).
+    if shows_it(decision):
+        return True
+    if decision.picture in (None, "none"):
         return False
     return decision.subject in READ_SUBJECTS or decision.picture in ("photo", "image")
 
@@ -115,6 +121,9 @@ def owed_kind(decision: TurnDecision | None, ctx: StreamContext) -> Kind | None:
     the message's words (``drawing_turn``)."""
     if decision is None:
         return "diagram" if ctx.drawing is not None and ctx.drawing.asked == "words" else None
+    if shows_it(decision) and decision.picture not in DRAWN_PICTURES:
+        # Asked to see the chat's problem, its picture named none: still owed (review).
+        return "molecule" if decision.subject == "chemistry" else "diagram"
     if decision.subject not in READ_SUBJECTS or decision.picture not in DRAWN_PICTURES:
         return None
     picture = decision.picture
@@ -193,7 +202,15 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
     kind = owed_kind(decision, ctx) or ("diagram" if emptied else None)
     if kind is None or shows_a_picture(out):
         return out
-    return with_the_line(out, not_drawn_line(kind, language))
+    # A request to see the chat's problem was answered in words what its picture shows:
+    # said first, the line leads into them; after them it read as taking them back ("A
+    # ball rises 20.4 m … I couldn't draw this diagram.", QA round 2026-11-22).
+    note = not_drawn_line(kind, language)
+    if shows_it(decision) and out.strip():
+        # Still in place of a lead that presents the missing picture (review).
+        placed = in_place_of_the_lead(out, note)
+        return placed if placed is not None else f"{note}\n\n{out.strip()}\n"
+    return with_the_line(out, note)
 
 
 def _leads_into(following: str) -> bool:
@@ -206,6 +223,15 @@ def with_the_line(text: str, note: str) -> str:
     """``text`` with ``note`` in place of the paragraph that presented the picture not drawn
     (a picture pass took the fence it led into, and its "Here is the graph:" would say one is
     shown just above the line saying none is), else after the text (review)."""
+    placed = in_place_of_the_lead(text, note)
+    if placed is not None:
+        return placed
+    return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
+
+
+def in_place_of_the_lead(text: str, note: str) -> str | None:
+    """``text`` with ``note`` in place of a paragraph presenting a picture that is no longer
+    there ("Here is the diagram of the circuit:"); None when no paragraph does."""
     parts = re.split(r"(\n[ \t]*\n)", text.strip())
     for at in range(0, len(parts), 2):
         lead = parts[at].strip()
@@ -216,7 +242,7 @@ def with_the_line(text: str, note: str) -> str:
         if len(lead) < _SHORT and presents and not _leads_into(following):
             parts[at] = note
             return "".join(parts).strip() + "\n"
-    return f"{text.rstrip()}\n\n{note}\n" if text.strip() else f"{note}\n"
+    return None
 
 
 async def settle_owed_picture(state: FinalizeState) -> str:

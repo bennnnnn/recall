@@ -7,6 +7,7 @@ import logging
 from contextlib import suppress
 from dataclasses import dataclass, replace
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.core.readings import read_off_loop, reading
 from app.modules.math import solve as math_solve
@@ -400,9 +401,7 @@ async def _model_math_intent(
             return await extract
     except TimeoutError:
         logger.warning("math model helpers ran past their %ss budget", budget)
-        if extract.done() and not extract.cancelled() and extract.exception() is None:
-            return extract.result()
-        return None
+        return settled_result(extract)
     finally:
         # Dropped (or finished): either way nothing is left running or unread.
         extract.cancel()

@@ -29,6 +29,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from app.core.aio import settled, settled_result
 from app.core.readings import keep_for_turn, kept_for_turn
 from app.modules.chat.follow_up_thread import Followed
 from app.modules.chat.posed_read import PosedPick, picked, posed_started, stated_problem
@@ -41,7 +42,6 @@ from app.services.text_normalize import collapse_ws
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.modules.chat.turn_decision import TurnDecision
     from app.modules.chat.turn_prep.context import StreamContext
 
 # The kinds that name the message the line follows.
@@ -150,15 +150,8 @@ def _reads_its_own_way(ctx: StreamContext) -> bool:
     return bool(ctx.after_card or active_lesson_step(recent) or outline_awaits_pick(recent))
 
 
-def _turn_read(ctx: StreamContext) -> TurnDecision | None:
-    task = ctx.live_read
-    if task is None or not task.done() or task.cancelled() or task.exception() is not None:
-        return None
-    return task.result()
-
-
 def _stands_alone(ctx: StreamContext) -> bool:
-    read = _turn_read(ctx)
+    read = settled_result(ctx.live_read)
     return read is not None and read.follow == "none"
 
 
@@ -183,6 +176,6 @@ def _read_by_now(line: str) -> FollowUp | None:
     if begun is None:
         return None
     exchanges, task = begun
-    if not task.done() or task.cancelled() or task.exception() is not None:
+    if not settled(task):
         return None
     return follow_up_from(task.result(), exchanges)

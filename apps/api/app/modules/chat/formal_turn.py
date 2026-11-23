@@ -34,6 +34,7 @@ import time
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formal_cards import held_to_server
@@ -100,9 +101,7 @@ def start_formal(settings: Settings, ctx: StreamContext) -> asyncio.Task[Any] | 
 
 
 def _physics(read: asyncio.Task[TurnDecision | None]) -> bool:
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return False
-    decision = read.result()
+    decision = settled_result(read)
     return decision is not None and decision.subject == "physics"
 
 
@@ -134,9 +133,7 @@ async def _waited(state: FinalizeState) -> FormalAnswer | None:
             "formal answer: not in after %.2f s, the reply stands", time.monotonic() - started
         )
         return None
-    if task.cancelled() or task.exception() is not None:
-        return None
-    answer: FormalAnswer | None = task.result()
+    answer: FormalAnswer | None = settled_result(task)
     return answer
 
 
