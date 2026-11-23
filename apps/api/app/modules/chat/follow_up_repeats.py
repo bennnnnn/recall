@@ -30,12 +30,12 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from app.modules.chat.follow_up_latex import MATH_SPAN
 from app.modules.chat.follow_up_units import SYMBOLS, quantities
 from app.services.text_normalize import collapse_ws, straighten_apostrophes
 
 # A word of four letters or more, in any script.
 _WORD = re.compile(r"[^\W\d_]{4,}")
-_MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 # A question read word by word: a maths span whole, a word or a number, a sign or a root.
 _TOKEN = re.compile(r"\$[^$\n]+\$|[^\W_]+(?:\.\d+)?|[-+*/^=<>%\u221a]")
 # What a reworded question drops or swaps without asking anything else: "the", "it", "my".
@@ -100,13 +100,13 @@ def _topic(text: str) -> frozenset[str]:
     """Its topic words, and the numbers it names outside maths as one item, in order, each
     with its unit read one way ("2 seconds" is "2 s"; equations match whole)."""
     words = [w for w in _WORD.findall(text.casefold()) if w not in _FRAME]
-    numbers = [str(quantity) for quantity in quantities(_MATH_SPAN.sub(" ", text))]
+    numbers = [str(quantity) for quantity in quantities(MATH_SPAN.sub(" ", text))]
     return frozenset([*words, "#" + "|".join(numbers)] if numbers else words)
 
 
 def _equations(text: str) -> frozenset[str]:
     """The equations in ``text``: "$x$" alone is a name, not a question's subject."""
-    spans = (re.sub(r"\s+", "", span) for span in _MATH_SPAN.findall(text))
+    spans = (re.sub(r"\s+", "", span) for span in MATH_SPAN.findall(text))
     return frozenset(span for span in spans if _RELATION.search(span))
 
 
@@ -138,12 +138,12 @@ def _change(text: str) -> tuple[str, frozenset[str], frozenset[str]] | None:
     x was 4?" says which x by its letter alone)."""
     if not _WHAT_IF.match(text):
         return None
-    plain = _MATH_SPAN.sub(" ", text)
+    plain = MATH_SPAN.sub(" ", text)
     values = quantities(plain)
     if not values or any(value.unit is None for value in values):
         return None
     words = frozenset(w for w in _WORD.findall(plain.casefold()) if w not in _FRAME)
-    spans = (re.sub(r"\s+", "", span) for span in _MATH_SPAN.findall(text))
+    spans = (re.sub(r"\s+", "", span) for span in MATH_SPAN.findall(text))
     bare = _BARE_SYMBOL.findall(re.sub(r"\d+(?:\.\d+)?\s*\S*", " ", plain))
     symbols = frozenset([*spans, *bare])
     return "|".join(str(value) for value in values), words, symbols
@@ -202,7 +202,7 @@ def changed_symbol(text: str) -> str | None:
     rest = text[opening.end() :].lstrip()
     if not re.search(r"\d", rest):
         return None
-    span = _MATH_SPAN.match(rest)
+    span = MATH_SPAN.match(rest)
     if span is not None:
         if not _RELATION.search(span.group(1)):
             return _symbol_key(span.group(1))

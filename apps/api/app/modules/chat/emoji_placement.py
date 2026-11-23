@@ -28,6 +28,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app.modules.chat.emoji_repeat import LESSON_HEADING
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.modules.chat.turn_prep.reading import plan_of
@@ -43,8 +44,6 @@ if TYPE_CHECKING:
 _LABELLED = re.compile(r"^(?P<lead>\s*(?:#{1,6}\s+|(?:[-*+]|\d{1,3}[.)])\s+)?)(?P<body>.*)$")
 _BOLD_START = re.compile(r"^(?:\*\*|__)")
 _INLINE_CODE = re.compile(r"(`+)[^`]*?\1")
-# "### Lesson 2: Loops": a lesson keeps the emoji its own rules give it.
-_LESSON = re.compile(r"^#{1,6}\s.*\bLesson\s+\d", re.MULTILINE)
 # A worked solution's sections, an emoji before one or not ("🎯 **Required**", "**✅ Answer**"):
 # none belongs there at any setting, and "✅ **Answer**" was no Answer heading, so a Class 8
 # speed came back with no answer box (2026-10-30).
@@ -204,7 +203,7 @@ def place_emoji(
     """``text`` with its emoji where ``level`` puts them; a worked solution, or any reply
     to ``homework``, has none."""
     level = level if level in {"off", "some", "more"} else DEFAULT_EMOJI_USE
-    if not EMOJI.search(text) or (_LESSON.search(text) and level != "off"):
+    if not EMOJI.search(text) or (LESSON_HEADING.search(text) and level != "off"):
         return text
     if homework or _is_worked_solution(text):
         level, user_wrote_emoji = "off", False
