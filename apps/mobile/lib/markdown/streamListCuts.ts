@@ -20,7 +20,7 @@ export type OpenList = {
   content: number;
   wide: boolean;
   /** An item so far is a task (`- [ ]`, `- [x]`): how a done one draws reads every item of the
-   * list (`listHasOpenTask`). Set only when true. */
+   * list (`listHasOpenTask`), so the list is not cut from here on. Set only when true. */
   task?: true;
 };
 
@@ -106,7 +106,8 @@ export function listItemCut(state: ListScan, line: string): boolean {
     }
     if (task) list.task = true;
     list.content = item.content;
-    if (item.number === null) return !list.irregular;
+    // A task list is never cut: a done item drawn apart from an open one draws as a check.
+    if (item.number === null) return !list.irregular && !list.task;
     const shown = list.next ?? 0;
     list.next = shown + 1;
     if (shown >= WIDE_NUMBER) list.wide = true;
@@ -114,7 +115,7 @@ export function listItemCut(state: ListScan, line: string): boolean {
       list.irregular = true;
       return false;
     }
-    return !list.irregular && !list.wide && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
+    return !list.irregular && !list.wide && !list.task && shown >= MIN_NUMBERED_CUT && shown <= MAX_NUMBERED_CUT;
   }
   if (CONTINUATION_LINE_RE.test(line)) {
     // Indented less than the item's content, a line is not inside the item:

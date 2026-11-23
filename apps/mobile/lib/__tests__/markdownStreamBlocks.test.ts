@@ -297,6 +297,13 @@ describe("advanceStreamBlocks between list items", () => {
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);
+    // Nor after a fence, nor once the list is long enough to cut.
+    const note = "lorem ipsum dolor sit amet ".repeat(4);
+    const fenced = ["- [ ] Install:", "", "  ```bash", "  npm i", "  ```", "", `- Build ${note}`, `- Test ${note}`, `- [x] Lint ${note}`, "", "Done."].join("\n");
+    const long = Array.from({ length: 12 }, (_, i) => `- [${i < 10 ? "x" : " "}] Task ${i} ${note}`).join("\n");
+    for (const text of [fenced, `${long}\n\nDone.`]) {
+      expect(advanceStreamBlocks(null, text, text.length).continued.some(Boolean)).toBe(false);
+    }
   });
 
   it("ties only the pieces from a reference's first use to its definition (audit MX-3)", () => {
