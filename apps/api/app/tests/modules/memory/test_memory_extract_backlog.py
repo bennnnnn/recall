@@ -11,6 +11,7 @@ from app.modules.memory.extract_backlog import (
     expand_memory_extract_transcript,
     format_extract_cursor,
     format_user_memory_transcript,
+    history_chat_transcript,
     note_failed_extract_pass,
     parse_extract_cursor,
 )
@@ -77,6 +78,10 @@ async def test_expand_includes_unprocessed_user_lines():
             "app.modules.memory.extract_backlog.chat_history.messages_before",
             AsyncMock(return_value=[SimpleNamespace(role="assistant", content="What can I make?")]),
         ),
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.replies_between",
+            AsyncMock(return_value=[]),
+        ),
     ):
         read = await expand_memory_extract_transcript(
             session,
@@ -94,6 +99,67 @@ async def test_expand_includes_unprocessed_user_lines():
     ]
     # The chat before the first unread line is read as context.
     assert read.context == (("assistant", "What can I make?"),)
+
+
+@pytest.mark.asyncio
+async def test_a_lagging_pass_reads_each_line_with_the_reply_it_answers():
+    """Two unread lines: the second keeps the question asked between them, so a bare "34"
+    answers "How old are you?" (review, #2539)."""
+    base = datetime(2026, 9, 3, 10, 0, tzinfo=UTC)
+    hi = SimpleNamespace(id=uuid4(), created_at=base, content="Hi")
+    asked = SimpleNamespace(
+        id=uuid4(), created_at=base.replace(minute=1), content="Hi! How old are you?"
+    )
+    answer = SimpleNamespace(id=uuid4(), created_at=base.replace(minute=2), content="34")
+    redis = redis_mock()
+    redis.get = AsyncMock(return_value=None)
+    replies = AsyncMock(return_value=[asked])
+    with (
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
+            AsyncMock(return_value=[hi, answer]),
+        ),
+        patch("app.modules.memory.extract_backlog.chat_history.replies_between", replies),
+        patch(
+            "app.modules.memory.extract_backlog.get_redis_client",
+            MagicMock(return_value=redis),
+        ),
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.messages_before",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        read = await expand_memory_extract_transcript(
+            AsyncMock(), user_id=uuid4(), chat_id=uuid4(), fallback_transcript="User: 34"
+        )
+    assert [(line.text, line.asked) for line in read.sources] == [
+        ("Hi", ""),
+        ("34", "Hi! How old are you?"),
+    ]
+    assert replies.await_args.args[2:] == (hi, answer)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_replies_read_keeps_the_lines():
+    rows = [
+        SimpleNamespace(id=uuid4(), created_at=datetime(2026, 9, 3, 10, m, tzinfo=UTC), content=t)
+        for m, t in ((0, "Hi"), (2, "I live in Denver"))
+    ]
+    with (
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
+            AsyncMock(return_value=rows),
+        ),
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.replies_between",
+            AsyncMock(side_effect=RuntimeError("db down")),
+        ),
+    ):
+        read = await history_chat_transcript(AsyncMock(), uuid4(), newer_than=None)
+    assert [(line.text, line.asked) for line in read.sources] == [
+        ("Hi", ""),
+        ("I live in Denver", ""),
+    ]
 
 
 @pytest.mark.asyncio

@@ -24,7 +24,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections.abc import Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from uuid import UUID
 
@@ -40,7 +40,7 @@ from app.models.orm import Chat, Memory, Message, User
 from app.models.routing_lanes import ROUTING
 from app.modules.memory.cache import invalidate_memory_block
 from app.modules.memory.commands import is_explicit_memory_command
-from app.modules.memory.extract_backlog import format_context, source_lines
+from app.modules.memory.extract_backlog import answering_lines, format_context, source_lines
 from app.modules.memory.fact_quality import is_learning_line
 from app.modules.memory.grounding import SourceLine, ground_fact, quoted_line
 from app.modules.memory.llm import STATED_RULES
@@ -258,25 +258,10 @@ async def _evidence(
         others = "\n".join(f"User: {content}" for _, content in nearby)
         transcript += f"\n\nThe user's lines when these facts were first saved:\n{others}"
     lines = [
-        *_answering_lines(rows),
+        *answering_lines(rows),
         *source_lines(nearby),
     ]
     return _Evidence(transcript=transcript, lines=lines)
-
-
-def _answering_lines(rows: Sequence[tuple[UUID, str, str]]) -> list[SourceLine]:
-    """The chat's user lines, each with the assistant message just before it."""
-    lines: list[SourceLine] = []
-    asked = ""
-    for message_id, role, content in rows:
-        if role == "assistant":
-            asked = content
-        elif role == "user":
-            lines.extend(
-                replace(line, asked=asked) for line in source_lines([(message_id, content)])
-            )
-            asked = ""
-    return lines
 
 
 async def _lines_around(

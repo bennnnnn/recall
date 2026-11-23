@@ -6,6 +6,7 @@ lower case"; and "User identifies as female" from "With female", picking a voice
 accounts held an exam, a car and a rent rise as where they live.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -441,6 +442,25 @@ def test_a_pass_reads_the_question_its_first_line_answers():
     assert [(w.text, w.slot) for w in writes] == [("User is 34 years old", "age")]
 
 
+def test_a_lagging_pass_reads_its_second_line_with_the_question_before_it():
+    """A pass that reads "Hi" and "34" together keeps the question asked between them
+    (``extract_backlog`` fills each line's ``asked``), so the bare answer stands (#2539)."""
+    lines = "User: Hi\nUser: 34"
+    op = MemoryFactOp.model_validate(
+        {"op": "add", "confidence": 0.9, "stated_as": "own_life", "slot": "age",
+         "text": "User is 34 years old", "quote": "34"}
+    )  # fmt: skip
+    hi, answer = _lines("Hi", "34")
+    for asked, kept in (("Hi! How old are you?", True), ("", False)):
+        writes, _ = compose_writes(
+            _snapshot(), lines, Asks.of(lines), [op], chat_id=uuid4(), from_history=False,
+            min_confidence=0.5, sources=[hi, replace(answer, asked=asked)], earlier="",
+        )  # fmt: skip
+        assert [(w.text, w.slot) for w in writes] == (
+            [("User is 34 years old", "age")] if kept else []
+        )
+
+
 def _update(slot: str | None, text: str, new_slot: str | None) -> str | None:
     from typing import Any, cast
 
@@ -491,3 +511,49 @@ def test_common_ways_to_say_a_school_or_job_keep_their_slot(fact, slot) -> None:
 def test_the_repository_keeps_only_a_slot_the_text_answers() -> None:
     """A write built outside the pass (an instruction, a stated fact) is held too."""
     assert _update(None, "User earns 200k a year", "name") is None
+
+
+@pytest.mark.parametrize(
+    ("fact", "slot"),
+    [
+        ("User is a nurse", "job"),
+        ("User is an accountant at Deloitte", "job"),
+        ("User is a nurse and is 30", "job"),
+        ("User is a director of engineering at Stripe", "job"),
+        ("User is a senior software engineer at Google.", "job"),
+        ("User is a junior developer", "job"),
+        ("User is a senior at NYU", "school"),
+        ("User is a high school senior", "school"),
+        ("User's wife is named Hana", "relationship_status"),
+        ("The user's partner is Sam", "relationship_status"),
+    ],
+)
+def test_a_job_named_outright_keeps_its_slot(fact, slot) -> None:
+    assert answered_slot(slot, fact) == slot
+
+
+@pytest.mark.parametrize(
+    ("fact", "slot"),
+    [
+        # A noun tied to something else names no job (Claude and Gemini review, #2539).
+        ("User is a fan of jazz", "job"),
+        ("User is a big fan of jazz", "job"),
+        ("User is a member of the choir", "job"),
+        ("User is a mother of two", "job"),
+        ("User is an expert on wine", "job"),
+        ("User is a mentor to new hires", "job"),
+        # A noun another question claims.
+        ("User is a student at MIT", "job"),
+        ("User is a teenager", "job"),
+        ("User is a woman", "job"),
+        ("User is a Christian", "job"),
+        ("User is a widow", "job"),
+        ("User is a 30-year-old nurse", "job"),
+        ("User is a junior developer", "school"),
+        # A partner word answers only of the user's own partner.
+        ("User is friendly and wife of the manager", "relationship_status"),
+        ("User's brother's wife is a doctor", "relationship_status"),
+    ],
+)
+def test_a_noun_that_names_no_job_is_kept_in_none(fact, slot) -> None:
+    assert answered_slot(slot, fact) is None

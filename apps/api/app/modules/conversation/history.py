@@ -107,6 +107,16 @@ async def messages_before(
     )
 
 
+async def replies_between(
+    session: AsyncSession, chat_id: UUID, first: Message, last: Message, *, limit: int
+) -> list[Message]:
+    """The assistant's messages between two of the chat's messages, oldest first: what
+    each of the user's lines between them answers (memory's backlog)."""
+    return await _messages.list_replies_between(
+        session, chat_id, after=first, before=last, limit=limit
+    )
+
+
 async def chats_for_export(session: AsyncSession, user_id: UUID, *, limit: int) -> list[Chat]:
     """The user's chats, archived ones too, each with its summary (the data export)."""
     return await _chats.list_for_user(

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -111,6 +111,45 @@ def source_lines(rows: Iterable[tuple[UUID | None, str]]) -> tuple[SourceLine, .
     )
 
 
+def answering_lines(rows: Iterable[tuple[UUID | None, str, str]]) -> list[SourceLine]:
+    """The user lines of ``(message id, role, text)`` rows, oldest first, each with the
+    assistant message just before it: "34" answers the "How old are you?" before it."""
+    lines: list[SourceLine] = []
+    asked = ""
+    for message_id, role, content in rows:
+        if role == "assistant":
+            asked = content
+        elif role == "user":
+            lines.extend(
+                replace(line, asked=asked) for line in source_lines([(message_id, content)])
+            )
+            asked = ""
+    return lines
+
+
+async def _sources(
+    session: AsyncSession, chat_id: UUID, rows: Sequence[Message]
+) -> tuple[SourceLine, ...]:
+    """The user rows' lines, each from the second on with the reply between it and the
+    row before: a pass that lagged reads "34" with the "How old are you?" it answers. The
+    first row's reply is the pass's context (``pass_writes.answering``)."""
+    replies: list[Message] = []
+    if len(rows) > 1:
+        try:
+            replies = await chat_history.replies_between(
+                session, chat_id, rows[0], rows[-1], limit=2 * len(rows)
+            )
+        except Exception:
+            logger.debug("memory extract replies read failed chat_id=%s", chat_id, exc_info=True)
+    said = [(row, "user") for row in rows]
+    if replies:
+        said = sorted(
+            said + [(reply, "assistant") for reply in replies],
+            key=lambda pair: (pair[0].created_at, pair[0].id),
+        )
+    return tuple(answering_lines((message.id, role, message.content) for message, role in said))
+
+
 def format_context(messages: Sequence[tuple[str, str]]) -> str:
     """The chat before the unread lines for the prompt: ``User:`` / ``Assistant:`` lines,
     each cut (a reply's question is usually at its end, so head and tail are kept)."""
@@ -153,7 +192,7 @@ async def history_chat_transcript(
             format_user_memory_transcript([row.content for row in rows]),
             _MEMORY_TRANSCRIPT_MAX_CHARS,
         ),
-        sources=source_lines((row.id, row.content) for row in rows),
+        sources=await _sources(session, chat_id, rows),
     )
 
 
@@ -191,7 +230,7 @@ async def expand_memory_extract_transcript(
             format_user_memory_transcript([row.content for row in rows]),
             _MEMORY_TRANSCRIPT_MAX_CHARS,
         ),
-        sources=source_lines((row.id, row.content) for row in rows),
+        sources=await _sources(session, chat_id, rows),
         cursor=format_extract_cursor(last.created_at, last.id),
     )
 
