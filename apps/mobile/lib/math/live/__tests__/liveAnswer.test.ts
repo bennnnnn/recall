@@ -137,41 +137,41 @@ describe("liveAnswer", () => {
   });
 
   it.each([
-    ["$2\\pm 1$", ["2- 1 = 1", "2+ 1 = 3"]],
-    ["$2\\mp 1$", ["2- 1 = 1", "2+ 1 = 3"]],
-    ["2±1", ["2-1 = 1", "2+1 = 3"]],
-    ["3*2∓1", ["3\\times 2-1 = 5", "3\\times 2+1 = 7"]],
-    ["$10\\pm 2\\times 3$", ["10- 2\\times 3 = 4", "10+ 2\\times 3 = 16"]],
-    ["$(2\\pm 1)^{2}$", ["(2- 1)^{2} = 1", "(2+ 1)^{2} = 9"]],
-    ["$1\\pm\\sqrt{2}$", ["1-\\sqrt{2} \\approx -0.4142135624", "1+\\sqrt{2} \\approx 2.414213562"]],
-    ["$5\\times\\pm 2$", ["5\\times- 2 = -10", "5\\times+ 2 = 10"]],
+    ["$2\\pm 1$", ["2 - 1 = 1", "2 + 1 = 3"]],
+    ["$2\\mp 1$", ["2 - 1 = 1", "2 + 1 = 3"]],
+    ["2±1", ["2 - 1 = 1", "2 + 1 = 3"]],
+    ["3*2∓1", ["3 \\times 2 - 1 = 5", "3 \\times 2 + 1 = 7"]],
+    ["$10\\pm 2\\times 3$", ["10 - 2 \\times 3 = 4", "10 + 2 \\times 3 = 16"]],
+    ["$(2\\pm 1)^{2}$", ["(2 - 1)^{2} = 1", "(2 + 1)^{2} = 9"]],
+    ["$1\\pm\\sqrt{2}$", ["1 - \\sqrt{2} \\approx -0.4142135624", "1 + \\sqrt{2} \\approx 2.414213562"]],
+    ["$5\\times\\pm 2$", ["5 \\times - 2 = -10", "5 \\times + 2 = 10"]],
   ])("writes out both branches of %s side by side, the minus first", (draft, branches) => {
     expect(shown(draft)).toBe(branches.join(",\\quad "));
   });
 
   it("writes each branch's value once", () => {
     expect(shown("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")).toBe(
-      "\\frac{-3-\\sqrt{9-8}}{2} = -2,\\quad \\frac{-3+\\sqrt{9-8}}{2} = -1",
+      "\\frac{-3 - \\sqrt{9 - 8}}{2} = -2,\\quad \\frac{-3 + \\sqrt{9 - 8}}{2} = -1",
     );
     expect(shown("$\\frac{1}{1\\pm 1}$")).toBe(
-      "\\frac{1}{1- 1} = \\text{undefined},\\quad \\frac{1}{1+ 1} = \\frac{1}{2}",
+      "\\frac{1}{1 - 1} = \\text{undefined},\\quad \\frac{1}{1 + 1} = \\frac{1}{2}",
     );
     expect(shown("$\\frac{1}{3}\\pm 1$")).toBe(
-      "\\frac{1}{3}- 1 = -\\frac{2}{3},\\quad \\frac{1}{3}+ 1 = \\frac{4}{3}",
+      "\\frac{1}{3} - 1 = -\\frac{2}{3},\\quad \\frac{1}{3} + 1 = \\frac{4}{3}",
     );
   });
 
   it("writes all of a draft's values in one form", () => {
     // A value that needs a fraction makes every value one, with no fraction typed.
     expect(shown("$1\\div 3\\pm 1\\div 6$")).toBe(
-      "1\\div 3- 1\\div 6 = \\frac{1}{6},\\quad 1\\div 3+ 1\\div 6 = \\frac{1}{2}",
+      "1 \\div 3 - 1 \\div 6 = \\frac{1}{6},\\quad 1 \\div 3 + 1 \\div 6 = \\frac{1}{2}",
     );
     // A typed fraction does too.
     expect(shown("$\\frac{1}{3}\\pm\\frac{1}{6}$")).toBe(
-      "\\frac{1}{3}-\\frac{1}{6} = \\frac{1}{6},\\quad \\frac{1}{3}+\\frac{1}{6} = \\frac{1}{2}",
+      "\\frac{1}{3} - \\frac{1}{6} = \\frac{1}{6},\\quad \\frac{1}{3} + \\frac{1}{6} = \\frac{1}{2}",
     );
     // No fraction typed or needed: decimals.
-    expect(shown("$2.5\\pm 0.25$")).toBe("2.5- 0.25 = 2.25,\\quad 2.5+ 0.25 = 2.75");
+    expect(shown("$2.5\\pm 0.25$")).toBe("2.5 - 0.25 = 2.25,\\quad 2.5 + 0.25 = 2.75");
   });
 
   it("gives a branch that is its own fraction its decimal, the sign inside or out", () => {
@@ -196,19 +196,20 @@ describe("liveAnswer", () => {
     expect(answer("$\\sqrt{2}\\times 10^{-5}\\pm 10^{-10}\\pm 10^{-10}$")?.latex.split(",").length).toBe(3);
   });
 
-  it("merges a sign typed after + or − instead of doubling it", () => {
-    expect(shown("$2-\\pm 3$")).toBe("2+ 3 = 5,\\quad 2- 3 = -1");
-    expect(shown("$2+\\pm 3$")).toBe("2- 3 = -1,\\quad 2+ 3 = 5");
-    expect(shown("$2\\times\\pm 3$")).toBe("2\\times- 3 = -6,\\quad 2\\times+ 3 = 6");
+  it("merges a sign typed beside + or − instead of doubling it", () => {
+    expect(shown("$2\\pm -3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
+    expect(shown("$2-\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
+    expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
+    expect(shown("$2\\times\\pm 3$")).toBe("2 \\times - 3 = -6,\\quad 2 \\times + 3 = 6");
   });
 
   it("works = out on a ± draft too", () => {
-    expect(shown("$2\\pm 1=$")).toBe("2- 1 = 1,\\quad 2+ 1 = 3");
+    expect(shown("$2\\pm 1=$")).toBe("2 - 1 = 1,\\quad 2 + 1 = 3");
   });
 
   it("speaks a ± draft's values, and draws them at the draft's size", () => {
     // Each branch read out, so a listener knows which value is which.
-    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "2- 1 = 1, 2+ 1 = 3", exact: true, signed: true, short: "= 1,\\quad 3" });
+    expect(answer("$2\\pm 1$")).toMatchObject({ spoken: "2 - 1 = 1, 2 + 1 = 3", exact: true, signed: true, short: "= 1,\\quad 3" });
     expect(answer("$\\frac{1}{1\\pm 1}$")?.short).toBe("= \\text{undefined},\\quad \\frac{1}{2}");
     expect(answer("$1\\pm 1\\pm 1$")).toMatchObject({ signed: true });
     expect(answer("$2+1$")).toMatchObject({ signed: false });

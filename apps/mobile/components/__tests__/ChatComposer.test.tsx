@@ -776,7 +776,7 @@ describe("ChatComposer math keyboard", () => {
     expect(answer()).toContain("mathliveundefined");
     expect(getByTestId("math-live-answer").props.accessibilityLabel).toBe("chat.math_live_answer_a11y");
     await press("backspace", "backspace", "pm", "digit-1");
-    expect(answer()).toBe("1− 1 = 0, 1+ 1 = 2");
+    expect(answer()).toBe("1 − 1 = 0, 1 + 1 = 2");
   });
 
   it("opens full height with the math keyboard, and leaves the thread free to scroll once folded", async () => {

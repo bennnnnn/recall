@@ -13,6 +13,7 @@
 import type { LiveResult, LiveValue } from "@/lib/math/live/evaluate";
 import { terminatingDecimal, toNumber, type Rational } from "@/lib/math/live/rational";
 import type { LiveBranch } from "@/lib/math/live/signs";
+import { spacedDraftMath } from "@/lib/math/draftText";
 import { spokenFormula } from "@/lib/math/spokenFormula";
 
 export type LiveAnswer = {
@@ -166,9 +167,9 @@ const oneForm = (results: LiveResult[], preferFraction: boolean): FormatOptions 
 });
 
 /** `2 minus 1 = 1`: the branch read out, so a listener knows which value is which. */
-function spokenBranch(branch: LiveBranch, shown: Shown): string {
+function spokenBranch(latex: string, shown: Shown): string {
   const rounded = shown.spoken.startsWith("≈ ");
-  return `${spokenFormula(branch.latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;
+  return `${spokenFormula(latex)} ${rounded ? "≈" : "="} ${shown.spoken.replace(/^≈ /, "")}`;
 }
 
 /** One ±: `2 - 1 = 1` and `2 + 1 = 3`, the − branch first. */
@@ -177,11 +178,13 @@ export function formatBranches(branches: LiveBranch[], preferFraction: boolean, 
   const shown = branches.map((branch) =>
     formatResult(branch.result, { ...form, typedFraction: branch.typed }, undefinedWord),
   );
+  // Spaced as the draft above it is (`2 - 1`, not `2- 1`).
+  const written = branches.map((branch) => spacedDraftMath(branch.latex));
   return {
-    latex: branches.map((branch, i) => `${branch.latex} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
+    latex: written.map((text, i) => `${text} ${shown[i]!.latex}`).join(SIDE_BY_SIDE),
     signed: true,
     short: listed(shown),
-    spoken: branches.map((branch, i) => spokenBranch(branch, shown[i]!)).join(", "),
+    spoken: written.map((text, i) => spokenBranch(text, shown[i]!)).join(", "),
     exact: shown.every((s) => s.exact),
   };
 }

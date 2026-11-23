@@ -56,21 +56,29 @@ function picked(node: LiveNode, picks: ReadonlyMap<PlusMinus, Pick>): LiveNode {
   return copy as LiveNode;
 }
 
+/** Two signs in a row as one: `-` then `-` is `+`. */
+const merged = (first: string, second: Pick): Pick => ((first === "+") === (second === "+") ? "+" : "-");
+
 /**
- * The draft as written, its sign replaced (`2\pm 3` → `2- 3`); a typed `*` drawn as ×. A sign
- * typed right after + or − merges with it (`2-\pm 3` → `2+ 3` and `2- 3`), never `2--3`.
+ * The draft as written, its sign replaced (`2\pm 3` → `2- 3`); a typed `*` drawn as ×. A + or −
+ * typed right before or after the sign merges with it (`2-\pm 3` and `2\pm -3` → `2+ 3` and
+ * `2- 3`), never `2--3`.
  */
 function written(math: string, sign: PlusMinus, pick: Pick): string {
   let before = math.slice(0, sign.at);
-  let shown: string = pick;
+  let after = math.slice(sign.at + sign.width);
+  let shown = pick;
   const operator = /[+\-−]\s*$/.exec(before);
   if (!sign.left && operator) {
-    const minus = (operator[0].trimEnd() === "+") !== (pick === "+");
+    shown = merged(operator[0].trim(), shown);
     before = before.slice(0, operator.index);
-    shown = minus ? "-" : "+";
   }
-  const text = `${before}${shown}${math.slice(sign.at + sign.width)}`;
-  return text.replace(/\*/g, "\\times ");
+  const next = /^\s*([+\-−])/.exec(after);
+  if (next) {
+    shown = merged(next[1]!, shown);
+    after = after.slice(next[0].length);
+  }
+  return `${before}${shown}${after}`.replace(/\*/g, "\\times ");
 }
 
 /** Relative to the values themselves: `1.41420e-5` and `1.41421e-5` are two values. */
