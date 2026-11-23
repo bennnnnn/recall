@@ -166,8 +166,20 @@ def quote_gives_answer(
     # "User is a student": the question's word is the whole answer.
     if not frame or all(word in frame for word in _claim(fact)):
         return True
-    said = _content(quote_words)
+    said = _content(quote_words) + _initials(quote)
     return any(not any(_same_word(word, asked) for asked in frame) for word in said)
+
+
+# "the US", "in IT", "L.A.", "D.C.": letters that name something, which the model writes
+# out ("the United States"). Folded, "us" and "it" are filler and "l", "a" too short.
+_INITIALS = re.compile(r"(?<![\w.])(?:(?:[A-Z]\.){2,}|[A-Z]{2,}(?![\w]))")
+
+
+def _initials(quote: str) -> list[str]:
+    """The initialisms in ``quote``, unless it is all capitals (then every word is one)."""
+    if quote.upper() == quote:
+        return []
+    return [found.replace(".", "").casefold() for found in _INITIALS.findall(quote)]
 
 
 # How a line speaks in the first person. English only, as ``_comparable`` reads only then.

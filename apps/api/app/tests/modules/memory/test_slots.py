@@ -574,3 +574,28 @@ def test_a_job_named_outright_keeps_its_slot(fact, slot) -> None:
 )
 def test_a_noun_that_names_no_job_is_kept_in_none(fact, slot) -> None:
     assert answered_slot(slot, fact) is None
+
+
+@pytest.mark.parametrize(
+    ("quote", "fact", "slot", "gives"),
+    [
+        ("I live in the US", "User lives in the United States", "home", True),
+        ("I live in L.A.", "User lives in Los Angeles", "home", True),
+        ("I work in IT", "User works in information technology", "job", True),
+        ("I live", "User lives in Denver", "home", False),
+    ],
+)
+def test_initials_the_model_writes_out_give_the_answer(quote, fact, slot, gives) -> None:
+    """ "the US" folds to the filler "us" and "L.A." to single letters (Gemini, #2539)."""
+    from app.modules.memory.grounding import quote_gives_answer
+
+    assert quote_gives_answer(quote, fact, slot=slot) is gives
+
+
+def test_the_eval_reads_each_line_with_the_question_before_it() -> None:
+    """``memory_extract_eval`` builds its lines the way a live pass does (Gemini, #2539)."""
+    from app.modules.memory.extract_backlog import lines_after
+
+    (line,) = lines_after([("user", "plan my week"), ("assistant", "How old are you?")],
+                          [(uuid4(), "user", "34")])  # fmt: skip
+    assert line.asked == "How old are you?"

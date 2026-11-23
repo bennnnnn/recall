@@ -207,7 +207,11 @@ async def saved_facts(settings: Any, case: Case) -> list[str]:
         chat_id=uuid.uuid4(),
         from_history=False,
         min_confidence=settings.memory_min_confidence,
-        sources=extract_backlog.source_lines([(uuid.uuid4(), text) for text in case.lines]),
+        # Each line with the question before it, as a live pass reads it (review, #2539).
+        sources=extract_backlog.lines_after(
+            [(role, text) for role, text in case.context],
+            [(uuid.uuid4(), "user", text) for text in case.lines],
+        ),
         earlier=earlier,
     )
     return [

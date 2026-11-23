@@ -151,10 +151,18 @@ async def _sources(
             said + [(reply, "assistant") for reply in replies],
             key=lambda pair: (pair[0].created_at, pair[0].id),
         )
-    before = [(None, *context[-1])] if context and context[-1][0] == "assistant" else []
-    return tuple(
-        answering_lines([*before, *((message.id, role, message.content) for message, role in said)])
-    )
+    return lines_after(context, [(message.id, role, message.content) for message, role in said])
+
+
+def lines_after(
+    context: Sequence[tuple[str, str]], said: Sequence[tuple[UUID | None, str, str]]
+) -> tuple[SourceLine, ...]:
+    """The user lines of ``said`` (oldest first), the first with the last message of
+    ``context`` when it is the assistant's: the question it answers."""
+    before: list[tuple[UUID | None, str, str]] = []
+    if context and context[-1][0] == "assistant":
+        before.append((None, "assistant", context[-1][1]))
+    return tuple(answering_lines([*before, *said]))
 
 
 def format_context(messages: Sequence[tuple[str, str]]) -> str:
