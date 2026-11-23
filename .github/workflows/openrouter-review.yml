@@ -8,6 +8,12 @@ name: OpenRouter Review
 # never approves, blocks or pushes, it is not a required check, and every finding is checked
 # against the code before anything changes. To run again, remove the label and add it back.
 #
+# 2026-11-23: no longer a routine review. A Gemini round cost $0.10 to $0.95 on OpenRouter,
+# and a busy pull request had five or six rounds. The Claude review (claude-review.yml, the
+# `review` label) is now the main and only routine reviewer, and its prompt was widened to
+# find what Gemini found. This file stays as a manual second opinion: add one of these
+# labels by hand only when a change needs one.
+#
 # Needs the repository secret OPENROUTER_API_KEY. Dependabot and fork pull requests get no
 # secrets, so the steps skip there.
 
