@@ -16,8 +16,9 @@ export const MIN_SETTLED_CHUNK_CHARS = 320;
 
 const LIST_LINE_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\s|$)/;
 const TABLE_LINE_RE = /^ {0,3}\|/;
-/** A line of text that is not paragraph text: an ATX heading or a table row, at any indent. */
-const NOT_PARAGRAPH_RE = /^[ \t]*(?:#{1,6}(?:[ \t]|$)|\|)/;
+/** A line of text that is not paragraph text, at any indent: an ATX heading, a table row, or a
+ * rule or setext underline (no lazy line goes on after one). */
+const NOT_PARAGRAPH_RE = /^[ \t]*(?:#{1,6}(?:[ \t]|$)|\||(?:[-*_][ \t]*){3,}$|=+[ \t]*$)/;
 const QUOTE_LINE_RE = /^ {0,3}>/;
 
 function isBlankLine(line: string): boolean {
@@ -250,7 +251,7 @@ export function scanClosedBlocks(
     } else if (pendingList && state.list !== pendingList) {
       settlePending();
     }
-    // Only paragraph text goes on lazily under it: not a heading or a table row.
+    // Only paragraph text goes on lazily under it: not a heading, table row, rule or underline.
     state.prevProse = prose && !NOT_PARAGRAPH_RE.test(line);
     i = nl + 1;
   }

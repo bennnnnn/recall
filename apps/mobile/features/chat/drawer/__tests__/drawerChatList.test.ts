@@ -6,7 +6,6 @@ import {
 import {
   chatRecencySection,
   insertNewChatsByRecency,
-  patchChatListGroups,
   patchChatListGroupsMany,
   regroupChatsByRecency,
   removeChatFromGroups,
@@ -142,20 +141,20 @@ describe("archive/unarchive move (remove + reinsert with flipped field)", () => 
 it("moves a header pin patch into Pinned and restores the activity bucket on unpin", () => {
   const old = chat("old", { updated_at: new Date(2026, 5, 1).toISOString() });
   const groups = { ...empty, older: [old] };
-  const pinned = patchChatListGroups(groups, old.id, { pinned: true });
+  const pinned = patchChatListGroupsMany(groups, [[old.id, { pinned: true }]]);
   expect(pinned.older).toEqual([]);
   expect(pinned.pinned[0].id).toBe(old.id);
-  const restored = patchChatListGroups(pinned, old.id, { pinned: false });
+  const restored = patchChatListGroupsMany(pinned, [[old.id, { pinned: false }]]);
   expect(restored.today).toEqual([]);
   expect(restored.older[0].id).toBe(old.id);
 });
 
 it("archive clears pinned and rollback restores the original pinned row", () => {
   const old = chat("pinned", { pinned: true });
-  const archived = patchChatListGroups({ ...empty, pinned: [old] }, old.id, { archived: true });
+  const archived = patchChatListGroupsMany({ ...empty, pinned: [old] }, [[old.id, { archived: true }]]);
   expect(archived.pinned).toEqual([]);
   expect(archived.archived[0]).toMatchObject({ archived: true, pinned: false });
-  const rollback = patchChatListGroups(archived, old.id, { archived: false, pinned: true });
+  const rollback = patchChatListGroupsMany(archived, [[old.id, { archived: false, pinned: true }]]);
   expect(rollback.archived).toEqual([]);
   expect(rollback.pinned[0].id).toBe(old.id);
 });
@@ -300,7 +299,7 @@ describe("editing many chats at once (audit MX-5)", () => {
 
   it("keeps the single edits on the same rule", () => {
     const id = rows[4]!.id;
-    expect(patchChatListGroups(list, id, { archived: true })).toEqual(referencePatch(list, id, { archived: true }));
+    expect(patchChatListGroupsMany(list, [[id, { archived: true }]])).toEqual(referencePatch(list, id, { archived: true }));
     expect(removeChatFromGroups(list, id)).toEqual(referenceRemove(list, id));
   });
 

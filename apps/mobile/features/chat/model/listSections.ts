@@ -65,14 +65,6 @@ export function drawerSectionTitleKey(key: ChatListSectionKey): string {
   return `drawer.${key}`;
 }
 
-export function patchChatListGroups(
-  groups: ChatList,
-  chatId: string,
-  patch: Partial<Chat>,
-): ChatList {
-  return patchChatListGroupsMany(groups, [[chatId, patch]]);
-}
-
 export function removeChatFromGroups(groups: ChatList, chatId: string): ChatList {
   return removeChatsFromGroups(groups, new Set([chatId]));
 }
@@ -222,15 +214,16 @@ function editChatListGroups(
 }
 
 /**
- * `patchChatListGroups` for many chats at once (bulk archive), the same
- * result as patching them one after another.
+ * Each patch applied to its chat's row, for one chat or many (a bulk archive): archiving
+ * clears the pin, and a row whose pin, archive or date changed moves under its heading,
+ * newest first. The same result as patching the chats one after another.
  */
 export function patchChatListGroupsMany(
   groups: ChatList,
   patches: readonly (readonly [string, Partial<Chat>])[],
 ): ChatList {
   if (new Set(patches.map(([id]) => id)).size !== patches.length) {
-    return patches.reduce((list, [id, patch]) => patchChatListGroups(list, id, patch), groups);
+    return patches.reduce((list, entry) => patchChatListGroupsMany(list, [entry]), groups);
   }
   const rows = new Map<string, Chat>();
   for (const row of allChatsFromGroups(groups)) if (!rows.has(row.id)) rows.set(row.id, row);

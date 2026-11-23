@@ -382,6 +382,16 @@ describe("advanceStreamBlocks between list items", () => {
         expect(end > opens && end <= closes).toBe(false);
       }
     }
+    // After a rule in an item nothing goes on lazily either: "Then run:" ends the list.
+    const ruled = ["- Install the tools", "", "  ---", "Then run:", "  ```bash", "npm i", "", `npm run build ${para}`, "",
+      `npm test ${para}`, "  ```", "", "Done."].join("\n");
+    const ruledOpens = ruled.indexOf("  ```bash");
+    const ruledCloses = ruled.lastIndexOf("  ```");
+    let ruledEnd = 0;
+    for (const chunk of advanceStreamBlocks(null, ruled, ruled.length).chunks) {
+      ruledEnd += chunk.length;
+      expect(ruledEnd > ruledOpens && ruledEnd <= ruledCloses).toBe(false);
+    }
     // In a task list a done item drawn apart from a later open one would draw as a check: no cut.
     const tasks = ["- [x] Install:", "", "  ```bash", "  npm i", "  ```", "", "- [ ] Configure", "", "Done."].join("\n");
     expect(advanceStreamBlocks(null, tasks, tasks.length).continued.some(Boolean)).toBe(false);

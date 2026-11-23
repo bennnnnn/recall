@@ -7,7 +7,6 @@ import {
   CHAT_DATE_SECTIONS,
   defaultChatSectionCollapsed,
   isCollapsibleChatSection,
-  patchChatListGroups,
   insertNewChatsByRecency,
   patchChatListGroupsMany,
   removeChatFromGroups,
@@ -336,9 +335,8 @@ function useListEdits({ account, current, applyChatList, load, openRef }: ListEd
     updateGroups(normalized, (prev) => patchChatListGroupsMany(prev, normalized));
   }, [updateGroups]);
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    const normalized = patch.archived === true ? { ...patch, pinned: false } : patch;
-    updateGroups([[chatId, normalized]], (prev) => patchChatListGroups(prev, chatId, normalized));
-  }, [updateGroups]);
+    patchChatsInGroups([[chatId, patch]]);
+  }, [patchChatsInGroups]);
   const insertChatInGroups = useCallback((chat: Chat) => {
     updateGroups([[chat.id, titled(chat)]], (prev) => insertChatIntoGroups(prev, chat));
   }, [updateGroups]);
