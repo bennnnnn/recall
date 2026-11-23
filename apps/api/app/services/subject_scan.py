@@ -3,7 +3,7 @@
 The phone sends a scan as its photo and the subject's caption. A subject that reads its
 own photos (physics, chemistry) reads the problem in the turn and states it under the
 caption as the confirmed line (``read_scanned_problem``), so the turn solves it as if the
-student had typed it. Older app builds still send that line themselves, after a review.
+student had typed it.
 """
 
 from __future__ import annotations
@@ -65,9 +65,9 @@ def words_after_scanner_caption(text: str) -> str:
 def confirmed_scan_reading(text: str) -> str | None:
     """The reading the student confirmed in the scanner, from a photo caption.
 
-    The text after the prefix, up to the first blank line. The app writes the
-    reading with its lines but none blank (``composerTextAfterScanConfirm``),
-    so that line is where a typed draft or an attachment note begins. Linear.
+    The text after the prefix, up to the first blank line. The turn writes the
+    reading with its lines but none blank (``with_confirmed_reading``), so that
+    line is where a typed draft or an attachment note begins. Linear.
     """
     needle = SCAN_CONFIRMED_PREFIX.casefold()
     idx = text.casefold().find(needle)

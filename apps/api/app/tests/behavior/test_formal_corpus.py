@@ -34,3 +34,21 @@ def test_the_physics_questions_carry_their_corpus_answers() -> None:
         f"{lang}-reader" for lang in ("am", "ar", "es", "fr", "hi")
     }
     assert len(questions) >= 150
+
+
+def test_every_casual_rewording_keeps_its_corpus_entry_and_numbers() -> None:
+    """The casual rewordings the cross-check is measured on (``cross_check_eval``): each
+    names its corpus entry, carries its answer, and keeps every number of its question."""
+    from app.tests.behavior.cross_check_eval import QA_CASES, numbers_kept
+    from app.tests.behavior.cross_check_eval import load as casual
+
+    entries = {entry.id: entry for entry in load("physics")}
+    items = casual()
+    assert len(items) >= 300
+    assert {item["id"] for item in items} >= {case["id"] for case in QA_CASES}
+    for item in items:
+        if item["source"].startswith("qa-"):
+            continue
+        entry = entries[item["source"]]
+        assert tuple(item["answer"]) == entry.answers[0], item["id"]
+        assert numbers_kept(entry.prompt, item["prompt"]), item["id"]

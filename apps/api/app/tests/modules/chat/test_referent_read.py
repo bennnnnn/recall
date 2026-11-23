@@ -78,6 +78,43 @@ async def test_a_line_that_asks_to_see_nothing_is_not_read(line: str) -> None:
     model.assert_not_awaited()
 
 
+_BALL_CHAT = [
+    ("user", "a ball is thrown straight up at 20 m/s. how high does it go?"),
+    ("assistant", "It rises **20.4 m**."),
+]
+
+
+@pytest.mark.asyncio
+async def test_a_line_the_turn_read_says_asks_to_see_it_is_read_whatever_its_words() -> None:
+    """ "can u show me a picture" names nothing the words know: asked by the turn's read
+    (``figure_turn.read_shows_it``), the model still reads what "it" is (QA, 2026-11-22)."""
+    model = AsyncMock(return_value=ReferentPick(message=1))
+    rows = _rows(_BALL_CHAT)
+    with patch.object(referent_read, "pick_referent", model):
+        assert await read_referent(Settings(), "can u show me a picture", rows) is None
+        model.assert_not_awaited()
+        referent = await read_referent(Settings(), "can u show me a picture", rows, asked=True)
+    assert referent == Referent(_BALL_CHAT[0][1])
+
+
+@pytest.mark.asyncio
+async def test_a_turn_asked_on_its_words_first_reads_again_when_the_read_asks() -> None:
+    """The photo intercept asks on the words alone, before the prep asks with the turn's
+    read: its "no read" is no answer the prep's ask is held to."""
+    from app.core import readings
+
+    readings.begin_turn()
+    model = AsyncMock(return_value=ReferentPick(message=1))
+    rows = _rows(_BALL_CHAT)
+    line = "can u show me a picture"
+    with patch.object(referent_read, "pick_referent", model):
+        assert await referent_read.referent_for_turn(Settings(), line, rows) is None
+        asked = await referent_read.referent_for_turn(Settings(), line, rows, asked=True)
+        again = await referent_read.referent_for_turn(Settings(), line, rows)
+    assert asked == again == Referent(_BALL_CHAT[0][1])
+    model.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_a_read_off_or_with_no_earlier_line_asks_no_model() -> None:
     model = AsyncMock(return_value=ReferentPick(message=1))
@@ -196,3 +233,94 @@ def test_a_read_that_names_none_clears_no_earlier_line(
         client_longitude=None,
     )
     assert _prior_user_lines(request, prompt, referent) == lines
+
+
+@pytest.mark.parametrize(
+    ("line", "small_talk", "waits"),
+    [
+        ("can u show me a picture", False, True),
+        # A question a subject reads alone, and small talk, never wait for the read (review).
+        ("solve 2x + 5 = 17", False, False),
+        ("thanks!", True, False),
+        # The words ask already: the referent read runs on them.
+        ("draw it", False, False),
+    ],
+)
+@pytest.mark.parametrize("photo", [False, True])
+@pytest.mark.asyncio
+async def test_only_a_line_with_no_problem_of_its_own_waits_for_the_read(
+    line: str, small_talk: bool, waits: bool, photo: bool
+) -> None:
+    from uuid import uuid4
+
+    from app.modules.chat.turn_prep import augment
+    from app.modules.chat.turn_prep.request import TurnRequest
+
+    request = TurnRequest(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        content=line,
+        model="free-chat",
+        client_timezone=None,
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+        has_image_attachment=photo,
+    )
+    waits = waits and not photo
+    asked = AsyncMock(return_value=True)
+    with (
+        patch.object(augment, "read_shows_it", asked),
+        patch.object(augment, "chat_holds_a_school_problem", AsyncMock(return_value=True)),
+    ):
+        said = await augment._asks_to_see_by_read(
+            request, Settings(), _rows(_BALL_CHAT), small_talk=small_talk
+        )
+    assert said is waits and asked.await_count == int(waits)
+
+
+@pytest.mark.asyncio
+async def test_a_chat_with_no_school_problem_never_waits_for_the_read() -> None:
+    """An everyday chat holds no problem a subject could draw (review)."""
+    from uuid import uuid4
+
+    from app.modules.chat.turn_prep import augment
+    from app.modules.chat.turn_prep.request import TurnRequest
+
+    request = TurnRequest(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        content="can u show me a picture",
+        model="free-chat",
+        client_timezone=None,
+        client_location=None,
+        client_latitude=None,
+        client_longitude=None,
+    )
+    asked = AsyncMock(return_value=True)
+    with (
+        patch.object(augment, "read_shows_it", asked),
+        patch.object(augment, "chat_holds_a_school_problem", AsyncMock(return_value=False)),
+    ):
+        assert not await augment._asks_to_see_by_read(
+            request, Settings(), _rows(_BALL_CHAT), small_talk=False
+        )
+    asked.assert_not_awaited()
+
+
+def test_a_ball_thrown_up_is_a_school_problem_and_a_greeting_is_not() -> None:
+    from app.modules.chat.school_problem import holds_a_school_problem
+
+    assert holds_a_school_problem([_BALL_CHAT[0][1]])
+    assert not holds_a_school_problem(["hey how are you", "Tell me about the Colosseum"])
+
+
+@pytest.mark.asyncio
+async def test_a_reply_s_answer_card_says_the_chat_worked_a_problem() -> None:
+    """ "7 notebooks at $2 each" reads as no subject's question; its reply's checked card
+    says it was one (review)."""
+    from app.modules.chat.school_problem import answers_a_problem, chat_holds_a_school_problem
+
+    card = "Change is $6.\n\n```answer\nverified: true\n6\n```"
+    assert answers_a_problem(card) and not answers_a_problem("The Colosseum is in Rome.")
+    assert await chat_holds_a_school_problem(Settings(), ["i bought 7 notebooks"], [card])

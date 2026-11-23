@@ -1,6 +1,6 @@
 """Maths, physics and chemistry: SymPy bounds and pool, model extraction, scan OCR."""
 
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel
 
 
 class StemSettings(BaseModel):
@@ -23,12 +23,8 @@ class StemSettings(BaseModel):
     # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply. Every subject's solve:
-    # maths, physics and chemistry (it was math_solve_timeout_seconds; that env name
-    # is still read for one release).
-    stem_solve_timeout_seconds: float = Field(
-        default=5.0,
-        validation_alias=AliasChoices("stem_solve_timeout_seconds", "math_solve_timeout_seconds"),
-    )
+    # maths, physics and chemistry.
+    stem_solve_timeout_seconds: float = 5.0
     # Isolated 1-worker process slots (not one shared N-worker pool — a
     # timeout must SIGTERM only the runaway). Interactive slot wait is *not*
     # the 5s solve timeout; 1+1=x must not sit 60s behind an integral.
@@ -87,6 +83,12 @@ class StemSettings(BaseModel):
     formal_reader_enabled: bool = True
     formal_read_timeout_seconds: float = 6.0
     formal_wait_seconds: float = 2.0
+    # A physics turn a solver did answer is read the same way, and the solver's answer is
+    # held to that reading: one that differs leaves the question to the model, unverified,
+    # never the solver's value checked (``physics.cross_check``). The turn waits at most
+    # ``formal_wait_seconds`` for it; with no reading in time the check stands. Off: every
+    # solver answer is checked, as before.
+    physics_cross_check_enabled: bool = True
     # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
     # from those numbers (``modules/charts``), only when every label and value is the user's,
     # in place of the model's own chart, which no check read. Beside the reply, which waits at
@@ -101,14 +103,8 @@ class StemSettings(BaseModel):
     math_model_intent_budget_seconds: float = 7.0
     # POST /{math,physics,chemistry}/scan/read runs OCR (Mathpix, then vision)
     # so the student can confirm what the camera read before it is solved.
-    # Per user, per hour, shared by every subject's reader (it was
-    # math_scan_read_rate_limit_per_hour; that env name is still read for one release).
-    scan_read_rate_limit_per_hour: int = Field(
-        default=60,
-        validation_alias=AliasChoices(
-            "scan_read_rate_limit_per_hour", "math_scan_read_rate_limit_per_hour"
-        ),
-    )
+    # Per user, per hour, shared by every subject's reader.
+    scan_read_rate_limit_per_hour: int = 60
     # Reads one user may have open at once, every subject together (each holds
     # its photo, up to 4 MB, in memory while it is read). Checked before the body
     # is read; the phone sends one at a time. 0 disables the cap.

@@ -12,6 +12,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.readings import kept_reading
+from app.modules.physics.cross_check import cross_check, cross_check_on
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
 from app.modules.physics.followup import (
@@ -20,7 +21,7 @@ from app.modules.physics.followup import (
     physics_followup_whole,
     shown_physics_problem,
 )
-from app.modules.physics.prompt import build_physics_augmentation
+from app.modules.physics.prompt import build_physics_augmentation, unverified_physics_note
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.modules.physics.scene_drawing.contract import (
     DESCRIBED_PICTURE_SPEECH,
@@ -135,11 +136,11 @@ class PhysicsFollowups:
         return asks_to_see(line) and (recent is None or any(recent))
 
     def shown_problem(
-        self, line: str, recent: Sequence[Any], referent: str | None = None
+        self, line: str, recent: Sequence[Any], referent: str | None = None, *, asked: bool = False
     ) -> str | None:
         # "Draw it": the problem it shows is read for its quantities here, in the pool, as a
         # changed one is, so the setup contract finds the reading kept (Gemini, PR #2490).
-        return _read_quantities(shown_physics_problem(line, referent))
+        return _read_quantities(shown_physics_problem(line, referent, asked=asked))
 
 
 @dataclass(frozen=True)
@@ -172,7 +173,7 @@ class PhysicsFence:
         block = _physics_block(verified)
         return solver_cards(block) if block is not None else ()
 
-    def unverified_note(self, text: str) -> str:
+    def drop_unverified_note(self, text: str) -> str:
         # An unverified physics turn's note is in its prompt, not under the reply.
         return text
 
@@ -381,11 +382,16 @@ class PhysicsSubject:
         return nullcontext([])
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
+        text = _physics_request_text(request.text)
         block, physics_verified, solve_failed, unanswerable = await build_physics_augmentation(
-            _physics_request_text(request.text),
+            text,
             settings,
             needs_subject=True,
         )
+        if isinstance(physics_verified, VerifiedPhysicsBlock) and cross_check_on(settings):
+            # A second reading that differs: the model answers, unchecked (``cross_check``).
+            if await cross_check(physics_verified, text, settings) == "disagree":
+                block, physics_verified = unverified_physics_note(), None
         return SubjectAugmentation(
             subject="physics",
             prompt_block=block,

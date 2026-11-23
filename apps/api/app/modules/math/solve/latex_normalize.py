@@ -21,6 +21,7 @@ from app.modules.math.solve.unicode_normalize import (
     rewrite_unicode_script_runs,
     rewrite_unicode_sqrts,
 )
+from app.services.latex_groups import closed_group_end
 from app.services.symbolic_text import strip_inline_math_delimiters
 
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
@@ -121,19 +122,10 @@ def rewrite_abs_bars(expr: str, *, apart: bool = False) -> str:
 
 
 def _read_brace_group(s: str, i: int) -> tuple[str, int] | None:
-    if i >= len(s) or s[i] != "{":
-        return None
-    depth = 0
-    j = i
-    while j < len(s):
-        if s[j] == "{":
-            depth += 1
-        elif s[j] == "}":
-            depth -= 1
-            if depth == 0:
-                return s[i + 1 : j], j + 1
-        j += 1
-    return None
+    """The ``{…}`` group opening at ``i``: its inside and where it ends; None when no group
+    opens there or it never closes."""
+    end = closed_group_end(s, i)
+    return None if end is None else (s[i + 1 : end - 1], end)
 
 
 def _rewrite_latex_sqrts(s: str) -> str:

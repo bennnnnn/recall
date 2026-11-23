@@ -33,7 +33,7 @@ _PAIR = re.compile(
 _ON_TABLE = re.compile(
     r"\b(?:table|desk|bench|counter|shelf|floor|horizontal\s+surface)\b", re.IGNORECASE
 )
-_SLOPE = re.compile(r"\b(?:incline[sd]?|inclined\s+plane|ramp|slope)\b", re.IGNORECASE)
+SLOPE = re.compile(r"\b(?:incline[sd]?|inclined\s+plane|ramp|slope)\b", re.IGNORECASE)
 _CURVE = re.compile(
     r"\bcurve[sd]?\b|\bbend\b|\bbank(?:ed|ing)?\b|\broundabout\b"
     r"|\b(?:turn(?:s|ing)?|round|around|rounding)\s+(?:a|the)\s+corner\b",
@@ -52,10 +52,11 @@ _VERTICAL_CIRCLE = re.compile(
 _STRING = re.compile(r"\b(?:string|rope|cord|chain|thread|wire)\b", re.IGNORECASE)
 _TOP = re.compile(r"\btop\b|\bhighest\s+point\b", re.IGNORECASE)
 _BOTTOM = re.compile(r"\bbottom\b|\blowest\s+point\b", re.IGNORECASE)
-_ROUND = re.compile(r"\b(?:ball|stone|rock|bob|apple|puck)\b", re.IGNORECASE)
-# "a 20 degree bank", "banked at 15°".
+ROUND_BODY = re.compile(r"\b(?:ball|stone|rock|bob|apple|puck)\b", re.IGNORECASE)
+# "a 20 degree bank", "banked at 15°", "a 30 degree incline", "at 25 degrees above the
+# horizontal" (the force pictures read it too).
 # One ``\s*`` before the unit and one after a hyphen: a run of spaces is read one way only.
-_ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|(?:-\s*)?deg(?:rees?)?\b)", re.IGNORECASE)
+ANGLE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*(?:°|º|(?:-\s*)?deg(?:rees?)?\b)", re.IGNORECASE)
 
 RigPicture = tuple[SimulationBlockSpec, str]
 
@@ -76,7 +77,7 @@ def listed(items: list[str]) -> str:
 
 
 def _pulley(text: str, friction: bool) -> RigPicture | None:
-    if _SLOPE.search(text) is not None:
+    if SLOPE.search(text) is not None:
         return None
     if _ON_TABLE.search(text) is not None:
         return _table_pulley(friction)
@@ -208,7 +209,7 @@ def _flat_curve(friction: bool, text: str) -> RigPicture | None:
 
 def _banked_curve(text: str) -> RigPicture | None:
     """A car on a banked road seen from behind, at the bank angle the text states."""
-    match = _ANGLE.search(text)
+    match = ANGLE.search(text)
     deg = float(match[1]) if match and 0 < float(match[1]) < 90 else None
     return banked_curve_picture(deg)
 
@@ -259,7 +260,7 @@ def _vertical_circle(text: str) -> RigPicture | None:
     if not top and not bottom:
         top = bottom = True
     radius, size = 2.0, 0.3
-    shape: Literal["circle", "box"] = "circle" if _ROUND.search(text) else "box"
+    shape: Literal["circle", "box"] = "circle" if ROUND_BODY.search(text) else "box"
     bodies: list[SimulationBody] = []
     vectors: list[SimulationVector] = []
     shown: list[str] = []

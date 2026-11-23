@@ -27,12 +27,19 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
+from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.drawn_picture import solve_draws
-from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
+from app.modules.chat.figure_turn import (
+    earlier_user_lines,
+    names_nothing,
+    read_asks_for_a_picture,
+    shows_it,
+)
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.referent_read import kept_referent
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
@@ -138,10 +145,7 @@ def _physics_read(ctx: StreamContext) -> bool:
     particle's v(t)) are physics' to read for the graph (``graph_facts``)."""
     if _a_physics_turn(ctx):
         return True  # u5-088's kinematics, which the read may call maths
-    read = ctx.live_read
-    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
-        return False
-    decision = read.result()
+    decision = settled_result(ctx.live_read)
     return decision is not None and decision.subject == "physics"
 
 
@@ -175,9 +179,7 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     left = deadline - asyncio.get_running_loop().time()
     if left > 0:
         await asyncio.wait([task], timeout=left)
-    if not task.done() or task.cancelled() or task.exception() is not None:
-        return None
-    return task.result()
+    return settled_result(task)
 
 
 # The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
@@ -327,7 +329,7 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
     not say otherwise."""
     if drawing.asked == "read":
         return True
-    decision = _read_in(ctx)
+    decision = settled_result(ctx.live_read)
     if decision is None or decision.subject is None or decision.picture is None:
         return True
     # A setup's scene the read would ask for too ("none": a problem's own picture) stands,
@@ -339,16 +341,8 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
 def _asks_to_see(ctx: StreamContext) -> bool:
     """The message asks to see a picture, unless the read, in by now, says it asks for none
     ("Don't draw the field, just explain"): then only a problem's setup is drawn."""
-    decision = _read_in(ctx)
+    decision = settled_result(ctx.live_read)
     return decision is None or decision.picture != "none"
-
-
-def _read_in(ctx: StreamContext) -> TurnDecision | None:
-    """The turn's read, when it is in by now and answered."""
-    read = ctx.live_read
-    if read is None or not read.done() or read.cancelled() or read.exception() is not None:
-        return None
-    return read.result()
 
 
 async def _described(
@@ -500,6 +494,15 @@ async def attach_drawing(state: FinalizeState) -> str:
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
+    # A request to see the chat's problem gets no figure that names nothing of it: "can u
+    # show me a picture" after 40 tickets at $8 and $5 got a bare rectangle (QA round,
+    # 2026-11-22).
+    if parted is None and shows_it(settled_result(ctx.live_read)):
+        # Held to the problem shown, never an older line's numbers (review): the one a
+        # follow-up resolved or the referent read named, else the user's last message.
+        problem = ctx.followup_problem or kept_referent(line)
+        shown = [line, problem or (texts[1] if len(texts) > 1 else "")]
+        fences = [fence for fence in fences if not names_nothing(fence, shown)]
     if not fences:
         return text
     drawing.fences = list(fences)
