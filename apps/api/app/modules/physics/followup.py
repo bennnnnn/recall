@@ -143,10 +143,11 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
     return None if _held_fixed(prior) else _restated(prior, written)
 
 
-def shown_physics_problem(line: str, referent: str | None) -> str | None:
+def shown_physics_problem(line: str, referent: str | None, *, asked: bool = False) -> str | None:
     """ "Draw it" after a physics problem: the problem a model read as "it"
-    (``chat.referent_read``), solved again for its scene; None when it is no physics."""
-    if not referent or not asks_to_see(line) or not needs_physics(referent):
+    (``chat.referent_read``), solved again for its scene; None when it is no physics.
+    ``asked``: the turn's read says the line asks to see it, whatever its words."""
+    if not referent or not (asked or asks_to_see(line)) or not needs_physics(referent):
         return None
     return referent
 

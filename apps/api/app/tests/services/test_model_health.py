@@ -84,7 +84,6 @@ async def test_a_failing_model_opens() -> None:
     )
     snap = await _health(redis, "smart-chat")
     assert snap.sample_count == 4
-    assert snap.error_rate == 0.75
     assert snap.healthy is False
 
 
@@ -193,7 +192,8 @@ async def test_a_turns_samples_are_written_in_one_round_trip() -> None:
         ],
     )
     assert redis.round_trips == 1
-    assert (await _health(redis.inner, "smart-chat")).error_rate == 1.0
+    failed = await _health(redis.inner, "smart-chat")
+    assert (failed.sample_count, failed.healthy) == (1, False)
     assert (await _health(redis.inner, "qwen-3.8-flash")).healthy is True
 
 

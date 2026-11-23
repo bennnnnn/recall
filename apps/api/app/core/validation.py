@@ -99,7 +99,34 @@ def normalize_display_name(raw: str | None) -> str | None:
     name = " ".join(raw.strip().split())
     if not name or len(name) > 80:
         return None
-    return name
+    return proper_name(name)
+
+
+def proper_name(name: str) -> str:
+    """A name typed all in lowercase, with a capital at the start of each part ("bini" is
+    Bini, "jean-luc o'neil" is Jean-Luc O'Neil); any capital the user typed keeps the name as
+    written ("McDonald", "de Silva", "BINI"), and a script with no case is left alone.
+
+    The name went into every prompt as typed, and replies signed and greeted "bini" (owner,
+    2026-11-07, again 2026-11-22). Postgres's ``initcap`` does the same to the rows saved
+    before (migration ``0133_proper_case_names``)."""
+    if name != name.lower() or name == name.upper():
+        return name
+    out: list[str] = []
+    # A part starts after anything but a letter or a digit; an accent mark belongs to the
+    # letter before it ("pe\u0301rez", typed decomposed, is Pérez, never PéRez: review, #2538).
+    in_part = False
+    for char in name:
+        if unicodedata.category(char).startswith("M"):
+            out.append(char)
+            continue
+        upper = char.upper()
+        # A letter whose capital is two ("ß" to "SS") keeps as typed: a name never grows
+        # past the length it was checked at (review, #2538).
+        starts = char.isalpha() and not in_part and len(upper) == 1
+        out.append(upper if starts else char)
+        in_part = char.isalnum()
+    return "".join(out)
 
 
 _AVATAR_PATH_PREFIX = "/attachments/"

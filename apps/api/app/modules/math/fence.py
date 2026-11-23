@@ -42,7 +42,7 @@ from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
 from app.modules.math.tools.direct_counting import verified_counting_fence
 from app.modules.math.unverified_note import (
-    append_unverified_math_note as append_unverified_math_note,
+    tidy_and_drop_unverified_math_note as tidy_and_drop_unverified_math_note,
 )
 from app.services.answer_check import correction_line, stated_verdict
 from app.services.answer_fence import (

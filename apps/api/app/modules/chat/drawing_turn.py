@@ -31,9 +31,15 @@ from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.draw_stream import without_draw_blocks
 from app.modules.chat.drawn_picture import solve_draws
-from app.modules.chat.figure_turn import earlier_user_lines, read_asks_for_a_picture
+from app.modules.chat.figure_turn import (
+    earlier_user_lines,
+    names_nothing,
+    read_asks_for_a_picture,
+    shows_it,
+)
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.referent_read import kept_referent
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.turn_reading.turn import current_turn_reading
@@ -488,6 +494,15 @@ async def attach_drawing(state: FinalizeState) -> str:
     except Exception as exc:  # A drawing that fails is no drawing: the reply stands.
         logger.info("described picture failed (%s)", type(exc).__name__)
         return text
+    # A request to see the chat's problem gets no figure that names nothing of it: "can u
+    # show me a picture" after 40 tickets at $8 and $5 got a bare rectangle (QA round,
+    # 2026-11-22).
+    if parted is None and shows_it(settled_result(ctx.live_read)):
+        # Held to the problem shown, never an older line's numbers (review): the one a
+        # follow-up resolved or the referent read named, else the user's last message.
+        problem = ctx.followup_problem or kept_referent(line)
+        shown = [line, problem or (texts[1] if len(texts) > 1 else "")]
+        fences = [fence for fence in fences if not names_nothing(fence, shown)]
     if not fences:
         return text
     drawing.fences = list(fences)
