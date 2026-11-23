@@ -39,9 +39,11 @@ _STEM = 4
 # "User is vegetarian and lives in Denver" answers it after a first clause about the user.
 # "User's" is followed by its noun straight away ("User's home"): "User's family lives in
 # Lisbon" and "User's newly married sister" are someone else's.
+# "User has lived", "User has been working": the perfect says it too ("had lived" is past).
+_ADVERBS = r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*"
 _SUBJECT = (
     r"^\s*(?:the )?user(?:'s\s+|\s+(?:is [^,;]*? and\s+)?"
-    r"(?:(?:\w+ly|now|still|also|just|currently)\s+)*)"
+    rf"{_ADVERBS}(?:(?:has|have)\s+(?:been\s+)?{_ADVERBS})?)"
 )
 _DECADES = r"(?:\d0s|twenties|thirties|forties|fifties|sixties|seventies|eighties|nineties)"
 _RELIGIONS = (
@@ -54,7 +56,7 @@ _PARTNERS = r"wife|husband|partner|girlfriend|boyfriend|spouse|fianc\w*"
 
 
 _JOB_VERBS = (
-    r"works?|is working|worked|is (?:self-)?employed|is retired|retired|is unemployed"
+    r"works?|is working|working|worked|is (?:self-)?employed|is retired|retired|is unemployed"
     r"|runs|owns|manages|is the (?:owner|founder|ceo|manager)|founded|co-?founded"
 )
 # A word of the noun a job is named by: never one that ties the noun to something else, as
@@ -100,7 +102,8 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
     ),
     "home": (
         _about_user(
-            r"lives?|is living|is based|resides|is residing|has moved|moved|has relocated"
+            r"lives?|lived|is living|living|is based|resides|is residing|has moved|moved"
+            r"|has relocated"
             r"|relocated|is staying|stays|is located|home|city|town|address"
         ),
         # "User is in Toronto": a place, named in upper case ("User is in 10th grade" is not).
@@ -126,7 +129,15 @@ _ASKS: dict[str, tuple[re.Pattern[str], ...]] = {
             r"|is majoring|majors?|school|university|college"
         ),
     ),
-    "job": (_about_user(rf"{_JOB_VERBS}|job|occupation|profession|career|role|position|employer"),),
+    "job": (
+        _about_user(
+            rf"{_JOB_VERBS}|job|occupation|profession|career|role|position|employer"
+            # "User has a new job at Stripe", "User started a role at Shopify"; "a job
+            # interview" is no job.
+            r"|(?:has|got|started|landed|took) an? (?:\S+ ){0,2}?(?:job|role|position)"
+            r"(?=\s*(?:$|[.,;]|(?:at|as|with|in|for|and)\b))"
+        ),
+    ),
     "relationship_status": (
         _about_user(
             r"is (?:\S+ )?(?:married|single|dating|engaged|divorced|separated|widowed"

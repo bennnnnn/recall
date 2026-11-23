@@ -599,3 +599,24 @@ def test_the_eval_reads_each_line_with_the_question_before_it() -> None:
     (line,) = lines_after([("user", "plan my week"), ("assistant", "How old are you?")],
                           [(uuid4(), "user", "34")])  # fmt: skip
     assert line.asked == "How old are you?"
+
+
+@pytest.mark.parametrize(
+    ("slot", "fact", "kept"),
+    [
+        ("job", "User has a new job at Stripe", True),
+        ("job", "User started a role at Shopify", True),
+        ("job", "User has been working at Google", True),
+        ("home", "User has lived in Denver for 3 years", True),
+        ("home", "User has been living in Denver", True),
+        ("relationship_status", "User has been married for 10 years", True),
+        # A past home, an errand and a visit answer nothing now.
+        ("home", "User had lived in Paris", False),
+        ("job", "User has a job interview on Monday", False),
+        ("home", "User has been to Paris", False),
+        ("age", "User has a 7-year-old son", False),
+    ],
+)
+def test_the_perfect_and_a_new_job_answer_their_slot(slot, fact, kept) -> None:
+    """ "has lived", "has a new job" (Claude review, #2539)."""
+    assert (answered_slot(slot, fact) == slot) is kept
