@@ -9,10 +9,14 @@ and slot); one that fails is muted, which Settings → Memory can undo. Nothing 
     python -m app.modules.memory.recheck --email someone@example.com          # dry run
     python -m app.modules.memory.recheck --email someone@example.com --apply
 
+Both read each fact's saved slot, so the database needs migration 0131_memory_slot
+(``alembic upgrade head``) first, the dry run included.
+
 A lesson line (the lesson job's) and a fact with no source chat (written by hand, or its
 chat deleted) are kept as they are: there is nothing to read them against. Among the facts
 kept, an older answer in the same slot and an older fact a newer one says again in other
-words are muted too.
+words are muted too. A fact read again keeps a slot only when it answers it
+(``slots.answered_slot``): "User earns 200k", filed under name, stays, in no slot.
 """
 
 from __future__ import annotations
@@ -36,12 +40,13 @@ from app.models.orm import Chat, Memory, Message, User
 from app.models.routing_lanes import ROUTING
 from app.modules.memory.cache import invalidate_memory_block
 from app.modules.memory.commands import is_explicit_memory_command
-from app.modules.memory.extract_backlog import format_context, source_lines
+from app.modules.memory.extract_backlog import answering_lines, format_context, source_lines
 from app.modules.memory.fact_quality import is_learning_line
 from app.modules.memory.grounding import SourceLine, ground_fact, quoted_line
 from app.modules.memory.llm import STATED_RULES
 from app.modules.memory.ops import ACTIVE_STATUS, MUTED_STATUS
 from app.modules.memory.schemas import memory_slot
+from app.modules.memory.slots import answered_slot
 from app.services.prompt_safety import wrap_untrusted
 
 # The chat read for a fact: its messages up to a little after the fact was last confirmed.
@@ -64,6 +69,7 @@ class SavedFact:
     created_at: datetime
     confirmed_at: datetime
     source_chat_id: UUID | None
+    slot: str | None = None
 
 
 @dataclass(frozen=True)
@@ -168,6 +174,8 @@ def judge(
     if not reading.quote:
         return Verdict(fact, keep=False, reason="no line of the user's states it")
     line = quoted_line(reading.quote, lines)
+    # The reading's slot, else the saved one, and only one the fact answers.
+    slot = answered_slot(reading.slot, fact.text) or answered_slot(fact.slot, fact.text)
     grounding = ground_fact(
         quote=reading.quote,
         fact=fact.text,
@@ -175,6 +183,8 @@ def judge(
         lines=lines,
         explicit_remember=line is not None and is_explicit_memory_command(line.text),
         english=english,
+        slot=slot,
+        named=reading.slot or fact.slot,
     )
     if grounding.line is None:
         return Verdict(fact, keep=False, reason=f"{grounding.reason}: {reading.quote!r}")
@@ -183,7 +193,7 @@ def judge(
         keep=True,
         reason=f"stated: {reading.quote!r}",
         source_message_id=grounding.line.message_id,
-        slot=reading.slot,
+        slot=slot,
         read=True,
     )
 
@@ -202,20 +212,20 @@ def without_older_answers(verdicts: list[Verdict]) -> list[Verdict]:
     """Of the kept facts in one slot, the newest stays; the older ones are muted."""
     newest: dict[str, Verdict] = {}
     for verdict in verdicts:
-        if verdict.keep and verdict.slot:
+        # Only facts read again: an unread one's slot was never checked.
+        if verdict.keep and verdict.read and verdict.slot:
             held = newest.get(verdict.slot)
             if held is None or verdict.fact.confirmed_at > held.fact.confirmed_at:
                 newest[verdict.slot] = verdict
     return [
         Verdict(verdict.fact, keep=False, reason=f"older answer for {verdict.slot}")
-        if verdict.keep and verdict.slot and newest[verdict.slot] is not verdict
+        if verdict.keep and verdict.read and verdict.slot and newest[verdict.slot] is not verdict
         else verdict
         for verdict in verdicts
     ]
 
 
 async def _load_facts(session: AsyncSession, user_id: UUID) -> list[SavedFact]:
-    # Columns, not the row: a dry run reads a database the slot column may not be in yet.
     result = await session.execute(
         select(
             Memory.id,
@@ -223,6 +233,7 @@ async def _load_facts(session: AsyncSession, user_id: UUID) -> list[SavedFact]:
             Memory.created_at,
             Memory.last_confirmed_at,
             Memory.source_chat_id,
+            Memory.slot,
         )
         .where(Memory.user_id == user_id, Memory.status == ACTIVE_STATUS)
         .order_by(Memory.created_at)
@@ -247,10 +258,11 @@ async def _evidence(
     if nearby:
         others = "\n".join(f"User: {content}" for _, content in nearby)
         transcript += f"\n\nThe user's lines when these facts were first saved:\n{others}"
-    lines = source_lines(
-        [(message_id, content) for message_id, role, content in rows if role == "user"] + nearby
-    )
-    return _Evidence(transcript=transcript, lines=list(lines))
+    lines = [
+        *answering_lines(rows),
+        *source_lines(nearby),
+    ]
+    return _Evidence(transcript=transcript, lines=lines)
 
 
 async def _lines_around(
@@ -388,18 +400,7 @@ async def apply_verdicts(user_id: UUID, verdicts: Sequence[Verdict]) -> None:
     async with SessionLocal() as session:
         try:
             for verdict in verdicts:
-                values = (
-                    {"status": MUTED_STATUS}
-                    if not verdict.keep
-                    else {
-                        key: value
-                        for key, value in (
-                            ("source_message_id", verdict.source_message_id),
-                            ("slot", verdict.slot),
-                        )
-                        if value is not None
-                    }
-                )
+                values = verdict_values(verdict)
                 if values:
                     await session.execute(
                         update(Memory)
@@ -411,6 +412,21 @@ async def apply_verdicts(user_id: UUID, verdicts: Sequence[Verdict]) -> None:
             await session.rollback()
             raise
     await invalidate_memory_block(user_id)
+
+
+def verdict_values(verdict: Verdict) -> dict[str, object]:
+    """The columns a verdict writes: a muted status, or a read fact's message and slot.
+
+    A read fact's slot is written even when it is none: a slot it does not answer is
+    cleared, so it no longer replaces or holds out a real answer."""
+    if not verdict.keep:
+        return {"status": MUTED_STATUS}
+    values: dict[str, object] = {}
+    if verdict.source_message_id is not None:
+        values["source_message_id"] = verdict.source_message_id
+    if verdict.read and verdict.slot != verdict.fact.slot:
+        values["slot"] = verdict.slot
+    return values
 
 
 async def _user_id(email: str | None, user_id: str | None) -> UUID:

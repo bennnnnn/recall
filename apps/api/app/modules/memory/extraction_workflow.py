@@ -33,6 +33,7 @@ from app.modules.memory.pass_writes import (
     without_reset_requests,
 )
 from app.modules.memory.schemas import MemoryFactUpdateResult
+from app.modules.memory.slots import answered_slot
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.text import is_memory_candidate
 from app.modules.memory.topics import (
@@ -85,8 +86,9 @@ async def _snapshot(session: AsyncSession, user: User, *, facts: bool = True) ->
                 "type": memory.type,
                 "topic": fact_topic(memory),
                 "text": memory.text,
-                # Only a fact that has one: the model reuses it for a newer answer.
-                **({"slot": memory.slot} if memory.slot else {}),
+                # Only a fact that answers one: the model reuses it for a newer answer,
+                # and a slot filed by mistake must not teach it the mistake.
+                **({"slot": slot} if (slot := answered_slot(memory.slot, memory.text)) else {}),
             }
             for memory in existing
         ],

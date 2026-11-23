@@ -23,6 +23,7 @@ from app.modules.memory.ops import (
     match_fact,
     normalize_memory_text,
 )
+from app.modules.memory.slots import answered_slot
 from app.modules.memory.topics import (
     AREA_SUMMARY_MAX,
     AREA_TITLE_MAX,
@@ -191,7 +192,7 @@ def _new_fact(user_id: UUID, write: MemoryFactWrite, clean: str, topic: str) -> 
         last_confirmed_at=datetime.now(UTC),
         source_chat_id=write.source_chat_id,
         source_message_id=write.source_message_id,
-        slot=write.slot,
+        slot=answered_slot(write.slot, clean),
     )
 
 
@@ -203,11 +204,21 @@ def _supersede(old: Memory, new: Memory) -> None:
 
 def _retire_same_slot(facts: list[Memory], fact: Memory) -> None:
     """A single-valued fact replaces every other active one in its slot: a second home,
-    school year or marriage never stays beside it. A muted fact stays muted."""
-    if not fact.slot or fact.status != ACTIVE_STATUS:
+    school year or marriage never stays beside it. A muted fact stays muted.
+
+    Only facts that answer the slot count (``slots.answered_slot``): one filed there by
+    mistake ("User earns 200k" under name, saved before the check) neither replaces the
+    user's name nor is replaced by it."""
+    slot = answered_slot(fact.slot, fact.text)
+    if slot is None or fact.status != ACTIVE_STATUS:
         return
     for other in facts:
-        if other.id != fact.id and other.slot == fact.slot and other.status == ACTIVE_STATUS:
+        if (
+            other.id != fact.id
+            and other.status == ACTIVE_STATUS
+            and other.slot == slot
+            and answered_slot(other.slot, other.text) == slot
+        ):
             _supersede(other, fact)
 
 
@@ -257,8 +268,9 @@ def _apply_update(fact: Memory, write: MemoryFactWrite, clean: str) -> None:
         fact.source_chat_id = write.source_chat_id
     if write.source_message_id is not None:
         fact.source_message_id = write.source_message_id
-    if write.slot is not None:
-        fact.slot = write.slot
+    # A slot the new text does not answer is cleared: "User earns 200k" filed under name
+    # before the check keeps no name slot once it is reworded (review, #2539).
+    fact.slot = answered_slot(write.slot or fact.slot, clean)
     fact.updated_at = datetime.now(UTC)
 
 
@@ -311,7 +323,7 @@ async def retire_near_duplicates(
             continue
         if gone.importance is not None and (kept.importance or 0) < gone.importance:
             kept.importance = gone.importance
-        kept.slot = kept.slot or gone.slot
+        kept.slot = answered_slot(kept.slot, kept.text) or answered_slot(gone.slot, kept.text)
         _supersede(gone, kept)
         retired += 1
     return retired

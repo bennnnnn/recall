@@ -33,6 +33,7 @@ from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.ops import EXPLICIT_IMPORTANCE, MODEL_IMPORTANCE_MAX, normalize_memory_text
 from app.modules.memory.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.modules.memory.self_facts import stated_fact_writes
+from app.modules.memory.slots import answered_slot
 from app.modules.memory.task_lines import drop_task_facts
 from app.modules.memory.text import classify_memory_sensitivity
 from app.modules.memory.topics import is_area, parse_topic, topic_memory_type
@@ -102,8 +103,9 @@ def compose_writes(
 ) -> tuple[list[MemoryFactWrite], int]:
     """Every write a pass makes, from the model's ops and the user's own words; no IO.
 
-    ``sources`` are the lines read with their messages: every fact the model writes is
-    held to one of them (``grounding``). ``earlier`` is the exchange before ``lines``: a
+    ``sources`` are the lines read with their messages, each with the reply it answers
+    (``extract_backlog``): every fact the model writes is held to one of them
+    (``grounding``). ``earlier`` is the exchange before ``lines``: a
     lone "forget that" drops what the line before it asked to remember.
     """
     ops, joined = without_joined_facts(ops)
@@ -189,8 +191,13 @@ def told_as_story(result: MemoryFactUpdateResult) -> list[MemoryFactOp]:
 
 def _filling_gaps(writes: list[MemoryFactWrite], snapshot: MemorySnapshot) -> list[MemoryFactWrite]:
     """An earlier chat's lines only add: no change to a saved fact, and no answer to a
-    question a saved fact already answers (its slot is held)."""
-    held = {fact.get("slot") for fact in snapshot.prompt_facts if fact.get("slot")}
+    question a saved fact already answers (its slot is held). A slot its fact does not
+    answer holds nothing: "User earns 200k" filed under name never keeps a name out."""
+    held = {
+        answered_slot(fact.get("slot"), str(fact.get("text") or ""))
+        for fact in snapshot.prompt_facts
+    }
+    held.discard(None)
     return [write for write in writes if write.op == "add" and write.slot not in held]
 
 
@@ -274,7 +281,9 @@ def writes_from_ops(
         if writes_text and not text:
             skipped += 1
             continue
-        source = _grounding(op, text, sources, english) if writes_text else None
+        # The model's slot, only when the fact answers it: a slot replaces older facts.
+        slot = answered_slot(op.slot, text) if writes_text else None
+        source = _grounding(op, text, slot, sources, english) if writes_text else None
         if writes_text and sources is not None and source is None:
             logger.info("Skipping memory fact not stated by the user op=%s", op.op)
             skipped += 1
@@ -313,7 +322,7 @@ def writes_from_ops(
                 match_text=op.match_text,
                 source_chat_id=chat_id,
                 source_message_id=source.message_id if source else None,
-                slot=op.slot if writes_text else None,
+                slot=slot,
                 topic=topic,
                 area_title=op.topic_title if topic and is_area(topic) else None,
                 area_summary=op.topic_summary if topic and is_area(topic) else None,
@@ -336,6 +345,7 @@ def _short_reply(source: SourceLine | None) -> bool:
 def _grounding(
     op: MemoryFactOp,
     text: str,
+    slot: str | None,
     sources: Sequence[SourceLine] | None,
     english: bool,
 ) -> SourceLine | None:
@@ -354,6 +364,8 @@ def _grounding(
         lines=sources,
         explicit_remember=line is not None and is_explicit_memory_command(line.text),
         english=english,
+        slot=slot,
+        named=op.slot,
     )
 
 

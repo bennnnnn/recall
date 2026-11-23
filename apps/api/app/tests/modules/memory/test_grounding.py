@@ -370,9 +370,9 @@ def test_recheck_keeps_only_the_newest_answer_in_a_slot():
     hobby = _saved("User plays chess", 1)
     verdicts = without_older_answers(
         [
-            Verdict(old, keep=True, reason="stated", slot="school"),
-            Verdict(new, keep=True, reason="stated", slot="school"),
-            Verdict(hobby, keep=True, reason="stated"),
+            Verdict(old, keep=True, reason="stated", slot="school", read=True),
+            Verdict(new, keep=True, reason="stated", slot="school", read=True),
+            Verdict(hobby, keep=True, reason="stated", read=True),
         ]
     )
     assert [(v.fact.text, v.keep) for v in verdicts] == [

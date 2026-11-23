@@ -96,9 +96,9 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 # A short line after a reply gets the follow-up read as the turn loads (one model call and
 # its spend check, ``posed_read.start_posed_read``): which message and part it follows, for
 # the reply's note and the questions under it (the Grade 8 chat, 2026-11-18).
-# The memory job reads the chat before its unread lines (one SELECT,
-# ``extract_backlog._chat_before``): what a one-word answer replies to, and whether the
-# lines go on with a story (the owner's memory, 2026-11-20).
+# The memory job reads the chat before its unread lines and the replies between them (one
+# SELECT, ``extract_backlog._messages_before``): what a one-word answer replies to, and
+# whether the lines go on with a story (the owner's memory, 2026-11-20).
 # A turn that names nothing personal (not a greeting or homework) reads memory too, the
 # "ambient" scope: the store's whole-store block, cached under the memory generation (two
 # Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named

@@ -22,6 +22,10 @@ small-talk skip, the model call, ``compose_writes``) and reads the facts it woul
   after it; ``normal`` lists the sets a fact must not be labelled private for (family
   and pets are not the user's love life). An account that keeps no private facts drops
   a private one, and the prompt marks it.
+- A fact saved in a slot is marked " [slot:<key>]". A slot replaces every older fact in it,
+  so a wrong one is counted on its own: ``slots`` lists ``[key, word, ...]`` entries, and a
+  slotted fact is right only when an entry's key starts its slot and its words are in the
+  fact ("favorite_colo" for favorite_color and favorite_colour). Any other is a wrong slot.
 
 ``--extra`` adds cases of the same shape from a file kept outside the repo (a user's own
 chats are not committed).
@@ -32,6 +36,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,6 +45,7 @@ from typing import Any
 CORPUS = Path(__file__).with_name("memory_extract_corpus.json")
 _CONCURRENCY = 6
 PRIVATE_MARK = " [private]"
+SLOT_MARK = re.compile(r" \[slot:([\w-]+)\]")
 
 
 @dataclass
@@ -51,6 +57,7 @@ class Case:
     expect: list[list[str]] = field(default_factory=list)
     optional: list[list[str]] = field(default_factory=list)
     normal: list[list[str]] = field(default_factory=list)
+    slots: list[list[str]] = field(default_factory=list)
 
 
 @dataclass
@@ -65,6 +72,8 @@ class Score:
     merged: list[tuple[str, str]] = field(default_factory=list)
     duplicates: list[tuple[str, list[str]]] = field(default_factory=list)
     mislabelled: list[tuple[str, str]] = field(default_factory=list)
+    slotted: int = 0
+    wrong_slots: list[tuple[str, str]] = field(default_factory=list)
 
     def add(self, other: Score) -> None:
         self.saved += other.saved
@@ -77,6 +86,8 @@ class Score:
         self.merged.extend(other.merged)
         self.duplicates.extend(other.duplicates)
         self.mislabelled.extend(other.mislabelled)
+        self.slotted += other.slotted
+        self.wrong_slots.extend(other.wrong_slots)
 
     def line(self, label: str) -> str:
         precision = self.right / self.saved if self.saved else 1.0
@@ -86,7 +97,8 @@ class Score:
             f"recall {recall:.0%} ({self.found}/{self.expected} expected facts saved), "
             f"on its own row {self.alone}/{self.expected}, "
             f"{len(self.merged)} merged, {len(self.duplicates)} duplicates, "
-            f"{len(self.mislabelled)} labelled private wrongly"
+            f"{len(self.mislabelled)} labelled private wrongly, "
+            f"{len(self.wrong_slots)} of {self.slotted} slots wrong"
         )
 
 
@@ -105,6 +117,7 @@ def _load(path: Path) -> list[Case]:
                 expect=item.get("expect", []),
                 optional=item.get("optional", []),
                 normal=item.get("normal", []),
+                slots=item.get("slots", []),
             )
         )
     return cases
@@ -115,8 +128,22 @@ def _matches(text: str, words: list[str]) -> bool:
     return all(word.casefold() in folded for word in words)
 
 
-def score_case(case: Case, saved: list[str]) -> Score:
+def _slot_right(case: Case, text: str, slot: str) -> bool:
+    return any(
+        slot.startswith(entry[0]) and _matches(text, entry[1:]) for entry in case.slots if entry
+    )
+
+
+def score_case(case: Case, marked: list[str]) -> Score:
+    saved = [SLOT_MARK.sub("", text) for text in marked]
     score = Score(saved=len(saved), expected=len(case.expect))
+    for text, plain in zip(marked, saved, strict=True):
+        found = SLOT_MARK.search(text)
+        if found is None:
+            continue
+        score.slotted += 1
+        if not _slot_right(case, plain, found.group(1)):
+            score.wrong_slots.append((case.id, text))
     for text in saved:
         if any(_matches(text, words) for words in case.expect + case.optional):
             score.right += 1
@@ -180,11 +207,17 @@ async def saved_facts(settings: Any, case: Case) -> list[str]:
         chat_id=uuid.uuid4(),
         from_history=False,
         min_confidence=settings.memory_min_confidence,
-        sources=extract_backlog.source_lines([(uuid.uuid4(), text) for text in case.lines]),
+        # Each line with the question before it, as a live pass reads it (review, #2539).
+        sources=extract_backlog.lines_after(
+            [(role, text) for role, text in case.context],
+            [(uuid.uuid4(), "user", text) for text in case.lines],
+        ),
         earlier=earlier,
     )
     return [
-        write.text + ("" if (write.sensitivity or "normal") == "normal" else PRIVATE_MARK)
+        write.text
+        + ("" if (write.sensitivity or "normal") == "normal" else PRIVATE_MARK)
+        + (f" [slot:{write.slot}]" if write.slot else "")
         for write in writes
         if write.op in {"add", "update", "supersede"}
     ]
@@ -217,6 +250,8 @@ def _report(label: str, cases: list[Case], runs: list[dict[str, list[str]]], sho
             print(f"  duplicate {case_id}: {' '.join(words)}")
         for case_id, text in total.mislabelled:
             print(f"  private {case_id}: {text}")
+        for case_id, text in total.wrong_slots:
+            print(f"  slot {case_id}: {text}")
 
 
 async def main() -> None:
