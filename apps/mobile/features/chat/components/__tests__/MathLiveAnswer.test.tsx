@@ -40,6 +40,12 @@ describe("MathLiveAnswer", () => {
   beforeEach(() => atTextSize(1));
   afterEach(() => jest.restoreAllMocks());
 
+  it("keeps the branches when their values alone would be no lower", async () => {
+    atTextSize(1.12);
+    // Its values are fractions too: as tall as the branches, so the branches stay.
+    expect(await shown("$\\frac{1}{2}\\pm 1$")).toMatch(/12− 1 = −12/);
+  });
+
   it("shows only the values when a larger text size makes the branches taller than the row", async () => {
     atTextSize(1.3);
     expect(await shown("$\\frac{-3\\pm\\sqrt{9-8}}{2}$")).toMatch(/^\W*= −2, −1$/);

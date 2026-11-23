@@ -160,7 +160,11 @@ describe("liveAnswer", () => {
   });
 
   it("writes all of a draft's values in one form", () => {
-    // A value that needs a fraction makes every value one.
+    // A value that needs a fraction makes every value one, with no fraction typed.
+    expect(shown("$1\\div 3\\pm 1\\div 6$")).toBe(
+      "1\\div 3- 1\\div 6 = \\frac{1}{6},\\quad 1\\div 3+ 1\\div 6 = \\frac{1}{2}",
+    );
+    // A typed fraction does too.
     expect(shown("$\\frac{1}{3}\\pm\\frac{1}{6}$")).toBe(
       "\\frac{1}{3}-\\frac{1}{6} = \\frac{1}{6},\\quad \\frac{1}{3}+\\frac{1}{6} = \\frac{1}{2}",
     );
@@ -168,7 +172,8 @@ describe("liveAnswer", () => {
     expect(shown("$2.5\\pm 0.25$")).toBe("2.5- 0.25 = 2.25,\\quad 2.5+ 0.25 = 2.75");
   });
 
-  it("gives a branch that is its own fraction its decimal", () => {
+  it("gives a branch that is its own fraction its decimal, the sign inside or out", () => {
+    expect(shown("$\\frac{\\pm 1}{2}$")).toBe("\\frac{- 1}{2} = -0.5,\\quad \\frac{+ 1}{2} = 0.5");
     expect(shown("$\\pm\\frac{1}{3}$")).toBe(
       "-\\frac{1}{3} \\approx -0.3333333333,\\quad +\\frac{1}{3} \\approx 0.3333333333",
     );
@@ -176,6 +181,8 @@ describe("liveAnswer", () => {
 
   it("writes once the values the display rounds alike", () => {
     expect(shown("$10^{20}\\pm 1\\pm 1$")).toBe("\\approx 1 \\times 10^{20}");
+    // Eight values, one as written: the cap counts what the display writes.
+    expect(shown("$10^{20}\\pm 1\\pm 2\\pm 4$")).toBe("\\approx 1 \\times 10^{20}");
     expect(shown("$1\\pm 10^{-12}\\pm 10^{-12}$")).toBe("\\approx 1");
   });
 

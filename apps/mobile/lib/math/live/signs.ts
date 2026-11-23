@@ -30,7 +30,6 @@ export type LiveSigns =
   | { kind: "values"; values: LiveValue[] };
 
 const MAX_SIGNS = 3;
-const MAX_VALUES = 4;
 /** Below the 10 digits shown: values this close are one value. */
 const SAME = 1e-12;
 
@@ -71,18 +70,17 @@ function same(a: LiveValue, b: LiveValue): boolean {
   return Math.abs(x - y) <= SAME * Math.max(Math.abs(x), Math.abs(y));
 }
 
-/** `\frac{3}{4}` (or `-\frac{3}{4}`) typed in lowest terms: only its decimal is new. */
+/** `\frac{3}{4}`, `-\frac{3}{4}` or `\frac{-3}{4}` typed in lowest terms: only its decimal is new. */
 export function isTypedFraction(node: LiveNode, value: LiveResult): boolean {
   if (value.kind !== "exact") return false;
-  const negative = node.kind === "neg";
-  const frac = negative ? node.operand : node;
-  return (
-    frac.kind === "frac" &&
-    frac.num.kind === "number" &&
-    frac.den.kind === "number" &&
-    frac.num.text === (negative ? -value.r.n : value.r.n).toString() &&
-    frac.den.text === value.r.d.toString()
-  );
+  const outside = node.kind === "neg";
+  const frac = outside ? node.operand : node;
+  if (frac.kind !== "frac" || frac.den.kind !== "number") return false;
+  const inside = frac.num.kind === "neg";
+  const num = frac.num.kind === "neg" ? frac.num.operand : frac.num;
+  if (num.kind !== "number") return false;
+  const top = outside !== inside ? -value.r.n : value.r.n;
+  return num.text === top.toString() && frac.den.text === value.r.d.toString();
 }
 
 /** Smallest first, each compared with the last one kept, so close values never merge in a chain. */
@@ -127,6 +125,5 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
     if (result.kind === "undefined") return null;
     values.push(result);
   }
-  const shown = distinct(values);
-  return shown.length > MAX_VALUES ? null : { kind: "values", values: shown };
+  return { kind: "values", values: distinct(values) };
 }
