@@ -1,8 +1,9 @@
 # ruff: noqa: RUF003 -- answers and notes use a multiplication sign and a true minus sign.
 """Answers keep the precision their question was written in.
 
-Each given's significant figures are read from the text: the answer takes the fewest, kept
-between two and four. A typed value is echoed as typed, a pH has as many decimals as its data
+Each given's significant figures are read from the text: the answer takes the fewest, as
+chemistry textbooks do (OpenStax Chemistry 2e §1.5; owner, 2026-11-23), one figure to six. A
+typed value is echoed as typed, a pH has as many decimals as its data
 have figures, a sum of givens keeps their decimal places, and a molar mass stays at full
 precision until the answer.
 """
@@ -12,6 +13,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import as_written, decimals_of, figures_of
@@ -64,16 +67,17 @@ def test_a_typed_value_keeps_its_trailing_zero() -> None:
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        # One significant figure is raised to the two-figure floor.
-        ("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?", "n(H2O) = 4.0 mol H2O"),
-        # Six figures are cut to the four-figure ceiling.
-        ("How many moles are in 36.0400 g of H2O?", "n(H2O) = 2.001 mol"),
+        # One significant figure is one: no floor raises it to two.
+        ("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?", "n(H2O) = 4 mol H2O"),
+        # Six figures are six; seven are cut to the six a card spells out.
+        ("How many moles are in 36.0400 g of H2O?", "n(H2O) = 2.00056 mol"),
+        ("How many moles are in 36.04000 g of H2O?", "n(H2O) = 2.00056 mol"),
         (
             "Find the freezing point depression when i=1, Kf=1.86, and molality=0.500",
             "ΔTf = 0.930 °C",
         ),
     ],
-    ids=["floor", "ceiling", "count-does-not-limit"],
+    ids=["one-figure", "six-figures", "seven-figures", "count-does-not-limit"],
 )
 def test_the_answer_has_the_fewest_figures_of_the_measured_givens(
     question: str, answer: str
@@ -236,3 +240,72 @@ def test_a_carried_value_keeps_figures_past_the_answer(
     result = _solve(question)
     assert all(row in result.substitution for row in rows), result.substitution
     assert result.answer == answer
+
+
+# Textbook examples, each worked by hand from the rules of OpenStax Chemistry 2e §1.5
+# (products and quotients keep the fewest significant figures, sums and differences the
+# fewest decimal places, counts and defined conversions are exact, rounding at the end) and
+# §14.2 (a logarithm keeps as many decimals as its value has figures). The card has these
+# figures, not two decimal places (owner, 2026-11-23).
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        # 36 g (2 s.f.) / 18.015 g/mol = 1.998 mol -> 2.0 mol, its zero a figure.
+        ("How many moles are in 36 g of H2O?", "n(H2O) = 2.0 mol"),
+        # 4 g (1 s.f.) of H2 -> 35.74 g of water -> one figure, 4 x 10^1 g: "40 g" would read
+        # as two figures, so a textbook writes the power of ten.
+        ("how much water do i get if i burn 4 g of hydrogen", "m(H2O) = 4 × 10^1 g"),
+        # 25.00 mL, 0.1000 M and 32.45 mL have four figures each: 0.1298 M, not 0.130.
+        (
+            "25.00 mL of HCl is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach "
+            "the endpoint. What is the concentration of HCl?",
+            "c₂ = 0.1298 mol/L",
+        ),
+        # 0.200 M x 25.0 mL / 100.0 mL = 0.05 M to three figures: 0.0500, its zeros kept.
+        (
+            "If 25.0 mL of 0.200 M NaOH is diluted to 100.0 mL, what's the new concentration",
+            "c2 = 0.0500 mol/L",
+        ),
+        # 3.5 mol (2 s.f.) x 98.072 g/mol = 343.3 g -> 3.4 x 10^2 g.
+        ("What is the mass of 3.5 mol of H2SO4 in grams", "m(H2SO4) = 3.4 × 10^2 g"),
+        # 2.5 mol x 44.009 g/mol = 110.02 g -> two figures: 1.1 x 10^2 g, never "110 g".
+        ("What is the mass of 2.5 mol of CO2?", "m(CO2) = 1.1 × 10^2 g"),
+        # The equation's 2 is a count: 3.0 mol (2 s.f.) of CH4 needs 6.0 mol of O2.
+        (
+            "how many moles of O2 are needed to burn 3.0 mol of CH4? CH4 + 2O2 -> CO2 + 2H2O",
+            "n(O2) = 6.0 mol",
+        ),
+        # 1000 mL/L is defined: 0.25 mol (2 s.f.) in 750 mL (3 s.f.) is 0.33 M.
+        ("molarity of 0.25 mol KCl in 750 mL of water", "c = 0.33 mol/L"),
+        # Scientific notation in the question: 2.50 x 10^-3 M has three figures, so its pH
+        # has three decimals: -log(0.00250) = 2.60206 -> 2.602.
+        ("What is the pH of 2.50 × 10^-3 M HCl?", "pH = 2.602"),
+        # 0.01 M has one figure: pH 2.0, one decimal.
+        ("What is the pH of 0.01 M hcl?", "pH = 2.0"),
+        # A difference keeps the fewest decimal places: -393.5 - (-283.0) = -110.5 kJ.
+        (
+            "Given C + O2 → CO2 ΔH = -393.5 kJ and CO + 1/2 O2 → CO2 ΔH = -283.0 kJ, "
+            "find ΔH for C + 1/2 O2 → CO",
+            "ΔH = -110.5 kJ",
+        ),
+    ],
+)
+def test_a_card_follows_the_textbook_rule(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
+
+
+def test_each_working_row_ends_unrounded_above_a_rounded_card() -> None:
+    """The limiting reagent's yield row is not the working's last: it ends on 33.79 g as
+    worked, and only the card rounds it to the data's one figure."""
+    intent = extract_chemistry_intent(
+        "how many grams of NH3 can be made from 28 g of nitrogen and 6 g of hydrogen"
+    )
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert verified.result.answer == "Limiting reagent = H2; 3 × 10^1 g NH3"
+    reply = format_direct_chemistry_reply(verified)
+    working = reply.split("**Answer**")[0]
+    assert "= 33.79" in working
+    assert "= 0.2083 g" in working
+    assert "10^{1}" not in working

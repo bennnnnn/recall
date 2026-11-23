@@ -145,7 +145,8 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    formula with the numbers put in, then (as physics') the same symbol equal to the value it
    reaches, unrounded: `m = (0.5 mol)(58.440 g/mol)`, then `m = 29.22 g`. Only the card rounds
    it to the data's figures (`29 g`): `num` notes what rounding took off
-   (`sig_figs.note_rounding`) and the closing row shows it (`direct._unrounded_value`). A
+   (`sig_figs.note_rounding`) and every row that reaches it shows it
+   (`direct._worked_rows`). A
    closing row the card does not round (`n = 2.0 mol` over `2.0 mol`) stays too: the working
    ends on its value, as a textbook's does, then the card (2026-11-11).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
@@ -308,16 +309,33 @@ converted value keeps the typed figures without rounding away the conversion's o
 and a value two typed numbers could explain (1800 s from `30 min`, or from `0.50 × 3600`)
 is not echoed as either. The headings are the server's text, like physics' and math's.
 
-Numbers keep the precision the question was written in (`sig_figs.py`). Extraction
-records how each given was typed, and the solve formats every number from that record:
+Numbers keep the precision the question was written in (`sig_figs.py`), the rule
+general-chemistry textbooks teach and exams grade (owner, 2026-11-23: "go by the scientific
+world / books"): OpenStax *Chemistry 2e* §1.5 and §14.2, the RSC's maths-for-chemists
+guidance, AP's "calculate" (correct units and significant figures). It is not "two digits":
+a chemistry card has the significant figures of the question's data, which may be one or
+five. Physics' and maths' cards keep the two-decimal rule (`services/rounding_rule.py`);
+the card pass leaves a chemistry solver's card as the solver wrote it
+(`VerifiedSolveBlock.card_precision_own`, `chat/card_numbers.py`) unless the question asks
+for another precision ("to 3 decimal places", "2 sig figs", "don't round"), which it honours
+as it does for every subject. Extraction records how each given was typed, and the solve
+formats every number from that record:
 
-- **Answers** take the fewest significant figures among the measured givens, kept between
-  2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. That is the card's
-  precision; the working's last row is the value unrounded, carried two figures further
-  (`m = 35.74 g` over a card of `36 g`), so a student sees what was rounded. A count (an electron
-  number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, and a
-  Celsius reading counts the figures of its kelvin value (`25 °C` is `298 K`, three).
-- **Trailing zeros are significant**: `pH = 3.00`, `n = 2.0 mol`. The model prompt tells the
+- **Answers** take the fewest significant figures among the measured givens (multiplication
+  and division): `4 g` of H₂ makes `4 × 10¹ g` of water, `4.0 g` makes `36 g`, `4.000 g`
+  makes `35.74 g`; a titration's `25.00 mL`, `0.1000 M` and `32.45 mL` give `0.1298 M`. That
+  is the card's precision; every working row that reaches a rounded value shows it unrounded,
+  carried two figures further and never fewer than four (`m = 35.74 g` over a card of
+  `4 × 10¹ g`), so a student sees what was rounded and the card rounds once. A row stays
+  rounded only when a later row works with that rounded value. A count (an electron number,
+  a van 't Hoff factor, a Hess's-law multiplier, a balanced equation's coefficients) and a
+  defined conversion (1000 mL/L) never limit the answer, and a Celsius reading counts the
+  figures of its kelvin value (`25 °C` is `298 K`, three). Data typed to more than six
+  figures is answered to six. A trailing zero of a whole number without a decimal point
+  (`500 mL`) is read as significant: textbooks call it ambiguous (OpenStax), and their own
+  problems mean `500 mL` as three figures. When no given is measured (a molar mass, a
+  formula's percent composition), the table's precision stands (below).
+- **Trailing zeros are significant**: `pH = 3.00`, `n = 2.0 mol`, `c = 0.0500 mol/L`. The model prompt tells the
   model to copy each verified number exactly, neither adding nor dropping a zero. A percent
   composition from a formula alone has the table's four figures: N in NH4NO3 is `35.00%`.
 - **A 5 rounds up**, as a class rounds: `62.5 mL` to two figures is `63 mL`, never the `62` of
@@ -329,9 +347,10 @@ records how each given was typed, and the solve formats every number from that r
 - **A sum of givens** (cell potential, Hess's law, formation or bond enthalpy, Dalton) keeps
   the fewest decimal places instead: `0.34 − (−0.76) = 1.10 V`, `2(−92.3) = −184.6 kJ/mol`.
   A galvanic-table potential is a hundredth of a volt.
-- **A whole number whose digits rounding replaced with zeros** is written in powers of
-  ten: `1780` to two figures is `1.8 × 10^3`, since `1800` would read as measured. Zeros
-  that are the number's own digits stay plain: `110 g`, `200 mL`.
+- **A whole number with a zero that is no significant figure** is written in powers of
+  ten, as OpenStax advises: `1780` to two figures is `1.8 × 10^3`, since `1800` would read as
+  measured, and `110.02 g` to two figures is `1.1 × 10^2 g`. A value the rounding left as it
+  was keeps its digits (`200 mL` to three figures, an exact `3600 s`).
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.

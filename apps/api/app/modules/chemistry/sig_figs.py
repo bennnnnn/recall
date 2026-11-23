@@ -2,7 +2,9 @@
 """How a question wrote its numbers, so the answer keeps that precision.
 
 A chemistry answer carries as many significant figures as the least precise value the
-question measured, the rule a chemistry class grades, kept between two and four. A value the
+question measured, the rule textbooks teach and exams grade (OpenStax Chemistry 2e §1.5;
+owner, 2026-11-23: "go by the scientific world / books"): one figure for "4 g", four for a
+titration's 25.00 mL and 0.1000 M. Counts and defined constants never limit it. A value the
 student typed is echoed as typed, trailing zeros included: 1.10 V is not 1.1 V. A pH or a pK is
 a logarithm, so its precision is its decimal places: as many as the concentration it came from
 has significant figures, or as many as a typed pH, pOH or pK has decimals. A sum or difference of
@@ -25,8 +27,12 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
-MIN_FIGURES = 2
-MAX_FIGURES = 4
+# A measured value has at least one figure; data typed to more than six figures (an atomic
+# mass to the microunit) is more precision than a card spells out.
+MIN_FIGURES = 1
+MAX_FIGURES = 6
+# A tabulated atomic mass's figures, which an average of isotope masses carries.
+TABLE_FIGURES = 4
 # Counts, not measurements: an electron count, a van 't Hoff factor, the atoms of an element
 # in a formula or a neutralization's mole ratio never limits an answer.
 EXACT_KEYS = frozenset(
@@ -217,7 +223,7 @@ def _weighted_mean_precision(
     places = [decimals_of(form) for forms_of in typed for form in forms_of]
     if all(typed) and not any(places):
         return None, None
-    return MAX_FIGURES, min((place for place in places if place), default=None)
+    return TABLE_FIGURES, min((place for place in places if place), default=None)
 
 
 @dataclass(frozen=True, slots=True)

@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from app.modules.chemistry.schemas.scene import ChemistryScene
 from app.services.school_rounding import round_figures, trim_zeros
 
-# A textbook answer carries as many figures as its least precise input, and the inputs a
-# student types have two to four. Four is enough to check a hand calculation without printing
-# the noise of a double.
+# A value no measured given limits (a formula's percent composition, a ratio of molar
+# masses) has four figures: enough to check a hand calculation without printing the noise of
+# a double. One the question measured has its data's figures (``sig_figs``).
 SIGNIFICANT_FIGURES = 4
 # A value the user typed is echoed as typed, not rounded to answer precision.
 INPUT_FIGURES = 6
@@ -34,12 +34,15 @@ def format_number(
     if not math.isfinite(value):
         return str(value)
     mantissa, exponent = round_figures(value, significant)
-    # Once the answer's figures come from the data, a whole number whose digits rounding
-    # replaced with zeros is written in powers of ten: 1780 to two figures is 1.8 × 10^3,
-    # since 1800 would read as measured. Zeros that are the number's own digits stay plain:
-    # 200 is 200, and 110.02 g to two figures is 110 g.
+    # Once the answer's figures come from the data, a whole number with a zero that is no
+    # significant figure is written in powers of ten, as a textbook writes it (OpenStax
+    # Chemistry 2e §1.5): 1780 to two figures is 1.8 × 10^3, and 110.02 g to two figures is
+    # 1.1 × 10^2 g, since 1800 and 110 would read as measured to the unit. A value the
+    # rounding left as it was keeps its digits: an exact 3600 s is 3600 s.
     rounded = mantissa.scaleb(exponent)
-    rounded_to_zeros = exponent >= significant and round(rounded) != round(value)
+    rounded_to_zeros = exponent >= significant and not math.isclose(
+        float(rounded), value, rel_tol=1e-9
+    )
     tidy = (lambda text: text) if keep_zeros else trim_zeros
     if exponent < -3 or exponent >= 6 or (keep_zeros and rounded_to_zeros):
         return f"{tidy(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"

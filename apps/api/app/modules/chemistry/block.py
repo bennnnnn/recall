@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import ClassVar, Literal
 
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
@@ -22,6 +22,9 @@ class VerifiedChemistry(VerifiedSolveBlock):
     subject: Literal["chemistry"] = "chemistry"
     intent: ChemistryIntent
     result: ChemistryResult
+    # A chemistry card has its data's significant figures (``sig_figs``), as a textbook
+    # writes it, never the two decimal places of physics' and maths' cards.
+    card_precision_own: ClassVar[bool] = True
 
     @property
     def prompt_text(self) -> str:

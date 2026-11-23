@@ -75,6 +75,9 @@ _WORKED_FIGURES = 6
 # Figures a carried value keeps beyond the answer's: two, so a line's result does not round
 # twice (3.97 x 18.015 = 71.5 reads as 72; 3.968 x 18.015 = 71.48 rounds to the 71 it is).
 _GUARD_FIGURES = 2
+# A carried value has four figures at least and five at most, the answer's own beyond that:
+# "4 g" of hydrogen is worked to 35.74 g before a card of 4 x 10^1 g.
+_CARRIED_FIGURES = (4, 5)
 
 
 def carried(value: float) -> str:
@@ -88,7 +91,9 @@ def carried(value: float) -> str:
     if written is not None and written.additive and written.decimals is not None:
         return fixed(value, written.decimals + 1)
     if written is not None and written.figures is not None:
-        figures = min(written.figures + _GUARD_FIGURES, sig_figs.MAX_FIGURES + 1)
+        least, most = _CARRIED_FIGURES
+        guarded = min(max(written.figures + _GUARD_FIGURES, least), most)
+        figures = max(guarded, written.figures)
         return format_number(value, significant=figures, keep_zeros=True)
     return format_number(value)
 

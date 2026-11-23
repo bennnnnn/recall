@@ -10,6 +10,10 @@ shows the working's value rounded once: the model's own "3 significant figures" 
 109324.04 Pa a card of 1.09 × 10⁵ (the owner's chat, 2026-11-18). An expression, a fraction,
 a sum of money and a pH are left as written: a pH keeps the decimals its concentration's
 figures give it, the one place a chemistry answer's precision is its correctness.
+
+A chemistry solver's cards keep the significant figures of the question's data, the rule
+chemistry textbooks teach (``chemistry.sig_figs``; owner, 2026-11-23); only a precision the
+question asks for rounds them again here.
 """
 
 from __future__ import annotations
@@ -54,8 +58,13 @@ _BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
 
 
 def format_card_numbers(state: FinalizeState) -> str:
-    """The reply with each card's numbers by the rule (the module docstring)."""
+    """The reply with each card's numbers by the rule (the module docstring). A solver that
+    writes its cards to its subject's own precision (chemistry's significant figures of the
+    data) keeps them, unless the question asks for another."""
     precision = asked_precision(state.ctx.user_message_content or "")
+    verified = state.ctx.verified_subject
+    if precision == RULE and verified is not None and verified.cards_keep_precision:
+        return state.text
     return card_numbers(state.text, precision)
 
 

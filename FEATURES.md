@@ -570,8 +570,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the n+1 rule, and the molecular ion; and Michaelis–Menten. The gas laws, `Q = mcΔT`, and
   decay are physics' laws, answered in L, atm, kJ, and °C when a chemistry question asks
   them. mM, µM, nM, and kcal are read through Pint. Answers keep the precision the question
-  was written in: the fewest significant figures among the measured givens (2–4), typed
-  values echoed as typed. Balance, stoichiometry, VSEPR, titration, ICE, and galvanic
+  was written in, as chemistry textbooks do (owner, 2026-11-23): the fewest significant
+  figures among the measured givens for a product or quotient (`4 g` of H₂ makes `4 × 10¹ g`
+  of water, a titration to four figures `0.1298 M`), the fewest decimal places for a sum,
+  a pH's decimals from its concentration's figures, typed values echoed as typed; physics'
+  and maths' two-decimal card rule does not apply, and a precision the question asks for
+  still wins. Balance, stoichiometry, VSEPR, titration, ICE, and galvanic
   answers also append a server-owned `chem_scene` the phone only draws. Complete typed
   questions return a textbook worked solution: Given / Required / named Formula / Substitution
   (with units, each conversion its own row) / Answer; a procedure (balancing, a table

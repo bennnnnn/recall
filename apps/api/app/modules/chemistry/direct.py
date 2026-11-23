@@ -87,9 +87,7 @@ class _Rows:
         closing = _closing_row(rows, self.result.answer)
         if closing is not None and self.tex(closing) is not None:
             rows.append(closing)
-        if rows and not _works_with_rounded(rows[:-1], self.result.unrounded):
-            rows[-1] = _unrounded_value(rows[-1], self.result.unrounded)
-        return tuple(self.line(row) for row in rows)
+        return tuple(self.line(row) for row in _worked_rows(rows, self.result.unrounded))
 
 
 def _lower_first(text: str, *, upper: bool = False) -> str:
@@ -121,29 +119,53 @@ def _closing_row(rows: list[str], answer: str) -> str | None:
     return f"{symbol.strip()} = {value}"
 
 
-# A number as a solver writes it: "1.0", "6.0221 × 10^23".
-_NUMBER_TEXT = re.compile(r"-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?")
+# A number as a solver writes it: "1.0", "6.0221 × 10^23"; never a formula's subscript (the
+# 2 of "H2O" is no rounded 2 g).
+_NUMBER_TEXT = re.compile(r"(?<![\w.^])-?\d+(?:\.\d+)?(?: × 10\^-?\d+)?(?![\w.])")
 
 
-def _works_with_rounded(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> bool:
-    """Whether a row above works with a value rounded to the answer's figures. The value it
-    reaches is then the rounded one's: "(1.0 mol)(6.0221 × 10^23)" ending on 6.017 × 10^23
-    did not add up, so such a working ends rounded too."""
-    rounded = {text for text, _ in unrounded}
-    return any(number in rounded for row in rows for number in _NUMBER_TEXT.findall(row))
+def _worked_rows(rows: list[str], unrounded: tuple[tuple[str, str], ...]) -> list[str]:
+    """Each row ending on a value the solve rounded ends on it as worked (``m = 29.22 g``),
+    the card alone rounding it: a limiting reagent's yield row sits above its excess row, and
+    "4 g" of hydrogen's 35.74 g is no 4 × 10^1 g there. A row stays rounded when a later row
+    works with its rounded value, and so does a row that works with one: "(1.0 mol)(6.0221 ×
+    10^23)" ending on 6.017 × 10^23 did not add up."""
+    ends = [_rounded_end(row, unrounded) for row in rows]
+    inputs = [
+        set(_NUMBER_TEXT.findall(row if end is None else row.rpartition(" = ")[0]))
+        for row, end in zip(rows, ends, strict=True)
+    ]
+    shown: list[str] = []
+    for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
+        earlier = {text for text in ends[:index] if text is not None}
+        later = end is not None and any(end in used for used in inputs[index + 1 :])
+        if end is None or later or earlier & inputs[index]:
+            shown.append(row)
+        else:
+            shown.append(_unrounded_value(row, unrounded))
+    return shown
+
+
+def _rounded_end(row: str, unrounded: tuple[tuple[str, str], ...]) -> str | None:
+    """The rounded number a row ends on ("2 × 10^1" of "m = … = 2 × 10^1 g"), or None."""
+    _head, equals, value = row.rpartition(" = ")
+    if not equals:
+        return None
+    value = value.strip()
+    for text, _worked in sorted(unrounded, key=lambda pair: -len(pair[0])):
+        if value == text or value.startswith(f"{text} "):
+            return text
+    return None
 
 
 def _unrounded_value(row: str, unrounded: tuple[tuple[str, str], ...]) -> str:
     """``m = 29 g`` → ``m = 29.22 g``: a row ending on a value the solve rounded ends on it
     unrounded, as worked; a row whose value nothing rounded stays."""
-    head, equals, value = row.rpartition(" = ")
-    if not equals:
+    text = _rounded_end(row, unrounded)
+    if text is None:
         return row
-    value = value.strip()
-    for text, worked in sorted(unrounded, key=lambda pair: -len(pair[0])):
-        if value == text or value.startswith(f"{text} "):
-            return f"{head} = {worked}{value[len(text) :]}"
-    return row
+    head, _equals, value = row.rpartition(" = ")
+    return f"{head} = {dict(unrounded)[text]}{value.strip()[len(text) :]}"
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:

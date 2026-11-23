@@ -98,3 +98,71 @@ def test_a_card_the_model_left_open_follows_the_rule_once_closed() -> None:
     reply = "$v = 160 / 12$\n\n```answer\nv = 13.333333\\,\\mathrm{m/s}"
     shown = card_numbers(close_unclosed_fences(reply), Precision())
     assert "v = 13.33\\,\\mathrm{m/s}" in shown and "13.333333" not in shown
+
+
+def _state(text: str, question: str, verified: object) -> object:
+    from types import SimpleNamespace
+
+    ctx = SimpleNamespace(user_message_content=question, verified_subject=verified)
+    return SimpleNamespace(text=text, ctx=ctx)
+
+
+def _chemistry(question: str) -> object:
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    return build_verified_chemistry(intent)
+
+
+_TITRATION = (
+    "25.00 mL of HCl is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach the "
+    "endpoint. What is the concentration of HCl?"
+)
+
+
+@pytest.mark.parametrize(
+    ("question", "working", "card", "shown"),
+    [
+        # Four figures of data: the card keeps 0.1298, never the rule's 0.130.
+        (
+            _TITRATION,
+            "$c = 0.12980\\,\\mathrm{mol/L}$",
+            "c_{2} = 0.1298\\,\\mathrm{mol/L}",
+            "c_{2} = 0.1298\\,\\mathrm{mol/L}",
+        ),
+        # One figure of data (4 g): 4 x 10^1 g over a working of 35.74 g stays so.
+        (
+            "how much water do i get if i burn 4 g of hydrogen",
+            "$m = 35.74\\,\\mathrm{g}$",
+            "m = 4 \\times 10^{1}\\,\\mathrm{g}",
+            "m = 4 \\times 10^{1}\\,\\mathrm{g}",
+        ),
+        # A question that asks a precision still gets it, from the working's value.
+        (
+            "how much water do i get if i burn 4 g of hydrogen, to 2 decimal places",
+            "$m = 35.74\\,\\mathrm{g}$",
+            "m = 4 \\times 10^{1}\\,\\mathrm{g}",
+            "m = 35.74\\,\\mathrm{g}",
+        ),
+    ],
+)
+def test_a_chemistry_card_keeps_its_data_s_figures(
+    question: str, working: str, card: str, shown: str
+) -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    verified = _chemistry(question.removesuffix(", to 2 decimal places"))
+    reply = f"{working}\n\n**Answer**\n\n" + _card(card, "true")
+    state = _state(reply, question, verified)
+    assert format_card_numbers(state) == f"{working}\n\n**Answer**\n\n" + _card(shown, "true")  # type: ignore[arg-type]
+
+
+def test_a_physics_card_still_follows_the_rule() -> None:
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.services.solving import VerifiedPhysicsBlock
+
+    reply = "$P = 109324.04\\,\\mathrm{Pa}$\n\n" + _card("1.09 \\times 10^{5}\\,\\mathrm{Pa}")
+    state = _state(reply, "find P", VerifiedPhysicsBlock(text=""))
+    assert _card("109324.04\\,\\mathrm{Pa}") in format_card_numbers(state)  # type: ignore[arg-type]
