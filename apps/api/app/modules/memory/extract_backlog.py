@@ -140,7 +140,7 @@ async def _sources(
                 session, chat_id, rows[0], rows[-1], limit=2 * len(rows)
             )
         except Exception:
-            logger.debug("memory extract replies read failed chat_id=%s", chat_id, exc_info=True)
+            logger.info("memory extract replies read failed chat_id=%s", chat_id, exc_info=True)
     said = [(row, "user") for row in rows]
     if replies:
         said = sorted(
