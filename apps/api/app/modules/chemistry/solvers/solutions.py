@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import math
+
 import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
@@ -281,10 +283,22 @@ def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]
 
 
 def _decimals_shown(text: str) -> int:
-    """Decimal places of a shown number, ``1.02`` two and ``1.8 × 10^-3`` four."""
+    """Decimal places of a shown number, ``1.02`` two and ``1.8 × 10^-3`` four; a power of
+    ten above its figures is a negative place: ``2 × 10^1`` is -1, known to the ten."""
     mantissa, _, exponent = text.partition(" × 10^")
     places = len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
-    return max(places - int(exponent or 0), 0)
+    return places - int(exponent or 0)
+
+
+def _to_places(value: float, places: int) -> str:
+    """``value`` to ``places`` decimals; a negative place is a power of ten, as the change it
+    adds was written: 0 °C − 2 × 10^1 °C is −2 × 10^1 °C, never −19 °C."""
+    if places >= 0:
+        return fixed(value, places)
+    if value == 0:
+        return "0"
+    figures = math.floor(math.log10(abs(value))) + 1 + places
+    return format_number(value, significant=figures, keep_zeros=True) if figures > 0 else "0"
 
 
 def _colligative(
@@ -326,11 +340,11 @@ def _colligative(
         normal_text = format_number(celsius)
     rising = point == "Tb"
     temperature = celsius + value if rising else celsius - value
-    shown = f"{point} = {fixed(temperature, places)} °C"
+    shown = f"{point} = {_to_places(temperature, places)} °C"
     given.append(f"{point}° = {normal_text} °C" + ("" if typed is not None else " (pure water)"))
     working.append(
         f"{point} = {normal_text} °C {'+' if rising else '−'} {change} °C = "
-        f"{fixed(temperature, places)} °C"
+        f"{_to_places(temperature, places)} °C"
     )
     return verified(
         f"Verified {'boiling' if rising else 'freezing'} point of a solution",

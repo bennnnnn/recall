@@ -152,7 +152,12 @@ def _worked_rows(
         rounded_with.append(rounded_with[index - 1] if closing and not own else own)
     shown: list[str] = []
     for index, (row, end) in enumerate(zip(rows, ends, strict=True)):
-        later = end is not None and any(end in used for used in inputs[index + 1 :])
+        # A rounded value that reads like a typed one ("2" beside i = 2) is no later input.
+        later = (
+            end is not None
+            and end not in typed
+            and any(end in used for used in inputs[index + 1 :])
+        )
         if end is None or later or rounded_with[index]:
             shown.append(row)
         else:

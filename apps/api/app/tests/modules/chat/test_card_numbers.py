@@ -1,4 +1,5 @@
-"""Every card's number by the one rule, whoever wrote it (``chat.card_numbers``)."""
+"""Every card's number by the one rule, whoever wrote it, save a chemistry solver's checked card,
+which keeps its data's figures (``chat.card_numbers``)."""
 
 from __future__ import annotations
 
@@ -217,3 +218,16 @@ def test_an_asked_precision_takes_a_chemistry_card_only_as_far_as_the_working_kn
     reply = f"{working}\n\n**Answer**\n\n" + _card(card, "true")
     state = _state(reply, question + " to 3 decimal places", _chemistry(question))
     assert format_card_numbers(state).endswith(_card(shown, "true"))  # type: ignore[arg-type]
+
+
+def test_a_power_of_ten_card_knows_only_its_mantissa_s_figures() -> None:
+    """4 x 10^1 g knows one figure: "to 2 significant figures" with no working that reached
+    the value leaves the card as written, never 40 g (review)."""
+    from app.modules.chat.card_numbers import format_card_numbers
+
+    question = "how much water do i get if i burn 4 g of hydrogen"
+    reply = "$m \\approx 36\\,\\mathrm{g}$\n\n**Answer**\n\n" + _card(
+        "m = 4 \\times 10^{1}\\,\\mathrm{g}", "true"
+    )
+    state = _state(reply, question + ", to 2 significant figures", _chemistry(question))
+    assert format_card_numbers(state) == reply  # type: ignore[arg-type]

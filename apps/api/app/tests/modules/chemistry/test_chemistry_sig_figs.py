@@ -411,3 +411,41 @@ def test_a_negative_power_is_no_rounded_number() -> None:
     assert verified is not None
     working = format_direct_chemistry_reply(verified).split("**Answer**")[0]
     assert "K_{c} = 1.794" in working
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        # Atom counts are exact: C21H23N has an IHD of 11, never one figure's 1 x 10^1.
+        (
+            "The carbon count is 21, the hydrogen count is 23, the nitrogen count is 1, "
+            "and the halogen count is 0. Find the index of hydrogen deficiency.",
+            "IHD = 11",
+        ),
+        # 5 m has one figure: ΔTf = 18.6 °C is 2 x 10^1 °C, and the freezing point is known
+        # to the same ten, never -19 °C (review).
+        (
+            "What is the freezing point of a 5 m NaCl solution in water? Kf = 1.86 °C/m",
+            "Tf = -2 × 10^1 °C",
+        ),
+        # 0 °C is 273 K, three figures; a zero Celsius reading still limits (review).
+        (
+            "Gas collected over water at 0 °C, total pressure = 760.0 mmHg, pressure of the dry gas?",
+            "Pdry = 755 mmHg",
+        ),
+    ],
+)
+def test_counts_zero_celsius_and_powers_of_ten_follow_the_rule(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
+
+
+def test_a_rounded_row_reading_like_a_count_still_ends_unrounded() -> None:
+    """b = 2.143 mol/kg is no 2 because the next row's van 't Hoff factor is a typed-looking
+    2 (review)."""
+    intent = extract_chemistry_intent(
+        "What is the freezing point of a solution of 3 mol NaCl in 1.4 kg of water? Kf = 1.86 °C/m"
+    )
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert "= 2.143\\,\\mathrm{mol/kg}$" in format_direct_chemistry_reply(verified)

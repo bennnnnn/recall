@@ -253,7 +253,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
         "The carbon count is 5.00, the hydrogen count is 8.00, the nitrogen count is 1.00, "
         "and the halogen count is 1.00. Find the index of hydrogen deficiency.",
         "hydrogen_deficiency",
-        "IHD = 2.00",
+        "IHD = 2",
     ),
     (
         "The observed rotation is 10.0, the path length is 2.00 dm, "

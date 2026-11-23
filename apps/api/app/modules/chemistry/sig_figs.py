@@ -55,7 +55,11 @@ EXACT_KEYS = frozenset(
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 # A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.
-_EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
+_EXACT_IN_OP = {
+    "hess": re.compile(r"m\d+"),
+    # An index of hydrogen deficiency counts atoms: C21H23N gives 11, never 1 x 10^1.
+    "hydrogen_deficiency": re.compile(r"carbon|hydrogen|nitrogen|halogen"),
+}
 # Given as logarithms: their precision is their decimal places.
 LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb", "pka1", "pka2"})
 # A Celsius reading, whose precision is that of the kelvin value it becomes.
@@ -225,7 +229,7 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
                 places.append(typed_places)
             if how == "typed" and key in LOG_KEYS:
                 log_places.append(typed_places)
-            elif value == 0:
+            elif value == 0 and not (how == "celsius" or key in CELSIUS_KEYS):
                 # A zero has no significant figure to give: "0.00" eg electrons or an
                 # entropy of 0 J/(mol·K) limits nothing (it made a CFSE "-2 x 10^2").
                 continue

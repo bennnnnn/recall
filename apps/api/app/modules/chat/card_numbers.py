@@ -1,6 +1,7 @@
 # ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
 """Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
-wrote the card: a subject's solver, the worked layout, the formal check or the model.
+wrote the card: a subject's solver, the worked layout, the formal check or the model; a
+chemistry solver's checked card is the exception (below).
 
 A card that states plain values (``P = 109324.04\\,\\mathrm{Pa}``, ``x = 2 or x = -3``,
 ``1.09 \\times 10^{5}\\,\\mathrm{Pa}``) has each number written again by the rule, in the
@@ -155,8 +156,9 @@ def _holds(number: Number, precision: Precision) -> bool:
     if precision.places >= 0:
         shown = round_places(number.value, precision.places)
         return number.places >= precision.places and (shown != 0 or number.value == 0)
-    written = format(round_places(number.value, number.places), "f")
-    return _figures(written.lstrip("-")) >= precision.figures
+    # The digits the card knows: 4 × 10^1 knows one, though "40" reads as two (review).
+    known = round_places(number.value, number.places).as_tuple().digits
+    return len(known) >= precision.figures
 
 
 def _shown(body: str, above: str, precision: Precision) -> str | None:

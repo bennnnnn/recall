@@ -368,7 +368,8 @@ formats every number from that record:
   figures (`R = 0.082057 L·atm/(mol·K)`). A formula law's substitution row names the constant
   its arithmetic uses (`{R_J}`, `{F}`, `{N_A}`) instead of typing it, so the figure shown is
   the one computed. A Celsius reading becomes kelvin by `services/units.CELSIUS_OFFSET_K`.
-  Intermediate rows show the answer's figures while the arithmetic keeps full precision.
+  Each row that reaches a rounded value shows it unrounded (`direct._worked_rows`), and the
+  arithmetic keeps full precision.
 
 ## Teaching scenes
 
