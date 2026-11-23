@@ -62,9 +62,10 @@ const merged = (first: string, second: Pick): Pick => ((first === "+") === (seco
 /**
  * The draft as written, its sign replaced (`2\pm 3` → `2- 3`); a typed `*` drawn as ×. A + or −
  * typed right before or after the sign merges with it (`2-\pm 3` and `2\pm -3` → `2+ 3` and
- * `2- 3`), never `2--3`.
+ * `2- 3`), never `2--3`. Not beside a mod, where it would not be true (`(-2) mod 3` is not
+ * `-(2 mod 3)`): there `null`, and the draft shows its values alone.
  */
-function written(math: string, sign: PlusMinus, pick: Pick): string {
+function written(math: string, sign: PlusMinus, pick: Pick): string | null {
   let before = math.slice(0, sign.at);
   let after = math.slice(sign.at + sign.width);
   let shown = pick;
@@ -78,6 +79,8 @@ function written(math: string, sign: PlusMinus, pick: Pick): string {
     shown = merged(next[1]!, shown);
     after = after.slice(next[0].length);
   }
+  const merging = before.length + after.length < math.length - sign.width;
+  if (merging && math.includes("\\bmod")) return null;
   return `${before}${shown}${after}`.replace(/\*/g, "\\times ");
 }
 
@@ -131,9 +134,10 @@ export function workSigns(reading: LiveReading): LiveSigns | null {
     ways.push({ picks, node, result });
   }
   const [only] = signs;
-  if (signs.length === 1 && only) {
-    const branches = ways.map(({ picks, node, result }) => ({
-      latex: written(reading.math, only, picks.get(only)!),
+  const texts = only && signs.length === 1 ? ways.map(({ picks }) => written(reading.math, only, picks.get(only)!)) : [];
+  if (texts.length > 0 && texts.every((text) => text !== null)) {
+    const branches = ways.map(({ node, result }, i) => ({
+      latex: texts[i]!,
       result,
       typed: isTypedFraction(node, result),
     }));

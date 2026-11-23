@@ -121,6 +121,9 @@ describe("liveAnswer", () => {
     ["a sine that is only small, not a pole", "$\\csc(0.00000000001)$"],
     ["a sine near 0, not a pole", "$\\csc(0.00000000000001)$"],
     ["a log base that only rounds to 1", "$\\log_{1.0000000000000001}(5)$"],
+    ["a negative percent in a sum", "$2\\pm -3\\%$"],
+    ["an angle in π too big to know", "$\\cos(10^{15}\\pi)$"],
+    ["an angle in π that rounded to 0", "$\\csc(10^{-400}\\pi)$"],
     ["a branch that is not real", "$\\sqrt{1\\pm 2}$"],
     ["a sign with nothing to work out", "$\\pm 3$"],
     ["more than four values", "$1\\pm 2\\pm 4\\pm 8$"],
@@ -201,6 +204,23 @@ describe("liveAnswer", () => {
     expect(shown("$2-\\pm 3$")).toBe("2 + 3 = 5,\\quad 2 - 3 = -1");
     expect(shown("$2+\\pm 3$")).toBe("2 - 3 = -1,\\quad 2 + 3 = 5");
     expect(shown("$2\\times\\pm 3$")).toBe("2 \\times - 3 = -6,\\quad 2 \\times + 3 = 6");
+  });
+
+  it("shows the values alone where merging signs beside a mod would write a false line", () => {
+    // 5 - ((-2) mod 3) is 4, but "5 + 2 mod 3" reads as 7.
+    expect(shown("$5-\\pm 2\\bmod 3$")).toBe("= 3,\\quad 4");
+  });
+
+  it("works an angle of 0π out exactly", () => {
+    expect(shown("$\\cos(0\\pi)$")).toBe("= 1");
+  });
+
+  it("works nested degree angles once each, not twice per level", () => {
+    let draft = "1";
+    for (let i = 0; i < 24; i += 1) draft = "\\sin(" + draft + "^{\\circ})";
+    const started = Date.now();
+    expect(shown("$" + draft + "$")).not.toBeNull();
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 
   it("works = out on a ± draft too", () => {

@@ -205,10 +205,17 @@ function angle(arg: LiveNode): Angle {
   if (contains(arg, DEGREES)) {
     // `30^{\circ}` or `-30^{\circ}`; `30^{\circ} + 15` mixes two units.
     if (signed.kind !== "degrees" || contains(arg, RADIANS)) return fail();
-    const degrees = exactDegrees(defined(signed.operand, true), arg.kind === "neg");
-    return { radians: numberOf(defined(arg, true)), degrees };
+    // Worked out once: nested degree trig would double its cost at every level.
+    const operand = defined(signed.operand, true);
+    const sign = arg.kind === "neg" ? -1 : 1;
+    return { radians: (sign * numberOf(operand) * Math.PI) / 180, degrees: exactDegrees(operand, sign < 0) };
   }
-  if (contains(arg, RADIANS)) return { radians: numberOf(defined(arg, true)), degrees: null };
+  if (contains(arg, RADIANS)) {
+    // An angle in π that rounded to 0 (`10^{-400}\pi`) is too small to know; `0\pi` is exact.
+    const value = defined(arg, true);
+    if (value.kind === "approx" && value.x === 0) fail();
+    return { radians: numberOf(value), degrees: null };
+  }
   if (signed.kind !== "number") return fail();
   const value = defined(arg);
   return { radians: (numberOf(value) * Math.PI) / 180, degrees: exactDegrees(value, false) };
@@ -229,6 +236,8 @@ function trig(fn: "sin" | "cos" | "tan" | "cot" | "sec" | "csc", { radians, degr
   const zero = (x: number) => (Math.abs(x) < TRIG_ZERO ? 0 : x);
   // Relative to the angle: near 0, sin r is r to full precision, so only r = 0 is a zero.
   const nearZero = (x: number) => Math.abs(x) <= TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians);
+  // Past this size a radian angle's rounding alone could be a zero: too big to know.
+  if (!degrees && TRIG_EXACT_STEPS * Number.EPSILON * Math.abs(radians) > TRIG_ZERO) fail();
   const sine = Math.sin(radians);
   const cosine = Math.cos(radians);
   const sineZero = degrees ? onHalfTurn(degrees, 0n) : nearZero(sine);
@@ -277,6 +286,9 @@ function call(fn: LiveFunction, arg: LiveNode, base: LiveNode | null): LiveValue
   return fail();
 }
 
+const isPercent = (node: LiveNode): boolean =>
+  node.kind === "percent" || (node.kind === "neg" && isPercent(node.operand));
+
 /** A part whose undefined does not carry through what holds it: there it leaves no value. */
 function defined(node: LiveNode, inAngle = false): LiveValue {
   const read = guardReason(() => evaluate(node, inAngle));
@@ -293,8 +305,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
       return v.kind === "exact" ? exact(rational(-v.r.n, v.r.d)) : approx(-v.x);
     }
     case "add": {
-      // `50 + 10%` is 55 on a phone calculator and 50.1 to SymPy: no answer.
-      if (node.left.kind === "percent" || node.right.kind === "percent") fail();
+      // `50 + 10%` (or `50 - -10%`) is 55 on a phone calculator and 50.1 to SymPy: no answer.
+      if (isPercent(node.left) || isPercent(node.right)) fail();
       const a = evaluate(node.left, inAngle);
       const b = evaluate(node.right, inAngle);
       return node.op === "+" ? combine(a, b, add, (x, y) => x + y) : combine(a, b, sub, (x, y) => x - y);
@@ -302,7 +314,8 @@ function evaluate(node: LiveNode, inAngle = false): LiveValue {
     case "mul": {
       const a = node.op === "mod" ? defined(node.left, inAngle) : evaluate(node.left, inAngle);
       const b = node.op === "*" ? evaluate(node.right, inAngle) : defined(node.right, inAngle);
-      if (node.op === "*") return combine(a, b, mul, (x, y) => x * y);
+      // Zero times any number is exactly zero (`0\pi`).
+      if (node.op === "*") return isZero(a) || isZero(b) ? ZERO : combine(a, b, mul, (x, y) => x * y);
       if (node.op === "/") return divide(a, b);
       // SymPy's Mod: the remainder takes the divisor's sign. Exact values only.
       if (b.kind === "exact" && b.r.n === 0n) return undefinedValue();
