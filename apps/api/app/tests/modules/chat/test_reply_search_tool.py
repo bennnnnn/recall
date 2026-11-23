@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.aio import settled_result
 from app.gateways.decider_gateway import DeciderAnswer, DeciderReply
 from app.gateways.mcp import registry
 from app.gateways.web_search_gateway import WebSearchHit
@@ -22,7 +23,7 @@ from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.stream_accum import StreamAccum
 from app.modules.chat.stream_paths import run_llm_token_stream, run_tool_loop_path
 from app.modules.chat.tool_loop import live_denial, reply_calls
-from app.modules.chat.tool_loop.reply_calls import ReplyTurn, answered_read, reply_tools
+from app.modules.chat.tool_loop.reply_calls import ReplyTurn, reply_tools
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.web_search import WebSearchAdapter
 from app.tests.fakes import isolated_settings, redis_mock
@@ -832,7 +833,7 @@ async def test_only_a_settled_read_lets_a_denial_be_asked_again(
         deps, redis_mock(), _SETTINGS, ctx, usage={}, on_status=None, should_cancel=None
     )
     assert ctx.denial_retry_tools == ([web_search_tool] if retry else [])
-    read = answered_read(ctx)
+    read = settled_result(ctx.live_read)
     assert (read is not None and read.nearly_live) is (requires is not None)
 
 

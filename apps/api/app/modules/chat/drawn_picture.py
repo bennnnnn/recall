@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Literal
 
+from app.core.aio import settled_result
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.figure_turn import read_asks_for_a_picture
 from app.modules.chat.turn_decision import TurnDecision
@@ -48,15 +49,9 @@ def asks_for_a_drawing(decision: TurnDecision | None) -> bool:
     )
 
 
-def _answered(read: asyncio.Future[TurnDecision | None]) -> TurnDecision | None:
-    if not read.done() or read.cancelled() or read.exception() is not None:
-        return None
-    return read.result()
-
-
 def answered_read(read: object) -> TurnDecision | None:
     """The turn's read when it is in and answered; nothing is waited for."""
-    return _answered(read) if isinstance(read, asyncio.Future) else None
+    return settled_result(read) if isinstance(read, asyncio.Future) else None
 
 
 # What answers a turn in place of an ordinary reply: a photo search, or a painting.
@@ -86,7 +81,7 @@ async def read_picture(
     if read is None:
         return None
     await asyncio.wait([read], timeout=wait)
-    decision = _answered(read)
+    decision = settled_result(read)
     if read_asks(decision, "image"):
         return "image"
     return "photo" if read_asks(decision, "photo") else None
@@ -113,7 +108,7 @@ async def read_paints_none(
     if read is None:
         return True
     await asyncio.wait([read])
-    decision = _answered(read)
+    decision = settled_result(read)
     return not read_asks(decision, "image") or app_draws(decision, verified)
 
 
@@ -152,4 +147,4 @@ def app_draws_the_picture(ctx: StreamContext) -> bool:
     read = ctx.live_read
     if not isinstance(read, asyncio.Future):
         return False
-    return app_draws(_answered(read), ctx.verified_subject)
+    return app_draws(settled_result(read), ctx.verified_subject)

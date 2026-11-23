@@ -22,6 +22,7 @@ import asyncio
 import re
 from typing import TYPE_CHECKING
 
+from app.core.aio import settled
 from app.core.config import Settings
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
@@ -67,7 +68,7 @@ async def write_the_rest(ctx: StreamContext, settings: Settings) -> None:
         return
     if not task.done():
         await asyncio.wait([task], timeout=settings.live_read_wait_seconds)
-    if not task.done() or task.cancelled() or task.exception() is not None:
+    if not settled(task):
         note_prompt_rule("subject.asks_read_late")
         return
     read = task.result()
