@@ -350,7 +350,7 @@ def math_statements(reply: str, *, with_breaks: bool = False) -> Iterator[Any]:
 
 def math_statement_spans(reply: str) -> Iterator[tuple[str, bool, int]]:
     """``math_statements`` with breaks, each with where it starts in ``reply``."""
-    prose = _masked(reply)
+    prose = masked(reply)
     end: int | None = None
     for match in INLINE_MATH.finditer(prose):
         follows = end is not None and not prose[end : match.start()].strip()
@@ -362,7 +362,7 @@ def math_statement_spans(reply: str) -> Iterator[tuple[str, bool, int]]:
             yield inside[cuts[index] : cuts[index + 1]], follows or index > 0, start + cuts[index]
 
 
-def _masked(reply: str) -> str:
+def masked(reply: str) -> str:
     """``reply`` with each closed code fence and inline code blanked, every offset kept."""
     pieces: list[str] = []
     cursor = 0
@@ -376,7 +376,7 @@ def _masked(reply: str) -> str:
 
 def prose_only(reply: str) -> str:
     """``reply`` with its fences, inline code and inline maths blanked, every offset kept."""
-    return INLINE_MATH.sub(lambda m: _blank(m.group(0)), _masked(reply))
+    return INLINE_MATH.sub(lambda m: _blank(m.group(0)), masked(reply))
 
 
 def _blank(text: str) -> str:

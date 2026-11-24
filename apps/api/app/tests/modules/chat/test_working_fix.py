@@ -205,3 +205,16 @@ def test_functions_read_as_numbers(tex: str, value: float) -> None:
 def test_ambiguous_or_huge_functions_are_not_read(tex: str) -> None:
     plain = plain_arithmetic(tex)
     assert plain is None or evaluate(plain) is None
+
+
+def test_a_short_number_is_carried_only_where_it_is_said_again() -> None:
+    """"38" may be another value's in a calculation: its restatement follows the fix."""
+    reply = "**Steps**\n\n$12 \\times 3 = 38$\n\n**Answer**\n\n$38$"
+    assert corrected_working(reply) == reply.replace("38", "36")
+
+
+def test_a_short_number_used_again_in_a_calculation_is_named_not_changed() -> None:
+    """Which later 38 is the slip's is unknown: the working is left as written, and named."""
+    reply = "**Steps**\n\n$12 \\times 3 = 38$\n$y = 38 + 2$"
+    assert corrected_working(reply) == reply
+    assert working_note(reply) is not None

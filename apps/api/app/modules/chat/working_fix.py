@@ -27,7 +27,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chat.tex_arithmetic import math_statement_spans, plain_arithmetic, prose_only
+from app.modules.chat.tex_arithmetic import (
+    masked,
+    math_statement_spans,
+    plain_arithmetic,
+    prose_only,
+)
 from app.modules.chat.working_check import (
     NAME,
     OPERATOR,
@@ -61,15 +66,27 @@ def corrected_working(reply: str, question: str = "") -> str:
 
 
 def _put_right(text: str, step: WrongStep, question: str) -> str:
-    """``text`` with ``step``'s numbers written to their values, each carried on after it."""
+    """``text`` with ``step``'s numbers written to their values, each carried on after it;
+    ``text`` as it was when a number cannot be carried safely (``_carries``)."""
+    original = text
     for fix in sorted(step.fixes, key=lambda fix: fix.start, reverse=True):
         right = _written(fix)
         before, after = text[: fix.start], text[fix.end :]
-        if _carries(fix.number, before, question):
-            unit = _unit_after(after) if step.name else ""
-            after = _carried(after, fix, right, step.name, unit)
+        mode = _carries(fix, right, before, question)
+        if mode != _NONE:
+            unit = _unit_after(after) if step.name and mode == _ALL else ""
+            carried = _carried(after, fix, right, step.name, unit, everywhere=mode == _ALL)
+            if carried is None:
+                return original
+            after = carried
         text = before + right + after
     return text
+
+
+# How far a wrong number is carried: everywhere it is the slip's, only where a line says it
+# again (a short number, "38", may be another value's in a calculation), or nowhere (the
+# same digits were written before the slip: a given's, or another value's).
+_ALL, _RESTATED, _NONE = "all", "restated", "none"
 
 
 def _written(fix: Fix) -> str:
@@ -83,14 +100,17 @@ def _standalone(number: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\d.,]){re.escape(number.lstrip('-\u2212'))}(?![\d]|[.,]\d)")
 
 
-def _carries(number: str, before: str, question: str) -> bool:
-    """The wrong number is sure to be the slip's own wherever it appears after: it has a
-    decimal point or three figures, and appears nowhere before it."""
-    digits = number.lstrip("-\u2212").replace(",", "")
-    if "." not in digits and len(digits) < 3:
-        return False
-    pattern = _standalone(number)
-    return pattern.search(before) is None and pattern.search(question) is None
+def _carries(fix: Fix, right: str, before: str, question: str) -> str:
+    """How far the wrong number is sure to be the slip's own after it: nowhere when it was
+    written before it (or in the question), or when the right one turns its sign; only where
+    it is said again when it is short (no decimal point, under three figures); else
+    everywhere."""
+    pattern = _standalone(fix.number)
+    signs = (fix.number.startswith(("-", "\u2212")), right.startswith(("-", "\u2212")))
+    if pattern.search(before) or pattern.search(question) or signs[0] != signs[1]:
+        return _NONE
+    digits = fix.number.lstrip("-\u2212").replace(",", "")
+    return _ALL if "." in digits or len(digits) >= 3 else _RESTATED
 
 
 def _unit_after(after: str) -> str:
@@ -100,36 +120,42 @@ def _unit_after(after: str) -> str:
     return match.group(1).strip() if match else ""
 
 
-def _carried(after: str, fix: Fix, right: str, name: str, unit: str) -> str:
+def _carried(
+    after: str, fix: Fix, right: str, name: str, unit: str, *, everywhere: bool
+) -> str | None:
     """``after`` with each use of the wrong number in a calculation, each restatement of
-    it, and each sentence giving it with ``unit``, written as ``right``."""
+    it, and each sentence giving it with ``unit``, written as ``right``. Not
+    ``everywhere``: only the restatements, and None when the number appears anywhere else
+    after it, whose line would then disagree with the one put right."""
     edits: list[tuple[int, int]] = []
     pattern = _standalone(fix.number)
     for segment, _follows, at in math_statement_spans(after):
         parts, starts = statement_parts(segment, at)
         for index, start in enumerate(starts):
-            if _carry_into(parts, index, name, fix.number):
+            if _carry_into(parts, index, name, fix.number, operands=everywhere):
                 found = pattern.finditer(parts[index].strip())
                 edits += [(start + match.start(), start + match.end()) for match in found]
     if unit:
         prose = prose_only(after)
         word = re.compile(rf"{pattern.pattern}(?=(?:\s|\*\*)*{re.escape(unit)}\b)")
         edits += [match.span() for match in word.finditer(prose)]
+    if not everywhere and len(set(edits)) < len(pattern.findall(masked(after))):
+        return None
     for start, end in sorted(set(edits), reverse=True):
         after = after[:start] + right.lstrip("-\u2212") + after[end:]
     return after
 
 
-def _carry_into(parts: list[str], index: int, name: str, number: str) -> bool:
-    """The wrong number in ``parts[index]`` is the slip's: an operand of a calculation, the
-    same name said to be it, or the number alone; never the result of another calculation,
-    nor another name's value."""
+def _carry_into(parts: list[str], index: int, name: str, number: str, *, operands: bool) -> bool:
+    """The wrong number in ``parts[index]`` is the slip's: an operand of a calculation (when
+    ``operands``), the same name said to be it, or the number alone; never the result of
+    another calculation, nor another name's value."""
     part = parts[index].strip()
     plain = plain_arithmetic(part)
     if plain is None:
         return False
     if OPERATOR.search(plain.lstrip("-+")) is not None:
-        return True
+        return operands
     if index == 0:
         return len(parts) == 1
     earlier = plain_arithmetic(parts[index - 1].strip())
