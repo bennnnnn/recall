@@ -39,11 +39,6 @@ const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");
 
-const HIGHLIGHTS = [
-  { icon: "graduation-cap" as const, labelKey: "login.highlight_learn" },
-  { icon: "message-dots" as const, labelKey: "login.highlight_organize" },
-];
-
 /** Sign-in, in the brand's indigo whatever accent the phone has picked. */
 export default function LoginScreen() {
   return (
@@ -82,18 +77,9 @@ function SignIn() {
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
           <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
-          <Text style={s.subtitle}>{t("login.tagline")}</Text>
-
-          <View style={s.highlights}>
-            {HIGHLIGHTS.map((item) => (
-              <View key={item.labelKey} style={s.highlight}>
-                <View style={s.highlightIcon}>
-                  <Icon name={item.icon} size={IconSize.xs} color={theme.primary} />
-                </View>
-                <Text style={s.highlightText}>{t(item.labelKey)}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={s.subtitle} textBreakStrategy="balanced" lineBreakStrategyIOS="push-out">
+            {t("onboarding.headline")}
+          </Text>
         </View>
 
       </AuthScrollLayout>
@@ -231,7 +217,7 @@ function SignInActions({ s, theme }: { s: Styles; theme: Theme }) {
 
       {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
           the sign-in); the Privacy Policy says what the AI providers receive. */}
-      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
+      <AgreeLine style={s.consentLine} linkStyle={s.link} />
     </View>
   );
 }
@@ -273,37 +259,6 @@ function makeStyles(theme: Theme) {
       textAlign: "center",
       maxWidth: 300,
       paddingHorizontal: Space.xs,
-    },
-    highlights: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: Space.xs,
-      marginTop: Space.lg,
-      maxWidth: 340,
-    },
-    highlight: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      backgroundColor: theme.isDark ? theme.surface : withAlpha(GLASS_WHITE, 0.72),
-      borderRadius: Radius.full,
-      paddingHorizontal: Space.sm,
-      paddingVertical: Space.xs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark ? theme.border : withAlpha(theme.primary, 0.12),
-    },
-    highlightIcon: {
-      width: 24,
-      height: 24,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    highlightText: {
-      ...Type.caption,
-      color: theme.textSecondary,
     },
     actions: {
       paddingBottom: Space.xs,
@@ -385,7 +340,7 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
       textAlign: "center",
     },
-    link: { ...Type.caption, ...Weight.regular, color: theme.primary },
-    linkPressable: { textDecorationLine: "underline" },
+    // The brand colour alone marks the links, without an underline (owner, 2026-11-23).
+    link: { ...Type.caption, ...Weight.medium, color: theme.primary },
   });
 }

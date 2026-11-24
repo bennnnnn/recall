@@ -5,7 +5,7 @@
  * Motion every step is shown at once, still.
  */
 import { createContext, type ReactNode, useContext, useEffect, useMemo } from "react";
-import { type StyleProp, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { type StyleProp, StyleSheet, Text, type TextProps, useWindowDimensions, View, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -70,9 +70,13 @@ export function SceneCard({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const tint = useContext(SceneTint) ?? theme.primary;
+  const { height } = useWindowDimensions();
   return (
     <View
-      style={[s.field, { backgroundColor: withAlpha(tint, theme.isDark ? 0.22 : 0.14) }]}
+      style={[
+        s.field,
+        { height: sceneHeight(height), backgroundColor: withAlpha(tint, theme.isDark ? 0.22 : 0.14) },
+      ]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
@@ -84,12 +88,18 @@ export function SceneCard({ children }: { children: ReactNode }) {
   );
 }
 
+/** Words inside a scene are part of its picture: they keep their size under large system
+ * text, so a scene never outgrows its card (the titles and words under it still scale). */
+export function SceneText(props: TextProps) {
+  return <Text maxFontSizeMultiplier={1} {...props} />;
+}
+
 export function UserBubble({ text }: { text: string }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={s.userBubble}>
-      <Text style={s.userText}>{text}</Text>
+      <SceneText style={s.userText}>{text}</SceneText>
     </View>
   );
 }
@@ -98,14 +108,24 @@ export function UserBubble({ text }: { text: string }) {
 export function ReplyLine({ text, strong = false }: { text: string; strong?: boolean }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  return <Text style={[s.reply, strong && s.replyStrong]}>{text}</Text>;
+  return <SceneText style={[s.reply, strong && s.replyStrong]}>{text}</SceneText>;
 }
 
-const SCENE_HEIGHT = 340;
+/** What the landing needs besides the scene (headline, title, words, dots, button, system
+ * bars), measured on a 727 dp tall Galaxy S23 where a 340 dp scene just fits. */
+const LANDING_CHROME = 390;
+const SCENE_MIN = 240;
+const SCENE_MAX = 380;
+
+/** The scene takes the room the screen has, so the landing fits without scrolling from a
+ * 640 dp phone to a tablet; below the minimum the landing scrolls instead. */
+export function sceneHeight(windowHeight: number): number {
+  return Math.min(SCENE_MAX, Math.max(SCENE_MIN, windowHeight - LANDING_CHROME));
+}
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    field: { height: SCENE_HEIGHT, borderRadius: Radius.xl, padding: Space.md, paddingBottom: 0 },
+    field: { borderRadius: Radius.xl, padding: Space.md, paddingBottom: 0 },
     card: {
       flex: 1,
       borderTopLeftRadius: Radius.xl,

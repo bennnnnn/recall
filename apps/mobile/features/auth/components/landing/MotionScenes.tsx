@@ -4,7 +4,7 @@
  * on screen. Under Reduce Motion the scan line and the ball keep still.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Image, type LayoutChangeEvent, StyleSheet, Text, View } from "react-native";
+import { Image, type LayoutChangeEvent, StyleSheet, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedProps,
@@ -24,7 +24,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { Reveal, SceneCard } from "./SceneParts";
+import { Reveal, SceneCard, SceneText } from "./SceneParts";
 
 type SceneProps = { active: boolean };
 
@@ -74,11 +74,11 @@ export function ScanScene({ active }: SceneProps) {
       </View>
       <Reveal active={active} step={2} style={s.solved}>
         <Icon name="camera" size={IconSize.sm} color={theme.primary} />
-        <Text style={s.solvedMaths}>3x {"\u2212"} 2 = 2x + 7</Text>
+        <SceneText style={s.solvedMaths}>3x {"\u2212"} 2 = 2x + 7</SceneText>
       </Reveal>
       <Reveal active={active} step={3} style={s.solved}>
         <Icon name="check-circle" size={IconSize.sm} color={theme.success} />
-        <Text style={[s.solvedMaths, s.answer]}>x = 9</Text>
+        <SceneText style={[s.solvedMaths, s.answer]}>x = 9</SceneText>
       </Reveal>
     </SceneCard>
   );
@@ -108,7 +108,7 @@ export function PhysicsScene({ active }: SceneProps) {
   };
   return (
     <SceneCard>
-      <Text style={s.given}>v{"₀"} = 20 m/s {"·"} 45{"°"}</Text>
+      <SceneText style={s.given}>v{"₀"} = 20 m/s {"·"} 45{"°"}</SceneText>
       <View style={s.plot} onLayout={onLayout}>
         {width > 0 ? (
           <Svg width={width} height={height}>
@@ -119,7 +119,7 @@ export function PhysicsScene({ active }: SceneProps) {
         ) : null}
       </View>
       <Reveal active={active} step={1}>
-        <Text style={s.range}>R = 40.8 m</Text>
+        <SceneText style={s.range}>R = 40.8 m</SceneText>
       </Reveal>
     </SceneCard>
   );
