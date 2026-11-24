@@ -10,6 +10,7 @@ import {
   dismissQuotaNudgeToday,
   quotaNudgeDismissedToday,
 } from "@/features/chat/model/quotaNudgeDismissal";
+import { utcDayKey } from "@/lib/datetime/dayKey";
 
 // Show the upgrade nudge once the free user has used this much of today's quota.
 const QUOTA_NUDGE_THRESHOLD_PCT = 80;
@@ -18,6 +19,8 @@ type Counted = { used: number; total: number };
 
 type Options = {
   isPaid: boolean;
+  /** The chat's error: one for the day's messages turns Send off until tomorrow. */
+  chatError?: { outOfMessages?: boolean } | null;
 };
 
 /**
@@ -31,7 +34,7 @@ type Options = {
  * the day's usage on its `done` (`applyTurnUsage`), so a turn costs no extra
  * request (code-health audit NET-14).
  */
-export function useQuotaNudge({ isPaid }: Options) {
+export function useQuotaNudge({ isPaid, chatError = null }: Options) {
   const { account, getToken } = useAccountSession();
   // A paid plan painted from the launch cache reads "free" until /auth/me answers.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
@@ -40,19 +43,29 @@ export function useQuotaNudge({ isPaid }: Options) {
   const [usedPct, setUsedPct] = useState(0);
   // The day's messages when the server counts them: the banner says how many are left.
   const [dayCount, setDayCount] = useState<Counted | null>(null);
+  // The server's UTC day on which Free ran out: Send is off until the next one.
+  const [exhaustedDay, setExhaustedDay] = useState<string | null>(null);
 
   const applyPercent = useCallback((pct: number, counted: Counted | null = null) => {
     setUsedPct(pct);
     setDayCount(counted);
+    if (counted && counted.used >= counted.total) setExhaustedDay(utcDayKey(new Date()));
     if (pct >= QUOTA_NUDGE_THRESHOLD_PCT && !quotaNudgeDismissedToday()) {
       setShow(true);
     }
+  }, []);
+
+  /** A send the server refused for the day's messages: the next one waits for tomorrow. */
+  const markExhausted = useCallback(() => {
+    setExhaustedDay(utcDayKey(new Date()));
+    setDayCount((counted) => (counted ? { used: counted.total, total: counted.total } : counted));
   }, []);
 
   useEffect(() => {
     const token = getToken();
     if (!account || !token || isPaid || !planKnown) {
       setShow(false);
+      setExhaustedDay(null);
       return;
     }
     let cancelled = false;
@@ -74,13 +87,24 @@ export function useQuotaNudge({ isPaid }: Options) {
     [account, isPaid, planKnown, applyPercent],
   );
 
+  // A send the server refused for the day's messages: Send waits for tomorrow from then on.
+  const refusedForMessages = chatError?.outOfMessages === true;
+  useEffect(() => {
+    if (refusedForMessages) markExhausted();
+  }, [refusedForMessages, markExhausted]);
+
   const dismiss = useCallback(() => {
     dismissQuotaNudgeToday();
     setShow(false);
   }, []);
 
+  // Out for today (a free plan only): Send is off, and the banner stays to say why and offer
+  // the plans, closed or not. The next UTC day turns it back on.
+  const outOfMessages = !isPaid && planKnown && exhaustedDay === utcDayKey(new Date());
   const label = dayCount
     ? t("chat.quota_nudge_messages", { left: dayCount.total - dayCount.used, total: dayCount.total })
-    : t("chat.quota_nudge_body", { pct: usedPct });
-  return { show, usedPct, label, dismiss, applyTurnUsage };
+    : outOfMessages
+      ? t("chat.quota_exceeded_free")
+      : t("chat.quota_nudge_body", { pct: usedPct });
+  return { show: show || outOfMessages, usedPct, label, dismiss, applyTurnUsage, outOfMessages, markExhausted };
 }

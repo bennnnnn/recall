@@ -43,6 +43,8 @@ const TURN_FAILURE_KEYS: Readonly<Record<string, string>> = {
 export type ResolvedChatError = {
   kind: ChatErrorKind;
   message: string;
+  /** The day's messages are used up (not a picture's limit): Send waits for the next day. */
+  outOfMessages?: boolean;
 };
 
 export function resolveChatError(options: {
@@ -91,6 +93,7 @@ export function resolveChatError(options: {
     return {
       kind: "quota",
       message: options.t(options.isPaid ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),
+      outOfMessages: true,
     };
   }
   if (!text || text.startsWith("{") || text.startsWith("[")) {

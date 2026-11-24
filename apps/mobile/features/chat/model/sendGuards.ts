@@ -18,6 +18,8 @@ export function canSend(input: {
   creating: boolean;
   /** A picked file is still being prepared; sending now would leave it behind. */
   attachPicking: boolean;
+  /** A free plan's messages are used up for today: the banner says so and offers the plans. */
+  quotaBlocked?: boolean;
 }): SendGuardVerdict {
   // A send still preparing, or a routed chat with nothing on screen yet.
   if (
@@ -25,6 +27,7 @@ export function canSend(input: {
     (input.routeChatId != null && input.routeChatId !== input.chatId)
   ) return "blocked";
   if (input.isOffline) return "offline";
+  if (input.quotaBlocked) return "blocked";
   if (input.streaming && (input.text || input.hasAttachment)) return "streaming";
   return shouldBlockSend(input) ? "blocked" : "send";
 }

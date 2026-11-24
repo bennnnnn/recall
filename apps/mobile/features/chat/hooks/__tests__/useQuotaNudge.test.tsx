@@ -110,3 +110,47 @@ it("does nothing signed out", async () => {
   await act(async () => { result.current.applyTurnUsage({ used_tokens: 99_000, daily_limit: 100_000 }); });
   expect(result.current.show).toBe(false);
 });
+
+describe("out of messages for today", () => {
+  const messages = (used: number, total = 10): Usage => ({ ...usage(1_000), messages_used: used, daily_messages: total });
+
+  it("turns Send off and keeps the banner up once a free plan's messages are used", async () => {
+    fetchUsage.mockResolvedValue(messages(10));
+    const { result } = await setup();
+    expect(result.current.outOfMessages).toBe(true);
+    // Closed or not, the banner stays: it says why Send is off and offers the plans.
+    await act(async () => { result.current.dismiss(); });
+    expect(result.current.show).toBe(true);
+    expect(result.current.label).toContain("chat.quota_nudge_messages");
+  });
+
+  it("is not out while messages are left, and never for a paid plan", async () => {
+    fetchUsage.mockResolvedValue(messages(9));
+    expect((await setup()).result.current.outOfMessages).toBe(false);
+    fetchUsage.mockResolvedValue(messages(10));
+    expect((await setup(true)).result.current.outOfMessages).toBe(false);
+  });
+
+  it("turns Send off after a send the server refused for the day, even before a count", async () => {
+    fetchUsage.mockResolvedValue(null);
+    const { result } = await setup();
+    expect(result.current.outOfMessages).toBe(false);
+    await act(async () => { result.current.markExhausted(); });
+    expect(result.current.outOfMessages).toBe(true);
+    expect(result.current.label).toBe("chat.quota_exceeded_free");
+  });
+
+  it("turns Send back on with the next UTC day", async () => {
+    jest.useFakeTimers({ now: new Date("2026-11-24T23:59:00Z") });
+    try {
+      fetchUsage.mockResolvedValue(messages(10));
+      const { result, rerender } = await setup();
+      expect(result.current.outOfMessages).toBe(true);
+      jest.setSystemTime(new Date("2026-11-25T00:01:00Z"));
+      await rerender({ paid: false });
+      expect(result.current.outOfMessages).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});

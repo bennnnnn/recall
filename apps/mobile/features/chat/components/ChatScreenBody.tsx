@@ -81,6 +81,7 @@ export interface ChatScreenComposerProps {
   onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
+  quotaBlocked?: boolean;
   voiceAvailable: boolean;
   voiceRecording: boolean;
   voiceTranscribing: boolean;
@@ -104,7 +105,8 @@ export interface ChatScreenChromeProps {
   quotaNudgeVisible: boolean;
   quotaLabel: string;
   onQuotaUpgrade: () => void;
-  onQuotaDismiss: () => void;
+  /** None while the day's messages are used up: the banner stays. */
+  onQuotaDismiss?: () => void;
   chatError: ResolvedChatError | null;
   isPaid: boolean;
   onUpgrade: () => void;
@@ -197,6 +199,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onSend={composer.onSend}
           onStop={composer.onStop}
           isOffline={composer.isOffline}
+          quotaBlocked={composer.quotaBlocked}
           voiceAvailable={composer.voiceAvailable}
           voiceRecording={composer.voiceRecording}
           voiceTranscribing={composer.voiceTranscribing}
