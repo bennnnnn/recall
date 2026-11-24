@@ -2,8 +2,9 @@
 
 The recorded dictation waited for the whole clip: the phone recorded, uploaded it when
 the user stopped, and the words came back only then. Now the phone streams the mic to an
-OpenAI Realtime transcription session over WebRTC, as live talk does, and the words land
-in the composer as they are spoken. No model answers in that session; it only transcribes.
+OpenAI Realtime transcription session over WebRTC, as live talk does: the words show on
+the composer's row as they are spoken, and the whole take lands in the draft at the stop.
+No model answers in that session; it only transcribes.
 
 As with live talk, the client secret never leaves the server. A mint (``open_session``)
 takes one of the day's ``speech_transcription`` slots and keeps the secret; the phone's
@@ -51,6 +52,9 @@ _TAIL_SECONDS = 15 * 60
 # Refunds a day for a take the phone says heard nothing: an honest phone needs a few (a
 # tap by mistake, a noisy room); a modified one cannot turn the day's cap off with it.
 EMPTY_REFUNDS_PER_DAY = 10
+# What one take can cost at most, for the global voice-spend breaker: gpt-live-transcribe
+# at about $0.017 a minute, to the hang-up 60 s after the connect.
+_DICTATION_SPEND_USD = 0.017
 
 
 class DictationUnconfirmedError(Exception):
@@ -83,6 +87,11 @@ def _call_key(user_id: UUID, session_id: str) -> str:
 
 def _slot_key(user_id: UUID, session_id: str) -> str:
     return f"dictation_slot:{user_id}:{session_id}"
+
+
+def _opened_key(user_id: UUID, session_id: str) -> str:
+    """Set once OpenAI opened the session's call: from then on audio may have been heard."""
+    return f"dictation_opened:{user_id}:{session_id}"
 
 
 def _ended_key(user_id: UUID, session_id: str) -> str:
@@ -166,6 +175,7 @@ async def connect(
         await _give_slot_back(redis, user_id, session_id)
         raise _failed()
     await redis.set(_call_key(user_id, session_id), call.call_id, ex=_hold_seconds(settings))
+    await redis.set(_opened_key(user_id, session_id), "1", ex=_hold_seconds(settings))
     if await redis.exists(_ended_key(user_id, session_id)):
         # The phone stopped while OpenAI was opening the call (a tap during "Starting…"):
         # its end found no call, so this one is hung up here and nothing is charged for it.
@@ -195,7 +205,7 @@ async def connect(
     if "v=0" not in call.answer_sdp:
         await end(redis, settings, user_id, session_id, heard=False, refund_capped=False)
         raise _failed()
-    await quota_service.record_voice_spend(redis, quota_service.STT_SPEND_USD)
+    await quota_service.record_voice_spend(redis, _DICTATION_SPEND_USD)
     return call.answer_sdp
 
 
@@ -217,7 +227,10 @@ async def end(
     if not await _hang_up(redis, settings, user_id, session_id):
         await jobs.enqueue_later(redis, HANGUP_JOB, _hangup_payload(user_id, session_id), delay_s=0)
     if not heard:
-        await _give_slot_back(redis, user_id, session_id, capped=refund_capped)
+        # A take whose call never opened heard nothing for certain (a stop during
+        # "Starting…", a connect that failed): only the phone's word is capped.
+        opened = await redis.exists(_opened_key(user_id, session_id))
+        await _give_slot_back(redis, user_id, session_id, capped=refund_capped and bool(opened))
 
 
 async def _hang_up(redis: Redis, settings: Settings, user_id: UUID, session_id: str) -> bool:

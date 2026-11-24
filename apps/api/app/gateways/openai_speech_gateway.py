@@ -21,7 +21,7 @@ import httpx
 from app.core.config import Settings
 from app.core.log_text import log_safe
 from app.gateways.http_client import get_pooled_client
-from app.gateways.speech_gateway import stt_language_code, stt_language_name
+from app.gateways.speech_gateway import mark_stt_language_refused, stt_language_hint
 from app.models.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
@@ -58,9 +58,6 @@ _DICTATION_SECRET_SECONDS = 60
 _DICTATION_PROMPT = (
     "Transcribe only the words the user says; never make up words for silence or background noise."
 )
-# Language codes OpenAI's realtime transcription refused (it takes no ``am``): later
-# dictations in them name the language in the prompt instead of a doomed first mint.
-_REFUSED_TRANSCRIPTION_LANGUAGES: set[str] = set()
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,9 +107,11 @@ def _input_transcription(language: str | None) -> dict[str, str]:
             "music, or assistant speaker playback."
         ),
     }
-    code = stt_language_code(language)
+    code, named = stt_language_hint(language)
     if code:
         transcription["language"] = code
+    elif named:
+        transcription["prompt"] = f"{transcription['prompt']} {named}"
     return transcription
 
 
@@ -212,16 +211,23 @@ async def create_realtime_client_secret(
         )
 
     try:
-        response = await _post_client_secret(client, headers, session(language))
-        if response.status_code in _REFUSED_SESSION and stt_language_code(language):
+        first = session(language)
+        response = await _post_client_secret(client, headers, first)
+        sent = _sent_language(first)
+        if response.status_code in _REFUSED_SESSION and sent:
+            # The code is never logged: it came from the account's locale.
             logger.warning(
-                "OpenAI Realtime refused the session with transcription language=%s "
-                "status=%s body=%s; minting it without the language",
-                stt_language_code(language),
+                "OpenAI Realtime refused the session's transcription language status=%s; "
+                "minting it without the language",
                 response.status_code,
-                response.text[:400],
             )
-            response = await _post_client_secret(client, headers, session(None))
+            if "language" in response.text:
+                # Every voice path names this language from now on (``speech_gateway``).
+                mark_stt_language_refused(sent)
+                retry = session(language)
+            else:
+                retry = session(None)
+            response = await _post_client_secret(client, headers, retry)
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI Realtime client-secret failed model=%s status=%s body=%s",
@@ -266,17 +272,15 @@ def transcription_session_config(model: str, language: str | None) -> dict[str, 
     code OpenAI refused for it is named in the prompt instead."""
     bare = model.removeprefix("openai/")
     streams = bare in _STREAMING_TRANSCRIBERS
-    transcription: dict[str, object] = {"model": bare, "prompt": _DICTATION_PROMPT}
-    code = stt_language_code(language)
-    if code and code not in _REFUSED_TRANSCRIPTION_LANGUAGES:
-        if streams:
-            transcription["languages"] = [code]
-        else:
-            transcription["language"] = code
-    elif code and (name := stt_language_name(code)):
-        transcription["prompt"] = (
-            f"{_DICTATION_PROMPT} The speaker speaks {name}: write it in {name}'s own script."
-        )
+    code, named = stt_language_hint(language)
+    transcription: dict[str, object] = {
+        "model": bare,
+        "prompt": f"{_DICTATION_PROMPT} {named}".strip(),
+    }
+    if code and streams:
+        transcription["languages"] = [code]
+    elif code:
+        transcription["language"] = code
     # The streaming transcriber takes no server VAD: it writes words as they are spoken,
     # and the phone commits the rest once, on stop. The others write a segment only when
     # server VAD closes it at a pause.
@@ -348,7 +352,7 @@ async def create_transcription_client_secret(
                 "minting it without the language",
                 response.status_code,
             )
-            _REFUSED_TRANSCRIPTION_LANGUAGES.add(sent)
+            mark_stt_language_refused(sent)
             response = await _post_client_secret(
                 client,
                 headers,

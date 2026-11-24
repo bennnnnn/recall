@@ -13,8 +13,9 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { reportFailure } from "@/lib/sentry";
 import { startVoiceRecording } from "@/lib/speech/voiceAudio";
 
-// The composer mic on a build with WebRTC: the words land in the draft while the user
-// speaks. The call is a fake whose data channel delivers OpenAI's transcription events.
+// The composer mic on a build with WebRTC: the words show on the composer's row while the
+// user speaks, and the whole take lands in the draft at the stop. The call is a fake whose
+// data channel delivers OpenAI's transcription events.
 
 jest.mock("react-native-reanimated", () => {
   const { View } = jest.requireActual("react-native");
@@ -296,6 +297,71 @@ it("leaves no half-heard words in the chat the user leaves mid-take", async () =
   expect(current.voiceRecording).toBe(false);
   await completed("i1", "I was thinking we should go.");
   expect(input).toBe("draft for chat one");
+});
+
+describe("the take's timers", () => {
+  const advance = async (ms: number) => {
+    await act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+  };
+  const connected = async () => {
+    for (let i = 0; i < 20 && !(speechApi.connectDictationSession as jest.Mock).mock.calls.length; i += 1) {
+      await advance(0);
+    }
+    await advance(0);
+    expect(speechApi.connectDictationSession).toHaveBeenCalled();
+  };
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it("lands the words heard when the stop gets no answer, once the final wait runs out", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " no answer came");
+    await act(async () => { current.toggleVoiceInput(); });
+    await advance(200); // the stop's tail
+    expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" });
+    await advance(2_400);
+    expect(current.voiceTranscribing).toBe(true);
+    await advance(200); // FINAL_WAIT_MS (2.5 s) has passed
+    expect(current.voiceTranscribing).toBe(false);
+    expect(input).toBe("no answer came");
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+  });
+
+  it("stops the take at its time limit and lands its words", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " a long thought");
+    await advance(44_900);
+    expect(current.voiceRecording).toBe(true);
+    await advance(100); // VOICE_MAX_RECORDING_MS and the server's 45 s
+    expect(current.voiceRecording).toBe(false);
+    await advance(200);
+    expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" });
+    await emit({ type: "input_audio_buffer.committed", item_id: "i1", previous_item_id: null });
+    await completed("i1", "A long thought.");
+    await advance(0);
+    expect(input).toBe("A long thought.");
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+  });
+
+  it("hangs up a take cancelled while its last words land", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " stop then cancel");
+    await act(async () => { current.toggleVoiceInput(); });
+    await advance(200);
+    expect(current.voiceTranscribing).toBe(true);
+    await act(async () => { current.cancelVoiceInput(); });
+    // The finishing call is hung up at once, not when its final wait runs out.
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+    await advance(3_000);
+    expect(input).toBe("");
+  });
 });
 
 describe("the recorded fallback", () => {

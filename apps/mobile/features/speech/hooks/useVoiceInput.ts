@@ -100,7 +100,7 @@ export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Option
       stopReadAloud();
       // A live take asks for the mic through WebRTC, as live talk does: on the iOS Simulator
       // expo-audio touching the session first stalled CoreAudio and aborted the app.
-      const outcome = live ? await live.start() : "fallback";
+      const outcome = await live.start();
       if (outcome !== "fallback") return outcome === "live";
       const permission = await requestVoicePermission(mod);
       if (gen !== captureGenRef.current) return false;
@@ -146,7 +146,7 @@ export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Option
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
-    if (live?.busy()) return live.finish();
+    if (live.busy()) return live.finish();
     const gen = captureGenRef.current;
     // Stopped while a failed live start hands over to the recorder: that start records nothing.
     if (startingRef.current && !recordingRef.current) {
@@ -188,7 +188,7 @@ export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Option
     captureGenRef.current += 1;
     transcribeAbortRef.current?.abort();
     transcribeAbortRef.current = null;
-    live?.cancel();
+    live.cancel();
     void stopRecording().then(deleteVoiceRecording);
     setTranscribing(false);
   }, [stopRecording, live]);

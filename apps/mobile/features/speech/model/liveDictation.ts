@@ -35,7 +35,7 @@ export type LiveDictation = {
   maxMs: number;
   /** Stop: commit the last words, wait for their final text, hang up. The whole text. */
   finish: () => Promise<string>;
-  /** Drop the take and hang up; no more words come (the composer takes back those shown). */
+  /** Drop the take and hang up, finishing or not; nothing lands in the draft. */
   cancel: () => void;
 };
 
@@ -191,6 +191,8 @@ export async function startLiveDictation(options: {
   const hangUp = () => {
     if (call.closed) return;
     call.closed = true;
+    // A cancel while the stop waits for the last words ends that wait too.
+    call.settle?.();
     clearInterval(meter);
     for (const track of audioTracks) track.enabled = false;
     // The server hangs up before the peer closes: OpenAI confirms a call still connected at

@@ -124,8 +124,10 @@ _LANGUAGE_NAMES: dict[str, str] = {
     "ru": "Russian",
     "tr": "Turkish",
 }
-# Codes the transcription endpoint refused ("Language code 'am' is not recognized"):
-# later clips in them name the language in the prompt, as OpenAI's refusal suggests.
+# Codes an OpenAI transcriber refused ("Language code 'am' is not recognized", "Invalid
+# value: 'am'"): one memory for every voice path (the recorded clip, live dictation, live
+# talk's own words), so each names that language in its prompt instead of sending a code
+# that fails. A process cache that only grows; it holds no user's data.
 _REFUSED_LANGUAGES: set[str] = set()
 
 
@@ -134,13 +136,30 @@ def stt_language_name(code: str | None) -> str | None:
     return _LANGUAGE_NAMES.get((code or "").strip().lower())
 
 
+def stt_language_hint(language: str | None) -> tuple[str | None, str]:
+    """How a transcription names the app's language: the ISO code to send, or, for a code
+    OpenAI refused, None and a prompt sentence naming the language ("" when there is none)."""
+    code = stt_language_code(language)
+    if not code:
+        return None, ""
+    if code not in _REFUSED_LANGUAGES:
+        return code, ""
+    name = stt_language_name(code)
+    return None, f"The speaker speaks {name}: write it in {name}'s own script." if name else ""
+
+
+def mark_stt_language_refused(code: str) -> None:
+    """OpenAI refused this code: every voice path names the language from now on."""
+    _REFUSED_LANGUAGES.add(code)
+
+
 def _transcription_payload(model: str, language: str | None) -> dict[str, str]:
     payload: dict[str, str] = {"model": model.removeprefix("openai/"), "response_format": "json"}
-    lang = stt_language_code(language)
-    if lang and lang not in _REFUSED_LANGUAGES:
-        payload["language"] = lang
-    elif lang and (name := stt_language_name(lang)):
-        payload["prompt"] = f"The speaker speaks {name}: write it in {name}'s own script."
+    code, prompt = stt_language_hint(language)
+    if code:
+        payload["language"] = code
+    elif prompt:
+        payload["prompt"] = prompt
     return payload
 
 
@@ -171,7 +190,7 @@ async def transcribe_via_openai(
             # Amharic's "am" came back 400 and every Amharic dictation failed.
             # The code is never logged: it came from the phone.
             logger.warning("OpenAI transcription refused the language; naming it instead")
-            _REFUSED_LANGUAGES.add(refused)
+            mark_stt_language_refused(refused)
             response = await post(_transcription_payload(model, language))
         if response.status_code >= 400:
             logger.warning(

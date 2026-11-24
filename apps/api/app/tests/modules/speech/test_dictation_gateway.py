@@ -20,7 +20,6 @@ from app.gateways import openai_speech_gateway, speech_gateway
 @pytest.fixture(autouse=True)
 def _forget_refused_languages() -> Iterator[None]:
     yield
-    openai_speech_gateway._REFUSED_TRANSCRIPTION_LANGUAGES.clear()
     speech_gateway._REFUSED_LANGUAGES.clear()
 
 
@@ -115,7 +114,7 @@ async def test_a_mint_failure_that_is_not_the_language_is_none(status):
 
     assert result is None
     assert client.post.await_count == 1
-    assert openai_speech_gateway._REFUSED_TRANSCRIPTION_LANGUAGES == set()
+    assert speech_gateway._REFUSED_LANGUAGES == set()
 
 
 @pytest.mark.asyncio
@@ -183,7 +182,7 @@ async def test_a_mint_racing_another_still_retries_without_the_refused_language(
     async def post(*_args: object, **kwargs: object) -> MagicMock:
         transcription = _input(kwargs["json"]["session"])["transcription"]  # type: ignore[index]
         if "languages" in transcription:
-            openai_speech_gateway._REFUSED_TRANSCRIPTION_LANGUAGES.add("am")  # the other mint
+            speech_gateway._REFUSED_LANGUAGES.add("am")  # the other mint
             return _response(400, text="Invalid value: 'am'. param=...languages[0]")
         return _response(200, {"value": "ek_d", "expires_at": 7})
 
@@ -200,3 +199,19 @@ async def test_a_mint_racing_another_still_retries_without_the_refused_language(
 
     assert result is not None and result.value == "ek_d"
     assert client.post.await_count == 2
+
+
+def test_every_voice_path_names_a_language_one_of_them_saw_refused():
+    """One memory: the recorded clip's refusal reaches live dictation and live talk."""
+    speech_gateway.mark_stt_language_refused("am")
+
+    dictation = _input(
+        openai_speech_gateway.transcription_session_config("gpt-live-transcribe", "am")
+    )
+    live_talk = openai_speech_gateway.realtime_session_config(Settings(), "Recall", language="am")
+    recorded = speech_gateway._transcription_payload("gpt-4o-mini-transcribe", "am")
+
+    for transcription in (dictation["transcription"], _input(live_talk)["transcription"]):
+        assert "language" not in transcription and "languages" not in transcription
+        assert "Amharic" in transcription["prompt"]
+    assert "language" not in recorded and "Amharic" in recorded["prompt"]

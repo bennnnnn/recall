@@ -1,6 +1,6 @@
 import { reportFailure } from "@/lib/sentry";
 import { VOICE_MAX_RECORDING_MS } from "@/lib/speech/voiceAudio";
-import { startLiveDictation, type LiveDictation } from "@/features/speech/model/liveDictation";
+import type { LiveDictation } from "@/features/speech/model/liveDictation";
 import {
   hideLiveDictation,
   showLiveDictation,
@@ -38,10 +38,17 @@ export type LiveTake = {
 
 const METER_REST = 0.12;
 
+// The WebRTC call loads on the first mic tap, never with the chat screen (as live talk's).
+function loadLiveDictation() {
+  return import("@/features/speech/model/liveDictation");
+}
+
 /** The take in progress. `gen` moves on at every start, stop and cancel. */
 type TakeState = {
   gen: number;
   live: LiveDictation | null;
+  /** A stopped take whose last words are still landing: a cancel hangs it up too. */
+  finishing: LiveDictation | null;
   starting: AbortController | null;
   timer: ReturnType<typeof setTimeout> | null;
 };
@@ -98,6 +105,7 @@ function startFailed(host: LiveTakeHost, error: unknown): LiveTakeStart {
 async function finishTake(host: LiveTakeHost, state: TakeState, take: LiveDictation): Promise<string | null> {
   const own = state.gen;
   state.live = null;
+  state.finishing = take;
   clearTimer(state);
   host.setRecording(false);
   host.setTranscribing(true);
@@ -113,6 +121,7 @@ async function finishTake(host: LiveTakeHost, state: TakeState, take: LiveDictat
     host.onTranscript(text);
     return text;
   } finally {
+    if (state.finishing === take) state.finishing = null;
     if (own === state.gen) {
       host.setTranscribing(false);
       hideLiveDictation();
@@ -126,7 +135,7 @@ async function finishTake(host: LiveTakeHost, state: TakeState, take: LiveDictat
  * answers after a stop or cancel lands nothing.
  */
 export function createLiveTake(host: LiveTakeHost): LiveTake {
-  const state: TakeState = { gen: 0, live: null, starting: null, timer: null };
+  const state: TakeState = { gen: 0, live: null, finishing: null, starting: null, timer: null };
 
   const cancel = () => {
     state.gen += 1;
@@ -134,6 +143,8 @@ export function createLiveTake(host: LiveTakeHost): LiveTake {
     state.starting = null;
     state.live?.cancel();
     state.live = null;
+    state.finishing?.cancel();
+    state.finishing = null;
     clearTimer(state);
     hideLiveDictation();
   };
@@ -152,6 +163,13 @@ export function createLiveTake(host: LiveTakeHost): LiveTake {
     if (!token) return "stopped";
     state.gen += 1;
     const own = state.gen;
+    const dictation = await loadLiveDictation().catch((error: unknown) => {
+      reportFailure("live_dictation", error); // the mic records the clip instead
+      return null;
+    });
+    if (own !== state.gen) return "stopped";
+    // Expo Go has no WebRTC: the mic records the clip.
+    if (!dictation?.isLiveDictationAvailable()) return "fallback";
     const controller = new AbortController();
     state.starting = controller;
     // The waveform shows at once and says it is starting: the first words wait for the call.
@@ -159,7 +177,7 @@ export function createLiveTake(host: LiveTakeHost): LiveTake {
     showLiveDictation({ phase: "starting", text: "" });
     try {
       const handlers = takeHandlers(host, state, own);
-      const take = await startLiveDictation({ token, signal: controller.signal, handlers });
+      const take = await dictation.startLiveDictation({ token, signal: controller.signal, handlers });
       if (own !== state.gen) {
         take.cancel();
         return "stopped";

@@ -4,7 +4,6 @@ import type { SharedValue } from "react-native-reanimated";
 import type { ActionFeedbackApi } from "@/contexts/actionFeedbackCore";
 import { useLatestRef } from "@/lib/latestRef";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { isLiveDictationAvailable } from "@/features/speech/model/liveDictation";
 import { createLiveTake, type LiveTake } from "@/features/speech/model/liveTake";
 import { dictationFailureKey, dictationNeedsPlan } from "@/features/speech/model/voiceRefusal";
 import { offerSettings } from "@/ui/overlay/dialogs";
@@ -34,26 +33,25 @@ type Options = Say & {
 };
 
 /**
- * The composer mic's live take (`liveTake.ts`), where the app has WebRTC; null elsewhere
- * (Expo Go), where the mic records a clip. Ended with the screen.
+ * The composer mic's live take (`liveTake.ts`). Nothing of WebRTC loads here: the take
+ * loads its call on the first mic tap, and says "fallback" where the app has none (Expo
+ * Go), so the mic records a clip. Ended with the screen.
  */
-export function useLiveTake(options: Options): LiveTake | null {
+export function useLiveTake(options: Options): LiveTake {
   const latest = useLatestRef(options);
   const [take] = useState(() =>
-    isLiveDictationAvailable()
-      ? createLiveTake({
-          token: () => latest.current.token,
-          setRecording: (on) => latest.current.setRecording(on),
-          setTranscribing: (on) => latest.current.setTranscribing(on),
-          setLevel: (level) => latest.current.meterLevel.set(level),
-          onTranscript: (text) => latest.current.onTranscript(text),
-          say: (key) => reportRecoverableError(latest.current.feedback, latest.current.t(key)),
-          sayRefusal: (error) => sayDictationFailure(error, latest.current),
-          // The OS asks only once; after a denial only Settings can turn it on.
-          micDenied: () => void offerSettings("microphone"),
-        })
-      : null,
+    createLiveTake({
+      token: () => latest.current.token,
+      setRecording: (on) => latest.current.setRecording(on),
+      setTranscribing: (on) => latest.current.setTranscribing(on),
+      setLevel: (level) => latest.current.meterLevel.set(level),
+      onTranscript: (text) => latest.current.onTranscript(text),
+      say: (key) => reportRecoverableError(latest.current.feedback, latest.current.t(key)),
+      sayRefusal: (error) => sayDictationFailure(error, latest.current),
+      // The OS asks only once; after a denial only Settings can turn it on.
+      micDenied: () => void offerSettings("microphone"),
+    }),
   );
-  useEffect(() => () => take?.cancel(), [take]);
+  useEffect(() => () => take.cancel(), [take]);
   return take;
 }

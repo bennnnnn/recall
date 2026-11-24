@@ -336,6 +336,51 @@ def test_the_phones_word_that_nothing_was_heard_refunds_only_so_often_a_day(dic)
     assert dic.used() == 3
 
 
+def test_a_take_whose_call_never_opened_is_refunded_without_the_cap(dic):
+    """A stop during "Starting…" heard nothing for certain: it never uses a capped refund."""
+    for _ in range(dictation.EMPTY_REFUNDS_PER_DAY + 3):
+        session = dic.session()
+        dic.end(session, heard=False)
+
+    assert dic.used() == 0
+    # The cap is still whole for the takes that did open a call.
+    session = dic.session()
+    dic.connect(session)
+    dic.end(session, heard=False)
+    assert dic.used() == 0
+
+
+def test_a_take_is_charged_at_live_dictations_own_price(dic):
+    session = dic.session()
+
+    with patch(
+        "app.modules.speech.dictation.quota_service.record_voice_spend", AsyncMock()
+    ) as spend:
+        dic.connect(session)
+
+    spend.assert_awaited_once()
+    assert spend.await_args.args[1] == pytest.approx(0.017)
+
+
+def test_another_user_can_neither_connect_nor_end_a_take(dic):
+    """The secret, call and slot keys are per user: B holding A's real call_id gets nothing."""
+    session = dic.session()
+    other = api_user(plan="pro")
+    dic.client.app.dependency_overrides[get_current_user] = lambda: other
+
+    connect = dic.connect(session)
+    end = dic.end(session, heard=False)
+
+    assert connect.status_code == 403
+    assert connect.json()["detail"]["code"] == "dictation_session_ended"
+    assert end.status_code == 204
+    assert dic.calls == []
+    # A's slot is still charged, and A's take still connects.
+    assert dic.used() == 1
+    dic.client.app.dependency_overrides[get_current_user] = lambda: dic.user
+    assert dic.connect(session).status_code == 200
+
+
 def test_an_unconfirmed_hang_up_is_left_to_a_job_that_runs_now(dic):
     dic.hangup = "failed"
     session = dic.session()
