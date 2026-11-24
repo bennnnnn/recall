@@ -35,7 +35,7 @@ export type LiveDictation = {
   maxMs: number;
   /** Stop: commit the last words, wait for their final text, hang up. The whole text. */
   finish: () => Promise<string>;
-  /** Drop the take and hang up; nothing lands. */
+  /** Drop the take and hang up; no more words come (the composer takes back those shown). */
   cancel: () => void;
 };
 

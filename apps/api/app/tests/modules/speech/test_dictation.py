@@ -223,7 +223,8 @@ def test_connect_opens_the_call_and_schedules_its_hang_up_at_the_takes_limit(dic
     assert dic.calls == [{"secret": "ek_dictation", "sdp": _OFFER}]
     [(payload, delay)] = dic.scheduled()
     assert payload == {"user_id": str(dic.user.id), "session_id": session}
-    assert 45 <= delay <= 56
+    # The take's 45 s from the phone's channel opening, plus the connect and the stop's tail.
+    assert 45 + 10 <= delay <= 61
     # Once per session: the secret was taken as it was used.
     again = dic.connect(session)
     assert again.status_code == 403
@@ -274,6 +275,8 @@ def test_a_connect_whose_hang_up_cannot_be_scheduled_ends_the_call(dic):
 
     assert r.status_code == 503
     assert dic.hangups == ["rtc_dict123"]
+    # No take ran: the voice input goes back.
+    assert dic.used() == 0
 
 
 # ── End ────────────────────────────────────────────────────────────────────

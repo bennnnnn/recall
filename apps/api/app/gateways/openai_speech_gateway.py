@@ -325,7 +325,8 @@ async def create_transcription_client_secret(
         )
         code = stt_language_code(language)
         named = code is not None and code not in _REFUSED_TRANSCRIPTION_LANGUAGES
-        if response.status_code in _REFUSED_SESSION and named and code:
+        refused_language = "language" in response.text
+        if response.status_code in _REFUSED_SESSION and named and code and refused_language:
             logger.warning(
                 "OpenAI refused the dictation session with language=%s status=%s body=%s; "
                 "minting it without the language",

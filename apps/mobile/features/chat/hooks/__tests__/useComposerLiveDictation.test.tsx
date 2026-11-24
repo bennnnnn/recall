@@ -253,6 +253,18 @@ it("keeps what was heard when the call drops mid-take", async () => {
   expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
 });
 
+it("takes the words back out when the take is cancelled", async () => {
+  input = "draft";
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " never mind");
+  expect(input).toBe("draft never mind");
+  await act(async () => { current.cancelVoiceInput(); });
+  expect(input).toBe("draft");
+  expect(current.voiceRecording).toBe(false);
+  expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+});
+
 describe("the recorded fallback", () => {
   it("records the clip in Expo Go, which has no WebRTC", async () => {
     delete (NativeModules as Record<string, unknown>).WebRTCModule;
@@ -280,6 +292,21 @@ describe("the recorded fallback", () => {
       expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", false),
     );
     expect(peerClose).toHaveBeenCalled();
+  });
+
+  it("records nothing when the stop comes while a failed call hands over to the recorder", async () => {
+    (speechApi.connectDictationSession as jest.Mock).mockRejectedValue(refusal(502, "upstream_failed"));
+    let opened!: (recorder: { stop: () => Promise<null>; subscribeMetering: () => () => void }) => void;
+    const recorder = { stop: jest.fn(async () => null), subscribeMetering: () => () => {} };
+    (startVoiceRecording as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { opened = resolve; }));
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    await act(async () => { current.toggleVoiceInput(); });
+    expect(current.voiceRecording).toBe(false);
+    await act(async () => { opened(recorder); });
+    // The recorder that arrived after the stop is stopped at once, not left recording.
+    expect(recorder.stop).toHaveBeenCalled();
+    expect(current.voiceRecording).toBe(false);
   });
 
   it("opens the plans, recording nothing, when the plan has no voice input", async () => {

@@ -66,7 +66,10 @@ async def test_a_refused_language_is_minted_without_its_code_and_named_in_the_pr
     client = MagicMock()
     client.post = AsyncMock(
         side_effect=[
-            _response(400, text="Invalid value: 'am'."),
+            _response(
+                400,
+                text="Invalid value: 'am'. param=session.audio.input.transcription.languages[0]",
+            ),
             _response(200, {"value": "ek_d", "expires_at": 7}),
             _response(200, {"value": "ek_e", "expires_at": 8}),
         ]
@@ -96,10 +99,11 @@ async def test_a_refused_language_is_minted_without_its_code_and_named_in_the_pr
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status", [401, 500])
+@pytest.mark.parametrize("status", [400, 401, 500])
 async def test_a_mint_failure_that_is_not_the_language_is_none(status):
+    """A 400 for another reason (a bad override) keeps the language for everyone after."""
     client = MagicMock()
-    client.post = AsyncMock(return_value=_response(status))
+    client.post = AsyncMock(return_value=_response(status, text="Invalid value: 'model'."))
 
     with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
         result = await openai_speech_gateway.create_transcription_client_secret(
@@ -111,6 +115,7 @@ async def test_a_mint_failure_that_is_not_the_language_is_none(status):
 
     assert result is None
     assert client.post.await_count == 1
+    assert openai_speech_gateway._REFUSED_TRANSCRIPTION_LANGUAGES == set()
 
 
 @pytest.mark.asyncio

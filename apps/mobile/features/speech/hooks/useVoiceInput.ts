@@ -107,6 +107,7 @@ export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequir
       const permission = await requestVoicePermission(mod);
       if (gen !== captureGenRef.current) return false;
       if (!permission.granted) {
+        setRecording(false); // a live start that fell back showed the waveform
         // The OS asks only once; after a denial only Settings can turn it on.
         void offerSettings("microphone");
         return false;
@@ -149,6 +150,12 @@ export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequir
     if (!token) return null;
     if (live?.busy()) return live.finish();
     const gen = captureGenRef.current;
+    // Stopped while a failed live start hands over to the recorder: that start records nothing.
+    if (startingRef.current && !recordingRef.current) {
+      captureGenRef.current += 1;
+      setRecording(false);
+      return null;
+    }
     setTranscribing(true);
     const heardSpeech = speechSamplesRef.current >= VOICE_MIN_SPEECH_SAMPLES;
     const uri = await stopRecording();
@@ -199,14 +206,7 @@ export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequir
       return;
     }
     await startRecording();
-  }, [
-    transcribing,
-    voiceInputAvailable,
-    recording,
-    finishRecording,
-    startRecording,
-    showUnavailable,
-  ]);
+  }, [transcribing, voiceInputAvailable, recording, finishRecording, startRecording, showUnavailable]);
 
   useEffect(() => {
     return () => {

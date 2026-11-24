@@ -42,9 +42,10 @@ HANGUP_JOB = "dictation_hangup"
 _DICTATION_ALIAS = "speech-dictation-model"
 # The phone connects right after the mint; an unused secret is dropped after this.
 _SECRET_TTL_SECONDS = 60
-# The hang-up comes this long after the take's own limit: the connect, and the commit of
-# the last words after the phone's stop.
-_HANGUP_GRACE_SECONDS = 10
+# The hang-up comes this long after the call opens plus the take's own limit: the phone's
+# timer starts only once its data channel is up (up to 10 s), then the stop's tail and the
+# wait for the last words' text (about 3 s).
+_HANGUP_GRACE_SECONDS = 15
 # A held call id or slot outlives the hang-up by every retry its job can make.
 _TAIL_SECONDS = 15 * 60
 # Refunds a day for a take the phone says heard nothing: an honest phone needs a few (a
@@ -173,6 +174,11 @@ async def connect(
         logger.exception("dictation_hangup could not be scheduled; ending the call")
         if await openai_speech_gateway.hangup_realtime_call(settings, call.call_id) == "failed":
             logger.error("dictation call=%s could not be hung up", call.call_id)
+        # No take ran: the voice input goes back (best-effort, Redis may be what failed).
+        try:
+            await _give_slot_back(redis, user_id, session_id)
+        except Exception:
+            logger.warning("dictation slot not given back after a scheduling failure")
         raise _failed(status.HTTP_503_SERVICE_UNAVAILABLE) from None
     if "v=0" not in call.answer_sdp:
         await end(redis, settings, user_id, session_id, heard=False, refund_capped=False)

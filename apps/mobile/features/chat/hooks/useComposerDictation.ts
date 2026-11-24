@@ -63,6 +63,8 @@ export function useComposerDictation({
   const writeTake = useCallback((text: string, final: boolean) => {
     if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
     const take = takeRef.current;
+    // The final text ends the take: a later cancel leaves the draft as it now is.
+    if (final) takeRef.current = newTake(null);
     setInput((prev) => {
       if (!take.anchor) {
         take.anchor = dictationAnchor(prev, take.caret);
@@ -95,6 +97,16 @@ export function useComposerDictation({
     cancelVoiceInput();
   }, [routeChatId, cancelVoiceInput]);
 
+  /** Cancel drops the take: a live take's words already in the draft come back out. */
+  const cancelTake = useCallback(() => {
+    cancelVoiceInput();
+    const take = takeRef.current;
+    takeRef.current = newTake(null);
+    const anchor = take.anchor;
+    if (!anchor || voiceCaptureThreadRef.current !== composerThreadRef.current) return;
+    setInput((prev) => (take.ours.has(prev) ? anchor.original : prev));
+  }, [cancelVoiceInput, composerThreadRef, setInput]);
+
   // The launch cache paints every plan "free": until the server says the plan, the take goes
   // and the server decides (its refusal opens the plans above), never a paid account's offer.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
@@ -119,6 +131,6 @@ export function useComposerDictation({
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput: handleToggleVoiceInput,
-    cancelVoiceInput,
+    cancelVoiceInput: cancelTake,
   };
 }
