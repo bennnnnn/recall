@@ -81,6 +81,7 @@ def read_turn(
         subject=None if subject is None else subject.subject,
         subject_reason=_subject_reason(subject),
         place_requests=_place_requests(content, plan, image, chemistry),
+        solve_subject=_solve_subject(plan, image, chemistry),
     )
     keep_turn_reading(reading)
     return reading
@@ -102,6 +103,21 @@ def _parts_subject(
         if read is not None and read.subject is not None:
             return SubjectReading(read.subject, "parts")
     return whole
+
+
+def _solve_subject(plan: TurnPlan, image: bool, chemistry: bool) -> str | None:
+    """The subject of the first of several requests the plan reads as a solve, as the pool
+    read that part (``ask_turn_readings`` reads each); None on a one-request message, or when
+    no solve part has one."""
+    from app.services.subjects.order import read_subject_reason
+
+    if not plan.multi:
+        return None
+    for part in plan.of_kind("solve"):
+        read = kept_reading(read_subject_reason, part.text, image, chemistry)
+        if read is not None and read.subject is not None:
+            return str(read.subject)
+    return None
 
 
 def _place_requests(

@@ -183,6 +183,9 @@ class Row:
     answers: list[tuple[float, str]] = field(default_factory=list)
     # By reader: the verdict as the turn reaches it, the reading's own wait, what it read.
     verdicts: dict[str, str] = field(default_factory=dict)
+    # By reader: the verdict the reader's own arithmetic gives too (``guesses``), within the
+    # wait: a "disagree" here with an unsolved reading is the doubt that asks the second reader.
+    doubts: dict[str, str] = field(default_factory=dict)
     seconds: dict[str, float] = field(default_factory=dict)
     readings: dict[str, str] = field(default_factory=dict)
     # On a disagreement, what the student would get instead: each reply model's own answer,
@@ -245,7 +248,7 @@ async def _reading(
 
 async def _read(row: Row, settings: Any, cache: dict[str, Any], alias: str) -> None:
     """One reader's verdict as the turn reaches it, and the reading's own wait, uncapped."""
-    from app.modules.physics.cross_check import reading_asks, verdict
+    from app.modules.physics.cross_check import reading_asks, unsolved_units, verdict
     from app.services.formal.problem import FormalProblem
 
     kept = await _reading(row, settings, cache, alias)
@@ -255,10 +258,12 @@ async def _read(row: Row, settings: Any, cache: dict[str, Any], alias: str) -> N
     row.seconds[alias] = float(kept["seconds"])
     setup = FormalProblem.model_validate(kept["setup"])
     asks = reading_asks(setup, kept["result"])
-    found = verdict(row.answers, asks)
+    found = verdict(row.answers, asks, unsolved=unsolved_units(setup, kept["result"]))
+    doubt = verdict(row.answers, reading_asks(setup, kept["result"], guesses=True))
     if row.seconds[alias] > settings.formal_wait_seconds:
-        found = "unread"  # the turn stopped waiting: the check stands
+        found = doubt = "unread"  # the turn stopped waiting: the check stands
     row.verdicts[alias] = found
+    row.doubts[alias] = doubt
     row.readings[alias] = "; ".join(
         ", ".join(f"{low:.4g}-{high:.4g}" for low, high in ask.values) + f" {ask.unit}"
         for ask in asks
@@ -315,6 +320,16 @@ async def run(limit: int, cache: dict[str, Any]) -> None:
 POLICIES: dict[str, Any] = {
     "before (no cross-check)": lambda row: False,
     "first reader": lambda row: row.verdicts.get(_READERS[0]) == "disagree",
+    # The live rule (``physics.cross_check``): the first reading decides when the server solved
+    # it; unsolved with its own arithmetic against the answer, the second reader decides.
+    "second reader on a doubt (live)": lambda row: (
+        row.verdicts.get(_READERS[0]) == "disagree"
+        or (
+            row.verdicts.get(_READERS[0]) == "unread"
+            and row.doubts.get(_READERS[0]) == "disagree"
+            and row.verdicts.get(_READERS[1]) == "disagree"
+        )
+    ),
     "first reader, unread drops": lambda row: row.verdicts.get(_READERS[0]) != "agree",
     "second reader alone": lambda row: row.verdicts.get(_READERS[1]) == "disagree",
     "either disagrees": lambda row: "disagree" in row.verdicts.values(),

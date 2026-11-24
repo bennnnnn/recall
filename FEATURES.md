@@ -699,7 +699,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`ROUTING.decided`, `model_routing/decided.py`, applied in `chat/decided_turn.py`): a hard
   everyday question goes to the strong lane, STEM no solver verified to the maths lane with the
   worked layout, and each model thinks at the level its catalog entry names for the effort. A
-  verified solve or a money card keeps its lane; the word rules (`model_routing/route.py`)
+  verified solve or a money card keeps its lane. A message of several requests that the read
+  calls everyday or code, one of whose plan parts is a maths, physics or chemistry solve,
+  follows that part's subject (`TurnReading.solve_subject`, route `read.parts.*`): asked whole,
+  "a projectile problem, a cubic, aspirin's molar mass and a reminder" read everyday.
+  The word rules (`model_routing/route.py`)
   decide only when the read gives no answer in time, and each turn's trace says which
   (`decision.decided_by`). Measured on the 100-chat check-up of 2026-11-10.
 - ✅ **Manual switching** — model selection lives in Settings → Models (settings-only by

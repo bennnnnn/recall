@@ -40,10 +40,10 @@ from app.modules.chat.working_check import (
     NAME,
     OPERATOR,
     RELATION,
-    shown_like,
     slip,
     wrong_steps,
 )
+from app.modules.chat.working_numbers import shown_like
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     VERIFIED_ANSWER_MARKER,
@@ -90,7 +90,7 @@ def _card_value(body: str) -> tuple[str, str, bool] | None:
     return symbol, number, bool(relations) and relations[0] != "="
 
 
-def _without_closing_headings(above: str) -> str:
+def without_closing_headings(above: str) -> str:
     """``above`` without the blank lines and bold headings at its end."""
     kept = above.split("\n")
     while kept and (not kept[-1].strip() or _BOLD_LINE.fullmatch(kept[-1].strip())):
@@ -98,7 +98,7 @@ def _without_closing_headings(above: str) -> str:
     return "\n".join(kept)
 
 
-def _only_headings(between: str) -> bool:
+def only_headings(between: str) -> bool:
     """Nothing but blank lines and bold headings between the working and the card."""
     return all(
         not line.strip() or _BOLD_LINE.fullmatch(line.strip()) for line in between.split("\n")
@@ -154,12 +154,12 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
         card = _card_value(text[fence.body_start : fence.body_end])
         # The headings right above the card ("**Answer for $D$**") are no working (review,
         # #2536): the working's last line is the last maths above them.
-        lines = list(INLINE_MATH.finditer(_without_closing_headings(above)))
-        if card is None or not lines or not _only_headings(above[lines[-1].end() :]):
+        lines = list(INLINE_MATH.finditer(without_closing_headings(above)))
+        if card is None or not lines or not only_headings(above[lines[-1].end() :]):
             continue
         if not _own_line(above, lines[-1].start()):
             continue
-        statements = list(math_statements(_without_closing_headings(above)))
+        statements = list(math_statements(without_closing_headings(above)))
         if not statements:
             continue
         parts = RELATION.split(statements[-1])
@@ -186,7 +186,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
             and _held(statements, expression_tex, value, earlier, name or _name(symbol))
         )
         found.append(
-            CardSlip(fence.body_start, fence.body_end, expression_tex, shown_tex, value, held)
+            CardSlip(fence.body_start, fence.body_end, expression_tex, shown_tex, step.value, held)
         )
     return found
 

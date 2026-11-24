@@ -631,19 +631,31 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("unverified", "reply", "noted"),
+    ("unverified", "reply", "right", "noted"),
     [
-        # A worked reply the server could not verify: its slip is named.
-        (True, "**Substitution**\n$a = 3.2 \\times 4.5 = 14.8$\n\n**Answer**\n$14.8$", True),
-        # A worked solution with no subject detected is checked too.
-        (False, "**Steps**\n$12 \\times 3 = 38$\n\n**Answer**\n$38$", True),
+        # A worked reply the server could not verify: its slip is put right, and its answer.
+        (
+            True,
+            "**Substitution**\n$a = 3.2 \\times 4.5 = 14.8$\n\n**Answer**\n$14.8$",
+            "14.4",
+            False,
+        ),
+        # A worked solution with no subject detected is held too.
+        (False, "**Steps**\n$12 \\times 3 = 38$\n\n**Answer**\n$38$", "36", False),
+        # A slip between two exact forms cannot be put right in place: it is named.
+        (True, "**Steps**\n$A = \\sqrt{11375}$\n$A = 25\\sqrt{72}$", "25", True),
         # Right working, or arithmetic outside a worked solution, adds nothing.
-        (True, "**Substitution**\n$a = 3.2 \\times 4.5 = 14.4$\n\n**Answer**\n$14.4$", False),
-        (False, "Is $3 \\times 4 = 13$? No, it's 12.", False),
+        (
+            True,
+            "**Substitution**\n$a = 3.2 \\times 4.5 = 14.4$\n\n**Answer**\n$14.4$",
+            "14.4",
+            False,
+        ),
+        (False, "Is $3 \\times 4 = 13$? No, it's 12.", "13", False),
     ],
 )
-async def test_unverified_working_names_its_first_slip(
-    monkeypatch: pytest.MonkeyPatch, unverified: bool, reply: str, noted: bool
+async def test_unverified_working_puts_its_slip_right(
+    monkeypatch: pytest.MonkeyPatch, unverified: bool, reply: str, right: str, noted: bool
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     ctx = _ctx()
@@ -660,6 +672,9 @@ async def test_unverified_working_names_its_first_slip(
         should_cancel=None,
     )
     assert ("Check this step:" in persisted) is noted
+    assert right in persisted
+    wrong = {"14.4": "14.8", "36": "38"}.get(right)
+    assert wrong is None or wrong not in persisted
 
 
 @pytest.mark.asyncio
