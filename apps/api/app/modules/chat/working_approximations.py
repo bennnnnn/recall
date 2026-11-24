@@ -10,8 +10,9 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.modules.chat.tex_arithmetic import evaluate, is_unit_word, plain_arithmetic
-from app.modules.chat.working_check import DECIMAL, RELATION, is_off, shown_like, shown_number
+from app.modules.chat.tex_arithmetic import is_unit_word, log_readings, plain_arithmetic
+from app.modules.chat.working_check import DECIMAL, RELATION, is_off
+from app.modules.chat.working_numbers import shown_like, shown_number
 from app.services.md_fence_scan import iter_fences
 
 # "$\frac{\sqrt{65}}{8}$ cm (approximately 0.999 cm)", "**$2\sqrt{30}$ cm** (approx. $10.95$ cm)":
@@ -35,9 +36,14 @@ def corrected_approximations(reply: str) -> str:
             return match.group(0)
         if _another_unit(match) or not _units_only(match.group("gap")):
             return match.group(0)
-        value = evaluate(plain)
         shown = shown_number(match.group("number"), coarse=True)
-        if value is None or shown is None or not is_off(value, shown[0], shown[1]):
+        readings = log_readings(plain)
+        if shown is None or not readings:
+            return match.group(0)
+        # A log with no base is base 10 or e: the reading nearest the decimal is the one meant
+        # ("log 2 (approximately 0.693)" is ln 2; review, #2576).
+        value = min(readings, key=lambda reading: abs(reading - shown[0]))
+        if not is_off(value, shown[0], shown[1]):
             return match.group(0)
         start = match.start("number") - match.start()
         end = match.end("number") - match.start()

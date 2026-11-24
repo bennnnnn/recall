@@ -42,12 +42,11 @@ from app.modules.chat.working_check import (
     OPERATOR,
     Fix,
     WrongStep,
-    shown_like,
-    shown_number,
     statement_parts,
     step_note,
     wrong_steps,
 )
+from app.modules.chat.working_numbers import shown_like, shown_number
 
 # Each put-right step re-reads the working; a reply has only so many lines.
 _MAX_FIXES = 12

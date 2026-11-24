@@ -22,10 +22,8 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field, replace
-from decimal import InvalidOperation
 
 from app.modules.chat.tex_arithmetic import (
-    MAX_EXPONENT,
     UNIT_GROUP,
     evaluate,
     log_readings,
@@ -35,14 +33,9 @@ from app.modules.chat.tex_arithmetic import (
 )
 from app.modules.chat.tex_spread import half_place, spread
 from app.modules.chat.working_align import Piece, pieces
+from app.modules.chat.working_numbers import shown_like, shown_number
 from app.modules.chat.working_systems import unheld_equations
-from app.services.school_rounding import round_places
 
-# A written result: 14.8, -3, or 1.204 * 10^24 once it is plain text.
-_SHOWN = re.compile(
-    r"\(?(?P<mantissa>-?\d+(?:\.(?P<decimals>\d+))?)"
-    r"(?:(?:\*10\*\*\(?|e)(?P<power>[-+]?\d+)\)?)?\)?"
-)
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
@@ -112,31 +105,6 @@ def _unit_kinds(tex: str) -> dict[str, frozenset[str]]:
     return {kind: frozenset(units) for kind, units in found.items()}
 
 
-# A whole number with this many figures before its zeros reads as rounded to them.
-_ROUNDED_FIGURES = 3
-
-
-def shown_number(plain: str, *, coarse: bool = False) -> tuple[float, float] | None:
-    """A written result and half its last place: ``14.8`` → (14.8, 0.05). ``coarse``: said
-    to be near ("≈ 1000" for 2^10), so any whole number's zeros are its rounding."""
-    match = _SHOWN.fullmatch(plain)
-    if match is None:
-        return None
-    power = int(match.group("power") or 0)
-    if abs(power) > MAX_EXPONENT:
-        return None
-    mantissa = match.group("mantissa")
-    places = len(match.group("decimals") or "")
-    digits = mantissa.lstrip("-").rstrip("0")
-    if not places and digits and (coarse or len(digits) >= _ROUNDED_FIGURES):
-        # A large whole number's trailing zeros are its rounding: 1670 is 1666.67 to three
-        # figures, its last place the tens (review, #2520). A short one is held as written:
-        # "120 * 0.3 = 40" is a slip for 36.
-        places = -(len(mantissa.lstrip("-")) - len(digits))
-    value = float(mantissa) * 10.0**power
-    return value, 0.5 * 10.0 ** (power - places)
-
-
 # "≈ 4.5 MJ" after 4.52e6 J with the unit outside the maths: a prefix step, not a slip.
 _PREFIX_POWERS = (2, 3, 6, 9, 12)
 
@@ -197,22 +165,39 @@ class _Memory:
     rounded: dict[str, float] = field(default_factory=dict)
     worked: dict[str, float] = field(default_factory=dict)
     results: set[str] = field(default_factory=set)
-    # The question and the reply up to the line read: where a given is written.
-    written: str = ""
+    # Where a given is written: the question, and the givens the working stated so far.
+    question: str = ""
+    givens: set[str] = field(default_factory=set)
 
     def stands_for_a_range(self, number: str) -> bool:
-        """A number that may be rounded: a result the working wrote, one of three or more
-        figures (a cosine, a component worked in the head: 0.8192, 14.339), or a short one
-        a short fraction written first in the step itself, a sine or cosine worked in the head
-        ("50 \\times 0.87" for 50 cos 30°; review, #2576). A short given ("4.9", "2.5", or
-        "0.25" in the question) is exact."""
+        """A number that may be rounded: anything but a given. Only the question's numbers, a
+        given the working states ("g = 9.8") and a coefficient of its equation ("4.9t^2")
+        are exact as written; a number the reply worked out, in prose ("cos 30° ≈ 0.87"),
+        display maths or a step, stands for its rounding (review, #2576)."""
         key = _key(number)
-        figures = len(key.split("e")[0].replace(".", "").lstrip("-0"))
-        if key in self.results or key in self.rounded or figures >= _ROUNDED_FIGURES:
-            return True
-        unwritten = re.search(rf"(?<![\d.]){re.escape(key)}(?!\d|\.\d)", self.written) is None
-        value = evaluate(key)
-        return unwritten and value is not None and abs(value) < 1
+        given = key in self.givens_and_question()
+        return key in self.results or key in self.rounded or not given
+
+    def givens_and_question(self) -> set[str]:
+        return self.givens | set(_DECIMAL_NUMBER.findall(self.question))
+
+    def note_givens(self, parts: list[str]) -> None:
+        """A statement's givens: "m = 3.2 kg", and each coefficient of an equation ("4.9" of
+        "4.9t^2 - 14.34t - 45 = 0")."""
+        name, *values = (part.strip() for part in parts)
+        if len(values) == 1 and NAME.fullmatch(name.replace(" ", "")):
+            number = _LEADING_NUMBER.fullmatch(_UNIT_TAIL.sub("", values[0]).strip())
+            if number is not None and name.replace(" ", "") not in self.worked:
+                self.givens.add(_key(plain_arithmetic(number.group(0)) or ""))
+        for part in parts:
+            self.givens.update(_COEFFICIENT.findall(part))
+
+
+# A decimal as the question writes it, and one written before a letter in maths ("4.9t").
+_DECIMAL_NUMBER = re.compile(r"(?<![\d.])\d+\.\d+(?![\d])")
+_COEFFICIENT = re.compile(r"(?<![\d.])(\d+\.\d+)\s*(?=[A-Za-z])")
+# A unit after a given's number: "\\ \\text{m/s}^2", "\\,\\mathrm{kg}".
+_UNIT_TAIL = re.compile(r"(?:\\[,; ]|\s)*\\(?:text|mathrm)\s*\{[^{}]*\}(?:\^\{?-?\d\}?)?\s*$")
 
 
 def _key(plain: str) -> str:
@@ -263,7 +248,7 @@ def wrong_steps(reply: str, question: str = "") -> list[WrongStep]:
     """The steps in ``reply`` whose arithmetic does not hold, in reading order; a number of
     the ``question`` is a given, exact as written."""
     found: list[WrongStep] = []
-    memory = _Memory()
+    memory = _Memory(question=question)
     last = ""
     # The line before: the name it worked out, its last expression and its first value.
     before: _Line | None = None
@@ -272,7 +257,6 @@ def wrong_steps(reply: str, question: str = "") -> list[WrongStep]:
             # Words between two lines ("**(b)**", "For the second resistor,") start another
             # case: a name reused there is another value (review, #2520).
             before = None
-        memory.written = f"{question}\n{reply[:at]}"
         parts, starts = statement_parts(segment, at)
         relations = RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
@@ -290,6 +274,7 @@ def wrong_steps(reply: str, question: str = "") -> list[WrongStep]:
             step = _slip_branches(left_tex, right_tex, relations[index] != "=", memory)
             if step is not None:
                 found.append(_placed(step, starts[index + 1], name))
+        memory.note_givens(parts)
     return found
 
 
@@ -462,7 +447,11 @@ def _between_forms(
     left_tex: str, right_tex: str, left: str, right: str, approximate: bool, memory: _Memory
 ) -> WrongStep | None:
     """Two worked forms held equal. When the later writes pieces of the earlier as numbers
-    (``working_align``), each piece is held to its number; otherwise the whole sides."""
+    (``working_align``), each piece is held to its number; otherwise the whole sides. A log
+    with no base has two readings (``log_readings``), so such forms are not held (review,
+    #2576: "log 2 / 0.05" is 13.86 read as ln)."""
+    if _UNBASED_LOG in left or _UNBASED_LOG in right:
+        return None
     value = evaluate(left)
     if value is None:
         return None
@@ -514,6 +503,8 @@ def _piece_wrong(piece: Piece, approximate: bool, memory: _Memory) -> bool:
     return shown is not None and _is_wrong(piece.value, shown[0], shown[1], approximate, reach)
 
 
+# A log with no base written, as a plain side calls it.
+_UNBASED_LOG = "lgx("
 _SCIENTIFIC_PLAIN = re.compile(r"\(?-?\d+(?:\.\d+)?e[-+]?\d+\)?")
 
 
@@ -619,39 +610,6 @@ def _restates(earlier: str, later: str) -> bool:
     or two circles written alike ("(4+2)/2" then "(4-2)/2", "pi(3)^2" then "pi(5)^2") differ
     only in their numbers (review, #2520)."""
     return _NUMBER_TOKEN.sub("#", earlier) != _NUMBER_TOKEN.sub("#", later)
-
-
-def shown_like(value: float, shown: str) -> str:
-    """``value`` written the way ``shown`` was: same places, or the same power of ten."""
-    plain = plain_arithmetic(shown) or ""
-    match = _SHOWN.fullmatch(plain)
-    # An exact value shown ("\\frac{\\sqrt{3}}{2}") has no places of its own: two, or three
-    # figures for a small one, never a whole number (review, #2520).
-    places = len(match.group("decimals") or "") if match else _places_for(value)
-    if match and match.group("power") is not None:
-        power = math.floor(math.log10(abs(value))) if value else 0
-        mantissa = value / 10.0**power
-        return f"{mantissa:.{places}f} \\times 10^{{{power}}}"
-    unit = (
-        shown[len(match.group("mantissa")) :]
-        if match and shown.startswith(match.group("mantissa"))
-        else ""
-    )
-    try:
-        number = str(round_places(value, places))
-    except InvalidOperation:
-        number = f"{value:.{places}f}"
-    if "," in shown:
-        whole, _dot, decimals = number.partition(".")
-        number = f"{int(whole):,}" + (f".{decimals}" if decimals else "")
-    return number + unit
-
-
-def _places_for(value: float) -> int:
-    """Two decimal places, or three significant figures for a value under 0.01."""
-    if value == 0 or abs(value) >= 0.01:
-        return 2
-    return 2 - math.floor(math.log10(abs(value)))
 
 
 # A worked solution: its equalities are claims, not a quiz ("is 3 * 4 = 13?"). The

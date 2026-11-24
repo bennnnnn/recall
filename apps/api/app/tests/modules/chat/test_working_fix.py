@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
+from app.modules.chat.working_approximations import corrected_approximations
 from app.modules.chat.working_check import working_note, wrong_steps
 from app.modules.chat.working_fix import put_right
 
@@ -87,7 +88,9 @@ def test_the_carried_range_is_the_corrected_time_s() -> None:
     ],
 )
 def test_each_function_family_is_held_to_its_value(line: str, right: str) -> None:
-    fixed = corrected_working(f"**Steps**\n\n{line}\n")
+    # A short decimal is exact only as a given: the circle's radius is the question's.
+    question = "A circle of radius 2.5 cm." if "2.5)^2" in line else ""
+    fixed = corrected_working(f"**Steps**\n\n{line}\n", question)
     left = line.strip("$").split("=")[0]
     assert fixed == f"**Steps**\n\n${left}= {right}$\n", fixed
 
@@ -162,7 +165,8 @@ def test_a_number_given_in_the_question_is_never_carried() -> None:
 def test_a_later_result_with_the_same_digits_is_judged_on_its_own() -> None:
     """2.425 * 2 is 4.85: that line is right and keeps its number."""
     reply = (
-        "**Steps**\n\n$t = \\frac{14.34 + \\sqrt{14.34^2 + 4(4.9)(45)}}{2(4.9)}$\n"
+        "**Steps**\n\n$4.9t^2 - 14.34t - 45 = 0$\n\n"
+        "$t = \\frac{14.34 + \\sqrt{14.34^2 + 4(4.9)(45)}}{2(4.9)}$\n"
         "$t = 4.85\\ \\text{s}$\n\n$y = 2.425 \\times 2 = 4.85$"
     )
     fixed = corrected_working(reply)
@@ -277,3 +281,35 @@ def test_a_slip_closing_its_maths_mid_sentence_is_carried_to_the_next() -> None:
     assert corrected_working(reply, "2.5 kg") == (
         reply.replace("3.98", "3.92").replace("7.96", "7.84")
     )
+
+
+# Second review (#2576): each of these turned a right line wrong.
+def test_a_log_with_no_base_is_read_as_the_decimal_beside_it_means() -> None:
+    reply = "So $\\int_1^2 \\frac{1}{x}\\,dx = \\log 2$ (approximately 0.693)."
+    assert corrected_approximations(reply) == reply
+    steps = "**Steps**\n\n$\\frac{\\log 2}{0.05} = 13.86$"
+    assert corrected_working(steps) == steps
+    assert working_note(steps) is None
+
+
+def test_a_number_written_as_another_number_is_another_form() -> None:
+    near = "**Steps**\n\n$\\sqrt{50} \\approx \\sqrt{49} = 7$"
+    assert corrected_working(near) == near
+    assert working_note(near) is None
+    fraction = "**Steps**\n\n$P = \\frac{12}{16} = \\frac{2}{3}$"
+    assert corrected_working(fraction) == fraction
+    assert working_note(fraction) is not None
+
+
+@pytest.mark.parametrize(
+    "rounding",
+    [
+        "Using cos 30° ≈ 0.87:",
+        "$$\\cos 30^\\circ \\approx 0.87$$",
+        "Using \\(\\cos 30^\\circ \\approx 0.87\\):",
+    ],
+)
+def test_a_short_number_the_reply_worked_out_keeps_its_rounding(rounding: str) -> None:
+    reply = f"**Steps**\n\n{rounding}\n\n$F_x = 50 \\times 0.87 = 43.3\\,\\text{{N}}$"
+    assert corrected_working(reply) == reply
+    assert working_note(reply) is None

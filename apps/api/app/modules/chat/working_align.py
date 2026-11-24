@@ -65,11 +65,25 @@ def pieces(left_tex: str, right_tex: str) -> list[Piece] | None:
         start, end = right[j1][1], right[j2 - 1][2]
         number = right_tex[start:end]
         plain = plain_arithmetic(tex)
-        value = evaluate(plain) if plain is not None and _balanced(tex) else None
+        # A log with no base has two readings: no piece of one is held (review, #2576).
+        if plain is None or "lgx(" in plain or not _balanced(tex):
+            return None
+        value = evaluate(plain)
         if value is None or NUMBER.fullmatch(number.replace(" ", "")) is None:
+            return None
+        if NUMBER.fullmatch(tex.replace(" ", "")) and not _rounds_to(value, number):
+            # A number written as another number ("\\sqrt{50} \\approx \\sqrt{49}", 12/16 then
+            # 2/3) is another form, held whole, never a piece (review, #2576).
             return None
         found.append(Piece(tex, number, start, end, value))
     return found if found and _faithful(left_tex, right_tex, found) else None
+
+
+def _rounds_to(value: float, number: str) -> bool:
+    """``number`` is ``value`` rounded to its own places: 14.34 for 14.339, never 49 for 50."""
+    digits = number.replace(" ", "").replace(",", "")
+    places = len(digits.partition(".")[2])
+    return abs(value - float(digits)) <= 0.5 * 10.0**-places * (1 + 1e-9)
 
 
 def _faithful(left_tex: str, right_tex: str, found: list[Piece]) -> bool:
