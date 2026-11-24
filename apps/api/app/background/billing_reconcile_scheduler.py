@@ -2,8 +2,8 @@
 
 A lost webhook (or exhausted retry after a non-200) can leave a paid plan after
 the store has already revoked or changed it. App-open sync only helps if they
-reopen the app. This cycle re-verifies every paid row (plus and pro) against
-RevenueCat's REST API, so a lapsed plan drops and a Pro -> Plus change lands.
+reopen the app. This cycle re-verifies every paid row against RevenueCat's
+REST API, so a lapsed plan drops.
 """
 
 from __future__ import annotations

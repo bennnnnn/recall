@@ -32,7 +32,7 @@ _ROUTES = {
         {"json": {"text": "hello"}},
         "synthesize_speech",
         AsyncMock(return_value=(b"mp3", "audio/mpeg")),
-        "daily_speech_tts_plus",
+        "daily_speech_tts_pro",
         quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE,
         "speech_tts_rl",
         quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
@@ -41,7 +41,7 @@ _ROUTES = {
         {"files": {"file": ("speech.m4a", b"fake-audio", "audio/m4a")}},
         "transcribe_audio",
         AsyncMock(return_value="hello"),
-        "daily_speech_transcriptions_plus",
+        "daily_speech_transcriptions_pro",
         quota_service.SPEECH_NOT_IN_PLAN_MESSAGE,
         "speech_rl",
         quota_service.SPEECH_RATE_LIMIT_MESSAGE,
@@ -75,7 +75,7 @@ def _speech(path: str, *, spend_capped: bool = False) -> Iterator[tuple[object, 
 @pytest.mark.parametrize("path", list(_ROUTES))
 def test_speech_route_refuses_a_plan_without_the_feature(path):
     request, _, _, plan_setting, message, *_ = _ROUTES[path]
-    client = _client(api_user(plan="plus"), **{plan_setting: 0})
+    client = _client(api_user(plan="pro"), **{plan_setting: 0})
     with _speech(path) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 403
@@ -85,7 +85,7 @@ def test_speech_route_refuses_a_plan_without_the_feature(path):
 @pytest.mark.parametrize("path", list(_ROUTES))
 def test_speech_route_refuses_while_the_spend_breaker_is_open(path):
     request, *_ = _ROUTES[path]
-    client = _client(api_user(plan="plus"))
+    client = _client(api_user(plan="pro"))
     with _speech(path, spend_capped=True) as (_fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
     assert response.status_code == 429
@@ -100,7 +100,7 @@ def test_speech_route_rate_limits_per_user_and_minute(path):
     import asyncio
 
     request, _, _, _, _, rate_prefix, rate_message = _ROUTES[path]
-    user = api_user(plan="plus")
+    user = api_user(plan="pro")
     client = _client(user, speech_rate_limit_per_minute=1)
     with _speech(path) as (fake_redis, _provider):
         first = client.post(path, headers=_AUTH, **request)
@@ -117,7 +117,7 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
     import asyncio
 
     request, _, _, _, _, rate_prefix, _ = _ROUTES[path]
-    user = api_user(plan="plus")
+    user = api_user(plan="pro")
     client = _client(user, speech_rate_limit_per_minute=0)
     with _speech(path) as (fake_redis, _provider):
         response = client.post(path, headers=_AUTH, **request)
@@ -129,15 +129,15 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
 @pytest.mark.parametrize(
     "path, cap_setting, counter",
     [
-        ("/speech/tts", "daily_speech_tts_plus", "speech_tts"),
-        ("/speech/transcribe", "daily_speech_transcriptions_plus", "speech_transcription"),
+        ("/speech/tts", "daily_speech_tts_pro", "speech_tts"),
+        ("/speech/transcribe", "daily_speech_transcriptions_pro", "speech_transcription"),
     ],
 )
 def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     from app.services.quota import counters
 
     request, *_ = _ROUTES[path]
-    user = api_user(plan="plus")
+    user = api_user(plan="pro")
     client = _client(user, **{cap_setting: 1})
     with _speech(path) as (_fake_redis, _provider):
         first = client.post(path, headers=_AUTH, **request)
@@ -154,8 +154,8 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
 def test_tts_provider_failure_is_502_and_gives_the_slot_back():
     import asyncio
 
-    user = api_user(plan="plus")
-    client = _client(user, daily_speech_tts_plus=1)
+    user = api_user(plan="pro")
+    client = _client(user, daily_speech_tts_pro=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),

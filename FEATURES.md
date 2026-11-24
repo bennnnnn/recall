@@ -63,7 +63,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Library** — drawer **Library** → paginated grid of the user’s verified attachments
   (generated images, uploaded images, and files — not web lookup / reference photos,
   which stay on the chat). Tabs: All / Generated / Uploaded / Files. Each account keeps
-  at most 400 MB (free), 1 GiB (Plus) or 4 GiB (Pro) in it, checked at presign
+  at most 400 MB (free) or 4 GiB (Pro) in it, checked at presign
   (`library_storage_bytes`; over it, 409 `storage_full`).
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
@@ -262,14 +262,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   search that finds nothing or fails says so in the tool result, so the reply cannot look
   live from training data.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
-  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Plus
-  and Pro, **200/day**; on Free the mic opens the plans (the server refuses Free with 403). Not
+  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Pro,
+  **200/day**; on Free the mic opens the plans (the server refuses Free with 403). Not
   available in Expo Go.
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
   ends your turn; the orb never shows “Transcribing…”. Physical devices enable
-  echo cancellation and barge-in; iOS Simulator retains half-duplex. Free and Plus
-  open the plans. Pro: **60 minutes per UTC calendar month**. Each session reserves up to
+  echo cancellation and barge-in; iOS Simulator retains half-duplex. Free opens
+  the plans. Pro: **60 minutes per UTC calendar month**. Each session reserves up to
   15 minutes at mint (refused under 1 minute left). The phone's offer goes through
   `POST /speech/live/connect`, so the server knows the OpenAI call and hangs it up itself:
   on `POST /speech/live/end`, which then settles the reservation to the time the server
@@ -293,7 +293,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
   another utterance's unbilled quota) and starts playback on the first sentence.
   The legacy fast alias maps to the same OpenAI model; an explicit phone-voice choice
-  is preserved. The natural (cloud) voice is Plus and Pro, **100/day**; Free reads with the
+  is preserved. The natural (cloud) voice is Pro, **100/day**; Free reads with the
   phone's own voice and never calls the server (which refuses Free with 403).
   Settings disclose AI-generated audio. Mic permission is not required.
   Cloud 502 falls back to on-device `expo-speech` (a speech 502 is not an API outage).
@@ -319,7 +319,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
 - ✅ **Image generation (every plan)** — Type an image request in the composer and send (e.g. "draw me a
   cat" or "Dog" then "Image"); the user bubble keeps that wording (not rewritten to "Generate
-  image: …"). Daily caps: Free **3**, Plus **10**, Pro **15**, stored as chat attachments. No separate
+  image: …"). Daily caps: Free **3**, Pro **15**, stored as chat attachments. No separate
   prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
   mid-generation keeps the user message and shows canceled/failed + Retry. While it works, the
   card is a dot field with an accent wave (a Skia shader in builds with Skia; a band under a
@@ -677,7 +677,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — seven chat models, none of them coding models. Free: HY4 Flash
-  (Tencent; everyday, Auto's fast lane on Free and Plus since 2026-11-20, `ROUTING.everyday`),
+  (Tencent; everyday, Auto's fast lane on Free since 2026-11-20, `ROUTING.everyday`),
   Qwen3.7 Flash (since 2026-11-11 Free's maths lane, `ROUTING.math_free`),
   Claude Haiku 5.5 (`free-chat`, backup) and GLM 5.3 Flash (hard everyday turns, and the maths
   lane's first backup). Paid adds DeepSeek V4.1 Flash (`smart-chat`, its October 17 version `deepseek-v4.1-flash-1017`
@@ -913,18 +913,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Manual rename** — overrides the generated title.
 
 ## 9. Quotas & usage
-- ✅ **Daily messages** — what each plan offers: Free **10**, Plus **200**, Pro **1,000** chat
-  messages a day (`DAILY_MESSAGE_LIMIT` / `_PLUS` / `_PRO`). A turn takes one before its reply
+- ✅ **Daily messages** — what each plan offers: Free **10**, Pro **1,000** chat
+  messages a day (`DAILY_MESSAGE_LIMIT` / `_PRO`). A turn takes one before its reply
   and gets it back when no reply is saved; an account deleted and made again keeps the day's.
 - ✅ **Daily token limit** — a cost guardrail behind the messages, enforced in Redis with atomic
-  **reserve → adjust → refund** (can't be bypassed by parallel requests): 400k / 4M / 15M a day
-  (`DAILY_TOKEN_LIMIT` / `_PLUS` / `_PRO`), well above what the plan's messages use.
+  **reserve → adjust → refund** (can't be bypassed by parallel requests): 400k / 15M a day
+  (`DAILY_TOKEN_LIMIT` / `_PRO`), well above what the plan's messages use.
 - ✅ **Plan-aware enforcement** — every cap reads the plan through
   `modules/billing/entitlements.py` (`allowance`, `can_use`); each number is a
-  `core/config.py` setting with `_plus` / `_pro` variants.
+  `core/config.py` setting with a `_pro` variant.
 - ✅ **Usage meter** — today's messages left ("8 of 10 messages left today"), as the Usage row's value in Settings → Account; the chat's banner says the same near the end.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
-- ✅ **Paid plans** — higher daily limits when entitled; see [§12 Monetization](#12-monetization).
+- ✅ **Pro** — higher daily limits when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
 - ✅ **Account settings** — the avatar at the top of Settings opens **Profile**: a centered
@@ -959,11 +959,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   automatic (`modules/chat/model_routing/thinking.py`): the turn's live read says whether the
   answer must be reasoned out first (`think`), the word rules decide when it gives no answer
   in time, and a regenerate or a disputed answer thinks one level more. Thinking needs a
-  model that can: Free's and Plus's everyday model (HY4 Flash) and Free's maths lane (Qwen3.7
+  model that can: Free's everyday model (HY4 Flash) and Free's maths lane (Qwen3.7
   Flash) send no reasoning at any level, so their first replies never think, by the owner's call.
   On Auto a regenerate moves off a model like that to the plan's maths lane or its backup,
-  whichever thinks (DeepSeek on Plus, GLM 5.3 Flash on Free), at its escalate level
-  (`model_routing/thinking.escalation_model`); Pro's everyday model thinks there itself. A
+  whichever thinks (GLM 5.3 Flash on Free, DeepSeek on Pro when HY4 Flash answered there), at
+  its escalate level (`model_routing/thinking.escalation_model`); Pro's stronger everyday model
+  thinks there itself. A
   model the user picked with Auto off keeps the regenerate. The old `users.response_style` column is
   dropped (migration `0134`).
 - ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
@@ -1081,17 +1082,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   pill component.
 
 ## 12. Monetization
-- ✅ **Three plans** — `users.plan` is `free` | `plus` | `pro` (display names "Plus" / "Pro"
-  live in i18n only, `plans.*`). Free: every model in the free pool, 3 AI images a day, no
-  voice input, no natural read-aloud, no live talk. Plus: every model, Pro-size daily limits,
-  voice input and read-aloud, 10 images a day, no live talk. Pro: everything in Plus, 15
-  images a day and 60 live talk minutes a month. Prices live in the stores; the app shows
-  the offering's localized price. One place decides: `modules/billing/entitlements.py`.
+- ✅ **Two plans** — `users.plan` is `free` | `pro` (the display name "Pro" lives in i18n
+  only, `plans.*`; one paid plan since 2026-11-24, migration `0135` moved the dev accounts on
+  the retired `plus` to `pro`). Free: every model in the free pool, 3 AI images a day, no
+  voice input, no natural read-aloud, no live talk. Pro: every model, voice input and
+  read-aloud, 15 images a day and 60 live talk minutes a month. Pro is billed monthly or
+  yearly, with a 3-day free trial set up in the stores; the period stays in the store and
+  the server never sees it. Prices live in the stores; the app shows the offering's
+  localized price. One place decides: `modules/billing/entitlements.py`.
 - ✅ **Subscriptions (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
-  (dev/production builds only; skipped in Expo Go). Two entitlements (`plus`, `pro`; `pro`
-  keeps the single-plan id so earlier subscribers stay on the top plan), offering packages
-  `plus_monthly` / `pro_monthly`. Plus → Pro on Android replaces the Plus subscription
-  (prorated); on iOS both share one subscription group. Restore purchases supported.
+  (dev/production builds only; skipped in Expo Go). One entitlement (`pro`) that the monthly
+  and the yearly product both grant; the offering's standard `$rc_monthly` / `$rc_annual`
+  packages. Restore purchases supported.
   RevenueCat is configured once per signed-in user (an account switch is a `logIn`).
 - ✅ **Backend entitlement** — every event that can change access re-reads the subscriber
   over REST (EXPIRATION, refunds, TEMPORARY_ENTITLEMENT_GRANT, REFUND_REVERSED included); a
@@ -1100,12 +1102,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   EXPIRATION. Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
   done-marker after success. `POST /auth/me/sync-subscription`; an hourly reconcile re-checks
   every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
-- ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
-  purchase whose server refresh fails says the plan will update (never "purchase failed").
-  Settings → Account shows the email, the plan, its own Manage subscription row (paid) and
-  "Upgrade to Pro" (Plus); Usage shows only the messages left today (2026-11-11).
-- ✅ **Dev plan toggle** — the plans sheet shows **Enable Plus / Enable Pro (dev only)**
-  (development builds only; `POST /auth/me/pro-dev?plan=`).
+- ✅ **Plans sheet** — Free sees Pro, monthly or yearly; a purchase whose server refresh
+  fails says the plan will update (never "purchase failed"). Settings → Account shows the
+  email, the plan and its own Manage subscription row (paid); Usage shows only the messages
+  left today (2026-11-11).
+- ✅ **Dev plan toggle** — the plans sheet shows **Enable Pro (dev only)** (development builds
+  only; `POST /auth/me/pro-dev?plan=pro`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.
 
 ## 13. Platform, security & infrastructure
@@ -1583,7 +1585,7 @@ with durable memory and everyday productivity.
 | Memory that compounds | User facts + past-chat RAG — the namesake |
 | Utility beyond chat | Schedule, reminders |
 | Trust & control | Export, delete account, confirm-before-write cards, quota transparency |
-| Monetize fairly | Free tier with limits; Plus for voice; Pro adds live talk |
+| Monetize fairly | Free tier with limits; Pro for voice and live talk |
 
 ### Release plan
 | Phase | Scope | Status |
@@ -1625,15 +1627,16 @@ drawer FTS search ✅.
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps) | — |
 
 ### Cost guards (recent)
-| Guard | Free | Plus | Pro |
-|-------|------|------|-----|
-| Daily tokens | 100k | 500k | 500k |
-| Speech transcriptions/day | 0 (not included) | 200 | 200 |
-| Speech TTS (read aloud)/day | 0 (phone voice only) | 100 | 100 |
-| AI images/day | 3 | 10 | 15 |
-| Live talk | not included | not included | 60 min/month |
-| Tavily searches/day | 20 (then DDG only) | 150 | 150 |
-| R1 / smart-chat quota weight | 3.5× token charge | Same | Same |
+| Guard | Free | Pro |
+|-------|------|-----|
+| Daily messages | 10 | 1,000 |
+| Daily tokens | 400k | 15M |
+| Speech transcriptions/day | 0 (not included) | 200 |
+| Speech TTS (read aloud)/day | 0 (phone voice only) | 100 |
+| AI images/day | 3 | 15 |
+| Live talk | not included | 60 min/month |
+| Tavily searches/day | 20 (then DDG only) | 150 |
+| R1 / smart-chat quota weight | 3.5× token charge | Same |
 
 ### Integrations
 | Shipped | Not done |

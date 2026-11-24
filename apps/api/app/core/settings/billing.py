@@ -6,9 +6,8 @@ from pydantic import BaseModel
 class BillingSettings(BaseModel):
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""
-    # Top plan. Keeps the single-plan id so existing subscribers stay on it.
+    # Pro's entitlement: the monthly and the yearly product both grant it.
     revenuecat_entitlement_id: str = "pro"
-    revenuecat_plus_entitlement_id: str = "plus"
     billing_reconcile_enabled: bool = True
     billing_reconcile_interval_seconds: int = 3600
     billing_reconcile_batch_size: int = 25

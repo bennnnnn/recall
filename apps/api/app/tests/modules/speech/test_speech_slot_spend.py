@@ -55,7 +55,7 @@ def test_a_failed_clip_keeps_its_slot_only_once_the_provider_was_asked(
     quota_clock, route: str, outcome: str, asked: bool
 ) -> None:
     service_fn, prefix = _ROUTES[route]
-    user = api_user(plan="plus")
+    user = api_user(plan="pro")
     client = TestClient(app_with_user(user))
     redis: Any = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (

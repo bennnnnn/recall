@@ -142,7 +142,8 @@ def resolve_regenerate_model(
     (routing again only when that model is unknown or no longer in the pool). A
     regenerate thinks one level more, so Auto then moves a model that sends no reasoning
     to the plan's model that does (``thinking.escalation_model``): GLM 5.3 Flash on Free,
-    DeepSeek on Plus. Pro's everyday model thinks there itself and keeps the turn.
+    DeepSeek on Pro when the everyday model answered there (its stronger one switched off
+    or failing). Pro's stronger everyday model thinks there itself and keeps the turn.
     """
     pool = override_pool(user, settings)
     if is_explicit_pick(model_alias):
