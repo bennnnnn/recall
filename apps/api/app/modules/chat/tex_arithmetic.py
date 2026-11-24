@@ -13,10 +13,9 @@ import ast
 import math
 import re
 from collections.abc import Callable, Iterator
-from typing import Any, Literal, overload
 
 from app.services.glyphs import fold_operator_glyphs
-from app.services.md_fence_scan import map_fence_blocks
+from app.services.md_fence_scan import iter_fences
 
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
 _MIXED_NUMBER = re.compile(r"\d\s*\\[dt]?frac\b")
@@ -80,7 +79,24 @@ _UNIT_WORDS = frozenset(
 _TRIG_DEGREES = re.compile(
     r"\\(sin|cos|tan)\s*\(?\s*(-?\d+(?:\.\d+)?)\s*(?:°|\^\s*\{?\s*\\circ\s*\}?)\s*\)?"
 )
-_FUNCTIONS = r"sqrt|pi|sind|cosd|tand"
+# The names a plain side may call, longest first: "sind" is a sine of degrees, "rsin" one
+# of radians; "lgx" a log with no base written (base 10, or e: ``log_readings``).
+_FUNCTIONS = r"sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
+# ln 2, \\log_{10} 1000, \\sin 0.5: a function of one bare number, its brackets left out.
+_BARE_ARGUMENT = re.compile(
+    r"\\(ln|log|exp|sin|cos|tan)(\s*_\s*\{?\s*(?:10|2|e)\s*\}?)?\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*[\^\\A-Za-z])"
+)
+_LOG_BASE = re.compile(r"\\log\s*_\s*\{?\s*(10|2|e)\s*\}?")
+_FUNCTION_NAMES = {"ln": "ln", "exp": "exp", "sin": "rsin", "cos": "rcos", "tan": "rtan"}
+_NAMED_FUNCTION = re.compile(r"\\(ln|exp|sin|cos|tan|log)(?![A-Za-z])(?!\s*_)")
+# Euler's number: \\mathrm{e}, or an e raised to a power with no letter before it.
+_EULER = re.compile(r"\\(?:mathrm|text|rm)\s*\{\s*e\s*\}|(?<![A-Za-z\\])e(?=\s*\^)")
+# A power of e that is e's own: a decimal or a sign in it ("e^{-0.5}", "e^{1.2}").
+_EULER_POWER = re.compile(r"\s*\^\s*\{[^{}]*[.\-\\]")
+# |90 - 82.5|: an absolute value, its bars around plain maths.
+_ABSOLUTE = re.compile(r"\\?\|([^|]+)\\?\|")
+# \\sqrt[3]{27}: a root of another degree.
+_NTH_ROOT = re.compile(r"\\sqrt\s*\[\s*(\d+)\s*\]\s*\{([^{}]*)\}")
 # A unit written out: never \\operatorname, which names a function (\\operatorname{ln}(2) is
 # ln 2, not 2; review, #2520).
 UNIT_GROUP = re.compile(r"\\(?:text|mathrm|textrm|rm)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?")
@@ -102,11 +118,14 @@ def plain_arithmetic(tex: str) -> str | None:
     text = tex.replace("\\left", "").replace("\\right", "")
     text = _SCIENTIFIC.sub(r"(\1e\2)", text)
     text = _TRIG_DEGREES.sub(r" \1d(\2)", text)
+    text = _named_functions(text)
     text = re.sub(r"\\pi(?![A-Za-z])", " pi ", text)
     text = _TEXT_WORD.sub(lambda m: m.group(0) if _is_unit(m.group(0)) else "#", text)
     text = UNIT_GROUP.sub(" ", text)
+    text = _ABSOLUTE.sub(r" abs(\1) ", text)
     for _ in range(4):
         text = _FRAC.sub(r"((\1)/(\2))", text)
+        text = _NTH_ROOT.sub(r"((\2)**(1/(\1)))", text)
         text = _SQRT.sub(r"sqrt(\1)", text)
         text = _POWER.sub(r"**(\1)", text)
     text = fold_operator_glyphs(text)
@@ -118,9 +137,11 @@ def plain_arithmetic(tex: str) -> str | None:
         ("\\;", ""),
         ("\\!", ""),
         ("\\ ", ""),
-        ("{,}", ""),
     ):
         text = text.replace(latex, plain)
+    # 1{,}200 is a thousands mark; 2{,}5 a decimal comma (German, French working).
+    text = re.sub(r"\{,\}(?=\d{3}(?!\d))", "", text)
+    text = text.replace("{,}", ".")
     text = text.replace("^", "**").replace("{", "(").replace("}", ")")
     text = re.sub(r"\s+", "", text)
     # 1,500 is a number; a comma anywhere else is a list.
@@ -130,9 +151,44 @@ def plain_arithmetic(tex: str) -> str | None:
         return None
     # 2(3), (2)(3), 25sqrt(73), 2pi, pi(3): a product written without a sign.
     text = re.sub(
-        rf"(?<=[\d)])(?=\(|{_FUNCTIONS})|(?<=\))(?=\d)|(?<=pi)(?=[\d(]|{_FUNCTIONS})", "*", text
+        rf"(?<=[\d)])(?=\(|{_FUNCTIONS})|(?<=\))(?=\d)|(?<=pi|er)(?=[\d(]|{_FUNCTIONS})",
+        "*",
+        text,
     )
     return text
+
+
+def _named_functions(text: str) -> str:
+    """ln, log, exp, sin, cos and tan as the names a plain side calls (``_FUNCTIONS``); a
+    bare number after one is its argument ("\\ln 2" is ln(2)). A log of another base than
+    10, 2 or e stays as written, so the side is not read."""
+    text = _EULER.sub(lambda m: " euler " if _is_euler(text, m) else m.group(0), text)
+    text = _BARE_ARGUMENT.sub(lambda m: f"\\{m.group(1)}{m.group(2) or ''}({m.group(3)})", text)
+    text = _LOG_BASE.sub(lambda m: {"10": " lg ", "2": " lbin ", "e": " ln "}[m.group(1)], text)
+    return _NAMED_FUNCTION.sub(lambda m: f" {_FUNCTION_NAMES.get(m.group(1), 'lgx')} ", text)
+
+
+def _is_euler(text: str, match: re.Match[str]) -> bool:
+    """An e that is Euler's number: written upright, or raised to a decimal or a negative
+    power ("e^{-0.5}"). "e^2", "1 - e^2" are a name squared (an eccentricity, a coefficient
+    of restitution), never 7.39 (review, #2576)."""
+    if match.group(0) != "e":
+        return True
+    return _EULER_POWER.match(text, match.end()) is not None
+
+
+def plain_branches(tex: str) -> list[str] | None:
+    """A side with one ± as its two plain sides, + first ("\\frac{4 \\pm 2}{2}" is "(4+2)/2"
+    and "(4-2)/2"); a side without one as itself. None when it is not numbers."""
+    signs = re.findall(r"\\pm|\\mp|\u00b1|\u2213", tex)
+    if len(signs) > 1:
+        return None
+    if not signs:
+        plain = plain_arithmetic(tex)
+        return [plain] if plain is not None else None
+    first, second = ("+", "-") if signs[0] in ("\\pm", "\u00b1") else ("-", "+")
+    sides = [plain_arithmetic(tex.replace(signs[0], sign, 1)) for sign in (first, second)]
+    return [side for side in sides if side is not None] if all(sides) else None
 
 
 # The SI symbols of one or two letters, beside the longer unit words.
@@ -151,28 +207,43 @@ def _is_unit(text_group: str) -> bool:
     return inner in _UNIT_WORDS
 
 
-def evaluate(expression: str) -> float | None:
+def evaluate(expression: str, *, natural_log: bool = False) -> float | None:
+    """``expression`` worked out, or None. ``natural_log``: a log with no base written is ln,
+    not the base-10 log school working means by it (``log_readings``)."""
     try:
         tree = ast.parse(expression, mode="eval")
     except SyntaxError:
         return None
     try:
-        value = _walk(tree.body)
+        value = _walk(tree.body, natural_log)
     except (ArithmeticError, ValueError):
         return None
     return value if value is not None and math.isfinite(value) else None
 
 
-def _walk(node: ast.AST) -> float | None:
+def log_readings(expression: str) -> list[float]:
+    """The values ``expression`` may mean: a log with no base is base 10 in school working
+    (pH, decibels) and e in calculus, so it has both; anything else has one."""
+    values = [evaluate(expression)]
+    if "lgx(" in expression:
+        values.append(evaluate(expression, natural_log=True))
+    return [value for value in values if value is not None]
+
+
+def _walk(node: ast.AST, natural_log: bool = False) -> float | None:
+
+    def walk(child: ast.AST) -> float | None:
+        return _walk(child, natural_log)
+
     if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
         return float(node.value)
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
-        operand = _walk(node.operand)
+        operand = walk(node.operand)
         if operand is None:
             return None
         return -operand if isinstance(node.op, ast.USub) else operand
     if isinstance(node, ast.BinOp):
-        left, right = _walk(node.left), _walk(node.right)
+        left, right = walk(node.left), walk(node.right)
         if left is None or right is None:
             return None
         if isinstance(node.op, ast.Add):
@@ -184,23 +255,23 @@ def _walk(node: ast.AST) -> float | None:
         if isinstance(node.op, ast.Div):
             return left / right
         if isinstance(node.op, ast.Pow):
-            if abs(right) > MAX_EXPONENT or (left < 0 and not float(right).is_integer()):
-                return None
-            return float(left**right)
+            return power(left, right)
         return None
-    if isinstance(node, ast.Name) and node.id == "pi":
-        return math.pi
+    if isinstance(node, ast.Name) and node.id in CONSTANTS:
+        return CONSTANTS[node.id]
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
-        and node.func.id in _CALLS
+        and node.func.id in CALLS
         and len(node.args) == 1
         and not node.keywords
     ):
-        inner = _walk(node.args[0])
-        if inner is None or (node.func.id == "sqrt" and inner < 0):
+        inner = walk(node.args[0])
+        if inner is None or not in_domain(node, inner):
             return None
-        return _CALLS[node.func.id](inner)
+        if node.func.id == "lgx" and natural_log:
+            return math.log(inner)
+        return CALLS[node.func.id](inner)
     return None
 
 
@@ -216,29 +287,97 @@ def _tand(degrees: float) -> float:
     return math.tan(math.radians(degrees))
 
 
-_CALLS: dict[str, Callable[[float], float]] = {
+def power(base: float, exponent: float) -> float | None:
+    """``base ** exponent`` with the exponent capped; an odd root of a negative number is
+    negative (the cube root of -8 is -2), any other fractional power of one is not read."""
+    if abs(exponent) > MAX_EXPONENT:
+        return None
+    if base < 0 and not float(exponent).is_integer():
+        degree = 1 / exponent if exponent else 0.0
+        if not (math.isclose(degree, round(degree)) and round(degree) % 2 == 1):
+            return None
+        return -float((-base) ** exponent)
+    return float(base**exponent)
+
+
+# A sine of radians past a full turn is degrees with the sign left out ("\\sin(30)"): not read.
+_FULL_TURN = 2 * math.pi + 1e-9
+# e^x past this is no school number, and is not worked out.
+_MAX_EXP = 150.0
+
+
+def in_domain(node: ast.Call, inner: float) -> bool:
+    name = node.func.id if isinstance(node.func, ast.Name) else ""
+    if name == "sqrt":
+        return inner >= 0
+    if name in ("ln", "lg", "lgx", "lbin"):
+        return inner > 0
+    if name == "exp":
+        return abs(inner) <= _MAX_EXP
+    if name in ("rsin", "rcos", "rtan"):
+        return abs(inner) <= _FULL_TURN or _names_pi(node.args[0])
+    return True
+
+
+def _names_pi(node: ast.AST) -> bool:
+    return any(isinstance(sub, ast.Name) and sub.id == "pi" for sub in ast.walk(node))
+
+
+CONSTANTS = {"pi": math.pi, "euler": math.e}
+CALLS: dict[str, Callable[[float], float]] = {
     "sqrt": math.sqrt,
+    "abs": abs,
     "sind": _sind,
     "cosd": _cosd,
     "tand": _tand,
+    "rsin": math.sin,
+    "rcos": math.cos,
+    "rtan": math.tan,
+    "ln": math.log,
+    "lg": math.log10,
+    "lgx": math.log10,
+    "lbin": math.log2,
+    "exp": math.exp,
 }
 
 
-@overload
-def math_statements(reply: str) -> Iterator[str]: ...
-@overload
-def math_statements(reply: str, *, with_breaks: Literal[True]) -> Iterator[tuple[str, bool]]: ...
-def math_statements(reply: str, *, with_breaks: bool = False) -> Iterator[Any]:
+def math_statements(reply: str) -> Iterator[str]:
     """Each statement of the reply's inline maths, in reading order: never one in a code fence
-    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two. ``with_breaks``: each
-    with whether it follows the one before directly, only space between them."""
-    prose = _INLINE_CODE.sub(" ", map_fence_blocks(reply, lambda _fence, _body: "\n"))
+    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two."""
+    for statement, _follows, _start in math_statement_spans(reply):
+        yield statement
+
+
+def math_statement_spans(reply: str) -> Iterator[tuple[str, bool, int]]:
+    """``math_statements`` with breaks, each with where it starts in ``reply``."""
+    prose = masked(reply)
     end: int | None = None
     for match in INLINE_MATH.finditer(prose):
         follows = end is not None and not prose[end : match.start()].strip()
         end = match.end()
-        for index, statement in enumerate(_STATEMENTS.split(match.group(1))):
-            if with_breaks:
-                yield statement, follows or index > 0
-            else:
-                yield statement
+        inside, start = match.group(1), match.start(1)
+        cuts = [0, *(cut for split in _STATEMENTS.finditer(inside) for cut in split.span())]
+        cuts.append(len(inside))
+        for index in range(0, len(cuts), 2):
+            yield inside[cuts[index] : cuts[index + 1]], follows or index > 0, start + cuts[index]
+
+
+def masked(reply: str) -> str:
+    """``reply`` with each closed code fence and inline code blanked, every offset kept."""
+    pieces: list[str] = []
+    cursor = 0
+    for fence in iter_fences(reply):
+        if fence.closed:
+            pieces += [reply[cursor : fence.start], _blank(reply[fence.start : fence.end])]
+            cursor = fence.end
+    pieces.append(reply[cursor:])
+    return _INLINE_CODE.sub(lambda m: _blank(m.group(0)), "".join(pieces))
+
+
+def prose_only(reply: str) -> str:
+    """``reply`` with its fences, inline code and inline maths blanked, every offset kept."""
+    return INLINE_MATH.sub(lambda m: _blank(m.group(0)), masked(reply))
+
+
+def _blank(text: str) -> str:
+    return re.sub(r"[^\n]", " ", text)
