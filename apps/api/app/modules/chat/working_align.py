@@ -25,6 +25,8 @@ from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
 _TOKEN = re.compile(r"\\[A-Za-z]+|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\\.|\S")
 # Spacing and sizing that are no part of the maths.
 _SPACING = frozenset({"\\,", "\\;", "\\:", "\\!", "\\ ", "\\left", "\\right", "\\quad"})
+# A product's sign: "50\\cos 30^\\circ" and "50 \\times 0.87" line up the cosine with 0.87.
+_TIMES = frozenset({"\\times", "\\cdot", "*", "\u00d7", "\u22c5"})
 # A number a piece is written as: 33.11, -1.9, 1,224.7.
 NUMBER = re.compile(r"-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 _BRACKETS = {"(": ")", "{": "}", "[": "]"}
@@ -57,6 +59,9 @@ def pieces(left_tex: str, right_tex: str) -> list[Piece] | None:
         if tag != "replace":
             return None
         tex = left_tex[left[i1][1] : left[i2 - 1][2]]
+        if j2 - j1 == 3 and right[j1][0] == "(" and right[j2 - 1][0] == ")":
+            # "20(0.71)" for "20\\sin 45^\\circ": the number inside its brackets.
+            j1, j2 = j1 + 1, j2 - 1
         start, end = right[j1][1], right[j2 - 1][2]
         number = right_tex[start:end]
         plain = plain_arithmetic(tex)
@@ -86,7 +91,7 @@ def _tokens(tex: str) -> list[tuple[str, int, int]]:
     return [
         (match.group(0), match.start(), match.end())
         for match in _TOKEN.finditer(tex)
-        if match.group(0) not in _SPACING
+        if match.group(0) not in _SPACING and match.group(0) not in _TIMES
     ]
 
 

@@ -197,13 +197,27 @@ class _Memory:
     rounded: dict[str, float] = field(default_factory=dict)
     worked: dict[str, float] = field(default_factory=dict)
     results: set[str] = field(default_factory=set)
+    # The question and the reply up to the line read: where a given is written.
+    written: str = ""
 
     def stands_for_a_range(self, number: str) -> bool:
-        """A number that may be rounded: a result the working wrote, or one of three or more
-        figures (a cosine, a component worked in the head: 0.8192, 14.339). A short given
-        ("4.9", "0.25") is exact as written."""
-        figures = len(number.split("e")[0].replace(".", "").lstrip("-0"))
-        return number in self.results or number in self.rounded or figures >= _ROUNDED_FIGURES
+        """A number that may be rounded: a result the working wrote, one of three or more
+        figures (a cosine, a component worked in the head: 0.8192, 14.339), or a short one
+        a short fraction written first in the step itself, a sine or cosine worked in the head
+        ("50 \\times 0.87" for 50 cos 30°; review, #2576). A short given ("4.9", "2.5", or
+        "0.25" in the question) is exact."""
+        key = _key(number)
+        figures = len(key.split("e")[0].replace(".", "").lstrip("-0"))
+        if key in self.results or key in self.rounded or figures >= _ROUNDED_FIGURES:
+            return True
+        unwritten = re.search(rf"(?<![\d.]){re.escape(key)}(?!\d|\.\d)", self.written) is None
+        value = evaluate(key)
+        return unwritten and value is not None and abs(value) < 1
+
+
+def _key(plain: str) -> str:
+    """A plain number as the rounded results are kept: "(1.5e24)" is 1.5e24 (review, #2576)."""
+    return plain.strip("()")
 
 
 def _note_rounded(left_tex: str, left: str | None, right: str | None, memory: _Memory) -> None:
@@ -213,7 +227,7 @@ def _note_rounded(left_tex: str, left: str | None, right: str | None, memory: _M
     rounded, worked = memory.rounded, memory.worked
     if right is None:
         return
-    shown = shown_number(right)
+    shown, key = shown_number(right), _key(right)
     exact: float | None = None
     if left is not None:
         exact = evaluate(_exact_side(left, rounded))
@@ -224,15 +238,15 @@ def _note_rounded(left_tex: str, left: str | None, right: str | None, memory: _M
             return
         if name not in worked:
             # A given ("mu = 0.3"): the same digits after it are this value, not a rounding.
-            rounded.pop(right, None)
+            rounded.pop(key, None)
             return
         exact = worked.get(name)
     if exact is None or shown is None:
         return
-    memory.results.add(right)
+    memory.results.add(key)
     off = abs(exact - shown[0])
     if 0 < off <= shown[1] * (1 + 1e-9) and not math.isclose(exact, shown[0], rel_tol=1e-12):
-        rounded[right] = exact
+        rounded[key] = exact
 
 
 def statement_parts(segment: str, at: int) -> tuple[list[str], list[int]]:
@@ -245,8 +259,9 @@ def statement_parts(segment: str, at: int) -> tuple[list[str], list[int]]:
     return parts, starts
 
 
-def wrong_steps(reply: str) -> list[WrongStep]:
-    """The steps in ``reply`` whose arithmetic does not hold, in reading order."""
+def wrong_steps(reply: str, question: str = "") -> list[WrongStep]:
+    """The steps in ``reply`` whose arithmetic does not hold, in reading order; a number of
+    the ``question`` is a given, exact as written."""
     found: list[WrongStep] = []
     memory = _Memory()
     last = ""
@@ -257,6 +272,7 @@ def wrong_steps(reply: str) -> list[WrongStep]:
             # Words between two lines ("**(b)**", "For the second resistor,") start another
             # case: a name reused there is another value (review, #2520).
             before = None
+        memory.written = f"{question}\n{reply[:at]}"
         parts, starts = statement_parts(segment, at)
         relations = RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
@@ -303,6 +319,9 @@ def _slip_branches(
         return None
     _note_pieces(left_tex, right_tex, memory)
     sign = _PLUS_MINUS.search(left_tex)
+    if sign is not None and not _ROOTS.search(left_tex):
+        # "2.50 \\pm 0.05" is a value and its uncertainty, not two roots (review, #2576).
+        return None
     if sign is None or len(branches) == 1:
         return slip(
             left_tex,
@@ -339,6 +358,8 @@ def _slip_branches(
 
 
 _PLUS_MINUS = re.compile(r"\\pm|\\mp|\u00b1|\u2213")
+# What makes a ± side two roots: a root or a fraction (the quadratic formula).
+_ROOTS = re.compile(r"\\sqrt|\\[dt]?frac|/")
 
 
 def _note_pieces(left_tex: str, right_tex: str, memory: _Memory) -> None:
@@ -352,9 +373,9 @@ def _note_pieces(left_tex: str, right_tex: str, memory: _Memory) -> None:
         shown = shown_number(number or "")
         if number is None or shown is None:
             continue
-        memory.results.add(number)
+        memory.results.add(_key(number))
         if 0 < abs(piece.value - shown[0]) <= shown[1] * (1 + 1e-9):
-            memory.rounded[number] = piece.value
+            memory.rounded[_key(number)] = piece.value
 
 
 def slip(
@@ -392,11 +413,17 @@ def slip(
             return _result_step(left_tex, right_tex, _nearest(readings, shown[0]))
         return None
     if not all(
-        _is_wrong(value, shown[0], shown[1], approximate, spread(left, memory.stands_for_a_range))
-        for value in readings
+        _is_wrong(
+            value,
+            shown[0],
+            shown[1],
+            approximate,
+            spread(left, memory.stands_for_a_range, natural_log=index > 0),
+        )
+        for index, value in enumerate(readings)
     ):
         return None
-    carried_side = _exact_side(left, {k: v for k, v in memory.rounded.items() if k != right})
+    carried_side = _exact_side(left, {k: v for k, v in memory.rounded.items() if k != _key(right)})
     carried = evaluate(carried_side)
     if carried is not None and not _is_wrong(
         carried, shown[0], shown[1], approximate, spread(carried_side, memory.stands_for_a_range)
@@ -424,7 +451,8 @@ _LEADING_NUMBER = re.compile(
 def _result_step(left_tex: str, right_tex: str, value: float) -> WrongStep:
     """A wrong result, with the fix that writes it again when it is a plain number."""
     number = _LEADING_NUMBER.match(right_tex)
-    if number is None:
+    # The number must be the whole result read: "1{,}850" is not 1 (review, #2576).
+    if number is None or plain_arithmetic(number.group(0)) != plain_arithmetic(right_tex):
         return WrongStep(left_tex, right_tex, value)
     fix = Fix(0, number.end(), number.group(0), value)
     return WrongStep(left_tex, right_tex, value, (fix,), _RESULT)
@@ -638,9 +666,9 @@ def is_worked_solution(reply: str) -> bool:
     return _WORKOUT_HEADING.search(reply) is not None
 
 
-def working_note(reply: str) -> str | None:
+def working_note(reply: str, question: str = "") -> str | None:
     """One line naming the first slip, or None when the working adds up."""
-    steps = wrong_steps(reply)
+    steps = wrong_steps(reply, question)
     if not steps:
         unheld = unheld_equations(reply)
         if not unheld:
@@ -652,7 +680,11 @@ def working_note(reply: str) -> str | None:
             f"Check these values: ${values}$ do not satisfy ${unheld[0].equation}$. "
             "The answer depends on them."
         )
-    step = steps[0]
+    return step_note(steps[0])
+
+
+def step_note(step: WrongStep) -> str:
+    """The line that names ``step``: its value, and the number it was written as."""
     right = shown_like(step.value, step.shown)
     return (
         f"Check this step: ${step.left} = {right}$, not ${step.shown}$. "

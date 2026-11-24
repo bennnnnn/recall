@@ -21,15 +21,18 @@ from app.modules.chat.tex_arithmetic import CALLS, CONSTANTS, evaluate, in_domai
 Range = tuple[float, float]
 
 
-def spread(expression: str, rounded: Callable[[str], bool]) -> float | None:
+def spread(
+    expression: str, rounded: Callable[[str], bool], *, natural_log: bool = False
+) -> float | None:
     """How far rounding alone may move ``expression``'s value: its range's widest side.
     ``rounded``: a number, as written, that stands for a range (half its last place
     either side); any other is exact. None when the side has no range (a division by a
-    range around 0, a power of a range around 0)."""
-    value = evaluate(expression)
+    range around 0, a power of a range around 0). ``natural_log``: a log with no base is
+    ln (``tex_arithmetic.log_readings``)."""
+    value = evaluate(expression, natural_log=natural_log)
     try:
         tree = ast.parse(expression, mode="eval")
-        span = _walk(tree.body, expression, rounded)
+        span = _walk(tree.body, expression, rounded, natural_log)
     except (ArithmeticError, ValueError, SyntaxError):
         return None
     if value is None or span is None or not all(map(math.isfinite, span)):
@@ -44,7 +47,9 @@ def half_place(number: str) -> float:
     return 0.5 * 10.0 ** (int(power_text or 0) - decimals)
 
 
-def _walk(node: ast.AST, source: str, rounded: Callable[[str], bool]) -> Range | None:
+def _walk(
+    node: ast.AST, source: str, rounded: Callable[[str], bool], natural_log: bool
+) -> Range | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
         text = ast.get_source_segment(source, node) or ""
         width = half_place(text) if "." in text and rounded(text) else 0.0
@@ -52,20 +57,21 @@ def _walk(node: ast.AST, source: str, rounded: Callable[[str], bool]) -> Range |
     if isinstance(node, ast.Name) and node.id in CONSTANTS:
         return CONSTANTS[node.id], CONSTANTS[node.id]
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
-        inner = _walk(node.operand, source, rounded)
+        inner = _walk(node.operand, source, rounded, natural_log)
         if inner is None or isinstance(node.op, ast.UAdd):
             return inner
         return -inner[1], -inner[0]
     if isinstance(node, ast.BinOp):
-        left, right = _walk(node.left, source, rounded), _walk(node.right, source, rounded)
+        left = _walk(node.left, source, rounded, natural_log)
+        right = _walk(node.right, source, rounded, natural_log)
         if left is None or right is None:
             return None
         return _binary(node.op, left, right)
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in CALLS:
         if len(node.args) != 1 or node.keywords:
             return None
-        inner = _walk(node.args[0], source, rounded)
-        return None if inner is None else _call(node, inner)
+        inner = _walk(node.args[0], source, rounded, natural_log)
+        return None if inner is None else _call(node, inner, natural_log)
     return None
 
 
@@ -97,7 +103,7 @@ def _power_range(base: Range, exponent: Range) -> Range | None:
     return low, high
 
 
-def _call(node: ast.Call, inner: Range) -> Range | None:
+def _call(node: ast.Call, inner: Range, natural_log: bool) -> Range | None:
     """A function over a range: its ends and middle (the ranges are rounding-small, so a
     sine's turn inside one moves it by nothing a step could show)."""
     name = node.func.id if isinstance(node.func, ast.Name) else ""
@@ -108,7 +114,8 @@ def _call(node: ast.Call, inner: Range) -> Range | None:
         cosine = CALLS["cosd" if name == "tand" else "rcos"]
         if cosine(inner[0]) * cosine(inner[1]) <= 0:
             return None
-    return _bounds([CALLS[name](point) for point in points])
+    function = math.log if name == "lgx" and natural_log else CALLS[name]
+    return _bounds([function(point) for point in points])
 
 
 def _bounds(values: list[float]) -> Range:

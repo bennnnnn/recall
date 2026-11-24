@@ -6,7 +6,12 @@ import pytest
 
 from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
 from app.modules.chat.working_check import working_note, wrong_steps
-from app.modules.chat.working_fix import corrected_working
+from app.modules.chat.working_fix import put_right
+
+
+def corrected_working(reply: str, question: str = "") -> str:
+    return put_right(reply, question)[0]
+
 
 # The owner's projectile question (live, 2026-11-23): each slip reached the student.
 _ROOT_SLIP = (
@@ -136,7 +141,7 @@ def test_a_plus_or_minus_is_held_to_its_nearest_root(reply: str, fixed: str) -> 
         # A log with no base: right as a natural log.
         "**Steps**\n\n$\\log(20) = 3.00$",
         # Text that is no arithmetic: a range, a date, a score, money.
-        "**Steps**\n\nIt takes 2-3 hours, from 2026-11-23, and the score was 3-2.",
+        "**Steps**\n\nIt takes $2-3$ hours, from $2026-11-23$, and the score was $3-2$.",
         "**Steps**\n\nIt costs $12.50 each, so three cost $37.50 in all.",
     ],
 )
@@ -145,13 +150,13 @@ def test_right_or_unreadable_working_is_never_changed(reply: str) -> None:
     assert working_note(reply) is None
 
 
-def test_a_number_given_before_the_slip_is_never_carried() -> None:
-    """4.85 is the question's own value: only the slip's line is put right."""
-    reply = (
-        "**Steps**\n\n$m = 4.85\\ \\text{kg}$\n\n$a = \\frac{20}{4} = 4.85$\n\n$F = 4.85 \\times 2$"
-    )
-    fixed = corrected_working(reply, "A 4.85 kg box is pushed with 20 N over 4 m.")
+def test_a_number_given_in_the_question_is_never_carried() -> None:
+    """4.85 is the question's own value: only the slip's line is put right, and it is named,
+    since the lines after it may depend on it."""
+    reply = "**Steps**\n\n$a = \\frac{20}{4} = 4.85$\n\n$F = 4.85 \\times 2$"
+    fixed, note = put_right(reply, "A 4.85 kg box is pushed with 20 N over 4 m.")
     assert fixed == reply.replace("\\frac{20}{4} = 4.85", "\\frac{20}{4} = 5.00")
+    assert note is not None
 
 
 def test_a_later_result_with_the_same_digits_is_judged_on_its_own() -> None:
@@ -219,3 +224,56 @@ def test_a_short_number_used_again_in_a_calculation_is_named_not_changed() -> No
     reply = "**Steps**\n\n$12 \\times 3 = 38$\n$y = 38 + 2$"
     assert corrected_working(reply) == reply
     assert working_note(reply) is not None
+
+
+# Review (#2576): each of these was changed wrongly, or lost its note.
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A slip's short number (0.5) is also the half of a kinetic energy.
+        "**Steps**\n\n$a = \\frac{1.1}{2.5} = 0.5$\n$KE = 0.5 \\times 4 \\times 3^2 = 18$",
+        # A thousands mark inside the result, and a decimal comma.
+        "**Steps**\n\n$1{,}200 \\times 1.5 = 1{,}850$",
+        "**Steps**\n\n$2{,}5 \\cdot 4{,}2 = 11{,}5$",
+    ],
+)
+def test_a_slip_that_cannot_be_put_right_safely_is_named(reply: str) -> None:
+    fixed, note = put_right(reply)
+    assert fixed == reply
+    assert note is not None or working_note(reply) is not None
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A cosine or sine worked in the head, to two places.
+        "**Steps**\n\n$F_x = 50\\cos 30^\\circ = 50 \\times 0.87 = 43.3\\,\\text{N}$",
+        "**Steps**\n\n$F = 20\\sin 45^\\circ = 20(0.71) = 14.1$",
+        # e as a name after an operation, and an angle of 2π.
+        "**Steps**\n\n$(1 - e^2) \\times 50 = 0.36 \\times 50 = 18$",
+        "**Steps**\n\n$\\sin 2\\pi = 0$",
+        "**Steps**\n\n$\\cos 2\\pi = 1$",
+        # A decimal comma.
+        "**Steps**\n\n$F = 2{,}5 \\cdot 4 = 10\\,\\mathrm{N}$",
+        # A rounded result in powers of ten, carried.
+        "**Steps**\n\n$n = 2.5 \\times 6.02 \\times 10^{23} = 1.5 \\times 10^{24}$\n"
+        "$N = 1.5 \\times 10^{24} \\times 3 = 4.52 \\times 10^{24}$",
+        # A log right as ln, to its own rounding.
+        "**Steps**\n\n$\\log(3.14) = 1.145$",
+        # A value and its uncertainty.
+        "**Steps**\n\n$L = 2.50 \\pm 0.05\\ \\text{m}$\n$L = 2.50\\ \\text{m}$",
+    ],
+)
+def test_review_look_alikes_are_never_changed(reply: str) -> None:
+    assert corrected_working(reply) == reply
+    assert working_note(reply) is None
+
+
+def test_a_slip_closing_its_maths_mid_sentence_is_carried_to_the_next() -> None:
+    reply = (
+        "**Steps**\n\n$a = \\frac{9.81}{2.5} = 3.98\\ \\text{m/s}^2$, so "
+        "$F = 2 \\times 3.98 = 7.96\\ \\text{N}$"
+    )
+    assert corrected_working(reply, "2.5 kg") == (
+        reply.replace("3.98", "3.92").replace("7.96", "7.84")
+    )

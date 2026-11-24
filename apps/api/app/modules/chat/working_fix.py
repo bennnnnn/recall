@@ -14,9 +14,13 @@ is written again to its value, to the places it was shown with ("t = 4.85" for 4
 Only the exact digits of the wrong number are carried, and only when they appear nowhere
 before the slip, in the question or the reply: the same digits there are a given or
 another value. A number written as the result of another calculation is that calculation's,
-and is left for the next read to judge. A number of fewer than three figures and no decimal
-point ("12") is too common to be sure of, so only its own line is put right. Code, inline
-code and every fence (a server's answer card among them) are never touched.
+and is left for the next read to judge. A number of under three significant figures ("38",
+"0.5") is too common to be sure of in a calculation (the ½ of a kinetic energy), so it is
+carried only to the lines that say it again, and when a calculation after it uses the same
+digits nothing is changed and the step is named. When the digits are still written after
+the slip once carried (after a given with the same digits, or in display maths), the
+corrected step is named too: those lines may depend on it. Code, inline code and every
+fence (a server's answer card among them) are never touched.
 
 A step that cannot be put right in place (another exact form, "\\sqrt{11375} = 25\\sqrt{73}")
 stops the walk: the lines after it may depend on it, so they are left as written and the
@@ -41,52 +45,65 @@ from app.modules.chat.working_check import (
     shown_like,
     shown_number,
     statement_parts,
+    step_note,
     wrong_steps,
 )
 
 # Each put-right step re-reads the working; a reply has only so many lines.
 _MAX_FIXES = 12
-# A unit written after a number: \text{s}, \mathrm{m/s}, or a bare symbol.
-_UNIT_INNER = re.compile(r"\\(?:text|mathrm|textrm|rm)\s*\{\s*([^{}]+?)\s*\}")
-
-
-def corrected_working(reply: str, question: str = "") -> str:
-    """``reply`` with each wrong number in its working put right, in reading order, and the
-    lines built on it with it (the module docstring)."""
-    text = reply
-    for _ in range(_MAX_FIXES):
-        steps = wrong_steps(text)
-        if not steps or not steps[0].fixes:
-            return text
-        fixed = _put_right(text, steps[0], question)
-        if fixed == text:
-            return text
-        text = fixed
-    return text
-
-
-def _put_right(text: str, step: WrongStep, question: str) -> str:
-    """``text`` with ``step``'s numbers written to their values, each carried on after it;
-    ``text`` as it was when a number cannot be carried safely (``_carries``)."""
-    original = text
-    for fix in sorted(step.fixes, key=lambda fix: fix.start, reverse=True):
-        right = _written(fix)
-        before, after = text[: fix.start], text[fix.end :]
-        mode = _carries(fix, right, before, question)
-        if mode != _NONE:
-            unit = _unit_after(after) if step.name and mode == _ALL else ""
-            carried = _carried(after, fix, right, step.name, unit, everywhere=mode == _ALL)
-            if carried is None:
-                return original
-            after = carried
-        text = before + right + after
-    return text
-
-
+# A unit written after a number: \text{s}, \mathrm{m/s}.
+_UNIT_INNER = re.compile(r"\\(?:text|mathrm|textrm|rm)\s*\{([^{}]*)\}")
+# Display maths: the carry reads inline maths only, so a wrong number there stays.
+_DISPLAY = re.compile(r"\$\$.*?\$\$", re.DOTALL)
 # How far a wrong number is carried: everywhere it is the slip's, only where a line says it
-# again (a short number, "38", may be another value's in a calculation), or nowhere (the
-# same digits were written before the slip: a given's, or another value's).
+# again (a number of under three figures, "38" or "0.5", may be another value's in a
+# calculation: the ½ of a kinetic energy; review, #2576), or nowhere (the same digits were
+# written before the slip: a given's, or another value's).
 _ALL, _RESTATED, _NONE = "all", "restated", "none"
+
+
+def put_right(reply: str, question: str = "") -> tuple[str, str | None]:
+    """``reply`` with each wrong number in its working put right, in reading order, and the
+    lines built on it with it (the module docstring); and a note for a slip whose number is
+    still written after it once carried (after a given with its digits, or in display
+    maths): those lines may depend on it."""
+    text, note = reply, None
+    for _ in range(_MAX_FIXES):
+        steps = wrong_steps(text, question)
+        if not steps or not steps[0].fixes:
+            break
+        fixed, complete = _put_right(text, steps[0], question)
+        if fixed == text:
+            break
+        if not complete and note is None:
+            note = step_note(steps[0])
+        text = fixed
+    return text, note
+
+
+def _put_right(text: str, step: WrongStep, question: str) -> tuple[str, bool]:
+    """``text`` with ``step``'s numbers written to their values, each carried on after it,
+    and whether every later use was carried; ``text`` as it was when a number cannot be
+    carried safely (``_carries``)."""
+    edits: list[tuple[int, int, str]] = []
+    complete = True
+    for fix in step.fixes:
+        right = _written(fix)
+        edits.append((fix.start, fix.end, right))
+        mode = _carries(fix, right, text[: fix.start], question)
+        later = _later_uses(text, fix)
+        if mode == _NONE:
+            complete = complete and not later
+            continue
+        carried = _carry_edits(text, fix, step.name, mode)
+        left_over = later - {start for start, _end in carried}
+        if mode == _RESTATED and left_over:
+            return text, False
+        complete = complete and not (left_over & _display_starts(text))
+        edits += [(start, end, right.lstrip("-\u2212")) for start, end in carried]
+    for start, end, written in sorted(set(edits), reverse=True):
+        text = text[:start] + written + text[end:]
+    return text, complete
 
 
 def _written(fix: Fix) -> str:
@@ -97,53 +114,70 @@ def _written(fix: Fix) -> str:
 
 def _standalone(number: str) -> re.Pattern[str]:
     """``number`` as a whole number, never the digits of another (4.85 in 14.85 or 4.851)."""
-    return re.compile(rf"(?<![\d.,]){re.escape(number.lstrip('-\u2212'))}(?![\d]|[.,]\d)")
+    digits = re.escape(number.lstrip("-\u2212"))
+    return re.compile(rf"(?<![\d.,]){digits}(?![\d]|[.,]\d)")
+
+
+def _figures(number: str) -> int:
+    """Significant figures as written: 4.85 has 3, 0.5 has 1, 100 has 1, 1,500 has 2."""
+    digits = number.lstrip("-\u2212").replace(",", "")
+    whole = "." not in digits
+    digits = digits.replace(".", "").lstrip("0")
+    return len(digits.rstrip("0") if whole else digits)
 
 
 def _carries(fix: Fix, right: str, before: str, question: str) -> str:
     """How far the wrong number is sure to be the slip's own after it: nowhere when it was
     written before it (or in the question), or when the right one turns its sign; only where
-    it is said again when it is short (no decimal point, under three figures); else
-    everywhere."""
+    it is said again when it has under three figures; else everywhere."""
     pattern = _standalone(fix.number)
     signs = (fix.number.startswith(("-", "\u2212")), right.startswith(("-", "\u2212")))
     if pattern.search(before) or pattern.search(question) or signs[0] != signs[1]:
         return _NONE
-    digits = fix.number.lstrip("-\u2212").replace(",", "")
-    return _ALL if "." in digits or len(digits) >= 3 else _RESTATED
+    return _ALL if _figures(fix.number) >= _CARRIED_FIGURES else _RESTATED
+
+
+_CARRIED_FIGURES = 3
+
+
+def _later_uses(text: str, fix: Fix) -> set[int]:
+    """Where the wrong number is written after the fix, outside fences and inline code."""
+    shown = masked(text)
+    return {match.start() for match in _standalone(fix.number).finditer(shown, fix.end)}
+
+
+def _display_starts(text: str) -> set[int]:
+    return {index for block in _DISPLAY.finditer(masked(text)) for index in range(*block.span())}
 
 
 def _unit_after(after: str) -> str:
     """The unit written right after the fixed number, as a word: "s" for ``\\ \\text{s}``."""
-    head = after[:40].split("$", 1)[0]
-    match = _UNIT_INNER.match(re.sub(r"^(?:\s|\\[,; ])*", "", head))
+    head = re.sub(r"^(?:\s|\\[,; ])*", "", after[:40].split("$", 1)[0])
+    match = _UNIT_INNER.match(head)
     return match.group(1).strip() if match else ""
 
 
-def _carried(
-    after: str, fix: Fix, right: str, name: str, unit: str, *, everywhere: bool
-) -> str | None:
-    """``after`` with each use of the wrong number in a calculation, each restatement of
-    it, and each sentence giving it with ``unit``, written as ``right``. Not
-    ``everywhere``: only the restatements, and None when the number appears anywhere else
-    after it, whose line would then disagree with the one put right."""
+def _carry_edits(text: str, fix: Fix, name: str, mode: str) -> list[tuple[int, int]]:
+    """Where, after the fix, the wrong number is the slip's: each use in a calculation
+    (``_ALL`` only), each restatement of it, and each sentence giving it with its unit.
+    The maths is read in the whole reply, so the slip's own closing ``$`` is never taken
+    for an opening one (review, #2576)."""
     edits: list[tuple[int, int]] = []
     pattern = _standalone(fix.number)
-    for segment, _follows, at in math_statement_spans(after):
+    everywhere = mode == _ALL
+    for segment, _follows, at in math_statement_spans(text):
+        if at < fix.end:
+            continue
         parts, starts = statement_parts(segment, at)
         for index, start in enumerate(starts):
             if _carry_into(parts, index, name, fix.number, operands=everywhere):
                 found = pattern.finditer(parts[index].strip())
                 edits += [(start + match.start(), start + match.end()) for match in found]
+    unit = _unit_after(text[fix.end :]) if name and everywhere else ""
     if unit:
-        prose = prose_only(after)
         word = re.compile(rf"{pattern.pattern}(?=(?:\s|\*\*)*{re.escape(unit)}\b)")
-        edits += [match.span() for match in word.finditer(prose)]
-    if not everywhere and len(set(edits)) < len(pattern.findall(masked(after))):
-        return None
-    for start, end in sorted(set(edits), reverse=True):
-        after = after[:start] + right.lstrip("-\u2212") + after[end:]
-    return after
+        edits += [match.span() for match in word.finditer(prose_only(text), fix.end)]
+    return edits
 
 
 def _carry_into(parts: list[str], index: int, name: str, number: str, *, operands: bool) -> bool:

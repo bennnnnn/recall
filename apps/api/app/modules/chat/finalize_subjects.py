@@ -24,7 +24,7 @@ from app.modules.chat.working_check import (
     is_worked_solution,
     working_note,
 )
-from app.modules.chat.working_fix import corrected_working
+from app.modules.chat.working_fix import put_right
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -306,13 +306,14 @@ def check_working(state: FinalizeState) -> str:
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
     if ctx.solver_unverified is True or is_worked_solution(text) or boxes_its_answer(text):
-        # A decimal given for an exact value is the server's to get right; a slip in a step
-        # is named, since the lines after it depend on it.
+        # A decimal given for an exact value is the server's to get right.
         text = corrected_approximations(text)
-        # A wrong number in a step is put right, and the lines built on it after it; one that
-        # cannot be put right in place is named (``working_fix``).
-        text = corrected_working(text, ctx.user_message_content or "")
-        note = working_note(text)
+        # A wrong number in a step is put right, and the lines built on it after it; a step
+        # that cannot be put right in place, or whose number is still written after it, is
+        # named (``working_fix``).
+        question = ctx.user_message_content or ""
+        text, carried_note = put_right(text, question)
+        note = carried_note or working_note(text, question)
         # A reply in parts gets a card under each part's Answer heading.
         text = land_part_answer_cards(text) or land_answer_card(text, None)
         # The card is the working's last step: an expression left unworked and a card that

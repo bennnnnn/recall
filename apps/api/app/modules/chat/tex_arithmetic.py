@@ -13,7 +13,6 @@ import ast
 import math
 import re
 from collections.abc import Callable, Iterator
-from typing import Any, Literal, overload
 
 from app.services.glyphs import fold_operator_glyphs
 from app.services.md_fence_scan import iter_fences
@@ -85,7 +84,7 @@ _TRIG_DEGREES = re.compile(
 _FUNCTIONS = r"sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
 # ln 2, \\log_{10} 1000, \\sin 0.5: a function of one bare number, its brackets left out.
 _BARE_ARGUMENT = re.compile(
-    r"\\(ln|log|exp|sin|cos|tan)(\s*_\s*\{?\s*(?:10|2|e)\s*\}?)?\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*\^)"
+    r"\\(ln|log|exp|sin|cos|tan)(\s*_\s*\{?\s*(?:10|2|e)\s*\}?)?\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*[\^\\A-Za-z])"
 )
 _LOG_BASE = re.compile(r"\\log\s*_\s*\{?\s*(10|2|e)\s*\}?")
 _FUNCTION_NAMES = {"ln": "ln", "exp": "exp", "sin": "rsin", "cos": "rcos", "tan": "rtan"}
@@ -138,9 +137,11 @@ def plain_arithmetic(tex: str) -> str | None:
         ("\\;", ""),
         ("\\!", ""),
         ("\\ ", ""),
-        ("{,}", ""),
     ):
         text = text.replace(latex, plain)
+    # 1{,}200 is a thousands mark; 2{,}5 a decimal comma (German, French working).
+    text = re.sub(r"\{,\}(?=\d{3}(?!\d))", "", text)
+    text = text.replace("{,}", ".")
     text = text.replace("^", "**").replace("{", "(").replace("}", ")")
     text = re.sub(r"\s+", "", text)
     # 1,500 is a number; a comma anywhere else is a list.
@@ -168,10 +169,10 @@ def _named_functions(text: str) -> str:
 
 
 def _is_euler(text: str, match: re.Match[str]) -> bool:
-    """An e that is Euler's number: written upright, after a number or an operation ("100
-    e^{2}"), or raised to a decimal or a negative power. "e^2" alone is a name squared (an
-    eccentricity, a charge), never 7.39."""
-    if match.group(0) != "e" or text[: match.start()].strip():
+    """An e that is Euler's number: written upright, or raised to a decimal or a negative
+    power ("e^{-0.5}"). "e^2", "1 - e^2" are a name squared (an eccentricity, a coefficient
+    of restitution), never 7.39 (review, #2576)."""
+    if match.group(0) != "e":
         return True
     return _EULER_POWER.match(text, match.end()) is not None
 
@@ -340,16 +341,11 @@ CALLS: dict[str, Callable[[float], float]] = {
 }
 
 
-@overload
-def math_statements(reply: str) -> Iterator[str]: ...
-@overload
-def math_statements(reply: str, *, with_breaks: Literal[True]) -> Iterator[tuple[str, bool]]: ...
-def math_statements(reply: str, *, with_breaks: bool = False) -> Iterator[Any]:
+def math_statements(reply: str) -> Iterator[str]:
     """Each statement of the reply's inline maths, in reading order: never one in a code fence
-    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two. ``with_breaks``: each
-    with whether it follows the one before directly, only space between them."""
-    for statement, follows, _start in math_statement_spans(reply):
-        yield (statement, follows) if with_breaks else statement
+    or inline code, and a line of two ("I_1 = 2, I_2 = 3") read as two."""
+    for statement, _follows, _start in math_statement_spans(reply):
+        yield statement
 
 
 def math_statement_spans(reply: str) -> Iterator[tuple[str, bool, int]]:
