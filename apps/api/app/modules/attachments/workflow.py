@@ -27,13 +27,12 @@ from app.modules.attachments.content import MAX_ATTACHMENT_SIZE, purge_invalid_u
 from app.modules.attachments.content_types import bytes_match_claimed, is_image_content_type
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
 from app.modules.attachments.markers import strip_attachment_from_content
-from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.quota import has_current_upload_reservation, refund_upload
 from app.modules.attachments.schemas import AttachmentListItemOut, AttachmentOut
 from app.modules.attachments.thumbnails import thumbnail_bytes, thumbnail_edge
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.modules.attachments.verify import verify_upload_once
 from app.modules.conversation import history as chat_history
-from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,7 @@ async def _refund_upload(
     row: Attachment,
 ) -> None:
     if has_current_upload_reservation(row):
-        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)
+        await refund_upload(get_redis_client(), row)
 
 
 async def _verified_row(

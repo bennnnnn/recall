@@ -169,3 +169,36 @@ async def test_presigns_racing_the_library_total_pass_one_at_a_time(content_type
     assert len(rows) == 1
     assert [r.code for r in refused] == ["storage_full"]
     assert await redis.keys("recall:library_presign:*") == []
+
+
+async def test_a_refund_gives_back_only_a_recorded_slot(fake_redis) -> None:
+    """An upload that took no slot (its plan's uploads follow messages) has no record, so
+    its refund lowers nothing, not even a counter a Pro day raised; one that took a slot
+    gives it back once."""
+    from app.modules.attachments.quota import record_upload_slot, refund_upload
+    from app.services.quota import counters
+
+    row = MagicMock(id=uuid4(), user_id=uuid4(), content_type="application/pdf")
+    key = counters.daily_key("docup", row.user_id)
+    await fake_redis.set(key, 5, ex=600)
+    await refund_upload(fake_redis, row)
+    assert await fake_redis.get(key) == "5"
+
+    await record_upload_slot(fake_redis, row.id, counters.utc_today())
+    await refund_upload(fake_redis, row)
+    await refund_upload(fake_redis, row)
+    assert await fake_redis.get(key) == "4"
+
+
+async def test_a_redis_refusal_at_the_presign_lock_is_the_outage(fake_redis) -> None:
+    """Upstash over its request quota answers a ResponseError: the 503 outage, not a 500."""
+    from redis.exceptions import ResponseError
+
+    from app.exceptions import RedisUnavailableError
+
+    with (
+        patch.object(storage_quota, "acquire_lock", AsyncMock(side_effect=ResponseError("max"))),
+        pytest.raises(RedisUnavailableError),
+    ):
+        async with storage_quota.library_presign(fake_redis, uuid4()):
+            pass

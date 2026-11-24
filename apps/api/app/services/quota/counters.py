@@ -165,6 +165,7 @@ CounterName = Literal[
     "chat_message",
     "image_upload",
     "document_upload",
+    "document_ocr",
     "speech_transcription",
     "tavily_search",
     "image_generation",
@@ -215,14 +216,23 @@ COUNTERS: dict[CounterName, CounterSpec] = {
         message=(DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE, DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID),
         refund=True,
     ),
+    # A scanned PDF the index job reads with vision (``attachments/ocr_allowance``). At the
+    # cap the file stays attached unsearched: a refusal no one sees, so no message.
+    "document_ocr": CounterSpec(
+        prefix="ocr",
+        allowance="daily_scanned_documents",
+        message=None,
+        refund=True,
+    ),
     "speech_transcription": CounterSpec(
         prefix="speech",
         allowance="daily_speech_transcriptions",
         message=(SPEECH_LIMIT_EXCEEDED_MESSAGE, SPEECH_LIMIT_EXCEEDED_MESSAGE),
         refund=True,
     ),
-    # Past the cap a turn searches DuckDuckGo instead; a reserved search stays spent. A
-    # plan whose searches follow messages has no cap: every turn's search is Tavily's.
+    # Past the cap a turn searches nothing, DuckDuckGo included (the tool tells the model
+    # the day's searches are used up); a reserved search stays spent. A plan whose
+    # searches follow messages has no cap: every turn's search is Tavily's.
     "tavily_search": CounterSpec(
         prefix="tavily",
         allowance="daily_web_searches",

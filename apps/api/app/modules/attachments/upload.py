@@ -18,8 +18,13 @@ from app.modules.attachments.content_types import (
     normalize_content_type,
 )
 from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
-from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
-from app.modules.attachments.schemas import AttachmentPresignOut
+from app.modules.attachments.quota import (
+    has_current_upload_reservation,
+    record_upload_slot,
+    refund_upload,
+    upload_counter,
+)
+from app.modules.attachments.schemas import AttachmentPresignOut, UploadPurpose
 from app.modules.attachments.storage_quota import (
     has_room_for,
     library_presign,
@@ -52,6 +57,7 @@ async def create_presigned_upload(
     content_type: str,
     size_bytes: int,
     filename: str | None = None,
+    purpose: UploadPurpose = "chat",
 ) -> AttachmentPresignOut:
     """Validate, check Library room, reserve the day's slot (or, on a plan whose uploads
     follow messages, check one is left), presign, create a pending row.
@@ -86,14 +92,20 @@ async def create_presigned_upload(
             )
 
         counter = upload_counter(normalized)
-        # A plan whose uploads follow its messages takes no upload slot: the file goes out
-        # with a message, so it may come while one is left, and the send takes it.
-        if counters.follows_messages(counter, user, settings) and not await has_message_left(
-            redis, user, settings
+        # A plan whose uploads follow its messages takes no upload slot: a chat file goes
+        # out with a message, so it may come while one is left, and the send takes it. A
+        # profile photo or a picture's reference photo is sent with no message.
+        if (
+            purpose == "chat"
+            and counters.follows_messages(counter, user, settings)
+            and not await has_message_left(redis, user, settings)
         ):
             raise AttachmentUploadError(
                 quota_exceeded_message(user), status_code=429, code="quota_exceeded"
             )
+        # On a plan whose uploads follow its messages the reserve takes no slot: nothing to
+        # give back or record.
+        took_slot = not counters.follows_messages(counter, user, settings)
         reserved_day = await counters.reserve(counter, redis, user, settings)
         if not reserved_day:
             raise AttachmentUploadError(
@@ -119,8 +131,11 @@ async def create_presigned_upload(
             )
             await session.commit()
         except Exception:
-            await counters.refund(counter, redis, user.id, day=reserved_day)
+            if took_slot:
+                await counters.refund(counter, redis, user.id, day=reserved_day)
             raise
+        if took_slot:
+            await record_upload_slot(redis, attachment_id, reserved_day)
 
     return AttachmentPresignOut(
         attachment_id=attachment_id,
@@ -159,4 +174,4 @@ async def cancel_pending_upload(
     failed = await delete_storage_keys(settings, removed)
     await enqueue_failed_storage_deletes(failed)
     if has_current_upload_reservation(row):
-        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)
+        await refund_upload(get_redis_client(), row)

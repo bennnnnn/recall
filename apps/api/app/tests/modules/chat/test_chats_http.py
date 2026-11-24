@@ -321,6 +321,36 @@ def test_today_usage():
     assert data["recent_message_window"] == 20
 
 
+@pytest.mark.parametrize(
+    ("plan", "unlimited", "daily_messages", "left"), [("free", False, 10, 7), ("pro", True, 0, 0)]
+)
+def test_today_usage_says_whether_messages_are_unlimited(plan, unlimited, daily_messages, left):
+    """Pro's chat has no daily cap: no count to show (the phone's "Unlimited messages");
+    Free shows what is left of its ten."""
+    import asyncio
+
+    import fakeredis.aioredis
+
+    from app.core.deps import get_redis
+    from app.services.quota.counters import daily_key, utc_today
+
+    user = api_user(plan=plan)
+    app = app_with_user(user)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    asyncio.run(fake_redis.set(daily_key("chatmsg", user.id, utc_today()), 3, ex=600))
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    with patch("app.modules.chat.service.usage_repo.get_for_date", AsyncMock(return_value=None)):
+        r = TestClient(app).get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
+    data = r.json()
+    assert data["messages_unlimited"] is unlimited
+    assert (data["messages_used"], data["daily_messages"], data["messages_left"]) == (
+        3,
+        daily_messages,
+        left,
+    )
+
+
 def test_today_usage_falls_back_to_db_total_when_redis_flushed():
     """After a Redis flush, the usage display must not reset to zero — it
     reconciles against the DB-recorded total so users see real consumption."""

@@ -5,6 +5,7 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
+import type { UploadPurpose } from "@/features/attachments/api";
 import { useLatestRef } from "@/lib/latestRef";
 import { reportFailure } from "@/lib/sentry";
 
@@ -97,8 +98,12 @@ export function useSendAttachment(token: string | null) {
  * Uploads once: the copy it returns carries the server id, so a restore or a retry reuses it.
  * A failed upload is reported (metadata only) and thrown on for the caller's toast.
  */
-export async function uploadSendAttachment(token: string, attachment: PendingAttachment) {
-  const id = await uploadChatAttachment(token, attachment).catch((error: unknown) => {
+export async function uploadSendAttachment(
+  token: string,
+  attachment: PendingAttachment,
+  purpose: UploadPurpose = "chat",
+) {
+  const id = await uploadChatAttachment(token, attachment, purpose).catch((error: unknown) => {
     reportFailure("attachment_upload", error);
     throw error;
   });

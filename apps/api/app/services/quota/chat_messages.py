@@ -8,8 +8,10 @@ from datetime import date
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.services.quota.counters import (
     COUNTERS,
@@ -45,7 +47,11 @@ async def has_message_left(redis: Redis, user: User, settings: Settings) -> bool
     """Whether *user* may still send a message today (an upload waits for its send)."""
     if unlimited_messages(user, settings):
         return True
-    return await messages_used(redis, user.id) < daily_message_limit(user, settings)
+    try:
+        used_today = await messages_used(redis, user.id)
+    except RedisError as exc:
+        raise RedisUnavailableError() from exc
+    return used_today < daily_message_limit(user, settings)
 
 
 def unlimited_messages(user: User, settings: Settings) -> bool:

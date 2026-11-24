@@ -94,7 +94,9 @@ async def execute_tool(
                     "content": found.content[:8000],
                     "sources": (found.data or {}).get("hits", []),
                 }
-                if not result["sources"]:
+                # The day's searches used up is said as such ("they reset at midnight UTC").
+                spent = ctx.tavily_budget.daily_limit_reached or ctx.tavily_budget.search_used
+                if not result["sources"] and not spent:
                     result["content"] = (
                         "No live results could be verified. Say so; do not guess current facts."
                     )

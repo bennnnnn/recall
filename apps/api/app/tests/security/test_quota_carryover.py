@@ -34,6 +34,7 @@ DAILY_PREFIXES = (
     "chatmsg",
     "imgup",
     "docup",
+    "ocr",
     "speech",
     "tavily",
     "imggen",
@@ -87,6 +88,8 @@ async def _use_quota(redis: Any, user_id: UUID) -> None:
         assert await counters.reserve("image_upload", redis, user, caps)
     for _ in range(3):
         assert await counters.reserve("document_upload", redis, user, caps)
+    for _ in range(2):
+        assert await counters.reserve("document_ocr", redis, user, caps)
     for _ in range(3):
         assert await counters.reserve("speech_transcription", redis, user, caps)
     for _ in range(4):
@@ -109,6 +112,7 @@ _USED = {
     "chatmsg": 5,
     "imgup": 2,
     "docup": 3,
+    "ocr": 2,
     "speech": 3,
     "tavily": 4,
     "imggen": 1,

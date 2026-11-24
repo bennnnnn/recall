@@ -1,18 +1,18 @@
-"""A scanned PDF's vision OCR takes one of its owner's daily image-upload slots.
+"""A scanned PDF's vision OCR takes one of its owner's daily scanned-document slots.
 
 A PDF with no text layer is read page by page with vision (up to
-``ATTACHMENT_OCR_INDEX_MAX_PAGES`` calls), so it costs like a stack of photos,
-but a PDF upload took no daily slot: one user could have the index job OCR
-any number of them and spend the global cap for everyone. The index job now
-takes one ``image_upload`` slot (``DAILY_IMAGE_LIMIT*``) before it may OCR.
-At the cap the file stays attached and its text layer, if any, is still read;
-a scanned one is just not searchable that day. A PDF that turns out to have a
-text layer gets its slot back; one whose OCR found nothing keeps it spent,
-since its vision calls already ran.
+``ATTACHMENT_OCR_INDEX_MAX_PAGES`` calls), so it costs like a stack of photos.
+The index job takes one ``document_ocr`` slot (``DAILY_SCANNED_DOCUMENT_LIMIT*``,
+Pro 100 a day) before it may OCR. Each file the job reads counts, a resend's copy
+of a Library file included: the copy is read again, and the copy never passes the
+presign's document count. At the cap the file stays attached and its text layer,
+if any, is still read; a scanned one is just not searchable that day. A PDF that
+turns out to have a text layer gets its slot back; one whose OCR found nothing
+keeps it spent, since its vision calls already ran.
 
-On a plan whose uploads follow its messages (``follow_messages``) there is
-no slot: the PDF came with a sent message, which covers its OCR, so the reserve
-takes nothing and the refunds lower nothing (``counters.reserve``).
+On a plan whose scanned documents follow its messages (``follow_messages``, Free)
+there is no slot: the PDF came with a sent message, which covers its OCR, so the
+reserve takes nothing and a refund has nothing to give back.
 
 One file takes one slot however often its index job runs: the slot is recorded
 per attachment (``SET NX``), so a retry after an embedding or storage failure
@@ -76,14 +76,17 @@ async def reserve_ocr(
         user = await users_repo.get_by_id(session, user_id)
     if user is None:
         return None
-    day = await counters.reserve("image_upload", redis, user, settings)
+    if counters.follows_messages("document_ocr", user, settings):
+        # The sent message covers it: no slot, no record, so a refund gives back nothing.
+        return counters.utc_today()
+    day = await counters.reserve("document_ocr", redis, user, settings)
     if day is None:
-        logger.info("Scanned-PDF OCR skipped at the daily image limit user_id=%s", user_id)
+        logger.info("Scanned-PDF OCR skipped at the day's scanned-document cap user_id=%s", user_id)
         return None
     if await redis.set(_slot_key(attachment_id), day.isoformat(), nx=True, ex=_SLOT_TTL_SECONDS):
         return day
     # A concurrent run of the same file recorded its slot first: use that one.
-    await counters.refund("image_upload", redis, user_id, day=day)
+    await counters.refund("document_ocr", redis, user_id, day=day)
     return _as_day(await redis.get(_slot_key(attachment_id)))
 
 
@@ -93,7 +96,7 @@ async def refund_ocr(user_id: UUID, attachment_id: UUID, day: date | None) -> No
         return
     redis = get_redis_client()
     if await redis.delete(_slot_key(attachment_id)):
-        await counters.refund("image_upload", redis, user_id, day=day)
+        await counters.refund("document_ocr", redis, user_id, day=day)
 
 
 async def release_unused_ocr(

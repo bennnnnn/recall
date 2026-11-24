@@ -81,6 +81,7 @@ it.each([
   ["presign_too_large", "too_large"],
   ["presign_daily_limit", "daily_limit"],
   ["presign_messages_used", "messages_used"],
+  ["presign_busy", "rate_limited"],
   ["presign_storage_full", "storage_full"],
 ])("names a refused upload: %s", (name, reason) => {
   const failure = presignFailure(refused(name));

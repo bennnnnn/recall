@@ -27,6 +27,7 @@ from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.web_search import TurnTavilyBudget
 from app.services.quota import CHAT_SPEND_CAP_MESSAGE, quota_exceeded_message
 
 logger = logging.getLogger(__name__)
@@ -248,6 +249,21 @@ def prompt_weighted_reserve_tokens(
     return math.ceil(base * model_catalog.quota_multiplier(model))
 
 
+def share_turn_search(res: TurnResources, ctx: StreamContext, settings: Settings) -> None:
+    """The turn's one search budget (``StreamContext.search_budget``). On a plan whose
+    searches follow its messages, the message covers the search: once one reaches a
+    provider the turn keeps its message, even when the user stops it or the socket drops
+    before any reply. Given back, a Free user could search without end."""
+
+    def keep_message() -> None:
+        res.message_day = None
+        ctx.message_day = None
+
+    ctx.search_budget = TurnTavilyBudget(
+        settings=settings, user=ctx.user, on_provider_call=keep_message
+    )
+
+
 async def top_up_reserve_for_prompt(
     res: TurnResources,
     *,
@@ -259,8 +275,10 @@ async def top_up_reserve_for_prompt(
 
     Never refuses: the turn already holds a reservation and its context work
     is done. Finalize settles to actual usage and clips the counter at the limit.
-    The turn also learns the day its chat message was counted on, for a refund.
+    The turn also learns the day its chat message was counted on, for a refund, and
+    gets its one search budget (``share_turn_search``).
     """
+    share_turn_search(res, ctx, settings)
     ctx.message_day = res.message_day
     messages = ctx.prompt_messages
     if res.reserved_tokens <= 0 or not isinstance(messages, list):

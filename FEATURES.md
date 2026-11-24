@@ -928,8 +928,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro's limits** (owner, 2026-11-24) — unlimited messages behind the 15M-token guard;
   web searches **40** a day, then none (no DuckDuckGo; the reply says they reset
   tomorrow); AI images **30**; photo lookups **30**; documents **100**; voice input
-  **100**; photo uploads follow messages (no count); read-aloud has no count, each clip
-  charged to the day's tokens by its text's tokens (about four characters each).
+  **100**; scanned PDFs OCR'd **100** (each copy a Library resend makes counts); photo
+  uploads follow messages (no count); read-aloud has no count, each clip charged to the
+  day's tokens by its text's tokens (about four characters each).
+- ✅ **What a message covers** — a photo-lookup turn takes its chat message like any turn
+  (given back if the lookup fails); a turn whose search reached a provider keeps its
+  message even when stopped before the reply; a profile photo or a picture's reference
+  photo needs no message left (presign `purpose`).
 - ✅ **Upload size and Library total** — every upload, photo or document, is held to
   10 MB at presign, on the API's own upload and on the stored R2 object, and to the
   plan's Library total (400 MB / 4 GB) at presign; an account's presigns run one at a

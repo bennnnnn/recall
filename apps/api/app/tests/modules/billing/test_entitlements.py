@@ -152,6 +152,7 @@ _EXTRAS = {
     "daily_document_uploads",
     "daily_web_searches",
     "daily_image_searches",
+    "daily_scanned_documents",
 }
 
 
@@ -206,6 +207,7 @@ def test_plan_catalog_shows_no_number_where_a_plan_has_none():
     assert _EXTRAS.isdisjoint(free["allowances"])
     assert free["allowances"]["daily_messages"] == 10
     assert pro["follow_messages"] == ["daily_image_uploads"]
+    assert pro["allowances"]["daily_scanned_documents"] == 100
     assert pro["unlimited"] == ["daily_messages", "daily_speech_tts"]
     assert "daily_messages" not in pro["allowances"]
     assert pro["allowances"]["daily_web_searches"] == 40

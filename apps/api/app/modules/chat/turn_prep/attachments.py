@@ -12,7 +12,7 @@ from app.core.db import SessionLocal
 from app.exceptions import AttachmentValidationError, ChatBusyError, ChatNotFoundError
 from app.gateways.storage_gateway import StorageGateway, StorageUnavailableError
 from app.models.orm import Attachment, User
-from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.quota import has_current_upload_reservation, refund_upload
 from app.modules.chat.stream_status import StreamStatusFn
 from app.repositories import users as users_repo
 from app.services.prompt_safety import said_by_user
@@ -418,9 +418,7 @@ async def _refuse_bad_upload(
             storage_key=row.storage_key,
         )
     if removed and has_current_upload_reservation(row):
-        from app.services.quota import counters
-
-        await counters.refund(upload_counter(row.content_type), redis, user_id)
+        await refund_upload(redis, row)
     raise AttachmentValidationError(error)
 
 

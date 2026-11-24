@@ -485,3 +485,105 @@ async def test_candidates_are_fetched_side_by_side_and_a_slow_host_waits_for_non
 
     assert fetched == [(PNG_BYTES, "image/png")]
     assert time.monotonic() - started < 1.0
+
+
+def _chat_messages_used(user) -> str:
+    return f"chatmsg:{user.id}:2026-10-16"
+
+
+@pytest.mark.asyncio
+async def test_a_lookup_turn_with_no_message_left_is_refused_before_any_search(
+    fake_redis, quota_clock
+):
+    """The lookup is the turn: a Free user with none of the day's messages left gets the
+    chat's own refusal (the turn then meets the usual message-limit prompt), and nothing
+    is searched."""
+    user = MagicMock(id=uuid4(), plan="free")
+    await fake_redis.set(_chat_messages_used(user), 10, ex=600)
+    search = AsyncMock(return_value=[_HIT])
+    with (
+        patch(
+            "app.modules.images.search.chat_history.get_chat", AsyncMock(return_value=MagicMock())
+        ),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.search.image_search_gateway.search_images", search),
+        pytest.raises(ImageSearchError) as refused,
+    ):
+        await search_and_attach_for_chat(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            query="the Eiffel Tower",
+            takes_message=True,
+        )
+    assert (refused.value.status_code, refused.value.code) == (429, "quota_exceeded")
+    search.assert_not_awaited()
+    assert await fake_redis.get(_chat_messages_used(user)) == "10"
+
+
+@pytest.mark.asyncio
+async def test_a_lookup_turn_gives_its_message_back_when_it_finds_nothing(fake_redis, quota_clock):
+    user = MagicMock(id=uuid4(), plan="free")
+    await fake_redis.set(_chat_messages_used(user), 3, ex=600)
+    with (
+        patch(
+            "app.modules.images.search.chat_history.get_chat", AsyncMock(return_value=MagicMock())
+        ),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.images.search.image_search_gateway.search_images",
+            AsyncMock(return_value=[]),
+        ),
+        pytest.raises(ImageSearchError),
+    ):
+        await search_and_attach_for_chat(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            query="the Eiffel Tower",
+            takes_message=True,
+        )
+    assert await fake_redis.get(_chat_messages_used(user)) == "3"
+
+
+@pytest.mark.asyncio
+async def test_a_lookup_turn_that_finds_a_photo_keeps_its_message(fake_redis, quota_clock):
+    """A found photo is the turn's reply: its message stays spent, as any turn's does."""
+    user = MagicMock(id=uuid4(), plan="free")
+    await fake_redis.set(_chat_messages_used(user), 3, ex=600)
+    fetch_client = AsyncMock()
+    fetch_client.__aenter__ = AsyncMock(return_value=fetch_client)
+    fetch_client.__aexit__ = AsyncMock(return_value=None)
+
+    async def _fake_create(session, *, role, content, **kwargs):
+        return MagicMock(id=uuid4(), content=content)
+
+    with (
+        patch(
+            "app.modules.images.search.chat_history.get_chat", AsyncMock(return_value=MagicMock())
+        ),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.images.search.image_search_gateway.search_images",
+            AsyncMock(return_value=[_HIT]),
+        ),
+        patch("app.gateways.safe_fetch.fetch_client", return_value=fetch_client),
+        patch(
+            "app.modules.images.search.safe_fetch.fetch_safely",
+            AsyncMock(return_value=_fake_response()),
+        ),
+        patch("app.modules.images.search.attachments_service.add_server_images", AsyncMock()),
+        patch.object(messages_repository, "create", AsyncMock(side_effect=_fake_create)),
+        patch("app.modules.images.search.finish_turn", AsyncMock()),
+    ):
+        await search_and_attach_for_chat(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            query="the Eiffel Tower",
+            takes_message=True,
+        )
+    assert await fake_redis.get(_chat_messages_used(user)) == "4"

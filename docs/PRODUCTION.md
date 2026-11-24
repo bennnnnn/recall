@@ -305,6 +305,7 @@ server only knows the ids `free` and `pro`.
 | Web searches (Tavily) / day | follow messages (one a turn) | 40, then none (no DuckDuckGo) |
 | Photo uploads / day | follow messages | follow messages (no count) |
 | Document uploads / day | follow messages | 100 |
+| Scanned PDFs OCR'd / day | follow messages | 100 (each copy a resend makes counts) |
 | File size (every upload) | 10 MB | 10 MB |
 | Library storage | 400 MiB | 4 GiB |
 | Live talk | — | 60 min / UTC calendar month |
@@ -317,7 +318,10 @@ lookup, and a sent scanned PDF's OCR, are covered by that turn's message, and at
 one search a turn reaches the providers. Past Pro's 40 searches a turn searches
 nothing, not even DuckDuckGo, and the reply says today's searches are used up and
 reset tomorrow; DuckDuckGo stands in only when Tavily itself fails. What bounds uploads
-that are never sent: the 10 MB per file (presign, the API's own upload and the stored
+that are never sent: the 10 MB per file. A profile photo or an AI picture's reference
+photo (`purpose` `avatar` / `reference` on the presign) needs no message left: it goes
+out with none. A chat upload's refund gives back only a slot its presign recorded
+taking (`attachments/quota.record_upload_slot`). Bounds besides: the 10 MB per file (presign, the API's own upload and the stored
 R2 object are each held to it), the Library total (checked at every presign, one
 presign at a time per account) and the per-minute request limits.
 
@@ -771,11 +775,12 @@ Settings includes its reservation.
 
 **Scanned PDFs.** A PDF with no text layer is read with up to
 `ATTACHMENT_OCR_INDEX_MAX_PAGES` vision calls by the index job, which first
-takes one of the owner's daily image-upload slots (`DAILY_IMAGE_LIMIT*`), on a
-plan that counts photo uploads; both plans' photos follow their messages today, so
-the PDF's own message covers it (Pro's PDFs are counted as documents). At a cap
-the file stays attached but is not searchable that day; a PDF read from its text
-layer gets the slot back.
+takes one of the owner's daily scanned-document slots
+(`DAILY_SCANNED_DOCUMENT_LIMIT*`, Pro 100). Every file the job reads counts, a
+Library resend's copy included (the copy is read again and never passes the
+presign's document count). Free's follow its messages: the PDF's own message
+covers it. At the cap the file stays attached but is not searchable that day; a
+PDF read from its text layer gets the slot back.
 
 ---
 

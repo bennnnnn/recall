@@ -18,12 +18,13 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.redis_lock import acquire_lock, release_lock
-from app.exceptions import DomainError
+from app.exceptions import DomainError, RedisUnavailableError
 from app.models.orm import Attachment, User
 from app.modules.billing.entitlements import allowance
 from app.services.quota.messages import plan_message
@@ -64,12 +65,16 @@ async def library_presign(redis: Redis, user_id: UUID) -> AsyncIterator[None]:
     """One presign at a time for *user_id*: its Library total read and the pending row
     that adds to it happen together. 429 ``rate_limited`` when the turn never comes."""
     key = f"recall:library_presign:{user_id}"
-    token = await acquire_lock(redis, key, _LOCK_SECONDS)
-    waited = 0.0
-    while token is None and waited < _WAIT_SECONDS:
-        await asyncio.sleep(_POLL_SECONDS)
-        waited += _POLL_SECONDS
+    try:
         token = await acquire_lock(redis, key, _LOCK_SECONDS)
+        waited = 0.0
+        while token is None and waited < _WAIT_SECONDS:
+            await asyncio.sleep(_POLL_SECONDS)
+            waited += _POLL_SECONDS
+            token = await acquire_lock(redis, key, _LOCK_SECONDS)
+    except RedisError as exc:
+        # Any Redis refusal (down, over its request quota, read-only) is the outage's 503.
+        raise RedisUnavailableError() from exc
     if token is None:
         raise DomainError(
             "Too many uploads at once. Try again in a moment.",

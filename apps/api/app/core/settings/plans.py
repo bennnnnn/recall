@@ -24,6 +24,7 @@ class PlanAllowanceSettings(BaseModel):
         "daily_document_uploads",
         "daily_web_searches",
         "daily_image_searches",
+        "daily_scanned_documents",
     ]
     # Pro's photos only: its messages are unlimited, so its photo uploads are bounded by
     # file size, the Library total and the request limits.
@@ -36,6 +37,11 @@ class PlanAllowanceSettings(BaseModel):
     # machine. Also enforced at presign.
     daily_document_limit: int = 10
     daily_document_limit_pro: int = 100
+    # Scanned PDFs read by vision OCR a day (up to ``ATTACHMENT_OCR_INDEX_MAX_PAGES`` calls
+    # each), counted per file the index job reads: a resend's copy of a file counts again,
+    # since it is read again. Free's follow its messages.
+    daily_scanned_document_limit: int = 10
+    daily_scanned_document_limit_pro: int = 100
     # Tavily searches per user per UTC day. Past the cap a turn gets no search at all
     # (the reply says today's searches are used up); DuckDuckGo stands in only when
     # Tavily itself fails.

@@ -28,6 +28,7 @@ describe("presignFailure", () => {
     [refused(429, { code: "daily_limit", message: "Reworded limit." }), "daily_limit"],
     // A plan whose uploads follow its messages, with none left today.
     [refused(429, { code: "quota_exceeded", message: "Reworded quota." }), "messages_used"],
+    [refused(429, { code: "rate_limited", message: "Reworded busy." }), "rate_limited"],
     [refused(409, { code: "storage_full", message: "Reworded full." }), "storage_full"],
     [refused(400, "Unsupported content type"), "upload_failed"],
     [refused(503, { code: "unavailable", message: "Attachment storage is not configured" }), "upload_failed"],
@@ -60,7 +61,7 @@ describe("attachmentErrorMessage", () => {
   it("has an English message for every reason", () => {
     const reasons: AttachmentFailure[] = [
       "too_large", "unsupported_type", "unreadable", "changed", "upload_failed", "daily_limit", "storage_full",
-      "camera_permission", "messages_used",
+      "camera_permission", "messages_used", "rate_limited",
     ];
     const keys = reasons.map((reason) => attachmentErrorMessage(new AttachmentError(reason), (key) => key));
     for (const key of keys) expect(en).toHaveProperty([key]);

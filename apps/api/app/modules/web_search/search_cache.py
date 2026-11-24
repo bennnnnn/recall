@@ -20,6 +20,7 @@ import hashlib
 import itertools
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -71,6 +72,9 @@ class TurnTavilyBudget:
 
     settings: Settings
     user: User | None
+    # Called when a search reaches a provider on a plan whose searches follow messages:
+    # the turn keeps its message from then on (``turn_resources.share_turn_search``).
+    on_provider_call: Callable[[], None] | None = None
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _decided: bool = False
     _skip_tavily: bool = False
@@ -92,6 +96,16 @@ class TurnTavilyBudget:
             return False
         self._begun = True
         return True
+
+    def note_provider_call(self) -> None:
+        """A search is about to reach a provider: on a plan whose searches follow its
+        messages, the turn's message now pays for it (``on_provider_call``)."""
+        if (
+            self.on_provider_call is not None
+            and self.user is not None
+            and counters.follows_messages("tavily_search", self.user, self.settings)
+        ):
+            self.on_provider_call()
 
     @property
     def search_used(self) -> bool:
@@ -384,6 +398,8 @@ async def _search_with_cache(
         if budget is not None and budget.daily_limit_reached:
             # Today's searches are used up: no provider, DuckDuckGo included.
             return []
+        if budget is not None:
+            budget.note_provider_call()
 
         try:
             hits = await web_search_gateway.search_web(

@@ -76,6 +76,7 @@ def _presign(
     at_daily_cap: bool = False,
     messages_used: bool = False,
     library_full: bool = False,
+    busy: bool = False,
 ) -> Any:
     """POST /attachments/presign: Pro at its day's documents, or Free (whose uploads
     follow its messages) with none of the day's messages left."""
@@ -89,8 +90,12 @@ def _presign(
     if messages_used:
         cap = counters.limit("chat_message", user, Settings())
         asyncio.run(_seed(fake_redis, f"chatmsg:{user.id}:{day}", cap))
+    if busy:
+        # Another presign of the account's holds the Library's turn the whole wait.
+        asyncio.run(_seed(fake_redis, f"recall:library_presign:{user.id}", 1))
     stored = Settings().library_storage_bytes if library_full else 0
     with (
+        patch("app.modules.attachments.storage_quota._WAIT_SECONDS", 0.1),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.attachments.storage_quota.stored_bytes",
@@ -474,6 +479,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         },
         "presign_daily_limit": _refusal(_presign("application/pdf", 128, at_daily_cap=True)),
         "presign_messages_used": _refusal(_presign("image/png", 128, messages_used=True)),
+        "presign_busy": _refusal(_presign("image/png", 128, busy=True)),
         "presign_storage_full": _refusal(_presign("image/png", 128, library_full=True)),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),

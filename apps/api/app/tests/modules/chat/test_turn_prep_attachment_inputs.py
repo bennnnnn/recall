@@ -122,7 +122,7 @@ async def _run(
         patch("app.modules.math.ocr.extract_math_from_image", ocr),
         patch("app.modules.physics.read.read_physics_problem", mocks["physics_read"]),
         patch("app.modules.chemistry.read.read_chemistry_problem", mocks["chemistry_read"]),
-        patch("app.services.quota.counters.refund", mocks["refund"]),
+        patch("app.modules.chat.turn_prep.attachments.refund_upload", mocks["refund"]),
     ):
         mocks["gateway"] = gw
         result = await _process_attachments(
@@ -289,7 +289,7 @@ async def test_a_failed_verify_purges_and_refunds_only_a_reserved_image(reserved
     mark_verified.assert_not_awaited()
     assert purge.call_args.kwargs == {"attachment_id": image.id, "storage_key": image.storage_key}
     assert refund.await_count == (1 if reserved else 0)
-    assert refund.await_args is None or refund.await_args.args[0] == "image_upload"
+    assert refund.await_args is None or refund.await_args.args[1].content_type.startswith("image/")
 
 
 @pytest.mark.asyncio

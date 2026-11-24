@@ -48,7 +48,7 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
             AsyncMock(),
         ) as cancel,
         patch(
-            "app.modules.attachments.workflow.counters.refund",
+            "app.modules.attachments.workflow.refund_upload",
             AsyncMock(),
         ) as refund,
     ):

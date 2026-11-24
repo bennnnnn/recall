@@ -99,3 +99,36 @@ async def test_pro_still_meets_its_token_guard(fake_redis) -> None:
             )
     assert refused.value.message == QUOTA_EXCEEDED_MESSAGE_PAID
     assert not any(count in refused.value.message for count in ("1,000", "1000"))
+
+
+@pytest.mark.parametrize(("plan", "kept"), [("free", True), ("pro", False)])
+async def test_a_turn_whose_search_reached_a_provider_keeps_its_message(
+    fake_redis, plan: str, kept: bool
+) -> None:
+    """Free's search is covered by its message: once one reached a provider, a Stop or a
+    dropped socket before any reply no longer gives the message back (it was, and Free
+    searched without end). Pro's searches count on their own; its message comes back."""
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+
+    from app.gateways.web_search_gateway import WebSearchHit
+    from app.modules.web_search.search_cache import run_cached_search
+
+    user = _user(plan)
+    settings = Settings(max_output_tokens=1_000, tavily_api_key="k", web_search_enabled=True)
+    res = _resources(fake_redis, user)
+    await res.reserve(user=user, content="who won today?", model="free-chat", settings=settings)
+    ctx = SimpleNamespace(user=user, message_day=res.message_day, search_budget=None)
+    turn_resources.share_turn_search(res, ctx, settings)  # type: ignore[arg-type]
+    hit = WebSearchHit(title="t", url="https://t.example", snippet="s")
+    with patch(
+        "app.modules.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(return_value=[hit]),
+    ):
+        await run_cached_search(
+            settings, ["who won"], user=user, redis=fake_redis, budget=ctx.search_budget
+        )
+    await res.refund()  # the user stopped before the first token
+
+    assert await quota_service.messages_used(fake_redis, user.id) == (1 if kept else 0)
+    assert (ctx.message_day is None) is kept

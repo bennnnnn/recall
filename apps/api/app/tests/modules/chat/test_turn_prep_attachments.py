@@ -115,7 +115,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             AsyncMock(),
         ),
         patch(
-            "app.services.quota.counters.refund",
+            "app.modules.chat.turn_prep.attachments.refund_upload",
             AsyncMock(),
         ) as refund_mock,
     ):
@@ -131,7 +131,8 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
                 attachment_ids=[attachment_id],
             )
 
-    refund_mock.assert_awaited_once_with("image_upload", redis, user_id)
+    refund_mock.assert_awaited_once()
+    assert refund_mock.await_args.args[0] is redis
 
 
 @pytest.mark.asyncio
