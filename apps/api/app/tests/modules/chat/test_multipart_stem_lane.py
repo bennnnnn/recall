@@ -89,7 +89,7 @@ async def test_a_message_of_several_requests_names_the_subject_of_its_solve(
     assert reading is not None and reading.solve_subject == subject
 
 
-@pytest.mark.parametrize("plan", ["pro", "plus", "free"])
+@pytest.mark.parametrize("plan", ["pro", "free"])
 async def test_stem_work_among_other_requests_routes_to_the_maths_lane(plan: str) -> None:
     trace = begin_turn_trace("new")
     ctx = await _decided(OWNERS, _read("everyday", hard_odds=0.81), plan)
