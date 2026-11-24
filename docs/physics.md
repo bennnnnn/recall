@@ -540,8 +540,8 @@ The binder reads these laws, beside the extractors' own:
   rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A row no reader can work
   closes on the solve's own value, unrounded (`answer_values`), never on the card's: "v =
   17.8" over a card padded to 17.80 for 17.76 (P8, 2026-11-21). Since 2026-11-23 the last row
-  also writes the card's rounding after the value, as a textbook does (`a = 4.905 m/s² ≈ 4.9
-  m/s²`), whoever wrote the working (`chat/rounded_end.py`, a finalize pass after the card's
+  also writes the card's rounding after the value, as a textbook does (`t = 4.82488 s ≈ 4.82
+  s`), whoever wrote the working (`chat/rounded_end.py`, a finalize pass after the card's
   numbers; the owner's phone read `4.82488 s` over `4.82 s` as two answers). A card of several values
   takes each from the working line that reached it (`chat/card_numbers.py`). A value the working
   reaches on the way is whole when it ends within six figures (8372, 0.0025) and four

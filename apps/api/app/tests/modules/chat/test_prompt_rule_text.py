@@ -126,11 +126,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # QA of 100 new accounts, 2026-11-22); then ordinary chat's short layout guide and the privacy
 # rules it keeps, five shared sentences named so it can say them too (ORDINARY_FORMAT_GUIDE,
 # PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22); then a ```worked substitution
-# that may end on its rounding ("= 4.82488 \approx 4.82"), its answer record still the value
-# unrounded (prompt_constants.worked, the owner, 2026-11-23).
+# that may end on its rounding ("= 4.82488 s \approx 4.82 s", its unit on both sides), its
+# answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23).
 _RULES = 223
-_RULE_GRAMS = 20905
-_RULE_GRAMS_SHA = "a510467abfbef666"
+_RULE_GRAMS = 20912
+_RULE_GRAMS_SHA = "5a90a29ec5277666"
 
 
 def _rules() -> list[str]:

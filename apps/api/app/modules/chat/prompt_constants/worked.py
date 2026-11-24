@@ -38,7 +38,7 @@ WORKED_BLOCK_CONTRACT = (
     "step: an equation | the move that reached it, the equation first (for an equation "
     "solved one move at a time, with no formula)\n"
     "substitution: the values put into the formula, one state per line, the last one the "
-    "value with its unit unrounded (its rounding may follow it: `= 4.82488 \\approx 4.82`); "
+    "value with its unit unrounded (its rounding may follow it, its unit on both sides: `= 4.82488 s \\approx 4.82 s`); "
     "a value an earlier part found goes into a later "
     "part unrounded\n"
     "say: a sentence in words, never a formula: what a part asked in words says (what "

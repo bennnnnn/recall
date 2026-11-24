@@ -22,6 +22,7 @@ money, a pH: ``card_numbers.plain_numbers``) are left as they are.
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from app.modules.chat.card_numbers import (
@@ -32,7 +33,7 @@ from app.modules.chat.card_numbers import (
     rounding_of,
 )
 from app.modules.chat.tex_arithmetic import INLINE_MATH
-from app.modules.chat.working_cards import only_headings
+from app.modules.chat.working_cards import only_headings, without_closing_headings
 from app.services.answer_check import Number, read_verified_value
 from app.services.answer_fence import ANSWER_FENCE_LANGS
 from app.services.md_fence_scan import iter_fences
@@ -86,22 +87,24 @@ def _card(body: str) -> tuple[Number, str, str | None] | None:
 
 def _last_maths(above: str) -> tuple[int, int] | None:
     """Where the last maths above a card is (its inside), when only blank lines and bold
-    headings stand between it and the card."""
+    headings stand between it and the card. The headings go first: "**Answer for $t$**"
+    names the card, it is no working (``working_cards.without_closing_headings``)."""
+    working = without_closing_headings(above)
     spans = [
         (match.start(group), match.end(group), match.end())
-        for match in _DISPLAY_MATH.finditer(above)
+        for match in _DISPLAY_MATH.finditer(working)
         for group in ("dollars", "brackets")
         if match.group(group) is not None
     ]
     # Display maths blanked, so its "$$" is never read as two inline lines.
-    blanked = _DISPLAY_MATH.sub(lambda match: " " * len(match.group(0)), above)
+    blanked = _DISPLAY_MATH.sub(lambda match: " " * len(match.group(0)), working)
     spans += [
         (match.start(1), match.end(1), match.end()) for match in INLINE_MATH.finditer(blanked)
     ]
     if not spans:
         return None
     start, end, outer_end = max(spans, key=lambda span: span[2])
-    after = above[outer_end:]
+    after = working[outer_end:]
     closing = _CLOSING_MARK.match(after)
     if not only_headings(after[closing.end() :] if closing else after):
         return None
@@ -111,35 +114,46 @@ def _last_maths(above: str) -> tuple[int, int] | None:
 def _rounded(maths: str, card: Number, shown: str, label: str | None) -> str | None:
     """The line ending on the card's rounding, in the line's own sign and unit, or None to
     leave it. A rounding the line already writes is kept when it is the card's, and given the
-    card's number when it is not: a model's "\\approx 25.4 m" over a card of 25.39 m."""
+    card's number when it is not: a model's "\\approx 25.4 m" over a card of 25.39 m. A unit
+    written on one side only is both sides': "4.82488 s \\approx 4.8" and "4.82488 \\approx
+    4.8 s" over a card of 4.82 s both end "\\approx 4.82 s" (review, #2577)."""
     body = maths.rstrip()
     head, equals, side = body.rpartition("=")
     rounding = ROUNDED_TO.search(side)
     reached = side[: rounding.start()] if rounding else side
+    said_tex = side[rounding.end() :] if rounding else ""
     worked = line_value(body)
-    if not equals or worked is None or worked.value == card.value:
+    said = _one_number(said_tex) if rounding else None
+    if not equals or worked is None or (rounding and said is None):
         return None
-    if not rounding_of(card, worked):
-        return None  # a disagreement, or no rounding of it: another pass's
+    if said is not None and not worked.unit:
+        worked = replace(worked, unit=said.unit)  # "4.82488 \approx 4.8 s": its unit
+    unitless = said is not None and not said.unit and bool(worked.unit)
+    if said is not None and unitless:
+        said = replace(said, unit=worked.unit)  # "4.82488 s \approx 4.8": the same unit
+    if worked.value == card.value or not rounding_of(card, worked):
+        return None  # already the card's, or a disagreement: another pass's
     named = read_verified_value(f"{head}={reached}")
     if label and named is not None and named.label and named.label != label:
         return None  # another quantity's line: v_y above a card of v_x
-    if rounding is None:
-        said = _with_number(reached.strip(), shown)
-        return None if said is None else f"{body} \\approx {said}{maths[len(body) :]}"
-    said_tex = side[rounding.end() :]
-    read = read_verified_value(said_tex)
-    if read is None or len(read.numbers) != 1:
+    if said is None or rounding is None:
+        ending = _with_number(reached.strip(), shown)
+        return None if ending is None else f"{body} \\approx {ending}{maths[len(body) :]}"
+    if said.unit != card.unit or (said.value < 0) != (card.value < 0):
         return None
-    number = read.numbers[0]
-    if number.unit != card.unit or (number.value < 0) != (card.value < 0):
-        return None
-    if number.value == card.value:
+    if said.value == card.value and not unitless:
         return None  # the line's own rounding is the card's
-    again = _with_number(said_tex, shown)
+    # A rounding with no unit is written as the value before it is, with the card's number.
+    again = _with_number(reached.strip(), shown) if unitless else _with_number(said_tex, shown)
     if again is None:
         return None
-    return f"{head}={side[: rounding.end()]}{again}{maths[len(body) :]}"
+    lead = said_tex[: len(said_tex) - len(said_tex.lstrip())] if unitless else ""
+    return f"{head}={side[: rounding.end()]}{lead}{again}{maths[len(body) :]}"
+
+
+def _one_number(tex: str) -> Number | None:
+    read = read_verified_value(tex)
+    return read.numbers[0] if read is not None and len(read.numbers) == 1 else None
 
 
 def _with_number(side: str, shown: str) -> str | None:

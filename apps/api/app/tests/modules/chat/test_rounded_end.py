@@ -101,6 +101,39 @@ def test_a_rounding_the_line_writes_takes_the_cards_number() -> None:
         assert rounded_ends(odd) == odd
 
 
+@pytest.mark.parametrize(
+    ("line", "ended"),
+    [
+        # Review, #2577: the unit on one side only, either side; the line ends on 4.82 s.
+        (
+            r"$t = 4.82488\,\mathrm{s} \approx 4.8$",
+            r"$t = 4.82488\,\mathrm{s} \approx 4.82\,\mathrm{s}$",
+        ),
+        (
+            r"$t = 4.82488 \approx 4.8\,\mathrm{s}$",
+            r"$t = 4.82488 \approx 4.82\,\mathrm{s}$",
+        ),
+        # The card's number with no unit written: the unit is added.
+        (
+            r"$t = 4.82488\,\mathrm{s} \approx 4.82$",
+            r"$t = 4.82488\,\mathrm{s} \approx 4.82\,\mathrm{s}$",
+        ),
+    ],
+)
+def test_a_unit_on_one_side_of_the_rounding_is_both_sides(line: str, ended: str) -> None:
+    reply = f"{line}\n\n{_card(r't = 4.82\,\mathrm{s}', 'false')}"
+    assert rounded_ends(reply) == reply.replace(line, ended)
+
+
+def test_a_heading_naming_the_card_is_no_working() -> None:
+    """Review, #2577: "**Answer for $t$**" between the working and the card; its $t$ was read
+    as the working's last line."""
+    reply = r"$t = 4.82488\ \text{s}$" + "\n\n**Answer for $t$**\n\n" + _card(r"t = 4.82\ \text{s}")
+    done = rounded_ends(reply)
+    assert r"$t = 4.82488\ \text{s} \approx 4.82\ \text{s}$" in done
+    assert "**Answer for $t$**" in done
+
+
 def test_only_headings_may_stand_between_the_line_and_the_card() -> None:
     sentence = (
         r"$t = 4.82488\ \text{s}$" + "\n\nSo the ball lands after that.\n\n" + _card("t = 4.82 s")

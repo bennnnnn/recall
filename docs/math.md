@@ -92,8 +92,8 @@ card that rounds has the value unrounded once, as the working's last line:
 an exact multiple of π (`V = \frac{32}{3}\pi`, `direct_geometry_working/layout.pi_value`), a
 root (`c = \sqrt{34}`), or in physics and chemistry the worked number
 (`a = 4.905 m/s²` over 4.9 m/s², `m = 29.22 g` over 29 g). That line differs from the card by
-rounding, so it stays, and since 2026-11-23 it ends on the card's rounding (`a = 4.905 m/s² ≈ 4.9
-m/s²`; `chat/rounded_end.py`, every subject). A step's rule is not written beside it when the Formula already
+rounding, so it stays, and since 2026-11-23 it ends on the card's rounding (`t = 4.82488 s ≈ 4.82
+s`; `chat/rounded_end.py`, every subject). A step's rule is not written beside it when the Formula already
 states it (the chain rule once, not twice). Each line
 is one state; its move is a short note after ` — `. A formula rearranged for the unknown is not
 a note: a line `Solve for $t$` (`solve_for_line`, one wording wherever a subject writes it:
