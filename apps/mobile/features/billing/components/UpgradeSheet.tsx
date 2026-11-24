@@ -160,11 +160,12 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
   );
 }
 
-/** The periods the store sells (both before it has said, so the choice is seen); yearly first. */
+/** The periods the store sells (both before it has said, so the choice is seen); monthly to
+ * start (the owner's choice, 2026-11-24). */
 function usePeriodChoice(packages: Partial<Record<BillingPeriod, PlanPackage>>) {
   const sold = BILLING_PERIODS.filter((period) => packages[period]);
   const periods = sold.length > 0 ? sold : BILLING_PERIODS;
-  const [picked, setPicked] = useState<BillingPeriod>("yearly");
+  const [picked, setPicked] = useState<BillingPeriod>("monthly");
   return { periods, period: periods.includes(picked) ? picked : periods[0], setPicked };
 }
 

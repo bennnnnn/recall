@@ -123,18 +123,18 @@ beforeEach(() => {
   mockUser = { plan: "free" };
 });
 
-it("offers free users the one plan, yearly first, with the store's prices and what a year saves", async () => {
+it("offers free users the one plan, monthly to start, with the store's prices and what a year saves", async () => {
   const screen = await openSheet();
-  // 59.99 against 12 × 7.99 = 95.88: 37.4% less, said as 37 (never rounded up).
-  expect(screen.getByText('upgrade.period_yearly_save {"percent":37}')).toBeOnTheScreen();
-  expect(screen.getByTestId("upgrade-period-yearly").props.accessibilityState.checked).toBe(true);
-  expect(screen.getAllByText("$59.99").length).toBeGreaterThan(0);
-  expect(screen.getByText('upgrade.subscribe_price {"plan":"plans.pro","price":"$59.99upgrade.per_year_suffix"}')).toBeOnTheScreen();
-  expect(screen.getByText("upgrade.renews_yearly")).toBeOnTheScreen();
-  await pick(screen, "monthly");
+  expect(screen.getByTestId("upgrade-period-monthly").props.accessibilityState.checked).toBe(true);
   expect(screen.getAllByText("$7.99").length).toBeGreaterThan(0);
   expect(screen.getByText('upgrade.subscribe_price {"plan":"plans.pro","price":"$7.99upgrade.per_month_suffix"}')).toBeOnTheScreen();
   expect(screen.getByText("upgrade.renews_monthly")).toBeOnTheScreen();
+  // 59.99 against 12 × 7.99 = 95.88: 37.4% less, said as 37 (never rounded up).
+  expect(screen.getByText('upgrade.period_yearly_save {"percent":37}')).toBeOnTheScreen();
+  await pick(screen, "yearly");
+  expect(screen.getAllByText("$59.99").length).toBeGreaterThan(0);
+  expect(screen.getByText('upgrade.subscribe_price {"plan":"plans.pro","price":"$59.99upgrade.per_year_suffix"}')).toBeOnTheScreen();
+  expect(screen.getByText("upgrade.renews_yearly")).toBeOnTheScreen();
   expect(mockTrack).toHaveBeenCalledWith("paywall_viewed", { source: "live_talk" });
 });
 
@@ -170,7 +170,7 @@ it("says the store is unavailable, never an empty shop, and reads it again on Re
   });
   expect(getPlanPackages).toHaveBeenCalledTimes(2);
   expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
-  expect(screen.getAllByText("$59.99").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("$7.99").length).toBeGreaterThan(0);
 });
 
 it("shows a subscriber their plan, with nothing to buy and no Continue with Free", async () => {
@@ -188,9 +188,9 @@ it("buys the picked period, then asks the server to re-read the store", async ()
   mockPurchase.mockResolvedValue("pro");
   mockSyncSubscription.mockResolvedValue(true);
   const screen = await openSheet();
-  await pick(screen, "monthly");
+  await pick(screen, "yearly");
   await buy(screen);
-  expect(mockPurchase.mock.calls[0][0].period).toBe("monthly");
+  expect(mockPurchase.mock.calls[0][0].period).toBe("yearly");
   expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
   expect(mockTrack).toHaveBeenCalledWith("purchase_succeeded", { plan: "pro" });
 });
@@ -326,7 +326,7 @@ it("waits for the store to be set up before reading it, never saying it is unava
     setMockStore(mockStoreReady, true);
   });
   expect(getPlanPackages).toHaveBeenCalledTimes(1);
-  expect(screen.getAllByText("$59.99").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("$7.99").length).toBeGreaterThan(0);
 });
 
 it("says the store is unavailable when its set-up never came, and Retry sets it up again", async () => {
@@ -350,7 +350,7 @@ it("says the store is unavailable when its set-up never came, and Retry sets it 
     });
     expect(getPlanPackages).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("upgrade.store_unavailable")).toBeNull();
-    expect(screen.getAllByText("$59.99").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("$7.99").length).toBeGreaterThan(0);
   } finally {
     jest.useRealTimers();
   }
@@ -374,7 +374,7 @@ it("says a purchase waiting for approval is pending, and offers no second one", 
   expect(mockSyncSubscription).not.toHaveBeenCalled();
   expect(screen.getByTestId("upgrade-subscribe").props.accessibilityState.disabled).toBe(true);
   // The other period is no way round it: still one purchase.
-  await pick(screen, "monthly");
+  await pick(screen, "yearly");
   await buy(screen);
   expect(mockPurchase).toHaveBeenCalledTimes(1);
   // Approved: the store lands the plan and the page sells again.
