@@ -40,14 +40,12 @@ def test_a_root_written_wrong_inside_a_fraction_is_put_right() -> None:
 
 def test_a_wrong_time_is_put_right_and_carried_to_the_range_and_the_answer() -> None:
     fixed = corrected_working(_TIME_SLIP)
-    assert fixed == (
-        _TIME_SLIP.replace("4.85", "4.83").replace("99.3", "98.9")
-    ), fixed
+    assert fixed == (_TIME_SLIP.replace("4.85", "4.83").replace("99.3", "98.9")), fixed
     assert wrong_steps(fixed) == []
 
 
 def test_the_carried_range_is_the_corrected_time_s() -> None:
-    # 20.48 × 4.85 = 99.33 is right arithmetic on a wrong time: only the time is the slip.
+    # 20.48 * 4.85 = 99.33 is right arithmetic on a wrong time: only the time is the slip.
     steps = wrong_steps(_TIME_SLIP)
     assert [step.shown for step in steps] == ["4.85\\ \\text{s}"]
 
@@ -72,6 +70,12 @@ def test_the_carried_range_is_the_corrected_time_s() -> None:
         ("$\\log_{10}(250) = 2.47$", "2.40"),
         ("$100 e^{-0.5} = 62.1$", "60.7"),
         ("$\\pi (2.5)^2 = 19.8$", "19.6"),
+        # An absolute value, and moles (never a step to millis).
+        ("$|90 - 82.5| = 7.9$", "7.5"),
+        (
+            "$4\\,\\mathrm{g} / 2.016\\,\\mathrm{g/mol} = 2.124\\,\\mathrm{mol}$",
+            "1.984\\,\\mathrm{mol}",
+        ),
         # Powers of ten.
         ("$6.02 \\times 10^{23} \\times 2 = 1.5 \\times 10^{24}$", "1.2 \\times 10^{24}"),
         ("$\\frac{1.6 \\times 10^{-19}}{2} = 0.85 \\times 10^{-19}$", "8.00 \\times 10^{-20}"),
@@ -144,15 +148,14 @@ def test_right_or_unreadable_working_is_never_changed(reply: str) -> None:
 def test_a_number_given_before_the_slip_is_never_carried() -> None:
     """4.85 is the question's own value: only the slip's line is put right."""
     reply = (
-        "**Steps**\n\n$m = 4.85\\ \\text{kg}$\n\n$a = \\frac{20}{4} = 4.85$\n\n"
-        "$F = 4.85 \\times 2$"
+        "**Steps**\n\n$m = 4.85\\ \\text{kg}$\n\n$a = \\frac{20}{4} = 4.85$\n\n$F = 4.85 \\times 2$"
     )
     fixed = corrected_working(reply, "A 4.85 kg box is pushed with 20 N over 4 m.")
     assert fixed == reply.replace("\\frac{20}{4} = 4.85", "\\frac{20}{4} = 5.00")
 
 
 def test_a_later_result_with_the_same_digits_is_judged_on_its_own() -> None:
-    """2.425 × 2 is 4.85: that line is right and keeps its number."""
+    """2.425 * 2 is 4.85: that line is right and keeps its number."""
     reply = (
         "**Steps**\n\n$t = \\frac{14.34 + \\sqrt{14.34^2 + 4(4.9)(45)}}{2(4.9)}$\n"
         "$t = 4.85\\ \\text{s}$\n\n$y = 2.425 \\times 2 = 4.85$"
@@ -173,9 +176,7 @@ def test_fences_and_a_card_are_never_touched() -> None:
 
 def test_a_step_that_cannot_be_put_right_stops_the_walk_and_is_named() -> None:
     """Another exact form: which side slipped is unknown, so nothing after it changes."""
-    reply = (
-        "**Steps**\n\n$A = \\sqrt{11375}$\n$A = 25\\sqrt{72}$\n\n$t = \\frac{9.81}{2.5} = 3.98$"
-    )
+    reply = "**Steps**\n\n$A = \\sqrt{11375}$\n$A = 25\\sqrt{72}$\n\n$t = \\frac{9.81}{2.5} = 3.98$"
     assert corrected_working(reply) == reply
     assert working_note(reply) is not None
 
@@ -208,7 +209,7 @@ def test_ambiguous_or_huge_functions_are_not_read(tex: str) -> None:
 
 
 def test_a_short_number_is_carried_only_where_it_is_said_again() -> None:
-    """"38" may be another value's in a calculation: its restatement follows the fix."""
+    """ "38" may be another value's in a calculation: its restatement follows the fix."""
     reply = "**Steps**\n\n$12 \\times 3 = 38$\n\n**Answer**\n\n$38$"
     assert corrected_working(reply) == reply.replace("38", "36")
 

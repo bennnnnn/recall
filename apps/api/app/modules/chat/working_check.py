@@ -49,7 +49,10 @@ _SHOWN = re.compile(
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
-OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand|rsin|rcos|rtan|ln|lg|lbin|exp|euler")
+# Units that only start with a prefix's letter: "4 g / 2.016 g/mol = 1.984 mol" is a division,
+# never a step to millis.
+_NOT_PREFIXED = frozenset({"mol", "min", "mph", "mmHg", "cal", "cd", "mi", "mile", "miles"})
+OPERATOR = re.compile(r"[-+*/]|sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|ln|lg|lbin|exp|euler")
 RELATION = re.compile(r"\\approx|≈|=")
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
@@ -82,7 +85,8 @@ def _converts_unit(left_tex: str, right_tex: str) -> bool:
     """The result is in a prefixed unit the working never wrote, or in another unit of a
     measure the working wrote in: "π rad = 180°", "4.8e-19 J = 3 eV" (review, #2520)."""
     left_units = set(_PREFIXED_UNIT.findall(left_tex))
-    if any(unit not in left_units for unit in _PREFIXED_UNIT.findall(right_tex)):
+    prefixed = (unit for unit in _PREFIXED_UNIT.findall(right_tex) if unit not in _NOT_PREFIXED)
+    if any(unit not in left_units for unit in prefixed):
         return True
     left_kinds, right_kinds = _unit_kinds(left_tex), _unit_kinds(right_tex)
     return any(

@@ -82,7 +82,7 @@ _TRIG_DEGREES = re.compile(
 )
 # The names a plain side may call, longest first: "sind" is a sine of degrees, "rsin" one
 # of radians; "lgx" a log with no base written (base 10, or e: ``log_readings``).
-_FUNCTIONS = r"sqrt|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
+_FUNCTIONS = r"sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
 # ln 2, \\log_{10} 1000, \\sin 0.5: a function of one bare number, its brackets left out.
 _BARE_ARGUMENT = re.compile(
     r"\\(ln|log|exp|sin|cos|tan)(\s*_\s*\{?\s*(?:10|2|e)\s*\}?)?\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*\^)"
@@ -94,6 +94,8 @@ _NAMED_FUNCTION = re.compile(r"\\(ln|exp|sin|cos|tan|log)(?![A-Za-z])(?!\s*_)")
 _EULER = re.compile(r"\\(?:mathrm|text|rm)\s*\{\s*e\s*\}|(?<![A-Za-z\\])e(?=\s*\^)")
 # A power of e that is e's own: a decimal or a sign in it ("e^{-0.5}", "e^{1.2}").
 _EULER_POWER = re.compile(r"\s*\^\s*\{[^{}]*[.\-\\]")
+# |90 - 82.5|: an absolute value, its bars around plain maths.
+_ABSOLUTE = re.compile(r"\\?\|([^|]+)\\?\|")
 # \\sqrt[3]{27}: a root of another degree.
 _NTH_ROOT = re.compile(r"\\sqrt\s*\[\s*(\d+)\s*\]\s*\{([^{}]*)\}")
 # A unit written out: never \\operatorname, which names a function (\\operatorname{ln}(2) is
@@ -121,6 +123,7 @@ def plain_arithmetic(tex: str) -> str | None:
     text = re.sub(r"\\pi(?![A-Za-z])", " pi ", text)
     text = _TEXT_WORD.sub(lambda m: m.group(0) if _is_unit(m.group(0)) else "#", text)
     text = UNIT_GROUP.sub(" ", text)
+    text = _ABSOLUTE.sub(r" abs(\1) ", text)
     for _ in range(4):
         text = _FRAC.sub(r"((\1)/(\2))", text)
         text = _NTH_ROOT.sub(r"((\2)**(1/(\1)))", text)
@@ -322,6 +325,7 @@ def _names_pi(node: ast.AST) -> bool:
 CONSTANTS = {"pi": math.pi, "euler": math.e}
 CALLS: dict[str, Callable[[float], float]] = {
     "sqrt": math.sqrt,
+    "abs": abs,
     "sind": _sind,
     "cosd": _cosd,
     "tand": _tand,
