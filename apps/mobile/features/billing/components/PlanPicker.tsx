@@ -1,13 +1,11 @@
 /**
- * The plans sheet's parts: the paid plans as tiles side by side (name, price, the day's
- * messages), what the picked plan gives as a checklist, and the small print. A tile is
- * picked with a tap; the sheet's one button buys it.
+ * The plans page's parts: the plan as one card (its name, what it gives),
+ * what is paid today and next, and the links a store asks of a subscription page.
  */
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
-import type { IconName } from "@/ui/icons/names";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -16,84 +14,54 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export type FeatureLine = { icon: IconName; text: string; note?: string };
-
-export type Tile = {
-  id: string;
-  name: string;
-  /** The store's price ("$7.99"); none until the store says, and then the tile shows none. */
-  price?: string;
-  perMonth: string;
-  headline: string;
-};
-
-export function PlanTiles({
-  tiles,
-  picked,
-  onPick,
-  disabled,
-}: {
-  tiles: readonly Tile[];
-  picked: string | null;
-  onPick: (id: string) => void;
-  disabled?: boolean;
-}) {
+/** The plan: its name and what it gives, in two columns of short lines. What it costs is the
+ * dates row's. */
+export function PlanCard({ title, features }: { title: string; features: readonly string[] }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={s.tiles}>
-      {tiles.map((tile) => {
-        const on = tile.id === picked;
-        return (
-          <Pressable
-            key={tile.id}
-            onPress={() => onPick(tile.id)}
-            disabled={disabled}
-            style={[s.tile, on && s.tileOn]}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: on, disabled }}
-            accessibilityLabel={[tile.name, tile.price && `${tile.price}${tile.perMonth}`, tile.headline]
-              .filter(Boolean)
-              .join(", ")}
-            testID={`upgrade-plan-${tile.id}`}
-          >
-            <View style={s.tileTop}>
-              <Text style={[s.tileName, on && s.tileNameOn]}>{tile.name}</Text>
-              <View style={[s.radio, on && s.radioOn]}>
-                {on ? <Icon name="check" size={IconSize.xxs} color={theme.onPrimary} /> : null}
-              </View>
-            </View>
-            {tile.price ? (
-              <Text style={s.price}>
-                {tile.price}
-                <Text style={s.perMonth}>{tile.perMonth}</Text>
-              </Text>
-            ) : null}
-            <Text style={s.headline}>{tile.headline}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={s.card} testID="upgrade-plan-card">
+      <Text style={s.cardTitle}>{title}</Text>
+      <View style={s.cardList}>
+        {features.map((feature) => (
+          <View key={feature} style={s.cardItem}>
+            <Icon name="check" size={IconSize.xs} color={theme.primary} />
+            <Text style={s.cardBody}>{feature}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
-export function PlanBenefits({ heading, lines }: { heading: string; lines: readonly FeatureLine[] }) {
+export type TimelineRow = { label: string; amount: string; chip?: string };
+
+/** What is paid when: today (nothing, in a free trial) and the next payment's day. */
+export function PlanTimeline({ rows }: { rows: readonly [TimelineRow, TimelineRow] }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
-    <View style={s.benefits}>
-      <Text style={s.benefitsHeading}>{heading}</Text>
-      {lines.map((line) => (
-        <View key={line.text} style={s.benefit}>
-          <View style={s.benefitIcon}>
-            <Icon name={line.icon} size={IconSize.xs} color={theme.primary} />
+    <View style={s.timeline} testID="upgrade-timeline">
+      <View style={s.rail} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={s.dot} />
+        <View style={s.line} />
+        <View style={s.dot} />
+      </View>
+      <View style={s.timelineRows}>
+        {rows.map((row, index) => (
+          <View key={row.label} style={s.timelineRow}>
+            <Text style={[s.timelineLabel, index === 0 && s.timelineLabelFirst]} numberOfLines={2}>
+              {row.label}
+            </Text>
+            {row.chip ? (
+              <View style={s.chip}>
+                <Text style={s.chipText}>{row.chip}</Text>
+              </View>
+            ) : null}
+            <Text style={[s.amount, index === 0 && s.amountFirst]}>{row.amount}</Text>
           </View>
-          <Text style={s.benefitText}>
-            {line.text}
-            {line.note ? <Text style={s.benefitNote}>{`  ${line.note}`}</Text> : null}
-          </Text>
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   );
 }
@@ -101,8 +69,8 @@ export function PlanBenefits({ heading, lines }: { heading: string; lines: reado
 /** A small link is about 17pt tall: this makes it a 45pt target. */
 const SMALL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
-/** The subscription's renewal and the Terms and Privacy links that a store asks of a
- * subscription screen, in the smallest type, after Restore when the build can sell. */
+/** Privacy, Terms and (when the build can sell) Restore, over the renewal terms in the
+ * smallest type: what a store asks of a subscription page. */
 export function PlansSmallPrint({
   renews,
   links,
@@ -115,25 +83,24 @@ export function PlansSmallPrint({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const items = [
-    ...(restore ? [{ label: restore.label, onPress: restore.onPress, disabled: restore.disabled }] : []),
-    { label: links.terms, onPress: () => void openAllowedUrl(getLegalTermsUrl()), disabled: false },
-    { label: links.privacy, onPress: () => void openAllowedUrl(getLegalPrivacyUrl()), disabled: false },
+    { label: links.privacy, onPress: () => void openAllowedUrl(getLegalPrivacyUrl()), disabled: false, role: "link" as const },
+    { label: links.terms, onPress: () => void openAllowedUrl(getLegalTermsUrl()), disabled: false, role: "link" as const },
+    ...(restore ? [{ ...restore, role: "button" as const }] : []),
   ];
   return (
     <View style={s.small}>
-      <Text style={s.smallText}>{renews}</Text>
       <View style={s.smallLinks}>
         {items.map((item, index) => (
           <View key={item.label} style={s.smallLinkRow}>
             {index > 0 ? (
-              <Text style={s.smallText} accessibilityElementsHidden importantForAccessibility="no">
-                ·
+              <Text style={s.smallDivider} accessibilityElementsHidden importantForAccessibility="no">
+                |
               </Text>
             ) : null}
             <Pressable
               onPress={item.onPress}
               disabled={item.disabled}
-              accessibilityRole={index === 0 && restore ? "button" : "link"}
+              accessibilityRole={item.role}
               accessibilityLabel={item.label}
               hitSlop={SMALL_LINK_SLOP}
             >
@@ -142,57 +109,49 @@ export function PlansSmallPrint({
           </View>
         ))}
       </View>
+      <Text style={s.smallText}>{renews}</Text>
     </View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    tiles: { flexDirection: "row", gap: Space.sm },
-    tile: {
-      flex: 1,
-      minWidth: 0,
-      borderRadius: Radius.lg,
-      borderWidth: 1.5,
+    card: {
+      borderRadius: Radius.xl,
+      // White on the page's tint (the dark theme's raised surface there), so it reads as one card.
+      backgroundColor: theme.isDark ? theme.surface : theme.elevated,
+      borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
-      padding: Space.md,
-      gap: Space.xxs,
+      paddingHorizontal: Space.lg,
+      paddingVertical: Space.md,
+      gap: Space.sm,
     },
-    tileOn: { borderColor: theme.primary, backgroundColor: withAlpha(theme.primary, theme.isDark ? 0.18 : 0.07) },
-    tileTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    tileName: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
-    tileNameOn: { color: theme.primary },
-    radio: {
-      width: 20,
-      height: 20,
+    cardTitle: { ...Type.title, ...Weight.bold, color: theme.text },
+    cardList: { flexDirection: "row", flexWrap: "wrap", rowGap: Space.xs },
+    cardItem: { width: "50%", flexDirection: "row", alignItems: "center", gap: Space.xs, paddingRight: Space.xs },
+    cardBody: { flex: 1, ...Type.body, color: theme.textSecondary },
+    timeline: { flexDirection: "row", gap: Space.md, paddingHorizontal: Space.xxs },
+    rail: { alignItems: "center", paddingVertical: Space.xs },
+    dot: { width: 9, height: 9, borderRadius: Radius.full, backgroundColor: theme.text },
+    line: { flex: 1, width: 2, backgroundColor: theme.text, marginVertical: 2 },
+    timelineRows: { flex: 1, gap: Space.sm },
+    timelineRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
+    timelineLabel: { flex: 1, ...Type.body, color: theme.textSecondary },
+    timelineLabelFirst: { ...Weight.semibold, color: theme.text },
+    chip: {
       borderRadius: Radius.full,
-      borderWidth: 1.5,
-      borderColor: theme.borderStrong,
-      alignItems: "center",
-      justifyContent: "center",
+      backgroundColor: withAlpha(theme.primary, theme.isDark ? 0.24 : 0.12),
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
     },
-    radioOn: { borderColor: theme.primary, backgroundColor: theme.primary },
-    price: { ...Type.title, ...Weight.bold, color: theme.text, marginTop: Space.xxs },
-    perMonth: { ...Type.caption, ...Weight.regular, color: theme.textSecondary },
-    headline: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
-    benefits: { gap: Space.sm },
-    benefitsHeading: { ...Type.overline, color: theme.textTertiary },
-    benefit: { flexDirection: "row", alignItems: "center", gap: Space.sm },
-    benefitIcon: {
-      width: 28,
-      height: 28,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    benefitText: { flex: 1, ...Type.body, color: theme.text },
-    benefitNote: { ...Type.caption, color: theme.textTertiary },
-    small: { gap: Space.xxs, alignItems: "center" },
+    chipText: { ...Type.caption, ...Weight.semibold, color: theme.primary },
+    amount: { ...Type.body, color: theme.textSecondary, fontVariant: ["tabular-nums"] },
+    amountFirst: { ...Weight.bold, color: theme.text },
+    small: { gap: Space.sm, alignItems: "center" },
     smallText: { ...Type.caption, ...Weight.regular, color: theme.textTertiary, textAlign: "center" },
     smallLinks: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center" },
-    smallLinkRow: { flexDirection: "row", alignItems: "center", gap: Space.xs, marginHorizontal: Space.xxs },
+    smallLinkRow: { flexDirection: "row", alignItems: "center", gap: Space.md, marginHorizontal: Space.sm },
+    smallDivider: { ...Type.caption, color: theme.textTertiary },
     smallLink: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
   });
 }

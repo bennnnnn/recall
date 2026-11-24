@@ -313,7 +313,7 @@ function serverBody(method: string, path: string, body?: string): unknown {
     };
   }
   if (p === "/models") return [{ id: "free-chat", label: "Free", available: true, plan_access: "free" }];
-  if (p === "/billing/plans") return { current: "free", plans: [{ id: "plus", features: [], allowances: {} }] };
+  if (p === "/billing/plans") return { current: "free", plans: [{ id: "pro", features: [], allowances: {} }] };
   if (p === "/todos/page") return { items: [], next_cursor: null };
   if (p === "/chats/usage/today") return { date: "2026-10-24", tokens_used: 0, daily_limit: 100000 };
   if (p === "/chats" && method === "POST") {

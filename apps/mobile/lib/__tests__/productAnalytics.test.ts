@@ -129,9 +129,9 @@ describe("trackProductEvent", () => {
 
     turnEvents();
     jest.mocked(getSessionGeneration).mockReturnValue(2);
-    trackProductEvent("purchase_started", { plan: "plus" });
+    trackProductEvent("purchase_started", { plan: "pro" });
     await settle();
-    expect(sentEvents()).toEqual([expect.objectContaining({ name: "purchase_started", properties: { plan: "plus" } })]);
+    expect(sentEvents()).toEqual([expect.objectContaining({ name: "purchase_started", properties: { plan: "pro" } })]);
   });
 
   it("swallows delivery failures and does not resend", async () => {

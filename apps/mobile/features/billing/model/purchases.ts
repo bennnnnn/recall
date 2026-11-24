@@ -15,37 +15,49 @@ import { createValueStore } from "@/lib/listenerSet";
 import type { PaidPlanId, PlanId } from "@/lib/plan";
 import { reportFailure } from "@/lib/sentry";
 
-/**
- * RevenueCat entitlement per paid plan. "pro" keeps the single-plan id, so
- * existing subscribers stay on the top plan; the server maps the same ids.
- */
-const PLAN_ENTITLEMENT_IDS: Record<PaidPlanId, string> = { plus: "plus", pro: "pro" };
+/** The one paid plan's RevenueCat entitlement; the server maps the same id. */
+const PRO_ENTITLEMENT_ID = "pro";
 
-/**
- * Package identifier per plan in the current RevenueCat offering. An offering
- * from the single-plan era (only a monthly package) is offered as Pro.
- */
-const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
-  plus: "plus_monthly",
-  pro: "pro_monthly",
-};
+/** How often the plan is paid for: the offering's standard monthly and annual packages. */
+export type BillingPeriod = "monthly" | "yearly";
+export const BILLING_PERIODS: readonly BillingPeriod[] = ["monthly", "yearly"];
 
 /** Opaque handle — keeps react-native-purchases out of the static import graph
  * (its types are erased at build time). */
-type PlanPackage = {
+export type PlanPackage = {
   plan: PaidPlanId;
+  period: BillingPeriod;
   /** Localized by the store ("$7.99", "7,99 €"); never hardcoded. */
   priceString: string;
+  /** The same price as a number, in the store's currency: only to compare the periods. */
+  price: number;
+  /** The store's own per-month figure for the price ("$5.00" for $59.99 a year). */
+  pricePerMonth?: string | null;
   productId: string;
   native: PurchasesPackage;
+  /** A free first period the store gives this account; none when it gives none. */
+  trial?: FreeTrial;
 };
+
+/** A free first period: "7 days", "1 month". `priceString` is the store's zero ("$0.00"). */
+export type FreeTrial = { count: number; unit: "day" | "week" | "month" | "year"; priceString: string };
+
+type IntroPrice = PurchasesPackage["product"]["introPrice"];
+const TRIAL_UNITS = { DAY: "day", WEEK: "week", MONTH: "month", YEAR: "year" } as const;
+
+/** The store's introductory price as a free trial, or none when it costs anything. */
+export function freeTrialOf(intro: IntroPrice): FreeTrial | undefined {
+  if (!intro || intro.price !== 0) return undefined;
+  const unit = TRIAL_UNITS[intro.periodUnit as keyof typeof TRIAL_UNITS];
+  const count = intro.periodNumberOfUnits * Math.max(1, intro.cycles);
+  if (!unit || !(count > 0)) return undefined;
+  return { count, unit, priceString: intro.priceString };
+}
 
 type ActiveEntitlements = Record<string, { productIdentifier?: string } | undefined>;
 type CustomerInfoLike = { entitlements: { active: ActiveEntitlements } };
 
 type PurchasesModule = typeof import("react-native-purchases");
-/** Android: the Plus subscription a Pro purchase replaces. */
-type ProductChange = Parameters<PurchasesModule["default"]["purchasePackage"]>[2];
 
 let purchasesModule: PurchasesModule | null | undefined;
 
@@ -77,10 +89,7 @@ export function isPurchaseCancelled(error: unknown): boolean {
 
 /** Highest plan the store says is active (what the server will also find). */
 export function planFromCustomerInfo(info: CustomerInfoLike): PlanId {
-  const active = info.entitlements.active;
-  if (active[PLAN_ENTITLEMENT_IDS.pro] != null) return "pro";
-  if (active[PLAN_ENTITLEMENT_IDS.plus] != null) return "plus";
-  return "free";
+  return info.entitlements.active[PRO_ENTITLEMENT_ID] != null ? "pro" : "free";
 }
 
 async function loadPurchases(): Promise<PurchasesModule | null> {
@@ -168,7 +177,7 @@ export async function recheckPendingPurchase(now: number = Date.now()): Promise<
 }
 
 export type PlanOffer = {
-  packages: Partial<Record<PaidPlanId, PlanPackage>>;
+  packages: Partial<Record<BillingPeriod, PlanPackage>>;
   /** The store could not be read, or sells no plan: say so and offer a retry. */
   unavailable: boolean;
 };
@@ -199,32 +208,55 @@ export async function getPlanPackages(): Promise<PlanOffer> {
     reportFailure("store", storeSellsNothing("no_current_offering"));
     return STORE_UNAVAILABLE;
   }
-  const found: Partial<Record<PaidPlanId, PlanPackage>> = {};
-  for (const pkg of offering.availablePackages) {
-    for (const plan of ["plus", "pro"] as const) {
-      if (pkg.identifier === PLAN_PACKAGE_IDS[plan]) {
-        found[plan] = {
-          plan,
-          priceString: pkg.product.priceString,
-          productId: pkg.product.identifier,
-          native: pkg,
-        };
-      }
-    }
-  }
-  if (!found.plus && !found.pro && offering.monthly) {
-    found.pro = {
+  const found: Partial<Record<BillingPeriod, PlanPackage>> = {};
+  const periods: [BillingPeriod, PurchasesPackage | null][] = [
+    ["monthly", offering.monthly],
+    ["yearly", offering.annual],
+  ];
+  for (const [period, pkg] of periods) {
+    if (!pkg) continue;
+    found[period] = {
       plan: "pro",
-      priceString: offering.monthly.product.priceString,
-      productId: offering.monthly.product.identifier,
-      native: offering.monthly,
+      period,
+      priceString: pkg.product.priceString,
+      price: pkg.product.price,
+      pricePerMonth: pkg.product.pricePerMonthString,
+      productId: pkg.product.identifier,
+      native: pkg,
     };
   }
-  if (!found.plus && !found.pro) {
+  if (!found.monthly && !found.yearly) {
     reportFailure("store", storeSellsNothing("no_plan_in_offering"));
     return STORE_UNAVAILABLE;
   }
+  await addFreeTrials(mod, Object.values(found));
   return { packages: found, unavailable: false };
+}
+
+/**
+ * A free trial is promised only to an account that gets it. Google lists a trial offer only
+ * to an account it is open to; the App Store lists it to everyone, so iOS asks the store, and
+ * an answer other than eligible (or no answer) shows the plain price.
+ */
+async function addFreeTrials(mod: PurchasesModule, packages: PlanPackage[]): Promise<void> {
+  const offered = packages.filter((pkg) => freeTrialOf(pkg.native.product.introPrice));
+  if (offered.length === 0) return;
+  let eligible = (_productId: string) => true;
+  if (Platform.OS === "ios") {
+    try {
+      const status = await mod.default.checkTrialOrIntroductoryPriceEligibility(
+        offered.map((pkg) => pkg.productId),
+      );
+      const yes = mod.default.INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
+      eligible = (productId) => status[productId]?.status === yes;
+    } catch (error) {
+      reportFailure("store", error);
+      return;
+    }
+  }
+  for (const pkg of offered) {
+    if (eligible(pkg.productId)) pkg.trial = freeTrialOf(pkg.native.product.introPrice);
+  }
 }
 
 /** RevenueCat rejects a purchase the store holds for approval with this code, on both stores. */
@@ -234,18 +266,16 @@ function isPaymentPending(mod: PurchasesModule, error: unknown): boolean {
 }
 
 /**
- * Buy a plan; resolves with the plan the store now reports, or "pending" when the
- * store holds the purchase for approval (`heldPurchase.ts`). On Android a move
- * from Plus to Pro replaces the Plus subscription (prorated) instead of
- * stacking a second one; on iOS both live in one subscription group, so the
- * App Store does that itself.
+ * Buy the plan for a period; resolves with the plan the store now reports, or "pending" when
+ * the store holds the purchase for approval (`heldPurchase.ts`). A subscriber changes period
+ * in the store's own subscription page, so nothing here replaces a subscription.
  */
 export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId | "pending"> {
   const mod = await loadPurchases();
   if (!mod) return "free";
   let result: Awaited<ReturnType<PurchasesModule["default"]["purchasePackage"]>>;
   try {
-    result = await mod.default.purchasePackage(pkg.native, null, await productChangeFor(mod, pkg));
+    result = await mod.default.purchasePackage(pkg.native);
   } catch (error) {
     if (!isPaymentPending(mod, error)) throw error;
     holdPurchase(configuredAppUserId ?? "", pkg.plan);
@@ -254,19 +284,6 @@ export async function purchasePlanPackage(pkg: PlanPackage): Promise<PlanId | "p
   const plan = planFromCustomerInfo(result.customerInfo);
   settleHeldPurchase(plan);
   return plan;
-}
-
-/** Android: the Plus subscription a Pro purchase replaces, prorated; null otherwise. */
-async function productChangeFor(mod: PurchasesModule, pkg: PlanPackage): Promise<ProductChange> {
-  if (Platform.OS !== "android" || pkg.plan !== "pro") return null;
-  const info = await mod.default.getCustomerInfo();
-  const plusProduct = info.entitlements.active[PLAN_ENTITLEMENT_IDS.plus]?.productIdentifier;
-  const oldProduct = plusProduct?.split(":")[0];
-  if (!oldProduct || oldProduct === pkg.productId.split(":")[0]) return null;
-  return {
-    oldProductIdentifier: oldProduct,
-    prorationMode: mod.default.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION,
-  };
 }
 
 /**
@@ -302,8 +319,7 @@ export async function signOutRevenueCat(): Promise<void> {
 }
 
 /**
- * Register a listener that fires when the store plan changes (free / plus /
- * pro). RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry
+ * Register a listener that fires when the store plan changes (free / pro). RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry
  * and on app foreground; we de-dupe to only invoke `onChange` when the plan
  * actually changes, so callers don't spam a backend sync on every foreground.
  * The listener also fires once on registration with the current state —

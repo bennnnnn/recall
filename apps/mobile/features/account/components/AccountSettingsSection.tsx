@@ -9,7 +9,7 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { planNameKey, planOf, upgradeTargets } from "@/lib/plan";
+import { planNameKey, planOf } from "@/lib/plan";
 
 function manageSubscriptionUrl(): string {
   return Platform.OS === "ios"
@@ -18,9 +18,9 @@ function manageSubscriptionUrl(): string {
 }
 
 /**
- * Email, plan, and the Usage page. Free opens the plans sheet (which also restores a
- * purchase); a paid plan shows its name and has its own row to manage the subscription
- * in the store, and Plus also gets a way up to Pro.
+ * Email, plan, and the Usage page. Free opens the plans page (which also restores a
+ * purchase); the paid plan shows its name and has its own row to manage the subscription
+ * in the store.
  */
 export function AccountSettingsSection() {
   const { user } = useAuth();
@@ -28,7 +28,6 @@ export function AccountSettingsSection() {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const plan = planOf(user);
   const planName = t(planNameKey(plan));
-  const nextPlan = plan === "free" ? null : upgradeTargets(plan)[0] ?? null;
 
   return (
     <>
@@ -52,15 +51,6 @@ export function AccountSettingsSection() {
             accent
           />
         )}
-        {nextPlan ? (
-          <SettingsLinkRow
-            icon="sparkles"
-            title={t("settings.plan_upgrade", { plan: t(planNameKey(nextPlan)) })}
-            subtitle={t("settings.plan_upgrade_live_talk")}
-            onPress={() => setUpgradeVisible(true)}
-            accent
-          />
-        ) : null}
         <SettingsLinkRow
           icon="bar-chart"
           title={t("settings.usage_group")}

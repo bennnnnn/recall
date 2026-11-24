@@ -156,22 +156,22 @@ describe("Sentry's attribute names (lib/sentryAttributes.js)", () => {
 
 type CustomerInfo = { entitlements: { active: Record<string, { productIdentifier: string }> } };
 
-const PLUS: CustomerInfo = { entitlements: { active: { plus: { productIdentifier: "plus_monthly:monthly" } } } };
+const FREE: CustomerInfo = { entitlements: { active: {} } };
 const PRO: CustomerInfo = { entitlements: { active: { pro: { productIdentifier: "pro_monthly:monthly" } } } };
 const PRO_PACKAGE = {
-  identifier: "pro_monthly",
+  identifier: "$rc_monthly",
   presentedOfferingContext: { offeringIdentifier: "default", placementIdentifier: null, targetingContext: null },
-  product: { identifier: "pro_monthly:monthly", priceString: "$9.99" },
+  product: { identifier: "pro_monthly:monthly", priceString: "$9.99", price: 9.99, introPrice: null },
 };
 
 /** What the native store answers each method with; any other method returns nothing. */
 const NATIVE_ANSWERS: Record<string, unknown> = {
   isConfigured: true,
-  logIn: { customerInfo: PLUS, created: false },
-  getOfferings: { all: {}, current: { availablePackages: [PRO_PACKAGE], monthly: null } },
-  getCustomerInfo: PLUS,
-  purchasePackage: { productIdentifier: "pro_monthly", customerInfo: PRO },
-  restorePurchases: PLUS,
+  logIn: { customerInfo: FREE, created: false },
+  getOfferings: { all: {}, current: { availablePackages: [PRO_PACKAGE], monthly: PRO_PACKAGE, annual: null } },
+  getCustomerInfo: FREE,
+  purchasePackage: { productIdentifier: "$rc_monthly", customerInfo: PRO },
+  restorePurchases: PRO,
   logOut: { entitlements: { active: {} } },
 };
 
@@ -266,21 +266,19 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     mockPlatform.OS = os;
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded after the mocks above
     const purchases = require("@/features/billing/model/purchases") as typeof import("@/features/billing/model/purchases");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- the same module features/billing/model/purchases.ts loads
-    const { default: Purchases } = require("react-native-purchases") as typeof import("react-native-purchases");
 
     await purchases.configurePurchases("user-1");
     await purchases.configurePurchases("user-2");
-    const { pro } = (await purchases.getPlanPackages()).packages;
-    expect(pro).toMatchObject({ plan: "pro", priceString: "$9.99", productId: "pro_monthly:monthly" });
-    await expect(purchases.purchasePlanPackage(pro!)).resolves.toBe("pro");
-    await expect(purchases.restorePurchases()).resolves.toBe("plus");
+    const { monthly } = (await purchases.getPlanPackages()).packages;
+    expect(monthly).toMatchObject({ plan: "pro", period: "monthly", priceString: "$9.99", price: 9.99, productId: "pro_monthly:monthly" });
+    await expect(purchases.purchasePlanPackage(monthly!)).resolves.toBe("pro");
+    await expect(purchases.restorePurchases()).resolves.toBe("pro");
 
     const plans: string[] = [];
     const stop = await purchases.registerPlanChangeListener((plan) => plans.push(plan));
     mockNativeEvents.get("Purchases-CustomerInfoUpdated")?.(PRO);
     stop?.();
-    mockNativeEvents.get("Purchases-CustomerInfoUpdated")?.(PLUS);
+    mockNativeEvents.get("Purchases-CustomerInfoUpdated")?.(FREE);
     expect(plans).toEqual(["pro"]);
     await purchases.signOutRevenueCat();
 
@@ -288,15 +286,10 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     expect(nativeCalls("setupPurchases").map((args) => args.slice(0, 2))).toEqual([[`${os}_key`, "user-1"]]);
     expect(nativeCalls("logIn")).toEqual([["user-2"]]);
     expect(nativeCalls("getOfferings")).toEqual([[]]);
-    // Android: Pro replaces the Plus subscription, prorated.
-    expect(typeof Purchases.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION).toBe("number");
-    const change =
-      os === "android"
-        ? { oldProductIdentifier: "plus_monthly", prorationMode: Purchases.PRORATION_MODE.IMMEDIATE_WITH_TIME_PRORATION }
-        : null;
-    expect(nativeCalls("getCustomerInfo")).toEqual(os === "android" ? [[]] : []);
+    // One plan: a purchase replaces no other subscription.
+    expect(nativeCalls("getCustomerInfo")).toEqual([]);
     expect(nativeCalls("purchasePackage")).toEqual([
-      ["pro_monthly", PRO_PACKAGE.presentedOfferingContext, change, null, null],
+      ["$rc_monthly", PRO_PACKAGE.presentedOfferingContext, undefined, null, null],
     ]);
     expect(nativeCalls("restorePurchases")).toEqual([[]]);
     expect(nativeCalls("logOut")).toEqual([[]]);
@@ -312,8 +305,8 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
       userInfo: { readableErrorCode: "PAYMENT_PENDING_ERROR" },
     }));
     await purchases.configurePurchases("user-1");
-    const { pro } = (await purchases.getPlanPackages()).packages;
-    await expect(purchases.purchasePlanPackage(pro!)).resolves.toBe("pending");
+    const { monthly } = (await purchases.getPlanPackages()).packages;
+    await expect(purchases.purchasePlanPackage(monthly!)).resolves.toBe("pending");
     // eslint-disable-next-line @typescript-eslint/no-require-imports -- the copy purchases.ts loaded
     const held = require("@/features/billing/model/heldPurchase") as typeof import("@/features/billing/model/heldPurchase");
     expect(held.heldPurchase()).toBe("pro");

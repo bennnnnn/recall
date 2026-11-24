@@ -42,16 +42,6 @@ it("free: names the plan and opens the plans sheet", async () => {
   expect(mockUpgradeVisible).toBe(true);
 });
 
-it("Plus: manages the subscription and offers the step up to Pro", async () => {
-  mockUser = { email: "a@b.c", plan: "plus", features: PAID };
-  const screen = await render(<AccountSettingsSection />);
-  expect(screen.getByText("plans.plus")).toBeOnTheScreen();
-  expect(screen.getByText("settings.manage_subscription")).toBeOnTheScreen();
-  expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
-  await fireEvent.press(screen.getByText('settings.plan_upgrade {"plan":"plans.pro"}'));
-  expect(mockUpgradeVisible).toBe(true);
-});
-
 it("paid: the plan is named on its own row, and Manage subscription is a row of its own", async () => {
   const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
   mockUser = { email: "a@b.c", plan: "pro", features: [...PAID, "live_talk"] };

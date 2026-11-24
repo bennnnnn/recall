@@ -7,7 +7,7 @@ import { Motion, useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
-import { type Theme, useTheme } from "@/lib/theme";
+import { type Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 type Segment<K extends string> = { key: K; label: string };
@@ -18,6 +18,8 @@ type Props<K extends string> = {
   onChange: (key: K) => void;
   /** Spoken name of the choice, e.g. "Text size". */
   accessibilityLabel?: string;
+  /** On a tinted background: a see-through track that takes the tint, not a grey one. */
+  tinted?: boolean;
   testID?: string;
 };
 
@@ -30,6 +32,7 @@ export function SegmentedControl<K extends string>({
   value,
   onChange,
   accessibilityLabel,
+  tinted = false,
   testID = "segmented",
 }: Props<K>) {
   const theme = useTheme();
@@ -55,7 +58,7 @@ export function SegmentedControl<K extends string>({
 
   return (
     <View
-      style={s.track}
+      style={[s.track, tinted && s.trackTinted]}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       accessibilityRole="radiogroup"
       accessibilityLabel={accessibilityLabel}
@@ -105,6 +108,7 @@ function makeStyles(t: Theme) {
       borderRadius: Radius.full,
       backgroundColor: t.isDark ? t.surface : t.control,
     },
+    trackTinted: { backgroundColor: withAlpha(t.isDark ? t.surface : t.elevated, 0.55) },
     thumb: {
       position: "absolute",
       top: Space.xxs,

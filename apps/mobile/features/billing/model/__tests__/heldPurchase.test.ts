@@ -45,19 +45,19 @@ beforeEach(() => {
 
 describe("on Android", () => {
   it("keeps a held Plus through a relaunch, for its own account", async () => {
-    launch().holdPurchase("user-1", "plus", T0);
+    launch().holdPurchase("user-1", "pro", T0);
     await settle();
 
     const relaunched = launch();
     await relaunched.loadHeldPurchase("user-1", T0 + 3 * DAY);
-    expect(relaunched.heldPurchase()).toBe("plus");
+    expect(relaunched.heldPurchase()).toBe("pro");
   });
 
   it("does not let go after 30 minutes, only after a week", async () => {
     const held = launch();
-    held.holdPurchase("user-1", "plus", T0);
+    held.holdPurchase("user-1", "pro", T0);
     held.expireHeldPurchase(T0 + 31 * MINUTE);
-    expect(held.heldPurchase()).toBe("plus");
+    expect(held.heldPurchase()).toBe("pro");
     held.expireHeldPurchase(T0 + 7 * DAY);
     expect(held.heldPurchase()).toBeNull();
     await settle();
@@ -76,10 +76,10 @@ describe("on Android", () => {
     expect(mockDisk.size).toBe(0);
   });
 
-  it("lets go once the store grants the plan or a higher one, and not for a lower one", async () => {
+  it("lets go once the store grants the plan, and not while it says free", async () => {
     const held = launch();
     held.holdPurchase("user-1", "pro", T0);
-    held.settleHeldPurchase("plus");
+    held.settleHeldPurchase("free");
     expect(held.heldPurchase()).toBe("pro");
     held.settleHeldPurchase("pro");
     expect(held.heldPurchase()).toBeNull();
@@ -89,7 +89,7 @@ describe("on Android", () => {
 
   it("forgets the hold, here and on disk, when released (a restore or a sign-out)", async () => {
     const held = launch();
-    held.holdPurchase("user-1", "plus", T0);
+    held.holdPurchase("user-1", "pro", T0);
     await held.releaseHeldPurchase();
     expect(held.heldPurchase()).toBeNull();
     expect(mockDisk.size).toBe(0);
@@ -103,11 +103,11 @@ describe("on iOS", () => {
 
   it("keeps the hold for the session only, and lets go after 30 minutes", async () => {
     const held = launch();
-    held.holdPurchase("user-1", "plus", T0);
+    held.holdPurchase("user-1", "pro", T0);
     await settle();
     expect(mockDisk.size).toBe(0);
     held.expireHeldPurchase(T0 + 29 * MINUTE);
-    expect(held.heldPurchase()).toBe("plus");
+    expect(held.heldPurchase()).toBe("pro");
     held.expireHeldPurchase(T0 + 30 * MINUTE);
     expect(held.heldPurchase()).toBeNull();
   });
