@@ -85,10 +85,14 @@ _CUTS = re.compile(
     r"|another (?:thing|question)|on another note)\b))"
     r"|(?P<sentence>(?<=[?!]) |(?-i:(?<=[a-z0-9)\]\"'%])\. (?=[A-Z]))|(?<=\w): (?=\w))"
     rf"|(?P<comma>, and (?={_OPENER})|; )"
-    rf"|(?P<and> and (?={_OPENER}))",
+    rf"|(?P<and> and (?={_OPENER}))"
+    rf"|(?P<list>, (?=(?:{_TASK})\b))",
     re.IGNORECASE,
 )
-_CUT_KIND = {"strong": 4, "sentence": 3, "comma": 2, "and": 1}
+_CUT_KIND = {"strong": 4, "sentence": 3, "comma": 2, "list": 2, "and": 1}
+# A task that opens a piece, "it" after it included ("graph it"): a comma between two of them
+# is a list of tasks ("solve x² = 4 and graph it, draw the structure of aspirin").
+_TASK_OPEN = re.compile(rf"^(?:{_TASK})\b", re.IGNORECASE)
 _LINE_ITEM = re.compile(r"^(?:\d{1,2}[.)]|[-*\u2022]) ?")
 _LEAD = re.compile(rf"^(?:{_LEAD_WORDS}|and|so|ok(?:ay)?)\b[,:]? ?", re.IGNORECASE)
 _STRONG_START = re.compile(rf"^(?:{_LEAD_WORDS})\b", re.IGNORECASE)
@@ -239,6 +243,11 @@ def _segments(line: str, first_cut: Cut) -> list[tuple[str, Cut]]:
     pieces: list[tuple[str, Cut]] = []
     start, cut = 0, first_cut
     for match in _CUTS.finditer(masked):
+        # A comma before a task cuts only after a task: "When teaching me, explain …" is one.
+        if match.lastgroup == "list" and not _TASK_OPEN.match(
+            request_body(line[start : match.start()])
+        ):
+            continue
         pieces.append((line[start : match.start()], cut))
         start = match.end()
         cut = Cut(_CUT_KIND[match.lastgroup or "and"])

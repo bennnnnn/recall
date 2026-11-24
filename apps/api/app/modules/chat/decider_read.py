@@ -17,7 +17,7 @@ import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
@@ -405,6 +405,12 @@ def get_choice(answers: dict[str, Any], name: str) -> Any:
     return answer.get("choice") if isinstance(answer, dict) else getattr(answer, "choice", None)
 
 
+def stem_effort(hard: float) -> Literal["none", "high"]:
+    """A maths, physics or chemistry message's effort from the hard question's odds: only the
+    hard ones think (``model_routing.decided`` gives "high" the model's level that thinks)."""
+    return "high" if hard >= _STEM_HARD_AT else "none"
+
+
 def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, Any] | None:
     """The read's fields from the Decider's answers (``DeciderAnswer`` objects or dicts);
     None when a question went unanswered."""
@@ -421,10 +427,9 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
     if subject is None or None in (think, hard, live, asked):
         return None
     work = get("work", "noul")
+    effort: str
     if subject in _STEM:
-        # Only the hard ones think; ``model_routing.decided`` gives "high" the model's
-        # level that thinks.
-        effort = "high" if hard >= _STEM_HARD_AT else "none"
+        effort = stem_effort(hard)
     else:
         effort = (
             "high"
@@ -435,6 +440,7 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "subject": subject,
         "think": effort != "none",
         "hard": effort == "high",
+        "hard_odds": hard,
         "picture": get("picture", "choice"),
         "follow": get("follow", "choice") if has_earlier else "none",
         "live": max(live, asked) >= _LIVE_AT,

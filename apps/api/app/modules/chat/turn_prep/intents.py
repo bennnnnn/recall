@@ -113,6 +113,20 @@ def _continues_solve(
     )
 
 
+def _other_subjects(
+    clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
+) -> bool:
+    """Two solves the subject order gives different subjects are two requests: "solve x³ - 6x²
+    + 11x - 6 = 0 and graph it, draw the structure of aspirin" is maths, then chemistry."""
+    if kind != "solve" or last_kind != "solve":
+        return False
+    subjects = {
+        detect_subject(request_body(text), chemistry_enabled=chemistry_enabled)
+        for text in (last.text, clause.text)
+    }
+    return None not in subjects and len(subjects) == 2
+
+
 def _keeps_cut(
     clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
 ) -> bool:
@@ -128,6 +142,8 @@ def _keeps_cut(
         clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled
     ):
         return False
+    if _other_subjects(clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled):
+        return True
     if kind != last_kind and (kind != "ask" or last_kind in _OWNED_KINDS):
         return True
     if clause.cut == Cut.AND:
