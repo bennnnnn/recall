@@ -176,8 +176,18 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
   and the turn is an ordinary unverified physics turn, the model's own reply with the
   unverified note, held at finalize to the formal answer like any other (above). Never the
   solver's value checked.
-- **No reading** (late, failed, the spend cap, a setup that asks no value, units neither side
-  reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
+- **Only a value the server solved is a reading.** A setup the server could not solve ("no
+  setup", "no real solution"), or an ask it left unsolved, holds only the reading model's
+  own arithmetic, and that never takes a checked answer away: a reader's 4.22 s for a cliff
+  throw the solver had right at 4.82 s dropped the check on two of the owner's four live
+  turns (2026-11-23). When the first reading is unsolved and its model's own arithmetic
+  disagrees, a second reader from another company (`physics_setup_second`, free-chat) reads
+  it, and a second solved reading that disagrees drops the check. Re-scored on the kept
+  readings of the 422 questions below: 273 right checks kept and no wrong one, with a second
+  read on 5 of 279 checked answers; the guess counting alone kept 269, two readers every time
+  271 (`cross_check_eval`).
+- **No reading** (late, failed, the spend cap, an unsolved setup, a setup that asks no value,
+  units neither side reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
   about 280 checked answers a run, all late reads); dropping them too cost those checks and
   removed no wrong one. With the reading model down, the solvers are as they were before.
 

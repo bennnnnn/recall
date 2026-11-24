@@ -6,8 +6,10 @@ fall in one line), and the solver then certifies the wrong reading: three checke
 answers in 100 casual rewordings (live QA, 2026-11-22). So every verified answer is held to
 the formal reader's reading of the same question (``physics.formal_read``): a model writes
 it down as maths, in any wording, and the server solves that setup. Two readings that agree
-keep the check; two that differ leave the question to the model, unverified, because a
-solver value is never stamped over a reading that contradicts it.
+keep the check; a solved reading that differs leaves the question to the model, unverified,
+because a solver value is never stamped over a reading that contradicts it. A reading the
+server could not solve holds nothing on its own; when its model's own arithmetic disagrees,
+a second reader is asked (``cross_check``).
 
 Each value the reading asks for comes with the server's value for it (across the band the
 standard constants allow, g as 9.8 or 10) and the setup's own answer; the solver's values
@@ -20,7 +22,8 @@ speeds after a collision), and a partial solve answers less than the reading ask
 - ``disagree``: a kind is not, or the two share no kind (the reading asked another
   quantity: it read another question).
 - ``unread``: no reading to hold it to: none in ``formal_wait_seconds``, a failed or capped
-  read, a setup that asks no value, or units neither side can read. The check stands, as it
+  read, a setup the server could not solve (the reading model's own arithmetic alone is no
+  reading), a setup that asks no value, or units neither side can read. The check stands, as it
   did before: every such answer measured was right, and dropping them removed no wrong one
   (``app/tests/behavior/cross_check_eval.py``, docs/FORMAL_READER.md).
 """
@@ -73,9 +76,19 @@ def solver_answers(block: VerifiedPhysicsBlock) -> list[tuple[float, str]]:
     return [(value, unit) for value, unit in pairs if math.isfinite(value)]
 
 
-def reading_asks(setup: Any, result: dict[str, Any]) -> list[ReadAsk]:
-    """Each value the setup asks for, with the server's value for it (agreeing with the
-    setup's own answer or not) and the setup's own answer."""
+def reading_asks(setup: Any, result: dict[str, Any], *, guesses: bool = False) -> list[ReadAsk]:
+    """Each value the setup asks for that the server solved, with the server's value for it
+    and the setup's own answer.
+
+    Only a value the server worked out is a reading. A setup the server could not solve ("no
+    setup", "no real solution"), or an ask it left unsolved, holds only the reading model's
+    own arithmetic, and that alone never takes a checked answer away: a reader's guess of
+    4.22 s for a cliff throw the solver had right at 4.82 s dropped the check on two of four
+    live turns (owner's test, 2026-11-23). The setup's own answer still counts beside the
+    server's, so a right setup whose constants differ (g as 9.8 or 10) agrees.
+
+    ``guesses``: the model's own answers count on their own too. Only a doubt is read so,
+    never a verdict: it decides whether a second reader is asked (``cross_check``)."""
     solved = result.get("answers") or [] if result.get("solved") else []
     server = {(answer.get("part"), answer.get("symbol")): answer for answer in solved}
     asks: list[ReadAsk] = []
@@ -85,6 +98,8 @@ def reading_asks(setup: Any, result: dict[str, Any]) -> list[ReadAsk]:
         if answer is not None:
             ends = (float(answer["low"]), float(answer["high"]), float(answer["value"]))
             values.append((min(ends), max(ends)))
+        elif not guesses:
+            continue
         if asked.answer is not None and math.isfinite(asked.answer):
             values.append((asked.answer, asked.answer))
         if values:
@@ -174,35 +189,52 @@ def verdict(answers: Iterable[tuple[float, str]], asks: Iterable[ReadAsk]) -> Ve
     return "agree"
 
 
-async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Settings) -> Verdict:
-    """The block held to the formal reader's reading of ``question``, waiting at most
-    ``formal_wait_seconds`` for it."""
-    answers = solver_answers(block)
-    if not answers or not question.strip():
-        return "unread"
+async def _reading_in_time(question: str, settings: Settings, alias: str) -> Any | None:
+    """One reader's formal reading of ``question``, or None after ``formal_wait_seconds``."""
     from app.modules.physics.formal_read import formal_reading
 
-    started = time.monotonic()
-    task = asyncio.create_task(formal_reading(question, settings))
+    task = asyncio.create_task(formal_reading(question, settings, model_alias=alias))
     try:
         # Waited on, never awaited: a reading still out when the wait ends is no reading.
         await asyncio.wait([task], timeout=settings.formal_wait_seconds)
     finally:
-        late = not task.done()
-        if late:  # out of time, or the turn itself was stopped
+        if not task.done():  # out of time, or the turn itself was stopped
             task.cancel()
             # A reading that fails while it is being stopped is no reading either; its
             # error is read here so asyncio never reports it as unretrieved (review, #2533).
             task.add_done_callback(lambda done: done.cancelled() or done.exception())
-    waited = time.monotonic() - started
-    if late:
-        logger.info("physics cross-check: no reading in %.2f s, the check stands", waited)
+    return settled_result(task)  # None for a reading still out, failed or stopped
+
+
+async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Settings) -> Verdict:
+    """The block held to a reading of ``question`` the server solved (module docstring).
+
+    One reader, as a rule. Only when the server could not solve its setup and the reader's own
+    arithmetic disagrees is a second reader, from another company, asked (each waited on at
+    most ``formal_wait_seconds``): that doubt alone never drops a check, a second solved
+    reading against it does. Measured on 422 casual questions' kept readings: 273 right
+    checks kept and no wrong one, with a second read on 5 of 279 checked answers
+    (``cross_check_eval``, 2026-11-23); always reading twice kept 271, the guess counting
+    alone 269."""
+    answers = solver_answers(block)
+    if not answers or not question.strip():
         return "unread"
-    reading = settled_result(task)
-    if reading is None:
-        return "unread"
-    found = verdict(answers, reading_asks(reading.setup, reading.result))
-    logger.info("physics cross-check: %s after %.2f s", found, waited)
+    from app.models.routing_lanes import ROUTING
+
+    started = time.monotonic()
+    found: Verdict = "unread"
+    how = "no reading in time"
+    reading = await _reading_in_time(question, settings, ROUTING.physics_setup)
+    if reading is not None:
+        found = verdict(answers, reading_asks(reading.setup, reading.result))
+        how = "first reading"
+        doubt = verdict(answers, reading_asks(reading.setup, reading.result, guesses=True))
+        if found == "unread" and doubt == "disagree":
+            second = await _reading_in_time(question, settings, ROUTING.physics_setup_second)
+            if second is not None:
+                found = verdict(answers, reading_asks(second.setup, second.result))
+            how = "second reading, the first unsolved"
+    logger.info("physics cross-check: %s after %.2f s (%s)", found, time.monotonic() - started, how)
     return found
 
 
