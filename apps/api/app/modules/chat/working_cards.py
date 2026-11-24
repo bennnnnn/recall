@@ -40,10 +40,10 @@ from app.modules.chat.working_check import (
     NAME,
     OPERATOR,
     RELATION,
-    shown_like,
     slip,
     wrong_steps,
 )
+from app.modules.chat.working_numbers import shown_like
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     VERIFIED_ANSWER_MARKER,
@@ -186,7 +186,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
             and _held(statements, expression_tex, value, earlier, name or _name(symbol))
         )
         found.append(
-            CardSlip(fence.body_start, fence.body_end, expression_tex, shown_tex, value, held)
+            CardSlip(fence.body_start, fence.body_end, expression_tex, shown_tex, step.value, held)
         )
     return found
 

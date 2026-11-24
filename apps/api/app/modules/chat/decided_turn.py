@@ -46,7 +46,7 @@ from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.modules.billing.entitlements import has_strong_everyday_model
 from app.modules.chat.answer_photo_offer import offers_photo_in, without_answer_photo_hints
-from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS
+from app.modules.chat.decider_read import NO_ANSWER, OTHER_ANSWER, READ_SUBJECTS, stem_effort
 from app.modules.chat.drawing_turn import ask_for_a_drawing
 from app.modules.chat.drawn_picture import app_draws, solve_draws
 from app.modules.chat.figure_turn import shows_it
@@ -54,7 +54,12 @@ from app.modules.chat.follow_up_read import note_the_follow_up
 from app.modules.chat.instant_by_read import TALKED_THROUGH
 from app.modules.chat.json_output import is_json_request
 from app.modules.chat.lesson_again import lesson_again
-from app.modules.chat.model_routing.decided import decided_lane, decided_level, math_backups
+from app.modules.chat.model_routing.decided import (
+    Effort,
+    decided_lane,
+    decided_level,
+    math_backups,
+)
 from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
@@ -91,6 +96,7 @@ from app.modules.turn_reading.lesson_flow import (
     outline_awaits_pick,
 )
 from app.modules.turn_reading.school_question import is_school_exercise
+from app.modules.turn_reading.turn import current_turn_reading
 from app.services.draft_fences import draft_langs
 from app.services.md_fence_scan import line_fences
 from app.services.picture_copy import DRAWN_PICTURE_NOTE
@@ -122,6 +128,9 @@ def _asked_question(reply: str) -> str | None:
     return found[-1] if found else None
 
 
+# Each registered subject's name as the read says it ("math" is the read's "maths").
+_READ_NAMES: dict[str, str] = {name: said for said, name in READ_SUBJECTS.items()}
+
 # The most of an option's words a verdict quotes (a card is the model's text).
 _OPTION_CHARS = 120
 
@@ -150,8 +159,9 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
         follow=read.follow,
         work=None if read.work is None else ("yes" if read.work else "no"),
     )
-    ctx.thinking = _level(ctx, read)
-    _follow_the_lane(ctx, settings, read)
+    subject, effort = _routed_by(ctx, settings, read)
+    ctx.thinking = _level(ctx, read, subject, effort)
+    _follow_the_lane(ctx, settings, subject, effort, by_parts=subject != read.subject)
     answered = _answered(ctx, read)
     # One answer the read places on several cards ("B" after three): which is it for?
     unplaced = len(answered) > 1 and read.unplaced is True
@@ -320,8 +330,34 @@ def _lane_may_move(ctx: StreamContext) -> bool:
     )
 
 
-def _level(ctx: StreamContext, read: TurnDecision) -> bool | str:
-    """The thinking level: the read's effort, except where the turn's own state decides."""
+def _routed_by(
+    ctx: StreamContext, settings: Settings, read: TurnDecision
+) -> tuple[str | None, Effort]:
+    """The subject and effort Auto's lane and the thinking follow: the read's, unless it calls
+    the message no school subject while one of its several requests is a maths, physics or
+    chemistry problem the subject readers claimed (``TurnReading.solve_subject``). Asked
+    about the whole of "A ball is thrown from a 45 m cliff … Also solve x³ - 6x² + 11x - 6 = 0
+    …, and remind me tomorrow at 7 pm", the read answered everyday (0.63 against 0.37 for the
+    three sciences together), and the everyday model slipped on the arithmetic (2026-11-23).
+    That problem is weighed as the read weighs one: its hard odds at the sciences' line."""
+    effort: Effort = read.effort or "none"
+    if read.subject in _READ_NAMES.values() or read.subject == "money":
+        return read.subject, effort
+    content = ctx.user_message_content or ""
+    kept = current_turn_reading()
+    if kept is None or not kept.reads(content, chemistry_enabled=settings.chemistry_enabled):
+        return read.subject, effort
+    subject = _READ_NAMES.get(kept.solve_subject or "")
+    if subject is None:
+        return read.subject, effort
+    return subject, effort if read.hard_odds is None else stem_effort(read.hard_odds)
+
+
+def _level(
+    ctx: StreamContext, read: TurnDecision, subject: str | None, effort: Effort
+) -> bool | str:
+    """The thinking level: the effort routing follows, except where the turn's own state
+    decides."""
     if ctx.thinking == "escalate" or _worked(ctx):
         return ctx.thinking
     if active_lesson_step(ctx.recent_messages) is not None:
@@ -331,17 +367,20 @@ def _level(ctx: StreamContext, read: TurnDecision) -> bool | str:
         ctx.user_message_content, ctx.recent_messages, asked=read.resumes
     ):
         return "off"
-    return decided_level(read.subject, read.effort or "none")
+    return decided_level(subject, effort)
 
 
-def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision) -> None:
-    """Auto's lane for the read's subject and effort, where it may move (``_lane_may_move``)."""
-    if not _lane_may_move(ctx) or ctx.user is None or read.subject is None:
+def _follow_the_lane(
+    ctx: StreamContext, settings: Settings, subject: str | None, effort: Effort, *, by_parts: bool
+) -> None:
+    """Auto's lane for the subject and effort routing follows (``_routed_by``), where it may
+    move (``_lane_may_move``). ``by_parts``: the subject is a request's, not the read's."""
+    if not _lane_may_move(ctx) or ctx.user is None or subject is None:
         return
     pool = plan_service.model_pool(ctx.user, settings)
     lane = decided_lane(
-        read.subject,
-        read.effort or "none",
+        subject,
+        effort,
         pool,
         cooling=ctx.cooling_models,
         strong_everyday=has_strong_everyday_model(ctx.user, settings),
@@ -349,9 +388,9 @@ def _follow_the_lane(ctx: StreamContext, settings: Settings, read: TurnDecision)
     )
     if lane is None:
         return
-    note_route(f"read.{read.subject}.{read.effort}")
+    note_route(f"read.{'parts.' if by_parts else ''}{subject}.{effort}")
     # A STEM lane's own backup first (GLM), then the rules' model, then the pool's order.
-    first = [*math_backups(read.subject, lane, pool, ctx.cooling_models), ctx.model]
+    first = [*math_backups(subject, lane, pool, ctx.cooling_models), ctx.model]
     backups = [alias for alias in dict.fromkeys([*first, *ctx.fallback_models]) if alias != lane]
     ctx.model, ctx.fallback_models = lane, backups
 

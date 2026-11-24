@@ -33,6 +33,7 @@ from app.modules.chat.turn_prep.clauses import (
     Cut,
     RequestSplit,
     candidate_segments,
+    counted_clauses,
     is_request,
     points_back,
     request_body,
@@ -184,7 +185,11 @@ def problem_clauses(text: str) -> RequestSplit | None:
         else:
             clauses[-1] = _folded(clauses[-1], raw, topics)
     # A statement no question follows belongs to no problem of its own: a doubt, so none.
-    if stated or not any(clause.setup for clause in clauses) or len(clauses) > MAX_CLAUSES:
+    if (
+        stated
+        or not any(clause.setup for clause in clauses)
+        or counted_clauses(clauses) > MAX_CLAUSES
+    ):
         return None
     return _first_problem(context, clauses)
 

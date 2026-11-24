@@ -328,11 +328,23 @@ Maths, physics and chemistry share one contract for a reply the model works out 
 
 The server then recomputes the working (`modules/chat/working_check.py`):
 - **What it checks:** every `$...$` equality whose two sides are plain numbers once units are
-  dropped, on unverified STEM turns and on any worked solution.
-- **What it reports:** the first step off by more than its rounding and 1% gets one line under
-  the reply, "Check this step: $3.2 \times 4.5 = 14.4$, not $14.8$."
-- **What it leaves alone:** variables, unit conversions, prefix steps (≈ 4.5 MJ), percents and
-  degrees.
+  dropped, on unverified STEM turns and on any worked solution: roots of any degree, sin, cos
+  and tan of degrees or radians, ln and log, e, π, powers of ten, and both roots of a ±.
+  When a line writes a piece of the line before as a number (the root in
+  `\frac{14.339 + 33.11}{9.81}`), that piece is held on its own (`working_align.py`).
+- **When a step is wrong:** off by more than its own rounding and by more than the rounding
+  chain allows: 1%, or less where its inputs' own rounding cannot move it that far
+  (`tex_spread.py`; `\sqrt{1088.5} = 33.11` is 0.4% off, a slip).
+- **What it does:** the wrong number is written again to its value, to the places it was
+  shown with, and the lines after it that use that number, say it again or give it in a
+  sentence with its unit take the right one; then the working is read again, so a result
+  built on it and the answer follow (`working_fix.py`). A number written before the slip is
+  a given and is not carried; a short number ("38") is carried only to its restatements. A
+  step that cannot be put right in place (two exact forms that differ) gets one line under
+  the reply, "Check this step: …", and nothing after it is changed.
+- **What it leaves alone:** variables, unit conversions, prefix steps (≈ 4.5 MJ), percents,
+  a sine with no degree sign past a full turn, "e^2" alone (a name squared), every fence
+  and the server's cards.
 - **Measured:** on 5,896 corpus replies it raised no false alarm, and it caught every slip
   injected into server-written working.
 
