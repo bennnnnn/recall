@@ -145,6 +145,18 @@ def test_an_ask_the_server_left_unsolved_is_left_out() -> None:
     assert cc.verdict(CLIFF_ANSWERS, asks) == "agree"
 
 
+def test_a_partial_solve_never_drops_the_kind_it_left_unsolved() -> None:
+    # The server solved the distance but not the time; the card shows only the time.
+    setup = _setup(_ask(4.22, "s", symbol="t"), _ask(98.8, "m", symbol="d"))
+    result = {"solved": True, "answers": [_server(98.8, "m", symbol="d")]}
+    asks = cc.reading_asks(setup, result)
+    unsolved = cc.unsolved_units(setup, result)
+    assert unsolved == ["s"]
+    assert cc.verdict([(4.82488, "s")], asks, unsolved=unsolved) == "unread"
+    # A reading that asked only another kind still read another question.
+    assert cc.verdict([(20.0, "J")], asks, unsolved=unsolved) == "disagree"
+
+
 async def test_an_unsolved_reading_leaves_the_check_standing() -> None:
     block = _block(SPEED_UP)
     reading = FormalReading(_setup(_ask(60, "m")), {"solved": False, "answers": []})

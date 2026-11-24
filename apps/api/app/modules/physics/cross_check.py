@@ -159,8 +159,25 @@ def _equals(answer: tuple[float, str], ask: ReadAsk) -> bool:
     return False
 
 
-def verdict(answers: Iterable[tuple[float, str]], asks: Iterable[ReadAsk]) -> Verdict:
-    """How the solver's answers stand against the reading's (module docstring)."""
+def unsolved_units(setup: Any, result: dict[str, Any]) -> list[str]:
+    """The unit of each value the setup asks for that the server did not solve."""
+    solved = result.get("answers") or [] if result.get("solved") else []
+    server = {(answer.get("part"), answer.get("symbol")) for answer in solved}
+    return [asked.unit for asked in setup.asked if (asked.part, asked.symbol) not in server]
+
+
+def verdict(
+    answers: Iterable[tuple[float, str]],
+    asks: Iterable[ReadAsk],
+    *,
+    unsolved: Iterable[str] = (),
+) -> Verdict:
+    """How the solver's answers stand against the reading's (module docstring).
+
+    ``unsolved``: the units of the values the reading asked for that the server left
+    unsolved. A kind the solver answered that the reading asked but could not solve is no
+    other question read: with nothing else of its kind, the answer stands unread (a partial
+    solve that worked out the distance but not the time never drops the time)."""
     read: dict[Any, list[ReadAsk]] = {}
     for ask in asks:
         kind = _kind(ask.unit)
@@ -175,6 +192,9 @@ def verdict(answers: Iterable[tuple[float, str]], asks: Iterable[ReadAsk]) -> Ve
         return "unread"
     shared = [kind for kind in solved if kind in read]
     if not shared:
+        left = {_kind(unit) for unit in unsolved}
+        if any(kind in left for kind in solved):
+            return "unread"  # its own kind was asked, the server could not solve it
         return "disagree"  # the reading asks another quantity: it read another question
     for kind in shared:
         values, kind_asks = solved[kind], read[kind]
@@ -206,13 +226,23 @@ async def _reading_in_time(question: str, settings: Settings, alias: str) -> Any
     return settled_result(task)  # None for a reading still out, failed or stopped
 
 
+def _solved_verdict(answers: list[tuple[float, str]], reading: Any) -> Verdict:
+    """The verdict on what the server solved of ``reading`` alone."""
+    return verdict(
+        answers,
+        reading_asks(reading.setup, reading.result),
+        unsolved=unsolved_units(reading.setup, reading.result),
+    )
+
+
 async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Settings) -> Verdict:
     """The block held to a reading of ``question`` the server solved (module docstring).
 
     One reader, as a rule. Only when the server could not solve its setup and the reader's own
-    arithmetic disagrees is a second reader, from another company, asked (each waited on at
-    most ``formal_wait_seconds``): that doubt alone never drops a check, a second solved
-    reading against it does. Measured on 422 casual questions' kept readings: 273 right
+    arithmetic disagrees is a second reader, from another company, asked after it (each waited
+    on at most ``formal_wait_seconds``, so a turn with a doubt, about 2% of them, waits up to
+    twice that): that doubt alone never drops a check, a second solved reading against it
+    does. Measured on 422 casual questions' kept readings: 273 right
     checks kept and no wrong one, with a second read on 5 of 279 checked answers
     (``cross_check_eval``, 2026-11-23); always reading twice kept 271, the guess counting
     alone 269."""
@@ -226,13 +256,13 @@ async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Sett
     how = "no reading in time"
     reading = await _reading_in_time(question, settings, ROUTING.physics_setup)
     if reading is not None:
-        found = verdict(answers, reading_asks(reading.setup, reading.result))
+        found = _solved_verdict(answers, reading)
         how = "first reading"
         doubt = verdict(answers, reading_asks(reading.setup, reading.result, guesses=True))
         if found == "unread" and doubt == "disagree":
             second = await _reading_in_time(question, settings, ROUTING.physics_setup_second)
             if second is not None:
-                found = verdict(answers, reading_asks(second.setup, second.result))
+                found = _solved_verdict(answers, second)
             how = "second reading, the first unsolved"
     logger.info("physics cross-check: %s after %.2f s (%s)", found, time.monotonic() - started, how)
     return found

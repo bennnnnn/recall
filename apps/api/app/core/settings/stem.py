@@ -86,8 +86,8 @@ class StemSettings(BaseModel):
     # A physics turn a solver did answer is read the same way, and the solver's answer is
     # held to that reading: one that differs leaves the question to the model, unverified,
     # never the solver's value checked (``physics.cross_check``). The turn waits at most
-    # ``formal_wait_seconds`` for it; with no reading in time the check stands. Off: every
-    # solver answer is checked, as before.
+    # ``formal_wait_seconds`` for it, twice that on the rare turn a second reader is asked;
+    # with no reading in time the check stands. Off: every solver answer is checked, as before.
     physics_cross_check_enabled: bool = True
     # A chart of numbers the user wrote (bar, pie, line, histogram) is drawn by the server
     # from those numbers (``modules/charts``), only when every label and value is the user's,

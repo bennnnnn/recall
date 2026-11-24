@@ -162,7 +162,8 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
 
 - **When:** a physics turn a solver answered with numbers (`PhysicsSubject.solve`), before
   the reply is written. The setup read starts once the solve verifies (the solve takes
-  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it. Each
+  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it, and as long
+  again for the second reader on the rare turn it is asked (below). Each
   separate question of a message is read on its own, one after another, as it is solved
   (the SymPy pool runs one solve per user at a time).
 - **The comparison:** for each value the reading asks, the server's value for it (across
@@ -207,8 +208,8 @@ does, read by smart-chat:
   its first word.
 - Checks lost on answers that were right: 6 of 275 (2%), each a misreading by the setup
   model (a collision's signs, a refraction angle measured from the surface, a car that
-  stops before the time asked). A second setup model (Claude Haiku 5.5) as a tie-breaker
-  recovered none of them and read slower, so there is one reader.
+  stops before the time asked). A second setup model (Claude Haiku 5.5) asked on every turn
+  recovered none of them and read slower, so it is asked only on a doubt (above).
 - Every wrong checked answer the reworded set holds was caught: the two above, a spring's
   average force read as its final one, a ball on Earth "ignoring the moon's 1.6 m/s²" timed
   with the moon's, and "accelerates at 2 m/s^2 for 3 s and ends up going 15 m/s" read with
