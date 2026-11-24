@@ -95,7 +95,7 @@ def _presign(
         asyncio.run(_seed(fake_redis, f"recall:library_presign:{user.id}", 1))
     stored = Settings().library_storage_bytes if library_full else 0
     with (
-        patch("app.modules.attachments.storage_quota._WAIT_SECONDS", 0.1),
+        patch("app.modules.attachments.storage_quota.PRESIGN_WAIT_SECONDS", 0.1),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.attachments.storage_quota.stored_bytes",

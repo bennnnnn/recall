@@ -54,9 +54,9 @@ async def has_room_for(
 
 
 # Held across one presign (a read, a signature, an insert); expires on its own if the
-# request dies holding it. A presign waits its turn for up to ``_WAIT_SECONDS``.
+# request dies holding it. A presign waits its turn for up to ``PRESIGN_WAIT_SECONDS``.
 _LOCK_SECONDS = 15
-_WAIT_SECONDS = 5.0
+PRESIGN_WAIT_SECONDS = 5.0
 _POLL_SECONDS = 0.05
 
 
@@ -68,7 +68,7 @@ async def library_presign(redis: Redis, user_id: UUID) -> AsyncIterator[None]:
     try:
         token = await acquire_lock(redis, key, _LOCK_SECONDS)
         waited = 0.0
-        while token is None and waited < _WAIT_SECONDS:
+        while token is None and waited < PRESIGN_WAIT_SECONDS:
             await asyncio.sleep(_POLL_SECONDS)
             waited += _POLL_SECONDS
             token = await acquire_lock(redis, key, _LOCK_SECONDS)

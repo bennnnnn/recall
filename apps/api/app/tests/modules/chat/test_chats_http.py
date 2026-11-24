@@ -340,7 +340,9 @@ def test_today_usage_says_whether_messages_are_unlimited(plan, unlimited, daily_
     asyncio.run(fake_redis.set(daily_key("chatmsg", user.id, utc_today()), 3, ex=600))
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
-    with patch("app.modules.chat.service.usage_repo.get_for_date", AsyncMock(return_value=None)):
+    from app.modules.chat import service as chat_service
+
+    with patch.object(chat_service.usage_repo, "get_for_date", AsyncMock(return_value=None)):
         r = TestClient(app).get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
     data = r.json()
     assert data["messages_unlimited"] is unlimited

@@ -16,6 +16,7 @@ import pytest
 
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatNotFoundError
+from app.modules.chat.turn_prep import attachments as turn_prep_attachments
 from app.modules.chat.turn_prep.attachments import _process_attachments
 from app.modules.math.image_extract import camera_math_user_suffix
 from app.modules.math.ocr import MathOcrResult
@@ -122,7 +123,7 @@ async def _run(
         patch("app.modules.math.ocr.extract_math_from_image", ocr),
         patch("app.modules.physics.read.read_physics_problem", mocks["physics_read"]),
         patch("app.modules.chemistry.read.read_chemistry_problem", mocks["chemistry_read"]),
-        patch("app.modules.chat.turn_prep.attachments.refund_upload", mocks["refund"]),
+        patch.object(turn_prep_attachments, "refund_upload", mocks["refund"]),
     ):
         mocks["gateway"] = gw
         result = await _process_attachments(

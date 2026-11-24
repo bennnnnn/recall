@@ -244,8 +244,10 @@ async def _add_photo_rows(
 async def _take_lookup(
     redis: Redis, user: User, settings: Settings, *, takes_message: bool
 ) -> Callable[[], Awaitable[None]]:
-    """Take what a lookup turn costs: its chat message (``takes_message``) and a day's
-    lookup (none on a plan whose lookups follow messages). Returns how to give both back."""
+    """Take what a lookup costs: a chat message when the lookup is the turn (the intercept;
+    from the tool loop the reply's turn holds one), refused ``quota_exceeded`` with none
+    left so the turn meets the usual message-limit prompt, and a day's lookup (none on a
+    plan whose lookups follow messages). Returns how to give both back."""
     message_day = None
     if takes_message:
         message_day = await quota_service.reserve_message(redis, user, settings)
@@ -279,12 +281,8 @@ async def search_and_attach_for_chat(
     create_user_message: bool = True,
     takes_message: bool = False,
 ) -> tuple[Message, Message]:
-    """Plan/quota/storage/persist path for a reference-photo lookup turn.
-
-    *takes_message*: the lookup is the turn (the chat's intercept, no reply turn around
-    it), so it takes one of the day's chat messages like any turn, given back when the
-    lookup fails; with none left it is refused ``quota_exceeded`` and the turn goes on to
-    the usual message-limit prompt. From the tool loop the reply's turn holds one.
+    """Plan/quota/storage/persist path for a reference-photo lookup turn (its cost:
+    ``_take_lookup``; *takes_message* from the intercept, where the lookup is the turn).
 
     Returns (user_message, assistant_message). Raises ``ImageSearchError`` on
     expected failures (not found, quota, storage); unexpected exceptions are
