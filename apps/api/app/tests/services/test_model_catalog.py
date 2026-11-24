@@ -334,8 +334,17 @@ def test_routing_lanes_point_at_models_that_can_do_their_job() -> None:
         lanes.chart_read,
         lanes.live_read,
         lanes.live_read_backup,
+        lanes.physics_setup,
+        lanes.physics_setup_second,
     ):
         assert model_catalog.get(structured).json_mode, structured
+    # The physics cross-check's second reader is another company's: one model's misreading
+    # is not read again by the same model family.
+    first, second = (
+        model_catalog.get(lanes.physics_setup),
+        model_catalog.get(lanes.physics_setup_second),
+    )
+    assert first.provider != second.provider
     assert model_catalog.get(lanes.titles).context_tokens > 0
 
 

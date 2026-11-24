@@ -295,7 +295,6 @@ _EVERYDAY = "hi, how is your day?"
     ("plan", "everyday"),
     [
         ("free", model_catalog.auto_fast_alias()),
-        ("plus", model_catalog.auto_fast_alias()),
         # Pro's everyday turns get the stronger model (live 60-turn chat, 2026-10-25).
         ("pro", ROUTING.everyday_strong),
     ],
@@ -362,9 +361,9 @@ def test_free_stem_turns_go_to_free_maths_lane(content: str) -> None:
 
 
 def test_paid_maths_turns_skip_frees_lane_when_deepseek_is_off() -> None:
-    """A Plus user who switched DeepSeek off gets its backup, Qwen3.8 Flash, never Free's Qwen3.7."""
+    """A Pro user who switched DeepSeek off gets its backup, Qwen3.8 Flash, never Free's Qwen3.7."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    user = _plan("plus", ["auto", "qwen-3.7-flash", "free-chat", "qwen-3.8-flash"])
+    user = _plan("pro", ["auto", "qwen-3.7-flash", "free-chat", "qwen-3.8-flash"])
     assert (
         model_choice.resolve_user_model(user, "solve x^2 - 5x + 6 = 0", settings)
         == "qwen-3.8-flash"
@@ -405,15 +404,13 @@ def test_pro_everyday_keeps_a_photo_turn() -> None:
     [
         # Pro's everyday model thinks at the escalate level itself.
         ("pro", ROUTING.everyday_strong),
-        # The plan's maths lane thinks: DeepSeek on Plus.
-        ("plus", ROUTING.math),
         # Free's maths lane is the everyday model, which never thinks: its backup does.
         ("free", ROUTING.math_backups[ROUTING.math_free]),
     ],
 )
 def test_regenerating_a_cheap_everyday_reply_follows_the_plan(plan: str, expected: str) -> None:
-    """Review: "try again" on Pro reused the Qwen reply's model; on Free and Plus it repeated
-    the same call with no thinking (MODEL-02, 2026-11-13)."""
+    """Review: "try again" on Pro reused the Qwen reply's model; on Free it repeated the same
+    call with no thinking (MODEL-02, 2026-11-13)."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     resolved = model_choice.resolve_regenerate_model(
         _plan(plan), None, _EVERYDAY, model_catalog.auto_fast_alias(), settings
@@ -422,7 +419,18 @@ def test_regenerating_a_cheap_everyday_reply_follows_the_plan(plan: str, expecte
     assert thinks_on_escalate(resolved)
 
 
-@pytest.mark.parametrize("plan", ["free", "plus", "pro"])
+def test_pro_try_again_without_its_stronger_everyday_model_moves_to_deepseek() -> None:
+    """Pro switched its stronger everyday model off: the everyday reply came from the model
+    that never thinks, so "try again" moves to the plan's maths lane, which does."""
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
+    everyday = model_catalog.auto_fast_alias()
+    user = _plan("pro", ["auto", everyday, ROUTING.math])
+    resolved = model_choice.resolve_regenerate_model(user, None, _EVERYDAY, everyday, settings)
+    assert resolved == ROUTING.math
+    assert thinks_on_escalate(resolved)
+
+
+@pytest.mark.parametrize("plan", ["free", "pro"])
 def test_a_regenerate_with_no_prior_model_also_thinks(plan: str) -> None:
     """The prior reply's model is gone (a failed first turn): routing picks again, then the
     regenerate moves to a model that thinks."""
@@ -431,7 +439,7 @@ def test_a_regenerate_with_no_prior_model_also_thinks(plan: str) -> None:
     assert thinks_on_escalate(resolved)
 
 
-@pytest.mark.parametrize("plan", ["free", "plus", "pro"])
+@pytest.mark.parametrize("plan", ["free", "pro"])
 def test_a_first_reply_keeps_its_everyday_lane(plan: str) -> None:
     """Only a regenerate moves: the first reply to an everyday line is unchanged."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
@@ -458,7 +466,7 @@ def test_a_regenerate_keeps_a_model_the_user_chose() -> None:
     """With Auto off, the user's own model answers the regenerate, thinking or not."""
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     everyday = model_catalog.auto_fast_alias()
-    user = _plan("plus", [everyday])
+    user = _plan("pro", [everyday])
     resolved = model_choice.resolve_regenerate_model(user, None, _EVERYDAY, everyday, settings)
     assert resolved == everyday
 
@@ -476,10 +484,4 @@ def test_the_strong_everyday_switch_is_read_per_plan() -> None:
     off = Settings(mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_pro=False)
     assert model_choice.resolve_user_model(_plan("pro"), _EVERYDAY, off) == (
         model_catalog.auto_fast_alias()
-    )
-    plus_on = Settings(
-        mock_llm_enabled=True, openrouter_api_key="", strong_everyday_model_plus=True
-    )
-    assert model_choice.resolve_user_model(_plan("plus"), _EVERYDAY, plus_on) == (
-        ROUTING.everyday_strong
     )

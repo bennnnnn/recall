@@ -232,6 +232,9 @@ class TurnDecision(BaseModel):
     think: bool | None = None
     hard: bool = False
     effort: Effort | None = None
+    # The Decider's odds that the message is hard, kept so a maths, physics or chemistry
+    # problem among its requests is weighed as one (``decided_turn``); None from the text read.
+    hard_odds: float | None = None
     picture: Picture | None = None
     follow: Follow | None = None
     # Whether the reply works a result out, laid out as working (``chat.decided_turn``). The

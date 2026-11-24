@@ -375,12 +375,12 @@ async def confirm_settings_proposal(
 @router.post("/me/pro-dev", response_model=UserOut)
 async def dev_upgrade_pro(
     request: Request,
-    plan: Literal["plus", "pro"] = "pro",
+    plan: Literal["pro"] = "pro",
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
-    """Dev-only helper to simulate a paid subscription (``?plan=plus`` or ``pro``)."""
+    """Dev-only helper to simulate the paid subscription (``?plan=pro``)."""
     require_dev_privilege_access(request, settings, user)
     updated = await account_lifecycle.upgrade_to_pro_for_dev(session, user, plan=plan)
     return UserOut.model_validate(updated)

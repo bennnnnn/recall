@@ -6,7 +6,12 @@ only when what follows is a request of its own:
 - strong: "…, and also …", "… Also, …", "btw", "one more thing", "I also want …";
 - sentence: a new sentence after "?", "!", "." or a line break;
 - comma: ", and how …", ", and tell me …", "; …";
-- and: "… and tell me a joke".
+- and: "… and tell me a joke";
+- list: a comma before a task, after a piece that opens with one ("solve x² = 4 and graph
+  it, draw the structure of aspirin"; "When teaching me, explain …" is not one). The plan
+  keeps it only before or after a reminder or a setting, or between two solves of different
+  subjects: "Draw me a cat, add a hat" is one picture. It does not count toward
+  ``MAX_CLAUSES``.
 
 A clause that points back ("and when to use each", "and graph it", "which is
 faster") stays with the one before it, and so does one that names nothing of its
@@ -22,6 +27,7 @@ breaks one answer into sections. So every doubt keeps clauses together.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -33,10 +39,12 @@ class Cut(IntEnum):
     """How a clause was cut from the one before it, weakest first."""
 
     START = 0
-    AND = 1
-    COMMA = 2
-    SENTENCE = 3
-    STRONG = 4
+    # A comma between two tasks: it stands only where the plan says (``intents._keeps_cut``).
+    LIST = 1
+    AND = 2
+    COMMA = 3
+    SENTENCE = 4
+    STRONG = 5
 
 
 @dataclass(frozen=True)
@@ -85,10 +93,20 @@ _CUTS = re.compile(
     r"|another (?:thing|question)|on another note)\b))"
     r"|(?P<sentence>(?<=[?!]) |(?-i:(?<=[a-z0-9)\]\"'%])\. (?=[A-Z]))|(?<=\w): (?=\w))"
     rf"|(?P<comma>, and (?={_OPENER})|; )"
-    rf"|(?P<and> and (?={_OPENER}))",
+    rf"|(?P<and> and (?={_OPENER}))"
+    rf"|(?P<list>, (?=(?:{_TASK})\b))",
     re.IGNORECASE,
 )
-_CUT_KIND = {"strong": 4, "sentence": 3, "comma": 2, "and": 1}
+_CUT_KIND = {
+    "strong": Cut.STRONG,
+    "sentence": Cut.SENTENCE,
+    "comma": Cut.COMMA,
+    "and": Cut.AND,
+    "list": Cut.LIST,
+}
+# A task that opens a piece, "it" after it included ("graph it"): a comma between two of them
+# is a list of tasks ("solve x² = 4 and graph it, draw the structure of aspirin").
+_TASK_OPEN = re.compile(rf"^(?:{_TASK})\b", re.IGNORECASE)
 _LINE_ITEM = re.compile(r"^(?:\d{1,2}[.)]|[-*\u2022]) ?")
 _LEAD = re.compile(rf"^(?:{_LEAD_WORDS}|and|so|ok(?:ay)?)\b[,:]? ?", re.IGNORECASE)
 _STRONG_START = re.compile(rf"^(?:{_LEAD_WORDS})\b", re.IGNORECASE)
@@ -239,9 +257,14 @@ def _segments(line: str, first_cut: Cut) -> list[tuple[str, Cut]]:
     pieces: list[tuple[str, Cut]] = []
     start, cut = 0, first_cut
     for match in _CUTS.finditer(masked):
+        # A comma before a task cuts only after a task: "When teaching me, explain …" is one.
+        if match.lastgroup == "list" and not _TASK_OPEN.match(
+            request_body(line[start : match.start()])
+        ):
+            continue
         pieces.append((line[start : match.start()], cut))
         start = match.end()
-        cut = Cut(_CUT_KIND[match.lastgroup or "and"])
+        cut = _CUT_KIND[match.lastgroup or "and"]
     pieces.append((line[start:], cut))
     out: list[tuple[str, Cut]] = []
     for text, how in pieces:
@@ -283,6 +306,13 @@ def candidate_segments(text: str) -> list[tuple[str, Cut]]:
     return segments
 
 
+def counted_clauses(clauses: Sequence[Clause]) -> int:
+    """The clauses ``MAX_CLAUSES`` counts: a list cut (``Cut.LIST``) is not one, as the plan
+    folds most back ("Explain photosynthesis, give three real examples, …, and draw a
+    diagram")."""
+    return sum(1 for clause in clauses if clause.cut != Cut.LIST)
+
+
 def request_clauses(text: str) -> RequestSplit:
     """The message's requests in order; a cut that fails the rules above is merged back."""
     segments = candidate_segments(text)
@@ -304,6 +334,6 @@ def request_clauses(text: str) -> RequestSplit:
         else:
             last = clauses[-1]
             clauses[-1] = Clause(f"{last.text} {raw}", last.cut, last.topics | topics)
-    if not clauses or len(clauses) > MAX_CLAUSES:
+    if not clauses or counted_clauses(clauses) > MAX_CLAUSES:
         return _whole(collapse_ws(text))
     return RequestSplit(" ".join(context), tuple(clauses))

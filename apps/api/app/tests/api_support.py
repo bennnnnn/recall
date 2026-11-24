@@ -63,7 +63,6 @@ def app_with_user(user: User) -> FastAPI:
     # remaining/limit assertions.
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
         monthly_live_talk_minutes=0,
-        monthly_live_talk_minutes_plus=0,
         monthly_live_talk_minutes_pro=60,
     )
     return app

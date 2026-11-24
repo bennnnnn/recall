@@ -66,7 +66,7 @@ async def test_reconcile_keeps_a_grace_period_subscriber_paid():
         "expires_date": _rc_time(timedelta(hours=-2)),
         "grace_period_expires_date": _rc_time(timedelta(days=5)),
     }
-    payload = {"subscriber": {"entitlements": {"plus": ent}}}
+    payload = {"subscriber": {"entitlements": {"pro": ent}}}
     with patch.object(
         subscription_service.revenuecat_gateway,
         "fetch_subscriber",
@@ -75,7 +75,7 @@ async def test_reconcile_keeps_a_grace_period_subscriber_paid():
         plan = await subscription_service.resolve_plan_from_revenuecat(
             Settings(revenuecat_secret_key="sk_test"), str(uuid4())
         )
-    assert plan == "plus"
+    assert plan == "pro"
 
 
 @pytest.mark.asyncio
@@ -270,8 +270,7 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
     "source_reads, source_plan",
     [
         ("free", "free"),  # its only grant moved
-        ("plus", "plus"),  # it still holds another product or a promotional grant
-        ("pro", "pro"),
+        ("pro", "pro"),  # it still holds another product or a promotional grant
         (None, "free"),  # unreadable: the moved entitlement is no longer its own
     ],
 )

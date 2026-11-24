@@ -118,6 +118,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "instant_usage",
         "close_fences",
         "card_numbers",
+        "rounded_end",
         "owed_picture",
         "clarify_card",
         "new_practice",

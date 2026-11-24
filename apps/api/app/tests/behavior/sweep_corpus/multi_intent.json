@@ -523,5 +523,13 @@
   "prompt": "do I need a visa for Japan?",
   "reply": "It depends on your passport; many visitors can stay 90 days visa-free.",
   "expect": "search"
- }
+ },
+ {"id": "ml-cat-add-hat", "area": "multi lookalike", "prompt": "Draw me a cat, add a hat", "reply": "Here's a cat wearing a hat.", "expect": ["image_gen"], "read": ["everyday", "image"], "note": "a comma before a task that refines the picture: one request (review of #2578)"},
+ {"id": "ml-essay-write-intro", "area": "multi lookalike", "prompt": "Can you help me with my essay, write an intro about climate change", "reply": "Here's an intro you can build on: Climate change is the defining challenge of our century.", "expect": "answer", "note": "a comma before a task that refines the request: one request (review of #2578)"},
+ {"id": "mi-joke-comma-reminder", "area": "multi", "prompt": "Tell me a joke, remind me at 5 pm to call mom", "reply": "Why did the scarecrow win an award? He was outstanding in his field.", "expect": "answer", "note": "a comma before a reminder: two requests (#2578); a reminder after another request saves no card in the sweep, on any connector (a gap of its own)"},
+ {"id": "ml-reminder-chores-list", "area": "multi lookalike", "prompt": "Remind me tomorrow at 8 am to take out the trash, check the mail, and water the plants", "reply": "Done.", "expect": ["save"], "note": "a comma after a reminder lists what it is for: one reminder (review of #2578)"},
+ {"id": "ml-reminder-party-list", "area": "multi lookalike", "prompt": "Remind me Friday to plan the party, find a venue, order the cake", "reply": "What time on Friday should I remind you?", "expect": ["ask_time"], "note": "a comma after a reminder lists what it is for: one reminder (review of #2578)"},
+ {"id": "mi-draw-comma-reminder", "area": "multi", "prompt": "Draw me a dog, remind me at 5 pm to call mom", "reply": "Here's your dog.", "expect": ["image_gen"], "read": ["everyday", "image"], "note": "a comma before a reminder: the picture is the dog alone (review of #2578)"},
+ {"id": "mi-draw-comma-setting", "area": "multi", "prompt": "Draw me a cat, switch to dark mode", "reply": "Here's your cat.", "expect": ["image_gen", "settings"], "read": ["everyday", "image"], "note": "a comma before a setting: the picture is the cat alone (review of #2578)"},
+ {"id": "mi-five-asks-and-reminder", "area": "multi", "prompt": "Explain photosynthesis, give three real examples, compare plants with algae, list the main pigments, and draw a diagram. Also remind me at 6 pm to water the plants.", "reply": "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen in the chloroplasts.", "expect": "answer", "note": "list cuts do not count toward MAX_CLAUSES (review of #2578)"}
 ]

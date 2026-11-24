@@ -83,6 +83,9 @@ _OPENERS = [
     "I also want a story about a dragon",
     "tell me about cats",
     "tell me its name",
+    # A reminder or a setting after a comma is a request of its own (Cut.LIST).
+    "remind me at 5 pm to call mom",
+    "switch to dark mode",
 ]
 _CONNECTORS = [
     "and",
@@ -94,6 +97,7 @@ _CONNECTORS = [
     ";",
     ".",
     ". By the way,",
+    ",",
 ]
 _SUBJECTS = ["a cat", "a red dragon"]
 

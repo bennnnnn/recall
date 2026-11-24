@@ -79,6 +79,10 @@ class RoutingLanes:
     # A physics question written down as maths beside the reply (``physics.formal_read``):
     # JSON mode. smart-chat read faster (median 1.0 s) and better than GPT-6 Luna (1.9 s).
     physics_setup: str
+    # The second reader of a checked physics answer (``physics.cross_check``), from another
+    # company, asked only when the server could not solve the first reading and its model's own
+    # arithmetic disagrees (5 of 279 checked answers, 2026-11-23).
+    physics_setup_second: str
     # The one compound a chemistry question is about, read beside the reply when no one asked
     # to see it (``chemistry.figure``): a name only, held to the user's words, its structure
     # PubChem's. JSON mode, fast: the reply waits for it at most two seconds.
@@ -108,7 +112,7 @@ class RoutingLanes:
     # rules' lane. Only a hard question goes to the strong lane on a plan that has it (the
     # owner's call, 2026-11-10): a low one, code too, stays on the everyday lane (a git how-to
     # read as low code waited 7.8 s on DeepSeek), which thinks only where its model can: Pro's
-    # does, HY4 Flash on Free and Plus sends no reasoning. STEM nothing verified goes to
+    # does, HY4 Flash on Free sends no reasoning. STEM nothing verified goes to
     # the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
 
@@ -132,6 +136,7 @@ ROUTING = RoutingLanes(
     math_extract="gpt-6-luna",
     chart_read="gpt-6-luna",
     physics_setup="smart-chat",
+    physics_setup_second="free-chat",
     compound_read="gpt-6-luna",
     money_read="gpt-6-luna",
     live_read="title-model",

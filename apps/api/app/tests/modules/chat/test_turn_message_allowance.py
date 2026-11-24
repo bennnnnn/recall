@@ -1,5 +1,5 @@
-"""A chat turn takes one of the day's messages, the plan's allowance (Free 10, Plus 200,
-Pro 1,000), and gives it back when it saves no reply.
+"""A chat turn takes one of the day's messages, the plan's allowance (Free 10, Pro 1,000),
+and gives it back when it saves no reply.
 
 The token budget stays behind it as a cost guardrail: a turn's prompt cost about 10k
 tokens, so a token allowance gave Free about ten messages (audit, 2026-11-06).
@@ -66,6 +66,6 @@ async def test_a_turn_that_saves_no_reply_gives_its_message_back(fake_redis) -> 
     assert await quota_service.get_daily_usage(fake_redis, str(user.id)) == 0
 
 
-@pytest.mark.parametrize(("plan", "messages"), [("free", 10), ("plus", 200), ("pro", 1000)])
+@pytest.mark.parametrize(("plan", "messages"), [("free", 10), ("pro", 1000)])
 def test_each_plan_offers_its_messages(plan: str, messages: int) -> None:
     assert quota_service.daily_message_limit(_user(plan), Settings()) == messages

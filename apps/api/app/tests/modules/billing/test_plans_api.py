@@ -15,7 +15,7 @@ from app.tests.api_support import api_user
 
 @pytest.mark.parametrize(
     "plan_id, has_live_talk, has_voice",
-    [("free", False, False), ("plus", False, True), ("pro", True, True)],
+    [("free", False, False), ("pro", True, True)],
 )
 def test_user_payload_lists_plan_features(plan_id, has_live_talk, has_voice):
     out = UserOut(
@@ -36,17 +36,17 @@ def test_user_payload_lists_plan_features(plan_id, has_live_talk, has_voice):
 
 def test_plans_endpoint_returns_the_catalog_and_current_plan():
     app = create_app()
-    app.dependency_overrides[get_current_user] = lambda: api_user(plan="plus")
+    app.dependency_overrides[get_current_user] = lambda: api_user(plan="pro")
     app.dependency_overrides[get_settings_dep] = lambda: Settings()
     r = TestClient(app).get("/billing/plans", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     body = r.json()
-    assert body["current"] == "plus"
+    assert body["current"] == "pro"
     plans = {item["id"]: item for item in body["plans"]}
-    assert set(plans) == {"free", "plus", "pro"}
+    assert list(plans) == ["free", "pro"]
     assert plans["pro"]["allowances"]["monthly_live_talk_minutes"] == 60
-    assert plans["plus"]["allowances"]["daily_image_generations"] == 10
-    assert "live_talk" not in plans["plus"]["features"]
+    assert plans["free"]["allowances"]["daily_image_generations"] == 3
+    assert "live_talk" not in plans["free"]["features"]
     # Prices are the store's: never in the server catalog.
     assert "price" not in str(body).lower()
 

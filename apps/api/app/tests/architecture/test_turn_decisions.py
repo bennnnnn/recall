@@ -98,6 +98,7 @@ _SUBJECT_CALLERS: dict[str, tuple[int, str]] = {
     # Readers of other text.
     "modules/chat/turn_prep/intents.py::part_kind": (1, "a request's own text"),
     "modules/chat/turn_prep/intents.py::_continues_solve": (1, "the earlier request"),
+    "modules/chat/turn_prep/intents.py::_other_subjects": (1, "two requests' own texts"),
     # A problem's setup and each question about it, read in the pool with the plan.
     "modules/chat/turn_prep/intents.py::_Problem.of": (1, "the setup by its own words"),
     "modules/chat/turn_prep/intents.py::_Problem.opened": (1, "a problem's setup and question"),

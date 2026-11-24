@@ -27,7 +27,7 @@ def _user(plan: str = "free") -> Any:
     return make_user(plan=plan)
 
 
-@pytest.mark.parametrize("plan, total", [("free", 400 * MIB), ("plus", GIB), ("pro", 4 * GIB)])
+@pytest.mark.parametrize("plan, total", [("free", 400 * MIB), ("pro", 4 * GIB)])
 def test_each_plan_has_a_library_total(plan: str, total: int) -> None:
     assert allowance(_user(plan), "library_storage_bytes", Settings()) == total
 
@@ -58,8 +58,6 @@ async def _presign(user: Any, *, stored: int, size: int) -> AsyncMock:
         ("free", 400 * MIB - 1024, 1024, True),
         ("free", 400 * MIB - 1024, 1025, False),
         ("free", GIB, 1, False),
-        ("plus", 500 * MIB, 1024, True),
-        ("plus", GIB, 1, False),
         ("pro", 3 * GIB, 1024, True),
         ("pro", 4 * GIB, 1, False),
     ],
@@ -93,7 +91,7 @@ async def test_a_full_library_takes_no_daily_upload_slot() -> None:
     assert await redis.get(counters.daily_key("imgup", user.id)) is None
 
 
-@pytest.mark.parametrize("plan, upgrade", [("free", True), ("plus", False), ("pro", False)])
+@pytest.mark.parametrize("plan, upgrade", [("free", True), ("pro", False)])
 def test_the_full_library_message_offers_an_upgrade_only_on_free(plan: str, upgrade: bool) -> None:
     assert ("upgrade" in storage_quota.storage_full_message(_user(plan))) is upgrade
 
