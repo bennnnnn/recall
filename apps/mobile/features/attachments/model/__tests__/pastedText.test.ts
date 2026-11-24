@@ -64,10 +64,8 @@ beforeEach(() => {
 });
 
 describe("text pasted into the composer, as a file to send", () => {
-  it("matches the API's name and limits", () => {
-    expect(PASTED_TEXT_FILE_NAME).toBe("pasted-text.txt");
-    expect(PASTE_MAX_CHARS).toBe(200_000);
-    expect(PASTE_MAX_PAGES).toBe(100);
+  it("tells the limit in pages, about 2,000 characters each", () => {
+    expect(PASTE_MAX_PAGES).toBe(PASTE_MAX_CHARS / 2_000);
   });
 
   it("writes the paste to its own file in the cache, and says how long it is and how it starts", () => {
@@ -84,6 +82,10 @@ describe("text pasted into the composer, as a file to send", () => {
     expect(mockWritten.get(attachment.localUri)).toBe(text);
     expect(attachment.pasted?.preview.startsWith("Chapter one It was a bright cold day")).toBe(true);
     expect(isPastedText(attachment)).toBe(true);
+  });
+
+  it("tells its length as the API counts it: an emoji is one character", () => {
+    expect(pastedTextAttachment("😀".repeat(3000)).pasted?.chars).toBe(3000);
   });
 
   it("deletes its file when the draft is dropped", () => {

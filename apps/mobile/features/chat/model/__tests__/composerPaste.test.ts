@@ -55,3 +55,39 @@ describe("a change to the composer, read as a paste or not", () => {
     expect(readPastedText("y".repeat(PASTE_MAX_CHARS + 1), "draft")).toEqual({ kind: "too_long" });
   });
 });
+
+describe("a paste that shares an edge with the draft", () => {
+  const pasted = `${"Body text. ".repeat(250)}The end.`;
+
+  it("is cut out by the selection it went over, all of it", () => {
+    // Select all of "Please fix this." and paste a text that also ends in ".".
+    expect(readComposerChange("Please fix this.", pasted, { start: 0, end: 16 })).toEqual({
+      kind: "attach",
+      text: pasted,
+      remaining: "",
+    });
+  });
+
+  it("keeps its first character when the text after the caret starts the same", () => {
+    const paste = `b${"x".repeat(PASTE_ATTACH_MIN_CHARS)}`;
+    expect(readComposerChange("ab", `a${paste}b`, { start: 1, end: 1 })).toEqual({
+      kind: "attach",
+      text: paste,
+      remaining: "ab",
+    });
+  });
+
+  it("falls back to matching the texts when the selection does not fit the change", () => {
+    expect(readComposerChange("draft ", `draft ${pasted}`, { start: 99, end: 99 })).toMatchObject({
+      kind: "attach",
+      remaining: "draft ",
+    });
+  });
+
+  it("counts characters as the API does: an emoji is one", () => {
+    const emoji = "😀".repeat(PASTE_ATTACH_MIN_CHARS / 2 + 100);
+    expect(emoji.length).toBeGreaterThan(PASTE_ATTACH_MIN_CHARS);
+    expect(readComposerChange("", emoji)).toEqual({ kind: "text" });
+    expect(readComposerChange("", "😀".repeat(PASTE_MAX_CHARS))).toMatchObject({ kind: "attach" });
+  });
+});

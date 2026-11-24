@@ -201,6 +201,12 @@ describe("useChatScreenBodyProps", () => {
     expect(result.current.bodyProps).toBe(streaming);
   });
 
+  it("hands the composer the paste writer and the chat's banner", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    expect(result.current.bodyProps.composer.onPasteAsFile).toBe(attachPastedText);
+    expect(result.current.bodyProps.composer.onNotice).toBe(showActionBanner);
+  });
+
   it("tells the composer when the reply is only saving, so Send is offered then", async () => {
     const { result, rerender } = await renderHook(
       ({ replySaving }: { replySaving: boolean }) => useHarness(true, [message], replySaving),

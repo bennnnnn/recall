@@ -6,6 +6,7 @@ import { PASTE_MAX_PAGES } from "@/features/attachments/model/pastedText";
 import { readComposerChange, readPastedText, type ComposerPaste } from "@/features/chat/model/composerPaste";
 import { messageTooLong } from "@/features/chat/model/messageLimit";
 import { useLatestRef } from "@/lib/latestRef";
+import type { TextSelection } from "@/lib/math/keyboardSymbols";
 import type { ActionFeedbackTone } from "@/ui/feedback/ActionBanner";
 import type { IconName } from "@/ui/icons/names";
 
@@ -25,7 +26,12 @@ type Options = {
    * The field's own handling (useMathKeyboardInsert): `onChangeText` for every edit that is
    * not a long paste, `pasteText` to put text in at the caret (the maths pad's Paste key).
    */
-  field: { onChangeText: (next: string) => void; pasteText: (text: string) => unknown };
+  field: {
+    onChangeText: (next: string) => void;
+    pasteText: (text: string) => unknown;
+    /** The field's selection, as it last reported it: where a paste goes in. */
+    selection?: TextSelection;
+  };
 };
 
 /**
@@ -37,6 +43,7 @@ type Options = {
  */
 export function useComposerPaste({ input, onPasteAsFile, onNotice, hasAttachment, field }: Options) {
   const { onChangeText, pasteText: insertText } = field;
+  const selectionRef = useLatestRef(field.selection);
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
   const inputRef = useLatestRef(input);
@@ -63,9 +70,9 @@ export function useComposerPaste({ input, onPasteAsFile, onNotice, hasAttachment
   /** The field's onChangeText: a long paste is taken out of it. */
   const onFieldChange = useCallback(
     (next: string) => {
-      if (!take(readComposerChange(inputRef.current, next))) onChangeText(next);
+      if (!take(readComposerChange(inputRef.current, next, selectionRef.current))) onChangeText(next);
     },
-    [inputRef, onChangeText, take],
+    [inputRef, onChangeText, selectionRef, take],
   );
 
   /** The maths pad's Paste key. */

@@ -42,6 +42,7 @@ from app.modules.attachments.text_extract import (
 from app.modules.attachments.text_extract import PDF_INDEX_MAX_PAGES as PDF_INDEX_MAX_PAGES
 from app.modules.attachments.text_extract import ExtractedText as ExtractedText
 from app.modules.attachments.text_extract import extract_text_details as extract_text_details
+from app.services.prompt_safety import PASTED_TEXT_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -339,8 +340,11 @@ async def format_attachment_lines(
                 page_capped=excerpt.page_capped,
                 max_chars=max_chars,
             )
-            body = f"{note}\n{excerpt.text}" if note else excerpt.text
-            return [file_ref, f"[File ({content_type})]\n{body}"], False
+            # Only a paste is the user's own words; a file's text never claims to be one.
+            text = excerpt.text if pasted else excerpt.text.replace(PASTED_TEXT_HEADER, "")
+            body = f"{note}\n{text}" if note else text
+            header = PASTED_TEXT_HEADER if pasted else f"[File ({content_type})]"
+            return [file_ref, f"{header}\n{body}"], False
         if content_type not in EXTRACTABLE_CONTENT_TYPES:
             return (
                 [

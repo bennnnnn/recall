@@ -15,6 +15,7 @@ import {
   pastedTextPreview,
 } from "@/features/attachments/model/pastedText";
 import { PASTED_TEXT_DIRECTORY } from "@/lib/accountFiles";
+import { charCount } from "@/lib/charCount";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { offerSettings } from "@/ui/overlay/dialogs";
@@ -201,7 +202,7 @@ export function pastedTextAttachment(text: string): PendingAttachment {
     contentType: PASTED_TEXT_CONTENT_TYPE,
     fileName: PASTED_TEXT_FILE_NAME,
     kind: "file",
-    pasted: { chars: text.length, preview: pastedTextPreview(text) },
+    pasted: { chars: charCount(text), preview: pastedTextPreview(text) },
   };
 }
 

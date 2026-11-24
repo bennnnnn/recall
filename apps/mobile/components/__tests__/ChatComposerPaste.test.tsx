@@ -3,10 +3,11 @@
  * draft longer than a message holds Send back with a note (features/chat/hooks/useComposerPaste.ts,
  * features/chat/model/messageLimit.ts).
  */
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { PASTE_ATTACH_MIN_CHARS } from "@/features/chat/model/composerPaste";
+import { mathKeyboardRequests } from "@/features/chat/model/mathKeyboardRequest";
 import { MESSAGE_MAX_CHARS } from "@/features/chat/model/messageLimit";
 
 import { DraftHarness } from "./DraftHarness";
@@ -105,5 +106,24 @@ describe("a draft longer than a message", () => {
     expect(queryByTestId("composer-too-long")).toBeNull();
     await fireEvent.press(getByLabelText("chat.send_a11y"));
     expect(onSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the maths pad's Paste key", () => {
+  it("hands a long clipboard over as a file, as the field does", async () => {
+    const Clipboard = jest.requireMock("expo-clipboard") as { getStringAsync: jest.Mock };
+    const pasted = "p".repeat(PASTE_ATTACH_MIN_CHARS + 1);
+    Clipboard.getStringAsync.mockResolvedValueOnce(pasted);
+    const onPasteAsFile = jest.fn(() => true);
+    const { getByLabelText, getByTestId } = await render(
+      <DraftHarness input="">
+        <ChatComposer {...baseProps} onPasteAsFile={onPasteAsFile} />
+      </DraftHarness>,
+    );
+    await act(async () => mathKeyboardRequests.emit());
+    await fireEvent.press(getByLabelText("chat.math_keyboard_paste"));
+    await act(async () => {});
+    expect(onPasteAsFile).toHaveBeenCalledWith(pasted);
+    expect(getByTestId("chat-composer-input").props.value).toBe("");
   });
 });

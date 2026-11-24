@@ -11,14 +11,15 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/features/attachments/components/LazyDraftAttachmentViewers", () => {
   const { Pressable, View } = jest.requireActual("react-native");
   const viewer = (testID: string) =>
-    function MockViewer({ visible, localUri, onShare, sharing }: {
+    function MockViewer({ visible, localUri, fileName, onShare, sharing }: {
       visible: boolean;
       localUri: string;
+      fileName: string;
       onShare: () => void;
       sharing?: boolean;
     }) {
       return visible ? (
-        <View testID={testID} accessibilityHint={localUri}>
+        <View testID={testID} accessibilityHint={localUri} accessibilityLabel={fileName}>
           <Pressable testID="viewer-share" onPress={onShare} accessibilityState={{ busy: Boolean(sharing) }} />
         </View>
       ) : null;
@@ -112,6 +113,8 @@ describe("a long paste in the composer", () => {
     const view = await render(<ComposerAttachmentPreview attachment={pasted} onRemove={onRemove} />);
     await fireEvent.press(view.getByTestId("composer-file-open"));
     expect(view.getByTestId("text-viewer").props.accessibilityHint).toBe("file:///cache/PastedText/paste-1.txt");
+    // Titled as the chip names it, not by the file the phone wrote.
+    expect(view.getByTestId("text-viewer").props.accessibilityLabel).toBe("chat.pasted_text");
     await fireEvent.press(view.getByLabelText("chat.remove_attachment_a11y"));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });

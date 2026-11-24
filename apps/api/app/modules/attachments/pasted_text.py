@@ -16,6 +16,7 @@ from __future__ import annotations
 from app.models.schemas.chats import MESSAGE_MAX_CHARS
 from app.modules.attachments.content_types import normalize_content_type
 from app.modules.attachments.text_extract import MAX_INDEX_EXTRACT_CHARS
+from app.services.prompt_safety import PASTED_TEXT_HEADER
 
 PASTED_TEXT_FILENAME = "pasted-text.txt"
 PASTED_TEXT_CONTENT_TYPE = "text/plain"
@@ -41,6 +42,20 @@ def is_pasted_text(content_type: str, filename: str | None) -> bool:
         filename == PASTED_TEXT_FILENAME
         and normalize_content_type(content_type) == PASTED_TEXT_CONTENT_TYPE
     )
+
+
+def pasted_text_in(attachment_lines: list[str]) -> str:
+    """The pasted text a turn's attachment lines hold (``format_attachment_lines``), without
+    the model's note on how much was read: what the turn's readers read as its words."""
+    texts: list[str] = []
+    for line in attachment_lines:
+        head, _, body = line.partition("\n")
+        if head != PASTED_TEXT_HEADER:
+            continue
+        if body.startswith("[File note:"):
+            body = body.partition("\n")[2]
+        texts.append(body.strip())
+    return "\n\n".join(text for text in texts if text)
 
 
 def pasted_text_too_long(data: bytes) -> bool:
