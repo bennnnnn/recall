@@ -98,7 +98,7 @@ def _without_closing_headings(above: str) -> str:
     return "\n".join(kept)
 
 
-def _only_headings(between: str) -> bool:
+def only_headings(between: str) -> bool:
     """Nothing but blank lines and bold headings between the working and the card."""
     return all(
         not line.strip() or _BOLD_LINE.fullmatch(line.strip()) for line in between.split("\n")
@@ -155,7 +155,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
         # The headings right above the card ("**Answer for $D$**") are no working (review,
         # #2536): the working's last line is the last maths above them.
         lines = list(INLINE_MATH.finditer(_without_closing_headings(above)))
-        if card is None or not lines or not _only_headings(above[lines[-1].end() :]):
+        if card is None or not lines or not only_headings(above[lines[-1].end() :]):
             continue
         if not _own_line(above, lines[-1].start()):
             continue
