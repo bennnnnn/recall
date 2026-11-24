@@ -80,13 +80,25 @@ def test_display_maths_ends_on_the_rounding_too() -> None:
         (r"$v_y = 3.2141\ \text{m/s}$", r"v_x = 3.21\ \text{m/s}"),
         # A count rounded as the question needs: 3.75 buses is 4.
         (r"$n = 3.75$", "n = 4"),
-        # Not the line's own end: a wrapper around the number.
-        (r"$t = \boxed{4.82488}$", "t = 4.82"),
+        # Not the line's own number alone: a word before it.
+        (r"$t = \text{about }4.82488\ \text{s}$", r"t = 4.82\ \text{s}"),
     ],
 )
 def test_the_line_is_left_alone(line: str, card: str) -> None:
     reply = f"{line}\n\n{_card(card)}"
     assert rounded_ends(reply) == reply
+
+
+def test_a_rounding_the_line_writes_takes_the_cards_number() -> None:
+    """Review, #2577: the model's "\\approx 25.4 m" over a card the rule writes 25.39 m was
+    the same two answers again; the line's rounding is the card's."""
+    line = r"$h = 25.3874\ \text{m} \approx 25.4\ \text{m}$"
+    reply = f"{line}\n\n{_card(r'h = 25.39\ \text{m}', 'false')}"
+    assert rounded_ends(reply) == reply.replace("25.4\\ ", "25.39\\ ", 1)
+    # A rounding in another unit, or of the other sign, is not the card's to change.
+    for other in (r"\approx 2.54\ \text{cm}", r"\approx -25.4\ \text{m}"):
+        odd = f"$h = 25.3874\\ \\text{{m}} {other}$\n\n{_card(r'h = 25.39\ \text{m}')}"
+        assert rounded_ends(odd) == odd
 
 
 def test_only_headings_may_stand_between_the_line_and_the_card() -> None:

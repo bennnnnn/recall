@@ -12,10 +12,11 @@ bold headings between them (``working_cards.only_headings``). That line gets
 ``\\approx`` and the card's number, in the line's own unit and sign, only when it ends
 ``= <number> [unit]``, names what the card names (or nothing), and its number rounds to the
 card's in the same unit (``card_numbers.rounding_of``, a power of ten's mantissa
-included). A line already equal to the card, one already ending on ≈, one the card does
-not round (a disagreement is another pass's), and a card the rule leaves as written
-(several values, an expression, a sum of money, a pH: ``card_numbers.plain_numbers``) are
-left as they are.
+included). A line that already ends on ≈ (the model may write it) keeps its rounding when
+it is the card's and takes the card's number when it is not, so the two never differ. A
+line already equal to the card, one the card does not round (a disagreement is another
+pass's), and a card the rule leaves as written (several values, an expression, a sum of
+money, a pH: ``card_numbers.plain_numbers``) are left as they are.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ def round_working_ends(state: FinalizeState) -> str:
 
 def rounded_ends(text: str) -> str:
     """``text`` with each card's working ending on the card's rounding (the docstring)."""
-    changes: list[tuple[int, str]] = []
+    changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
         above_start, previous = previous, fence.end
@@ -63,12 +64,11 @@ def rounded_ends(text: str) -> str:
         if card is None or line is None:
             continue
         start, end = line
-        maths = text[above_start + start : above_start + end]
-        approximation = _approximation(maths, *card)
-        if approximation:
-            changes.append((above_start + start + len(maths.rstrip()), approximation))
-    for at, approximation in reversed(changes):
-        text = text[:at] + approximation + text[at:]
+        rounded = _rounded(text[above_start + start : above_start + end], *card)
+        if rounded is not None:
+            changes.append((above_start + start, above_start + end, rounded))
+    for start, end, rounded in reversed(changes):
+        text = text[:start] + rounded + text[end:]
     return text
 
 
@@ -108,18 +108,45 @@ def _last_maths(above: str) -> tuple[int, int] | None:
     return start, end
 
 
-def _approximation(maths: str, card: Number, shown: str, label: str | None) -> str | None:
-    """`` \\approx <card's number>`` in the line's own sign and unit, or None to leave it."""
-    side = maths.rpartition("=")[2].strip()
-    if not side or ROUNDED_TO.search(side):
+def _rounded(maths: str, card: Number, shown: str, label: str | None) -> str | None:
+    """The line ending on the card's rounding, in the line's own sign and unit, or None to
+    leave it. A rounding the line already writes is kept when it is the card's, and given the
+    card's number when it is not: a model's "\\approx 25.4 m" over a card of 25.39 m."""
+    body = maths.rstrip()
+    head, equals, side = body.rpartition("=")
+    rounding = ROUNDED_TO.search(side)
+    reached = side[: rounding.start()] if rounding else side
+    worked = line_value(body)
+    if not equals or worked is None or worked.value == card.value:
         return None
-    worked = line_value(maths)
-    if worked is None or worked.value == card.value or not rounding_of(card, worked):
-        return None
-    named = read_verified_value(maths)
+    if not rounding_of(card, worked):
+        return None  # a disagreement, or no rounding of it: another pass's
+    named = read_verified_value(f"{head}={reached}")
     if label and named is not None and named.label and named.label != label:
         return None  # another quantity's line: v_y above a card of v_x
+    if rounding is None:
+        said = _with_number(reached.strip(), shown)
+        return None if said is None else f"{body} \\approx {said}{maths[len(body) :]}"
+    said_tex = side[rounding.end() :]
+    read = read_verified_value(said_tex)
+    if read is None or len(read.numbers) != 1:
+        return None
+    number = read.numbers[0]
+    if number.unit != card.unit or (number.value < 0) != (card.value < 0):
+        return None
+    if number.value == card.value:
+        return None  # the line's own rounding is the card's
+    again = _with_number(said_tex, shown)
+    if again is None:
+        return None
+    return f"{head}={side[: rounding.end()]}{again}{maths[len(body) :]}"
+
+
+def _with_number(side: str, shown: str) -> str | None:
+    """``side`` with its one number written as ``shown``, its sign and unit kept; None when
+    the number stands inside something else ("\\text{about }4.82488")."""
+    lead = len(side) - len(side.lstrip())
     number = WRITTEN_NUMBER.search(side)
-    if number is None or not _SIGN.fullmatch(side[: number.start()]):
-        return None  # a number inside a wrapper (\boxed{…}) is not the line's own end
-    return f" \\approx {side[: number.start()]}{shown}{side[number.end() :]}"
+    if number is None or not _SIGN.fullmatch(side[lead : number.start()]):
+        return None
+    return f"{side[: number.start()]}{shown}{side[number.end() :]}"

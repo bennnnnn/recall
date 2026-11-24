@@ -147,7 +147,8 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    it to the data's figures (`29 g`): `num` notes what rounding took off
    (`sig_figs.note_rounding`) and the closing row shows it (`direct._unrounded_value`). A
    closing row the card does not round (`n = 2.0 mol` over `2.0 mol`) stays too: the working
-   ends on its value, as a textbook's does, then the card (2026-11-11).
+   ends on its value, as a textbook's does, then the card (2026-11-11). A closing row the card
+   rounds ends on that rounding (`m = 29.22 g ≈ 29 g`, `chat/rounded_end.py`, 2026-11-23).
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
    structure fences and appends the solver's copies (the card marked `verified: true`).
    Prose whose own final value differs at its own precision (`pH = 1.00` against `2.00`; `44 g/mol` agrees with 44.01) keeps it, in a card
@@ -314,7 +315,8 @@ records how each given was typed, and the solve formats every number from that r
 - **Answers** take the fewest significant figures among the measured givens, kept between
   2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. That is the card's
   precision; the working's last row is the value unrounded, carried two figures further
-  (`m = 35.74 g` over a card of `36 g`), so a student sees what was rounded. A count (an electron
+  (`m = 35.74 g ≈ 36 g` over a card of `36 g`, `chat/rounded_end.py`), so a student sees what
+  was rounded. A count (an electron
   number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, nor does
   the number that names a question's item (`1) What is the molarity of 1.00 mol …` is
   `2.00 mol/L`), and a Celsius reading counts the figures of its kelvin value (`25 °C` is
