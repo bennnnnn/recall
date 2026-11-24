@@ -10,7 +10,8 @@ only when what follows is a request of its own:
 - list: a comma before a task, after a piece that opens with one ("solve x² = 4 and graph
   it, draw the structure of aspirin"; "When teaching me, explain …" is not one). The plan
   keeps it only before or after a reminder or a setting, or between two solves of different
-  subjects: "Draw me a cat, add a hat" is one picture.
+  subjects: "Draw me a cat, add a hat" is one picture. It does not count toward
+  ``MAX_CLAUSES``.
 
 A clause that points back ("and when to use each", "and graph it", "which is
 faster") stays with the one before it, and so does one that names nothing of its
@@ -26,6 +27,7 @@ breaks one answer into sections. So every doubt keeps clauses together.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -304,6 +306,13 @@ def candidate_segments(text: str) -> list[tuple[str, Cut]]:
     return segments
 
 
+def counted_clauses(clauses: Sequence[Clause]) -> int:
+    """The clauses ``MAX_CLAUSES`` counts: a list cut (``Cut.LIST``) is not one, as the plan
+    folds most back ("Explain photosynthesis, give three real examples, …, and draw a
+    diagram")."""
+    return sum(1 for clause in clauses if clause.cut != Cut.LIST)
+
+
 def request_clauses(text: str) -> RequestSplit:
     """The message's requests in order; a cut that fails the rules above is merged back."""
     segments = candidate_segments(text)
@@ -325,6 +334,6 @@ def request_clauses(text: str) -> RequestSplit:
         else:
             last = clauses[-1]
             clauses[-1] = Clause(f"{last.text} {raw}", last.cut, last.topics | topics)
-    if not clauses or len(clauses) > MAX_CLAUSES:
+    if not clauses or counted_clauses(clauses) > MAX_CLAUSES:
         return _whole(collapse_ws(text))
     return RequestSplit(" ".join(context), tuple(clauses))

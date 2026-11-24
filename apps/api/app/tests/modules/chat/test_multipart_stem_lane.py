@@ -191,8 +191,42 @@ def test_the_owners_message_plans_its_chemistry_as_a_part_of_its_own() -> None:
         # A comma before a task that refines the one before it (review).
         "Draw me a cat, add a hat",
         "Can you help me with my essay, write an intro about climate change",
+        # A comma after a reminder lists what it is for (review).
+        "Remind me tomorrow at 8 am to take out the trash, check the mail, and water the plants",
+        "Remind me Friday to plan the party, find a venue, order the cake",
         "If x = 2, find y when y = 3x + 1",
     ],
 )
 def test_a_comma_that_shapes_one_request_keeps_it_whole(text: str) -> None:
     assert not plan_turn(text).multi
+
+
+@pytest.mark.parametrize(
+    ("text", "kinds"),
+    [
+        ("Draw me a dog, remind me at 5 pm to call mom", ["image", "reminder"]),
+        ("Draw me a cat, switch to dark mode", ["image", "settings"]),
+        # List cuts do not count toward MAX_CLAUSES: the plan folds them back first.
+        (
+            "Explain photosynthesis, give three real examples, compare plants with algae, list "
+            "the main pigments, and draw a diagram. Also remind me at 6 pm to water the plants.",
+            ["ask", "reminder"],
+        ),
+    ],
+)
+def test_a_comma_before_a_reminder_or_setting_cuts_and_counts_no_list_cut(
+    text: str, kinds: list[str]
+) -> None:
+    assert [part.kind for part in plan_turn(text).parts] == kinds
+
+
+@pytest.mark.parametrize(
+    "text", ["Draw me a dog, remind me at 5 pm to call mom", "Draw me a cat, switch to dark mode"]
+)
+def test_a_picture_before_a_comma_reminder_or_setting_is_never_drawn_whole(text: str) -> None:
+    """The picture reader cuts where the plan cuts: the reminder's words are never drawn."""
+    from app.modules.chat.turn_prep.intents import cuts_after_picture
+    from app.modules.images.gen_intent import extract_image_gen_prompt
+
+    assert cuts_after_picture(text, lambda body: bool(extract_image_gen_prompt(body)))
+    assert extract_image_gen_prompt(text) is None
