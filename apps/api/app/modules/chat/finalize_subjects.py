@@ -18,9 +18,9 @@ from app.core import sympy_executor
 from app.modules.chat.simulation_fences import drop_open_fences, strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_recap_tail, drop_restated_tail
+from app.modules.chat.working_approximations import corrected_approximations
 from app.modules.chat.working_cards import held_cards
 from app.modules.chat.working_check import (
-    corrected_approximations,
     is_worked_solution,
     working_note,
 )

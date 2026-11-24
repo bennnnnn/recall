@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from decimal import InvalidOperation
 
@@ -29,7 +28,6 @@ from app.modules.chat.tex_arithmetic import (
     MAX_EXPONENT,
     UNIT_GROUP,
     evaluate,
-    is_unit_word,
     log_readings,
     math_statement_spans,
     plain_arithmetic,
@@ -38,7 +36,6 @@ from app.modules.chat.tex_arithmetic import (
 from app.modules.chat.tex_spread import half_place, spread
 from app.modules.chat.working_align import Piece, pieces
 from app.modules.chat.working_systems import unheld_equations
-from app.services.md_fence_scan import iter_fences
 from app.services.school_rounding import round_places
 
 # A written result: 14.8, -3, or 1.204 * 10^24 once it is plain text.
@@ -156,7 +153,7 @@ def _prefix_shift(value: float, shown: float) -> bool:
 
 
 # A decimal in a plain side (0.36, 3.98e-19), not a power's exponent.
-_DECIMAL = re.compile(r"(?<![\d.])(?<!\*\*)(?<!\*\*\()\d+\.\d+(?:e[-+]?\d+)?")
+DECIMAL = re.compile(r"(?<![\d.])(?<!\*\*)(?<!\*\*\()\d+\.\d+(?:e[-+]?\d+)?")
 
 
 def _exact_side(plain: str, rounded: dict[str, float]) -> str:
@@ -166,7 +163,7 @@ def _exact_side(plain: str, rounded: dict[str, float]) -> str:
     when 0.36 was 0.357, and was flagged "0.72, not 0.71" (2026-10-30, a long-jump answer).
     A given is exact as written, so "3.2 * 4.5 = 14.8" is still a slip; a whole number or
     an exponent is never taken for a rounded result (the "2" of "3^2" after "9/4 = 2")."""
-    return _DECIMAL.sub(
+    return DECIMAL.sub(
         lambda m: f"({rounded[m.group(0)]!r})" if m.group(0) in rounded else m.group(0), plain
     )
 
@@ -390,8 +387,8 @@ def slip(
         return _between_forms(left_tex, right_tex, left, right, approximate, memory)
     # A side of exact numbers (√65/8, 10 sin 45°/sin 75°) is held to the shown value's own
     # rounding: "≈ 0.999" for 1.0078 is a slip, though under 1%.
-    if _DECIMAL.search(left) is None:
-        if all(_is_off(value, shown[0], shown[1]) for value in readings):
+    if DECIMAL.search(left) is None:
+        if all(is_off(value, shown[0], shown[1]) for value in readings):
             return _result_step(left_tex, right_tex, _nearest(readings, shown[0]))
         return None
     if not all(
@@ -460,11 +457,11 @@ def _between_forms(
         )
         return WrongStep(left_tex, right_tex, value, fixes) if fixes else None
     # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
-    if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
+    if other is None or (DECIMAL.search(right) is not None and DECIMAL.search(left) is None):
         return None
     # Two exact forms held equal must be equal; one only said to be near ("pi ≈ 22/7",
     # "sqrt(2) ≈ 7/5") is held to the slack an approximation has (review, #2520).
-    exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None and not approximate
+    exact = DECIMAL.search(left) is None and DECIMAL.search(right) is None and not approximate
     if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
         return WrongStep(left_tex, right_tex, value)
     if not exact and _is_wrong(value, other, 0.0, approximate):
@@ -497,7 +494,7 @@ def _units(tex: str) -> tuple[str, ...]:
     return tuple(sorted("".join(group.split()) for group in UNIT_GROUP.findall(tex)))
 
 
-def _is_off(value: float, shown: float, rounding: float) -> bool:
+def is_off(value: float, shown: float, rounding: float) -> bool:
     """``shown`` is not ``value`` written to its own places."""
     return not _prefix_shift(value, shown) and abs(value - shown) > rounding * (1 + 1e-6) + 1e-12
 
@@ -661,84 +658,3 @@ def working_note(reply: str) -> str | None:
         f"Check this step: ${step.left} = {right}$, not ${step.shown}$. "
         "The lines after it depend on it."
     )
-
-
-# "$\frac{\sqrt{65}}{8}$ cm (approximately 0.999 cm)", "**$2\sqrt{30}$ cm** (approx. $10.95$ cm)":
-# an exact value and the decimal a reply gives for it, a few words apart.
-_APPROXIMATED = re.compile(
-    r"\$(?P<exact>[^$\n]{1,200})\$(?P<gap>[^$\n()~≈]{0,30}?)\(?"
-    r"(?:approx(?:imately|\.)?|≈|~)[\s*$]*(?P<number>-?\d+(?:\.\d+)?)"
-)
-
-
-def corrected_approximations(reply: str) -> str:
-    """``reply`` with each decimal given for an exact value it misstates written correctly, to
-    the same places: "√65/8 cm (approximately 0.999 cm)" is 1.008 (live, 2026-11-21), and
-    "2(√10 + √13 + √17) (approximately 19.13)" is 21.78. Only an exact value of plain numbers
-    is held, never a side that carries a rounded decimal itself."""
-
-    def fix(match: re.Match[str]) -> str:
-        exact_tex = RELATION.split(match.group("exact"))[-1].strip()
-        plain = plain_arithmetic(exact_tex)
-        if plain is None or _DECIMAL.search(plain) is not None:
-            return match.group(0)
-        if _another_unit(match) or not _units_only(match.group("gap")):
-            return match.group(0)
-        value = evaluate(plain)
-        shown = shown_number(match.group("number"), coarse=True)
-        if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
-            return match.group(0)
-        start = match.start("number") - match.start()
-        end = match.end("number") - match.start()
-        whole = match.group(0)
-        return whole[:start] + shown_like(value, match.group("number")) + whole[end:]
-
-    return _outside_fences(reply, lambda text: _APPROXIMATED.sub(fix, text))
-
-
-# What follows an approximated number: a unit ("70.7 cm", "$10.95$ \\text{cm}"), or a mark that
-# makes it another number than its digits ("1.67 \\times 10^{-4}", "8%", "30°", "1,224.74"), or a
-# fraction, ratio or range of which it is only the start ("22/7", "3:1", "2-3", "2 to 3").
-_UNIT_AFTER = re.compile(
-    r"[ \t$]*(?:\\[,; ][ \t]*)?"
-    r"(?:\\(?:text|mathrm)\s*\{\s*([^{}\s]{1,12})\s*\}|([A-Za-zµμΩ]+)|(\\times|\u00d7|\*\s*10\b|e[-+]?\d|"
-    r"\\?%|°|\^|\\circ|\\deg|,\d|[ \t]*[/:\u2013-][ \t]*\d|[ \t]+to[ \t]+\d))"
-)
-_WORD = re.compile(r"[A-Za-zµμΩ°]+")
-
-
-def _another_unit(match: re.Match[str]) -> bool:
-    """The decimal is not the exact value's own, written to places: given in a unit the exact
-    value is not written in ("√2/2 m (approximately 70.7 cm)", "1/3 hr (approximately 20
-    minutes)"), or in powers of ten, a percent or degrees (review, #2520)."""
-    after = _UNIT_AFTER.match(match.string, match.end())
-    if after is None:
-        return False
-    if after.group(3) is not None:
-        return True
-    unit = after.group(1) or after.group(2)
-    return unit is not None and unit not in _WORD.findall(match.group("exact") + match.group("gap"))
-
-
-def _units_only(gap: str) -> bool:
-    """Between the exact value and its decimal only a unit and marks: "$√65/8$ cm (approx.",
-    never words ("$√3$, the height is approximately 8.66" names another value)."""
-    return all(
-        is_unit_word(word) or word.lower() in _GAP_WORDS
-        for word in re.findall(r"[A-Za-zµμΩ]+", gap)
-    )
-
-
-# Words a unitless or an area's value is written with: "19.13 units", "8 square cm".
-_GAP_WORDS = frozenset({"units", "unit", "square", "sq", "cubic"})
-
-
-def _outside_fences(text: str, change: Callable[[str], str]) -> str:
-    """``change`` applied to the text between fences, every fence as written."""
-    pieces: list[str] = []
-    cursor = 0
-    for fence in iter_fences(text):
-        pieces.extend([change(text[cursor : fence.start]), text[fence.start : fence.end]])
-        cursor = fence.end
-    pieces.append(change(text[cursor:]))
-    return "".join(pieces)
