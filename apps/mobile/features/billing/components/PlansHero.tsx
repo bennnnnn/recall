@@ -13,7 +13,7 @@ const ART = require("@/assets/images/plans-art.jpg") as number;
 
 /** The picture's height for a screen of `height`: smaller on a small phone, never cramped. */
 export function heroHeight(height: number): number {
-  return Math.min(190, Math.max(96, height - 730));
+  return Math.min(190, Math.max(80, height - 730));
 }
 
 export function PlansHero({ height }: { height: number }) {

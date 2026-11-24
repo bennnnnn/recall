@@ -441,7 +441,7 @@ const makeStyles = (theme: Theme) =>
     headline: { ...Type.greeting, ...Weight.bold, textAlign: "center", color: theme.text },
     headlinePlan: { color: theme.primary },
     headlineCompact: { ...Type.display },
-    footer: { gap: Space.sm, paddingTop: Space.xs },
+    footer: { gap: Space.xs },
     freeLink: { alignSelf: "center", paddingVertical: Space.xs, paddingHorizontal: Space.md },
     freeLinkText: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
     error: { ...Type.secondary, color: theme.danger, textAlign: "center" },
