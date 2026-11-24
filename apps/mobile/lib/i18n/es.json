@@ -1120,7 +1120,6 @@
   "upgrade.store_unavailable": "La tienda no responde. Inténtalo de nuevo en un momento.",
   "upgrade.store_not_in_build": "Las compras no están disponibles en esta versión de la app.",
   "upgrade.sync_pending": "Ya estás suscrito. Tu plan se actualizará en un momento; vuelve a abrir la app si no cambia.",
-  "upgrade.subscription_terms": "Tu suscripción se renueva automáticamente al final de cada periodo, salvo que la canceles en tu cuenta de App Store o Google Play.",
   "onboarding.demo_image_ask": "Dibuja un zorro leyendo junto a una fogata",
   "onboarding.slide_image_title": "Crea imágenes",
   "onboarding.slide_image_body": "Describe una imagen y mírala dibujada en segundos.",
@@ -1154,7 +1153,6 @@
   "upgrade.renews_monthly": "Se renueva cada mes. Cancela cuando quieras.",
   "upgrade.renews_yearly": "Se renueva cada año. Cancela cuando quieras.",
   "upgrade.subscribe_price": "Obtener {{plan}} · {{price}}",
-  "upgrade.dev_example_prices": "Precios de ejemplo: una versión de desarrollo no tiene tienda.",
   "upgrade.benefit_chat": "Chat ilimitado",
   "upgrade.benefit_maths": "Ayuda con matemáticas",
   "upgrade.benefit_physics": "Ayuda con física",
@@ -1179,5 +1177,6 @@
   "upgrade.per_month_billed_yearly": "{{price}} / mes, facturado anualmente",
   "upgrade.trial_reminder": "Te avisaremos un día antes de que termine la prueba.",
   "notifications.trial_ends_title": "Tu prueba gratis termina mañana",
-  "notifications.trial_ends_body": "Después, Recall Pro se renueva por {{price}}. Para cancelar, abre tus suscripciones de App Store o Google Play."
+  "notifications.trial_ends_body": "Si no la has cancelado, Recall Pro se renueva después por {{price}}. Para cancelar, abre tus suscripciones de App Store o Google Play.",
+  "upgrade.see_all_benefits": "Ver todas las ventajas de {{plan}}"
 }

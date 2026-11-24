@@ -54,7 +54,7 @@ export function freeTrialOf(intro: IntroPrice): FreeTrial | undefined {
   return { count, unit, priceString: intro.priceString };
 }
 
-type ActiveEntitlements = Record<string, { productIdentifier?: string } | undefined>;
+type ActiveEntitlements = Record<string, unknown>;
 type CustomerInfoLike = { entitlements: { active: ActiveEntitlements } };
 
 type PurchasesModule = typeof import("react-native-purchases");
@@ -87,7 +87,7 @@ export function isPurchaseCancelled(error: unknown): boolean {
   );
 }
 
-/** Highest plan the store says is active (what the server will also find). */
+/** The plan the store says is active (what the server will also find). */
 export function planFromCustomerInfo(info: CustomerInfoLike): PlanId {
   return info.entitlements.active[PRO_ENTITLEMENT_ID] != null ? "pro" : "free";
 }
@@ -190,7 +190,7 @@ function storeSellsNothing(code: "no_current_offering" | "no_plan_in_offering"):
 }
 
 /**
- * The store's packages for each paid plan in the current offering. A failed read
+ * The store's packages for the paid plan in the current offering, by billing period. A failed read
  * is `unavailable`, never an empty offer that looks like "no products".
  */
 export async function getPlanPackages(): Promise<PlanOffer> {

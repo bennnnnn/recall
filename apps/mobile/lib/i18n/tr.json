@@ -1108,7 +1108,6 @@
   "upgrade.store_unavailable": "Mağaza yanıt vermiyor. Biraz sonra tekrar deneyin.",
   "upgrade.store_not_in_build": "Uygulamanın bu sürümünde satın alma yapılamaz.",
   "upgrade.sync_pending": "Aboneliğin etkin. Planın birazdan güncellenecek; güncellenmezse uygulamayı yeniden aç.",
-  "upgrade.subscription_terms": "Aboneliğin, App Store veya Google Play hesabından iptal edilmedikçe her dönemin sonunda otomatik olarak yenilenir.",
   "onboarding.demo_image_ask": "Kamp ateşinin yanında kitap okuyan bir tilki çiz",
   "onboarding.slide_image_title": "Görsel oluştur",
   "onboarding.slide_image_body": "Bir resmi anlat, saniyeler içinde çizildiğini gör.",
@@ -1138,7 +1137,6 @@
   "upgrade.renews_monthly": "Her ay yenilenir. İstediğin zaman iptal et.",
   "upgrade.renews_yearly": "Her yıl yenilenir. İstediğin zaman iptal et.",
   "upgrade.subscribe_price": "{{plan}} al · {{price}}",
-  "upgrade.dev_example_prices": "Örnek fiyatlar: geliştirme sürümünde mağaza yok.",
   "upgrade.benefit_chat": "Sınırsız sohbet",
   "upgrade.benefit_maths": "Matematik yardımı",
   "upgrade.benefit_physics": "Fizik yardımı",
@@ -1159,5 +1157,6 @@
   "upgrade.per_month_billed_yearly": "Ayda {{price}}, yıllık ödenir",
   "upgrade.trial_reminder": "Deneme bitmeden bir gün önce sana hatırlatacağız.",
   "notifications.trial_ends_title": "Ücretsiz denemen yarın bitiyor",
-  "notifications.trial_ends_body": "Sonra Recall Pro {{price}} ile yenilenir. İptal için App Store veya Google Play aboneliklerini aç."
+  "notifications.trial_ends_body": "İptal etmediysen Recall Pro sonra {{price}} ile yenilenir. İptal için App Store veya Google Play aboneliklerini aç.",
+  "upgrade.see_all_benefits": "Tüm {{plan}} avantajlarını gör"
 }

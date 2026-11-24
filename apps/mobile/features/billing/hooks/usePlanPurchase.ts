@@ -18,6 +18,8 @@ type Options = {
   token: string | null;
   /** A purchase the store holds for approval: none other is started meanwhile. */
   pending: unknown;
+  /** The page promised the trial reminder (notifications can arrive): only then is it set. */
+  canRemind: boolean;
   syncSubscription: () => Promise<unknown>;
   onClose: () => void;
   t: Translate;
@@ -28,7 +30,7 @@ type Options = {
  * the server told to read the store once it took the payment. A trial bought here gets the
  * reminder the page promised, a day before it ends.
  */
-export function usePlanPurchase({ token, pending, syncSubscription, onClose, t }: Options) {
+export function usePlanPurchase({ token, pending, canRemind, syncSubscription, onClose, t }: Options) {
   const [busy, setBusy] = useState<"buy" | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,12 +76,13 @@ export function usePlanPurchase({ token, pending, syncSubscription, onClose, t }
       return;
     }
     trackProductEvent("purchase_succeeded", { plan });
-    // The page promised a reminder a day before the trial ends: set it as the trial starts.
-    if (pkg.trial) {
-      await remindBeforeTrialEnds(nextChargeDate(pkg.trial, pkg.period, new Date()), priceWithPeriod(pkg, t));
-    }
     await syncAfterStore();
     setBusy(null);
+    // The page promised a reminder a day before the trial ends: set as the trial starts, after
+    // the plan lands, so the notifications prompt it may show never holds the purchase up.
+    if (pkg.trial && canRemind) {
+      void remindBeforeTrialEnds(nextChargeDate(pkg.trial, pkg.period, new Date()), priceWithPeriod(pkg, t));
+    }
   };
 
   const restore = async () => {

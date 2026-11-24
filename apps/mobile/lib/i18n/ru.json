@@ -1132,7 +1132,6 @@
   "upgrade.store_unavailable": "Магазин не отвечает. Попробуйте ещё раз чуть позже.",
   "upgrade.store_not_in_build": "Покупки недоступны в этой версии приложения.",
   "upgrade.sync_pending": "Подписка оформлена. Тариф скоро обновится — если нет, перезапустите приложение.",
-  "upgrade.subscription_terms": "Подписка продлевается автоматически в конце каждого периода, если не отменить её в аккаунте App Store или Google Play.",
   "onboarding.demo_image_ask": "Нарисуй лису, читающую у костра",
   "onboarding.slide_image_title": "Создавайте изображения",
   "onboarding.slide_image_body": "Опишите картинку, и через несколько секунд она готова.",
@@ -1170,7 +1169,6 @@
   "upgrade.renews_monthly": "Продлевается каждый месяц. Отменить можно в любой момент.",
   "upgrade.renews_yearly": "Продлевается каждый год. Отменить можно в любой момент.",
   "upgrade.subscribe_price": "Оформить {{plan}} · {{price}}",
-  "upgrade.dev_example_prices": "Примерные цены: в сборке для разработки нет магазина.",
   "upgrade.benefit_chat": "Безлимитный чат",
   "upgrade.benefit_maths": "Помощь с математикой",
   "upgrade.benefit_physics": "Помощь с физикой",
@@ -1199,5 +1197,6 @@
   "upgrade.per_month_billed_yearly": "{{price}} / мес., оплата за год",
   "upgrade.trial_reminder": "Мы напомним за день до конца пробного периода.",
   "notifications.trial_ends_title": "Пробный период заканчивается завтра",
-  "notifications.trial_ends_body": "Затем Recall Pro продлится за {{price}}. Чтобы отменить, откройте подписки в App Store или Google Play."
+  "notifications.trial_ends_body": "Если вы не отменили подписку, Recall Pro затем продлится за {{price}}. Чтобы отменить, откройте подписки в App Store или Google Play.",
+  "upgrade.see_all_benefits": "Все преимущества {{plan}}"
 }

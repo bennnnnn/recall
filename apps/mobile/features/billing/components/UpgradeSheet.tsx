@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
-import { PlanCard, PlansSmallPrint, PlanTimeline } from "@/features/billing/components/PlanPicker";
+import {
+  AllBenefits,
+  BenefitsLink,
+  PlanCard,
+  PLANS_FONT_SCALE,
+  PlansHairline,
+  PlansSmallPrint,
+  PlanTimeline,
+} from "@/features/billing/components/PlanPicker";
 import { heroHeight, PlansHero } from "@/features/billing/components/PlansHero";
 import {
   perMonthLine,
@@ -60,6 +68,10 @@ export function UpgradeSheet(props: Props) {
   );
 }
 
+/** Below this height (an iPhone SE, most Android phones with their bars) the headline is a size
+ * smaller, so the price and button fit. */
+const SHORT_SCREEN = 800;
+
 /** Splits the headline around the plan's name, which is drawn in the accent. */
 const PLAN_MARK = "\u2063";
 
@@ -74,14 +86,15 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
   // The one paid plan, or none for an account already on it.
   const plan = upgradeTargets(current)[0] ?? null;
   const { offer, loadingOffer, purchasesReady, retry } = useStoreOffer(visible, setUpStore);
-  // A development build has no store: it shows example prices, said to be examples.
+  // A development build has no store: it shows example prices (`devPreviewOffer.ts`).
   const preview = __DEV__ && !purchasesReady;
   const packages = preview ? DEV_PREVIEW_OFFER.packages : offer.packages;
   // A purchase the store holds for approval: said so, and not offered a second time.
   const pending = useSyncExternalStore(subscribeHeldPurchase, heldPurchase);
-  const { busy, error, setError, subscribe, restore } = usePlanPurchase({ token, pending, syncSubscription, onClose, t });
   const canRemind = useCanRemindTrialEnd(visible);
+  const { busy, error, setError, subscribe, restore } = usePlanPurchase({ token, pending, canRemind, syncSubscription, onClose, t });
   const { periods, period, setPicked } = usePeriodChoice(packages);
+  const { scroll, benefitsOpen, toggleBenefits } = useBenefitsOpen();
   usePaywallViewed(visible, source, setError);
 
   // An offer the user did not ask for says Free is a choice, and keeping it is one tap.
@@ -91,7 +104,11 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
   const shown = plan ?? (current === "free" ? null : current);
   const rows = timelineRows(pkg?.priceString, period, trial, new Date(), t);
   const perMonth = perMonthLine(pkg, t);
-  const note = (text: string) => <Text style={s.note}>{text}</Text>;
+  const note = (text: string) => (
+    <Text style={s.note} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+      {text}
+    </Text>
+  );
 
   return (
     <FullScreenModal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent onRequestClose={onClose} testID="upgrade-page">
@@ -100,64 +117,93 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
         <View style={s.topBar}>
           <IconButton name="close" onPress={onClose} accessibilityLabel={t("common.close")} testID="upgrade-close" />
         </View>
-        <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {shown ? <PlansHeadline plan={shown} t={t} styles={s} /> : null}
+        <ScrollView ref={scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {shown ? <PlansHeadline plan={shown} compact={height < SHORT_SCREEN} t={t} styles={s} /> : null}
           {current !== "free" ? note(t("upgrade.current_plan", { plan: t(planNameKey(current)) })) : null}
           <PlansHero height={heroHeight(height)} />
           {plan && periods.length > 1 ? (
             <PeriodSwitch periods={periods} period={period} saving={yearlySaving(packages)} onPick={busy == null ? setPicked : undefined} t={t} />
           ) : null}
-          {shown ? <PlanCard title={t("upgrade.plan_title", { plan: t(planNameKey(shown)) })} features={planBenefits(t)} /> : null}
+          {shown ? (
+            <PlanCard title={t("upgrade.plan_title", { plan: t(planNameKey(shown)) })} features={planBenefits(t)} />
+          ) : null}
           {plan && rows ? <PlanTimeline rows={rows} /> : null}
           {plan && perMonth ? note(perMonth) : null}
           {plan && trial && canRemind ? note(t("upgrade.trial_reminder")) : null}
-          {plan ? (
-            <StoreNotes
-              unavailable={purchasesReady && offer.unavailable && !loadingOffer}
-              purchasesReady={purchasesReady}
-              preview={preview}
-              onRetry={retry}
-              t={t}
-              styles={s}
-            />
-          ) : null}
-          {welcome ? (
-            <Pressable onPress={onClose} disabled={busy != null} style={s.freeLink} accessibilityRole="button" testID="upgrade-continue-free">
-              <Text style={s.freeLinkText}>{t("upgrade.continue_free")}</Text>
-            </Pressable>
-          ) : null}
-          <PlansSmallPrint
-            renews={t("upgrade.subscription_terms")}
-            links={{ terms: t("terms.title"), privacy: t("privacy.title") }}
-            restore={purchasesReady ? { label: t("upgrade.restore"), onPress: () => void restore(), disabled: busy != null } : undefined}
-          />
-        </ScrollView>
-        {/* The one action stays in reach on every phone; what it costs is just above it. */}
-        <PlansFooter
-          plan={plan}
-          period={period}
-          pkg={pkg}
-          purchasesReady={purchasesReady}
-          loading={busy === "buy" || (loadingOffer && !pkg)}
-          disabled={pending != null || (purchasesReady && !pkg) || busy === "restore"}
-          pending={pending != null}
-          error={error}
-          onBuy={() => {
-            if (pkg) void subscribe(pkg);
-          }}
-          onDevEnable={() => {
-            if (plan) {
-              void devUpgrade(plan).then((ok) => {
-                if (ok) onClose();
-              });
+          {/* The button is part of the page, under what it costs: nothing scrolls beneath it. */}
+          <PlansFooter
+            plan={plan}
+            period={period}
+            pkg={pkg}
+            purchasesReady={purchasesReady}
+            loading={busy === "buy" || (loadingOffer && !pkg)}
+            disabled={pending != null || (purchasesReady && !pkg) || busy === "restore"}
+            pending={pending != null}
+            error={error}
+            benefits={
+              shown ? { open: benefitsOpen, label: benefitsLabel(shown, t), onPress: toggleBenefits, features: planBenefits(t) } : null
             }
-          }}
-          t={t}
-          styles={s}
-        />
+            legal={
+              <PlansSmallPrint
+                links={{ terms: t("terms.title"), privacy: t("privacy.title") }}
+                restore={purchasesReady ? { label: t("upgrade.restore"), onPress: () => void restore(), disabled: busy != null } : undefined}
+              />
+            }
+            onBuy={() => {
+              if (pkg) void subscribe(pkg);
+            }}
+            onDevEnable={() => {
+              if (plan) {
+                void devUpgrade(plan).then((ok) => {
+                  if (ok) onClose();
+                });
+              }
+            }}
+            t={t}
+            styles={s}
+          />
+          {plan ? <StoreNotes unavailable={purchasesReady && offer.unavailable && !loadingOffer} purchasesReady={purchasesReady} onRetry={retry} t={t} styles={s} /> : null}
+          {welcome ? <ContinueFree onPress={onClose} disabled={busy != null} t={t} styles={s} /> : null}
+        </ScrollView>
       </View>
     </FullScreenModal>
   );
+}
+
+/** "See all Pro benefits": the same words open or closed; only its arrow turns. */
+function benefitsLabel(plan: PaidPlanId, t: Translate): string {
+  return t("upgrade.see_all_benefits", { plan: t(planNameKey(plan)) });
+}
+
+/** An offer the user did not ask for keeps Free one tap away. */
+function ContinueFree({
+  onPress,
+  disabled,
+  t,
+  styles: s,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+  t: Translate;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <Pressable onPress={onPress} disabled={disabled} style={s.freeLink} accessibilityRole="button" testID="upgrade-continue-free">
+      <Text style={s.freeLinkText}>{t("upgrade.continue_free")}</Text>
+    </Pressable>
+  );
+}
+
+/** The full benefit list, opened under "See all Pro benefits": the page scrolls down to it. */
+function useBenefitsOpen() {
+  const scroll = useRef<ScrollViewInstance>(null);
+  const [benefitsOpen, setBenefitsOpen] = useState(false);
+  const toggleBenefits = () => {
+    const opening = !benefitsOpen;
+    setBenefitsOpen(opening);
+    if (opening) setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
+  };
+  return { scroll, benefitsOpen, toggleBenefits };
 }
 
 /** The periods the store sells (both before it has said, so the choice is seen); monthly to
@@ -215,18 +261,16 @@ function PlansWash({ theme, style }: { theme: Theme; style: object }) {
 }
 
 /** What the store could not do: not answering (with Retry), or not in this build at all (a
- * development build then shows example prices, and says so). Never "Coming soon". */
+ * development build then shows example prices, `devPreviewOffer.ts`). Never "Coming soon". */
 function StoreNotes({
   unavailable,
   purchasesReady,
-  preview,
   onRetry,
   t,
   styles: s,
 }: {
   unavailable: boolean;
   purchasesReady: boolean;
-  preview: boolean;
   onRetry: () => void;
   t: Translate;
   styles: ReturnType<typeof makeStyles>;
@@ -239,18 +283,22 @@ function StoreNotes({
           <Button title={t("common.retry")} onPress={onRetry} variant="secondary" />
         </>
       ) : null}
-      {purchasesReady ? null : <Text style={s.note}>{t("upgrade.store_not_in_build")}</Text>}
-      {preview ? <Text style={s.note}>{t("upgrade.dev_example_prices")}</Text> : null}
+      {/* A release built without its store keys has no button: say why. A development build
+          shows its example prices and its own switch instead. */}
+      {purchasesReady || __DEV__ ? null : <Text style={s.note}>{t("upgrade.store_not_in_build")}</Text>}
     </>
   );
 }
 
-/** The pinned foot of the page: how the plan renews, the one button, and what went wrong. */
+/** The page's action: how the plan renews, the one button, Privacy and Terms, the link to
+ * every benefit, and what went wrong. */
 function PlansFooter({
   plan,
   period,
   pending,
   error,
+  benefits,
+  legal,
   styles: s,
   ...buy
 }: {
@@ -262,6 +310,10 @@ function PlansFooter({
   disabled: boolean;
   pending: boolean;
   error: string | null;
+  /** "See all Pro benefits", under the button; none when there is no plan card. */
+  benefits: { open: boolean; label: string; onPress: () => void; features: readonly string[] } | null;
+  /** Privacy, Terms and Restore, right under the button. */
+  legal: ReactNode;
   onBuy: () => void;
   onDevEnable: () => void;
   t: Translate;
@@ -272,25 +324,49 @@ function PlansFooter({
     <View style={s.footer}>
       {plan ? (
         <>
-          <Text style={s.note}>{t(period === "yearly" ? "upgrade.renews_yearly" : "upgrade.renews_monthly")}</Text>
+          <Text style={s.note} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+            {t(period === "yearly" ? "upgrade.renews_yearly" : "upgrade.renews_monthly")}
+          </Text>
           <BuyButton plan={plan} {...buy} />
+          {legal}
+          {benefits ? (
+            <>
+              <PlansHairline />
+              <BenefitsLink open={benefits.open} label={benefits.label} onPress={benefits.onPress} />
+              {benefits.open ? <AllBenefits features={benefits.features} /> : null}
+            </>
+          ) : null}
           {pending ? (
             <Text style={s.note} testID="upgrade-pending">
               {t("upgrade.purchase_pending")}
             </Text>
           ) : null}
         </>
-      ) : null}
+      ) : (
+        // A subscriber still has Privacy, Terms and Restore (a new phone finds the purchase there).
+        legal
+      )}
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
   );
 }
 
 /** "Get more with Pro", the plan's name in the accent. */
-function PlansHeadline({ plan, t, styles }: { plan: PaidPlanId; t: Translate; styles: ReturnType<typeof makeStyles> }) {
+function PlansHeadline({
+  plan,
+  compact,
+  t,
+  styles,
+}: {
+  plan: PaidPlanId;
+  /** A short screen: one size down, so the page fits. */
+  compact: boolean;
+  t: Translate;
+  styles: ReturnType<typeof makeStyles>;
+}) {
   const [before, after = ""] = t("upgrade.headline", { plan: PLAN_MARK }).split(PLAN_MARK);
   return (
-    <Text style={styles.headline} accessibilityRole="header" maxFontSizeMultiplier={1.3}>
+    <Text style={[styles.headline, compact && styles.headlineCompact]} accessibilityRole="header" maxFontSizeMultiplier={PLANS_FONT_SCALE}>
       {before}
       <Text style={styles.headlinePlan}>{t(planNameKey(plan))}</Text>
       {after}
@@ -364,7 +440,8 @@ const makeStyles = (theme: Theme) =>
     content: { flexGrow: 1, paddingHorizontal: Space.gutter, paddingBottom: Space.md, gap: Space.sm },
     headline: { ...Type.greeting, ...Weight.bold, textAlign: "center", color: theme.text },
     headlinePlan: { color: theme.primary },
-    footer: { gap: Space.sm, paddingHorizontal: Space.gutter, paddingTop: Space.sm, paddingBottom: Space.sm },
+    headlineCompact: { ...Type.display },
+    footer: { gap: Space.sm, paddingTop: Space.xs },
     freeLink: { alignSelf: "center", paddingVertical: Space.xs, paddingHorizontal: Space.md },
     freeLinkText: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
     error: { ...Type.secondary, color: theme.danger, textAlign: "center" },

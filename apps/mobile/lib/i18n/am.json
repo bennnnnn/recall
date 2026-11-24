@@ -1108,7 +1108,6 @@
   "upgrade.store_unavailable": "መደብሩ ምላሽ እየሰጠ አይደለም። ትንሽ ቆይተው እንደገና ይሞክሩ።",
   "upgrade.store_not_in_build": "በዚህ የመተግበሪያ ስሪት መግዛት አይቻልም።",
   "upgrade.sync_pending": "ደንበኝነትዎ ተመዝግቧል። እቅድዎ በቅርቡ ይዘምናል — ካልዘመነ መተግበሪያውን እንደገና ይክፈቱ።",
-  "upgrade.subscription_terms": "በApp Store ወይም በGoogle Play መለያዎ ካልሰረዙት በቀር የደንበኝነት ምዝገባዎ በእያንዳንዱ ጊዜ መጨረሻ በራሱ ይታደሳል።",
   "onboarding.demo_image_ask": "በእሳት ዳር መጽሐፍ የሚያነብ ቀበሮ ሳል",
   "onboarding.slide_image_title": "ምስሎችን ይፍጠሩ",
   "onboarding.slide_image_body": "ምስሉን ይግለጹ፣ በሰከንዶች ውስጥ ተስሎ ይመልከቱት።",
@@ -1138,7 +1137,6 @@
   "upgrade.renews_monthly": "በየወሩ ይታደሳል። በማንኛውም ጊዜ መሰረዝ ይችላሉ።",
   "upgrade.renews_yearly": "በየዓመቱ ይታደሳል። በማንኛውም ጊዜ መሰረዝ ይችላሉ።",
   "upgrade.subscribe_price": "{{plan}} ያግኙ · {{price}}",
-  "upgrade.dev_example_prices": "የምሳሌ ዋጋዎች፦ የልማት ስሪት መደብር የለውም።",
   "upgrade.benefit_chat": "ያልተገደበ ውይይት",
   "upgrade.benefit_maths": "የሂሳብ እገዛ",
   "upgrade.benefit_physics": "የፊዚክስ እገዛ",
@@ -1159,5 +1157,6 @@
   "upgrade.per_month_billed_yearly": "በወር {{price}}፣ በዓመት የሚከፈል",
   "upgrade.trial_reminder": "ሙከራው ከማለቁ አንድ ቀን በፊት እናስታውስዎታለን።",
   "notifications.trial_ends_title": "ነፃ ሙከራዎ ነገ ያበቃል",
-  "notifications.trial_ends_body": "ከዚያ Recall Pro በ{{price}} ይታደሳል። ለመሰረዝ የApp Store ወይም የGoogle Play ምዝገባዎችዎን ይክፈቱ።"
+  "notifications.trial_ends_body": "ካልሰረዙት በቀር ከዚያ Recall Pro በ{{price}} ይታደሳል። ለመሰረዝ የApp Store ወይም የGoogle Play ምዝገባዎችዎን ይክፈቱ።",
+  "upgrade.see_all_benefits": "ሁሉንም የ{{plan}} ጥቅሞች ይመልከቱ"
 }

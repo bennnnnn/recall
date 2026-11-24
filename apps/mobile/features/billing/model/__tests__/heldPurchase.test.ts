@@ -1,7 +1,7 @@
 /**
- * A purchase the store holds blocks a second one. On Android a Pro bought while Plus waits
- * starts its own subscription, and a Play slow payment can wait for days: the hold there is
- * kept on disk for its account, through relaunches, for a week. iOS keeps it for 30 minutes.
+ * A purchase the store holds blocks a second one. On Android the other period bought while one
+ * waits starts its own subscription, and a Play slow payment can wait for days: the hold there
+ * is kept on disk for its account, through relaunches, for a week. iOS keeps it for 30 minutes.
  */
 const mockPlatform = { OS: "android" };
 jest.mock("react-native", () => ({ Platform: mockPlatform }));
@@ -44,13 +44,21 @@ beforeEach(() => {
 });
 
 describe("on Android", () => {
-  it("keeps a held Plus through a relaunch, for its own account", async () => {
+  it("keeps a held purchase through a relaunch, for its own account", async () => {
     launch().holdPurchase("user-1", "pro", T0);
     await settle();
 
     const relaunched = launch();
     await relaunched.loadHeldPurchase("user-1", T0 + 3 * DAY);
     expect(relaunched.heldPurchase()).toBe("pro");
+  });
+
+  it("lets go of a hold an older version kept for Plus, which is no plan any more", async () => {
+    mockDisk.set("recall-held-purchase.txt", `user-1|plus|${T0}`);
+    const relaunched = launch();
+    await relaunched.loadHeldPurchase("user-1", T0 + DAY);
+    expect(relaunched.heldPurchase()).toBeNull();
+    expect(mockDisk.size).toBe(0);
   });
 
   it("does not let go after 30 minutes, only after a week", async () => {

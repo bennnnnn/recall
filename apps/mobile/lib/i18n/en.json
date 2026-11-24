@@ -1108,7 +1108,6 @@
   "upgrade.store_unavailable": "The store isn't responding. Try again in a moment.",
   "upgrade.store_not_in_build": "Purchases aren't available in this version of the app.",
   "upgrade.sync_pending": "You're subscribed. Your plan will update in a moment — reopen the app if it doesn't.",
-  "upgrade.subscription_terms": "Your subscription renews automatically at the end of each period unless canceled in your App Store or Google Play account.",
   "onboarding.demo_image_ask": "Draw a fox reading by a campfire",
   "onboarding.slide_image_title": "Create images",
   "onboarding.slide_image_body": "Describe a picture and see it drawn in seconds.",
@@ -1138,7 +1137,6 @@
   "upgrade.renews_monthly": "Renews monthly. Cancel anytime.",
   "upgrade.renews_yearly": "Renews yearly. Cancel anytime.",
   "upgrade.subscribe_price": "Get {{plan}} · {{price}}",
-  "upgrade.dev_example_prices": "Example prices: a development build has no store.",
   "upgrade.benefit_chat": "Unlimited chat",
   "upgrade.benefit_maths": "Maths help",
   "upgrade.benefit_physics": "Physics help",
@@ -1159,5 +1157,6 @@
   "upgrade.per_month_billed_yearly": "{{price}} / month, billed yearly",
   "upgrade.trial_reminder": "We'll remind you a day before your trial ends.",
   "notifications.trial_ends_title": "Your free trial ends tomorrow",
-  "notifications.trial_ends_body": "Recall Pro then renews at {{price}}. To cancel, open your App Store or Google Play subscriptions."
+  "notifications.trial_ends_body": "Unless you've cancelled, Recall Pro then renews at {{price}}. To cancel, open your App Store or Google Play subscriptions.",
+  "upgrade.see_all_benefits": "See all {{plan}} benefits"
 }

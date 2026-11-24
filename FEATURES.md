@@ -1095,7 +1095,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   BILLING_ISSUE, SUBSCRIPTION_PAUSED and auto-renew-off CANCELLATION keep access until
   EXPIRATION. Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
   done-marker after success. `POST /auth/me/sync-subscription`; an hourly reconcile re-checks
-  every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
+  every paid row. `GET /billing/plans` lists each plan's features and numbers; the phone's plans page shows the plan's benefits in words and reads it no longer.
 - ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
   purchase whose server refresh fails says the plan will update (never "purchase failed").
   Settings → Account shows the email, the plan, its own Manage subscription row (paid) and

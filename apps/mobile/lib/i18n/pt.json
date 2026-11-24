@@ -1120,7 +1120,6 @@
   "upgrade.store_unavailable": "A loja não está respondendo. Tente novamente em instantes.",
   "upgrade.store_not_in_build": "As compras não estão disponíveis nesta versão do app.",
   "upgrade.sync_pending": "Sua assinatura está ativa. Seu plano será atualizado em instantes — reabra o app se não mudar.",
-  "upgrade.subscription_terms": "Sua assinatura renova automaticamente no fim de cada período, a menos que seja cancelada na sua conta da App Store ou do Google Play.",
   "onboarding.demo_image_ask": "Desenhe uma raposa lendo perto de uma fogueira",
   "onboarding.slide_image_title": "Crie imagens",
   "onboarding.slide_image_body": "Descreva uma imagem e veja-a desenhada em segundos.",
@@ -1154,7 +1153,6 @@
   "upgrade.renews_monthly": "Renova todo mês. Cancele quando quiser.",
   "upgrade.renews_yearly": "Renova todo ano. Cancele quando quiser.",
   "upgrade.subscribe_price": "Assinar o {{plan}} · {{price}}",
-  "upgrade.dev_example_prices": "Preços de exemplo: uma versão de desenvolvimento não tem loja.",
   "upgrade.benefit_chat": "Chat ilimitado",
   "upgrade.benefit_maths": "Ajuda em matemática",
   "upgrade.benefit_physics": "Ajuda em física",
@@ -1179,5 +1177,6 @@
   "upgrade.per_month_billed_yearly": "{{price}} / mês, cobrado anualmente",
   "upgrade.trial_reminder": "Vamos te lembrar um dia antes do fim do teste.",
   "notifications.trial_ends_title": "Seu teste grátis termina amanhã",
-  "notifications.trial_ends_body": "Depois, o Recall Pro renova por {{price}}. Para cancelar, abra suas assinaturas da App Store ou do Google Play."
+  "notifications.trial_ends_body": "A menos que você tenha cancelado, o Recall Pro renova depois por {{price}}. Para cancelar, abra suas assinaturas da App Store ou do Google Play.",
+  "upgrade.see_all_benefits": "Ver todos os benefícios do {{plan}}"
 }

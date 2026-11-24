@@ -3,7 +3,7 @@ import type { PlanOffer } from "@/features/billing/model/purchases";
 /**
  * Example prices for a development build, which has no store: so the plans page can be seen
  * as a release shows it (the period switch's saving, the price line, the trial, the payment
- * dates). The page says they are examples; a release reads the store's own and never these.
+ * dates). A release reads the store's own and never these.
  */
 export const DEV_PREVIEW_OFFER: PlanOffer = {
   packages: {

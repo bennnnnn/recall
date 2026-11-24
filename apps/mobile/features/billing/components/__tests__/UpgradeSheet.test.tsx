@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, within } from "@testing-library/react-native";
 
 import { UpgradeSheet } from "@/features/billing/components/UpgradeSheet";
 import { getPlanPackages } from "@/features/billing/model/purchases";
@@ -259,28 +259,53 @@ it("restore that finds a plan refreshes the server plan", async () => {
   expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
 });
 
-it("sells what the plan helps with, never a count or a model's name", async () => {
+it("sells what the plan helps with, never a count or a model's name: two lines, the rest from under the button", async () => {
   const screen = await openSheet();
   expect(screen.getByText('upgrade.plan_title {"plan":"plans.pro"}')).toBeOnTheScreen();
+  expect(screen.getByText("upgrade.benefit_chat")).toBeOnTheScreen();
+  expect(screen.getByText("upgrade.benefit_maths")).toBeOnTheScreen();
+  expect(screen.queryByText("upgrade.benefit_scanner")).toBeNull();
+  await act(async () => {
+    fireEvent.press(screen.getByText('upgrade.see_all_benefits {"plan":"plans.pro"}'));
+  });
+  // The full list opens under the link, not in the card.
+  const all = within(screen.getByTestId("upgrade-all-benefits"));
   for (const name of ["chat", "maths", "physics", "chemistry", "calculator", "images", "transcription", "pdf", "scanner"]) {
-    expect(screen.getByText(`upgrade.benefit_${name}`)).toBeOnTheScreen();
+    expect(all.getByText(`upgrade.benefit_${name}`)).toBeOnTheScreen();
   }
   // "Web search" is the setting's own words, one key in every language.
-  expect(screen.getByText("settings.web_search")).toBeOnTheScreen();
+  expect(all.getByText("settings.web_search")).toBeOnTheScreen();
   expect(screen.queryByText(/model/i)).toBeNull();
+  // Open, the link keeps its words; only its arrow turns. It closes the list again.
+  expect(screen.getByTestId("upgrade-benefits-toggle").props.accessibilityState.expanded).toBe(true);
+  await act(async () => {
+    fireEvent.press(screen.getByText('upgrade.see_all_benefits {"plan":"plans.pro"}'));
+  });
+  expect(screen.queryByTestId("upgrade-all-benefits")).toBeNull();
 });
 
-it("says purchases are not in this build instead of a button that does nothing", async () => {
+it("says a release built without the store cannot sell, instead of a page with no button", async () => {
   mockPurchasesConfigured = false;
-  const screen = await openSheet();
-  expect(screen.getByText("upgrade.store_not_in_build")).toBeOnTheScreen();
-  expect(screen.queryByText("upgrade.restore")).toBeNull();
+  const dev = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
+  (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+  try {
+    const screen = await openSheet();
+    expect(screen.getByText("upgrade.store_not_in_build")).toBeOnTheScreen();
+    expect(screen.queryByText("upgrade.restore")).toBeNull();
+  } finally {
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = dev;
+  }
 });
 
-it("shows a development build example prices, said to be examples, so the page can be seen whole", async () => {
+it("says nothing of the store in a development build", async () => {
   mockPurchasesConfigured = false;
   const screen = await openSheet();
-  expect(screen.getByText("upgrade.dev_example_prices")).toBeOnTheScreen();
+  expect(screen.queryByText("upgrade.store_not_in_build")).toBeNull();
+});
+
+it("shows a development build example prices, so the page can be seen whole", async () => {
+  mockPurchasesConfigured = false;
+  const screen = await openSheet();
   expect(screen.getByText('upgrade.period_yearly_save {"percent":37}')).toBeOnTheScreen();
   expect(screen.getByText('upgrade.trial_day {"count":3}')).toBeOnTheScreen();
   // It still cannot sell: the button is the development switch, never a store purchase.
@@ -444,6 +469,17 @@ it("sets the reminder as a trial starts, for the day the price is first charged"
   expect(ends.getTime() - before).toBeGreaterThan(3 * 24 * 3600_000 - 2 * 3600_000);
   expect(ends.getTime() - before).toBeLessThan(3 * 24 * 3600_000 + 2 * 3600_000);
   expect(price).toBe("$59.99upgrade.per_year_suffix");
+});
+
+it("sets no reminder it did not promise, where notifications cannot arrive", async () => {
+  jest.mocked(getPlanPackages).mockResolvedValueOnce(TRIAL_YEAR);
+  mockCanRemind.mockResolvedValue(false);
+  mockPurchase.mockResolvedValue("pro");
+  mockSyncSubscription.mockResolvedValue(true);
+  const screen = await openSheet();
+  await buy(screen);
+  expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
+  expect(mockRemind).not.toHaveBeenCalled();
 });
 
 it("sets no reminder for a purchase with no trial", async () => {

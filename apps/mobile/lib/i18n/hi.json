@@ -1108,7 +1108,6 @@
   "upgrade.store_unavailable": "स्टोर जवाब नहीं दे रहा है। थोड़ी देर में फिर से कोशिश करें।",
   "upgrade.store_not_in_build": "ऐप के इस वर्ज़न में ख़रीदारी उपलब्ध नहीं है।",
   "upgrade.sync_pending": "आपने सब्सक्राइब कर लिया है। आपका प्लान थोड़ी देर में अपडेट हो जाएगा — न हो तो ऐप फिर से खोलें।",
-  "upgrade.subscription_terms": "आपकी सदस्यता हर अवधि के अंत में अपने-आप रिन्यू होती है, जब तक आप इसे अपने App Store या Google Play खाते में रद्द नहीं करते।",
   "onboarding.demo_image_ask": "अलाव के पास पढ़ती हुई एक लोमड़ी बनाओ",
   "onboarding.slide_image_title": "चित्र बनाएँ",
   "onboarding.slide_image_body": "चित्र का वर्णन करें और उसे कुछ ही सेकंड में बनते देखें।",
@@ -1138,7 +1137,6 @@
   "upgrade.renews_monthly": "हर महीने रिन्यू होता है। कभी भी रद्द करें।",
   "upgrade.renews_yearly": "हर साल रिन्यू होता है। कभी भी रद्द करें।",
   "upgrade.subscribe_price": "{{plan}} लें · {{price}}",
-  "upgrade.dev_example_prices": "उदाहरण कीमतें: डेवलपमेंट बिल्ड में स्टोर नहीं होता।",
   "upgrade.benefit_chat": "अनलिमिटेड चैट",
   "upgrade.benefit_maths": "गणित में मदद",
   "upgrade.benefit_physics": "भौतिकी में मदद",
@@ -1159,5 +1157,6 @@
   "upgrade.per_month_billed_yearly": "{{price}} / महीना, सालाना बिल",
   "upgrade.trial_reminder": "ट्रायल खत्म होने से एक दिन पहले हम आपको याद दिलाएँगे।",
   "notifications.trial_ends_title": "आपका मुफ़्त ट्रायल कल खत्म हो रहा है",
-  "notifications.trial_ends_body": "इसके बाद Recall Pro {{price}} पर रिन्यू होगा। रद्द करने के लिए App Store या Google Play की सदस्यताएँ खोलें।"
+  "notifications.trial_ends_body": "अगर आपने रद्द नहीं किया है, तो इसके बाद Recall Pro {{price}} पर रिन्यू होगा। रद्द करने के लिए App Store या Google Play की सदस्यताएँ खोलें।",
+  "upgrade.see_all_benefits": "{{plan}} के सभी फ़ायदे देखें"
 }
