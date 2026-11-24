@@ -162,7 +162,8 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
 
 - **When:** a physics turn a solver answered with numbers (`PhysicsSubject.solve`), before
   the reply is written. The setup read starts once the solve verifies (the solve takes
-  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it. Each
+  milliseconds) and the turn waits at most `formal_wait_seconds` (2 s) for it, and as long
+  again for the second reader on the rare turn it is asked (below). Each
   separate question of a message is read on its own, one after another, as it is solved
   (the SymPy pool runs one solve per user at a time).
 - **The comparison:** for each value the reading asks, the server's value for it (across
@@ -176,10 +177,23 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
   and the turn is an ordinary unverified physics turn, the model's own reply with the
   unverified note, held at finalize to the formal answer like any other (above). Never the
   solver's value checked.
+- **Only a value the server solved is a reading.** A setup the server could not solve ("no
+  setup", "no real solution"), or an ask it left unsolved, holds only the reading model's
+  own arithmetic, and that never takes a checked answer away: a reader's 4.22 s for a cliff
+  throw the solver had right at 4.82 s dropped the check on two of the owner's four live
+  turns (2026-11-23). When the first reading is unsolved and its model's own arithmetic
+  disagrees, a second reader from another company (`physics_setup_second`, free-chat) reads
+  it, and a second solved reading that disagrees drops the check. Re-scored on the kept
+  readings of the 422 questions below: 273 right checks kept and no wrong one, with a second
+  read on 5 of 279 checked answers; the guess counting alone kept 269, two readers every time
+  271 (`cross_check_eval`).
 - **No reading** (late, failed, the spend cap, a setup that asks no value, units neither side
   reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
   about 280 checked answers a run, all late reads); dropping them too cost those checks and
   removed no wrong one. With the reading model down, the solvers are as they were before.
+- **An unsolved setup** stands only when it raises no doubt, or the second reader asked on
+  its doubt brings no solved reading against the answer (above). On its own, with no second
+  reader, it let one wrong answer of the 422 through.
 
 Measured (`app/tests/behavior/cross_check_eval.py`, 2026-11-22): 419 physics corpus
 questions with one numeric answer reworded casually by Claude Haiku 5.5 (every number kept,
@@ -197,8 +211,8 @@ does, read by smart-chat:
   its first word.
 - Checks lost on answers that were right: 6 of 275 (2%), each a misreading by the setup
   model (a collision's signs, a refraction angle measured from the surface, a car that
-  stops before the time asked). A second setup model (Claude Haiku 5.5) as a tie-breaker
-  recovered none of them and read slower, so there is one reader.
+  stops before the time asked). A second setup model (Claude Haiku 5.5) asked on every turn
+  recovered none of them and read slower, so it is asked only on a doubt (above).
 - Every wrong checked answer the reworded set holds was caught: the two above, a spring's
   average force read as its final one, a ball on Earth "ignoring the moon's 1.6 m/s²" timed
   with the moon's, and "accelerates at 2 m/s^2 for 3 s and ends up going 15 m/s" read with
