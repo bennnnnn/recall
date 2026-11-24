@@ -51,11 +51,11 @@ export function makeChatComposerStyles(theme: Theme) {
     },
     inputWrapMath: { borderWidth: 0, borderRadius: 0, backgroundColor: theme.bg },
     sendStatus: {
-      marginTop: Space.xxs,
-      marginLeft: Space.xl + Space.xs,
+      marginTop: Space.xxs, marginLeft: Space.xl + Space.xs,
       ...Type.meta,
       color: theme.textSecondary,
     },
+    tooLongNote: { color: theme.danger, marginRight: Space.sm },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xxs },
     inputRowMainExpanded: { flex: 1, minHeight: 0 },
     controlsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

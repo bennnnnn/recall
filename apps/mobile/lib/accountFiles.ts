@@ -127,13 +127,19 @@ const RECORDING_PREFIX = "recording-";
 export const OPENED_FILE_DIRECTORY = "OpenedFiles";
 
 /**
+ * Where text pasted into the composer is written as a file to send
+ * (features/attachments/model/pastedText.ts).
+ */
+export const PASTED_TEXT_DIRECTORY = "PastedText";
+
+/**
  * The copy of each photo or file picked (expo-image-picker, expo-document-picker),
  * each re-encode or crop (expo-image-manipulator: composer photos, scanner crops,
- * profile photos), and each file opened in Recall from another app. Every file in
- * them is one the person chose.
+ * profile photos), each file opened in Recall from another app, and each long paste
+ * sent as a file. Every file in them is one the person chose.
  */
 const PICKER_COPY_DIRECTORIES = [
-  "ImagePicker/", "DocumentPicker/", "ImageManipulator/", `${OPENED_FILE_DIRECTORY}/`,
+  "ImagePicker/", "DocumentPicker/", "ImageManipulator/", `${OPENED_FILE_DIRECTORY}/`, `${PASTED_TEXT_DIRECTORY}/`,
 ] as const;
 /** A week: long past any pick a new run could still be handed. */
 const PICKER_COPY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;

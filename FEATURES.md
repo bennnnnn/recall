@@ -92,6 +92,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   scanner, profile) is uploaded as a re-encode with no EXIF, GPS or XMP, upright; PNG and
   WebP keep their format, the rest become JPEG, and a GIF keeps its frames with its
   metadata blocks dropped (`features/attachments/model/attachmentPrep.ts`).
+- ✅ **Long pastes become a file** — one paste of more than 2,000 characters goes in as a
+  "Pasted text" chip (its first words and length; a tap reads it all, × removes it) and is
+  sent as `pasted-text.txt` through the attachment upload. The model reads up to 32,000
+  characters of it inline, as much as a typed message, and the rest by retrieval; other
+  documents keep their 12,000. One paste holds at most 200,000 characters (about 100
+  pages): a longer one adds nothing and says so, and the API refuses it too. A typed draft
+  over 32,000 characters shows a note and holds Send (`features/chat/model/composerPaste.ts`,
+  `features/chat/model/messageLimit.ts`, `modules/attachments/pasted_text.py`).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or

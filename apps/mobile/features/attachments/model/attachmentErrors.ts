@@ -1,6 +1,7 @@
 import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 import { isServerUnreachable } from "@/lib/api/deadline";
 import { MAX_ATTACHMENT_MEGABYTES } from "@/features/attachments/model/attachmentLimits";
+import { PASTE_MAX_PAGES } from "@/features/attachments/model/pastedText";
 import { shareFailureKey } from "@/lib/share/unavailable";
 import type { Translate } from "@/lib/i18n/translate";
 
@@ -13,6 +14,7 @@ export type AttachmentFailure =
   | "upload_failed"
   | "daily_limit"
   | "storage_full"
+  | "paste_too_long"
   | "camera_permission";
 
 export class AttachmentError extends Error {
@@ -32,6 +34,7 @@ const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
   upload_failed: "chat.attach_upload_failed",
   daily_limit: "chat.attach_daily_limit",
   storage_full: "chat.attach_storage_full",
+  paste_too_long: "chat.paste_too_long",
   camera_permission: "chat.camera_permission",
 };
 
@@ -43,7 +46,7 @@ const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
 export function attachmentErrorMessage(error: unknown, t: Translate): string {
   if (isServerUnreachable(error)) return t("chat.error_unreachable");
   if (!(error instanceof AttachmentError)) return t("chat.attach_failed");
-  return t(MESSAGE_KEYS[error.reason], { limit: MAX_ATTACHMENT_MEGABYTES });
+  return t(MESSAGE_KEYS[error.reason], { limit: MAX_ATTACHMENT_MEGABYTES, pages: PASTE_MAX_PAGES });
 }
 
 /**
@@ -98,6 +101,7 @@ export function presignFailure(error: unknown): unknown {
   if (error.code === "daily_limit") return new AttachmentError("daily_limit");
   if (error.code === "storage_full") return new AttachmentError("storage_full");
   if (error.code === "unsupported_type") return new AttachmentError("unsupported_type");
+  if (error.code === "paste_too_long") return new AttachmentError("paste_too_long");
   if (error.code === "invalid_size" || refusedFields(error).includes("size_bytes")) {
     return new AttachmentError("too_large");
   }

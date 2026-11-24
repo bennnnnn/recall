@@ -28,6 +28,10 @@ class ArchiveUpdate(BaseModel):
 # The most chats one bulk request may name; the phone sends a longer selection in parts.
 BULK_CHAT_LIMIT = 200
 
+# The longest message a turn takes, in characters. Text pasted as a file is read up to the
+# same length (modules/attachments/pasted_text.py), so it reads as the same text typed would.
+MESSAGE_MAX_CHARS = 32_000
+
 
 class ChatBulkAction(BaseModel):
     """Archive, unarchive or delete many chats in one request (the drawer's selection)."""
@@ -130,7 +134,7 @@ class ChatMessageRequest(_StreamClientContext):
     # bloats the DB row and memory-extraction job. 32k chars is well beyond
     # any realistic chat turn. UserText: a NUL used to fail the background
     # user-row insert only after the reply streamed, so the turn went unbilled.
-    content: UserText = Field(default="", max_length=32_000)
+    content: UserText = Field(default="", max_length=MESSAGE_MAX_CHARS)
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
     attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
     # The phone's name for this message, the same on every send of it (a resend

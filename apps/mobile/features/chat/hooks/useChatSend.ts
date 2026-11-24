@@ -136,7 +136,7 @@ export function useChatSend({
   } = useComposerDraftApi();
   const feedback = useActionFeedbackOptional();
   const {
-    pendingAttachment, pendingAttachmentRef, setPendingAttachment, replacePendingAttachment,
+    pendingAttachment, pendingAttachmentRef, setPendingAttachment, replacePendingAttachment, attachPastedText,
     switchAttachmentThread, stashAttachmentForThread, resetAttachmentDrafts,
   } = useSendAttachment(token);
   const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
@@ -425,7 +425,7 @@ export function useChatSend({
     setInput,
     pendingAttachment,
     setPendingAttachment,
-    removePendingAttachment,
+    removePendingAttachment, attachPastedText,
     attachPicking,
     sendPhase,
     attachSheetOpen,

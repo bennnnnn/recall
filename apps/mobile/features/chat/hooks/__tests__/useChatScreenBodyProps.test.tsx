@@ -40,6 +40,8 @@ const handleScrollEnd = jest.fn();
 const handleSend = jest.fn();
 const scrollToLatest = jest.fn();
 const dismissActionBanner = jest.fn();
+const showActionBanner = jest.fn();
+const attachPastedText = jest.fn(() => true);
 const startNewChat = jest.fn();
 const setMenuVisible = jest.fn();
 const closeAttachSheet = jest.fn();
@@ -110,7 +112,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       loadOlderMessages,
     },
     messageList: { headerTitleLabel: "Trip", renderItem },
-    chatActions: { setMenuVisible, actionBanner: null, dismissActionBanner },
+    chatActions: { setMenuVisible, actionBanner: null, dismissActionBanner, showActionBanner },
     menuOverlayOpen: false,
     menuAnchorRef,
     handleSend,
@@ -121,6 +123,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
         attachPicking: false,
         pendingAttachment: null,
         removePendingAttachment,
+        attachPastedText,
         handlePickAttachment,
         handleAttachmentSheetSelect,
         mathScannerOpen: false,
