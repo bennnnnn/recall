@@ -125,10 +125,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # private ones too, and nothing the user did not say (BROAD_SELF_ANSWER_HINT, PRIVACY_HINT, live
 # QA of 100 new accounts, 2026-11-22); then ordinary chat's short layout guide and the privacy
 # rules it keeps, five shared sentences named so it can say them too (ORDINARY_FORMAT_GUIDE,
-# PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22).
+# PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22); then a ```worked substitution
+# that may end on its rounding ("= 4.82488 s \approx 4.82 s", its unit on both sides), its
+# answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23).
 _RULES = 223
-_RULE_GRAMS = 20897
-_RULE_GRAMS_SHA = "8b6faf5d3f2596e5"
+_RULE_GRAMS = 20912
+_RULE_GRAMS_SHA = "5a90a29ec5277666"
 
 
 def _rules() -> list[str]:

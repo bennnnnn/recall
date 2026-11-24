@@ -313,10 +313,9 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
     )
 
 
-@pytest.mark.parametrize("plan", ["free", "plus"])
-def test_persist_stops_when_the_plan_no_longer_has_live_talk(plan):
+def test_persist_stops_when_the_plan_no_longer_has_live_talk():
     """Pro ended mid-call: the very next turn is refused, not saved."""
-    user = api_user(plan=plan)
+    user = api_user(plan="free")
     settings = Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)
     chat_id = uuid4()
     persist = AsyncMock(return_value=(None, None))
@@ -422,10 +421,9 @@ def _minutes_settings(**overrides: object) -> Settings:
     return Settings(**values)  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("plan", ["free", "plus"])
-def test_realtime_session_mint_is_refused_without_live_talk_in_the_plan(plan):
+def test_realtime_session_mint_is_refused_without_live_talk_in_the_plan():
     mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
-    client = TestClient(_realtime_app(api_user(plan=plan), _minutes_settings()))
+    client = TestClient(_realtime_app(api_user(plan="free"), _minutes_settings()))
     with _session_mint_patches(mint=mint) as fake_redis:
         r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
         assert r.status_code == 403
@@ -656,13 +654,12 @@ def test_realtime_session_mints_when_memory_load_returns_empty():
         ("wrong_chat", 403),
         ("missing_chat", 404),
         ("free", 403),
-        ("plus", 403),
         ("write_tool", 422),
     ],
 )
 def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case, expected):
     chat_id = uuid4()
-    user = api_user(plan=case if case in {"free", "plus"} else "pro")
+    user = api_user(plan="free" if case == "free" else "pro")
     client = TestClient(
         _realtime_app(
             user, Settings(speech_live_talk_enabled=True, speech_realtime_voice_enabled=True)

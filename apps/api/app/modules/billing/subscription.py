@@ -55,20 +55,17 @@ async def advance_rc_event_watermark(
 
 
 def _plan_from_revenuecat_payload(payload: dict[str, Any], settings: Settings) -> str:
-    entitlement_ids = (
-        settings.revenuecat_entitlement_id,
-        settings.revenuecat_plus_entitlement_id,
-    )
-    active = {
-        entitlement_id
-        for entitlement_id in entitlement_ids
+    entitlement_id = settings.revenuecat_entitlement_id
+    active = (
+        {entitlement_id}
         if entitlement_id and revenuecat_gateway.entitlement_active(payload, entitlement_id)
-    }
+        else set()
+    )
     return plan_from_entitlements(active, settings)
 
 
 async def resolve_plan_from_revenuecat(settings: Settings, app_user_id: str) -> str | None:
-    """HTTP-only: the plan (``pro`` / ``plus`` / ``free``) the subscriber API
+    """HTTP-only: the plan (``pro`` / ``free``) the subscriber API
     grants now, or None if the secret is missing or the fetch failed. Never
     defaults to a paid plan."""
     if not settings.revenuecat_secret_key.strip():

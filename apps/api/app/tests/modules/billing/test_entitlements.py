@@ -19,7 +19,6 @@ def _user(plan_id: str) -> SimpleNamespace:
     "plan_id, expected",
     [
         ("free", {"image_generation"}),
-        ("plus", {"all_models", "image_generation", "speech_transcription", "speech_tts"}),
         (
             "pro",
             {"all_models", "image_generation", "speech_transcription", "speech_tts", "live_talk"},
@@ -30,7 +29,7 @@ def test_each_plan_includes_exactly_its_features(plan_id, expected):
     assert set(entitlements.features_for(_user(plan_id), Settings())) == expected
 
 
-def test_live_talk_is_only_on_the_top_plan():
+def test_live_talk_is_only_on_pro():
     settings = Settings()
     assert [p for p in entitlements.PLANS if entitlements.can_use(p, "live_talk", settings)] == [
         "pro"
@@ -48,17 +47,6 @@ def test_live_talk_is_only_on_the_top_plan():
                 "daily_image_generations": 3,
                 "daily_speech_transcriptions": 0,
                 "daily_speech_tts": 0,
-                "monthly_live_talk_minutes": 0,
-            },
-        ),
-        (
-            "plus",
-            {
-                "daily_messages": 200,
-                "daily_tokens": 4_000_000,
-                "daily_image_generations": 10,
-                "daily_speech_transcriptions": 200,
-                "daily_speech_tts": 100,
                 "monthly_live_talk_minutes": 0,
             },
         ),
@@ -90,23 +78,23 @@ def test_every_allowance_has_a_setting_for_every_plan():
 
 
 def test_a_feature_moves_between_plans_by_config_alone():
-    settings = Settings(daily_speech_tts=20, monthly_live_talk_minutes_plus=30)
+    settings = Settings(daily_speech_tts=20, monthly_live_talk_minutes_pro=0)
     assert entitlements.can_use("free", "speech_tts", settings)
-    assert entitlements.can_use("plus", "live_talk", settings)
+    assert not entitlements.can_use("pro", "live_talk", settings)
 
 
-@pytest.mark.parametrize("raw", [None, "", "PRO ", "enterprise", "trial"])
+# "plus" was a plan until 2026-11-24 (migration 0135 moved its rows to Pro).
+@pytest.mark.parametrize("raw", [None, "", "PRO ", "enterprise", "trial", "plus"])
 def test_unknown_plans_are_never_paid(raw):
     expected = "pro" if raw == "PRO " else "free"
     assert entitlements.plan_of(raw) == expected
 
 
-def test_paid_plans_get_every_model_and_free_gets_the_free_pool():
+def test_pro_gets_every_model_and_free_gets_the_free_pool():
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     selectable = {
         m.id for m in model_catalog.selectable_models() if model_health.is_available(m, settings)
     }
-    assert plan.allowed_model_ids(_user("plus"), settings) == selectable
     assert plan.allowed_model_ids(_user("pro"), settings) == selectable
     assert "smart-chat" not in plan.allowed_model_ids(_user("free"), settings)
 
@@ -126,10 +114,10 @@ def _subscriber(*active: str) -> dict:
     "active, expected",
     [
         ((), "free"),
-        (("plus",), "plus"),
-        # The single-plan era's entitlement id: existing subscribers stay on top.
+        # The monthly and the yearly product both grant this one entitlement.
         (("pro",), "pro"),
-        # A top-plan product may unlock both entitlements; the higher one wins.
+        # An entitlement the server does not know grants nothing.
+        (("plus",), "free"),
         (("plus", "pro"), "pro"),
     ],
 )
@@ -142,16 +130,17 @@ def test_expired_entitlements_do_not_count():
         "subscriber": {
             "entitlements": {
                 "pro": {"expires_date": "2001-01-01T00:00:00Z"},
-                "plus": {"expires_date": "2999-01-01T00:00:00Z"},
             }
         }
     }
-    assert _plan_from_revenuecat_payload(payload, Settings()) == "plus"
+    assert _plan_from_revenuecat_payload(payload, Settings()) == "free"
 
 
-def test_plan_catalog_lists_every_plan_with_its_numbers():
+def test_plan_catalog_lists_exactly_free_and_pro():
+    """One paid plan: GET /billing/plans serves this catalog to the paywall."""
     catalog = entitlements.plan_catalog(Settings())
-    assert [item["id"] for item in catalog] == ["free", "plus", "pro"]
-    pro = catalog[2]
+    assert [item["id"] for item in catalog] == ["free", "pro"]
+    assert entitlements.PAID_PLANS == frozenset({"pro"})
+    pro = catalog[1]
     assert pro["allowances"]["monthly_live_talk_minutes"] == 60
     assert "live_talk" in pro["features"]
