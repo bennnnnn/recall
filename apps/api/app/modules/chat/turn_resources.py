@@ -28,6 +28,7 @@ from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.web_search import TurnTavilyBudget, turn_search_budget
 from app.services.quota import CHAT_SPEND_CAP_MESSAGE, counters, quota_exceeded_message
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,11 @@ class TurnResources:
         self.message_day = None
         if self.context is not None:
             self.context.message_day = None
+
+    def search_budget(self, settings: Settings, user: User | None) -> TurnTavilyBudget:
+        """The turn's one search budget, made before its prep: it keeps this message
+        once a search reaches a provider (``web_search.turn_search_budget``)."""
+        return turn_search_budget(settings, user, keep_message=self.keep_message)
 
     def mark_settled(self) -> None:
         """The turn's finalize now settles the reservation (actual usage, or its

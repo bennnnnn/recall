@@ -20,6 +20,7 @@ from app.core import readings
 from app.core.config import Settings
 from app.core.readings import keep_for_turn
 from app.exceptions import ChatNotFoundError
+from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import Attachment, Chat, User
 from app.modules.account import profile as profile_service
 from app.modules.attachments.markers import image_attachment_ids_from_text
@@ -68,7 +69,6 @@ from app.modules.chat.turn_resources import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
 from app.modules.images.reply_picture import ReplyPicture
-from app.modules.web_search import turn_search_budget
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +100,8 @@ async def _reserve_new_turn(
         vision_extra=vision_extra,
         max_output=settings.max_output_tokens,
     )
+    # A PDF it sends may be OCR'd under its message: kept from here (Free).
+    keep_message_for_scans(res, rows or [], turn.user, settings)
     return rows
 
 
@@ -108,9 +110,12 @@ def _attach_reads(
     settings: Settings,
     live_read: asyncio.Task[TurnDecision | None] | None,
     misses: set[str],
+    search_budget: TavilyBudget | None,
 ) -> None:
-    """The turn's read and what the intercepts missed, on the context; the picture a maths
-    question asks to see starts here, beside the reply (``chat.figure_turn``)."""
+    """The turn's read, its one search budget and what the intercepts missed, on the
+    context; the picture a maths question asks to see starts here, beside the reply
+    (``chat.figure_turn``)."""
+    ctx.search_budget = search_budget
     ctx.live_read = live_read
     ctx.photo_missed = "photo" in misses
     ctx.picture_declined = "image" in misses
@@ -231,18 +236,8 @@ async def stream_chat_response(
         )
         settings, live_read = _turn_settings(settings, turn.user, content, turn.recent)
         misses: set[str] = set()
-        if not attachment_ids and await intercept_new_turn(
-            deps,
-            settings,
-            user=turn.user,
-            chat_id=chat_id,
-            content=content,
-            outcome=outcome,
-            recent_messages=turn.recent,
-            prior_count=turn.prior_count,
-            misses=misses,
-            on_status=status,
-            read=live_read,
+        if not attachment_ids and await _new_turn_intercepted(
+            deps, settings, turn, chat_id, content, outcome, misses, status, live_read
         ):
             await res.refund()
             return
@@ -250,8 +245,7 @@ async def stream_chat_response(
         rows = await _reserve_new_turn(
             deps, res, settings, turn, content=content, attachment_ids=attachment_ids
         )
-        keep_message_for_scans(res, rows or [], turn.user, settings)
-        budget = turn_search_budget(settings, turn.user, keep_message=res.keep_message)
+        budget = res.search_budget(settings, turn.user)
         ctx = await prepare_chat_turn(
             user_id=user_id,
             chat_id=chat_id,
@@ -279,8 +273,7 @@ async def stream_chat_response(
             half_open=turn.half_open,
             search_budget=budget,
         )
-        ctx.search_budget = budget
-        _attach_reads(ctx, settings, live_read, misses)
+        _attach_reads(ctx, settings, live_read, misses, budget)
         try:
             ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, content, live_read)
             await top_up_reserve_for_prompt(
@@ -300,6 +293,33 @@ async def stream_chat_response(
                 yield token
         finally:
             await _end_new_turn(ctx, chat_id)
+
+
+async def _new_turn_intercepted(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    turn: NewTurn,
+    chat_id: UUID,
+    content: str,
+    outcome: TurnOutcome | None,
+    misses: set[str],
+    status: StreamStatusFn | None,
+    read: asyncio.Task[TurnDecision | None] | None,
+) -> bool:
+    """A photo or a picture answered the new turn (``turn_intercepts``): no model reply."""
+    return await intercept_new_turn(
+        deps,
+        settings,
+        user=turn.user,
+        chat_id=chat_id,
+        content=content,
+        outcome=outcome,
+        recent_messages=turn.recent,
+        prior_count=turn.prior_count,
+        misses=misses,
+        on_status=status,
+        read=read,
+    )
 
 
 def _start_picture(
@@ -393,7 +413,6 @@ async def stream_regenerate_response(
             max_output=settings.max_output_tokens,
             vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
         )
-        budget = turn_search_budget(settings, turn.user, keep_message=res.keep_message)
         request = TurnRequest(
             user_id=user_id,
             chat_id=chat_id,
@@ -413,7 +432,7 @@ async def stream_regenerate_response(
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
             unhealthy_models=turn.unhealthy,
-            search_budget=budget,
+            search_budget=res.search_budget(settings, turn.user),
         )
         bundle = await build_stream_prompt_context(request, settings, redis)
         if current_image_ids:
@@ -436,13 +455,11 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=False,
             regenerate_backup=turn.backup,
-            # The earlier reply's model (or the user's pick) runs whatever its health.
+            # Its model runs whatever its health; a regenerate thinks one level more.
             model_named=True,
-            # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
-        ctx.search_budget = budget
-        _attach_reads(ctx, settings, live_read, misses)
+        _attach_reads(ctx, settings, live_read, misses, request.search_budget)
         await top_up_reserve_for_prompt(
             res,
             settings=settings,
