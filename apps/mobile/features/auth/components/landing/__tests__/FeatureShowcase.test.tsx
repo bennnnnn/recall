@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ScrollView } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { FeatureShowcase, SLIDES } from "@/features/auth/components/landing/FeatureShowcase";
@@ -53,12 +54,15 @@ it("never turns by itself, so a slide stays until it is read", async () => {
   expect(selected(screen)).toBe(0);
 });
 
-it("a dot takes you to any slide", async () => {
+it("a dot takes you to any slide, and the row scrolls there", async () => {
+  const scrollTo = jest.spyOn(ScrollView.prototype, "scrollTo");
   const screen = await showcase();
   await act(async () => {
     fireEvent.press(screen.getByLabelText(SLIDES[3].titleKey));
   });
   expect(selected(screen)).toBe(3);
+  expect(scrollTo).toHaveBeenLastCalledWith({ x: 3 * 360, animated: true });
+  scrollTo.mockRestore();
 });
 
 it("a scroll the button started never turns the slide back", async () => {

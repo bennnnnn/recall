@@ -414,8 +414,6 @@
   "login.google": "Google ile devam et",
   "login.google_unavailable_body": "Google ile giriş Expo Go'da çalışmaz. Recall'ı Mac'inizde bir kez derleyin ve o uygulamayı açın:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Recall uygulamasını kullanın",
-  "login.highlight_learn": "Öğren ve geliş",
-  "login.highlight_organize": "Günlük",
   "login.or_dev": "veya yerel geliştirme için",
   "login.privacy": "Gizlilik",
   "login.sign_in_failed": "Giriş başarısız",

@@ -74,9 +74,12 @@ export function FeatureShowcase({ index, onIndexChange }: Props) {
   // started, part way, and reading that one turned the slide back.
   const swiping = useRef(false);
 
-  // A new index from the button or a dot scrolls to it; a swipe already sits there.
+  // A new index from the button or a dot scrolls to it; a swipe already sits there. A fling
+  // still settling when Next is tapped is over: the scroll that follows is the button's.
   useEffect(() => {
-    if (width > 0) scroller.current?.scrollTo({ x: index * width, animated: !reduceMotion });
+    if (width === 0) return;
+    swiping.current = false;
+    scroller.current?.scrollTo({ x: index * width, animated: !reduceMotion });
   }, [index, reduceMotion, width]);
 
   const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);

@@ -414,8 +414,6 @@
   "login.google": "Google के साथ जारी रखें",
   "login.google_unavailable_body": "Expo Go में Google साइन इन काम नहीं करता। अपने Mac पर एक बार Recall बिल्ड करें, फिर वही ऐप खोलें:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Recall ऐप इस्तेमाल करें",
-  "login.highlight_learn": "सीखें और आगे बढ़ें",
-  "login.highlight_organize": "रोज़मर्रा",
   "login.or_dev": "या लोकल डेवलपमेंट के लिए",
   "login.privacy": "गोपनीयता",
   "login.sign_in_failed": "साइन इन नहीं हो सका",

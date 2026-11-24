@@ -414,8 +414,6 @@
   "login.google": "በGoogle ይቀጥሉ",
   "login.google_unavailable_body": "የGoogle መግቢያ በExpo Go አይሰራም። Recallን በMacዎ ላይ አንድ ጊዜ ይገንቡ፣ ከዚያ በምትኩ ያንን መተግበሪያ ይክፈቱ፦\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "የRecall app ይጠቀሙ",
-  "login.highlight_learn": "ይማሩ፣ ያድጉ",
-  "login.highlight_organize": "ዕለት ተዕለት",
   "login.or_dev": "ወይም ለمحلي development",
   "login.privacy": "ግላዊነት",
   "login.sign_in_failed": "መግባት አልተሳካም",

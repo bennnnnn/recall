@@ -420,8 +420,6 @@
   "login.google": "Continuar com o Google",
   "login.google_unavailable_body": "O login com Google não funciona no Expo Go. Compile o Recall uma vez no seu Mac e abra esse app:\n\ncd apps/mobile\npnpm expo run:ios",
   "login.google_unavailable_title": "Use o app Recall",
-  "login.highlight_learn": "Aprenda e cresça",
-  "login.highlight_organize": "Dia a dia",
   "login.or_dev": "ou para desenvolvimento local",
   "login.privacy": "Privacidade",
   "login.sign_in_failed": "Falha no login",
