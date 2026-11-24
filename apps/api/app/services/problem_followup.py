@@ -297,8 +297,9 @@ def item_number(text: str, start: int, end: int) -> bool:
     number standing alone after an item word, never a term ("Solve 2x + 3 = 7")."""
     if text[end : end + 1].isalpha() or text[end : end + 1] in ("(", "^"):
         return False
-    # A question's own number, first in the line ("9. Repeat the calculation ...").
-    if not text[:start].strip() and text[end : end + 1] in (".", ")"):
+    # A question's own number, first in the line ("9. Repeat the calculation ...", "(9) ...").
+    before, after = text[:start].strip(), text[end : end + 1]
+    if (not before and after in (".", ")")) or (before == "(" and after == ")"):
         return True
     return _ITEM.search(text, max(0, start - 24), start) is not None
 

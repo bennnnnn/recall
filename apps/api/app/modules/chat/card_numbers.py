@@ -1,6 +1,7 @@
 # ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
 """Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
-wrote the card: a subject's solver, the worked layout, the formal check or the model.
+wrote the card: a subject's solver, the worked layout, the formal check or the model; a
+chemistry solver's checked card is the exception (below).
 
 A card that states plain values (``P = 109324.04\\,\\mathrm{Pa}``, ``x = 2 or x = -3``,
 ``1.09 \\times 10^{5}\\,\\mathrm{Pa}``) has each number written again by the rule, in the
@@ -9,7 +10,12 @@ unrounded (the working's last line, the card's value a rounding of it, in the sa
 shows the working's value rounded once: the model's own "3 significant figures" made
 109324.04 Pa a card of 1.09 × 10⁵ (the owner's chat, 2026-11-18). An expression, a fraction,
 a sum of money and a pH are left as written: a pH keeps the decimals its concentration's
-figures give it, the one place a chemistry answer's precision is its correctness.
+figures give it.
+
+A chemistry solver's checked cards keep the significant figures of the question's data, the
+rule chemistry textbooks teach (``chemistry.sig_figs``; owner, 2026-11-23); only a precision
+the question asks for rounds them again here. The model's own unchecked card on that turn
+follows the rule.
 """
 
 from __future__ import annotations
@@ -21,6 +27,8 @@ from app.services.answer_check import Number, read_verified_value
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
+    UNCHECKED_ANSWER_MARKER,
+    VERIFIED_ANSWER_MARKER,
     answer_header_and_value,
 )
 from app.services.md_fence_scan import iter_fences
@@ -46,6 +54,8 @@ _WRITTEN = re.compile(
     r"|\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))?"
     r"(?![\w.])"
 )
+# A number in a card or a solver's answer, compared as written.
+_DIGITS = re.compile(r"\d+(?:\.\d+)?")
 # Left as written: money, a decimal comma, a pH, pOH or pK.
 _KEPT = re.compile(r"\\\$|[€£¥]|\{,\}|\bp(?:H|OH|K[ab]?)\b")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
@@ -54,12 +64,36 @@ _BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
 
 
 def format_card_numbers(state: FinalizeState) -> str:
-    """The reply with each card's numbers by the rule (the module docstring)."""
+    """The reply with each card's numbers by the rule (the module docstring). A solver that
+    writes its cards to its subject's own precision (chemistry's significant figures of the
+    data) keeps them, unless the question asks for another."""
     precision = asked_precision(state.ctx.user_message_content or "")
-    return card_numbers(state.text, precision)
+    verified = state.ctx.verified_subject
+    if verified is None or not verified.cards_keep_precision:
+        return card_numbers(state.text, precision)
+    # A photo read uncertainly unchecks the solver's card; it is still the solver's, and is
+    # known by its numbers. The model's own card there follows the rule.
+    unchecked: frozenset[str] = frozenset()
+    if state.ctx.photo_uncertain is True:
+        answers = (verified, *verified.question_parts)
+        unchecked = frozenset(
+            number for block in answers for number in _DIGITS.findall(block.canonical_answer or "")
+        )
+    return card_numbers(state.text, precision, keep_checked=True, solver_numbers=unchecked)
 
 
-def card_numbers(text: str, precision: Precision) -> str:
+def card_numbers(
+    text: str,
+    precision: Precision,
+    *,
+    keep_checked: bool = False,
+    solver_numbers: frozenset[str] = frozenset(),
+) -> str:
+    """``keep_checked``: a card the server checked keeps its solver's precision, and takes a
+    precision the question asks for only when the working knows the value to it (a card of
+    2.4 is no 2.400). ``solver_numbers``: the solver's answers' numbers, which an unchecked
+    card that is the solver's (a photo read uncertainly) holds. The model's own unchecked
+    card on that turn follows the rule."""
     changes: list[tuple[int, int, str]] = []
     previous = 0
     for fence in iter_fences(text):
@@ -67,12 +101,25 @@ def card_numbers(text: str, precision: Precision) -> str:
             continue
         above, previous = text[previous : fence.start], fence.end
         body = text[fence.body_start : fence.body_end]
+        if keep_checked and _solver_card(body, solver_numbers):
+            if precision == RULE or not _known_to(body, above, precision):
+                continue
         shown = _shown(body, above, precision)
         if shown is not None and shown != body:
             changes.append((fence.body_start, fence.body_end, shown))
     for start, end, body in reversed(changes):
         text = text[:start] + body + text[end:]
     return text
+
+
+def _solver_card(body: str, solver_numbers: frozenset[str]) -> bool:
+    """Whether a card is the solver's: checked, or unchecked with a solver's value (the first
+    number after its last "=": "0.1298" of "c_{2} = 0.1298\\,\\mathrm{mol/L}")."""
+    headers, value = answer_header_and_value(body)
+    if VERIFIED_ANSWER_MARKER in headers:
+        return True
+    found = _DIGITS.search(value.rpartition("=")[2])
+    return UNCHECKED_ANSWER_MARKER in headers and found is not None and found[0] in solver_numbers
 
 
 def cards_again(text: str, precision: Precision) -> list[tuple[str, str]] | None:
@@ -139,8 +186,9 @@ def _holds(number: Number, precision: Precision) -> bool:
     if precision.places >= 0:
         shown = round_places(number.value, precision.places)
         return number.places >= precision.places and (shown != 0 or number.value == 0)
-    written = format(round_places(number.value, number.places), "f")
-    return _figures(written.lstrip("-")) >= precision.figures
+    # The digits the card knows: 4 × 10^1 knows one, though "40" reads as two (review).
+    known = round_places(number.value, number.places).as_tuple().digits
+    return len(known) >= precision.figures
 
 
 def _shown(body: str, above: str, precision: Precision) -> str | None:

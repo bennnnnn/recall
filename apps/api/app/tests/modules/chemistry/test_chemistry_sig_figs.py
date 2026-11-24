@@ -14,7 +14,7 @@ from pydantic import ValidationError
 
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.sig_figs import as_written, decimals_of, figures_of
+from app.modules.chemistry.sig_figs import _forms, as_written, decimals_of, figures_of
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.display import num, p_value
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -115,6 +115,48 @@ def test_one_value_typed_two_ways_is_limited_by_both() -> None:
     assert intent.decimals == 1
     assert intent.written == {}
     assert solve_chemistry(intent).answer == "E°cell = 0.0 V"
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        # The item's "1" is no given: 1.00 mol over 0.500 L keeps three figures, not 2.0.
+        ("1) What is the molarity of 1.00 mol NaCl in 0.500 L?", "c = 2.00 mol/L"),
+        ("(1) What is the molarity of 1.00 mol NaCl in 0.500 L?", "c = 2.00 mol/L"),
+        ("2. What is the molarity of 2.00 mol NaCl in 0.500 L?", "c = 4.00 mol/L"),
+        # A line's own number on a later line is one too.
+        ("Homework\n1) What is the molarity of 1.00 mol NaCl in 0.500 L?", "c = 2.00 mol/L"),
+        # A measured value first in the line still limits: 1 mol has one figure.
+        ("1 mol of NaCl is dissolved in 0.500 L. What is the molarity?", "c = 2.0 mol/L"),
+    ],
+)
+def test_a_number_naming_the_item_never_limits_the_answer(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
+
+
+def test_a_decimal_opening_a_wrapped_line_is_still_a_given() -> None:
+    # Photo text wraps: "1.8e-5." starts its line and ends a sentence, yet it is data.
+    forms = _forms("The acid has a dissociation constant of\n1.8e-5. What is the pH of 0.10 M?")
+    assert forms[1.8e-5] == ["1.8e-5"]
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        (
+            "25.00 mL of HCl is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach "
+            "the endpoint. What is the concentration of HCl?",
+            "c₂ = 0.1298 mol/L",
+        ),
+        (
+            "25.0 mL of 0.200 M HCl is diluted to 100.0 mL. What is the new concentration?",
+            "c2 = 0.0500 mol/L",
+        ),
+    ],
+    ids=["titration", "dilution"],
+)
+def test_a_card_has_the_figures_of_the_data(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
 
 
 def test_a_coefficient_never_limits_a_measured_value_equal_to_it() -> None:
