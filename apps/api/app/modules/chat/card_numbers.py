@@ -281,6 +281,10 @@ def _worked(above: str) -> Number | None:
     """The one value the working above a card ends on: its last line of maths, the side
     after its last "="."""
     lines = _INLINE_MATHS.findall(above)
+    # "\mu \approx 0.404" under "\mu = 0.404026": the rounding on a row of its own (the
+    # calculation layout sets a chain with no unit one state per row) reaches nothing new.
+    if len(lines) > 1 and "=" not in lines[-1] and ROUNDED_TO.search(lines[-1]):
+        lines.pop()
     return line_value(lines[-1]) if lines else None
 
 

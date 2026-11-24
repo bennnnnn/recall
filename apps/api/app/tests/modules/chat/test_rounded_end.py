@@ -132,6 +132,16 @@ def test_the_card_number_pass_still_reads_the_unrounded_value() -> None:
     assert again is not None and "4.8249" in again[0][1]
 
 
+def test_a_rounding_on_its_own_row_still_leaves_the_value_above_it() -> None:
+    """The calculation layout sets a chain with no unit one state per row: "mu = 0.404026"
+    then "mu \\approx 0.404". A follow-up's precision still reads 0.404026, and the pass
+    leaves the rows alone."""
+    reply = "$\\mu = 0.404026$  \n$\\mu \\approx 0.404$\n\n" + _card("0.404", "false")
+    assert rounded_ends(reply) == reply
+    again = cards_again(reply, Precision(figures=5))
+    assert again is not None and "0.40403" in again[0][1]
+
+
 def test_the_pass_runs_once_the_cards_numbers_are_final() -> None:
     from app.modules.chat.finalize_passes import FINALIZE_PASSES
 
