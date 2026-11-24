@@ -5,7 +5,7 @@
  * Motion every step is shown at once, still.
  */
 import { createContext, type ReactNode, useContext, useEffect, useMemo } from "react";
-import { type StyleProp, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from "react-native";
+import { type StyleProp, StyleSheet, Text, type TextProps, useWindowDimensions, View, type ViewStyle } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -88,12 +88,18 @@ export function SceneCard({ children }: { children: ReactNode }) {
   );
 }
 
+/** Words inside a scene are part of its picture: they keep their size under large system
+ * text, so a scene never outgrows its card (the titles and words under it still scale). */
+export function SceneText(props: TextProps) {
+  return <Text maxFontSizeMultiplier={1} {...props} />;
+}
+
 export function UserBubble({ text }: { text: string }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View style={s.userBubble}>
-      <Text style={s.userText}>{text}</Text>
+      <SceneText style={s.userText}>{text}</SceneText>
     </View>
   );
 }
@@ -102,7 +108,7 @@ export function UserBubble({ text }: { text: string }) {
 export function ReplyLine({ text, strong = false }: { text: string; strong?: boolean }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  return <Text style={[s.reply, strong && s.replyStrong]}>{text}</Text>;
+  return <SceneText style={[s.reply, strong && s.replyStrong]}>{text}</SceneText>;
 }
 
 /** What the landing needs besides the scene (headline, title, words, dots, button, system

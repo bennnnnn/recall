@@ -4,7 +4,7 @@
  * waits for its tap before it is added.
  */
 import { useMemo } from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -13,7 +13,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
-import { Reveal, ReplyLine, SceneCard, UserBubble } from "./SceneParts";
+import { ReplyLine, Reveal, SceneCard, SceneText, UserBubble } from "./SceneParts";
 
 type SceneProps = { active: boolean };
 
@@ -54,7 +54,7 @@ export function NewsScene({ active }: SceneProps) {
       ))}
       <Reveal active={active} step={NEWS_POINTS.length + 1} style={s.sources}>
         <Icon name="link" size={IconSize.xs} color={theme.textSecondary} />
-        <Text style={s.sourcesText}>{t("onboarding.demo_news_sources")}</Text>
+        <SceneText style={s.sourcesText}>{t("onboarding.demo_news_sources")}</SceneText>
       </Reveal>
     </SceneCard>
   );
@@ -74,18 +74,18 @@ export function ReminderScene({ active }: SceneProps) {
           <Icon name="bell" size={IconSize.sm} color={theme.primary} />
         </View>
         <View style={s.reminderText}>
-          <Text style={s.reminderTitle}>{t("onboarding.demo_remind_title")}</Text>
-          <Text style={s.reminderWhen}>{t("onboarding.demo_remind_when")}</Text>
+          <SceneText style={s.reminderTitle}>{t("onboarding.demo_remind_title")}</SceneText>
+          <SceneText style={s.reminderWhen}>{t("onboarding.demo_remind_when")}</SceneText>
         </View>
       </Reveal>
       <View>
         <Reveal active={active} step={2} style={s.addButton}>
-          <Text style={s.addText}>{t("onboarding.demo_remind_add")}</Text>
+          <SceneText style={s.addText}>{t("onboarding.demo_remind_add")}</SceneText>
         </Reveal>
         <View style={s.overlay} pointerEvents="none">
           <Reveal active={active} step={3} style={[s.addButton, s.added]}>
             <Icon name="check" size={IconSize.xs} color={theme.success} />
-            <Text style={s.addedText}>{t("onboarding.demo_remind_added")}</Text>
+            <SceneText style={s.addedText}>{t("onboarding.demo_remind_added")}</SceneText>
           </Reveal>
         </View>
       </View>

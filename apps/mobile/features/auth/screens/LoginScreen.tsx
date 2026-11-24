@@ -217,7 +217,7 @@ function SignInActions({ s, theme }: { s: Styles; theme: Theme }) {
 
       {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
           the sign-in); the Privacy Policy says what the AI providers receive. */}
-      <AgreeLine style={s.consentLine} linkStyle={[s.link, s.linkPressable]} />
+      <AgreeLine style={s.consentLine} linkStyle={s.link} />
     </View>
   );
 }
@@ -340,7 +340,7 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
       textAlign: "center",
     },
-    link: { ...Type.caption, ...Weight.regular, color: theme.primary },
-    linkPressable: { textDecorationLine: "underline" },
+    // The brand colour alone marks the links, without an underline (owner, 2026-11-23).
+    link: { ...Type.caption, ...Weight.medium, color: theme.primary },
   });
 }

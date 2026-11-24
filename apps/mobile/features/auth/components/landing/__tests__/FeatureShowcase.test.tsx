@@ -96,3 +96,24 @@ it("a scene takes the room the screen has, within its bounds", () => {
   expect(sceneHeight(480)).toBe(240); // smaller still: the landing scrolls
   expect(sceneHeight(1280)).toBe(380); // a tablet: no giant card
 });
+
+it("a fling still settling when a dot or Next turns the slide never turns it back", async () => {
+  const screen = await showcase();
+  const row = screen.getByTestId("landing-showcase-row");
+  await act(async () => {
+    fireEvent(row, "scrollBeginDrag");
+  });
+  await act(async () => {
+    fireEvent.press(screen.getByLabelText(SLIDES[2].titleKey));
+  });
+  await act(async () => {
+    fireEvent(row, "momentumScrollEnd", { nativeEvent: { contentOffset: { x: 360 * 0.4 } } });
+  });
+  expect(selected(screen)).toBe(2);
+});
+
+it("words inside a scene keep their size under large system text; the slide's own scale", async () => {
+  const screen = await showcase();
+  expect(screen.getByText("onboarding.demo_news_ask", { includeHiddenElements: true }).props.maxFontSizeMultiplier).toBe(1);
+  expect(screen.getByText(SLIDES[0].bodyKey).props.maxFontSizeMultiplier).toBe(1.3);
+});
