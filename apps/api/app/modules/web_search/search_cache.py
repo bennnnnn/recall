@@ -309,6 +309,22 @@ def _search_cache_key(
     return key if topic == "general" else f"{key}:{topic}"
 
 
+def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
+    """Cached hits as stored (a JSON list of hit dicts), or None for anything else."""
+    if not isinstance(payload, list):
+        return None
+    return [
+        WebSearchHit(
+            title=str(item.get("title") or ""),
+            url=str(item.get("url") or ""),
+            snippet=str(item.get("snippet") or ""),
+            published=str(item.get("published") or ""),
+        )
+        for item in payload
+        if isinstance(item, dict)
+    ]
+
+
 async def _search_with_cache(
     settings: Settings,
     query: str,
@@ -330,20 +346,6 @@ async def _search_with_cache(
     # the general search's to say.
     ledger = budget if topic == "general" else None
     cache_redis = redis if redis is not None else get_redis_client()
-
-    def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
-        if not isinstance(payload, list):
-            return None
-        return [
-            WebSearchHit(
-                title=str(item.get("title") or ""),
-                url=str(item.get("url") or ""),
-                snippet=str(item.get("snippet") or ""),
-                published=str(item.get("published") or ""),
-            )
-            for item in payload
-            if isinstance(item, dict)
-        ]
 
     async def _cached_hits() -> list[WebSearchHit] | None:
         """This query's cached hits (counted as a search), or None on a miss or error."""

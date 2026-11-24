@@ -14,7 +14,6 @@ from app.models.orm import User
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech import service as speech_service
 from app.modules.speech.gates import (
-    RefundOnFailure,
     charge_tts_tokens,
     refund_day_on_failure,
     require_plan_feature,
@@ -101,9 +100,9 @@ async def synthesize_speech(
             quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
         )
     # No daily count: every part is charged to the day's token budget by its length.
-    guard: RefundOnFailure = await charge_tts_tokens(redis, user, settings, body.text)
+    charged = await charge_tts_tokens(redis, user, settings, body.text)
 
-    async with guard as refund:
+    async with charged as refund:
         alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
             settings,
