@@ -4,7 +4,7 @@
  * what to show. Display names live in i18n (`plans.<id>`), never in code.
  */
 
-export type PlanId = "free" | "plus" | "pro";
+export type PlanId = "free" | "pro";
 export type PaidPlanId = Exclude<PlanId, "free">;
 
 export type PlanFeature =
@@ -14,41 +14,17 @@ export type PlanFeature =
   | "speech_tts"
   | "live_talk";
 
-type PlanAllowance =
-  | "daily_messages"
-  | "daily_tokens"
-  | "daily_image_uploads"
-  | "daily_web_searches"
-  | "daily_image_searches"
-  | "daily_image_generations"
-  | "daily_speech_transcriptions"
-  | "daily_speech_tts"
-  | "monthly_live_talk_minutes"
-  | "library_storage_bytes";
-
-export type PlanInfo = {
-  id: PlanId;
-  features: PlanFeature[];
-  allowances: Partial<Record<PlanAllowance, number>>;
-};
-
-export type PlanCatalog = {
-  current: PlanId;
-  plans: PlanInfo[];
-};
-
 type PlanHolder = { plan?: string | null; features?: readonly string[] | null } | null | undefined;
 
 export function planOf(holder: PlanHolder): PlanId {
   const plan = holder?.plan;
-  return plan === "plus" || plan === "pro" ? plan : "free";
+  return plan === "pro" ? "pro" : "free";
 }
 
 /** Before the server lists features (an older cached user), assume the defaults. */
 function fallbackFeatures(plan: PlanId): PlanFeature[] {
   if (plan === "free") return ["image_generation"];
-  const paid: PlanFeature[] = ["all_models", "image_generation", "speech_transcription", "speech_tts"];
-  return plan === "pro" ? [...paid, "live_talk"] : paid;
+  return ["all_models", "image_generation", "speech_transcription", "speech_tts", "live_talk"];
 }
 
 export function hasPlanFeature(holder: PlanHolder, feature: PlanFeature): boolean {
@@ -57,14 +33,9 @@ export function hasPlanFeature(holder: PlanHolder, feature: PlanFeature): boolea
   return fallbackFeatures(planOf(holder)).includes(feature);
 }
 
-/** Free below Plus below Pro: whether one plan grants at least what another does. */
-export const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
-
-/** The plan to offer next: free sees both, Plus sees Pro, Pro sees none. */
+/** The plan to offer: Free sees the one paid plan, which sees none. */
 export function upgradeTargets(current: PlanId): PaidPlanId[] {
-  if (current === "free") return ["plus", "pro"];
-  if (current === "plus") return ["pro"];
-  return [];
+  return current === "free" ? ["pro"] : [];
 }
 
 export function planNameKey(plan: PlanId): `plans.${PlanId}` {

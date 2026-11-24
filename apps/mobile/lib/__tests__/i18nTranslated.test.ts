@@ -26,10 +26,9 @@ const EN = en as Bundle;
 /** Names and symbols every language keeps as they are. */
 const KEPT_EVERYWHERE = new Set([
   "app.name", // the product
-  "plans.plus", // plan names, as the stores show them
-  "plans.pro",
+  "plans.pro", // the plan's name, as the stores show it
+  "upgrade.plan_title", // "Recall Pro": the product and the plan's name
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
-  "upgrade.feature_live_talk_plain",
   "share.attachment_pdf",
   "common.ok",
   "chat.math_converter_clear", // the calculator's AC key

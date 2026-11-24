@@ -3,11 +3,11 @@
  * bank's check): the plan it was for, and since when. While one waits, no second purchase
  * is offered.
  *
- * On Android that is what keeps a second charge away: Pro bought while Plus waits starts a
- * separate subscription (a purchase replaces only an active Plus), and both are charged once
- * Plus clears, which a slow payment can take days to do. So there the hold is kept on disk
- * for its account, through relaunches, for up to a week. On iOS both plans share one
- * subscription group, so the hold is the session's and lets go after 30 minutes.
+ * On Android that is what keeps a second charge away: the other period bought while one waits
+ * starts a separate subscription, and both are charged once the first clears, which a slow
+ * payment can take days to do. So there the hold is kept on disk for its account, through
+ * relaunches, for up to a week. On iOS both periods share one subscription group, so the
+ * hold is the session's and lets go after 30 minutes.
  *
  * RevenueCat reports neither a declined Ask to Buy nor a payment never made, so a hold ends
  * when the store grants a plan, the user restores purchases, it expires, or the account
@@ -17,7 +17,7 @@ import { Platform } from "react-native";
 
 import { cacheFile } from "@/lib/cache/cacheFile";
 import { createValueStore } from "@/lib/listenerSet";
-import { PLAN_RANK, type PaidPlanId, type PlanId } from "@/lib/plan";
+import type { PaidPlanId, PlanId } from "@/lib/plan";
 
 type Hold = { plan: PaidPlanId; since: number };
 
@@ -50,10 +50,9 @@ export function releaseHeldPurchase(): Promise<void> {
   return heldFile.clear();
 }
 
-/** The store grants `plan`: a purchase waiting for that plan or a lower one has gone through. */
+/** The store grants the paid plan: a purchase waiting for it has gone through. */
 export function settleHeldPurchase(plan: PlanId): void {
-  const waiting = held.get();
-  if (waiting && PLAN_RANK[plan] >= PLAN_RANK[waiting.plan]) void releaseHeldPurchase();
+  if (held.get() && plan !== "free") void releaseHeldPurchase();
 }
 
 /** A hold older than its platform allows lets go. */
@@ -72,7 +71,7 @@ export async function loadHeldPurchase(account: string, now: number = Date.now()
   if (raw === null) return;
   const [owner, plan, since] = raw.split("|");
   const at = Number(since);
-  const due = owner === account && (plan === "plus" || plan === "pro") && Number.isFinite(at) && now - at < holdMs();
-  if (due) held.set({ plan, since: at });
+  const due = owner === account && plan === "pro" && Number.isFinite(at) && now - at < holdMs();
+  if (due) held.set({ plan: "pro", since: at });
   else await heldFile.clear();
 }

@@ -360,7 +360,7 @@ describe("MessageBubble copy feedback timers", () => {
 
     it("uses the natural voice on a plan that includes read-aloud", async () => {
       mockAuthUser = {
-        plan: "plus",
+        plan: "pro",
         features: ["all_models", "image_generation", "speech_transcription", "speech_tts"],
         locale: "en",
         tts_voice: "cedar",

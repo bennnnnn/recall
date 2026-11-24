@@ -30,7 +30,7 @@ function modelRowNote(
   t: (key: string) => string,
   row: { proLocked: boolean; isLastModel: boolean; degraded: boolean },
 ): string | undefined {
-  if (row.proLocked) return t(planNameKey("plus"));
+  if (row.proLocked) return t(planNameKey("pro"));
   if (row.isLastModel) return t("settings.model_last_on");
   return row.degraded ? t("settings.model_degraded") : undefined;
 }

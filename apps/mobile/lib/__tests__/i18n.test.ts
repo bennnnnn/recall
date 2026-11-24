@@ -166,21 +166,6 @@ describe("i18n runtime", () => {
     expect(i18n.t("settings.models_enabled", { count: 1 })).toBe("1 enabled");
   });
 
-  // The plan sheet read "1000 messages a day" in every language.
-  it("writes the plan sheet's numbers the language's way", async () => {
-    await ensureLocale("en");
-    expect(i18n.t("upgrade.feature_messages", { count: 1000 })).toBe("1,000 messages a day");
-    expect(i18n.t("upgrade.feature_messages", { count: 1 })).toBe("1 message a day");
-    expect(i18n.t("upgrade.free_has", { count: 1000 })).toBe("Free: 1,000");
-    await ensureLocale("hi");
-    // Indian grouping: lakhs after the thousands.
-    expect(i18n.t("upgrade.feature_messages", { count: 100000 })).toBe("रोज़ 1,00,000 मैसेज");
-    await ensureLocale("ru");
-    expect(i18n.t("upgrade.feature_images", { count: 2 })).toBe("2 ИИ-изображения в день");
-    expect(i18n.t("upgrade.feature_images", { count: 5 })).toBe("5 ИИ-изображений в день");
-    await ensureLocale("en");
-  });
-
   it("does not announce a change to the language already in use", async () => {
     const changed = jest.fn();
     i18n.on("languageChanged", changed);
