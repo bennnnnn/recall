@@ -53,6 +53,8 @@ _MIN_OWN_TOPICS = 2
 # Requests whose path decides them alone: what follows one is not a follow-up to it.
 _OWNED_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder", "solve"})
 _PLAN_CACHE = 256
+# The requests a comma alone sets apart from a task beside them (``Cut.LIST``).
+_LIST_KINDS: frozenset[PartKind] = frozenset({"reminder", "settings"})
 # An alarm is asked as a reminder; "remind me …" is the to-do reader's to tell apart:
 # "remind me what the yellow fever thing was" asks to be told again, and was planned as a
 # reminder, answered "I can't save one without a date and time" (2026-11-06).
@@ -113,6 +115,20 @@ def _continues_solve(
     )
 
 
+def _other_subjects(
+    clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
+) -> bool:
+    """Two solves the subject order gives different subjects are two requests: "solve x³ - 6x²
+    + 11x - 6 = 0 and graph it, draw the structure of aspirin" is maths, then chemistry."""
+    if kind != "solve" or last_kind != "solve":
+        return False
+    subjects = {
+        detect_subject(request_body(text), chemistry_enabled=chemistry_enabled)
+        for text in (last.text, clause.text)
+    }
+    return None not in subjects and len(subjects) == 2
+
+
 def _keeps_cut(
     clause: Clause, kind: PartKind, last: Clause, last_kind: PartKind, *, chemistry_enabled: bool
 ) -> bool:
@@ -128,6 +144,13 @@ def _keeps_cut(
         clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled
     ):
         return False
+    if _other_subjects(clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled):
+        return True
+    if clause.cut == Cut.LIST:
+        # A comma between tasks most often refines the one before ("Draw me a cat, add a
+        # hat") or lists what a reminder is for ("Remind me at 8 am to take out the trash,
+        # check the mail"): it stands only before a reminder or a setting.
+        return kind in _LIST_KINDS
     if kind != last_kind and (kind != "ask" or last_kind in _OWNED_KINDS):
         return True
     if clause.cut == Cut.AND:
@@ -326,13 +349,18 @@ def cuts_after_picture(text: str, is_picture: Callable[[str], bool]) -> bool:
     draws the whole line, so the line is drawn whole exactly where the plan keeps it whole.
 
     The same clause and cut rules as ``plan_turn``, with ``is_picture`` (the picture
-    reader's own, on a request's body) for ``part_kind``: after a picture, every other
-    kind of request cuts alike, and the reader must not ask the SymPy-backed readings
-    on the event loop.
+    reader's own, on a request's body) for ``part_kind``, and the reminder and settings
+    readers, whose requests a comma alone sets apart (``Cut.LIST``); every other kind of
+    request cuts alike after a picture, and the reader must not ask the SymPy-backed
+    readings on the event loop.
     """
 
     def kind(clause: Clause) -> PartKind:
-        return "image" if is_picture(request_body(clause.text)) else "ask"
+        if is_picture(request_body(clause.text)):
+            return "image"
+        if asks_a_setting(clause.text):
+            return "settings"
+        return "reminder" if asks_a_reminder(clause.text) else "ask"
 
     clauses = request_clauses(text).clauses
     if len(clauses) < 2 or kind(clauses[0]) != "image":

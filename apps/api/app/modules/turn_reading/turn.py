@@ -49,6 +49,10 @@ class TurnReading:
     # their own words, each with the subject the pool read in it (None: none, or not read).
     # One a subject does not claim keeps its reader beside the homework (``is_homework``).
     place_requests: tuple[tuple[str, str | None], ...] = ()
+    # On a message of several requests, the subject of the first the plan reads as a solve
+    # and the pool read a subject in ("Solve 2x + 5 = 17 and remind me at 6 pm"): the
+    # message holds that subject's work whatever else it asks (``decided_turn``'s lane).
+    solve_subject: str | None = None
 
     @property
     def teaching(self) -> bool:
