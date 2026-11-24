@@ -296,7 +296,8 @@ def tidy_and_drop_unverified_notes(state: FinalizeState) -> str:
 
 def check_working(state: FinalizeState) -> str:
     """Working the model wrote with no verified result behind it: a slip in one
-    multiplication carries into the answer, so name the first one. Its final
+    multiplication carries into the answer, so it is put right and carried on, or named
+    when it cannot be put right in place. Its final
     answer goes in the same card a verified one does, without the check, and is not
     said again below the cards (``worked_lead.drop_restated_tail``).
     """

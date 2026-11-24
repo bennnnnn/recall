@@ -5,12 +5,16 @@ multiplication carries into the answer. This reads each ``$...$`` line of the
 reply, keeps the equalities whose two sides are plain numbers once units are
 dropped (``$3\\,\\text{m/s}^2 \\times 5\\,\\text{s} = 15\\,\\text{m/s}$`` checks
 ``3 * 5 = 15``), and recomputes the left side. A step is wrong only when its
-shown value is off by more than its own rounding and more than 1%: models round
-as they go, and ``9.81 * 2.02 = 19.8`` is right.
+shown value is off by more than its own rounding and more than the slack a rounding
+chain has: 1%, or less where the inputs' own rounding cannot reach that far
+(``tex_spread``). Models round as they go, and ``9.81 * 2.02 = 19.8`` is right;
+``\\sqrt{1088.5} = 33.11`` is not, though only 0.4% off.
 
-Anything with a variable, a function, a percent or a degree sign is left alone.
-Pure text work with a small expression walker: nothing is ``eval``-ed, and
-powers are capped, so a reply cannot make the server compute a huge number.
+Roots, sines, cosines and tangents (of degrees or radians), logs, e, pi, powers of ten
+and the ± of a quadratic are read; a variable, a percent or a word is left alone. Pure
+text work with a small expression walker: nothing is ``eval``-ed, and powers are capped,
+so a reply cannot make the server compute a huge number. ``working_fix`` puts a wrong
+number right and carries it on.
 """
 
 from __future__ import annotations
