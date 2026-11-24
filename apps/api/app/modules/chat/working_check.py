@@ -18,7 +18,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from decimal import InvalidOperation
 
 from app.modules.chat.tex_arithmetic import (
@@ -26,9 +26,13 @@ from app.modules.chat.tex_arithmetic import (
     UNIT_GROUP,
     evaluate,
     is_unit_word,
-    math_statements,
+    log_readings,
+    math_statement_spans,
     plain_arithmetic,
+    plain_branches,
 )
+from app.modules.chat.tex_spread import half_place, spread
+from app.modules.chat.working_align import Piece, pieces
 from app.modules.chat.working_systems import unheld_equations
 from app.services.md_fence_scan import iter_fences
 from app.services.school_rounding import round_places
@@ -41,19 +45,33 @@ _SHOWN = re.compile(
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
 _PREFIXED_UNIT = re.compile(r"\\(?:text|mathrm)\s*\{\s*([kMGmµμnpc][A-Za-z]+)")
-OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand")
+OPERATOR = re.compile(r"[-+*/]|sqrt|pi|sind|cosd|tand|rsin|rcos|rtan|ln|lg|lbin|exp|euler")
 RELATION = re.compile(r"\\approx|≈|=")
 # Models round as they go: a step within 1% of its value is not called a slip.
 _RELATIVE_SLACK = 0.01
 
 
 @dataclass(frozen=True)
+class Fix:
+    """The wrong number at ``start:end`` of the reply, and the value it stands for."""
+
+    start: int
+    end: int
+    number: str
+    value: float
+
+
+@dataclass(frozen=True)
 class WrongStep:
-    """``left`` as written, the value shown after it, and what it really is."""
+    """``left`` as written, the value shown after it, and what it really is. ``fixes``: the
+    numbers to write again, where the step can be put right in place (none when its right
+    side is another exact form); ``name``: what the step works out ("t"), or ""."""
 
     left: str
     shown: str
     value: float
+    fixes: tuple[Fix, ...] = ()
+    name: str = ""
 
 
 def _converts_unit(left_tex: str, right_tex: str) -> bool:
@@ -93,7 +111,7 @@ def _unit_kinds(tex: str) -> dict[str, frozenset[str]]:
 _ROUNDED_FIGURES = 3
 
 
-def _shown_number(plain: str, *, coarse: bool = False) -> tuple[float, float] | None:
+def shown_number(plain: str, *, coarse: bool = False) -> tuple[float, float] | None:
     """A written result and half its last place: ``14.8`` → (14.8, 0.05). ``coarse``: said
     to be near ("≈ 1000" for 2^10), so any whole number's zeros are its rounding."""
     match = _SHOWN.fullmatch(plain)
@@ -145,31 +163,52 @@ def _exact_side(plain: str, rounded: dict[str, float]) -> str:
     )
 
 
-def _is_wrong(value: float, shown: float, rounding: float, approximate: bool) -> bool:
+def _is_wrong(
+    value: float, shown: float, rounding: float, approximate: bool, spread: float | None = None
+) -> bool:
+    """``shown`` is off ``value`` by more than its own rounding and more than the slack a
+    rounding chain has: 1%, or only as far as the inputs' own rounding reaches (``spread``,
+    ``tex_spread``) when that is less. "\\sqrt{1088.5} = 33.11" is 0.4% off but no rounding
+    of 1088.5 moves its root past 32.99 (live, 2026-11-23)."""
     if _prefix_shift(value, shown):
         return False
     difference = abs(value - shown)
-    slack = _RELATIVE_SLACK * (2 if approximate else 1) * max(abs(value), abs(shown))
-    return difference > rounding * (1 + 1e-9) and difference > slack
+    factor = 2 if approximate else 1
+    slack = _RELATIVE_SLACK * factor * max(abs(value), abs(shown))
+    if spread is not None:
+        slack = min(slack, factor * spread)
+    return difference > rounding * (1 + 1e-9) and difference > slack * (1 + 1e-9)
 
 
 # A name a step solves for or a given names: t, v_1, t_{\text{flight}}, \mu, \theta_1.
 NAME = re.compile(r"(?:\\[A-Za-z]+|[A-Za-z])(?:_\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|_\w)?")
 
 
-def _note_rounded(
-    left_tex: str,
-    left: str | None,
-    right: str | None,
-    rounded: dict[str, float],
-    worked: dict[str, float],
-) -> None:
+@dataclass
+class _Memory:
+    """What the working has shown so far: each rounded result with its exact value, each
+    name's exact value from its expression, and every number written as a step's result."""
+
+    rounded: dict[str, float] = field(default_factory=dict)
+    worked: dict[str, float] = field(default_factory=dict)
+    results: set[str] = field(default_factory=set)
+
+    def stands_for_a_range(self, number: str) -> bool:
+        """A number that may be rounded: a result the working wrote, or one of three or more
+        figures (a cosine, a component worked in the head: 0.8192, 14.339). A short given
+        ("4.9", "0.25") is exact as written."""
+        figures = len(number.split("e")[0].replace(".", "").lstrip("-0"))
+        return number in self.results or number in self.rounded or figures >= _ROUNDED_FIGURES
+
+
+def _note_rounded(left_tex: str, left: str | None, right: str | None, memory: _Memory) -> None:
     """Record a result written rounded: within half its last place of a step's exact value
     ("3.5/9.8 = 0.36", "0.357 ≈ 0.36", or "t = 3.5/9.8" and then "t = 0.36"). A given
     ("m = 3.2"), an exact result ("6/30 = 0.2") and a name reused for a new value are not."""
+    rounded, worked = memory.rounded, memory.worked
     if right is None:
         return
-    shown = _shown_number(right)
+    shown = shown_number(right)
     exact: float | None = None
     if left is not None:
         exact = evaluate(_exact_side(left, rounded))
@@ -185,43 +224,132 @@ def _note_rounded(
         exact = worked.get(name)
     if exact is None or shown is None:
         return
+    memory.results.add(right)
     off = abs(exact - shown[0])
     if 0 < off <= shown[1] * (1 + 1e-9) and not math.isclose(exact, shown[0], rel_tol=1e-12):
         rounded[right] = exact
 
 
+def statement_parts(segment: str, at: int) -> tuple[list[str], list[int]]:
+    """A statement's sides around its relations, and where each starts (spaces off) in the
+    reply."""
+    bounds = [0, *(edge for match in RELATION.finditer(segment) for edge in match.span())]
+    bounds.append(len(segment))
+    parts = [segment[bounds[i] : bounds[i + 1]] for i in range(0, len(bounds), 2)]
+    starts = [at + bounds[2 * i] + len(part) - len(part.lstrip()) for i, part in enumerate(parts)]
+    return parts, starts
+
+
 def wrong_steps(reply: str) -> list[WrongStep]:
     """The steps in ``reply`` whose arithmetic does not hold, in reading order."""
     found: list[WrongStep] = []
-    # A number an earlier step rounded ("3.5/9.8 = 0.36", or "t = 3.5/9.8" and then
-    # "t = 0.36"), and each name's exact value from its expression.
-    rounded: dict[str, float] = {}
-    worked: dict[str, float] = {}
+    memory = _Memory()
     last = ""
-    # The line before: the name it worked out and its last expression ("L", "√(6·14·28·48)/21").
-    before: tuple[str, str, str] | None = None
-    for segment, follows in math_statements(reply, with_breaks=True):
+    # The line before: the name it worked out, its last expression and its first value.
+    before: _Line | None = None
+    for segment, follows, at in math_statement_spans(reply):
         if not follows:
             # Words between two lines ("**(b)**", "For the second resistor,") start another
             # case: a name reused there is another value (review, #2520).
             before = None
-        parts = RELATION.split(segment)
+        parts, starts = statement_parts(segment, at)
         relations = RELATION.findall(segment)
         if len(parts) > 1 and not parts[0].strip():
             # "$= 0.36$" goes on from the line before.
             parts[0] = last
         last = parts[-1]
+        before = _chain(parts, relations, starts, before, found, memory)
+        name = parts[0].strip() if NAME.fullmatch(parts[0].replace(" ", "")) else ""
         for index in range(len(parts) - 1):
             left_tex, right_tex = parts[index].strip(), parts[index + 1].strip()
             left, right = plain_arithmetic(left_tex), plain_arithmetic(right_tex)
-            _note_rounded(left_tex, left, right, rounded, worked)
-            if left is None or right is None or left == right:
+            _note_rounded(left_tex, left, right, memory)
+            if right is None or left == right:
                 continue
-            step = slip(left_tex, right_tex, left, right, relations[index] != "=", rounded)
+            step = _slip_branches(left_tex, right_tex, relations[index] != "=", memory)
             if step is not None:
-                found.append(step)
-        before = _chain(parts, relations, before, found, rounded)
+                found.append(_placed(step, starts[index + 1], name))
     return found
+
+
+def _placed(step: WrongStep, start: int, name: str) -> WrongStep:
+    """``step`` with its fixes at their place in the reply, and the name its result is of."""
+    fixes = tuple(replace(fix, start=fix.start + start, end=fix.end + start) for fix in step.fixes)
+    whole = len(fixes) == 1 and step.fixes[0].start == 0 and step.name == _RESULT
+    return replace(step, fixes=fixes, name=name if whole else "")
+
+
+# A step whose fix writes its whole result (``WrongStep.name`` until it is placed).
+_RESULT = "\0result"
+
+
+def _slip_branches(
+    left_tex: str,
+    right_tex: str,
+    approximate: bool,
+    memory: _Memory,
+    first: list[tuple[float, float | None]] | None = None,
+) -> WrongStep | None:
+    """``slip`` for a side that may hold a ± (the two roots of a quadratic): it holds when
+    either root does, and a wrong one is put right to the root it was nearest."""
+    branches = plain_branches(left_tex)
+    right = plain_arithmetic(right_tex)
+    if branches is None or right is None:
+        return None
+    _note_pieces(left_tex, right_tex, memory)
+    sign = _PLUS_MINUS.search(left_tex)
+    if sign is None or len(branches) == 1:
+        return slip(
+            left_tex,
+            right_tex,
+            branches[0],
+            right,
+            approximate,
+            memory.rounded,
+            memory=memory,
+            first=first,
+        )
+    signs = ("+", "-") if sign.group(0) in ("\\pm", "\u00b1") else ("-", "+")
+    steps: list[WrongStep] = []
+    for mark, plain in zip(signs, branches, strict=True):
+        branch_tex = f"{left_tex[: sign.start()]}{mark}{left_tex[sign.end() :]}"
+        step = slip(
+            branch_tex,
+            right_tex,
+            plain,
+            right,
+            approximate,
+            memory.rounded,
+            memory=memory,
+            first=first,
+        )
+        if step is None:
+            return None
+        steps.append(step)
+    fixable = [step for step in steps if step.fixes] or steps
+    shown = shown_number(right)
+    target = shown[0] if shown is not None else 0.0
+    best = min(fixable, key=lambda step: abs(step.value - target) if shown else 0.0)
+    return replace(best, left=left_tex)
+
+
+_PLUS_MINUS = re.compile(r"\\pm|\\mp|\u00b1|\u2213")
+
+
+def _note_pieces(left_tex: str, right_tex: str, memory: _Memory) -> None:
+    """Each number the later side writes for a piece of the earlier is a result: "33.11"
+    for the root, rounded when it is within half its last place of it."""
+    sides = plain_branches(left_tex)
+    if sides is None or len(sides) != 1:
+        return
+    for piece in pieces(left_tex, right_tex) or []:
+        number = plain_arithmetic(piece.number)
+        shown = shown_number(number or "")
+        if number is None or shown is None:
+            continue
+        memory.results.add(number)
+        if 0 < abs(piece.value - shown[0]) <= shown[1] * (1 + 1e-9):
+            memory.rounded[number] = piece.value
 
 
 def slip(
@@ -231,49 +359,126 @@ def slip(
     right: str,
     approximate: bool,
     rounded: dict[str, float],
+    *,
+    memory: _Memory | None = None,
+    first: list[tuple[float, float | None]] | None = None,
 ) -> WrongStep | None:
     """``left = right`` when it does not hold: a worked side (an operation or a function) and
-    what it is said to equal, a written result or another exact form (√11375 = 25√73)."""
+    what it is said to equal, a written result or another exact form (√11375 = 25√73).
+    ``first``: the values the same name had on the first line of its working; a result that
+    keeps one of them is no slip, though the line before it rounded too coarsely."""
     # A number in powers of ten is one number: "7.36 * 10^-20 J = 0.459 eV" converts a unit.
     if OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", left).lstrip("-+")) is None:
         return None
-    value = evaluate(left)
-    if value is None:
+    readings = log_readings(left)
+    if not readings:
         return None
-    shown = _shown_number(right, coarse=approximate)
+    memory = memory or _Memory(rounded=rounded)
+    shown = shown_number(right, coarse=approximate)
     # Arithmetic only: "7200 m = 7.2 km" restates a value in another unit.
     if shown is not None and _converts_unit(left_tex, right_tex):
         return None
     if shown is None:
-        # Two sides in different units substitute or convert ("0.98c * 11 μs = 0.98 *
-        # 299,792,458 m/s * 11 * 10^-6 s"): no arithmetic to hold them to.
-        units = (_units(left_tex), _units(right_tex))
-        if all(units) and units[0] != units[1]:
-            return None
-        # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
-        other = evaluate(right)
-        if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
-            return None
-        # Two exact forms held equal must be equal; one only said to be near ("pi ≈ 22/7",
-        # "sqrt(2) ≈ 7/5") is held to the slack an approximation has (review, #2520).
-        exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None and not approximate
-        if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
-            return WrongStep(left_tex, right_tex, value)
-        if not exact and _is_wrong(value, other, 0.0, approximate):
-            return WrongStep(left_tex, right_tex, value)
-        return None
+        return _between_forms(left_tex, right_tex, left, right, approximate, memory)
     # A side of exact numbers (√65/8, 10 sin 45°/sin 75°) is held to the shown value's own
     # rounding: "≈ 0.999" for 1.0078 is a slip, though under 1%.
     if _DECIMAL.search(left) is None:
-        if _is_off(value, shown[0], shown[1]):
-            return WrongStep(left_tex, right_tex, value)
+        if all(_is_off(value, shown[0], shown[1]) for value in readings):
+            return _result_step(left_tex, right_tex, _nearest(readings, shown[0]))
         return None
-    carried = evaluate(_exact_side(left, {k: v for k, v in rounded.items() if k != right}))
-    if _is_wrong(value, shown[0], shown[1], approximate) and (
-        carried is None or _is_wrong(carried, shown[0], shown[1], approximate)
+    if not all(
+        _is_wrong(value, shown[0], shown[1], approximate, spread(left, memory.stands_for_a_range))
+        for value in readings
     ):
+        return None
+    carried_side = _exact_side(left, {k: v for k, v in memory.rounded.items() if k != right})
+    carried = evaluate(carried_side)
+    if carried is not None and not _is_wrong(
+        carried, shown[0], shown[1], approximate, spread(carried_side, memory.stands_for_a_range)
+    ):
+        return None
+    if any(
+        not _is_wrong(value, shown[0], shown[1], approximate, reach) for value, reach in first or []
+    ):
+        return None
+    return _result_step(left_tex, right_tex, _nearest(readings, shown[0]))
+
+
+def _nearest(values: list[float], shown: float) -> float:
+    return min(values, key=lambda value: abs(value - shown))
+
+
+# The number a result is written as, at the start of its side: 4.85, -1.9, 1,500,
+# 1.5 \times 10^{24}.
+_LEADING_NUMBER = re.compile(
+    r"[-\u2212]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
+    r"(?:\s*(?:\\times|\\cdot|\u00d7)\s*10\s*\^\s*(?:\{\s*[-+\u2212]?\d+\s*\}|[-+]?\d))?"
+)
+
+
+def _result_step(left_tex: str, right_tex: str, value: float) -> WrongStep:
+    """A wrong result, with the fix that writes it again when it is a plain number."""
+    number = _LEADING_NUMBER.match(right_tex)
+    if number is None:
+        return WrongStep(left_tex, right_tex, value)
+    fix = Fix(0, number.end(), number.group(0), value)
+    return WrongStep(left_tex, right_tex, value, (fix,), _RESULT)
+
+
+def _between_forms(
+    left_tex: str, right_tex: str, left: str, right: str, approximate: bool, memory: _Memory
+) -> WrongStep | None:
+    """Two worked forms held equal. When the later writes pieces of the earlier as numbers
+    (``working_align``), each piece is held to its number; otherwise the whole sides."""
+    value = evaluate(left)
+    if value is None:
+        return None
+    # Two sides in different units substitute or convert ("0.98c * 11 μs = 0.98 *
+    # 299,792,458 m/s * 11 * 10^-6 s"): no arithmetic to hold them to.
+    units = (_units(left_tex), _units(right_tex))
+    if all(units) and units[0] != units[1]:
+        return None
+    other = evaluate(right)
+    if other is not None and math.isclose(value, other, rel_tol=1e-9, abs_tol=1e-12):
+        # The same value in another form: "\\frac{17 \\times 25 \\times 28}{4 \\times 210}"
+        # is 85/6, a fraction cancelled, not two slips.
+        return None
+    found = pieces(left_tex, right_tex)
+    if found is not None:
+        fixes = tuple(
+            Fix(piece.start, piece.end, piece.number, piece.value)
+            for piece in found
+            if _piece_wrong(piece, approximate, memory)
+        )
+        return WrongStep(left_tex, right_tex, value, fixes) if fixes else None
+    # Another exact form ("25√73"), or a product of rounded values ("32.61 * 0.9659").
+    if other is None or (_DECIMAL.search(right) is not None and _DECIMAL.search(left) is None):
+        return None
+    # Two exact forms held equal must be equal; one only said to be near ("pi ≈ 22/7",
+    # "sqrt(2) ≈ 7/5") is held to the slack an approximation has (review, #2520).
+    exact = _DECIMAL.search(left) is None and _DECIMAL.search(right) is None and not approximate
+    if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
+        return WrongStep(left_tex, right_tex, value)
+    if not exact and _is_wrong(value, other, 0.0, approximate):
         return WrongStep(left_tex, right_tex, value)
     return None
+
+
+def _piece_wrong(piece: Piece, approximate: bool, memory: _Memory) -> bool:
+    """The number written for a piece is not its value: a worked piece (a root, a product) is
+    held as a step is; a number written again ("14.339" as "14.34") to its rounding."""
+    tex, number = piece.tex, piece.number
+    plain, written = plain_arithmetic(tex), plain_arithmetic(number)
+    if plain is None or written is None:
+        return False
+    if OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", plain).lstrip("-+")) is not None:
+        return (
+            slip(tex, number, plain, written, approximate, memory.rounded, memory=memory)
+            is not None
+        )
+    shown = shown_number(written, coarse=approximate)
+    reach = half_place(plain) if "." in plain and memory.stands_for_a_range(plain) else 0.0
+    return shown is not None and _is_wrong(piece.value, shown[0], shown[1], approximate, reach)
 
 
 _SCIENTIFIC_PLAIN = re.compile(r"\(?-?\d+(?:\.\d+)?e[-+]?\d+\)?")
@@ -291,46 +496,86 @@ def _is_off(value: float, shown: float, rounding: float) -> bool:
 
 def _branches(earlier: str, later: str) -> bool:
     """Two values of one name, not one value written twice: the ± roots ("(4 + 2)/2" then
-    "(4 - 2)/2"), the same expression with one sign turned, or a line after a ±."""
-    if "\\pm" in earlier or "±" in earlier or "\\mp" in earlier:
-        return True
+    "(4 - 2)/2"), the same expression with one sign turned. A line after a ± is held to
+    the root it is nearest (``_slip_branches``)."""
     signs = str.maketrans({"+": "±", "-": "±", "\u2212": "±"})
     return earlier.translate(signs).replace(" ", "") == later.translate(signs).replace(" ", "")
+
+
+@dataclass(frozen=True)
+class _Line:
+    """A line that worked a name out: its last expression, its last worked side, and the
+    values the name had on the first line of its working."""
+
+    name: str
+    expression: str
+    worked: str
+    first: list[tuple[float, float | None]]
 
 
 def _chain(
     parts: list[str],
     relations: list[str],
-    before: tuple[str, str, str] | None,
+    starts: list[int],
+    before: _Line | None,
     found: list[WrongStep],
-    rounded: dict[str, float],
-) -> tuple[str, str, str] | None:
+    memory: _Memory,
+) -> _Line | None:
     """The same name worked out on two lines in a row must keep its value: "L = √(6·14·28·48)/21"
     then "L = √279552/21" (live, 2026-11-21: the chord came out 25.19 cm, not 16). Only a line
     worked from an expression is held: "x = 1" then "x = 3" are two roots."""
     name = parts[0].strip()
-    if len(parts) < 2 or not name or plain_arithmetic(name) is not None:
+    if len(parts) < 2 or not name or plain_branches(name) is not None:
         return None
     # A line that reached its value ("P = 2^2 * 5 = 20") is done: the same name next is
     # another case ("P = 3^2 * 5 = 45"), never the same value carried on (review, #2520).
+    first_tex = parts[1].strip()
     if (
         before is not None
-        and before[0] == name
-        and before[1] == before[2]
-        and not _branches(before[1], parts[1].strip())
+        and before.name == name
+        and before.expression == before.worked
+        and not _branches(before.expression, first_tex)
+        and _restates_side(before.expression, first_tex)
     ):
-        first_tex = parts[1].strip()
-        first = plain_arithmetic(first_tex)
-        earlier = plain_arithmetic(before[1])
-        if first is not None and earlier is not None and _restates(earlier, first):
-            step = slip(before[1], first_tex, earlier, first, relations[0] != "=", rounded)
-            if step is not None:
-                found.append(step)
-    worked = [part.strip() for part in parts[1:] if plain_arithmetic(part.strip()) is not None]
-    exprs = [
-        part for part in worked if OPERATOR.search((plain_arithmetic(part) or "").lstrip("-+"))
-    ]
-    return (name, exprs[-1], worked[-1]) if exprs else None
+        step = _slip_branches(
+            before.expression, first_tex, relations[0] != "=", memory, first=before.first
+        )
+        if step is not None:
+            found.append(_placed(step, starts[1], name if NAME.fullmatch(name) else ""))
+    worked = [part.strip() for part in parts[1:] if plain_branches(part.strip()) is not None]
+    exprs = [part for part in worked if _worked_out(part)]
+    if not exprs:
+        return None
+    if before is not None and before.name == name and before.first:
+        first = before.first
+    else:
+        first = _values(exprs[0], memory)
+    return _Line(name, exprs[-1], worked[-1], first)
+
+
+def _worked_out(tex: str) -> bool:
+    """The side has an operation or a function to work out."""
+    return any(
+        OPERATOR.search(_SCIENTIFIC_PLAIN.sub("1", side).lstrip("-+"))
+        for side in plain_branches(tex) or []
+    )
+
+
+def _values(tex: str, memory: _Memory) -> list[tuple[float, float | None]]:
+    """Each value a worked side has (two for a ±), with how far rounding may move it."""
+    values: list[tuple[float, float | None]] = []
+    for side in plain_branches(tex) or []:
+        exact = _exact_side(side, memory.rounded)
+        value = evaluate(exact)
+        if value is not None:
+            values.append((value, spread(exact, memory.stands_for_a_range)))
+    return values
+
+
+def _restates_side(earlier: str, later: str) -> bool:
+    """``_restates`` for two sides as written, each read as its first branch."""
+    first, second = plain_branches(earlier), plain_branches(later)
+    return first is not None and second is not None and _restates(first[0], second[0])
 
 
 _NUMBER_TOKEN = re.compile(r"\d+(?:\.\d+)?")
@@ -432,7 +677,7 @@ def corrected_approximations(reply: str) -> str:
         if _another_unit(match) or not _units_only(match.group("gap")):
             return match.group(0)
         value = evaluate(plain)
-        shown = _shown_number(match.group("number"), coarse=True)
+        shown = shown_number(match.group("number"), coarse=True)
         if value is None or shown is None or not _is_off(value, shown[0], shown[1]):
             return match.group(0)
         start = match.start("number") - match.start()
