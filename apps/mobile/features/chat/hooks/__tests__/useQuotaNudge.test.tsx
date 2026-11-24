@@ -140,15 +140,20 @@ describe("out of messages for today", () => {
     expect(result.current.label).toBe("chat.quota_exceeded_free");
   });
 
-  it("turns Send back on with the next UTC day", async () => {
+  it("turns Send back on at the next UTC midnight with the chat left open, and reads the new day", async () => {
     jest.useFakeTimers({ now: new Date("2026-11-24T23:59:00Z") });
     try {
       fetchUsage.mockResolvedValue(messages(10));
-      const { result, rerender } = await setup();
+      const { result } = await setup();
       expect(result.current.outOfMessages).toBe(true);
-      jest.setSystemTime(new Date("2026-11-25T00:01:00Z"));
-      await rerender({ paid: false });
+      fetchUsage.mockResolvedValue(messages(0));
+      // Nothing re-renders the screen: the midnight timer alone turns Send back on.
+      await act(async () => {
+        jest.advanceTimersByTime(2 * 60_000);
+      });
       expect(result.current.outOfMessages).toBe(false);
+      expect(fetchUsage).toHaveBeenLastCalledWith("user-a:0", "token", { force: true });
+      expect(result.current.show).toBe(false);
     } finally {
       jest.useRealTimers();
     }

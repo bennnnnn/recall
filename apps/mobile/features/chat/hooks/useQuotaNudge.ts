@@ -45,6 +45,8 @@ export function useQuotaNudge({ isPaid, chatError = null }: Options) {
   const [dayCount, setDayCount] = useState<Counted | null>(null);
   // The server's UTC day on which Free ran out: Send is off until the next one.
   const [exhaustedDay, setExhaustedDay] = useState<string | null>(null);
+  // Turns at each UTC midnight passed while out, so the day's usage is read again.
+  const [dayTurn, setDayTurn] = useState(0);
 
   const applyPercent = useCallback((pct: number, counted: Counted | null = null) => {
     setUsedPct(pct);
@@ -70,14 +72,28 @@ export function useQuotaNudge({ isPaid, chatError = null }: Options) {
     }
     let cancelled = false;
     void (async () => {
-      const usage = await fetchTodayUsage(account, token);
+      // After a midnight the cached count is yesterday's: read the new day's.
+      const usage = dayTurn > 0 ? await fetchTodayUsage(account, token, { force: true }) : await fetchTodayUsage(account, token);
       if (cancelled || !usage) return;
       applyPercent(dayUsedPercent(usage), usageMessages(usage));
     })();
     return () => {
       cancelled = true;
     };
-  }, [account, getToken, isPaid, planKnown, applyPercent]);
+  }, [account, getToken, isPaid, planKnown, applyPercent, dayTurn]);
+
+  // Out for the day: at the next UTC midnight Send comes back and the new day's count is read,
+  // with the chat left open and nothing else re-rendering it.
+  useEffect(() => {
+    if (!exhaustedDay) return;
+    const timer = setTimeout(() => {
+      setExhaustedDay(null);
+      setDayCount(null);
+      setShow(false);
+      setDayTurn((turn) => turn + 1);
+    }, msToNextUtcDay(new Date()) + 1_000);
+    return () => clearTimeout(timer);
+  }, [exhaustedDay]);
 
   const applyTurnUsage = useCallback(
     (usage: TurnUsage) => {
@@ -107,4 +123,10 @@ export function useQuotaNudge({ isPaid, chatError = null }: Options) {
       ? t("chat.quota_exceeded_free")
       : t("chat.quota_nudge_body", { pct: usedPct });
   return { show: show || outOfMessages, usedPct, label, dismiss, applyTurnUsage, outOfMessages, markExhausted };
+}
+
+/** Milliseconds from `now` to the next UTC midnight: when the server's day, and its count, turn. */
+function msToNextUtcDay(now: Date): number {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return next - now.getTime();
 }
