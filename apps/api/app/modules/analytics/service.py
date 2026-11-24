@@ -19,11 +19,11 @@ _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
             {"quota", "model_gate", "settings", "voice", "live_talk", "welcome", "nudge", "other"}
         ),
     },
-    # Which paid plan the purchase was for (plan ids, never display names).
-    "purchase_started": {"plan": frozenset({"plus", "pro"})},
-    "purchase_succeeded": {"plan": frozenset({"plus", "pro"})},
+    # The paid plan the purchase was for (plan ids, never display names).
+    "purchase_started": {"plan": frozenset({"pro"})},
+    "purchase_succeeded": {"plan": frozenset({"pro"})},
     "purchase_failed": {
-        "plan": frozenset({"plus", "pro"}),
+        "plan": frozenset({"pro"}),
         "reason": frozenset({"cancelled", "error"}),
     },
     "push_permission": {

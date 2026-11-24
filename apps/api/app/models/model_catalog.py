@@ -237,7 +237,7 @@ CATALOG: tuple[ChatModel, ...] = (
         json_mode=True,
         context_tokens=128_000,
     ),
-    # The everyday lane on Free and Plus (``ROUTING.everyday``). Measured 2026-11-20 against
+    # The everyday lane on Free (``ROUTING.everyday``). Measured 2026-11-20 against
     # Qwen3.7 Flash and GLM 5.3 Flash on 54 battery prompts judged blind: 6.6 of 10 with no
     # reasoning (Qwen3.7 Flash 5.3, GLM 5.3 Flash 6.5), every STEM corpus answer right, memory
     # recall 100%, and it called web_search on all 16 live-fact questions and none of 8 others;
@@ -245,7 +245,8 @@ CATALOG: tuple[ChatModel, ...] = (
     # 0.6 s). It sends no reasoning at any level, as Qwen3.7 Flash did: with low effort it
     # wrote better replies but waited 11 s at p90, and on the live battery three hard turns
     # thought past their budget without a word. "Try again" moves to the plan's thinking
-    # model (DeepSeek on Plus, GLM 5.3 Flash on Free: ``thinking.escalation_model``).
+    # model (GLM 5.3 Flash on Free, DeepSeek on Pro when this model answered there:
+    # ``thinking.escalation_model``).
     # Photos are left to vision-chat: unmeasured on real photos.
     _or(
         id="hy4-flash",

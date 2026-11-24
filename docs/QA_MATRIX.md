@@ -76,7 +76,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 4.6 | Export chat as PDF from the ⋯ menu | ☐ | ☐ | Full thread; headings/lists/code preserved |
 | 4.7 | Export learning topic as PDF | ☐ | ☐ | Vocab words / trivia facts from project screen |
 | 4.8 | Daily image cap enforced (free) | ☐ | ☐ | |
-| 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free: no voice input (the mic opens the plans) and read-aloud uses the phone's voice only. Plus and Pro: 200 dictations and 100 natural read-alouds a day (`core/settings/plans.py`); over the cap shows the limit message. |
+| 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free: no voice input (the mic opens the plans) and read-aloud uses the phone's voice only. Pro: 200 dictations and 100 natural read-alouds a day (`core/settings/plans.py`); over the cap shows the limit message. |
 | 4.10 | Dictation with the microphone denied | ☐ | ☐ | Turn Recall's microphone off in system Settings, tap the mic: "Microphone access needed" alert; no recording starts and nothing uploads. Airplane mode after recording: "network" message, not a transcription failure. |
 | 4.11 | A geotagged photo leaves without its location | ☐ | ☐ | Attach a photo with GPS (taken with camera location tagging on), small (a screenshot-sized crop under 2048 px) and full size, from the library, the camera and Files; also a scanner capture and a profile photo. Download each stored file (Library → ⋮ → Save, or `GET /attachments/{id}/file`) and run `exiftool -gps:all -xmp:all <file>`: nothing. Portrait photos stay upright; a PNG with transparency keeps it; an animated GIF still animates. |
 
@@ -143,7 +143,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
-| 10.1 | Image generation (every plan) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap per plan: Free 3, Plus 10, Pro 15 (`core/settings/plans.py`); over it shows the limit message. |
+| 10.1 | Image generation (every plan) — composer send → inline image | ☐ | ☐ | No prompt sheet; sends immediately. Daily cap per plan: Free 3, Pro 15 (`core/settings/plans.py`); over it shows the limit message. |
 | 10.2 | Image gen intent detected from plain prompt (no attach-menu row) | ☐ | ☐ | Intent → `/images/generate`; no second modal |
 | 10.3 | Web search — source chips under reply, open source URL | ☐ | ☐ | `WEB_SEARCH_ENABLED=true`; MCP tool path wraps hits + chips; one Tavily reservation per turn; Redis reserve fail → DuckDuckGo (uncapped); no Tavily key → DDG. "Searching — “…”" ends when the search does: the wait for the answer shows typing dots only. |
 | 10.4 | Math scanner — open, torch, pinch-zoom, tap-focus, photos, corner-resize, pan | ☐ | ☐ | Dev build (camera). Close + cancel work. Tap inside the crop to focus. No front camera. |
@@ -293,7 +293,7 @@ Use a real model (not `MOCK_LLM_ENABLED`). Memory must be on in Settings.
 | 19.6 | Chat ⋮ → Share, a photo's ⋮ → Save, and export to PDF | ☐ | iPad share sheets need an anchor: the sheet opens from the button and never crashes. |
 | 19.7 | Maths scanner: capture → Solve | ☐ | Camera preview fills the frame in both orientations. |
 | 19.8 | Mic dictation; Live Talk (Pro sandbox) | ☐ | Both prompts show the microphone text from 20.1. |
-| 19.9 | Plan sheet: buy Plus in the sandbox, then restore | ☐ | Prices load; both buttons enabled. |
+| 19.9 | Plan sheet: start Pro's free trial in the sandbox, then restore | ☐ | Monthly and yearly prices load; both buttons enabled. |
 | 19.10 | Settings pages and the time and date pickers | ☐ | Dialogs centred; tap targets at least 44 pt. |
 
 ---

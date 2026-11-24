@@ -137,7 +137,7 @@ async def test_record_batch_rejects_unexpected_properties() -> None:
 async def test_record_batch_rolls_back_failed_persistence() -> None:
     session = AsyncMock()
     batch = ProductEventBatchIn.model_validate(
-        {"events": [{"name": "purchase_succeeded", "properties": {"plan": "plus"}}]}
+        {"events": [{"name": "purchase_succeeded", "properties": {"plan": "pro"}}]}
     )
 
     with patch(

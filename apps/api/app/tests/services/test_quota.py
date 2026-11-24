@@ -35,23 +35,16 @@ def _free_user() -> MagicMock:
     return user
 
 
-def _plus_user() -> MagicMock:
-    user = MagicMock()
-    user.plan = "plus"
-    return user
-
-
 def test_daily_limit_for_user(settings):
     assert quota_service.daily_limit_for_user(_free_user(), settings) == 100_000
     assert quota_service.daily_limit_for_user(_pro_user(), settings) == 500_000
 
 
 def test_quota_exceeded_message(settings):
-    """Free is told it can upgrade; paid plans are not. Plan names stay in the app."""
+    """Free is told it can upgrade; Pro is not. Plan names stay in the app."""
     assert "Upgrade" in quota_service.quota_exceeded_message(_free_user())
-    for user in (_plus_user(), _pro_user()):
-        assert "Upgrade" not in quota_service.quota_exceeded_message(user)
-    for user in (_free_user(), _plus_user(), _pro_user()):
+    assert "Upgrade" not in quota_service.quota_exceeded_message(_pro_user())
+    for user in (_free_user(), _pro_user()):
         assert "Pro" not in quota_service.quota_exceeded_message(user)
 
 
@@ -59,7 +52,6 @@ def test_quota_exceeded_message(settings):
     "plan, messages, tokens, stt, tts, images",
     [
         ("free", 10, 400_000, 0, 0, 3),
-        ("plus", 200, 4_000_000, 200, 100, 10),
         ("pro", 1000, 15_000_000, 200, 100, 15),
     ],
 )
@@ -593,11 +585,10 @@ async def test_tavily_searches_are_neither_refunded_nor_announced(fake_redis):
 def test_counter_limit_message_offers_upgrade_only_on_free(counter, free_upgrades):
     free = counters.limit_message(counter, _free_user())
     assert ("Upgrade" in free) is free_upgrades
-    for user in (_plus_user(), _pro_user()):
-        paid = counters.limit_message(counter, user)
-        assert "Upgrade" not in paid
-        if not free_upgrades:
-            assert paid == free
+    paid = counters.limit_message(counter, _pro_user())
+    assert "Upgrade" not in paid
+    if not free_upgrades:
+        assert paid == free
 
 
 @pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
@@ -622,7 +613,6 @@ async def test_counter_reserve_fails_closed_when_redis_is_down(counter, prefix):
 def test_live_talk_allowance_is_monthly_minutes_per_plan():
     settings = Settings()
     assert quota_service.live_talk_allowance_seconds(_free_user(), settings) == 0
-    assert quota_service.live_talk_allowance_seconds(_plus_user(), settings) == 0
     assert quota_service.live_talk_allowance_seconds(_pro_user(), settings) == 60 * 60
 
 
