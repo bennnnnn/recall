@@ -49,13 +49,15 @@ def test_quota_exceeded_message(settings):
 
 
 @pytest.mark.parametrize(
-    "plan, messages, tokens, stt, tts, images",
+    "plan, messages, tokens, stt, images, lookups, searches, documents",
     [
-        ("free", 10, 400_000, 0, 0, 3),
-        ("pro", 1000, 15_000_000, 200, 100, 15),
+        # Free counts only its messages (its lookups, searches and uploads follow them).
+        ("free", 10, 400_000, 0, 3, None, None, None),
+        # 0 messages: no count, Pro's chat is unlimited (owner's limits, 2026-11-24).
+        ("pro", 0, 15_000_000, 100, 30, 30, 40, 100),
     ],
 )
-def test_per_plan_daily_caps(plan, messages, tokens, stt, tts, images):
+def test_per_plan_daily_caps(plan, messages, tokens, stt, images, lookups, searches, documents):
     user = MagicMock()
     user.plan = plan
     # The built-in defaults, not a developer's .env overrides.
@@ -63,8 +65,18 @@ def test_per_plan_daily_caps(plan, messages, tokens, stt, tts, images):
     assert quota_service.daily_message_limit(user, settings) == messages
     assert quota_service.daily_limit_for_user(user, settings) == tokens
     assert counters.limit("speech_transcription", user, settings) == stt
-    assert counters.limit("speech_tts", user, settings) == tts
     assert counters.limit("image_generation", user, settings) == images
+    for counter, cap in (
+        ("image_search", lookups),
+        ("tavily_search", searches),
+        ("document_upload", documents),
+    ):
+        assert counters.follows_messages(counter, user, settings) is (cap is None)
+        if cap is not None:
+            assert counters.limit(counter, user, settings) == cap
+    # Photo uploads follow messages on both plans; read-aloud has no count on either.
+    assert counters.follows_messages("image_upload", user, settings)
+    assert "speech_tts" not in counters.COUNTERS
 
 
 @pytest.mark.parametrize(
@@ -390,9 +402,8 @@ async def test_seed_usage_if_missing_noop_when_db_total_zero(fake_redis):
 
 # Counter -> its Redis key prefix and refund rule, named independently of the table.
 _COUNTER_KEYS = [
-    ("image_upload", "imgup"),
+    ("document_upload", "docup"),
     ("speech_transcription", "speech"),
-    ("speech_tts", "tts"),
     ("tavily_search", "tavily"),
     ("image_generation", "imggen"),
     ("image_search", "imgsearch"),
@@ -445,7 +456,7 @@ async def test_counter_reserve_always_leaves_a_ttl(
     assert await fake_redis.ttl(key) == 48 * 60 * 60
 
 
-@pytest.mark.parametrize("counter", ["speech_transcription", "speech_tts", "image_generation"])
+@pytest.mark.parametrize("counter", ["speech_transcription", "image_generation"])
 @pytest.mark.asyncio
 async def test_counter_reserve_refuses_a_plan_without_it(counter):
     user = _free_user()
@@ -524,7 +535,7 @@ async def test_counter_refund_only_lowers_a_live_counter(
 @pytest.mark.parametrize(
     "refund",
     [
-        lambda r, uid: counters.refund("speech_tts", r, uid),
+        lambda r, uid: counters.refund("speech_transcription", r, uid),
         lambda r, uid: counters.refund("image_upload", r, uid),
         lambda r, uid: quota_service.refund_usage(r, str(uid), 50),
         lambda r, uid: quota_service.release_live_talk_seconds(r, uid, seconds=60),
@@ -565,7 +576,8 @@ async def test_counter_refund_floor_keeps_the_ttl(fake_redis, counter, prefix):
 
 @pytest.mark.asyncio
 async def test_tavily_searches_are_neither_refunded_nor_announced(fake_redis):
-    """Past the cap a turn falls back to DuckDuckGo; a reserved search stays spent."""
+    """Past the cap a turn searches nothing (the tool says why); a reserved search stays
+    spent."""
     with pytest.raises(ValueError, match="not refunded"):
         await counters.refund("tavily_search", fake_redis, uuid4())
     with pytest.raises(ValueError, match="without a message"):
@@ -577,7 +589,6 @@ async def test_tavily_searches_are_neither_refunded_nor_announced(fake_redis):
     [
         ("image_upload", True),
         ("speech_transcription", False),
-        ("speech_tts", False),
         ("image_generation", True),
         ("image_search", True),
     ],

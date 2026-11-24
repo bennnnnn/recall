@@ -204,6 +204,8 @@ export type Usage = {
   /** The day's chat messages: what a plan offers and what the phone shows. */
   messages_used?: number;
   daily_messages?: number;
+  /** The plan has no daily message cap (Pro): `daily_messages` is 0 and no count shows. */
+  messages_unlimited?: boolean;
 };
 
 /** One entry of GET /models. The server also sends prices, quota multipliers and

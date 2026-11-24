@@ -24,7 +24,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
-from app.gateways.mcp.base import ToolContext
+from app.gateways.mcp.base import TavilyBudget, ToolContext
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.modules.chat.stream_status import StreamStatusFn
@@ -143,11 +143,13 @@ async def answer_reply_calls(
     user_location: str | None,
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
+    budget: TavilyBudget | None = None,
 ) -> ReplyCallsOutcome:
     """Run the reply's calls: one tool message each, refused unless ``offered`` this round.
 
-    The calls share one turn budget, like the tool loop's. A stop during the search
-    trims the unanswered call, so the list stays one a provider accepts.
+    The calls share one turn budget, like the tool loop's: *budget*, the turn's own,
+    or a new one. A stop during the search trims the unanswered call, so the list
+    stays one a provider accepts.
     """
     prompt_user_text = last_user_content(messages)
     ctx = ToolContext(
@@ -156,7 +158,7 @@ async def answer_reply_calls(
         chat_id=chat_id,
         user_timezone=user_timezone,
         user_query=prompt_user_text,
-        tavily_budget=TurnTavilyBudget(settings=settings, user=user),
+        tavily_budget=budget or TurnTavilyBudget(settings=settings, user=user),
         user_location=user_location,
         deadline=time.monotonic() + settings.mcp_tool_loop_total_timeout_seconds,
     )
@@ -196,7 +198,10 @@ async def answer_into_turn(
 
     The pages a search found become the turn's sources, so the reply gets their chips.
     A search that breaks leaves the prompt as it was: the reply answers without it.
+    Every call of the turn shares its one search budget (``StreamContext.search_budget``).
     """
+    if ctx.search_budget is None:
+        ctx.search_budget = TurnTavilyBudget(settings=settings, user=ctx.user)
     try:
         answered = await answer_reply_calls(
             settings=settings,
@@ -212,6 +217,7 @@ async def answer_into_turn(
             user_location=ctx.search_location,
             on_status=on_status,
             should_cancel=should_cancel,
+            budget=ctx.search_budget,
         )
     except Exception:
         logger.exception("Reply tool calls failed chat_id=%s; answering without them", ctx.chat_id)

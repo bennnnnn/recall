@@ -12,6 +12,7 @@ export type AttachmentFailure =
   | "changed"
   | "upload_failed"
   | "daily_limit"
+  | "messages_used"
   | "storage_full"
   | "camera_permission";
 
@@ -31,6 +32,8 @@ const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
   changed: "chat.attach_changed",
   upload_failed: "chat.attach_upload_failed",
   daily_limit: "chat.attach_daily_limit",
+  // A plan whose uploads follow its messages: the day's messages are used up, the chat's own line.
+  messages_used: "chat.quota_exceeded_free",
   storage_full: "chat.attach_storage_full",
   camera_permission: "chat.camera_permission",
 };
@@ -96,6 +99,7 @@ function refusedFields(error: ApiRequestError): string[] {
 export function presignFailure(error: unknown): unknown {
   if (!(error instanceof ApiRequestError)) return error;
   if (error.code === "daily_limit") return new AttachmentError("daily_limit");
+  if (error.code === "quota_exceeded") return new AttachmentError("messages_used");
   if (error.code === "storage_full") return new AttachmentError("storage_full");
   if (error.code === "unsupported_type") return new AttachmentError("unsupported_type");
   if (error.code === "invalid_size" || refusedFields(error).includes("size_bytes")) {

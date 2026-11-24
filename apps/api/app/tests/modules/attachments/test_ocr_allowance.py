@@ -1,4 +1,8 @@
-"""Scanned-PDF OCR in the index job takes one of the owner's daily image-upload slots."""
+"""Scanned-PDF OCR in the index job takes one of the owner's daily image-upload slots.
+
+Both plans' photo uploads follow their messages, so by default OCR takes no slot: the
+slot tests run on Pro with photos counted on their own (``_COUNTED``).
+"""
 
 from contextlib import asynccontextmanager, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,7 +19,12 @@ from app.services.quota import counters
 _PDF = "application/pdf"
 
 
-def _user(plan: str = "free") -> MagicMock:
+def _counted(*, attachment_ocr_enabled: bool = True) -> Settings:
+    """Pro with its photo uploads counted a day, as a plan may be configured."""
+    return Settings(follow_messages_pro=[], attachment_ocr_enabled=attachment_ocr_enabled)
+
+
+def _user(plan: str = "pro") -> MagicMock:
     user = MagicMock()
     user.id = uuid4()
     user.plan = plan
@@ -45,19 +54,18 @@ async def _slots_used(fake_redis, user) -> int:
 @pytest.mark.parametrize(
     "content_type, ocr_enabled, used, plan, reserved",
     [
-        (_PDF, True, 0, "free", True),
-        (_PDF, True, 4, "free", True),  # the fifth of five
-        (_PDF, True, 5, "free", False),  # at the cap: no OCR today
-        (_PDF, True, 5, "pro", True),  # paid plans have more slots
-        (_PDF, False, 0, "free", False),  # OCR switched off
-        ("text/plain", True, 0, "free", False),  # nothing to OCR
+        (_PDF, True, 0, "pro", True),
+        (_PDF, True, 29, "pro", True),  # the last of thirty
+        (_PDF, True, 30, "pro", False),  # at the cap: no OCR today
+        (_PDF, False, 0, "pro", False),  # OCR switched off
+        ("text/plain", True, 0, "pro", False),  # nothing to OCR
     ],
 )
 async def test_reserve_ocr_takes_an_image_slot_for_a_pdf(
     fake_redis, content_type: str, ocr_enabled: bool, used: int, plan: str, reserved: bool
 ) -> None:
     user = _user(plan)
-    settings = Settings(attachment_ocr_enabled=ocr_enabled)
+    settings = _counted(attachment_ocr_enabled=ocr_enabled)
     for _ in range(used):
         assert await counters.reserve("image_upload", fake_redis, user, settings)
 
@@ -66,6 +74,23 @@ async def test_reserve_ocr_takes_an_image_slot_for_a_pdf(
 
     assert (day is not None) is reserved
     assert await _slots_used(fake_redis, user) == used + int(reserved)
+
+
+@pytest.mark.parametrize("plan", ["free", "pro"])
+async def test_reserve_ocr_by_default_takes_no_slot(fake_redis, plan: str) -> None:
+    """Photo uploads follow messages: a sent scanned PDF is OCR'd under its message, with
+    no image slot of its own to run out of (Pro's PDFs are counted as documents)."""
+    user = _user(plan)
+    settings = Settings(attachment_ocr_enabled=True)
+    with _owner(fake_redis, user):
+        days = [
+            await ocr_allowance.reserve_ocr(settings, user.id, _PDF, uuid4()) for _ in range(40)
+        ]
+        await ocr_allowance.refund_ocr(user.id, uuid4(), days[0])
+
+    assert all(day is not None for day in days)
+    assert await _slots_used(fake_redis, user) == 0
+    assert await fake_redis.get(counters.daily_key("imgup", user.id)) is None
 
 
 async def test_reserve_ocr_skips_a_deleted_owner(fake_redis) -> None:
@@ -87,7 +112,7 @@ async def test_release_unused_ocr_refunds_only_a_text_layer_pdf(
     user = _user()
     attachment_id = uuid4()
     with _owner(fake_redis, user):
-        day = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        day = await ocr_allowance.reserve_ocr(_counted(), user.id, _PDF, attachment_id)
         await ocr_allowance.release_unused_ocr(user.id, attachment_id, day, details)
 
     assert await _slots_used(fake_redis, user) == int(not refunded)
@@ -143,9 +168,10 @@ async def test_reserve_ocr_charges_one_slot_per_file_across_retries(fake_redis) 
     user = _user()
     attachment_id = uuid4()
     with _owner(fake_redis, user):
-        first = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
-        retry = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
-        other = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, uuid4())
+        counted = _counted()
+        first = await ocr_allowance.reserve_ocr(counted, user.id, _PDF, attachment_id)
+        retry = await ocr_allowance.reserve_ocr(counted, user.id, _PDF, attachment_id)
+        other = await ocr_allowance.reserve_ocr(counted, user.id, _PDF, uuid4())
 
     assert first is not None and retry == first and other is not None
     assert await _slots_used(fake_redis, user) == 2
@@ -155,12 +181,12 @@ async def test_refund_ocr_gives_the_slot_back_once(fake_redis) -> None:
     user = _user()
     attachment_id = uuid4()
     with _owner(fake_redis, user):
-        day = await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        day = await ocr_allowance.reserve_ocr(_counted(), user.id, _PDF, attachment_id)
         await ocr_allowance.refund_ocr(user.id, attachment_id, day)
         await ocr_allowance.refund_ocr(user.id, attachment_id, day)
         assert await _slots_used(fake_redis, user) == 0
         # The next run of the same file pays again: its slot was returned.
-        assert await ocr_allowance.reserve_ocr(Settings(), user.id, _PDF, attachment_id)
+        assert await ocr_allowance.reserve_ocr(_counted(), user.id, _PDF, attachment_id)
 
     assert await _slots_used(fake_redis, user) == 1
 

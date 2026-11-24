@@ -49,10 +49,13 @@ class UsageOut(BaseModel):
     remaining: int
     context_token_budget: int
     recent_message_window: int
-    # The day's chat messages: the plan's allowance, what the phone shows.
+    # The day's chat messages: the plan's allowance, what the phone shows. On a plan with
+    # no daily cap (Pro) ``messages_unlimited`` is true and ``daily_messages`` and
+    # ``messages_left`` are 0: there is no count to show.
     messages_used: int = 0
     daily_messages: int = 0
     messages_left: int = 0
+    messages_unlimited: bool = False
 
 
 class ModelInfo(BaseModel):

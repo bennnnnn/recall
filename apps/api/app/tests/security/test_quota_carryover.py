@@ -35,7 +35,6 @@ DAILY_PREFIXES = (
     "imgup",
     "docup",
     "speech",
-    "tts",
     "tavily",
     "imggen",
     "imgsearch",
@@ -43,10 +42,11 @@ DAILY_PREFIXES = (
 
 
 def _pro_caps(cap: int) -> Settings:
+    """Every Pro counter capped at *cap*, each counted on its own (none follows messages)."""
     caps: dict[str, Any] = {
         setting_name(spec.allowance, "pro"): cap for spec in counters.COUNTERS.values()
     }
-    return Settings(**caps)
+    return Settings(**caps, follow_messages_pro=[])
 
 
 async def _google_sub(user_id: UUID) -> str:
@@ -89,7 +89,6 @@ async def _use_quota(redis: Any, user_id: UUID) -> None:
         assert await counters.reserve("document_upload", redis, user, caps)
     for _ in range(3):
         assert await counters.reserve("speech_transcription", redis, user, caps)
-    assert await counters.reserve("speech_tts", redis, user, caps)
     for _ in range(4):
         assert await counters.reserve("tavily_search", redis, user, caps)
     assert await counters.reserve("image_generation", redis, user, caps)
@@ -111,7 +110,6 @@ _USED = {
     "imgup": 2,
     "docup": 3,
     "speech": 3,
-    "tts": 1,
     "tavily": 4,
     "imggen": 1,
     "imgsearch": 2,

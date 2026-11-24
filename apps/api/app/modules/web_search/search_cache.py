@@ -55,6 +55,18 @@ class TurnTavilyBudget:
     It is also the turn's search ledger: each query that reached the providers
     is recorded as answered (hits or none) or failed, and ``search_failed`` says
     every one of them failed.
+
+    On a plan whose searches follow its messages (``follow_messages``) no
+    daily slot is taken: the turn's message covers its search, and Tavily answers
+    it (DuckDuckGo only when Tavily fails). The message covers one search: a
+    later one in the same turn is refused (``begin_search``), and
+    ``search_used`` says so. A chat turn shares one budget across its read's
+    search and the reply's own calls (``StreamContext.search_budget``).
+
+    On a plan with a daily cap, a turn past it gets no search at all, never the
+    DuckDuckGo fallback (owner, 2026-11-24: "no more than 40");
+    ``daily_limit_reached`` says so, so the reply can say today's searches are
+    used up instead of answering from memory.
     """
 
     settings: Settings
@@ -64,6 +76,32 @@ class TurnTavilyBudget:
     _skip_tavily: bool = False
     _answered: int = 0
     _failed: int = 0
+    _begun: bool = False
+    _refused: bool = False
+    _limit_reached: bool = False
+
+    def begin_search(self) -> bool:
+        """Whether a search call may run in this turn; on a plan whose searches follow its
+        messages, only the turn's first does. The queries one call fans out are one search."""
+        if self.user is None or not counters.follows_messages(
+            "tavily_search", self.user, self.settings
+        ):
+            return True
+        if self._begun:
+            self._refused = True
+            return False
+        self._begun = True
+        return True
+
+    @property
+    def search_used(self) -> bool:
+        """A search was refused: the turn's message had already covered one."""
+        return self._refused
+
+    @property
+    def daily_limit_reached(self) -> bool:
+        """The plan's daily searches are used up: this turn searches nothing."""
+        return self._limit_reached
 
     def record_search(self, *, failed: bool) -> None:
         if failed:
@@ -77,11 +115,12 @@ class TurnTavilyBudget:
         return self._failed > 0 and self._answered == 0
 
     async def skip_tavily(self, redis: Redis) -> bool:
-        """Whether this turn must skip Tavily (daily cap, no user, or Redis fail).
+        """Whether this turn must skip Tavily (no user, or Redis fail): DuckDuckGo then.
 
-        Reserves at most once. DuckDuckGo stays uncapped (latency only) when
-        this returns True. A missing user or a Redis error fail closed to DDG
-        so we never run Tavily without a counted slot.
+        Reserves at most once. A missing user or a Redis error fail closed to
+        DDG so we never run Tavily without a counted slot. At the plan's daily
+        cap it returns True too, with ``daily_limit_reached`` set: the caller
+        then searches nothing.
         """
         async with self._lock:
             if self._decided:
@@ -102,6 +141,7 @@ class TurnTavilyBudget:
             try:
                 reserved = await counters.reserve("tavily_search", redis, self.user, self.settings)
                 self._skip_tavily = not reserved
+                self._limit_reached = not reserved
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -157,6 +197,8 @@ async def _run_search(
     # Without one: one reservation for this call's fanned-out queries only.
     if budget is None:
         budget = TurnTavilyBudget(settings=settings, user=user)
+    if not budget.begin_search():
+        return [], []
     news_task = (
         asyncio.ensure_future(
             _search_with_cache(
@@ -337,6 +379,9 @@ async def _search_with_cache(
         # Reserve one Tavily slot for the whole turn (shared budget), only now
         # that this query has missed cache and is about to hit the network.
         skip_tavily = await budget.skip_tavily(cache_redis) if budget is not None else False
+        if budget is not None and budget.daily_limit_reached:
+            # Today's searches are used up: no provider, DuckDuckGo included.
+            return []
 
         try:
             hits = await web_search_gateway.search_web(

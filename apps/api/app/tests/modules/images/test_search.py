@@ -98,8 +98,9 @@ async def test_unconfigured_storage_raises_503():
 
 @pytest.mark.asyncio
 async def test_quota_exceeded_raises_429_without_calling_provider():
-    settings = Settings(image_search_enabled=True, daily_image_searches=0)
-    user = MagicMock(id=uuid4(), plan="free")
+    """Pro at its day's lookups is refused before any search."""
+    settings = Settings(image_search_enabled=True, daily_image_searches_pro=0)
+    user = MagicMock(id=uuid4(), plan="pro")
     gateway = _fake_gateway()
     search_mock = AsyncMock()
     with (
@@ -113,6 +114,39 @@ async def test_quota_exceeded_raises_429_without_calling_provider():
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
     assert exc.value.status_code == 429
     search_mock.assert_not_awaited()
+
+
+async def _chat_lookup_found(settings, user):
+    """A chat lookup that searched (and found nothing): not refused at a cap."""
+    with pytest.raises(ImageSearchError) as exc:
+        await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
+    assert exc.value.status_code != 429
+
+
+async def _answer_photo_found(settings, user):
+    assert await photos_for_answer(settings, user=user, query="an ear") == []
+
+
+@pytest.mark.parametrize("lookup", [_chat_lookup_found, _answer_photo_found])
+@pytest.mark.asyncio
+async def test_free_lookups_follow_messages(fake_redis, quota_clock, lookup):
+    """Free's lookups are covered by their turn's message: past any old cap (15, 2) every
+    lookup runs, and no daily lookup counter is kept."""
+    settings = Settings(image_search_enabled=True)
+    user = MagicMock(id=uuid4(), plan="free")
+    search = AsyncMock(return_value=[])
+    with (
+        patch(
+            "app.modules.images.search.chat_history.get_chat", AsyncMock(return_value=MagicMock())
+        ),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=fake_redis),
+        patch("app.modules.images.search.image_search_gateway.search_images", search),
+    ):
+        for _ in range(20):
+            await lookup(settings, user)
+    assert search.await_count == 20
+    assert await fake_redis.get(f"imgsearch:{user.id}:2026-10-16") is None
 
 
 @pytest.mark.asyncio
@@ -155,8 +189,8 @@ async def _answer_photo(settings, user):
 @pytest.mark.asyncio
 async def test_photo_lookup_refunds_the_day_it_reserved(fake_redis, quota_clock, lookup):
     """A lookup reserved before UTC midnight that finds nothing after it refunds the first day."""
-    settings = Settings(image_search_enabled=True, daily_image_searches=10)
-    user = MagicMock(id=uuid4(), plan="free")
+    settings = Settings(image_search_enabled=True, daily_image_searches_pro=10)
+    user = MagicMock(id=uuid4(), plan="pro")
 
     async def nothing_after_midnight(*_args, **_kwargs):
         quota_clock.day = quota_clock.next_day

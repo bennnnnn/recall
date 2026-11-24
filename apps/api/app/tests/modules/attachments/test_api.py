@@ -3,10 +3,12 @@
 import asyncio
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import fakeredis.aioredis
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -19,13 +21,15 @@ from app.gateways.storage_gateway import (
 from app.main import create_app
 from app.models.orm import User
 from app.services.quota import counters
+from app.services.quota.messages import QUOTA_EXCEEDED_MESSAGE_FREE
 from app.tests.fakes import redis_mock
 
 
-def _fake_user() -> User:
+def _fake_user(plan: str = "free") -> User:
     u = MagicMock(spec=User)
     u.id = uuid4()
     u.email = "test@recall.local"
+    u.plan = plan
     return u
 
 
@@ -153,8 +157,9 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
 
 
 def test_presign_upload_refunds_image_quota_when_presign_fails(quota_clock):
-    """Storage failing after UTC midnight gives the slot back to the day it was taken."""
-    user = _fake_user()
+    """Storage failing after UTC midnight gives the slot back to the day it was taken (a
+    Pro document: photos take no slot on either plan)."""
+    user = _fake_user("pro")
     app = _app_with_user(user)
 
     async def storage_down_after_midnight(**_kwargs):
@@ -173,9 +178,9 @@ def test_presign_upload_refunds_image_quota_when_presign_fails(quota_clock):
         r = client.post(
             "/attachments/presign",
             headers={"Authorization": "Bearer tok"},
-            json={"content_type": "image/png", "size_bytes": 128},
+            json={"content_type": "application/pdf", "size_bytes": 128},
         )
-        keys = [f"imgup:{user.id}:2026-10-{n}" for n in (16, 17)]
+        keys = [f"docup:{user.id}:2026-10-{n}" for n in (16, 17)]
         assert asyncio.run(fake_redis.mget(keys)) == ["0", None]
 
     assert r.status_code == 500
@@ -465,12 +470,13 @@ def test_confirm_upload_noop_for_local_backend():
     assert r.status_code == 204
 
 
-def test_presign_upload_rejects_image_over_daily_limit(quota_clock):
-    user = _fake_user()
+def test_presign_upload_rejects_a_document_over_daily_limit(quota_clock):
+    """Pro keeps its own daily document cap (100)."""
+    user = _fake_user("pro")
     app = _app_with_user(user)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    key = f"imgup:{user.id}:2026-10-16"
-    cap = counters.limit("image_upload", user, Settings())
+    key = f"docup:{user.id}:2026-10-16"
+    cap = counters.limit("document_upload", user, Settings())
     asyncio.run(fake_redis.set(key, cap, ex=60))
 
     with patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis):
@@ -478,11 +484,76 @@ def test_presign_upload_rejects_image_over_daily_limit(quota_clock):
         r = client.post(
             "/attachments/presign",
             headers={"Authorization": "Bearer tok"},
-            json={"content_type": "image/png", "size_bytes": 128},
+            json={"content_type": "application/pdf", "size_bytes": 128},
         )
         assert asyncio.run(fake_redis.get(key)) == str(cap)
 
     assert r.status_code == 429
+
+
+def _free_presign(fake_redis, content_type: str, *, messages_used: int, plan: str = "free") -> Any:
+    user = _fake_user(plan)
+    day = "2026-10-16"
+    if messages_used:
+        asyncio.run(fake_redis.set(f"chatmsg:{user.id}:{day}", messages_used, ex=60))
+    attachment_id = uuid4()
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(
+        return_value=PresignedUpload(
+            attachment_id=str(attachment_id),
+            upload_url=f"/attachments/{attachment_id}/upload",
+            storage_key=f"{user.id}/{attachment_id}",
+            headers={"Content-Type": content_type},
+            api_upload=True,
+        )
+    )
+    with (
+        patch("app.modules.attachments.upload.get_storage_gateway", return_value=gateway),
+        patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.attachments.upload.attachments_repo.create_pending",
+            AsyncMock(),
+        ),
+    ):
+        return TestClient(_app_with_user(user)).post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": content_type, "size_bytes": 128},
+        )
+
+
+@pytest.mark.parametrize("content_type", ["image/png", "application/pdf"])
+def test_free_uploads_follow_messages(quota_clock, content_type):
+    """Free has no upload cap of its own: with a message left, uploads past any old cap
+    (5 photos, 10 files) go through and use up no message; with none left, the upload is
+    refused with the chat's own message-limit words."""
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    limit = Settings().daily_message_limit
+    for _ in range(12):
+        assert _free_presign(fake_redis, content_type, messages_used=limit - 1).status_code == 200
+    assert asyncio.run(fake_redis.keys("imgup:*")) == []
+    assert asyncio.run(fake_redis.keys("docup:*")) == []
+    # The uploads took no message: still one left.
+    used = asyncio.run(fake_redis.keys("chatmsg:*"))
+    assert [asyncio.run(fake_redis.get(key)) for key in used] == [str(limit - 1)] * len(used)
+
+    refused = _free_presign(fake_redis, content_type, messages_used=limit)
+    assert refused.status_code == 429
+    assert refused.json()["detail"] == {
+        "code": "quota_exceeded",
+        "message": QUOTA_EXCEEDED_MESSAGE_FREE,
+    }
+
+
+def test_pro_photo_uploads_have_no_count_of_their_own(quota_clock):
+    """Pro's photos follow its (unlimited) messages: past the old cap of 30 every photo
+    presigns, and no daily photo counter is kept; size, Library total and the request
+    limits are what bound them."""
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    for _ in range(35):
+        response = _free_presign(fake_redis, "image/png", messages_used=5_000, plan="pro")
+        assert response.status_code == 200
+    assert asyncio.run(fake_redis.keys("imgup:*")) == []
 
 
 def test_upload_rejects_bytes_not_matching_claimed_content_type():

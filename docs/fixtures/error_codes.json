@@ -88,7 +88,14 @@
   "status": 429,
   "detail": {
    "code": "daily_limit",
-   "message": "You've reached today's image upload limit. Upgrade for more — or try again after midnight UTC."
+   "message": "You've reached today's file upload limit. Try again after midnight UTC."
+  }
+ },
+ "presign_messages_used": {
+  "status": 429,
+  "detail": {
+   "code": "quota_exceeded",
+   "message": "You've used up today's free limit. Upgrade for more — or try again after midnight UTC."
   }
  },
  "presign_storage_full": {

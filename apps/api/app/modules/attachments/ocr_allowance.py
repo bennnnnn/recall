@@ -10,6 +10,10 @@ a scanned one is just not searchable that day. A PDF that turns out to have a
 text layer gets its slot back; one whose OCR found nothing keeps it spent,
 since its vision calls already ran.
 
+On a plan whose uploads follow its messages (``follow_messages``) there is
+no slot: the PDF came with a sent message, which covers its OCR, so the reserve
+takes nothing and the refunds lower nothing (``counters.reserve``).
+
 One file takes one slot however often its index job runs: the slot is recorded
 per attachment (``SET NX``), so a retry after an embedding or storage failure
 reuses it instead of charging again, and a run that fails before OCR could run

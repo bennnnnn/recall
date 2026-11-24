@@ -26,6 +26,8 @@ describe("presignFailure", () => {
     [refused(400, { code: "invalid_size", message: "Invalid file size" }), "too_large"],
     [refused(422, [{ loc: ["body", "size_bytes"], msg: "Input should be less than or equal to 10485760" }]), "too_large"],
     [refused(429, { code: "daily_limit", message: "Reworded limit." }), "daily_limit"],
+    // A plan whose uploads follow its messages, with none left today.
+    [refused(429, { code: "quota_exceeded", message: "Reworded quota." }), "messages_used"],
     [refused(409, { code: "storage_full", message: "Reworded full." }), "storage_full"],
     [refused(400, "Unsupported content type"), "upload_failed"],
     [refused(503, { code: "unavailable", message: "Attachment storage is not configured" }), "upload_failed"],
@@ -46,6 +48,7 @@ describe("attachmentErrorMessage", () => {
     [new AttachmentError("too_large"), "chat.attach_too_large:10"],
     [new AttachmentError("unsupported_type"), "chat.attach_unsupported_type:10"],
     [new AttachmentError("camera_permission"), "chat.camera_permission:10"],
+    [new AttachmentError("messages_used"), "chat.quota_exceeded_free:10"],
     [new Error("{\"detail\":\"Invalid file size\"}"), "chat.attach_failed"],
     ["not an error", "chat.attach_failed"],
     // Offline at the presign: no answer from Recall, said as everywhere else.
@@ -57,7 +60,7 @@ describe("attachmentErrorMessage", () => {
   it("has an English message for every reason", () => {
     const reasons: AttachmentFailure[] = [
       "too_large", "unsupported_type", "unreadable", "changed", "upload_failed", "daily_limit", "storage_full",
-      "camera_permission",
+      "camera_permission", "messages_used",
     ];
     const keys = reasons.map((reason) => attachmentErrorMessage(new AttachmentError(reason), (key) => key));
     for (const key of keys) expect(en).toHaveProperty([key]);

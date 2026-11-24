@@ -20,6 +20,7 @@ from app.services.quota.chat_messages import (
     refund_message,
     reserve_message,
     reset_messages,
+    unlimited_messages,
 )
 from app.services.quota.counters import utc_today
 from app.services.quota.live_talk import (
@@ -131,6 +132,7 @@ __all__ = [
     "seed_usage_if_missing",
     "settle_live_talk_session",
     "take_live_talk_save",
+    "unlimited_messages",
     "usage_needs_heal",
     "utc_month",
     "utc_today",
