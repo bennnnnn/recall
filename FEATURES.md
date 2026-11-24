@@ -1109,13 +1109,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   BILLING_ISSUE, SUBSCRIPTION_PAUSED and auto-renew-off CANCELLATION keep access until
   EXPIRATION. Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
   done-marker after success. `POST /auth/me/sync-subscription`; an hourly reconcile re-checks
-  every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
-- ✅ **Plans sheet** — Free sees Pro, monthly or yearly; a purchase whose server refresh
-  fails says the plan will update (never "purchase failed"). Settings → Account shows the
-  email, the plan and its own Manage subscription row (paid); Usage shows only the messages
-  left today (2026-11-11).
-- ✅ **Dev plan toggle** — the plans sheet shows **Enable Pro (dev only)** (development builds
-  only; `POST /auth/me/pro-dev?plan=pro`).
+  every paid row. `GET /billing/plans` lists each plan's features and numbers; the phone's plans page shows the plan's benefits in words and reads it no longer.
+- ✅ **Plans page** — a full screen: Free sees Pro, monthly or yearly (Monthly to start;
+  Yearly shows the saving from the store's two prices), two benefits with "See all Pro
+  benefits" under the button, what is paid today and on which day, a 3-day free trial
+  where the store gives one (with a reminder the day before it ends). A purchase whose server
+  refresh fails says the plan will update (never "purchase failed"). Settings → Account shows
+  the email, the plan and its own Manage subscription row (paid); Usage shows only the
+  messages left today (2026-11-24).
+- ✅ **Dev plan toggle** — the plans page shows **Enable Pro (dev only)** and example prices
+  (development builds only; `POST /auth/me/pro-dev?plan=pro`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.
 
 ## 13. Platform, security & infrastructure

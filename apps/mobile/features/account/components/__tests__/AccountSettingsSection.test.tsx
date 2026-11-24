@@ -36,19 +36,8 @@ it("free: names the plan and opens the plans sheet", async () => {
   mockUser = { email: "a@b.c", plan: "free", features: ["image_generation"] };
   const screen = await render(<AccountSettingsSection />);
   expect(screen.getByText("plans.free")).toBeOnTheScreen();
-  expect(screen.queryByText(/settings\.plan_upgrade/)).toBeNull();
   expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
   await fireEvent.press(screen.getByText("plans.free"));
-  expect(mockUpgradeVisible).toBe(true);
-});
-
-it("Plus: manages the subscription and offers the step up to Pro", async () => {
-  mockUser = { email: "a@b.c", plan: "plus", features: PAID };
-  const screen = await render(<AccountSettingsSection />);
-  expect(screen.getByText("plans.plus")).toBeOnTheScreen();
-  expect(screen.getByText("settings.manage_subscription")).toBeOnTheScreen();
-  expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
-  await fireEvent.press(screen.getByText('settings.plan_upgrade {"plan":"plans.pro"}'));
   expect(mockUpgradeVisible).toBe(true);
 });
 
@@ -66,11 +55,10 @@ it("paid: the plan is named on its own row, and Manage subscription is a row of 
   openURL.mockRestore();
 });
 
-it("Pro: no upgrade row, and usage is a row that opens its own page", async () => {
+it("Pro: usage is a row that opens its own page", async () => {
   mockUser = { email: "a@b.c", plan: "pro", features: [...PAID, "live_talk"] };
   const screen = await render(<AccountSettingsSection />);
   expect(screen.getByText("plans.pro")).toBeOnTheScreen();
   expect(screen.getByText("settings.usage_group")).toBeOnTheScreen();
   expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
-  expect(screen.queryByText(/settings\.plan_upgrade/)).toBeNull();
 });

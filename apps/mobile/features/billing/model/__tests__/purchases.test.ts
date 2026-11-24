@@ -27,7 +27,6 @@ jest.mock("react-native-purchases", () => {
   const api = {
     LOG_LEVEL: { DEBUG: 0, WARN: 1 },
     PURCHASES_ERROR_CODE: { PAYMENT_PENDING_ERROR: "20" },
-    PRORATION_MODE: { IMMEDIATE_WITH_TIME_PRORATION: 1 },
     setLogLevel: jest.fn(),
     configure: jest.fn(),
     logIn: jest.fn(async () => ({})),
@@ -36,6 +35,8 @@ jest.mock("react-native-purchases", () => {
     purchasePackage: jest.fn(),
     restorePurchases: jest.fn(),
     getCustomerInfo: jest.fn(),
+    checkTrialOrIntroductoryPriceEligibility: jest.fn(),
+    INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
     addCustomerInfoUpdateListener: jest.fn(
       (l: (info: { entitlements: { active: Record<string, unknown> } }) => void) => {
         listeners.push(l);
@@ -59,6 +60,7 @@ jest.mock("react-native-purchases", () => {
 
 import {
   configurePurchases,
+  freeTrialOf,
   getPlanPackages,
   isPurchaseCancelled,
   isStoreReady,
@@ -104,10 +106,8 @@ describe("registerPlanChangeListener", () => {
     purchasesMod.default.__fire({ entitlements: { active: {} } });
     // Re-activates → change recorded.
     purchasesMod.default.__fire({ entitlements: { active: { pro: {} } } });
-    // Pro → Plus at renewal → change recorded.
-    purchasesMod.default.__fire({ entitlements: { active: { plus: {} } } });
 
-    expect(changes).toEqual(["pro", "free", "pro", "plus"]);
+    expect(changes).toEqual(["pro", "free", "pro"]);
 
     cleanup?.();
     expect(purchasesMod.default.removeCustomerInfoUpdateListener).toHaveBeenCalledTimes(1);
@@ -124,49 +124,86 @@ describe("registerPlanChangeListener", () => {
 });
 
 describe("planFromCustomerInfo", () => {
-  it("reads the highest active plan, the way the server does", () => {
+  it("reads the paid plan's entitlement, the way the server does", () => {
     expect(planFromCustomerInfo({ entitlements: { active: {} } })).toBe("free");
-    expect(planFromCustomerInfo({ entitlements: { active: { plus: {} } } })).toBe("plus");
     expect(planFromCustomerInfo({ entitlements: { active: { pro: {} } } })).toBe("pro");
-    expect(planFromCustomerInfo({ entitlements: { active: { plus: {}, pro: {} } } })).toBe("pro");
+    // An entitlement the app does not sell grants nothing.
+    expect(planFromCustomerInfo({ entitlements: { active: { plus: {} } } })).toBe("free");
   });
 });
 
 describe("getPlanPackages", () => {
   beforeEach(() => jest.mocked(reportFailure).mockClear());
-  const pkg = (identifier: string, price: string) => ({
+  const pkg = (identifier: string, price: number, introPrice: unknown = null) => ({
     identifier,
-    product: { priceString: price, identifier: `recall_${identifier}` },
+    product: { priceString: "$" + price, price, identifier: `recall_${identifier}`, introPrice },
   });
+  const FREE_3_DAYS = { price: 0, priceString: "$0.00", cycles: 1, period: "P3D", periodUnit: "DAY", periodNumberOfUnits: 3 };
 
-  it("finds each plan's package in the current offering", async () => {
+  it("finds the monthly and yearly packages in the current offering", async () => {
+    const monthly = pkg("$rc_monthly", 7.99);
+    const annual = pkg("$rc_annual", 59.99);
     purchasesMod.default.getOfferings.mockResolvedValueOnce({
-      current: {
-        monthly: null,
-        availablePackages: [pkg("plus_monthly", "$7.99"), pkg("pro_monthly", "$13.99")],
-      },
+      current: { monthly, annual, availablePackages: [monthly, annual] },
     });
     const { packages, unavailable } = await getPlanPackages();
     expect(unavailable).toBe(false);
-    expect(packages.plus?.priceString).toBe("$7.99");
-    expect(packages.pro?.priceString).toBe("$13.99");
+    expect(packages.monthly).toMatchObject({ plan: "pro", period: "monthly", priceString: "$7.99", price: 7.99 });
+    expect(packages.yearly).toMatchObject({ plan: "pro", period: "yearly", priceString: "$59.99", price: 59.99 });
+    expect(packages.monthly?.trial).toBeUndefined();
   });
 
-  it("offers a single-plan offering's monthly package as Pro", async () => {
-    const monthly = pkg("$rc_monthly", "$9.99");
+  it("sells one period when the offering has only that one", async () => {
+    const monthly = pkg("$rc_monthly", 9.99);
     purchasesMod.default.getOfferings.mockResolvedValueOnce({
-      current: { monthly, availablePackages: [monthly] },
+      current: { monthly, annual: null, availablePackages: [monthly] },
     });
     const { packages } = await getPlanPackages();
-    expect(packages.plus).toBeUndefined();
-    expect(packages.pro?.priceString).toBe("$9.99");
+    expect(packages.yearly).toBeUndefined();
+    expect(packages.monthly?.priceString).toBe("$9.99");
+  });
+
+  it("promises a free trial on iOS only to an account the App Store says can have it", async () => {
+    const monthly = pkg("$rc_monthly", 7.99, FREE_3_DAYS);
+    const annual = pkg("$rc_annual", 59.99, FREE_3_DAYS);
+    purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: { monthly, annual, availablePackages: [] } });
+    purchasesMod.default.checkTrialOrIntroductoryPriceEligibility.mockResolvedValueOnce({
+      recall_$rc_monthly: { status: 2 },
+      recall_$rc_annual: { status: 1 },
+    });
+    const { packages } = await getPlanPackages();
+    expect(packages.monthly?.trial).toEqual({ count: 3, unit: "day", priceString: "$0.00" });
+    expect(packages.yearly?.trial).toBeUndefined();
+  });
+
+  it("shows the plain price when the App Store cannot say whether a trial is open", async () => {
+    const monthly = pkg("$rc_monthly", 7.99, FREE_3_DAYS);
+    purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: { monthly, annual: null, availablePackages: [] } });
+    purchasesMod.default.checkTrialOrIntroductoryPriceEligibility.mockRejectedValueOnce(new Error("no answer"));
+    const { packages } = await getPlanPackages();
+    expect(packages.monthly?.priceString).toBe("$7.99");
+    expect(packages.monthly?.trial).toBeUndefined();
+  });
+
+  it("takes Google's trial as offered: Play lists it only to an account it is open to", async () => {
+    mockPlatform.OS = "android";
+    purchasesMod.default.checkTrialOrIntroductoryPriceEligibility.mockClear();
+    try {
+      const monthly = pkg("$rc_monthly", 7.99, FREE_3_DAYS);
+      purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: { monthly, annual: null, availablePackages: [] } });
+      const { packages } = await getPlanPackages();
+      expect(packages.monthly?.trial).toEqual({ count: 3, unit: "day", priceString: "$0.00" });
+      expect(purchasesMod.default.checkTrialOrIntroductoryPriceEligibility).not.toHaveBeenCalled();
+    } finally {
+      mockPlatform.OS = "ios";
+    }
   });
 
   it.each([
     ["a failed read", undefined, () => purchasesMod.default.getOfferings.mockRejectedValueOnce(new Error("store down"))],
     ["no current offering", "no_current_offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({ current: null })],
     ["an offering with no plan", "no_plan_in_offering", () => purchasesMod.default.getOfferings.mockResolvedValueOnce({
-      current: { monthly: null, availablePackages: [pkg("annual", "$99")] },
+      current: { monthly: null, annual: null, availablePackages: [pkg("lifetime", 99)] },
     })],
   ])("calls %s unavailable and reports it, never an empty shop (CLAR-08)", async (_, code, arrange) => {
     arrange();
@@ -234,7 +271,7 @@ describe("configurePurchases", () => {
 });
 
 describe("a purchase the store holds for approval", () => {
-  const plus = { plan: "plus" as const, priceString: "$7.99", productId: "recall_plus", native: {} as never };
+  const monthly = { plan: "pro" as const, period: "monthly" as const, priceString: "$7.99", price: 7.99, productId: "recall_monthly", native: {} as never };
   const pending = Object.assign(new Error("The payment is pending."), { code: "20", userCancelled: false });
 
   beforeEach(async () => {
@@ -244,15 +281,15 @@ describe("a purchase the store holds for approval", () => {
 
   it("is pending, not failed, until the store grants the plan", async () => {
     purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
-    await expect(purchasePlanPackage(plus)).resolves.toBe("pending");
-    expect(purchasePending()).toBe("plus");
+    await expect(purchasePlanPackage(monthly)).resolves.toBe("pending");
+    expect(purchasePending()).toBe("pro");
 
     const changes: string[] = [];
     const cleanup = await registerPlanChangeListener((plan) => changes.push(plan));
     purchasesMod.default.__fire({ entitlements: { active: {} } });
-    expect(purchasePending()).toBe("plus");
+    expect(purchasePending()).toBe("pro");
     // Approved: the store's update lands the plan.
-    purchasesMod.default.__fire({ entitlements: { active: { plus: {} } } });
+    purchasesMod.default.__fire({ entitlements: { active: { pro: {} } } });
     expect(purchasePending()).toBeNull();
     cleanup?.();
   });
@@ -263,12 +300,12 @@ describe("a purchase the store holds for approval", () => {
     ["finds nothing", {}, "free"],
   ])("a restore that %s lets go of the hold, and sign-out forgets it", async (_case, active, plan) => {
     purchasesMod.default.purchasePackage.mockRejectedValue(pending);
-    await purchasePlanPackage(plus);
+    await purchasePlanPackage(monthly);
     purchasesMod.default.restorePurchases.mockResolvedValueOnce({ entitlements: { active } });
     await expect(restorePurchases()).resolves.toBe(plan);
     expect(purchasePending()).toBeNull();
 
-    await purchasePlanPackage(plus);
+    await purchasePlanPackage(monthly);
     await signOutRevenueCat();
     expect(purchasePending()).toBeNull();
   });
@@ -288,7 +325,7 @@ describe("a purchase the store holds for approval", () => {
       purchasesMod.default.purchasePackage.mockRejectedValueOnce(pending);
       const clock = jest.spyOn(Date, "now").mockReturnValue(SINCE);
       try {
-        await purchasePlanPackage(plus);
+        await purchasePlanPackage(monthly);
       } finally {
         clock.mockRestore();
       }
@@ -297,7 +334,7 @@ describe("a purchase the store holds for approval", () => {
 
     it("lets go once the store grants the plan", async () => {
       const since = await hold();
-      purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: { plus: {} } } });
+      purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: { pro: {} } } });
       await recheckPendingPurchase(since + 1_000);
       expect(purchasePending()).toBeNull();
     });
@@ -306,7 +343,7 @@ describe("a purchase the store holds for approval", () => {
       const since = await hold();
       purchasesMod.default.getCustomerInfo.mockResolvedValue({ entitlements: { active: {} } });
       await recheckPendingPurchase(since + 60_000);
-      expect(purchasePending()).toBe("plus");
+      expect(purchasePending()).toBe("pro");
       // A declined Ask to Buy leaves no trace in the store's answer: the hold lapses.
       await recheckPendingPurchase(since + HOLD_MS);
       expect(purchasePending()).toBeNull();
@@ -316,7 +353,7 @@ describe("a purchase the store holds for approval", () => {
       const since = await hold();
       purchasesMod.default.getCustomerInfo.mockRejectedValueOnce(new Error("offline"));
       await expect(recheckPendingPurchase(since + 1_000)).resolves.toBeUndefined();
-      expect(purchasePending()).toBe("plus");
+      expect(purchasePending()).toBe("pro");
       expect(reportFailure).toHaveBeenCalledTimes(1);
     });
   });
@@ -327,18 +364,18 @@ describe("a purchase the store holds for approval", () => {
     try {
       // A Plus slow payment held at the last launch.
       const since = Date.now() - 2 * 24 * 60 * 60_000;
-      mockDisk.set("recall-held-purchase.txt", `user-e|plus|${since}`);
+      mockDisk.set("recall-held-purchase.txt", `user-e|pro|${since}`);
       let heldWhenReady: string | null | undefined;
       const stop = subscribeStoreReady(() => {
         if (isStoreReady()) heldWhenReady = purchasePending();
       });
       await configurePurchases("user-e");
       stop();
-      expect(heldWhenReady).toBe("plus");
+      expect(heldWhenReady).toBe("pro");
       // A Pro bought now would be a second subscription: still held.
       purchasesMod.default.getCustomerInfo.mockResolvedValueOnce({ entitlements: { active: {} } });
       await recheckPendingPurchase(Date.now() + 31 * 60_000);
-      expect(purchasePending()).toBe("plus");
+      expect(purchasePending()).toBe("pro");
     } finally {
       mockPlatform.OS = "ios";
       delete process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
@@ -348,7 +385,28 @@ describe("a purchase the store holds for approval", () => {
   it("still rejects any other store failure", async () => {
     const declined = Object.assign(new Error("not allowed"), { code: "3" });
     purchasesMod.default.purchasePackage.mockRejectedValueOnce(declined);
-    await expect(purchasePlanPackage(plus)).rejects.toBe(declined);
+    await expect(purchasePlanPackage(monthly)).rejects.toBe(declined);
     expect(purchasePending()).toBeNull();
+  });
+});
+
+describe("freeTrialOf", () => {
+  const intro = (price: number, periodUnit: string, periodNumberOfUnits: number) => ({
+    price,
+    priceString: price === 0 ? "$0.00" : "$1.99",
+    cycles: 1,
+    period: "P1W",
+    periodUnit,
+    periodNumberOfUnits,
+  });
+
+  it("reads a free first period", () => {
+    expect(freeTrialOf(intro(0, "DAY", 7))).toEqual({ count: 7, unit: "day", priceString: "$0.00" });
+    expect(freeTrialOf(intro(0, "MONTH", 1))).toEqual({ count: 1, unit: "month", priceString: "$0.00" });
+  });
+
+  it("is no trial when the first period costs anything, or there is none", () => {
+    expect(freeTrialOf(intro(1.99, "WEEK", 1))).toBeUndefined();
+    expect(freeTrialOf(null)).toBeUndefined();
   });
 });
