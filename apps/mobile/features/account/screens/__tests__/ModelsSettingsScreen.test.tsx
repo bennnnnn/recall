@@ -161,7 +161,7 @@ describe("models settings", () => {
     const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
     const smartSwitch = getByRole("switch", { name: "Smart" });
 
-    expect(getByText("plans.plus")).toBeTruthy();
+    expect(getByText("plans.pro")).toBeTruthy();
     expect(smartSwitch.props.accessibilityState.disabled).toBe(false);
     await fireEvent.press(smartSwitch);
     expect(mockUpgradeVisible).toBe(true);

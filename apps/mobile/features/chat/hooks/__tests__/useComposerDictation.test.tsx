@@ -39,7 +39,7 @@ const setInput = jest.fn((next: string | ((prev: string) => string)) => {
   input = typeof next === "function" ? next(input) : next;
 });
 const openUpgrade = jest.fn();
-const plusUser = { plan: "plus", features: ["speech_transcription"] } as unknown as User;
+const plusUser = { plan: "pro", features: ["speech_transcription"] } as unknown as User;
 const freeUser = { plan: "free", features: [] } as unknown as User;
 let current: ReturnType<typeof useComposerDictation>;
 

@@ -1,6 +1,6 @@
 import { fetchExportText, request, requestRevalidated } from "@/lib/api/client";
 import type { AuthSession, User } from "@/lib/api/types";
-import type { PaidPlanId, PlanCatalog } from "@/lib/plan";
+import type { PaidPlanId } from "@/lib/plan";
 
 type SettingsProposalApplied = {
   field: string;
@@ -31,8 +31,6 @@ export const accountApi = {
     request<User>(`/auth/me/pro-dev?plan=${plan}`, token, { method: "POST" }),
   syncSubscription: (token: string) =>
     request<User>("/auth/me/sync-subscription", token, { method: "POST" }),
-  /** Every plan with what it includes and its numbers (prices come from the store). */
-  listPlans: (token: string) => request<PlanCatalog>("/billing/plans", token),
   exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
   /** With a fresh Sign in with Apple code, the server also revokes the Apple grant. */
   deleteAccount: (token: string, appleAuthorizationCode?: string | null) =>

@@ -1,14 +1,13 @@
 /**
- * The plans sheet's parts: the paid plans as tiles side by side (name, price, the day's
- * messages), what the picked plan gives as a checklist, and the small print. A tile is
- * picked with a tap; the sheet's one button buys it.
+ * The plans page's parts: the plan as one card (its name, what it gives),
+ * what is paid today and next, and the links a store asks of a subscription page.
  */
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
-import type { IconName } from "@/ui/icons/names";
 import { IconSize } from "@/ui/icons/sizes";
+import type { TimelineRow } from "@/features/billing/model/planCopy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
@@ -16,81 +15,41 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export type FeatureLine = { icon: IconName; text: string; note?: string };
+/** The page's text grows with the phone's text size up to this, so it still fits one screen. */
+export const PLANS_FONT_SCALE = 1.3;
 
-export type Tile = {
-  id: string;
-  name: string;
-  /** The store's price ("$7.99"); none until the store says, and then the tile shows none. */
-  price?: string;
-  perMonth: string;
-  headline: string;
-};
+/** About how wide one character of the list's text is at the phone's normal text size. */
+const CHAR_WIDTH = 8.5;
+/** A line's check mark and the gap after it. */
+const MARK_WIDTH = IconSize.xs + Space.xs;
 
-export function PlanTiles({
-  tiles,
-  picked,
-  onPick,
-  disabled,
-}: {
-  tiles: readonly Tile[];
-  picked: string | null;
-  onPick: (id: string) => void;
-  disabled?: boolean;
-}) {
-  const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
-  return (
-    <View style={s.tiles}>
-      {tiles.map((tile) => {
-        const on = tile.id === picked;
-        return (
-          <Pressable
-            key={tile.id}
-            onPress={() => onPick(tile.id)}
-            disabled={disabled}
-            style={[s.tile, on && s.tileOn]}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: on, disabled }}
-            accessibilityLabel={[tile.name, tile.price && `${tile.price}${tile.perMonth}`, tile.headline]
-              .filter(Boolean)
-              .join(", ")}
-            testID={`upgrade-plan-${tile.id}`}
-          >
-            <View style={s.tileTop}>
-              <Text style={[s.tileName, on && s.tileNameOn]}>{tile.name}</Text>
-              <View style={[s.radio, on && s.radioOn]}>
-                {on ? <Icon name="check" size={IconSize.xxs} color={theme.onPrimary} /> : null}
-              </View>
-            </View>
-            {tile.price ? (
-              <Text style={s.price}>
-                {tile.price}
-                <Text style={s.perMonth}>{tile.perMonth}</Text>
-              </Text>
-            ) : null}
-            <Text style={s.headline}>{tile.headline}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
+/**
+ * Two columns only when the longest line fits half the card whole: on a narrow phone, or in a
+ * language with long words, one column, so no word ever breaks.
+ */
+export function benefitColumns(listWidth: number, features: readonly string[], fontScale = 1): 1 | 2 {
+  const longest = Math.max(0, ...features.map((feature) => feature.length));
+  const scale = Math.min(fontScale, PLANS_FONT_SCALE);
+  return listWidth / 2 >= longest * CHAR_WIDTH * scale + MARK_WIDTH + Space.xs ? 2 : 1;
 }
 
-export function PlanBenefits({ heading, lines }: { heading: string; lines: readonly FeatureLine[] }) {
+/** The lines the card shows; "See all Pro benefits" opens every one below itself. */
+const FIRST_BENEFITS = 2;
+
+/** Benefit lines, one per row, or two side by side where every line fits whole. */
+function BenefitLines({ features, testID }: { features: readonly string[]; testID: string }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const [width, setWidth] = useState(0);
+  const { fontScale } = useWindowDimensions();
+  const columns = benefitColumns(width, features, fontScale);
   return (
-    <View style={s.benefits}>
-      <Text style={s.benefitsHeading}>{heading}</Text>
-      {lines.map((line) => (
-        <View key={line.text} style={s.benefit}>
-          <View style={s.benefitIcon}>
-            <Icon name={line.icon} size={IconSize.xs} color={theme.primary} />
-          </View>
-          <Text style={s.benefitText}>
-            {line.text}
-            {line.note ? <Text style={s.benefitNote}>{`  ${line.note}`}</Text> : null}
+    <View style={s.cardList} onLayout={(event) => setWidth(event.nativeEvent.layout.width)} testID={testID}>
+      {features.map((feature) => (
+        <View key={feature} style={[s.cardItem, columns === 2 && s.cardItemHalf]}>
+          <Icon name="check" size={IconSize.xs} color={theme.primary} />
+          <Text style={s.cardBody} numberOfLines={1} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+            {feature}
           </Text>
         </View>
       ))}
@@ -98,42 +57,126 @@ export function PlanBenefits({ heading, lines }: { heading: string; lines: reado
   );
 }
 
+/** The plan: its name and its first two benefits. The rest open under "See all Pro benefits". */
+export function PlanCard({ title, features }: { title: string; features: readonly string[] }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={s.card} testID="upgrade-plan-card">
+      <Text style={s.cardTitle} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+        {title}
+      </Text>
+      <BenefitLines features={features.slice(0, FIRST_BENEFITS)} testID="upgrade-benefits" />
+    </View>
+  );
+}
+
+/** Every benefit, opened under the link that asked for it. */
+export function AllBenefits({ features }: { features: readonly string[] }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={s.allBenefits} testID="upgrade-all-benefits">
+      <BenefitLines features={features} testID="upgrade-all-benefits-list" />
+    </View>
+  );
+}
+
+/** A hairline between the page's links and "See all Pro benefits". */
+export function PlansHairline() {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return <View style={s.hairline} />;
+}
+
+/** "See all Pro benefits ⌄" under the page's button; its arrow turns up once the list is open. */
+export function BenefitsLink({ open, label, onPress }: { open: boolean; label: string; onPress: () => void }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={s.more}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      hitSlop={Space.xs}
+      testID="upgrade-benefits-toggle"
+    >
+      <Text style={s.moreText} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+        {label}
+      </Text>
+      <Icon name={open ? "chevron-up" : "chevron-down"} size={IconSize.xs} color={theme.primary} />
+    </Pressable>
+  );
+}
+
+/** What is paid when: today (nothing, in a free trial) and the next payment's day. */
+export function PlanTimeline({ rows }: { rows: readonly [TimelineRow, TimelineRow] }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <View style={s.timeline} testID="upgrade-timeline">
+      <View style={s.rail} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View style={s.dot} />
+        <View style={s.line} />
+        <View style={s.dot} />
+      </View>
+      <View style={s.timelineRows}>
+        {rows.map((row, index) => (
+          <View key={row.label} style={s.timelineRow}>
+            <Text style={[s.timelineLabel, index === 0 && s.timelineLabelFirst]} numberOfLines={2} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+              {row.label}
+            </Text>
+            {row.chip ? (
+              <View style={s.chip}>
+                <Text style={s.chipText} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+                  {row.chip}
+                </Text>
+              </View>
+            ) : null}
+            <Text style={[s.amount, index === 0 && s.amountFirst]} maxFontSizeMultiplier={PLANS_FONT_SCALE}>
+              {row.amount}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** A small link is about 17pt tall: this makes it a 45pt target. */
 const SMALL_LINK_SLOP = { top: 14, bottom: 14, left: Space.xs, right: Space.xs };
 
-/** The subscription's renewal and the Terms and Privacy links that a store asks of a
- * subscription screen, in the smallest type, after Restore when the build can sell. */
+/** Privacy, Terms and (when the build can sell) Restore: what a store asks of a subscription
+ * page. The renewal is said above the button. */
 export function PlansSmallPrint({
-  renews,
   links,
   restore,
 }: {
-  renews: string;
   links: { terms: string; privacy: string };
   restore?: { label: string; onPress: () => void; disabled: boolean };
 }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const items = [
-    ...(restore ? [{ label: restore.label, onPress: restore.onPress, disabled: restore.disabled }] : []),
-    { label: links.terms, onPress: () => void openAllowedUrl(getLegalTermsUrl()), disabled: false },
-    { label: links.privacy, onPress: () => void openAllowedUrl(getLegalPrivacyUrl()), disabled: false },
+    { label: links.privacy, onPress: () => void openAllowedUrl(getLegalPrivacyUrl()), disabled: false, role: "link" as const },
+    { label: links.terms, onPress: () => void openAllowedUrl(getLegalTermsUrl()), disabled: false, role: "link" as const },
+    ...(restore ? [{ ...restore, role: "button" as const }] : []),
   ];
   return (
     <View style={s.small}>
-      <Text style={s.smallText}>{renews}</Text>
       <View style={s.smallLinks}>
         {items.map((item, index) => (
           <View key={item.label} style={s.smallLinkRow}>
             {index > 0 ? (
-              <Text style={s.smallText} accessibilityElementsHidden importantForAccessibility="no">
-                ·
+              <Text style={s.smallDivider} accessibilityElementsHidden importantForAccessibility="no">
+                |
               </Text>
             ) : null}
             <Pressable
               onPress={item.onPress}
               disabled={item.disabled}
-              accessibilityRole={index === 0 && restore ? "button" : "link"}
+              accessibilityRole={item.role}
               accessibilityLabel={item.label}
               hitSlop={SMALL_LINK_SLOP}
             >
@@ -148,51 +191,46 @@ export function PlansSmallPrint({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    tiles: { flexDirection: "row", gap: Space.sm },
-    tile: {
-      flex: 1,
-      minWidth: 0,
-      borderRadius: Radius.lg,
-      borderWidth: 1.5,
+    card: {
+      borderRadius: Radius.xl,
+      // White on the page's tint (the dark theme's raised surface there), so it reads as one card.
+      backgroundColor: theme.isDark ? theme.surface : theme.elevated,
+      borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
-      padding: Space.md,
-      gap: Space.xxs,
+      paddingHorizontal: Space.lg,
+      paddingVertical: Space.md,
+      gap: Space.sm,
     },
-    tileOn: { borderColor: theme.primary, backgroundColor: withAlpha(theme.primary, theme.isDark ? 0.18 : 0.07) },
-    tileTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    tileName: { ...Type.body, ...Weight.semibold, color: theme.textSecondary },
-    tileNameOn: { color: theme.primary },
-    radio: {
-      width: 20,
-      height: 20,
+    cardTitle: { ...Type.title, ...Weight.bold, color: theme.text },
+    cardList: { flexDirection: "row", flexWrap: "wrap", rowGap: Space.xs },
+    cardItem: { width: "100%", flexDirection: "row", alignItems: "center", gap: Space.xs },
+    cardItemHalf: { width: "50%", paddingRight: Space.xs },
+    more: { flexDirection: "row", alignItems: "center", gap: Space.xxs, alignSelf: "center", paddingVertical: Space.xxs },
+    allBenefits: { paddingHorizontal: Space.md, paddingTop: Space.xxs },
+    hairline: { height: StyleSheet.hairlineWidth, backgroundColor: theme.border, marginHorizontal: Space.xl },
+    moreText: { ...Type.secondary, ...Weight.semibold, color: theme.primary },
+    cardBody: { flex: 1, ...Type.body, color: theme.textSecondary },
+    timeline: { flexDirection: "row", gap: Space.md, paddingHorizontal: Space.xxs },
+    rail: { alignItems: "center", paddingVertical: Space.xs },
+    dot: { width: 9, height: 9, borderRadius: Radius.full, backgroundColor: theme.text },
+    line: { flex: 1, width: 2, backgroundColor: theme.text, marginVertical: 2 },
+    timelineRows: { flex: 1, gap: Space.sm },
+    timelineRow: { flexDirection: "row", alignItems: "center", gap: Space.sm },
+    timelineLabel: { flex: 1, ...Type.body, color: theme.textSecondary },
+    timelineLabelFirst: { ...Weight.semibold, color: theme.text },
+    chip: {
       borderRadius: Radius.full,
-      borderWidth: 1.5,
-      borderColor: theme.borderStrong,
-      alignItems: "center",
-      justifyContent: "center",
+      backgroundColor: withAlpha(theme.primary, theme.isDark ? 0.24 : 0.12),
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
     },
-    radioOn: { borderColor: theme.primary, backgroundColor: theme.primary },
-    price: { ...Type.title, ...Weight.bold, color: theme.text, marginTop: Space.xxs },
-    perMonth: { ...Type.caption, ...Weight.regular, color: theme.textSecondary },
-    headline: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
-    benefits: { gap: Space.sm },
-    benefitsHeading: { ...Type.overline, color: theme.textTertiary },
-    benefit: { flexDirection: "row", alignItems: "center", gap: Space.sm },
-    benefitIcon: {
-      width: 28,
-      height: 28,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    benefitText: { flex: 1, ...Type.body, color: theme.text },
-    benefitNote: { ...Type.caption, color: theme.textTertiary },
-    small: { gap: Space.xxs, alignItems: "center" },
-    smallText: { ...Type.caption, ...Weight.regular, color: theme.textTertiary, textAlign: "center" },
+    chipText: { ...Type.caption, ...Weight.semibold, color: theme.primary },
+    amount: { ...Type.body, color: theme.textSecondary, fontVariant: ["tabular-nums"] },
+    amountFirst: { ...Weight.bold, color: theme.text },
+    small: { gap: Space.sm, alignItems: "center" },
     smallLinks: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center" },
-    smallLinkRow: { flexDirection: "row", alignItems: "center", gap: Space.xs, marginHorizontal: Space.xxs },
+    smallLinkRow: { flexDirection: "row", alignItems: "center", gap: Space.md, marginHorizontal: Space.sm },
+    smallDivider: { ...Type.caption, color: theme.textTertiary },
     smallLink: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
   });
 }
