@@ -1,5 +1,3 @@
-import { Platform } from "react-native";
-
 import { speechApi } from "@/features/speech/api";
 import { startCallAudio } from "@/features/speech/model/callAudio";
 import { createRealtimeMicGate } from "@/features/speech/model/realtimeMicGate";
@@ -9,6 +7,7 @@ import {
   debugRealtime,
   loadWebRtc,
   openRealtimeMicrophone,
+  webRtcMicConstraints,
 } from "@/features/speech/model/realtimePeer";
 import { runRealtimeFunctionCall } from "@/features/speech/model/realtimeTools";
 import {
@@ -19,7 +18,6 @@ import {
   type RealtimeVoiceEvent,
 } from "@/features/speech/model/realtimeTurnState";
 import { abortError, untilAborted } from "@/lib/api/deadline";
-import { isPhysicalDevice } from "@/lib/expoRuntime";
 
 export type { RealtimeVoiceEvent };
 
@@ -38,24 +36,6 @@ const TOOL_LIMIT_RESULT = {
 
 export function isRealtimeVoiceAvailable(): boolean {
   return loadWebRtc() !== null;
-}
-
-/**
- * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
- * expo-audio has also touched the session. Only the Simulator uses the
- * half-duplex workaround; physical iOS/Android devices need AEC for barge-in.
- * If ExpoDevice is not in this binary, use the Simulator path so Live Talk
- * can start until the next native rebuild.
- */
-export function webRtcMicConstraints(): {
-  echoCancellation: boolean;
-  noiseSuppression: boolean;
-  autoGainControl: boolean;
-} {
-  if (Platform.OS === "ios" && isPhysicalDevice() !== true) {
-    return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-  }
-  return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
 }
 
 /** Each lookup answers the model; a full set from the current turn asks it to go on. */

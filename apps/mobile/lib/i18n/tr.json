@@ -288,6 +288,7 @@
   "chat.voice_recording_empty": "Kayıt çok kısa ya da boştu. Mikrofonu biraz daha uzun basılı tutup tekrar deneyin.",
   "chat.voice_start_failed": "Kayıt başlatılamadı.",
   "chat.voice_start_hint": "Dikte etmeye başlamak için dokunun",
+  "chat.voice_starting": "Başlatılıyor…",
   "chat.voice_stop_hint": "Durdurup yazıya dökmek için dokunun",
   "chat.voice_transcribe_empty": "Herhangi bir konuşma anlaşılamadı. Mikrofona biraz daha yakın konuşarak tekrar deneyin.",
   "chat.voice_transcribe_failed": "Kaydınız yazıya dökülemedi.",

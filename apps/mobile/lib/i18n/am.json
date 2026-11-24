@@ -288,6 +288,7 @@
   "chat.voice_recording_empty": "ቀረጻው በጣም አጭር ወይም ባዶ ነበር። ማይክሮፎኑን ትንሽ ረዘም ላለ ጊዜ ይያዙና እንደገና ይሞክሩ።",
   "chat.voice_start_failed": "መቅረጽ መጀመር አልተቻለም።",
   "chat.voice_start_hint": "በድምፅ መጻፍ ለመጀመር ይንኩ",
+  "chat.voice_starting": "በመጀመር ላይ…",
   "chat.voice_stop_hint": "ለማቆምና ወደ ጽሑፍ ለመቀየር ይንኩ",
   "chat.voice_transcribe_empty": "ምንም ንግግር መለየት አልቻልንም። ወደ ማይክሮፎኑ ትንሽ ቀርበው እንደገና ይሞክሩ።",
   "chat.voice_transcribe_failed": "ቀረጻዎን ወደ ጽሑፍ መቀየር አልተቻለም።",

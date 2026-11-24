@@ -1,14 +1,16 @@
-"""Direct OpenAI Realtime boundary for Live Talk.
+"""Direct OpenAI Realtime boundary for live talk and live dictation.
 
-Composer dictation/read-aloud use speech_gateway; all voice uses OpenAI directly.
-No OpenAI key reaches the phone: the server mints a short-lived Realtime client
-secret, keeps it, and posts the phone's WebRTC offer with it (``create_realtime_call``),
-so it learns the call's id and can end the call itself with the permanent key
-(``hangup_realtime_call``). The audio still flows phone <-> OpenAI.
+Read-aloud and the recorded dictation fallback use speech_gateway; all voice uses OpenAI
+directly. No OpenAI key reaches the phone: the server mints a short-lived Realtime client
+secret (a live talk session, or a transcription-only one for the composer mic), keeps it,
+and posts the phone's WebRTC offer with it (``create_realtime_call``), so it learns the
+call's id and can end the call itself with the permanent key (``hangup_realtime_call``).
+The audio still flows phone <-> OpenAI.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 from dataclasses import dataclass
@@ -19,7 +21,7 @@ import httpx
 from app.core.config import Settings
 from app.core.log_text import log_safe
 from app.gateways.http_client import get_pooled_client
-from app.gateways.speech_gateway import stt_language_code
+from app.gateways.speech_gateway import stt_language_code, stt_language_name
 from app.models.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
@@ -27,8 +29,10 @@ logger = logging.getLogger(__name__)
 _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets"
 _OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls"
 _REALTIME_TIMEOUT_SECONDS = 10.0
-# A hang-up is one short request; /live/end waits for it, so it may not hang.
-_HANGUP_TIMEOUT_SECONDS = 5.0
+# A hang-up is one short request; /live/end waits for it, so it may not hang. A call whose
+# phone already closed its peer answers 404 only after about 5.2 s (measured 2026-11-23):
+# at 5 s every such hang-up timed out as "failed", so the call was never settled.
+_HANGUP_TIMEOUT_SECONDS = 9.0
 # OpenAI's call ids (``rtc_…``), read from the answer's Location header; anything else
 # is refused before it becomes part of a URL.
 _CALL_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
@@ -40,6 +44,24 @@ _REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
 # minted again without it, so a code the transcriber does not take never fails live talk
 # for everyone in that language.
 _REFUSED_SESSION = frozenset({400, 422})
+# Live dictation's transcription-only sessions. gpt-live-transcribe writes words as they
+# are spoken (measured 2026-11-23: each word about 0.3 s after it is said); the gpt-4o
+# transcribers write a whole segment only after a pause. An operator override outside
+# these is not used.
+_STREAMING_TRANSCRIBERS = frozenset({"gpt-live-transcribe"})
+_REALTIME_TRANSCRIBE_MODELS = _STREAMING_TRANSCRIBERS | {
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+}
+# A dictation's secret only opens its one call, right after the mint.
+_DICTATION_SECRET_SECONDS = 60
+_DICTATION_PROMPT = (
+    "Transcribe only words actually spoken by the user. "
+    "Do not invent speech from silence or background noise."
+)
+# Language codes OpenAI's realtime transcription refused (it takes no ``am``): later
+# dictations in them name the language in the prompt instead of a doomed first mint.
+_REFUSED_TRANSCRIPTION_LANGUAGES: set[str] = set()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +86,11 @@ class RealtimeCallResult:
 # again.
 HangupOutcome = Literal["ended", "gone", "failed"]
 _NO_LIVE_CALL = frozenset({404, 410})
+
+
+def safety_identifier(user_id: object) -> str:
+    """The user as OpenAI's safety identifier: a hash, never the id itself."""
+    return hashlib.sha256(f"recall:{user_id}".encode()).hexdigest()
 
 
 def realtime_model(settings: Settings) -> str:
@@ -217,11 +244,122 @@ async def create_realtime_client_secret(
 
 
 async def _post_client_secret(
-    client: httpx.AsyncClient, headers: dict[str, str], session: dict[str, object]
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    session: dict[str, object],
+    *,
+    expires_seconds: int | None = None,
 ) -> httpx.Response:
-    return await client.post(
-        _OPENAI_REALTIME_CLIENT_SECRETS_URL, headers=headers, json={"session": session}
+    body: dict[str, object] = {"session": session}
+    if expires_seconds is not None:
+        body["expires_after"] = {"anchor": "created_at", "seconds": expires_seconds}
+    return await client.post(_OPENAI_REALTIME_CLIENT_SECRETS_URL, headers=headers, json=body)
+
+
+def can_stream_transcribe_with(model: str) -> bool:
+    """Whether ``model`` (``openai/`` or bare) can run a live dictation session."""
+    return model.removeprefix("openai/") in _REALTIME_TRANSCRIBE_MODELS
+
+
+def transcription_session_config(model: str, language: str | None) -> dict[str, object]:
+    """A transcription-only Realtime session: the user's words come back as text, and no
+    model ever answers. The app's language is the hint, as the recorded dictation's is; a
+    code OpenAI refused for it is named in the prompt instead."""
+    bare = model.removeprefix("openai/")
+    streams = bare in _STREAMING_TRANSCRIBERS
+    transcription: dict[str, object] = {"model": bare, "prompt": _DICTATION_PROMPT}
+    code = stt_language_code(language)
+    if code and code not in _REFUSED_TRANSCRIPTION_LANGUAGES:
+        if streams:
+            transcription["languages"] = [code]
+        else:
+            transcription["language"] = code
+    elif code and (name := stt_language_name(code)):
+        transcription["prompt"] = (
+            f"{_DICTATION_PROMPT} The speaker speaks {name}: write it in {name}'s own script."
+        )
+    # The streaming transcriber takes no server VAD: it writes words as they are spoken,
+    # and the phone commits the rest once, on stop. The others write a segment only when
+    # server VAD closes it at a pause.
+    turn_detection: dict[str, object] | None = (
+        None
+        if streams
+        else {
+            "type": "server_vad",
+            "threshold": 0.5,
+            "prefix_padding_ms": 300,
+            "silence_duration_ms": 400,
+        }
     )
+    return {
+        "type": "transcription",
+        "audio": {
+            "input": {
+                "noise_reduction": {"type": "near_field"},
+                "transcription": transcription,
+                "turn_detection": turn_detection,
+            }
+        },
+    }
+
+
+async def create_transcription_client_secret(
+    settings: Settings, *, model: str, language: str | None, safety_identifier: str
+) -> RealtimeClientSecretResult | None:
+    """Mint a short-lived secret for one live dictation; the server keeps it.
+
+    A language code OpenAI refuses (it takes no ``am``) is remembered, and the session is
+    minted again without it, so dictation in that language works rather than failing."""
+    key = settings.openai_api_key.strip()
+    if not key:
+        return None
+    client = get_pooled_client(_REALTIME_TIMEOUT_SECONDS, connect_retries=_REALTIME_CONNECT_RETRIES)
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "OpenAI-Safety-Identifier": safety_identifier[:128],
+    }
+    try:
+        session = transcription_session_config(model, language)
+        response = await _post_client_secret(
+            client, headers, session, expires_seconds=_DICTATION_SECRET_SECONDS
+        )
+        code = stt_language_code(language)
+        named = code is not None and code not in _REFUSED_TRANSCRIPTION_LANGUAGES
+        if response.status_code in _REFUSED_SESSION and named and code:
+            logger.warning(
+                "OpenAI refused the dictation session with language=%s status=%s body=%s; "
+                "minting it without the language",
+                code,
+                response.status_code,
+                response.text[:400],
+            )
+            _REFUSED_TRANSCRIPTION_LANGUAGES.add(code)
+            response = await _post_client_secret(
+                client,
+                headers,
+                transcription_session_config(model, language),
+                expires_seconds=_DICTATION_SECRET_SECONDS,
+            )
+        if response.status_code >= 400:
+            logger.warning(
+                "OpenAI dictation client-secret failed model=%s status=%s body=%s",
+                log_safe(model),
+                response.status_code,
+                response.text[:800],
+            )
+        response.raise_for_status()
+        payload = response.json()
+        value = str(payload.get("value") or "").strip()
+        if not value:
+            logger.warning("OpenAI dictation client-secret response missing value")
+            return None
+        return RealtimeClientSecretResult(
+            value=value, expires_at=int(payload.get("expires_at") or 0)
+        )
+    except Exception:
+        logger.exception("Could not mint an OpenAI dictation client secret")
+        return None
 
 
 def _call_id_from_location(location: str) -> str | None:

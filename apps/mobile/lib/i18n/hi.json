@@ -288,6 +288,7 @@
   "chat.voice_recording_empty": "रिकॉर्डिंग बहुत छोटी या खाली थी। माइक थोड़ा और देर तक दबाए रखें और फिर से कोशिश करें।",
   "chat.voice_start_failed": "रिकॉर्डिंग शुरू नहीं हो सकी।",
   "chat.voice_start_hint": "बोलकर लिखवाने के लिए टैप करें",
+  "chat.voice_starting": "शुरू हो रहा है…",
   "chat.voice_stop_hint": "रोकने और लिखने के लिए टैप करें",
   "chat.voice_transcribe_empty": "हमें कोई बोली सुनाई नहीं दी। माइक के थोड़ा पास आकर फिर से कोशिश करें।",
   "chat.voice_transcribe_failed": "आपकी रिकॉर्डिंग लिखी नहीं जा सकी।",

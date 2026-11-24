@@ -289,6 +289,7 @@
   "chat.voice_recording_empty": "A gravação ficou curta demais ou vazia. Segure o microfone por mais tempo e tente novamente.",
   "chat.voice_start_failed": "Não foi possível iniciar a gravação.",
   "chat.voice_start_hint": "Toque para começar a ditar",
+  "chat.voice_starting": "Iniciando…",
   "chat.voice_stop_hint": "Toque para parar e transcrever",
   "chat.voice_transcribe_empty": "Não conseguimos entender nenhuma fala. Tente novamente um pouco mais perto do microfone.",
   "chat.voice_transcribe_failed": "Não foi possível transcrever sua gravação.",

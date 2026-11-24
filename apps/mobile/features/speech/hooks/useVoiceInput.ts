@@ -5,7 +5,7 @@ import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { stopReadAloud } from "@/features/speech/model/readAloudSession";
-import { dictationFailureKey, dictationNeedsPlan } from "@/features/speech/model/voiceRefusal";
+import { sayDictationFailure, useLiveTake } from "@/features/speech/hooks/useLiveTake";
 import {
   deleteVoiceRecording,
   isVoiceInputAvailable,
@@ -19,7 +19,10 @@ import { offerSettings } from "@/ui/overlay/dialogs";
 
 type Options = {
   token: string | null;
+  /** The take's whole text, once: at the stop, or as a dropped live call ends the take. */
   onTranscript: (text: string) => void;
+  /** A live take's text so far, each time a word arrives (a build with WebRTC). */
+  onLiveText?: (text: string) => void;
   t: (key: string) => string;
   /** The server said the plan has no voice input (403 `not_in_plan`): show the plans. */
   onPlanRequired?: () => void;
@@ -28,12 +31,12 @@ type Options = {
 const VOICE_SPEECH_LEVEL = 0.28;
 const VOICE_MIN_SPEECH_SAMPLES = 2;
 
-export function useVoiceInput({
-  token,
-  onTranscript,
-  t,
-  onPlanRequired,
-}: Options) {
+/**
+ * The composer mic. Where the app has WebRTC (a dev build) the take is live and its words
+ * arrive while the user speaks (`useLiveTake`); elsewhere, or when that call cannot be made,
+ * it records a clip and uploads it on the stop.
+ */
+export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequired }: Options) {
   const feedback = useActionFeedbackOptional();
   const recordingRef = useRef<VoiceRecorder | null>(null);
   const meterUnsubRef = useRef<(() => void) | null>(null);
@@ -50,6 +53,9 @@ export function useVoiceInput({
   // As state it re-rendered the whole chat screen 16 times a second.
   const meterLevel = useSharedValue(0.12);
   const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
+  const live = useLiveTake({
+    token, meterLevel, setRecording, setTranscribing, onTranscript, onLiveText, onPlanRequired, feedback, t,
+  });
 
   useEffect(() => {
     setVoiceInputAvailable(isVoiceInputAvailable());
@@ -92,6 +98,12 @@ export function useVoiceInput({
         showUnavailable();
         return false;
       }
+      // A reply read aloud stops first: the mic took down Recall's own voice as the message.
+      stopReadAloud();
+      // A live take asks for the mic through WebRTC, as live talk does: on the iOS Simulator
+      // expo-audio touching the session first stalled CoreAudio and aborted the app.
+      const outcome = live ? await live.start() : "fallback";
+      if (outcome !== "fallback") return outcome === "live";
       const permission = await requestVoicePermission(mod);
       if (gen !== captureGenRef.current) return false;
       if (!permission.granted) {
@@ -99,14 +111,13 @@ export function useVoiceInput({
         void offerSettings("microphone");
         return false;
       }
-      // A reply read aloud stops first: the mic took down Recall's own voice as the message.
-      stopReadAloud();
       const next = await startVoiceRecording();
       if (gen !== captureGenRef.current) {
         if (next) void next.stop().then(deleteVoiceRecording).catch(() => undefined);
         return false;
       }
       if (!next) {
+        setRecording(false);
         showUnavailable();
         return false;
       }
@@ -125,16 +136,18 @@ export function useVoiceInput({
       return true;
     } catch {
       if (gen === captureGenRef.current) {
+        setRecording(false);
         reportRecoverableError(feedback, t("chat.voice_start_failed"));
       }
       return false;
     } finally {
       startingRef.current = false;
     }
-  }, [token, recording, transcribing, t, showUnavailable, feedback, meterLevel]);
+  }, [token, recording, transcribing, t, showUnavailable, feedback, meterLevel, live]);
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
+    if (live?.busy()) return live.finish();
     const gen = captureGenRef.current;
     setTranscribing(true);
     const heardSpeech = speechSamplesRef.current >= VOICE_MIN_SPEECH_SAMPLES;
@@ -154,13 +167,7 @@ export function useVoiceInput({
       onTranscript(text);
       return text;
     } catch (error) {
-      if (gen !== captureGenRef.current) return null;
-      if (dictationNeedsPlan(error) && onPlanRequired) {
-        onPlanRequired();
-        return null;
-      }
-      const failure = dictationFailureKey(error);
-      if (failure) reportRecoverableError(feedback, t(failure));
+      if (gen === captureGenRef.current) sayDictationFailure(error, { feedback, t, onPlanRequired });
       return null;
     } finally {
       // Sent or not, the recording is not kept (code-health audit LEAK-04).
@@ -168,7 +175,7 @@ export function useVoiceInput({
       if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null;
       if (gen === captureGenRef.current) setTranscribing(false);
     }
-  }, [token, stopRecording, onTranscript, onPlanRequired, feedback, t]);
+  }, [token, live, stopRecording, onTranscript, onPlanRequired, feedback, t]);
 
   useLayoutEffect(() => { finishRecordingRef.current = finishRecording; }); // the time limit calls it
 
@@ -176,9 +183,10 @@ export function useVoiceInput({
     captureGenRef.current += 1;
     transcribeAbortRef.current?.abort();
     transcribeAbortRef.current = null;
+    live?.cancel();
     void stopRecording().then(deleteVoiceRecording);
     setTranscribing(false);
-  }, [stopRecording]);
+  }, [stopRecording, live]);
 
   const toggleRecording = useCallback(async () => {
     if (transcribing) return;

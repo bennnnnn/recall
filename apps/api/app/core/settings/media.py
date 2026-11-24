@@ -8,6 +8,15 @@ class MediaSettings(BaseModel):
     # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
+    # Live dictation: the composer mic streams to an OpenAI transcription session over
+    # WebRTC and the words land as they are spoken (``speech.dictation``). Off, or where
+    # the phone has no WebRTC, it records a clip and uploads it to /speech/transcribe.
+    speech_live_dictation_enabled: bool = True
+    # Operator override (OpenAI model); empty → catalog alias `speech-dictation-model`.
+    speech_dictation_model: str = ""
+    # The phone stops a take at 45 s; the server hangs a dictation up this long after its
+    # connect whatever the phone does, so a mic left open cannot run up cost.
+    speech_dictation_max_seconds: int = 45
     # Cloud TTS (read-aloud). Operator override (OpenAI model); empty →
     # catalog alias `speech-tts-model`.
     speech_tts_enabled: bool = True

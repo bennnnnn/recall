@@ -7,6 +7,8 @@ import logging
 import wave
 from pathlib import Path
 
+import httpx
+
 from app.core.config import Settings
 from app.core.log_text import log_safe
 from app.gateways.http_client import get_pooled_client
@@ -111,6 +113,37 @@ def stt_language_code(language: str | None) -> str | None:
     return None
 
 
+# The app's languages by code, for a prompt that names one OpenAI takes no code for.
+_LANGUAGE_NAMES: dict[str, str] = {
+    "am": "Amharic",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "hi": "Hindi",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "tr": "Turkish",
+}
+# Codes the transcription endpoint refused ("Language code 'am' is not recognized"):
+# later clips in them name the language in the prompt, as OpenAI's refusal suggests.
+_REFUSED_LANGUAGES: set[str] = set()
+
+
+def stt_language_name(code: str | None) -> str | None:
+    """The English name of one of the app's languages, by its ISO-639-1 code."""
+    return _LANGUAGE_NAMES.get((code or "").strip().lower())
+
+
+def _transcription_payload(model: str, language: str | None) -> dict[str, str]:
+    payload: dict[str, str] = {"model": model.removeprefix("openai/"), "response_format": "json"}
+    lang = stt_language_code(language)
+    if lang and lang not in _REFUSED_LANGUAGES:
+        payload["language"] = lang
+    elif lang and (name := stt_language_name(lang)):
+        payload["prompt"] = f"The speaker speaks {name}: write it in {name}'s own script."
+    return payload
+
+
 async def transcribe_via_openai(
     settings: Settings,
     audio_bytes: bytes,
@@ -120,23 +153,25 @@ async def transcribe_via_openai(
     language: str | None = None,
 ) -> str | None:
     audio_format = audio_format_from_filename(filename)
-    payload: dict[str, str] = {
-        "model": model.removeprefix("openai/"),
-        "response_format": "json",
-    }
-    lang = stt_language_code(language)
-    if lang:
-        payload["language"] = lang
+    payload = _transcription_payload(model, language)
     try:
         client = get_pooled_client(_TRANSCRIBE_TIMEOUT)
-        response = await client.post(
-            _OPENAI_TRANSCRIBE_URL,
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-            },
-            data=payload,
-            files={"file": (Path(filename).name, audio_bytes)},
-        )
+
+        async def post(data: dict[str, str]) -> httpx.Response:
+            return await client.post(
+                _OPENAI_TRANSCRIBE_URL,
+                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                data=data,
+                files={"file": (Path(filename).name, audio_bytes)},
+            )
+
+        response = await post(payload)
+        refused = payload.get("language")
+        if response.status_code == 400 and refused and "language" in response.text:
+            # Amharic's "am" came back 400 and every Amharic dictation failed.
+            logger.warning("OpenAI transcription refused language=%s; naming it instead", refused)
+            _REFUSED_LANGUAGES.add(refused)
+            response = await post(_transcription_payload(model, language))
         if response.status_code >= 400:
             logger.warning(
                 "OpenAI transcription failed model=%s format=%s size=%s status=%s body=%s",

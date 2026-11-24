@@ -51,3 +51,22 @@ export function dictationFailureKey(error: unknown): string | null {
   if (message.includes("transcribe_empty")) return "chat.voice_transcribe_empty";
   return "chat.voice_transcribe_failed";
 }
+
+/**
+ * Whether a live dictation that could not start records the clip instead. A server without
+ * live dictation (`not_available`, `not_configured`: a dev server's mock still answers an
+ * upload) or a call that could not be made does; a refusal the upload would meet too (the
+ * plan, consent, the day's cap, a limit) does not, and is said as it always was.
+ */
+export function liveDictationFallsBack(error: unknown): boolean {
+  const code = errorCode(error);
+  if (code === "not_available" || code === "not_configured") return true;
+  if (code === "not_in_plan" || code === CONSENT_REQUIRED_CODE) return false;
+  return VOICE_REFUSALS[code] === undefined && !isServiceUnavailable(error);
+}
+
+/** A server that has no live dictation: expected, so the fallback reports nothing. */
+export function liveDictationUnavailable(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === "not_available" || code === "not_configured" || (error instanceof Error && error.message === "webrtc_unavailable");
+}

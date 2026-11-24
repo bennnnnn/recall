@@ -4,6 +4,13 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
+import {
+  appendDictation,
+  dictationAnchor,
+  draftWithDictation,
+  type DictationAnchor,
+  type TextCaret,
+} from "@/features/chat/model/dictationDraft";
 import type { User } from "@/lib/api";
 import { hasPlanFeature } from "@/lib/plan";
 import { useLatestRef } from "@/lib/latestRef";
@@ -19,9 +26,20 @@ type Options = {
 };
 
 /**
- * The composer mic: a take lands in the thread it was started in, a route
- * change drops the open take, and a plan without dictation opens the plans
- * instead of recording.
+ * Where a take's words go: the caret it began at, the draft split there (on its first
+ * words), and every draft the take has written, so it knows a draft it may still rewrite.
+ */
+type TakeDraft = { caret: TextCaret | null; anchor: DictationAnchor | null; ours: Set<string> };
+
+function newTake(caret: TextCaret | null): TakeDraft {
+  return { caret, anchor: null, ours: new Set() };
+}
+
+/**
+ * The composer mic: a take lands in the thread it was started in, at the caret where it
+ * began (after the draft when the field was not being edited), word by word on a live take,
+ * never over text the user had typed. A route change drops the open take, and a plan
+ * without dictation opens the plans instead of recording.
  */
 export function useComposerDictation({
   token,
@@ -36,6 +54,26 @@ export function useComposerDictation({
   );
   const composerThreadRef = useLatestRef(composerThread);
   const voiceCaptureThreadRef = useRef(composerThread);
+  const takeRef = useRef<TakeDraft>(newTake(null));
+
+  /**
+   * The take's text in the draft, each word replacing the last version of it. Once the draft
+   * has changed under the take, only its final text lands, after whatever is there.
+   */
+  const writeTake = useCallback((text: string, final: boolean) => {
+    if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
+    const take = takeRef.current;
+    setInput((prev) => {
+      if (!take.anchor) {
+        take.anchor = dictationAnchor(prev, take.caret);
+        take.ours.add(prev);
+      }
+      if (!take.ours.has(prev)) return final ? appendDictation(prev, text) : prev;
+      const next = draftWithDictation(take.anchor, text);
+      take.ours.add(next);
+      return next;
+    });
+  }, [composerThreadRef, setInput]);
 
   const {
     voiceInputAvailable,
@@ -46,10 +84,8 @@ export function useComposerDictation({
     cancelVoiceInput,
   } = useVoiceInput({
     token,
-    onTranscript: (text) => {
-      if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
-      setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-    },
+    onLiveText: (text) => writeTake(text, false),
+    onTranscript: (text) => writeTake(text, true),
     // The server refused: the plan has no voice input (the app's copy was stale).
     onPlanRequired: () => openUpgrade("voice"),
     t,
@@ -63,7 +99,8 @@ export function useComposerDictation({
   // and the server decides (its refusal opens the plans above), never a paid account's offer.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
   const canDictate = !planKnown || hasPlanFeature(user, "speech_transcription");
-  const handleToggleVoiceInput = useCallback(() => {
+  /** The mic. `caret` is the field's selection while it is being edited, else none. */
+  const handleToggleVoiceInput = useCallback((caret?: TextCaret | null) => {
     if (!voiceRecording && !voiceTranscribing) {
       // Don't record what the plan cannot send; show the plans instead.
       if (!canDictate) {
@@ -71,6 +108,7 @@ export function useComposerDictation({
         return;
       }
       voiceCaptureThreadRef.current = composerThreadRef.current;
+      takeRef.current = newTake(caret ?? null);
     }
     void toggleVoiceInput();
   }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgrade, composerThreadRef]);
