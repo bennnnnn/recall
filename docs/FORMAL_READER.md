@@ -187,10 +187,13 @@ reader's reading of the same question (`modules/physics/cross_check.py`):
   readings of the 422 questions below: 273 right checks kept and no wrong one, with a second
   read on 5 of 279 checked answers; the guess counting alone kept 269, two readers every time
   271 (`cross_check_eval`).
-- **No reading** (late, failed, the spend cap, an unsolved setup, a setup that asks no value,
-  units neither side reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
+- **No reading** (late, failed, the spend cap, a setup that asks no value, units neither side
+  reads): the check stands, as it did before. Measured, every such case was right (3 to 4 of
   about 280 checked answers a run, all late reads); dropping them too cost those checks and
   removed no wrong one. With the reading model down, the solvers are as they were before.
+- **An unsolved setup** stands only when it raises no doubt, or the second reader asked on
+  its doubt brings no solved reading against the answer (above). On its own, with no second
+  reader, it let one wrong answer of the 422 through.
 
 Measured (`app/tests/behavior/cross_check_eval.py`, 2026-11-22): 419 physics corpus
 questions with one numeric answer reworded casually by Claude Haiku 5.5 (every number kept,

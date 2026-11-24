@@ -22,10 +22,12 @@ speeds after a collision), and a partial solve answers less than the reading ask
 - ``disagree``: a kind is not, or the two share no kind (the reading asked another
   quantity: it read another question).
 - ``unread``: no reading to hold it to: none in ``formal_wait_seconds``, a failed or capped
-  read, a setup the server could not solve (the reading model's own arithmetic alone is no
-  reading), a setup that asks no value, or units neither side can read. The check stands, as it
-  did before: every such answer measured was right, and dropping them removed no wrong one
-  (``app/tests/behavior/cross_check_eval.py``, docs/FORMAL_READER.md).
+  read, a setup that asks no value, or units neither side can read. The check stands, as it
+  did before: every such answer measured was right (all late reads), and dropping them removed
+  no wrong one (``app/tests/behavior/cross_check_eval.py``, docs/FORMAL_READER.md). A setup the
+  server could not solve is ``unread`` too (the reading model's own arithmetic alone is no
+  reading), but only once its doubt, if it raises one, has had a second reader
+  (``cross_check``): alone, it let one wrong answer of 422 through.
 """
 
 from __future__ import annotations
