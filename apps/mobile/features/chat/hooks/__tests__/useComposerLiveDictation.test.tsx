@@ -77,7 +77,7 @@ type Channel = {
   onmessage?: (message: { data: unknown }) => void;
 };
 
-const plusUser = { plan: "plus", features: ["speech_transcription"] } as unknown as User;
+const proUser = { plan: "pro", features: ["speech_transcription"] } as unknown as User;
 const track = { kind: "audio", enabled: true, stop: jest.fn() };
 const peerClose = jest.fn();
 let channel: Channel;
@@ -91,7 +91,7 @@ let current: ReturnType<typeof useComposerDictation>;
 function Probe() {
   const dictation = useComposerDictation({
     token: "tok",
-    user: plusUser,
+    user: proUser,
     routeChatId: "chat-1",
     setInput,
     openUpgrade,

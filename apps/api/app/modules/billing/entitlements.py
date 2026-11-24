@@ -1,11 +1,13 @@
 """Plans, features and per-plan allowances: the one place plan policy lives.
 
-Three plans: ``free``, ``plus`` (the lower paid plan) and ``pro`` (the top
-plan). Display names ("Plus", "Pro") live only in the app's i18n; the server
-speaks in plan ids.
+Two plans: ``free`` and ``pro``, the one paid plan. Pro is billed monthly or
+yearly, with a free trial; both store products grant the same RevenueCat
+entitlement, so the billing period stays in the store and the server never sees
+it. The display name ("Pro") lives only in the app's i18n; the server speaks in
+plan ids.
 
-Every number is a ``core/config.py`` setting, named ``<base>`` for free,
-``<base>_plus`` and ``<base>_pro``. A metered feature is part of a plan when
+Every number is a ``core/config.py`` setting, named ``<base>`` for free and
+``<base>_pro`` for Pro. A metered feature is part of a plan when
 that plan's allowance is above zero, so moving a feature between plans is a
 config change, not a code change. Callers ask ``can_use(user, feature)`` and
 ``allowance(user, name)``; nothing else reads ``user.plan``.
@@ -20,9 +22,9 @@ from typing import TYPE_CHECKING, Literal, Protocol, get_args
 if TYPE_CHECKING:
     from app.core.config import Settings
 
-PlanId = Literal["free", "plus", "pro"]
+PlanId = Literal["free", "pro"]
 PLANS: tuple[PlanId, ...] = get_args(PlanId)
-PAID_PLANS: frozenset[str] = frozenset({"plus", "pro"})
+PAID_PLANS: frozenset[str] = frozenset({"pro"})
 
 Feature = Literal[
     "all_models",
@@ -48,7 +50,7 @@ Allowance = Literal[
 ]
 ALLOWANCES: tuple[Allowance, ...] = get_args(Allowance)
 
-# Allowance → the free-plan Settings field; ``_plus`` / ``_pro`` follow it.
+# Allowance → the free-plan Settings field; ``_pro`` follows it.
 _ALLOWANCE_SETTING: dict[Allowance, str] = {
     "daily_messages": "daily_message_limit",
     "daily_tokens": "daily_token_limit",
@@ -80,11 +82,7 @@ def plan_of(subject: _HasPlan | str | None) -> PlanId:
     """The user's plan id. Anything unknown is ``free`` (never a paid plan)."""
     raw = subject if isinstance(subject, str) or subject is None else subject.plan
     value = (raw or "").strip().lower() if isinstance(raw, str) else ""
-    if value == "plus":
-        return "plus"
-    if value == "pro":
-        return "pro"
-    return "free"
+    return "pro" if value == "pro" else "free"
 
 
 def is_paid(subject: _HasPlan | str | None) -> bool:
@@ -99,7 +97,7 @@ def setting_name(name: Allowance, plan: PlanId) -> str:
 def has_strong_everyday_model(subject: _HasPlan | str | None, settings: Settings) -> bool:
     """Auto answers this plan's everyday turns with the stronger model.
 
-    A switch per plan (``strong_everyday_model``, ``_plus``, ``_pro``), read like an
+    A switch per plan (``strong_everyday_model``, ``_pro``), read like an
     allowance's numbers. Not a ``Feature``: the app shows nothing for it.
     """
     plan = plan_of(subject)
@@ -137,13 +135,8 @@ def plan_catalog(settings: Settings) -> list[dict[str, object]]:
 
 
 def plan_from_entitlements(active: set[str], settings: Settings) -> PlanId:
-    """Highest plan whose RevenueCat entitlement is active.
+    """Pro while its RevenueCat entitlement (``revenuecat_entitlement_id``) is active.
 
-    The Pro entitlement keeps its original id (``revenuecat_entitlement_id``),
-    so every subscriber from the single-plan era stays on the top plan.
+    The monthly and the yearly product both grant it, so the period never reaches here.
     """
-    if settings.revenuecat_entitlement_id in active:
-        return "pro"
-    if settings.revenuecat_plus_entitlement_id in active:
-        return "plus"
-    return "free"
+    return "pro" if settings.revenuecat_entitlement_id in active else "free"

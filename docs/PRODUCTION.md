@@ -23,7 +23,7 @@ or alert on every usage-billed account.
 | OpenAI | Speech to text, read aloud, live talk | Pay as you go with a monthly limit | — | |
 | Tavily | Web search, reference photos | A plan sized to search volume | — | |
 | Resend | Transactional email | Free tier until volume needs more; verify the sending domain | — | |
-| RevenueCat | Plus and Pro subscriptions | Free until its revenue threshold | — | |
+| RevenueCat | Pro subscription (monthly and yearly) | Free until its revenue threshold | — | |
 | Sentry | Errors (optional) | Free tier to start | — | |
 | Expo EAS | Store builds, over-the-air updates | Paid only if build or update volume needs it | — | |
 | Apple Developer, Google Play | Store accounts | Apple yearly, Google once | — | |
@@ -204,8 +204,7 @@ exact production web origin and only the headers used by presigned uploads.
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; every access change, TRANSFER, plan sync, hourly reconcile |
-| `REVENUECAT_ENTITLEMENT_ID` | no (default `pro`) | Top plan's entitlement; keep `pro` so earlier subscribers stay on Pro |
-| `REVENUECAT_PLUS_ENTITLEMENT_ID` | no (default `plus`) | Lower paid plan's entitlement |
+| `REVENUECAT_ENTITLEMENT_ID` | no (default `pro`) | Pro's entitlement; the monthly and the yearly product both grant it |
 | `TAVILY_API_KEY` | if web search | |
 | `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
 | `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day provider $ cap (every model call, images, voice, live talk); must be > 0. At the cap new chat turns are refused: see [Load and abuse limits](#load-and-abuse-limits) |
@@ -282,30 +281,38 @@ API_URL=https://<your-api> ./scripts/verify-production.sh --live
       `type = "connections"` with limits sized to sockets plus REST
       connections, or scale out on `soft_limit`; do not leave it to launch day.
 - [ ] RevenueCat webhook → `https://<api>/webhooks/revenuecat` with `Authorization` header
-- [ ] Plans and store products set up per [§4b](#4b-plans-and-revenuecat-free-plus-pro)
+- [ ] Plans and store products set up per [§4b](#4b-plans-and-revenuecat-free-and-pro)
 
 ---
 
-## 4b. Plans and RevenueCat (Free, Plus, Pro)
+## 4b. Plans and RevenueCat (Free and Pro)
 
-Three plans. "Plus" and "Pro" are working names: the app shows them from i18n
-(`plans.plus`, `plans.pro` in all nine locale files), so renaming them is a
-copy change. The server only knows the ids `free`, `plus`, `pro`.
+Two plans: Free and Pro, the one paid plan. Pro is billed monthly or yearly,
+with a 3-day free trial; both store products grant the same entitlement, so the
+billing period lives only in the store and the server never sees it. "Pro" is a
+working name: the app shows it from i18n, so renaming it is a copy change. The
+server only knows the ids `free` and `pro`.
 
-| | Free | Plus (lower paid) | Pro (top) |
-|---|---|---|---|
-| Models | free pool | all | all |
-| Tokens / day | 100k | 500k | 500k |
-| Voice input / day | — | 200 | 200 |
-| Natural read-aloud / day | — (phone voice only) | 100 | 100 |
-| AI images / day | 3 | 10 | 15 |
-| Live talk | — | — | 60 min / UTC calendar month |
+| | Free | Pro |
+|---|---|---|
+| Models | free pool | all; Auto's everyday turns on the stronger model |
+| Chat messages / day | 10 | 1,000 |
+| Tokens / day (cost guardrail) | 400k | 15M |
+| Voice input / day | — | 200 |
+| Natural read-aloud / day | — (phone voice only) | 100 |
+| AI images / day | 3 | 15 |
+| Reference-photo lookups / day | 15 | 60 |
+| Web searches (Tavily) / day | 20 | 150 |
+| Image / document uploads / day | 5 / 10 | 30 / 100 |
+| Library storage | 400 MiB | 4 GiB |
+| Live talk | — | 60 min / UTC calendar month |
 
-Every number is a setting in `core/settings/plans.py` (`<NAME>`, `<NAME>_PLUS`,
-`<NAME>_PRO`; see `apps/api/.env.example`). A metered feature belongs to a plan
-when its number is above zero, so moving a feature between plans is a secret
-change, not a release. `modules/billing/entitlements.py` is the one place that
-decides; the server refuses (403) anything a plan lacks, whatever the app shows.
+Every number is a setting in `core/settings/plans.py` (`<NAME>` for Free,
+`<NAME>_PRO` for Pro; see `apps/api/.env.example`). A metered feature belongs to
+a plan when its number is above zero, so moving a feature between plans is a
+secret change, not a release. `modules/billing/entitlements.py` is the one place
+that decides; the server refuses (403) anything a plan lacks, whatever the app
+shows.
 
 **Prices are never in code.** Set them in App Store Connect and Play Console;
 the app shows the store's localized price from the RevenueCat offering.
@@ -313,31 +320,32 @@ the app shows the store's localized price from the RevenueCat offering.
 ### What to create (owner)
 
 1. **App Store Connect** — one subscription group (e.g. "Recall") holding two
-   auto-renewable monthly subscriptions, e.g. `recall_plus_monthly` ($7.99) and
-   `recall_pro_monthly` ($13.99). Rank Pro **above** Plus in the group (level 1),
-   so Plus → Pro is an immediate upgrade and Pro → Plus takes effect at renewal.
-   If a Pro product already exists, keep it as the Pro product in that group.
-2. **Play Console** — two subscriptions (e.g. `recall_plus`, `recall_pro`), each
-   with a monthly base plan. The app replaces the Plus subscription when someone
-   buys Pro (prorated, immediate), so nobody pays for both.
-3. **RevenueCat → Entitlements** — keep `pro` (the single-plan id; existing
-   subscribers stay on Pro with nothing lost) and add `plus`. Attach the Plus
-   products to `plus` and the Pro products to `pro` (attaching Pro to both is
-   fine; the server takes the higher plan).
-4. **RevenueCat → Offerings** — the current offering holds two packages with the
-   custom identifiers **`plus_monthly`** and **`pro_monthly`**. (An offering with
-   only the old monthly package is shown as Pro, so the switch can be staged.)
-5. **RevenueCat → Project settings** — keep restore behavior **Transfer to new
+   auto-renewable subscriptions to Pro: a monthly one (e.g. `recall_pro_monthly`)
+   and a yearly one (e.g. `recall_pro_yearly`), at the same level, so a switch
+   between them is a crossgrade. If a Pro product already exists, keep it as the
+   monthly one.
+2. **Play Console** — one subscription (e.g. `recall_pro`) with two base plans,
+   monthly and yearly.
+3. **Free trial** — a 3-day free trial as an introductory offer on both store
+   products: in App Store Connect, an introductory offer (free, 3 days) on each
+   subscription; in Play Console, an offer with a free-trial phase (3 days) on
+   each base plan, for new subscribers. The store handles eligibility; the trial
+   grants the entitlement like a purchase, so the server needs nothing for it.
+4. **RevenueCat → Entitlements** — one entitlement, `pro`. Attach both store
+   products (monthly and yearly, both stores) to it.
+5. **RevenueCat → Offerings** — the current offering holds the standard
+   **`$rc_monthly`** and **`$rc_annual`** packages, each with its store products.
+6. **RevenueCat → Project settings** — keep restore behavior **Transfer to new
    App User ID** (the default). Two accounts on one Apple ID: the account that
    restores gets the plan and the other drops to Free on the TRANSFER webhook.
-6. **Webhook** — unchanged URL and auth. The server re-reads the subscriber on
+7. **Webhook** — the URL and auth from §4. The server re-reads the subscriber on
    every event that can change access; BILLING_ISSUE (grace period),
    SUBSCRIPTION_PAUSED and auto-renew-off CANCELLATION keep access until
    EXPIRATION. The worker re-checks every paid row hourly
    (`BILLING_RECONCILE_INTERVAL_SECONDS`).
-7. **Deploy order** — migrate (`0107_plus_plan` only widens `ck_users_plan`;
-   no rows change), deploy the API, then ship the app build with the new
-   offering. An older app build still sees Pro correctly; it does not offer Plus.
+8. **Deploy order** — migrate (`0135_one_paid_plan` moves any `plus` row to
+   `pro` and narrows `ck_users_plan` to `free` and `pro`), deploy the API, then
+   ship the app build with the new offering.
 
 ### Live talk minutes
 
@@ -375,11 +383,12 @@ at the cheaper price, with words arriving per phrase (after each pause) rather t
 
 - [ ] Free: mic and live talk open the plans; read-aloud uses the phone voice;
       3 AI images, then the limit message
-- [ ] Buy Plus: voice input and read-aloud work, live talk opens the plans,
-      Settings shows Plus and "Upgrade to Pro"
-- [ ] Plus → Pro: one subscription in the store afterwards; live talk works and
-      Settings shows minutes left; a 2-minute call takes about 2 minutes
-- [ ] Pro → Plus (store downgrade): Pro until renewal, then Plus
+- [ ] Start the free trial (monthly): Pro at once, with no charge; voice input,
+      read-aloud and live talk work, and Settings shows minutes left; a 2-minute
+      call takes about 2 minutes
+- [ ] Buy yearly with a fresh sandbox account: Pro, and the trial is offered
+      only to an account that has not had one
+- [ ] Monthly → yearly: one subscription in the store afterwards; still Pro
 - [ ] Cancel, let it expire: back to Free on the next request
 - [ ] Refund (support): back to Free; restore on a second device; sign in as a
       second account on the same Apple ID and restore (TRANSFER)
@@ -457,12 +466,12 @@ permission. Changing any of it is a native change (bump `version`, new build).
 ### Store submission (owner)
 
 - [ ] **Subscriptions ship with the first build.** Submit both products from
-      [§4b](#4b-plans-and-revenuecat-free-plus-pro) (Plus and Pro) for review
-      together with the first app version (App Store Connect: add them on the
-      version page under In-App Purchases and Subscriptions; Play: activate both
-      base plans). A product that is not approved does not load.
+      [§4b](#4b-plans-and-revenuecat-free-and-pro) (Pro monthly and yearly, each
+      with its 3-day free trial) for review together with the first app version
+      (App Store Connect: add them on the version page under In-App Purchases and
+      Subscriptions; Play: activate both base plans and the trial offers). A product that is not approved does not load.
 - [ ] **RevenueCat offering first.** The current offering must hold the
-      `plus_monthly` and `pro_monthly` packages before review. Without them the
+      `$rc_monthly` and `$rc_annual` packages before review. Without them the
       plan sheet's buy buttons stay disabled (`features/billing/components/UpgradeSheet.tsx`),
       and a paywall that cannot buy is rejected.
 - [ ] **App Review notes:** sign in with Apple (or Google). The line under the
@@ -470,9 +479,9 @@ permission. Changing any of it is a native change (bump `version`, new build).
       Policy", with both links in it; the Privacy Policy describes the third-party
       AI processing of chats and voice. The server records that tap as the
       account's AI-data consent with the sign-in. Chat, memory, to-dos
-      and the maths scanner work on Free. Voice input and read-aloud need Plus
-      and Live Talk needs Pro: buy them with the sandbox account (no charge)
-      to test the microphone features.
+      and the maths scanner work on Free. Voice input, read-aloud and Live Talk
+      need Pro: start the free trial or buy it with the sandbox account (no
+      charge) to test the microphone features.
 - [ ] **After the first upload**, watch App Store Connect email for
       **ITMS-91053** (the binary uses a required-reason API that no privacy
       manifest declares). If it names an API category, add it with the right
@@ -689,8 +698,8 @@ index jobs at once than it has of them.
 | Link preview (`modules/link_preview/service.py`) | 8s per fetch, 3 open per user, 20/min | `fetch_safely` takes an overall deadline (DNS, every redirect hop, the body): a server dripping one byte per read used to hold a request open for minutes. A fourth uncached preview while three are open answers 429 + `Retry-After` (Redis sorted set; a crashed fetch ages out after 30s). |
 | `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), the idle ping included (`DB_IDLE_PING_SECONDS` below), so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
 | `DB_IDLE_PING_SECONDS` | `10` | A pooled Postgres connection idle this long is pinged on checkout: one simple `SELECT 1`, outside any transaction, so PgBouncer's transaction mode is fine with it. One used more recently is trusted, and one the server already closed (Neon suspend, a restart) is replaced without a round trip (`core/pool_liveness.py`). This replaced `pool_pre_ping`, which pinged on every checkout with three round trips (BEGIN, `;`, ROLLBACK: about 36 ms to Neon) before each session's first query. A connection that died within the window and that asyncpg has not yet seen close fails its first statement, and the pool recycles every older connection. A chat turn's reads, the save of its message and the save of its reply then run once more on a new connection (`pool_liveness.run_unit`, only when none of their statements had succeeded, so nothing is written twice). Any other request answers `503` + `Retry-After`, which the phone does not retry by itself: the user sees the error and tries again. `0` pings every checkout again. |
-| `LIBRARY_STORAGE_BYTES` / `_PLUS` / `_PRO` | 400 MiB / 1 GiB / 4 GiB | Bytes one account keeps in its Library (the sum of its attachment rows: uploads, resend copies, generated pictures, reference photos), checked at presign. Over it: 409 `storage_full`; the user deletes files to make room. Generated pictures and reference photos count toward it but are not refused by it. |
-| `DAILY_DOCUMENT_LIMIT` / `_PLUS` / `_PRO` | `10` / `50` / `100` | Document (PDF, Word, text) uploads per user per UTC day, reserved at presign like images (`DAILY_IMAGE_LIMIT*`). Each is read and parsed on the API machine; a turn reads its files two at a time and drops a document's bytes once its excerpt is taken. |
+| `LIBRARY_STORAGE_BYTES` / `_PRO` | 400 MiB / 4 GiB | Bytes one account keeps in its Library (the sum of its attachment rows: uploads, resend copies, generated pictures, reference photos), checked at presign. Over it: 409 `storage_full`; the user deletes files to make room. Generated pictures and reference photos count toward it but are not refused by it. |
+| `DAILY_DOCUMENT_LIMIT` / `_PRO` | `10` / `100` | Document (PDF, Word, text) uploads per user per UTC day, reserved at presign like images (`DAILY_IMAGE_LIMIT*`). Each is read and parsed on the API machine; a turn reads its files two at a time and drops a document's bytes once its excerpt is taken. |
 | `CHAT_HISTORY_RAG_SEARCH_WINDOW` / `ATTACHMENT_RAG_SEARCH_WINDOW` | `2000` / `2000` | Chunks one recall search ranks: the user's (or the chat's) newest. Exact distances over a bounded set; older chunks stay with their chat. |
 | `ANALYTICS_EVENT_RETENTION_DAYS` | `90` | Product events older than this are counted into `product_event_daily` and deleted by an hourly worker cycle (`ANALYTICS_RETENTION_DELETE_BATCH` 5,000 rows a statement, `ANALYTICS_RETENTION_MAX_DELETES_PER_CYCLE` 200,000 a run). `0` keeps them. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. Any other failure retries later (15 s, 1 min, 4 min, 16 min, 30 min, ±20%) and goes to the DLQ after the sixth attempt. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |

@@ -66,23 +66,9 @@ async def test_billing_cycle_downgrades_pro_user_without_entitlement():
 
 
 @pytest.mark.asyncio
-async def test_billing_cycle_checks_plus_rows_too():
-    """A lost EXPIRATION on the lower paid plan must lapse it like Pro."""
-    plus_id, pro_id = uuid4(), uuid4()
-    resolve, apply = await _run(
-        {"plus": [plus_id], "pro": [pro_id]},
-        {str(plus_id): "free", str(pro_id): "plus"},
-    )
-
-    assert resolve.await_count == 2
-    applied = {call.args[1]: call.kwargs["plan"] for call in apply.await_args_list}
-    assert applied == {str(plus_id): "free", str(pro_id): "plus"}
-
-
-@pytest.mark.asyncio
 async def test_billing_cycle_leaves_matching_plans_alone():
-    plus_id = uuid4()
-    _resolve, apply = await _run({"plus": [plus_id]}, {str(plus_id): "plus"})
+    pro_id = uuid4()
+    _resolve, apply = await _run({"pro": [pro_id]}, {str(pro_id): "pro"})
     apply.assert_not_awaited()
 
 

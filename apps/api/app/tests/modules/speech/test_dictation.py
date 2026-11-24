@@ -42,7 +42,7 @@ _SETTINGS = Settings(
 
 @dataclass
 class Dictation:
-    """A Plus user's client over the real routes; OpenAI is recorded fakes."""
+    """A Pro user's client over the real routes; OpenAI is recorded fakes."""
 
     client: TestClient
     redis: Any
@@ -122,7 +122,7 @@ def _harness(plan: str, settings: Settings) -> Iterator[Dictation]:
 
 @pytest.fixture
 def dic() -> Iterator[Dictation]:
-    yield from _harness("plus", _SETTINGS)
+    yield from _harness("pro", _SETTINGS)
 
 
 # ── Mint ───────────────────────────────────────────────────────────────────
@@ -191,7 +191,7 @@ def test_free_has_no_voice_input_and_opens_the_plans():
 def test_a_server_without_live_dictation_sends_the_phone_to_the_recorded_path(
     settings, status, code
 ):
-    for state in _harness("plus", settings):
+    for state in _harness("pro", settings):
         r = state.start()
         assert r.status_code == status
         assert r.json()["detail"]["code"] == code

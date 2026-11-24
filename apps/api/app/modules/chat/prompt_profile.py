@@ -10,6 +10,7 @@ import re
 
 from app.models.orm import User
 from app.modules import web_search
+from app.modules.billing import plan_of
 from app.modules.chat.turn_prep.saved_place import profile_place
 from app.modules.turn_reading.writing_kind import is_email_or_message_request
 from app.services import prompt_safety
@@ -71,10 +72,7 @@ def format_user_profile_block(
         lines.append(f"- Name: {user.name.strip()}")
     if include_email and user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
-    plan = (user.plan or "free").strip().lower()
-    if plan not in {"free", "pro"}:
-        plan = "free"
-    lines.append(f"- Plan: {plan}")
+    lines.append(f"- Plan: {plan_of(user)}")
     if user.age is not None:
         lines.append(f"- Age: {user.age}")
     if user.country and user.country.strip():
