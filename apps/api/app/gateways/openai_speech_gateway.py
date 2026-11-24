@@ -56,8 +56,7 @@ _REALTIME_TRANSCRIBE_MODELS = _STREAMING_TRANSCRIBERS | {
 # A dictation's secret only opens its one call, right after the mint.
 _DICTATION_SECRET_SECONDS = 60
 _DICTATION_PROMPT = (
-    "Transcribe only words actually spoken by the user. "
-    "Do not invent speech from silence or background noise."
+    "Transcribe only the words the user says; never make up words for silence or background noise."
 )
 # Language codes OpenAI's realtime transcription refused (it takes no ``am``): later
 # dictations in them name the language in the prompt instead of a doomed first mint.
