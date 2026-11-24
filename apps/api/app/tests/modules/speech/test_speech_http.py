@@ -624,7 +624,11 @@ def test_speech_tts_disabled():
 
 @pytest.mark.parametrize(
     "path, provider, prefix, status_code",
-    [("/speech/transcribe", "transcribe_audio", "speech", 502)],
+    [
+        ("/speech/transcribe", "transcribe_audio", "speech", 502),
+        # Read-aloud's tokens go back to the day they were charged to.
+        ("/speech/tts", "synthesize_speech", "usage", 502),
+    ],
 )
 def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix, status_code):
     """A clip reserved before UTC midnight that fails after it refunds the first day."""

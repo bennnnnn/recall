@@ -151,15 +151,21 @@ async def charge_tts_tokens(
     them back if the request fails before the provider is asked."""
     wanted = tts_tokens(text)
     owner = str(user.id)
+    # The day charged, so a refund after UTC midnight gives back to it, not the new day.
+    day = counters.utc_today()
     granted = await quota_service.reserve_usage_up_to(
-        redis, owner, wanted, daily_limit=quota_service.daily_limit_for_user(user, settings)
+        redis,
+        owner,
+        wanted,
+        daily_limit=quota_service.daily_limit_for_user(user, settings),
+        day=day,
     )
     if granted < wanted:
-        await quota_service.refund_usage(redis, owner, granted)
+        await quota_service.refund_usage(redis, owner, granted, day=day)
         raise SpeechRefusedError(
             SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             code="daily_limit",
             feature="speech_tts",
         )
-    return RefundOnFailure(lambda: quota_service.refund_usage(redis, owner, granted))
+    return RefundOnFailure(lambda: quota_service.refund_usage(redis, owner, granted, day=day))

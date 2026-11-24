@@ -202,3 +202,36 @@ async def test_a_redis_refusal_at_the_presign_lock_is_the_outage(fake_redis) -> 
     ):
         async with storage_quota.library_presign(fake_redis, uuid4()):
             pass
+
+
+@pytest.mark.parametrize(
+    ("plan", "content_type", "prefix", "left"),
+    [
+        # Free's upload took no slot: its failure lowers nothing a Pro day counted.
+        ("free", "application/pdf", "docup", "5"),
+        ("free", "image/png", "imgup", "5"),
+        # Pro's document took one, given back when the presign fails.
+        ("pro", "application/pdf", "docup", "5"),
+    ],
+)
+async def test_a_failed_presign_gives_back_only_a_slot_it_took(
+    plan: str, content_type: str, prefix: str, left: str
+) -> None:
+    from app.services.quota import counters
+
+    user = make_user(plan=plan)
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    key = counters.daily_key(prefix, user.id)
+    await redis.set(key, 5, ex=600)
+    gateway = MagicMock()
+    gateway.presign_upload = AsyncMock(side_effect=RuntimeError("storage down"))
+    with (
+        patch.object(storage_quota, "stored_bytes", AsyncMock(return_value=0)),
+        patch.object(attachment_upload, "get_storage_gateway", return_value=gateway),
+        patch.object(attachment_upload, "get_redis_client", return_value=redis),
+        pytest.raises(RuntimeError),
+    ):
+        await attachment_upload.create_presigned_upload(
+            fake_session(), Settings(), user=user, content_type=content_type, size_bytes=10
+        )
+    assert await redis.get(key) == left

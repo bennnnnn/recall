@@ -62,11 +62,16 @@ def _as_day(raw: object) -> date | None:
         return None
 
 
+def may_need_ocr(content_type: str, settings: Settings) -> bool:
+    """A file of this type may be read with vision OCR by its index job."""
+    return content_type == _OCR_CONTENT_TYPE and settings.attachment_ocr_enabled
+
+
 async def reserve_ocr(
     settings: Settings, user_id: UUID, content_type: str, attachment_id: UUID
 ) -> date | None:
     """The UTC day this file's slot came from, or None: OCR is off, not a PDF, or at the cap."""
-    if content_type != _OCR_CONTENT_TYPE or not settings.attachment_ocr_enabled:
+    if not may_need_ocr(content_type, settings):
         return None
     redis = get_redis_client()
     held = _as_day(await redis.get(_slot_key(attachment_id)))

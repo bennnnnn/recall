@@ -169,6 +169,18 @@ class TurnTavilyBudget:
             return self._skip_tavily
 
 
+def turn_search_budget(
+    settings: Settings, user: User | None, *, keep_message: Callable[[], None]
+) -> TurnTavilyBudget:
+    """A chat turn's one search budget, made before its prep so the money card's rate
+    lookup, the read's search and the reply's own calls share it
+    (``StreamContext.search_budget``). On a plan whose searches follow its messages the
+    message covers the search: once one reaches a provider ``keep_message`` keeps it
+    spent, even when the user stops the turn or the socket drops before any reply. Given
+    back, a Free user could search without end."""
+    return TurnTavilyBudget(settings=settings, user=user, on_provider_call=keep_message)
+
+
 async def run_cached_search(
     settings: Settings,
     queries: list[str],

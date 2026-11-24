@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import logging
 import math
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date
@@ -21,14 +21,14 @@ from app.exceptions import (
     SpendCapReachedError,
 )
 from app.models import model_catalog
-from app.models.orm import User
+from app.models.orm import Attachment, User
+from app.modules.attachments import service as attachments_service
 from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_timing import TurnTimingTracker
-from app.modules.web_search import TurnTavilyBudget
-from app.services.quota import CHAT_SPEND_CAP_MESSAGE, quota_exceeded_message
+from app.services.quota import CHAT_SPEND_CAP_MESSAGE, counters, quota_exceeded_message
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,9 @@ class TurnResources:
     lock_token: str
     reserved_tokens: int = 0
     message_day: date | None = None
+    # The turn's context once it has one (``top_up_reserve_for_prompt``): a kept message
+    # is cleared from both, so no refund path gives it back.
+    context: StreamContext | None = None
     _refunded: bool = False
 
     async def reserve(
@@ -101,6 +104,13 @@ class TurnResources:
             name="turn_quota_refund",
         )
         await asyncio.shield(refunding)
+
+    def keep_message(self) -> None:
+        """What the message pays for has started (a search reached a provider, a scanned
+        PDF was queued for OCR): it stays spent even when no reply is saved."""
+        self.message_day = None
+        if self.context is not None:
+            self.context.message_day = None
 
     def mark_settled(self) -> None:
         """The turn's finalize now settles the reservation (actual usage, or its
@@ -249,19 +259,17 @@ def prompt_weighted_reserve_tokens(
     return math.ceil(base * model_catalog.quota_multiplier(model))
 
 
-def share_turn_search(res: TurnResources, ctx: StreamContext, settings: Settings) -> None:
-    """The turn's one search budget (``StreamContext.search_budget``). On a plan whose
-    searches follow its messages, the message covers the search: once one reaches a
-    provider the turn keeps its message, even when the user stops it or the socket drops
-    before any reply. Given back, a Free user could search without end."""
-
-    def keep_message() -> None:
-        res.message_day = None
-        ctx.message_day = None
-
-    ctx.search_budget = TurnTavilyBudget(
-        settings=settings, user=ctx.user, on_provider_call=keep_message
-    )
+def keep_message_for_scans(
+    res: TurnResources, rows: Sequence[Attachment], user: User, settings: Settings
+) -> None:
+    """A PDF this turn sends is queued for indexing as soon as the user's row saves, and
+    may be read with vision OCR. On a plan whose scanned documents follow its messages
+    that OCR is the message's, so the turn keeps its message from here: stopped before
+    any reply, it gave the message back while the OCR still ran, without end."""
+    if any(attachments_service.may_need_ocr(row.content_type, settings) for row in rows) and (
+        counters.follows_messages("document_ocr", user, settings)
+    ):
+        res.keep_message()
 
 
 async def top_up_reserve_for_prompt(
@@ -275,10 +283,10 @@ async def top_up_reserve_for_prompt(
 
     Never refuses: the turn already holds a reservation and its context work
     is done. Finalize settles to actual usage and clips the counter at the limit.
-    The turn also learns the day its chat message was counted on, for a refund, and
-    gets its one search budget (``share_turn_search``).
+    The turn also learns the day its chat message was counted on, for a refund (none
+    when it was kept), and the reservation learns the turn (``keep_message``).
     """
-    share_turn_search(res, ctx, settings)
+    res.context = ctx
     ctx.message_day = res.message_day
     messages = ctx.prompt_messages
     if res.reserved_tokens <= 0 or not isinstance(messages, list):

@@ -779,7 +779,8 @@ takes one of the owner's daily scanned-document slots
 (`DAILY_SCANNED_DOCUMENT_LIMIT*`, Pro 100). Every file the job reads counts, a
 Library resend's copy included (the copy is read again and never passes the
 presign's document count). Free's follow its messages: the PDF's own message
-covers it. At the cap the file stays attached but is not searchable that day; a
+covers it, so a turn that sends a PDF keeps its message even when stopped before the
+reply. At the cap the file stays attached but is not searchable that day; a
 PDF read from its text layer gets the slot back.
 
 ---

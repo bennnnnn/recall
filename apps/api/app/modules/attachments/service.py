@@ -22,6 +22,7 @@ from app.models.orm import Attachment
 from app.modules.attachments import account_repository as _account_rows
 from app.modules.attachments import jobs as _jobs
 from app.modules.attachments import lifecycle as _lifecycle
+from app.modules.attachments import ocr_allowance as _ocr_allowance
 from app.modules.attachments import rag as _rag
 from app.modules.attachments import repository as _repo
 from app.modules.attachments.content_types import bytes_match_claimed as bytes_match_claimed
@@ -166,6 +167,11 @@ async def list_for_user(
 async def chat_has_document_chunks(user_id: UUID, chat_id: UUID) -> bool:
     """Whether this chat has searchable document text."""
     return await _rag.chat_has_document_chunks(user_id, chat_id)
+
+
+def may_need_ocr(content_type: str, settings: Settings) -> bool:
+    """A file of this type may be read with vision OCR once queued (``ocr_allowance``)."""
+    return _ocr_allowance.may_need_ocr(content_type, settings)
 
 
 async def enqueue_index_jobs(

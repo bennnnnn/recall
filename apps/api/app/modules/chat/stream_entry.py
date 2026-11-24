@@ -60,6 +60,7 @@ from app.modules.chat.turn_prep import (
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.modules.chat.turn_resources import (
     TurnResources,
+    keep_message_for_scans,
     top_up_reserve_for_prompt,
     turn_resources,
     wrap_stream_status,
@@ -67,6 +68,7 @@ from app.modules.chat.turn_resources import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
 from app.modules.images.reply_picture import ReplyPicture
+from app.modules.web_search import turn_search_budget
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +250,8 @@ async def stream_chat_response(
         rows = await _reserve_new_turn(
             deps, res, settings, turn, content=content, attachment_ids=attachment_ids
         )
+        keep_message_for_scans(res, rows or [], turn.user, settings)
+        budget = turn_search_budget(settings, turn.user, keep_message=res.keep_message)
         ctx = await prepare_chat_turn(
             user_id=user_id,
             chat_id=chat_id,
@@ -273,7 +277,9 @@ async def stream_chat_response(
             on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
             unhealthy=turn.unhealthy,
             half_open=turn.half_open,
+            search_budget=budget,
         )
+        ctx.search_budget = budget
         _attach_reads(ctx, settings, live_read, misses)
         try:
             ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, content, live_read)
@@ -387,6 +393,7 @@ async def stream_regenerate_response(
             max_output=settings.max_output_tokens,
             vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
         )
+        budget = turn_search_budget(settings, turn.user, keep_message=res.keep_message)
         request = TurnRequest(
             user_id=user_id,
             chat_id=chat_id,
@@ -406,6 +413,7 @@ async def stream_regenerate_response(
             recent_messages=turn.recent,
             prior_count=turn.prior_count,
             unhealthy_models=turn.unhealthy,
+            search_budget=budget,
         )
         bundle = await build_stream_prompt_context(request, settings, redis)
         if current_image_ids:
@@ -433,6 +441,7 @@ async def stream_regenerate_response(
             # Regenerating says the answer was not good enough: one level more.
             thinking=thinking_level(turn.content, regenerate=True, settings=settings),
         )
+        ctx.search_budget = budget
         _attach_reads(ctx, settings, live_read, misses)
         await top_up_reserve_for_prompt(
             res,
