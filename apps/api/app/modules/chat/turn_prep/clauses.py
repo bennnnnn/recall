@@ -6,7 +6,11 @@ only when what follows is a request of its own:
 - strong: "…, and also …", "… Also, …", "btw", "one more thing", "I also want …";
 - sentence: a new sentence after "?", "!", "." or a line break;
 - comma: ", and how …", ", and tell me …", "; …";
-- and: "… and tell me a joke".
+- and: "… and tell me a joke";
+- list: a comma before a task, after a piece that opens with one ("solve x² = 4 and graph
+  it, draw the structure of aspirin"; "When teaching me, explain …" is not one). The plan
+  keeps it only before or after a reminder or a setting, or between two solves of different
+  subjects: "Draw me a cat, add a hat" is one picture.
 
 A clause that points back ("and when to use each", "and graph it", "which is
 faster") stays with the one before it, and so does one that names nothing of its
@@ -33,10 +37,12 @@ class Cut(IntEnum):
     """How a clause was cut from the one before it, weakest first."""
 
     START = 0
-    AND = 1
-    COMMA = 2
-    SENTENCE = 3
-    STRONG = 4
+    # A comma between two tasks: it stands only where the plan says (``intents._keeps_cut``).
+    LIST = 1
+    AND = 2
+    COMMA = 3
+    SENTENCE = 4
+    STRONG = 5
 
 
 @dataclass(frozen=True)
@@ -89,7 +95,13 @@ _CUTS = re.compile(
     rf"|(?P<list>, (?=(?:{_TASK})\b))",
     re.IGNORECASE,
 )
-_CUT_KIND = {"strong": 4, "sentence": 3, "comma": 2, "list": 2, "and": 1}
+_CUT_KIND = {
+    "strong": Cut.STRONG,
+    "sentence": Cut.SENTENCE,
+    "comma": Cut.COMMA,
+    "and": Cut.AND,
+    "list": Cut.LIST,
+}
 # A task that opens a piece, "it" after it included ("graph it"): a comma between two of them
 # is a list of tasks ("solve x² = 4 and graph it, draw the structure of aspirin").
 _TASK_OPEN = re.compile(rf"^(?:{_TASK})\b", re.IGNORECASE)
@@ -250,7 +262,7 @@ def _segments(line: str, first_cut: Cut) -> list[tuple[str, Cut]]:
             continue
         pieces.append((line[start : match.start()], cut))
         start = match.end()
-        cut = Cut(_CUT_KIND[match.lastgroup or "and"])
+        cut = _CUT_KIND[match.lastgroup or "and"]
     pieces.append((line[start:], cut))
     out: list[tuple[str, Cut]] = []
     for text, how in pieces:

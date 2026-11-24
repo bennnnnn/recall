@@ -107,8 +107,12 @@ async def test_an_easy_solve_beside_a_reminder_answers_without_thinking() -> Non
 
 
 async def test_the_text_reads_effort_stands_when_it_gives_no_odds() -> None:
-    ctx = await _decided(MATHS_AND_REMINDER, _read("code", think=False))
-    assert (ctx.model, ctx.thinking) == (ROUTING.math, "off")
+    """The text read gives no odds: its own effort ("high") stands, and the problem thinks."""
+    read = TurnDecision.model_validate(
+        {"live": False, "subject": "code", "think": True, "hard": True}
+    )
+    ctx = await _decided(MATHS_AND_REMINDER, read)
+    assert (ctx.model, ctx.thinking) == (ROUTING.math, "hard")
 
 
 @pytest.mark.parametrize(
@@ -184,6 +188,9 @@ def test_the_owners_message_plans_its_chemistry_as_a_part_of_its_own() -> None:
         "to solve a short exercise before moving on.",
         # One subject's solves stay one request.
         "Calculate the molar mass of water, draw the structure of ethanol",
+        # A comma before a task that refines the one before it (review).
+        "Draw me a cat, add a hat",
+        "Can you help me with my essay, write an intro about climate change",
         "If x = 2, find y when y = 3x + 1",
     ],
 )

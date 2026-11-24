@@ -53,6 +53,8 @@ _MIN_OWN_TOPICS = 2
 # Requests whose path decides them alone: what follows one is not a follow-up to it.
 _OWNED_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder", "solve"})
 _PLAN_CACHE = 256
+# The requests a comma alone sets apart from a task beside them (``Cut.LIST``).
+_LIST_KINDS: frozenset[PartKind] = frozenset({"reminder", "settings"})
 # An alarm is asked as a reminder; "remind me …" is the to-do reader's to tell apart:
 # "remind me what the yellow fever thing was" asks to be told again, and was planned as a
 # reminder, answered "I can't save one without a date and time" (2026-11-06).
@@ -144,6 +146,10 @@ def _keeps_cut(
         return False
     if _other_subjects(clause, kind, last, last_kind, chemistry_enabled=chemistry_enabled):
         return True
+    if clause.cut == Cut.LIST:
+        # A comma between tasks most often refines the one before ("Draw me a cat, add a
+        # hat"): it stands only beside a request a path of its own carries out.
+        return bool({kind, last_kind} & _LIST_KINDS)
     if kind != last_kind and (kind != "ask" or last_kind in _OWNED_KINDS):
         return True
     if clause.cut == Cut.AND:
