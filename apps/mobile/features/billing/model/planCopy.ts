@@ -2,7 +2,6 @@
  * What the plans page says about the plan: what it gives, and what is paid today and next
  * (the store owns the prices). Nothing here invents a number.
  */
-import type { TimelineRow } from "@/features/billing/components/PlanPicker";
 import { nextChargeDate } from "@/features/billing/model/planDates";
 import type { BillingPeriod, FreeTrial } from "@/features/billing/model/purchases";
 import { formatDate } from "@/lib/datetime/format";
@@ -28,8 +27,13 @@ export function planBenefits(t: Translate): string[] {
 }
 
 /** " / month" or " / year", after a price. */
-export function perPeriodKey(period: BillingPeriod): string {
+function perPeriodKey(period: BillingPeriod): string {
   return period === "yearly" ? "upgrade.per_year_suffix" : "upgrade.per_month_suffix";
+}
+
+/** "$7.99 / month": a package's price with its period, as the button and the reminder say it. */
+export function priceWithPeriod(pkg: { priceString: string; period: BillingPeriod }, t: Translate): string {
+  return `${pkg.priceString}${t(perPeriodKey(pkg.period))}`;
 }
 
 /** How much less a year costs than twelve months, in whole percent (rounded down, so the
@@ -38,7 +42,9 @@ export function yearlySaving(packages: Partial<Record<BillingPeriod, { price: nu
   const monthly = packages.monthly?.price;
   const yearly = packages.yearly?.price;
   if (!monthly || !yearly || !(monthly > 0)) return null;
-  const percent = Math.floor((1 - yearly / (12 * monthly)) * 100);
+  // Rounded to a ten-thousandth first: 1 − 0.8 is 0.19999… in floating point, and a floor
+  // alone would call an exact 20% "19%".
+  const percent = Math.floor(Math.round((1 - yearly / (12 * monthly)) * 1e6) / 1e4);
   return percent >= 1 ? percent : null;
 }
 
@@ -57,6 +63,9 @@ export function perMonthLine(pkg: { period: BillingPeriod; pricePerMonth?: strin
 function trialText(trial: FreeTrial, t: Translate): string {
   return t(`upgrade.trial_${trial.unit}`, { count: trial.count });
 }
+
+/** One row of the page's dates: what is paid, and when ("Due today", "$0.00", "3 days free"). */
+export type TimelineRow = { label: string; amount: string; chip?: string };
 
 /** What is paid today and on the next payment's day; none until the store says a price. */
 export function timelineRows(

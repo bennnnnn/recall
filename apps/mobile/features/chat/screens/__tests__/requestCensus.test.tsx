@@ -313,7 +313,6 @@ function serverBody(method: string, path: string, body?: string): unknown {
     };
   }
   if (p === "/models") return [{ id: "free-chat", label: "Free", available: true, plan_access: "free" }];
-  if (p === "/billing/plans") return { current: "free", plans: [{ id: "pro", features: [], allowances: {} }] };
   if (p === "/todos/page") return { items: [], next_cursor: null };
   if (p === "/chats/usage/today") return { date: "2026-10-24", tokens_used: 0, daily_limit: 100000 };
   if (p === "/chats" && method === "POST") {
@@ -698,8 +697,8 @@ const REVISITED = ["memory", "security"];
 /** The most requests and sockets each step may send. */
 const CEILINGS: Record<string, number> = {
   // /auth/me, the day's usage (free plan), to-dos, models, the check, the push token, the drawer;
-  // a free account's first open of the day offers the plans: their list and its paywall_viewed.
-  "cold start after sign-in": 9,
+  // a free account's first open of the day offers the plans: its paywall_viewed.
+  "cold start after sign-in": 8,
   // The newest page, each file's status (three). Reading a chat opens no socket: a send does
   // (2026-11-08 feature test: a socket per chat opened or switched to, 49 in 48 turns).
   "open chat 1": 4,
@@ -1158,7 +1157,7 @@ function expectWithin(ceilings: Record<string, number>): void {
  * not come back in step.
  */
 const OUTAGE_CEILINGS: Record<string, number> = {
-  "cold start after sign-in": 9,
+  "cold start after sign-in": 8,
   "open chat 1": 4,
   // Reading the chat opened no socket, and nothing connects until the user types.
   "a deploy with the chat open, down 30 s, then a minute": 0,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { perPeriodKey } from "@/features/billing/components/planCopy";
+import { priceWithPeriod } from "@/features/billing/model/planCopy";
 import { nextChargeDate } from "@/features/billing/model/planDates";
 import {
   isPurchaseCancelled,
@@ -76,8 +76,7 @@ export function usePlanPurchase({ token, pending, syncSubscription, onClose, t }
     trackProductEvent("purchase_succeeded", { plan });
     // The page promised a reminder a day before the trial ends: set it as the trial starts.
     if (pkg.trial) {
-      const price = `${pkg.priceString}${t(perPeriodKey(pkg.period))}`;
-      await remindBeforeTrialEnds(nextChargeDate(pkg.trial, pkg.period, new Date()), price);
+      await remindBeforeTrialEnds(nextChargeDate(pkg.trial, pkg.period, new Date()), priceWithPeriod(pkg, t));
     }
     await syncAfterStore();
     setBusy(null);

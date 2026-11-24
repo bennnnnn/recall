@@ -33,11 +33,6 @@ jest.mock("@/ui/overlay/FullScreenModal", () => {
       visible ? <RNView>{children}</RNView> : null,
   };
 });
-// One object, as the provider keeps it.
-const mockAccountSession = { account: "user-1:0", getToken: () => "tok" };
-jest.mock("@/contexts/accountSession", () => ({
-  useAccountSession: () => mockAccountSession,
-}));
 jest.mock("@/features/billing/hooks/useSubscriptionActions", () => ({
   useSubscriptionActions: () => ({
     token: "tok",

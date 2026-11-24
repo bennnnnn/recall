@@ -8,12 +8,12 @@ import { PlanCard, PlansSmallPrint, PlanTimeline } from "@/features/billing/comp
 import { heroHeight, PlansHero } from "@/features/billing/components/PlansHero";
 import {
   perMonthLine,
-  perPeriodKey,
   planBenefits,
+  priceWithPeriod,
   startTrialText,
   timelineRows,
   yearlySaving,
-} from "@/features/billing/components/planCopy";
+} from "@/features/billing/model/planCopy";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 import { Button } from "@/ui/controls/Button";
 import { IconButton } from "@/ui/controls/IconButton";
@@ -328,7 +328,7 @@ function BuyButton({
   t: Translate;
 }) {
   const name = t(planNameKey(plan));
-  const price = pkg ? `${pkg.priceString}${t(perPeriodKey(pkg.period))}` : undefined;
+  const price = pkg ? priceWithPeriod(pkg, t) : undefined;
   if (!purchasesReady) {
     return __DEV__ ? (
       <Button title={t("upgrade.dev_enable_plan", { plan: name })} onPress={onDevEnable} size="lg" style={BUY_STYLE} />

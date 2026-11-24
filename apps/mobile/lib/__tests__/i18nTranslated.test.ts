@@ -27,7 +27,7 @@ const EN = en as Bundle;
 const KEPT_EVERYWHERE = new Set([
   "app.name", // the product
   "plans.pro", // the plan's name, as the stores show it
-  "upgrade.plan_title", // "Recall Plus": the product and the plan's name
+  "upgrade.plan_title", // "Recall Pro": the product and the plan's name
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
   "share.attachment_pdf",
   "common.ok",

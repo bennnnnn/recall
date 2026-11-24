@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
+import type { TimelineRow } from "@/features/billing/model/planCopy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
@@ -34,7 +35,6 @@ export function PlanCard({ title, features }: { title: string; features: readonl
   );
 }
 
-export type TimelineRow = { label: string; amount: string; chip?: string };
 
 /** What is paid when: today (nothing, in a free trial) and the next payment's day. */
 export function PlanTimeline({ rows }: { rows: readonly [TimelineRow, TimelineRow] }) {
