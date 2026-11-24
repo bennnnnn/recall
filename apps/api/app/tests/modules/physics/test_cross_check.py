@@ -43,9 +43,11 @@ def _setup(*asked: dict[str, Any]) -> FormalProblem:
     return FormalProblem.model_validate({"equations": ["x = 1"], "asked": list(asked)})
 
 
-def _server(value: float, unit: str, *, symbol: str = "x", band: float = 0.0) -> dict[str, Any]:
+def _server(
+    value: float, unit: str, *, symbol: str = "x", part: str = "", band: float = 0.0
+) -> dict[str, Any]:
     return {
-        "part": "",
+        "part": part,
         "symbol": symbol,
         "value": value,
         "unit": unit,
@@ -56,6 +58,14 @@ def _server(value: float, unit: str, *, symbol: str = "x", band: float = 0.0) ->
 
 
 def _asks(setup: FormalProblem, *server: dict[str, Any]) -> list[cc.ReadAsk]:
+    """The reading of ``setup``; with no server values given, the server solved each ask to
+    the setup's own answer (a case about units, signs and kinds, not about who solved it)."""
+    if not server:
+        server = tuple(
+            _server(asked.answer, asked.unit, symbol=asked.symbol, part=asked.part)
+            for asked in setup.asked
+            if asked.answer is not None
+        )
     return cc.reading_asks(setup, {"solved": bool(server), "answers": list(server)})
 
 
@@ -108,6 +118,52 @@ def test_verdict_holds_the_solver_to_the_reading(
     assert cc.verdict(answers, asks) == found
 
 
+# The owner's cliff throw (2026-11-23): the solver's 4.82 s and 98.81 m are right.
+CLIFF_ANSWERS = [(4.82488, "s"), (98.8078, "m")]
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {"solved": False, "answers": [], "error": "no setup"},
+        {"solved": False, "answers": [], "error": "no real solution"},
+    ],
+)
+def test_a_reading_the_server_could_not_solve_never_drops_a_check(result: dict[str, Any]) -> None:
+    # The reading model's own arithmetic (4.22 s, 86.4 m) is no reading to hold it to.
+    setup = _setup(_ask(4.22, "s", symbol="t"), _ask(86.4, "m", symbol="d"))
+    assert cc.reading_asks(setup, result) == []
+    assert cc.verdict(CLIFF_ANSWERS, cc.reading_asks(setup, result)) == "unread"
+
+
+def test_an_ask_the_server_left_unsolved_is_left_out() -> None:
+    # The server solved the time (4.828 s, g as 9.8 to 9.81) but not the distance; the model's
+    # 86.4 m alone holds nothing, and the time agrees.
+    setup = _setup(_ask(4.22, "s", symbol="t"), _ask(86.4, "m", symbol="d"))
+    asks = cc.reading_asks(setup, {"solved": True, "answers": [_server(4.828, "s", symbol="t")]})
+    assert [ask.unit for ask in asks] == ["s"]
+    assert cc.verdict(CLIFF_ANSWERS, asks) == "agree"
+
+
+def test_a_partial_solve_never_drops_the_kind_it_left_unsolved() -> None:
+    # The server solved the distance but not the time; the card shows only the time.
+    setup = _setup(_ask(4.22, "s", symbol="t"), _ask(98.8, "m", symbol="d"))
+    result = {"solved": True, "answers": [_server(98.8, "m", symbol="d")]}
+    asks = cc.reading_asks(setup, result)
+    unsolved = cc.unsolved_units(setup, result)
+    assert unsolved == ["s"]
+    assert cc.verdict([(4.82488, "s")], asks, unsolved=unsolved) == "unread"
+    # A reading that asked only another kind still read another question.
+    assert cc.verdict([(20.0, "J")], asks, unsolved=unsolved) == "disagree"
+
+
+async def test_an_unsolved_reading_leaves_the_check_standing() -> None:
+    block = _block(SPEED_UP)
+    reading = FormalReading(_setup(_ask(60, "m")), {"solved": False, "answers": []})
+    with patch("app.modules.physics.formal_read.formal_reading", AsyncMock(return_value=reading)):
+        assert await cc.cross_check(block, SPEED_UP, _SETTINGS) == "unread"
+
+
 def _block(question: str) -> VerifiedPhysicsBlock:
     outcome, block, _why = solve_or_say_why(question, _SETTINGS, None)
     assert outcome == "verified" and isinstance(block, VerifiedPhysicsBlock), outcome
@@ -150,6 +206,48 @@ async def test_no_reading_in_time_leaves_the_check_standing(failure: str) -> Non
     settings = _SETTINGS.model_copy(update={"formal_wait_seconds": 0.05})
     with patch("app.modules.physics.formal_read.formal_reading", read):
         assert await cc.cross_check(block, SPEED_UP, settings) == "unread"
+
+
+_FIRST, _SECOND = "smart-chat", "free-chat"
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "found", "second_asked"),
+    [
+        # The first reading decides when the server solved it; no second read.
+        ("agree", "disagree", "agree", False),
+        ("disagree", "agree", "disagree", False),
+        # Unsolved, its own arithmetic agreeing: nothing to doubt, the check stands unread.
+        ("unsolved-agree", "disagree", "unread", False),
+        # Unsolved, its own arithmetic against it: a doubt, so the second reader is asked,
+        # and only a solved second reading decides (the 175 m for 125 m solve is caught).
+        ("unsolved-disagree", "disagree", "disagree", True),
+        ("unsolved-disagree", "agree", "agree", True),
+        ("unsolved-disagree", "unsolved-disagree", "unread", True),
+        ("unsolved-disagree", "none", "unread", True),
+        ("none", "disagree", "unread", False),
+    ],
+)
+async def test_a_second_reader_only_on_a_doubt(
+    first: str, second: str, found: str, second_asked: bool
+) -> None:
+    block = _block(SPEED_UP)  # the solver's 80 m is right
+    kinds = {
+        "agree": _reading(_ask(80, "m"), server=(_server(80, "m"),)),
+        "disagree": _reading(_ask(60, "m"), server=(_server(60, "m"),)),
+        "unsolved-agree": _reading(_ask(80, "m")),  # the reader's own 80 m, no server value
+        "unsolved-disagree": _reading(_ask(60, "m")),  # the reader's own 60 m, no server value
+        "none": None,
+    }
+    asked: list[str | None] = []
+
+    async def read(_question: str, _settings: Any, *, model_alias: str | None = None) -> Any:
+        asked.append(model_alias)
+        return kinds[first if model_alias == _FIRST else second]
+
+    with patch("app.modules.physics.formal_read.formal_reading", read):
+        assert await cc.cross_check(block, SPEED_UP, _SETTINGS) == found
+    assert asked == ([_FIRST, _SECOND] if second_asked else [_FIRST])
 
 
 async def test_a_block_with_no_number_is_never_read() -> None:

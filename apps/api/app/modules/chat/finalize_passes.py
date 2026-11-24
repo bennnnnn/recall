@@ -109,6 +109,7 @@ from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_li
 from app.modules.chat.repeated_fences import drop_repeated_pictures
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.chat.reply_meta import local_today, without_turn_meta
+from app.modules.chat.rounded_end import round_working_ends
 from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.self_attribution import drop_self_attribution
 from app.modules.chat.stream_status import StreamStatusFn
@@ -374,6 +375,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         after=frozenset({"formal_answer", "server_answer_cards", "working_check", "close_fences"}),
     ),
+    # Once the cards' numbers are final: the working's last line above a card that rounds it
+    # ends on that rounding, "t = 4.82488 s ≈ 4.82 s" (owner, 2026-11-23).
+    FinalizePass("rounded_end", round_working_ends, kind=TEXT, after=frozenset({"card_numbers"})),
     # Once every picture pass is done and every fence closed (a molecule's enrichment too):
     # what was asked and not drawn is said in one line, never stood in for (``owed_picture``).
     FinalizePass(

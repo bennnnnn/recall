@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.chat.working_approximations import corrected_approximations
 from app.modules.chat.working_check import (
-    corrected_approximations,
     is_worked_solution,
     working_note,
     wrong_steps,

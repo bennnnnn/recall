@@ -23,7 +23,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from app.services.answer_check import Number, read_verified_value
+from app.services.answer_check import Number, VerifiedValue, read_verified_value
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 # 10 read as a number of its own was rewritten "1.77e-1.77 \times 10^{-10}", 2026-11-21);
 # never a script's (m^{2}, s^{-2}) or a fraction's part (\frac{1}{2}), nor a digit inside
 # a word.
-_WRITTEN = re.compile(
+WRITTEN_NUMBER = re.compile(
     r"(?<![\^_{\w.,])(?<!\^[-−])(?<!\^\{[-−])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
     r"(?:[eE](?P<calculator>[-+]?\d+)"
     r"|\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))?"
@@ -61,6 +61,8 @@ _KEPT = re.compile(r"\\\$|[€£¥]|\{,\}|\bp(?:H|OH|K[ab]?)\b")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
 # A line that is a bold heading alone, in any language: "**Answer (b)**".
 _BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
+# The rounding a line of working may end on: "t = 4.82488 s \approx 4.82 s".
+ROUNDED_TO = re.compile(r"\\approx(?![A-Za-z])|≈")
 
 
 def format_card_numbers(state: FinalizeState) -> str:
@@ -191,20 +193,31 @@ def _holds(number: Number, precision: Precision) -> bool:
     return len(known) >= precision.figures
 
 
-def _shown(body: str, above: str, precision: Precision) -> str | None:
-    """The card's body with its numbers by the rule, or None to leave it as written."""
+def plain_numbers(body: str) -> tuple[list[str], str, VerifiedValue] | None:
+    """A card's headers, its value line and the numbers in it, when the rule writes them
+    again; None for a card left as written: several lines, chemistry notation, an
+    expression, an exact fraction, a sum of money, a decimal comma or a pH."""
     headers, value = answer_header_and_value(body)
     if not value or "\n" in value or CHEMISTRY_NOTATION_LINE in headers or _KEPT.search(value):
         return None
     read = read_verified_value(body)
-    written = list(_WRITTEN.finditer(value))
-    if read is None or len(written) != len(read.numbers):
+    if read is None or len(WRITTEN_NUMBER.findall(value)) != len(read.numbers):
         return None
-    numbers = list(read.numbers)
-    if any(number.places is None for number in numbers):
+    if any(number.places is None for number in read.numbers):
         return None  # an exact fraction
-    if any(_money(number.unit) for number in numbers):
+    if any(_money(number.unit) for number in read.numbers):
         return None  # a sum of money, to the cent as written
+    return headers, value, read
+
+
+def _shown(body: str, above: str, precision: Precision) -> str | None:
+    """The card's body with its numbers by the rule, or None to leave it as written."""
+    plain = plain_numbers(body)
+    if plain is None:
+        return None
+    headers, value, read = plain
+    numbers = list(read.numbers)
+    written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
     for match, number, worked in zip(written, numbers, each, strict=True):
@@ -268,14 +281,20 @@ def _worked(above: str) -> Number | None:
     """The one value the working above a card ends on: its last line of maths, the side
     after its last "="."""
     lines = _INLINE_MATHS.findall(above)
-    return _line_value(lines[-1]) if lines else None
+    # "\mu \approx 0.404" under "\mu = 0.404026": the rounding on a row of its own (the
+    # calculation layout sets a chain with no unit one state per row) reaches nothing new.
+    if len(lines) > 1 and "=" not in lines[-1] and ROUNDED_TO.search(lines[-1]):
+        lines.pop()
+    return line_value(lines[-1]) if lines else None
 
 
-def _line_value(line: str) -> Number | None:
-    """The one value a line of maths reaches: the side after its last "="."""
+def line_value(line: str) -> Number | None:
+    """The one value a line of maths reaches: the side after its last "=", before the
+    rounding a line may end on ("4.82488 s \\approx 4.82 s" reaches 4.82488 s)."""
     if "=" not in line:
         return None
-    read = read_verified_value(line.rsplit("=", 1)[1])
+    reached = ROUNDED_TO.split(line.rsplit("=", 1)[1], maxsplit=1)[0]
+    read = read_verified_value(reached)
     return None if read is None or len(read.numbers) != 1 else read.numbers[0]
 
 
@@ -287,7 +306,7 @@ def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
     values padded 38.3 to 38.30 where its working had reached 38.3157 (2026-11-21)."""
     if len(numbers) == 1:
         return [_unrounded(numbers[0], above)]
-    lines = [value for line in _INLINE_MATHS.findall(above) if (value := _line_value(line))]
+    lines = [value for line in _INLINE_MATHS.findall(above) if (value := line_value(line))]
     # The card's last number takes the lowest line that reached it, and each number before
     # it a line above that one: card and working run in one order, so two values rounding
     # alike (H 23.22 and R 23.16, both 23.2) never swap (review, #2525).
@@ -296,7 +315,7 @@ def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
     for index in range(len(numbers) - 1, -1, -1):
         number = numbers[index]
         match = next(
-            (at for at in range(below - 1, -1, -1) if _rounding_of(number, lines[at])), None
+            (at for at in range(below - 1, -1, -1) if rounding_of(number, lines[at])), None
         )
         if match is not None:
             found[index] = _signed_as(number, lines[match])
@@ -308,7 +327,7 @@ def _unrounded(card: Number, above: str) -> Number | None:
     """The value the working above the card reached, when the card's value is a rounding
     of it in the same unit."""
     worked = _worked(above)
-    if worked is None or not _rounding_of(card, worked):
+    if worked is None or not rounding_of(card, worked):
         return None
     return _signed_as(card, worked)
 
@@ -318,7 +337,7 @@ def _signed_as(card: Number, worked: Number) -> Number:
     return Number(abs(worked.value) * sign, worked.places, card.unit)
 
 
-def _rounding_of(card: Number, worked: Number) -> bool:
+def rounding_of(card: Number, worked: Number) -> bool:
     """The card's value is a rounding of the working's, in the same unit."""
     # A whole card ("3" buses for 2.67) may be a count rounded up or down as the question
     # needs (review); a whole card in a unit of measure is a rounding of its working: the
