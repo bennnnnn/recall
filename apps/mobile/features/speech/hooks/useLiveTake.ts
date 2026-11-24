@@ -31,7 +31,6 @@ type Options = Say & {
   setRecording: (on: boolean) => void;
   setTranscribing: (on: boolean) => void;
   onTranscript: (text: string) => void;
-  onLiveText?: (text: string) => void;
 };
 
 /**
@@ -47,7 +46,6 @@ export function useLiveTake(options: Options): LiveTake | null {
           setRecording: (on) => latest.current.setRecording(on),
           setTranscribing: (on) => latest.current.setTranscribing(on),
           setLevel: (level) => latest.current.meterLevel.set(level),
-          onLiveText: (text) => latest.current.onLiveText?.(text),
           onTranscript: (text) => latest.current.onTranscript(text),
           say: (key) => reportRecoverableError(latest.current.feedback, latest.current.t(key)),
           sayRefusal: (error) => sayDictationFailure(error, latest.current),

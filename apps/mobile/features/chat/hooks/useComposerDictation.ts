@@ -5,10 +5,8 @@ import type { UpgradeSource } from "@/features/billing/components/UpgradeSheet";
 import { composerThreadKey } from "@/features/chat/model/composerThreadDraft";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 import {
-  appendDictation,
   dictationAnchor,
   draftWithDictation,
-  type DictationAnchor,
   type TextCaret,
 } from "@/features/chat/model/dictationDraft";
 import type { User } from "@/lib/api";
@@ -26,20 +24,13 @@ type Options = {
 };
 
 /**
- * Where a take's words go: the caret it began at, the draft split there (on its first
- * words), and every draft the take has written, so it knows a draft it may still rewrite.
- */
-type TakeDraft = { caret: TextCaret | null; anchor: DictationAnchor | null; ours: Set<string> };
-
-function newTake(caret: TextCaret | null): TakeDraft {
-  return { caret, anchor: null, ours: new Set() };
-}
-
-/**
  * The composer mic: a take lands in the thread it was started in, at the caret where it
- * began (after the draft when the field was not being edited), word by word on a live take,
- * never over text the user had typed. A route change drops the open take, and a plan
- * without dictation opens the plans instead of recording.
+ * began (after the draft when the field was not being edited), never over text the user
+ * had typed. A live take's words show on the waveform while they are spoken (the field is
+ * hidden during a take) and reach the draft once, whole, at the stop: a take cancelled, a
+ * chat left mid-take or a failed send restored never finds half-heard words in a draft.
+ * A route change drops the open take, and a plan without dictation opens the plans
+ * instead of recording.
  */
 export function useComposerDictation({
   token,
@@ -54,27 +45,14 @@ export function useComposerDictation({
   );
   const composerThreadRef = useLatestRef(composerThread);
   const voiceCaptureThreadRef = useRef(composerThread);
-  const takeRef = useRef<TakeDraft>(newTake(null));
+  const caretRef = useRef<TextCaret | null>(null);
 
-  /**
-   * The take's text in the draft, each word replacing the last version of it. Once the draft
-   * has changed under the take, only its final text lands, after whatever is there.
-   */
-  const writeTake = useCallback((text: string, final: boolean) => {
+  /** The take's whole text, at the caret it began at. */
+  const landTake = useCallback((text: string) => {
     if (voiceCaptureThreadRef.current !== composerThreadRef.current) return;
-    const take = takeRef.current;
-    // The final text ends the take: a later cancel leaves the draft as it now is.
-    if (final) takeRef.current = newTake(null);
-    setInput((prev) => {
-      if (!take.anchor) {
-        take.anchor = dictationAnchor(prev, take.caret);
-        take.ours.add(prev);
-      }
-      if (!take.ours.has(prev)) return final ? appendDictation(prev, text) : prev;
-      const next = draftWithDictation(take.anchor, text);
-      take.ours.add(next);
-      return next;
-    });
+    const caret = caretRef.current;
+    caretRef.current = null;
+    setInput((prev) => draftWithDictation(dictationAnchor(prev, caret), text));
   }, [composerThreadRef, setInput]);
 
   const {
@@ -86,8 +64,7 @@ export function useComposerDictation({
     cancelVoiceInput,
   } = useVoiceInput({
     token,
-    onLiveText: (text) => writeTake(text, false),
-    onTranscript: (text) => writeTake(text, true),
+    onTranscript: landTake,
     // The server refused: the plan has no voice input (the app's copy was stale).
     onPlanRequired: () => openUpgrade("voice"),
     t,
@@ -96,16 +73,6 @@ export function useComposerDictation({
   useLayoutEffect(() => {
     cancelVoiceInput();
   }, [routeChatId, cancelVoiceInput]);
-
-  /** Cancel drops the take: a live take's words already in the draft come back out. */
-  const cancelTake = useCallback(() => {
-    cancelVoiceInput();
-    const take = takeRef.current;
-    takeRef.current = newTake(null);
-    const anchor = take.anchor;
-    if (!anchor || voiceCaptureThreadRef.current !== composerThreadRef.current) return;
-    setInput((prev) => (take.ours.has(prev) ? anchor.original : prev));
-  }, [cancelVoiceInput, composerThreadRef, setInput]);
 
   // The launch cache paints every plan "free": until the server says the plan, the take goes
   // and the server decides (its refusal opens the plans above), never a paid account's offer.
@@ -120,7 +87,7 @@ export function useComposerDictation({
         return;
       }
       voiceCaptureThreadRef.current = composerThreadRef.current;
-      takeRef.current = newTake(caret ?? null);
+      caretRef.current = caret ?? null;
     }
     void toggleVoiceInput();
   }, [canDictate, toggleVoiceInput, voiceRecording, voiceTranscribing, openUpgrade, composerThreadRef]);
@@ -131,6 +98,6 @@ export function useComposerDictation({
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput: handleToggleVoiceInput,
-    cancelVoiceInput: cancelTake,
+    cancelVoiceInput,
   };
 }

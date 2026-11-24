@@ -8,9 +8,9 @@ in the composer as they are spoken. No model answers in that session; it only tr
 As with live talk, the client secret never leaves the server. A mint (``open_session``)
 takes one of the day's ``speech_transcription`` slots and keeps the secret; the phone's
 offer comes here (``connect``), which opens the call, keeps its id and schedules its
-hang-up for ``speech_dictation_max_seconds`` later, so a mic left open cannot run up
-cost. The phone's stop (``end``) hangs the call up at once, and gives the slot back when
-nothing was heard. That last part is the phone's word, so it is honoured only
+hang-up for ``speech_dictation_max_seconds`` (45 s) + 15 s later, so a mic left open
+cannot run up cost. The phone's stop (``end``) hangs the call up at once, and gives the
+slot back when nothing was heard. That last part is the phone's word, so it is honoured only
 ``EMPTY_REFUNDS_PER_DAY`` times a day.
 """
 
@@ -83,6 +83,10 @@ def _call_key(user_id: UUID, session_id: str) -> str:
 
 def _slot_key(user_id: UUID, session_id: str) -> str:
     return f"dictation_slot:{user_id}:{session_id}"
+
+
+def _ended_key(user_id: UUID, session_id: str) -> str:
+    return f"dictation_ended:{user_id}:{session_id}"
 
 
 def _refunds_key(user_id: UUID, day: date) -> str:
@@ -162,6 +166,14 @@ async def connect(
         await _give_slot_back(redis, user_id, session_id)
         raise _failed()
     await redis.set(_call_key(user_id, session_id), call.call_id, ex=_hold_seconds(settings))
+    if await redis.exists(_ended_key(user_id, session_id)):
+        # The phone stopped while OpenAI was opening the call (a tap during "Starting…"):
+        # its end found no call, so this one is hung up here and nothing is charged for it.
+        if not await _hang_up(redis, settings, user_id, session_id):
+            await jobs.enqueue_later(
+                redis, HANGUP_JOB, _hangup_payload(user_id, session_id), delay_s=0
+            )
+        raise _ended()
     try:
         # Raises, unlike ``enqueue_later``: without this job nothing ends a forgotten mic.
         await jobs.schedule_job(
@@ -200,6 +212,8 @@ async def end(
     heard. Idempotent. A hang-up OpenAI does not confirm is left to the job, which tries
     again."""
     session_id = session_id.strip()
+    # A connect still opening its call sees this once it has stored it, and hangs it up.
+    await redis.set(_ended_key(user_id, session_id), "1", ex=_hold_seconds(settings))
     if not await _hang_up(redis, settings, user_id, session_id):
         await jobs.enqueue_later(redis, HANGUP_JOB, _hangup_payload(user_id, session_id), delay_s=0)
     if not heard:

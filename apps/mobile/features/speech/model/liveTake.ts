@@ -1,4 +1,3 @@
-import { isAbortError } from "@/lib/api/abort";
 import { reportFailure } from "@/lib/sentry";
 import { VOICE_MAX_RECORDING_MS } from "@/lib/speech/voiceAudio";
 import { startLiveDictation, type LiveDictation } from "@/features/speech/model/liveDictation";
@@ -16,7 +15,6 @@ type LiveTakeHost = {
   setRecording: (on: boolean) => void;
   setTranscribing: (on: boolean) => void;
   setLevel: (level: number) => void;
-  onLiveText: (text: string) => void;
   onTranscript: (text: string) => void;
   /** Says a dictation message by its i18n key. */
   say: (key: string) => void;
@@ -71,7 +69,6 @@ function takeHandlers(host: LiveTakeHost, state: TakeState, own: number) {
     onText: (text: string) => {
       if (own !== state.gen) return;
       showLiveDictation({ phase: state.live ? "live" : "finishing", text });
-      host.onLiveText(text);
     },
     onLevel: (level: number) => {
       if (own === state.gen && state.live) host.setLevel(level);
@@ -172,7 +169,9 @@ export function createLiveTake(host: LiveTakeHost): LiveTake {
       state.timer = setTimeout(() => void finish(), Math.min(VOICE_MAX_RECORDING_MS, take.maxMs));
       return "live";
     } catch (error) {
-      if (own !== state.gen || isAbortError(error)) return "stopped";
+      // Only the take's own cancel stops quietly: a request that hit its deadline rejects
+      // with an AbortError too, and falls back to the recorder like any failed call.
+      if (own !== state.gen || controller.signal.aborted) return "stopped";
       return startFailed(host, error);
     } finally {
       if (state.starting === controller) state.starting = null;

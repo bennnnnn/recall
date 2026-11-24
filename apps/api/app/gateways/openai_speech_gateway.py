@@ -302,6 +302,20 @@ def transcription_session_config(model: str, language: str | None) -> dict[str, 
     }
 
 
+def _sent_language(session: dict[str, object]) -> str | None:
+    """The language code a transcription session names, or None."""
+    audio = session.get("audio")
+    audio_input = audio.get("input") if isinstance(audio, dict) else None
+    transcription = audio_input.get("transcription") if isinstance(audio_input, dict) else None
+    if not isinstance(transcription, dict):
+        return None
+    code = transcription.get("language")
+    languages = transcription.get("languages")
+    if isinstance(languages, list) and languages:
+        code = languages[0]
+    return code if isinstance(code, str) and code else None
+
+
 async def create_transcription_client_secret(
     settings: Settings, *, model: str, language: str | None, safety_identifier: str
 ) -> RealtimeClientSecretResult | None:
@@ -323,18 +337,18 @@ async def create_transcription_client_secret(
         response = await _post_client_secret(
             client, headers, session, expires_seconds=_DICTATION_SECRET_SECONDS
         )
-        code = stt_language_code(language)
-        named = code is not None and code not in _REFUSED_TRANSCRIPTION_LANGUAGES
-        refused_language = "language" in response.text
-        if response.status_code in _REFUSED_SESSION and named and code and refused_language:
+        # Decided from what this request sent: a concurrent mint that marked the code refused
+        # meanwhile must not stop this one from retrying without it.
+        sent = _sent_language(session)
+        refused = "language" in response.text
+        if response.status_code in _REFUSED_SESSION and sent and refused:
+            # The code is never logged: it came from the phone.
             logger.warning(
-                "OpenAI refused the dictation session with language=%s status=%s body=%s; "
+                "OpenAI refused the dictation session's language status=%s; "
                 "minting it without the language",
-                code,
                 response.status_code,
-                response.text[:400],
             )
-            _REFUSED_TRANSCRIPTION_LANGUAGES.add(code)
+            _REFUSED_TRANSCRIPTION_LANGUAGES.add(sent)
             response = await _post_client_secret(
                 client,
                 headers,

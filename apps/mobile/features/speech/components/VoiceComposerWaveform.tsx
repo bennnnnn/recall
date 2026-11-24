@@ -25,22 +25,24 @@ const MAX_H = 26;
 
 type BarProps = {
   index: number;
+  /** How many bars the row draws: its centre and the sweep follow it. */
+  count: number;
   meter: SharedValue<number>;
   phase: SharedValue<number>;
   processing: SharedValue<number>;
   color: string;
 };
 
-function WaveBar({ index, meter, phase, processing, color }: BarProps) {
+function WaveBar({ index, count, meter, phase, processing, color }: BarProps) {
   const style = useAnimatedStyle(() => {
-    const center = (BAR_COUNT - 1) / 2;
+    const center = (count - 1) / 2;
     const dist = Math.abs(index - center) / center;
     const centerWeight = 1 - dist * 0.5;
     const wave = Math.sin(phase.value * Math.PI * 2 + index * 0.38) * 0.5 + 0.5;
     const proc = processing.value;
     const recordingLevel = 0.08 + meter.value * centerWeight * (0.25 + 0.75 * wave);
     // One bump traveling L→R — reads as "working on the take", not live mic.
-    const sweep = phase.value * (BAR_COUNT + 8) - 4;
+    const sweep = phase.value * (count + 8) - 4;
     const d = Math.abs(index - sweep);
     const bump = Math.max(0, 1 - d / 3.4);
     const processingLevel = 0.1 + 0.78 * bump;
@@ -125,7 +127,7 @@ export function VoiceComposerWaveform({
   const indices = useMemo(() => Array.from({ length: barCount }, (_, i) => i), [barCount]);
   const label = starting
     ? t("chat.voice_starting")
-    : uploading && !words
+    : uploading
       ? t("chat.voice_transcribing")
       : t("chat.voice_listening");
   // The accent, as the stop button beside it: it follows Settings → Accent.
@@ -153,6 +155,7 @@ export function VoiceComposerWaveform({
           <WaveBar
             key={i}
             index={i}
+            count={barCount}
             meter={meter}
             phase={phase}
             processing={processing}

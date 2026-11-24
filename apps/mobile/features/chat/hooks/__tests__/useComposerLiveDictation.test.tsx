@@ -88,11 +88,11 @@ const setInput = jest.fn((next: string | ((prev: string) => string)) => {
 const openUpgrade = jest.fn();
 let current: ReturnType<typeof useComposerDictation>;
 
-function Probe() {
+function Probe({ routeChatId = "chat-1" }: { routeChatId?: string }) {
   const dictation = useComposerDictation({
     token: "tok",
     user: proUser,
-    routeChatId: "chat-1",
+    routeChatId,
     setInput,
     openUpgrade,
     t: (key) => key,
@@ -159,7 +159,7 @@ afterEach(() => {
   delete (NativeModules as Record<string, unknown>).WebRTCModule;
 });
 
-it("puts the words in the draft at the caret as they are spoken, and the stop lands the last ones", async () => {
+it("shows the words as they are spoken, and the stop lands the whole take in the draft at the caret", async () => {
   input = "Dear Sam,Thanks.";
   await startTake({ start: 9, end: 9 });
   await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
@@ -171,17 +171,18 @@ it("puts the words in the draft at the caret as they are spoken, and the stop la
   expect(speechApi.createDictationSession).toHaveBeenCalledWith("tok", { language: "am" });
   expect(current.voiceRecording).toBe(true);
 
+  const words = () => screen.getByTestId("voice-live-words");
   await delta("i1", " see");
-  expect(input).toBe("Dear Sam, see Thanks.");
-  expect(screen.getByTestId("voice-live-words")).toHaveTextContent("see");
+  expect(words()).toHaveTextContent("see");
   await delta("i1", " you");
-  expect(input).toBe("Dear Sam, see you Thanks.");
+  expect(words()).toHaveTextContent("see you");
   // The stretch's final text replaces its words.
   await completed("i1", "See you");
-  expect(input).toBe("Dear Sam, See you Thanks.");
+  expect(words()).toHaveTextContent("See you");
   await delta("i2", " at noon");
-  expect(input).toBe("Dear Sam, See you at noon Thanks.");
-  expect(screen.getByTestId("voice-live-words")).toHaveTextContent("See you at noon");
+  expect(words()).toHaveTextContent("See you at noon");
+  // The draft holds no half-heard words while the take runs (the field is hidden meanwhile).
+  expect(input).toBe("Dear Sam,Thanks.");
 
   // Stop: the rest of the audio is committed, and its final text lands. No upload.
   await act(async () => { current.toggleVoiceInput(); });
@@ -208,6 +209,11 @@ it("follows the draft with the words when the field was not being edited", async
   await startTake(null);
   await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
   await delta("i1", " then spoken");
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  await emit({ type: "input_audio_buffer.committed", item_id: "i1", previous_item_id: null });
+  await completed("i1", "then spoken");
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
   expect(input).toBe("Typed first then spoken");
 });
 
@@ -235,6 +241,20 @@ it("leaves the draft as it was and says so when nothing was heard", async () => 
   expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", false);
 });
 
+it("waits for a stretch still being written when the stop has nothing left to commit", async () => {
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("a", " last phrase");
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  // A server-VAD commit took the audio during the stop's tail.
+  await emit({ type: "error", error: { code: "input_audio_buffer_commit_empty" } });
+  expect(current.voiceTranscribing).toBe(true);
+  await completed("a", "Last phrase.");
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+  expect(input).toBe("Last phrase.");
+});
+
 it("keeps what was heard when the call drops mid-take", async () => {
   await startTake();
   await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
@@ -253,16 +273,29 @@ it("keeps what was heard when the call drops mid-take", async () => {
   expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
 });
 
-it("takes the words back out when the take is cancelled", async () => {
+it("leaves the draft as it was when the take is cancelled", async () => {
   input = "draft";
   await startTake();
   await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
   await delta("i1", " never mind");
-  expect(input).toBe("draft never mind");
   await act(async () => { current.cancelVoiceInput(); });
   expect(input).toBe("draft");
   expect(current.voiceRecording).toBe(false);
   expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+});
+
+it("leaves no half-heard words in the chat the user leaves mid-take", async () => {
+  input = "draft for chat one";
+  const view = await render(<Probe />);
+  await act(async () => { current.toggleVoiceInput(null); });
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " I was thinking we sho");
+  // The drawer opens chat two: the take ends, and chat one's draft is what the user typed.
+  await view.rerender(<Probe routeChatId="chat-2" />);
+  expect(input).toBe("draft for chat one");
+  expect(current.voiceRecording).toBe(false);
+  await completed("i1", "I was thinking we should go.");
+  expect(input).toBe("draft for chat one");
 });
 
 describe("the recorded fallback", () => {
@@ -307,6 +340,17 @@ describe("the recorded fallback", () => {
     // The recorder that arrived after the stop is stopped at once, not left recording.
     expect(recorder.stop).toHaveBeenCalled();
     expect(current.voiceRecording).toBe(false);
+  });
+
+  it("records the clip when the connect runs past its deadline", async () => {
+    // withDeadline's timeout rejects as an AbortError, which is not the take's own cancel.
+    const timedOut = Object.assign(new Error("Request canceled"), { name: "AbortError" });
+    (speechApi.connectDictationSession as jest.Mock).mockRejectedValue(timedOut);
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    expect(current.voiceRecording).toBe(true);
+    expect(screen.queryByText("chat.voice_starting")).toBeNull();
+    expect(reportFailure).toHaveBeenCalledWith("live_dictation", timedOut);
   });
 
   it("opens the plans, recording nothing, when the plan has no voice input", async () => {

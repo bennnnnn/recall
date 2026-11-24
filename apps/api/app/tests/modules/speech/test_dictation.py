@@ -279,6 +279,26 @@ def test_a_connect_whose_hang_up_cannot_be_scheduled_ends_the_call(dic):
     assert dic.used() == 0
 
 
+def test_a_stop_while_openai_opens_the_call_hangs_the_new_call_up(dic):
+    """A tap during "Starting…": the phone's end ran before the call existed."""
+    session = dic.session()
+    real_open = dic.call
+
+    async def open_call(_settings: Any, *, client_secret: str, offer_sdp: str) -> Any:
+        await dictation.end(dic.redis, _SETTINGS, dic.user.id, session, heard=False)
+        return real_open
+
+    with patch(
+        "app.modules.speech.dictation.openai_speech_gateway.create_realtime_call", open_call
+    ):
+        r = dic.connect(session)
+
+    assert r.status_code == 403
+    assert r.json()["detail"]["code"] == "dictation_session_ended"
+    assert dic.hangups == ["rtc_dict123"]
+    assert dic.used() == 0
+
+
 # ── End ────────────────────────────────────────────────────────────────────
 
 
@@ -369,3 +389,11 @@ def test_the_job_raises_while_the_hang_up_is_unconfirmed(dic):
 def test_the_job_ignores_a_payload_it_cannot_read(dic, payload):
     dic.run(dictation.handle_hangup_job(_SETTINGS, payload))
     assert dic.hangups == []
+
+
+def test_the_job_is_registered():
+    from app.background import handlers
+    from app.core.jobs import queue
+
+    handlers.register_all()
+    assert queue._HANDLERS[dictation.HANGUP_JOB] is dictation.handle_hangup_job

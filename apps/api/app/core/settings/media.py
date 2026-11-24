@@ -14,8 +14,8 @@ class MediaSettings(BaseModel):
     speech_live_dictation_enabled: bool = True
     # Operator override (OpenAI model); empty → catalog alias `speech-dictation-model`.
     speech_dictation_model: str = ""
-    # The phone stops a take at 45 s; the server hangs a dictation up this long after its
-    # connect whatever the phone does, so a mic left open cannot run up cost.
+    # The phone stops a take at 45 s; the server hangs a dictation up this long + 15 s after
+    # its connect whatever the phone does, so a mic left open cannot run up cost.
     speech_dictation_max_seconds: int = 45
     # Cloud TTS (read-aloud). Operator override (OpenAI model); empty →
     # catalog alias `speech-tts-model`.

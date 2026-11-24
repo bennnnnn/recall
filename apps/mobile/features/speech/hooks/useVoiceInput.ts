@@ -21,8 +21,6 @@ type Options = {
   token: string | null;
   /** The take's whole text, once: at the stop, or as a dropped live call ends the take. */
   onTranscript: (text: string) => void;
-  /** A live take's text so far, each time a word arrives (a build with WebRTC). */
-  onLiveText?: (text: string) => void;
   t: (key: string) => string;
   /** The server said the plan has no voice input (403 `not_in_plan`): show the plans. */
   onPlanRequired?: () => void;
@@ -36,7 +34,7 @@ const VOICE_MIN_SPEECH_SAMPLES = 2;
  * arrive while the user speaks (`useLiveTake`); elsewhere, or when that call cannot be made,
  * it records a clip and uploads it on the stop.
  */
-export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequired }: Options) {
+export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Options) {
   const feedback = useActionFeedbackOptional();
   const recordingRef = useRef<VoiceRecorder | null>(null);
   const meterUnsubRef = useRef<(() => void) | null>(null);
@@ -54,7 +52,7 @@ export function useVoiceInput({ token, onTranscript, onLiveText, t, onPlanRequir
   const meterLevel = useSharedValue(0.12);
   const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
   const live = useLiveTake({
-    token, meterLevel, setRecording, setTranscribing, onTranscript, onLiveText, onPlanRequired, feedback, t,
+    token, meterLevel, setRecording, setTranscribing, onTranscript, onPlanRequired, feedback, t,
   });
 
   useEffect(() => {

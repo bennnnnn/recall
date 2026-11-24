@@ -173,3 +173,30 @@ async def test_the_recorded_path_keeps_a_language_openai_takes():
     assert text == "hola"
     assert client.post.await_count == 1
     assert client.post.call_args.kwargs["data"]["language"] == "es"
+
+
+@pytest.mark.asyncio
+async def test_a_mint_racing_another_still_retries_without_the_refused_language():
+    """Two Amharic mints at once: the other one marked "am" refused while this one's own
+    refused request was out, and this one gave up with a 502."""
+
+    async def post(*_args: object, **kwargs: object) -> MagicMock:
+        transcription = _input(kwargs["json"]["session"])["transcription"]  # type: ignore[index]
+        if "languages" in transcription:
+            openai_speech_gateway._REFUSED_TRANSCRIPTION_LANGUAGES.add("am")  # the other mint
+            return _response(400, text="Invalid value: 'am'. param=...languages[0]")
+        return _response(200, {"value": "ek_d", "expires_at": 7})
+
+    client = MagicMock()
+    client.post = AsyncMock(side_effect=post)
+
+    with patch("app.gateways.openai_speech_gateway.get_pooled_client", return_value=client):
+        result = await openai_speech_gateway.create_transcription_client_secret(
+            Settings(openai_api_key="sk-test"),
+            model="gpt-live-transcribe",
+            language="am",
+            safety_identifier="h",
+        )
+
+    assert result is not None and result.value == "ek_d"
+    assert client.post.await_count == 2

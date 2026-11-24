@@ -1,5 +1,4 @@
 import {
-  appendDictation,
   dictationAnchor,
   draftWithDictation,
 } from "@/features/chat/model/dictationDraft";
@@ -32,10 +31,5 @@ describe("where dictated words go in the draft", () => {
 
   it("treats a caret outside the draft as none", () => {
     expect(draftWithDictation(dictationAnchor("abc", { start: 9, end: 9 }), "d")).toBe("abc d");
-  });
-
-  it("appends to a draft that moved on", () => {
-    expect(appendDictation("  typed  ", "said")).toBe("typed said");
-    expect(appendDictation("typed", "  ")).toBe("typed");
   });
 });

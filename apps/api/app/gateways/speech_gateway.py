@@ -169,7 +169,8 @@ async def transcribe_via_openai(
         refused = payload.get("language")
         if response.status_code == 400 and refused and "language" in response.text:
             # Amharic's "am" came back 400 and every Amharic dictation failed.
-            logger.warning("OpenAI transcription refused language=%s; naming it instead", refused)
+            # The code is never logged: it came from the phone.
+            logger.warning("OpenAI transcription refused the language; naming it instead")
             _REFUSED_LANGUAGES.add(refused)
             response = await post(_transcription_payload(model, language))
         if response.status_code >= 400:

@@ -88,11 +88,11 @@ function dictationMeterLevel(audioLevel: number): number {
 /** A data-channel event: the words grow, and the stop's wait ends once its text is final. */
 function onCallEvent(call: Call, event: Record<string, unknown>, handlers: Handlers): void {
   if (call.closed) return;
-  if (isEmptyCommitError(event)) {
-    call.settle?.();
-    return;
+  // Nothing left to commit is still the stop's answer, but a stretch a server-VAD commit
+  // closed just before it may still be on its way: settle once every stretch is final.
+  if (call.commitSent && (event.type === "input_audio_buffer.committed" || isEmptyCommitError(event))) {
+    call.commitSeen = true;
   }
-  if (call.commitSent && event.type === "input_audio_buffer.committed") call.commitSeen = true;
   const next = applyTranscriptEvent(call.transcript, event);
   if (next !== call.transcript) {
     call.transcript = next;

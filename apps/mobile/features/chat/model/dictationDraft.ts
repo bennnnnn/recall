@@ -6,7 +6,7 @@
 
 export type TextCaret = { start: number; end: number };
 
-export type DictationAnchor = {
+type DictationAnchor = {
   /** The draft when the take began: what a take that heard nothing leaves. */
   original: string;
   before: string;
@@ -37,11 +37,4 @@ export function draftWithDictation(anchor: DictationAnchor, words: string): stri
   const lead = before && !/\s$/u.test(before) ? " " : "";
   const trail = after && !CLOSES.test(after) ? " " : "";
   return `${before}${lead}${spoken}${trail}${after}`;
-}
-
-/** Words that arrive after the draft moved on without the take: they follow whatever is there. */
-export function appendDictation(draft: string, words: string): string {
-  const spoken = words.trim();
-  if (!spoken) return draft;
-  return draft.trim() ? `${draft.trim()} ${spoken}` : spoken;
 }
