@@ -55,6 +55,7 @@ const SAME_WORD: Record<Locale, readonly string[]> = {
   ],
   fr: [
     "chat.attach_photo",
+    "onboarding.demo_news_sources", // 3 sources
     "chat.title_image",
     "chat.math_converter_cat_amount", // Moles
     "chat.math_converter_cat_angle",

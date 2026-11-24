@@ -1,10 +1,10 @@
 /**
- * Landing scenes drawn as a chat: an everyday ask answered as a list, an equation worked
- * line by line to a checked answer, and a reminder made from one sentence, which, as in the
- * app, waits for its tap before it is added.
+ * Landing scenes drawn as a chat: a picture drawn from a sentence, a question about the news
+ * answered with its sources, and a reminder made from one sentence, which, as in the app,
+ * waits for its tap before it is added.
  */
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -17,49 +17,44 @@ import { Reveal, ReplyLine, SceneCard, UserBubble } from "./SceneParts";
 
 type SceneProps = { active: boolean };
 
-const TRIP_DAYS = ["onboarding.demo_trip_day1", "onboarding.demo_trip_day2", "onboarding.demo_trip_day3"];
+/** Made once with the app's own picture model, and shipped so the slide works offline. */
+const FOX_PICTURE = require("@/assets/images/landing-fox.jpg");
 
-export function ChatScene({ active }: SceneProps) {
-  const { t } = useTranslation();
-  return (
-    <SceneCard>
-      <Reveal active={active} step={0}>
-        <UserBubble text={t("onboarding.demo_trip_ask")} />
-      </Reveal>
-      {TRIP_DAYS.map((key, index) => (
-        <Reveal key={key} active={active} step={index + 1}>
-          <ReplyLine text={`${index + 1}. ${t(key)}`} />
-        </Reveal>
-      ))}
-    </SceneCard>
-  );
-}
-
-/** "2x + 5 = 17" worked a line at a time; written in symbols, it reads the same in every language. */
-const WORKING = ["2x = 17 − 5", "2x = 12", "x = 12 ÷ 2"];
-
-export function HomeworkScene({ active }: SceneProps) {
+export function ImageScene({ active }: SceneProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <SceneCard>
       <Reveal active={active} step={0}>
-        <UserBubble text="2x + 5 = 17" />
+        <UserBubble text={t("onboarding.demo_image_ask")} />
       </Reveal>
-      {WORKING.map((line, index) => (
-        <Reveal key={line} active={active} step={index + 1}>
-          <Text style={s.maths}>{line}</Text>
+      <Reveal active={active} step={2} style={s.pictureFrame}>
+        <Image source={FOX_PICTURE} style={s.picture} resizeMode="cover" accessibilityIgnoresInvertColors />
+      </Reveal>
+    </SceneCard>
+  );
+}
+
+const NEWS_POINTS = ["onboarding.demo_news_1", "onboarding.demo_news_2", "onboarding.demo_news_3"];
+
+export function NewsScene({ active }: SceneProps) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  return (
+    <SceneCard>
+      <Reveal active={active} step={0}>
+        <UserBubble text={t("onboarding.demo_news_ask")} />
+      </Reveal>
+      {NEWS_POINTS.map((key, index) => (
+        <Reveal key={key} active={active} step={index + 1}>
+          <ReplyLine text={`• ${t(key)}`} />
         </Reveal>
       ))}
-      <Reveal active={active} step={WORKING.length + 1}>
-        <View style={s.answer}>
-          <Text style={s.answerValue}>x = 6</Text>
-          <View style={s.checked}>
-            <Icon name="check" size={IconSize.xs} color={theme.success} />
-            <Text style={s.checkedText}>{t("onboarding.demo_checked")}</Text>
-          </View>
-        </View>
+      <Reveal active={active} step={NEWS_POINTS.length + 1} style={s.sources}>
+        <Icon name="link" size={IconSize.xs} color={theme.textSecondary} />
+        <Text style={s.sourcesText}>{t("onboarding.demo_news_sources")}</Text>
       </Reveal>
     </SceneCard>
   );
@@ -100,30 +95,22 @@ export function ReminderScene({ active }: SceneProps) {
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    maths: { ...Type.body, ...Weight.medium, color: theme.text, letterSpacing: 0.3 },
-    answer: {
+    // The picture fills the card's room under the ask, whatever the screen's height.
+    pictureFrame: { flex: 1, alignSelf: "stretch", marginBottom: Space.md },
+    picture: { width: "100%", height: "100%", borderRadius: Radius.lg },
+    sources: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-between",
-      borderRadius: Radius.lg,
-      borderWidth: 1.5,
-      borderColor: theme.primary,
-      backgroundColor: theme.primaryLight,
-      paddingHorizontal: Space.gutter,
-      paddingVertical: Space.sm,
-      marginTop: Space.xs,
-    },
-    answerValue: { ...Type.title, color: theme.text },
-    checked: {
-      flexDirection: "row",
-      alignItems: "center",
+      alignSelf: "flex-start",
       gap: Space.xxs,
-      backgroundColor: theme.successLight,
       borderRadius: Radius.full,
+      backgroundColor: theme.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xxs,
     },
-    checkedText: { ...Type.caption, ...Weight.semibold, color: theme.success },
+    sourcesText: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
     reminder: {
       flexDirection: "row",
       alignItems: "center",

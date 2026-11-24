@@ -82,7 +82,7 @@ function SignIn() {
             <Image source={APP_ICON} style={s.logo} accessibilityLabel={t("app.name")} />
           </View>
           <Text style={s.title} accessibilityRole="header">{t("app.name")}</Text>
-          <Text style={s.subtitle}>{t("login.tagline")}</Text>
+          <Text style={s.subtitle}>{t("onboarding.headline")}</Text>
 
           <View style={s.highlights}>
             {HIGHLIGHTS.map((item) => (
