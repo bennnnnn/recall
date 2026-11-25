@@ -23,7 +23,7 @@ _DEFAULT_PCM_RATE = 24000
 # The OpenAI audio models this gateway calls. An operator override outside them is not
 # used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
 _TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
-# Listen's OpenAI model is tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
+# Read aloud speaks with tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
 _SPEECH_MODEL_FAMILIES = ("tts-1", "gpt-4o-mini-tts")
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2

@@ -59,7 +59,7 @@ Each of these services handles the data under its own terms and privacy policy. 
 ## Service Providers
 
 - **OpenRouter** routes AI requests to the model providers above.
-- **OpenAI** provides voice input, live talk and Listen (replies played aloud) in some languages.
+- **OpenAI** provides voice input, read aloud and live talk.
 - **Mathpix** reads math in photos.
 - **Tavily** provides web search and reference photos; public search engines are the backup.
 - **PubChem** (U.S. National Center for Biotechnology Information) answers chemistry lookups.
