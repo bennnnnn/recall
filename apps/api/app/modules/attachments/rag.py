@@ -218,9 +218,14 @@ async def index_attachment(
     if not pieces:
         return 0
 
-    vectors = await embedding_gateway.embed_many(
-        settings, pieces, concurrency=settings.embedding_concurrency
-    )
+    try:
+        vectors = await embedding_gateway.embed_many(
+            settings, pieces, concurrency=settings.embedding_concurrency
+        )
+    except embedding_gateway.EmbeddingUnavailableError as exc:
+        # A batch the provider did not embed: the job retries the whole file, not
+        # stored with that batch missing as if it were done.
+        raise AttachmentIndexError(f"Embedding unavailable for {attachment_id}") from exc
     embedded = list(zip(range(len(pieces)), pieces, vectors, strict=True))
 
     # Filter out chunks with null embeddings. If ALL failed, raise so the

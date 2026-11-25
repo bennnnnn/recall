@@ -11,6 +11,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.core import sentry
+from app.core.jobs.delayed import DELAYED_ZSET, delayed_depth, member_fields
 from app.core.jobs.queue import (
     JOBS_DLQ_STREAM,
     JOBS_GROUP,
@@ -130,8 +131,6 @@ async def collect_queue_metrics(redis: Redis) -> QueueMetrics:
     Never raises into the worker loop, but an unreadable count is None, not 0:
     a failing Redis must not read as an empty, healthy queue.
     """
-    from app.core.jobs.delayed import delayed_depth
-
     metrics = QueueMetrics(
         dlq_depth=None,
         pending_entries=None,
@@ -275,17 +274,19 @@ async def purge_user_jobs(
     keep_types: Collection[str] = (),
     batch: int = _PURGE_SCAN_BATCH,
 ) -> int:
-    """XDEL every jobs-stream and DLQ entry whose payload names *user_id*.
+    """Remove every waiting, jobs-stream and DLQ entry whose payload names *user_id*.
 
     Acked and failed entries stay in both streams until the length cap trims
-    them, and their payloads carry chat text. Walks each stream in bounded
+    them, and their payloads carry chat text; a job waiting for its retry
+    (``delayed``) carries the same text and would run again after the delete,
+    then fail into the DLQ. Walks each stream in bounded
     XRANGE pages and deletes only entries whose payload ``user_id`` equals
     this one; *keep_types* entries stay (the caller's own running job).
     Worker-only (account delete's sweep): never call it on a request path.
     """
     needle = str(user_id)
     page = max(1, batch)
-    removed = 0
+    removed = await _purge_delayed(redis, needle, keep_types, page)
     for stream in (JOBS_STREAM, JOBS_DLQ_STREAM):
         start = "-"
         while True:
@@ -307,6 +308,21 @@ async def purge_user_jobs(
             start = _after(entries[-1][0])
     if removed:
         logger.info("Jobs purge user_id=%s removed=%s", needle, removed)
+    return removed
+
+
+async def _purge_delayed(redis: Redis, needle: str, keep_types: Collection[str], page: int) -> int:
+    """ZREM the user's waiting entries; a member's payload is a stream entry's fields."""
+    doomed: list[str | bytes] = []
+    async for member, _score in redis.zscan_iter(DELAYED_ZSET, count=page):
+        fields = member_fields(member)
+        if fields is None or fields.get("type") in keep_types:
+            continue
+        if _payload_user_id(fields) == needle:
+            doomed.append(member)
+    removed = 0
+    for start in range(0, len(doomed), page):
+        removed += int(await redis.zrem(DELAYED_ZSET, *doomed[start : start + page]) or 0)
     return removed
 
 

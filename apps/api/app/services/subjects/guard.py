@@ -11,6 +11,11 @@ the subjects' readers directly (``order``): a step whose reader raises switches 
 off for the line, which is read again without it, so that subject never has the line and
 every other still reads it.
 
+Money, the subjects' peer, is guarded the same way (``GuardedMoney``): chat asks it of
+every turn (its prepare beside the prompt, its reads in routing and card rounding), so a
+money bug costs only the money card. Its ``finish`` is not guarded: it runs in the money
+finalize pass, which falls back on its own like any effect pass.
+
 The fence is not guarded. Its members run inside the finalize passes, which fail closed
 on their own (a safety pass that raises gives way to its strip): a guard that kept the text
 would let a model's forged card through. The proxies are plain classes at module level, so
@@ -23,17 +28,23 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading, SubjectAugmentation
 
 if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
     from app.core.config import Settings
+    from app.gateways.mcp.base import TavilyBudget
+    from app.models.orm import User
+    from app.modules.money.service import MoneyTurn
     from app.services.formal.answer import FormalAnswer
     from app.services.solving import SubjectName, VerifiedSolveBlock
     from app.services.subject_hints import SubjectHints
     from app.services.subjects.registry import (
+        MoneyPeer,
         SubjectAdapter,
         SubjectFence,
         SubjectFigure,
@@ -489,3 +500,118 @@ class GuardedSubject:
         return neutral_on_error(
             self.name, "answers_part", None, lambda: self._inner.answers_part(verified, asked)
         )
+
+
+_MONEY = "money"
+
+
+class GuardedMoney:
+    """Money as chat asks it: a member that raises answers as a turn with no money in it."""
+
+    def __init__(self, inner: MoneyPeer) -> None:
+        self._inner = inner
+
+    async def prepare(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        earlier: Sequence[str | Sequence[str]],
+        last_reply: str,
+        search_budget: TavilyBudget | None = None,
+    ) -> MoneyTurn | None:
+        return await _neutral_async(
+            _MONEY,
+            "prepare",
+            None,
+            lambda: self._inner.prepare(
+                text,
+                settings,
+                redis,
+                user=user,
+                location=location,
+                earlier=earlier,
+                last_reply=last_reply,
+                search_budget=search_budget,
+            ),
+        )
+
+    async def prepare_standing(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        earlier: Sequence[str | Sequence[str]],
+        last_reply: str,
+        search_budget: TavilyBudget | None = None,
+    ) -> MoneyTurn | None:
+        return await _neutral_async(
+            _MONEY,
+            "prepare_standing",
+            None,
+            lambda: self._inner.prepare_standing(
+                text,
+                settings,
+                redis,
+                user=user,
+                location=location,
+                earlier=earlier,
+                last_reply=last_reply,
+                search_budget=search_budget,
+            ),
+        )
+
+    async def prepare_read(
+        self,
+        text: str,
+        settings: Settings,
+        redis: Redis | None,
+        *,
+        user: User | None,
+        location: str | None,
+        conversation: Sequence[tuple[str, str]],
+        search_budget: TavilyBudget | None = None,
+    ) -> MoneyTurn | None:
+        return await _neutral_async(
+            _MONEY,
+            "prepare_read",
+            None,
+            lambda: self._inner.prepare_read(
+                text,
+                settings,
+                redis,
+                user=user,
+                location=location,
+                conversation=conversation,
+                search_budget=search_budget,
+            ),
+        )
+
+    async def finish(self, turn: MoneyTurn, text: str, settings: Settings, *, english: bool) -> str:
+        # Unguarded: the money finalize pass falls back on its own (module docstring).
+        return await self._inner.finish(turn, text, settings, english=english)
+
+    def reads(self, text: str) -> bool:
+        # No money request: routing gives the line its subject's lane.
+        return neutral_on_error(_MONEY, "reads", False, lambda: self._inner.reads(text))
+
+    def yields_to(self, text: str, subject: str | None) -> bool:
+        # Yields: the line stays its science's, no money card.
+        return neutral_on_error(
+            _MONEY, "yields_to", True, lambda: self._inner.yields_to(text, subject)
+        )
+
+    def names_currency(self, unit: str) -> bool:
+        # A measure: rounded as the rule rounds one.
+        return neutral_on_error(
+            _MONEY, "names_currency", False, lambda: self._inner.names_currency(unit)
+        )
+
+    def owns(self, value: object) -> TypeGuard[MoneyTurn]:
+        return neutral_on_error(_MONEY, "owns", False, lambda: self._inner.owns(value))

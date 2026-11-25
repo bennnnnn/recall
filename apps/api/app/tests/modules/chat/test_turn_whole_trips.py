@@ -103,29 +103,32 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 # "ambient" scope: the store's whole-store block, cached under the memory generation (two
 # Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named
 # no word the rules know, live QA 2026-11-22, ``prompt_builder._context_plan``).
+# A Free turn, a regenerate too, reads the day's message count before its paid reads start
+# (one GET, ``TurnResources.message_left``): at the cap it is refused before any model call
+# (audit, 2026-11-25). A plan with no cap reads nothing.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=1),
         Counts(sql=11, checkouts=4, transactions=4, redis=19, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2),
+        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=28, models=3),
+        Counts(sql=5, checkouts=3, transactions=3, redis=29, models=3),
         Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=30, models=3),
+        Counts(sql=8, checkouts=5, transactions=5, redis=31, models=3),
         Counts(sql=18, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT,
     ),
     "maths": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
@@ -145,12 +148,12 @@ CEILINGS: dict[str, Ceiling] = {
     ),
     "photo lookup": Ceiling(
         # Redis 30: the lookup is the turn, so it takes the turn's chat message (one INCR).
-        Counts(sql=6, checkouts=4, transactions=4, redis=30, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=31, models=2, searches=1),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "picture": Ceiling(
-        Counts(sql=8, checkouts=3, transactions=3, redis=13, models=1),
+        Counts(sql=8, checkouts=3, transactions=3, redis=14, models=1),
         Counts(sql=16, checkouts=5, transactions=5, redis=28, models=2, embeds=1),
         _FIRST_UNTOLD,
     ),
@@ -160,7 +163,7 @@ CEILINGS: dict[str, Ceiling] = {
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=31, models=3),
+        Counts(sql=10, checkouts=3, transactions=3, redis=32, models=3),
         Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT,
     ),

@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -6,6 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.writes_repository import MemoryFactWrite
+from app.tests.fakes import fake_session
 from app.tests.modules.memory.sections_support import apply_memory_section_rows
 
 
@@ -117,6 +119,40 @@ async def test_apply_memory_facts_bounds_embed_concurrency_and_backfill():
 
     assert peak <= 3
     assert memories.update_embedding_if_current.await_count == 5
+
+
+@pytest.mark.asyncio
+async def test_a_provider_outage_leaves_the_vectors_to_a_later_pass():
+    """The facts' text is committed before the embed: an outage stores no vector and ends
+    the pass, and a later pass's backfill embeds them (review of #2590). It never reruns
+    the model pass that wrote them."""
+    from app.gateways.embedding_gateway import EmbeddingUnavailableError
+
+    session = fake_session()
+    memories = AsyncMock()
+    fact_id = uuid4()
+    memories.apply_writes = AsyncMock(return_value=[fact_id])
+    memories.list_embed_state = AsyncMock(return_value=[(fact_id, "Fact 0", False, None)])
+    invalidate = AsyncMock()
+
+    async def _down(_settings: Settings, _texts: list[str], *, concurrency: int) -> list[Any]:
+        raise EmbeddingUnavailableError("down")
+
+    with (
+        patch("app.gateways.embedding_gateway.embed_many", _down),
+        patch("app.modules.memory.cache.invalidate_memory_block", invalidate),
+    ):
+        await apply_memory_facts(
+            Settings(),
+            user_id=uuid4(),
+            writes=[MemoryFactWrite(op="add", type="fact", text="Fact 0", confidence=0.9)],
+            session_factory=lambda: _SessionContext(session),
+            memories=memories,
+        )
+
+    session.commit.assert_awaited_once()
+    memories.update_embedding_if_current.assert_not_awaited()
+    invalidate.assert_awaited()
 
 
 @pytest.mark.asyncio

@@ -18,7 +18,12 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
-from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
+from app.modules.memory.locks import (
+    acquire_memory_write_lock,
+    keep_memory_write_lock,
+    release_memory_write_lock,
+    stop_keeping,
+)
 from app.modules.memory.ops import is_active_memory, normalize_memory_text
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.topics import fact_topic, topic_memory_type
@@ -54,6 +59,7 @@ async def record_learning_progress(
         lock_token = await acquire_memory_write_lock(user_id)
         if not lock_token:
             return "skipped_lock"
+        keeper = keep_memory_write_lock(user_id, lock_token)
         try:
             async with SessionLocal() as session:
                 user = await users_repo.get_by_id(session, user_id)
@@ -105,6 +111,7 @@ async def record_learning_progress(
                 expected_facts=expected,
             )
         finally:
+            stop_keeping(keeper)
             await release_memory_write_lock(user_id, lock_token)
     except Exception:
         logger.exception("learning progress write failed user_id=%s", user_id)

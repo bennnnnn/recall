@@ -219,6 +219,8 @@ async def test_a_photo_sent_with_no_words_is_titled_from_its_marker_not_the_repl
         bundle, turn, Settings(), reserved_tokens=10, timing=None, persist=None
     )
     assert ctx.user_message_content == ""
+    # The turn's own row: its indexing job reads this line, not the chat's latest.
+    assert ctx.user_message_id == turn.message_id
 
     verdict = "This image doesn't contain a math problem: it's a screenshot of a settings panel."
     payloads: dict[str, dict[str, str]] = {}

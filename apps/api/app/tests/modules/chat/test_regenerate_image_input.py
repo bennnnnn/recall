@@ -177,6 +177,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         lock_key="lock",
         lock_token="token",
         search_budget=lambda *_: None,
+        message_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager

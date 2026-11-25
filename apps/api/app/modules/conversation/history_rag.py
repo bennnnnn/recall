@@ -83,9 +83,12 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
     if not planned:
         return 0
     texts = [piece for _message, pieces in planned for piece in pieces]
-    vectors = await embedding_gateway.embed_many(
-        settings, texts, concurrency=settings.embedding_concurrency
-    )
+    try:
+        vectors = await embedding_gateway.embed_many(
+            settings, texts, concurrency=settings.embedding_concurrency
+        )
+    except embedding_gateway.EmbeddingUnavailableError as exc:
+        raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, provider unavailable") from exc
     if len(vectors) != len(texts) or any(
         vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
     ):
@@ -161,8 +164,12 @@ async def index_turn_messages(
     chat_id: UUID,
     assistant_message_id: UUID,
     memory_on: Callable[[User], bool],
+    user_message_id: UUID | None = None,
 ) -> int:
-    """Index the finalized assistant row and the latest user message, then warm empty corpora.
+    """Index the finalized assistant row and the turn's user line, then warm empty corpora.
+
+    ``user_message_id`` is the turn's own line; a job queued without it (before the
+    payload carried it) indexes the chat's latest user message, as it always did.
 
     Both lines go in one embedding request and one transaction. When the embedder
     fails, ``HistoryEmbeddingUnavailable`` reaches the job, which retries later.
@@ -179,7 +186,11 @@ async def index_turn_messages(
             return 0
         has_chunks = await chunks_repo.has_chunks_for_user(session, user_id)
         assistant = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
-        user_msg = await messages_repo.get_last_user(session, chat_id)
+        user_msg = (
+            await messages_repo.get_by_id(session, user_message_id, chat_id)
+            if user_message_id is not None
+            else await messages_repo.get_last_user(session, chat_id)
+        )
 
     turn = [row for row in (user_msg, assistant) if row is not None]
     total = await _embed_and_store(settings, user_id, turn)

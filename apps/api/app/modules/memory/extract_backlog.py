@@ -244,8 +244,12 @@ async def expand_memory_extract_transcript(
         logger.debug("memory extract backlog list failed chat_id=%s", chat_id, exc_info=True)
         return _fallback_lines(fallback_transcript)
 
-    # Lines read and all left out (only a when) teach nothing; no lines at all fall back.
     if not rows:
+        # Past a cursor, no rows means an earlier pass (another turn's job, or this
+        # one's first try) already read every line: reading the payload's transcript
+        # again would re-add a fact the user has since told memory to forget.
+        if after_created_at is not None:
+            return PassLines(transcript="")
         return _fallback_lines(fallback_transcript)
     last = rows[-1]
     # One read: the chat before the unread lines and the replies between them.

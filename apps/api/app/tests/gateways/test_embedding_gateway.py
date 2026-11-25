@@ -11,12 +11,13 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import httpx
+import litellm
 import pytest
 
 from app.core.config import Settings
 from app.gateways import embedding_gateway, llm_spend
 
-_EMBED_TEXT = "app.gateways.embedding_gateway.embed_text"
 _LIVE: dict[str, Any] = {"mock_llm_enabled": False, "openrouter_api_key": "test-key"}
 
 
@@ -45,7 +46,9 @@ class _Provider:
         try:
             await asyncio.sleep(self.delay)
             if self.fail_when is not None and self.fail_when in input:
-                raise RuntimeError("provider rejected the request")
+                raise litellm.BadRequestError(
+                    message="provider rejected an input", model=model, llm_provider="openrouter"
+                )
             data = [
                 {"embedding": _vector_for(text), "index": index} for index, text in enumerate(input)
             ]
@@ -126,21 +129,102 @@ async def test_a_failed_batch_is_retried_one_text_at_a_time():
 
 
 @pytest.mark.asyncio
-async def test_embed_many_raises_what_escapes_embed_text():
-    """An error ``embed_text`` does not turn into None fails the whole call, as each caller's
-    own loop did: the attachment job retries, a chat-history message is skipped and logged."""
+async def test_a_provider_failure_one_text_at_a_time_raises_like_the_batch():
+    """A batch with a refused input goes one text at a time; a text that then meets the
+    provider's own failure is the provider's, and the call raises so the job retries."""
 
-    async def embed(_settings: Settings, text: str) -> list[float]:
-        if text == "boom":
-            raise RuntimeError("embedding route missing")
-        return _vector_for(text)
+    async def provider(*, model: str, input: list[str], **_kwargs: Any) -> Any:
+        if len(input) > 1:
+            raise litellm.BadRequestError(message="refused", model=model, llm_provider="x")
+        if input == ["boom"]:
+            raise litellm.InternalServerError(message="5xx", model=model, llm_provider="x")
+        return SimpleNamespace(data=[{"embedding": _vector_for(input[0]), "index": 0}])
 
     with (
-        patch(_EMBED_TEXT, embed),
-        patch.object(embedding_gateway, "aembedding", AsyncMock(side_effect=RuntimeError("down"))),
-        pytest.raises(RuntimeError, match="route missing"),
+        patch.object(embedding_gateway, "aembedding", provider),
+        patch.object(llm_spend, "meter_model_call"),
+        pytest.raises(embedding_gateway.EmbeddingUnavailableError),
     ):
         await embedding_gateway.embed_many(_settings(), ["ok", "boom", "ok too"], concurrency=3)
+
+
+def _down(error: str) -> Exception:
+    kinds: dict[str, Exception] = {
+        "5xx": litellm.InternalServerError(message="5xx", model="m", llm_provider="openrouter"),
+        "429": litellm.RateLimitError(message="slow down", model="m", llm_provider="openrouter"),
+        "connection": litellm.APIConnectionError(
+            message="reset", model="m", llm_provider="openrouter"
+        ),
+        "timeout": litellm.Timeout(message="slow", model="m", llm_provider="openrouter"),
+        "deadline": TimeoutError(),
+        "auth": litellm.AuthenticationError(message="key", model="m", llm_provider="openrouter"),
+        "no model": litellm.NotFoundError(message="model", model="m", llm_provider="openrouter"),
+        "denied": litellm.PermissionDeniedError(
+            message="denied",
+            model="m",
+            llm_provider="openrouter",
+            response=httpx.Response(403, request=httpx.Request("POST", "https://x")),
+        ),
+    }
+    return kinds[error]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "attempts"),
+    [
+        ("5xx", 3),
+        ("429", 3),
+        ("connection", 3),
+        ("timeout", 1),
+        ("deadline", 1),
+        ("auth", 1),
+        ("no model", 1),
+        ("denied", 1),
+    ],
+)
+async def test_a_provider_outage_never_fans_a_batch_out_one_text_at_a_time(
+    error: str, attempts: int, monkeypatch: pytest.MonkeyPatch
+):
+    """A 5xx or timeout is the provider's, not one input's: the batch is retried whole after
+    a wait (a timeout, a refused key or model not at all), never sent as 64 single requests
+    of up to a minute each, past the job's own timeout (audit, 2026-11-25). Still failing,
+    the call raises: the caller's job retries rather than storing what it has as done."""
+    monkeypatch.setattr(embedding_gateway, "_BATCH_RETRY_BASE_S", 0.0)
+    provider = AsyncMock(side_effect=_down(error))
+    texts = [f"piece {index}" for index in range(64)]
+    with (
+        patch.object(embedding_gateway, "aembedding", provider),
+        patch.object(llm_spend, "meter_model_call"),
+    ):
+        with pytest.raises(embedding_gateway.EmbeddingUnavailableError):
+            await embedding_gateway.embed_many(_settings(), texts, concurrency=8)
+
+    assert provider.await_count == attempts
+    assert all(len(call.kwargs["input"]) == 64 for call in provider.await_args_list)
+
+
+@pytest.mark.asyncio
+async def test_a_batch_that_fails_once_is_embedded_on_its_retry(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(embedding_gateway, "_BATCH_RETRY_BASE_S", 0.0)
+    healthy = _Provider()
+    calls = 0
+
+    async def flaky(**kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise _down("5xx")
+        return await healthy(**kwargs)
+
+    with (
+        patch.object(embedding_gateway, "aembedding", flaky),
+        patch.object(llm_spend, "meter_model_call"),
+    ):
+        result = await embedding_gateway.embed_many(_settings(), ["a", "bb"], concurrency=2)
+
+    assert result == [_vector_for("a"), _vector_for("bb")]
+    assert calls == 2
 
 
 @pytest.mark.asyncio

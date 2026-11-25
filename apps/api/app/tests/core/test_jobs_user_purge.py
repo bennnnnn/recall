@@ -101,6 +101,40 @@ async def test_purge_user_jobs_handles_empty_and_missing_streams(fake_redis: Any
 
 
 @pytest.mark.asyncio
+async def test_purge_user_jobs_removes_the_users_waiting_retries(fake_redis: Any) -> None:
+    """A job waiting for its retry carries the transcript too: it must not run after delete."""
+    from app.core.jobs import delayed
+
+    gone, kept = str(uuid4()), str(uuid4())
+    for user_id in (gone, kept):
+        for round_ in range(3):
+            await jobs.enqueue_later(
+                fake_redis,
+                "memory",
+                {"user_id": user_id, "transcript": f"{user_id[:4]}-waiting-{round_}"},
+                delay_s=60,
+            )
+    # The delete's own backstop sweep waits here too: it stays.
+    await jobs.schedule_job(fake_redis, "account_sweep_backstop", {"user_id": gone}, delay_s=600)
+    # A member that is not a job entry is left alone.
+    await fake_redis.zadd(delayed.DELAYED_ZSET, {"not-json": 1.0})
+
+    removed = await jobs.purge_user_jobs(
+        fake_redis, gone, keep_types=frozenset({"account_sweep_backstop"}), batch=2
+    )
+
+    assert removed == 3
+    left = [
+        delayed.member_fields(member)
+        for member in await fake_redis.zrange(delayed.DELAYED_ZSET, 0, -1)
+    ]
+    gone_left = [f for f in left if f and gone in f["payload"]]
+    assert [f["type"] for f in gone_left] == ["account_sweep_backstop"]
+    assert sum(1 for f in left if f and kept in f["payload"]) == 3
+    assert None in left
+
+
+@pytest.mark.asyncio
 async def test_storage_sweep_purges_the_users_jobs(fake_redis: Any, monkeypatch) -> None:
     from app.background import handlers
     from app.core.config import Settings
@@ -124,3 +158,21 @@ async def test_storage_sweep_purges_the_users_jobs(fake_redis: Any, monkeypatch)
     )
     assert "gone-" not in text and gone not in text
     assert "kept-secret" in text
+
+
+@pytest.mark.asyncio
+async def test_a_due_member_no_entry_reads_from_is_dropped(fake_redis: Any) -> None:
+    """``member_fields`` is the one reader of a waiting member: one it cannot read could
+    never run, so moving due entries drops it instead of putting it back every minute."""
+    from app.core.jobs import delayed
+
+    await jobs.enqueue_later(fake_redis, "memory", {"user_id": "u"}, delay_s=0)
+    for junk in ("not-json", '{"fields": ["a list"]}', '{"no": "fields"}'):
+        await fake_redis.zadd(delayed.DELAYED_ZSET, {junk: 1.0})
+
+    moved = await delayed.move_due(fake_redis, now=10**10)
+
+    assert moved == 1
+    assert await delayed.delayed_depth(fake_redis) == 0
+    [(_id, fields)] = await fake_redis.xrange(jobs.JOBS_STREAM)
+    assert fields["type"] == "memory"

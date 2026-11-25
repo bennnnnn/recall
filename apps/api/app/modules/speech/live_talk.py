@@ -258,7 +258,9 @@ async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
     try:
         tz = user.timezone
         async with SessionLocal() as session:
-            items = await list_owned_todos(session, user.id, limit=settings.todo_inject_limit)
+            items = await list_owned_todos(
+                session, user.id, limit=settings.todo_inject_limit, needed_first=True
+            )
         selected = todos_service.select_todos_for_prompt(items, settings, user_timezone=tz)
         block = todos_service.format_todos_voice_block(selected, user_timezone=tz)
         return wrap_untrusted("schedule", block, first_party=True) if block else ""
@@ -400,6 +402,7 @@ async def persist_live_talk_turn(
             user=user,
             chat_id=chat_id,
             user_message=user_content,
+            user_message_id=user_message.id if user_message is not None else None,
             assistant=assistant_message,
             prior_count=prior_count,
             run_title=untitled,
