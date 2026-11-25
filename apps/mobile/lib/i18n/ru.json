@@ -569,7 +569,7 @@
   "onboarding.consent_search_body": "Поиск в интернете и поиск фото отправляют ключевые слова из вашего сообщения в Tavily или, как запасной вариант, в общедоступные поисковые системы. Поиск в интернете можно отключить в настройках.",
   "onboarding.consent_search_title": "Поиск в интернете",
   "onboarding.consent_title": "Прежде чем начать",
-  "onboarding.consent_voice_body": "Голосовой ввод и Live talk отправляют ваш голос в OpenAI. «Слушать» отправляет воспроизводимый текст в OpenAI или через OpenRouter компании, которая запускает голос Kokoro.",
+  "onboarding.consent_voice_body": "Голосовой ввод, «Слушать» и Live talk отправляют ваш голос и воспроизводимый текст в OpenAI и OpenRouter.",
   "onboarding.consent_voice_title": "Голос",
   "onboarding.demo_remind_add": "Добавить напоминание",
   "onboarding.demo_remind_added": "Добавлено",

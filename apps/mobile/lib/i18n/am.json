@@ -551,7 +551,7 @@
   "onboarding.consent_search_body": "የድር እና የፎቶ ፍለጋዎች ከመልዕክትዎ የተወሰዱ የፍለጋ ቃላትን ወደ Tavily፣ ወይም እንደ ምትክ ወደ ሕዝባዊ የፍለጋ ሞተሮች ይልካሉ። የድር ፍለጋን በቅንብሮች ውስጥ ማጥፋት ይችላሉ።",
   "onboarding.consent_search_title": "የድር ፍለጋ",
   "onboarding.consent_title": "ከመጀመርዎ በፊት",
-  "onboarding.consent_voice_body": "የድምፅ ግቤት እና Live talk ድምፅዎን ወደ OpenAI ይልካሉ። አዳምጥ የሚጫወተውን ጽሑፍ ወደ OpenAI ወይም በOpenRouter በኩል የKokoro ድምፅን ወደሚያሄደው ኩባንያ ይልካል።",
+  "onboarding.consent_voice_body": "የድምፅ ግቤት፣ አዳምጥ እና Live talk ድምፅዎን እና የሚጫወተውን ጽሑፍ ወደ OpenAI እና OpenRouter ይልካሉ።",
   "onboarding.consent_voice_title": "ድምፅ",
   "onboarding.demo_remind_add": "አስታዋሽ አክል",
   "onboarding.demo_remind_added": "ታክሏል",

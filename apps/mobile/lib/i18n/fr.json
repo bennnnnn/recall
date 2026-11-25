@@ -560,7 +560,7 @@
   "onboarding.consent_search_body": "Les recherches web et de photos envoient des mots-clés tirés de votre message à Tavily ou, en secours, à des moteurs de recherche publics. Vous pouvez désactiver la recherche web dans les Paramètres.",
   "onboarding.consent_search_title": "Recherche web",
   "onboarding.consent_title": "Avant de commencer",
-  "onboarding.consent_voice_body": "La saisie vocale et Live talk envoient votre voix à OpenAI. Écouter envoie le texte lu à OpenAI ou, via OpenRouter, à l'entreprise qui fait tourner la voix Kokoro.",
+  "onboarding.consent_voice_body": "La saisie vocale, Écouter et Live talk envoient votre voix et le texte lu à OpenAI et OpenRouter.",
   "onboarding.consent_voice_title": "Voix",
   "onboarding.demo_remind_add": "Ajouter le rappel",
   "onboarding.demo_remind_added": "Ajouté",

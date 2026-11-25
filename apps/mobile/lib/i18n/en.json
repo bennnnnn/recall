@@ -551,7 +551,7 @@
   "onboarding.consent_search_body": "Searches and photo lookups send search words based on your message to Tavily, or to public search engines as a backup. You can turn web search off in Settings.",
   "onboarding.consent_search_title": "Web search",
   "onboarding.consent_title": "Before you start",
-  "onboarding.consent_voice_body": "Voice input and live talk send your voice to OpenAI. Listen sends the text being played to OpenAI, or through OpenRouter to the company that runs the Kokoro voice.",
+  "onboarding.consent_voice_body": "Voice input, Listen and live talk send your voice and the text being played to OpenAI and OpenRouter.",
   "onboarding.consent_voice_title": "Voice",
   "onboarding.demo_remind_add": "Add reminder",
   "onboarding.demo_remind_added": "Added",

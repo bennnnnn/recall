@@ -551,7 +551,7 @@
   "onboarding.consent_search_body": "सर्च और फ़ोटो खोजने पर आपके मैसेज पर आधारित सर्च शब्द Tavily को, या बैकअप के तौर पर सार्वजनिक सर्च इंजनों को भेजे जाते हैं। आप सेटिंग्स में वेब सर्च बंद कर सकते हैं।",
   "onboarding.consent_search_title": "वेब सर्च",
   "onboarding.consent_title": "शुरू करने से पहले",
-  "onboarding.consent_voice_body": "वॉइस इनपुट और Live talk आपकी आवाज़ OpenAI को भेजते हैं। सुनें चलाया जा रहा टेक्स्ट OpenAI को, या OpenRouter के ज़रिए Kokoro आवाज़ चलाने वाली कंपनी को भेजता है।",
+  "onboarding.consent_voice_body": "वॉइस इनपुट, सुनें और Live talk आपकी आवाज़ और चलाया जा रहा टेक्स्ट OpenAI और OpenRouter को भेजते हैं।",
   "onboarding.consent_voice_title": "आवाज़",
   "onboarding.demo_remind_add": "रिमाइंडर जोड़ें",
   "onboarding.demo_remind_added": "जुड़ गया",

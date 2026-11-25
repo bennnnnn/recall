@@ -560,7 +560,7 @@
   "onboarding.consent_search_body": "Pesquisas na web e de fotos enviam palavras-chave baseadas na sua mensagem para o Tavily ou, como alternativa, para buscadores públicos. Você pode desativar a pesquisa na web em Configurações.",
   "onboarding.consent_search_title": "Pesquisa na web",
   "onboarding.consent_title": "Antes de começar",
-  "onboarding.consent_voice_body": "A entrada de voz e o Live talk enviam sua voz para a OpenAI. Ouvir envia o texto reproduzido para a OpenAI ou, pelo OpenRouter, para a empresa que executa a voz Kokoro.",
+  "onboarding.consent_voice_body": "Entrada de voz, Ouvir e Live talk enviam sua voz e o texto reproduzido para a OpenAI e o OpenRouter.",
   "onboarding.consent_voice_title": "Voz",
   "onboarding.demo_remind_add": "Adicionar lembrete",
   "onboarding.demo_remind_added": "Adicionado",

@@ -551,7 +551,7 @@
   "onboarding.consent_search_body": "Web ve fotoğraf aramaları, mesajından çıkarılan arama kelimelerini Tavily'ye ya da yedek olarak herkese açık arama motorlarına gönderir. Web aramasını Ayarlar'dan kapatabilirsin.",
   "onboarding.consent_search_title": "Web araması",
   "onboarding.consent_title": "Başlamadan önce",
-  "onboarding.consent_voice_body": "Sesli giriş ve Live talk sesini OpenAI'a gönderir. Dinle, oynatılan metni OpenAI'a ya da OpenRouter üzerinden Kokoro sesini çalıştıran şirkete gönderir.",
+  "onboarding.consent_voice_body": "Sesli giriş, Dinle ve Live talk; sesini ve oynatılan metni OpenAI'a ve OpenRouter'a gönderir.",
   "onboarding.consent_voice_title": "Ses",
   "onboarding.demo_remind_add": "Hatırlatıcı ekle",
   "onboarding.demo_remind_added": "Eklendi",
