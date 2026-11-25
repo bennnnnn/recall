@@ -64,12 +64,14 @@ type Params = {
   menuAnchorRef: RefObject<HostInstance | null>;
   handleSend: (prompt?: string) => unknown;
   wiring: { attachments: Wiring["attachments"]; voice: Wiring["voice"] };
-  quotaNudge: Pick<ReturnType<typeof useQuotaNudge>, "show" | "label" | "dismiss">;
+  quotaNudge: Pick<ReturnType<typeof useQuotaNudge>, "show" | "label" | "dismiss"> & { outOfMessages?: boolean };
   errors: Pick<ReturnType<typeof useChatErrorHandlers>, "chatError" | "dismissChatError">;
   retryChatError: () => void;
   upgrade: ReturnType<typeof useUpgradeSheet>;
   isPaid: boolean;
   isOffline: boolean;
+  /** A free plan's messages are used up for today: Send is off. */
+  quotaBlocked?: boolean;
   streaming: boolean;
   replySaving: boolean;
   sendBusy: boolean;
@@ -131,6 +133,7 @@ function useListProps(p: Params, header: ReactElement): ChatScreenListProps {
 /** The composer's props. Its text lives in ComposerDraftContext, so keystrokes rebuild none of them. */
 function useComposerProps(p: Params): ChatScreenComposerProps {
   const { streaming, replySaving, sendBusy, sendStatus, handleSend, stopGeneration, isOffline, liveTalkActive = false } = p;
+  const quotaBlocked = p.quotaBlocked ?? false;
   const keyboard = p.keyboard.composerKeyboard;
   const onNotice = p.chatActions.showActionBanner;
   const {
@@ -145,13 +148,13 @@ function useComposerProps(p: Params): ChatScreenComposerProps {
       keyboard, streaming, replySaving, attachPicking, sendBusy, sendStatus, pendingAttachment,
       onRemoveAttachment: removePendingAttachment, onPasteAsFile: attachPastedText, onNotice, onPickAttachment: handlePickAttachment,
       onOpenMathScanner,
-      onMathChromeHeightChange, onInputFrameExtraChange, onSend: handleSend, onStop: stopGeneration, isOffline,
+      onMathChromeHeightChange, onInputFrameExtraChange, onSend: handleSend, onStop: stopGeneration, isOffline, quotaBlocked,
       voiceAvailable, voiceRecording, voiceTranscribing, voiceMeterLevel, onVoicePress: toggleVoiceInput,
       onCancelVoice: cancelVoiceInput, onLiveTalkPress, liveTalkActive,
     }),
     [keyboard, streaming, replySaving, attachPicking, sendBusy, sendStatus, pendingAttachment, removePendingAttachment,
       attachPastedText, onNotice, handlePickAttachment, onOpenMathScanner, onMathChromeHeightChange, onInputFrameExtraChange, handleSend,
-      stopGeneration, isOffline, voiceAvailable, voiceRecording, voiceTranscribing, voiceMeterLevel, toggleVoiceInput,
+      stopGeneration, isOffline, quotaBlocked, voiceAvailable, voiceRecording, voiceTranscribing, voiceMeterLevel, toggleVoiceInput,
       cancelVoiceInput, onLiveTalkPress, liveTalkActive],
   );
 }
@@ -162,6 +165,7 @@ function useChromeProps(p: Params): ChatScreenChromeProps {
   const { actionBanner, dismissActionBanner } = p.chatActions;
   const { showScrollToBottom, scrollAwayCount } = p.scroll;
   const { show: quotaNudgeVisible, label: quotaLabel, dismiss: quotaDismiss } = p.quotaNudge;
+  const outOfMessages = p.quotaNudge.outOfMessages ?? false;
   const { chatError, dismissChatError } = p.errors;
   const { open: openUpgrade } = p.upgrade;
   // Each is a button's onPress: the press event never reaches the sheet as its source.
@@ -177,11 +181,12 @@ function useChromeProps(p: Params): ChatScreenChromeProps {
   return useMemo(
     () => ({
       actionBanner, onDismissActionBanner: dismissActionBanner, showScrollToBottom, scrollAwayCount,
-      onScrollToLatest: scrollToLatest, quotaNudgeVisible, quotaLabel, onQuotaUpgrade, onQuotaDismiss: quotaDismiss,
+      onScrollToLatest: scrollToLatest, quotaNudgeVisible, quotaLabel, onQuotaUpgrade,
+      onQuotaDismiss: outOfMessages ? undefined : quotaDismiss,
       chatError, isPaid, onUpgrade, onRetryChatError: retryChatError, onChangeModel, onDismissChatError: dismissChatError,
     }),
     [actionBanner, dismissActionBanner, showScrollToBottom, scrollAwayCount, scrollToLatest, quotaNudgeVisible,
-      quotaLabel, onQuotaUpgrade, quotaDismiss, chatError, isPaid, onUpgrade, retryChatError, onChangeModel,
+      quotaLabel, onQuotaUpgrade, quotaDismiss, outOfMessages, chatError, isPaid, onUpgrade, retryChatError, onChangeModel,
       dismissChatError],
   );
 }

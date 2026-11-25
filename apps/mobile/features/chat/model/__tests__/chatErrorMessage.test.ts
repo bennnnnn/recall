@@ -28,7 +28,7 @@ describe("chatErrorMessage", () => {
   it("names the plan's limit by code, never by the English", () => {
     expect(
       resolveChatError({ message: "Reworded limit.", code: "quota_exceeded", isPaid: false, t }),
-    ).toEqual({ kind: "quota", message: "chat.quota_exceeded_free" });
+    ).toEqual({ kind: "quota", message: "chat.quota_exceeded_free", outOfMessages: true });
     expect(
       resolveChatError({ message: "Image limit.", code: "daily_limit", isPaid: true, t }).message,
     ).toBe("chat.quota_exceeded_pro");

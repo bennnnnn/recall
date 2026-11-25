@@ -89,6 +89,8 @@ type Options = {
   /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
   onOfflineBlocked?: () => void;
   isOffline: boolean;
+  /** A free plan's messages are used up for today: no send leaves (the banner says why). */
+  quotaBlocked?: boolean;
   /** Runs before a send is painted (a window around a search hit goes to the newest page). */
   beforeSend?: () => Promise<void>;
   /** Run image generation for detected image-intent text (no confirmation sheet). */
@@ -117,7 +119,7 @@ export function useChatSend({
   t,
   onStreamBusy,
   onOfflineBlocked,
-  isOffline,
+  isOffline, quotaBlocked = false,
   beforeSend,
   onGenerateImage,
   imageGenerating = false,
@@ -328,7 +330,7 @@ export function useChatSend({
         chatLoading,
         chatId,
         routeChatId,
-        isOffline,
+        isOffline, quotaBlocked,
         streaming,
         text,
         hasAttachment: Boolean(attachment),
@@ -385,7 +387,7 @@ export function useChatSend({
       return true;
     },
     [
-      session, inputRef, chatLoading, chatId, routeChatId, isOffline, streaming, pendingAttachmentRef,
+      session, inputRef, chatLoading, chatId, routeChatId, isOffline, quotaBlocked, streaming, pendingAttachmentRef,
       token, creatingRef, attachPickInFlightRef, onOfflineBlocked, onStreamBusy, getThreadKey, paintUserTurn, routeSend,
       beforeSend, clearComposer, restoreFailedSend,
     ],
