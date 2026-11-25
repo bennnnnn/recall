@@ -281,6 +281,7 @@ async def _hang(*_args: object, **_kwargs: object) -> str | None:
     return "never"
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_a_hanging_whisper_host_still_leaves_openai_time():
     openai = AsyncMock(return_value="hello")
@@ -299,6 +300,7 @@ async def test_a_hanging_whisper_host_still_leaves_openai_time():
     assert spent == [spend.STT_WHISPER_SPEND_USD, spend.STT_OPENAI_SPEND_USD]
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_every_try_ends_by_the_shared_deadline():
     with (
