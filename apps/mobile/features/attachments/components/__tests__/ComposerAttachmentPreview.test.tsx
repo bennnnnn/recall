@@ -11,14 +11,15 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: (
 jest.mock("@/features/attachments/components/LazyDraftAttachmentViewers", () => {
   const { Pressable, View } = jest.requireActual("react-native");
   const viewer = (testID: string) =>
-    function MockViewer({ visible, localUri, onShare, sharing }: {
+    function MockViewer({ visible, localUri, fileName, onShare, sharing }: {
       visible: boolean;
       localUri: string;
+      fileName: string;
       onShare: () => void;
       sharing?: boolean;
     }) {
       return visible ? (
-        <View testID={testID} accessibilityHint={localUri}>
+        <View testID={testID} accessibilityHint={localUri} accessibilityLabel={fileName}>
           <Pressable testID="viewer-share" onPress={onShare} accessibilityState={{ busy: Boolean(sharing) }} />
         </View>
       ) : null;
@@ -92,3 +93,30 @@ describe("a picked attachment, seen before it is sent", () => {
     expect(view.getByTestId("composer-file-open").props.accessibilityState?.disabled).toBe(true);
   });
 });
+
+describe("a long paste in the composer", () => {
+  const pasted: PendingAttachment = {
+    ...file("text/plain", "pasted-text.txt"),
+    localUri: "file:///cache/PastedText/paste-1.txt",
+    pasted: { chars: 12_345, preview: "It was a bright cold day in April" },
+  };
+
+  it("shows its first words, that it was pasted and how long it is", async () => {
+    const view = await render(<ComposerAttachmentPreview attachment={pasted} onRemove={jest.fn()} />);
+    expect(view.getByText("It was a bright cold day in April")).toBeTruthy();
+    expect(view.getByText("chat.pasted_text · chat.pasted_text_chars")).toBeTruthy();
+    expect(view.getByTestId("composer-file-open").props.accessibilityLabel).toBe("chat.pasted_text_open_a11y");
+  });
+
+  it("opens the whole text in the text viewer, and × removes it", async () => {
+    const onRemove = jest.fn();
+    const view = await render(<ComposerAttachmentPreview attachment={pasted} onRemove={onRemove} />);
+    await fireEvent.press(view.getByTestId("composer-file-open"));
+    expect(view.getByTestId("text-viewer").props.accessibilityHint).toBe("file:///cache/PastedText/paste-1.txt");
+    // Titled as the chip names it, not by the file the phone wrote.
+    expect(view.getByTestId("text-viewer").props.accessibilityLabel).toBe("chat.pasted_text");
+    await fireEvent.press(view.getByLabelText("chat.remove_attachment_a11y"));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+});
+

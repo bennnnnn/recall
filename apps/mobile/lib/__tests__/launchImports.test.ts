@@ -49,6 +49,9 @@ const LAZY_FILES = [
   "features/speech/model/realtimeTurnState.ts",
   "features/speech/model/liveTalkSfx.ts",
   "features/speech/components/LiveTalkOverlay.tsx",
+  // Live dictation's WebRTC call: it loads on the first mic tap.
+  "features/speech/model/liveDictation.ts",
+  "features/speech/model/realtimePeer.ts",
   // Physics scene parsers that size a placeholder, and the renderers.
   "lib/physics/simulation/index.ts",
   "components/rich/diagrams/spec.ts",

@@ -3,7 +3,7 @@ import { StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } f
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type SharedValue } from "react-native-reanimated";
 
-import { ActionBanner } from "@/ui/feedback/ActionBanner";
+import { ActionBanner, type ActionFeedbackTone } from "@/ui/feedback/ActionBanner";
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
 import { LazyMathEquationScanner } from "@/features/scanner/components/LazyMathEquationScanner";
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
@@ -74,6 +74,10 @@ export interface ChatScreenComposerProps {
   sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
+  /** Makes a long paste the composer's attachment; false when it could not. */
+  onPasteAsFile?: (text: string) => boolean;
+  /** The chat's banner over the composer, lifted with the keyboard: why a paste added nothing. */
+  onNotice?: (message: string, icon?: IconName, tone?: ActionFeedbackTone) => void;
   onPickAttachment: () => void;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number, padHeight: number) => void;
@@ -97,6 +101,7 @@ export interface ChatScreenChromeProps {
   actionBanner: {
     message: string;
     icon?: IconName;
+    tone?: ActionFeedbackTone;
   } | null;
   onDismissActionBanner: () => void;
   showScrollToBottom: boolean;
@@ -194,6 +199,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           sendStatus={composer.sendStatus}
           pendingAttachment={composer.pendingAttachment}
           onRemoveAttachment={composer.onRemoveAttachment}
+          onPasteAsFile={composer.onPasteAsFile}
+          onNotice={composer.onNotice}
           onCloseAttachSheet={sheets.onCloseAttachSheet}
           onPickAttachment={composer.onPickAttachment}
           onSend={composer.onSend}
@@ -315,6 +322,7 @@ const ChatSheets = memo(function ChatSheets({ layout, drawerOpen, chrome, sheets
       <ActionBanner
         message={chrome.actionBanner?.message ?? null}
         icon={chrome.actionBanner?.icon}
+        tone={chrome.actionBanner?.tone}
         bottomOffset={composerClearance + 12}
         lift={layout.keyboardLift}
         onDismiss={chrome.onDismissActionBanner}

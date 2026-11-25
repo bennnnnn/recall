@@ -36,7 +36,7 @@ type Props = {
   lift?: SharedValue<number>;
 };
 
-type ActionFeedbackTone = "success" | "info" | "warning" | "error";
+export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
 export type ActionBannerAppearance = "default" | "media";
 
 export function ActionBanner({

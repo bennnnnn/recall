@@ -1,5 +1,6 @@
 import type { Message } from "@/lib/api";
 import { messageTextForSend, type PendingAttachment } from "@/features/attachments/model/attachments";
+import { isPastedText } from "@/features/attachments/model/pastedText";
 
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
 
@@ -66,9 +67,11 @@ export function buildOptimisticUserMessage(options: {
   createdAt: string;
 }): Message {
   const sendText = messageTextForSend(options.text, options.attached);
+  // A paste draws as its chip (UserMessageContent), never as the file's name.
+  const pasted = options.attached ? isPastedText(options.attached) : false;
   const display =
     options.text.trim() ||
-    (options.attached?.kind === "file" ? options.attached.fileName : sendText);
+    (pasted ? "" : options.attached?.kind === "file" ? options.attached.fileName : sendText);
   return {
     id: options.optimisticId,
     role: "user",

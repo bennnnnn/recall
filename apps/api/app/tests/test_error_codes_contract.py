@@ -35,6 +35,7 @@ from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.models.orm import User
 from app.modules.account.email_authority import AccountExistsError
+from app.modules.attachments.pasted_text import PASTED_TEXT_FILENAME, PASTED_TEXT_MAX_BYTES
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.services.quota import IMAGE_GENERATION_SPEND_CAP_MESSAGE, counters
 
@@ -75,6 +76,7 @@ def _presign(
     *,
     at_daily_cap: bool = False,
     library_full: bool = False,
+    filename: str | None = None,
 ) -> Any:
     user = _user()
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -93,7 +95,7 @@ def _presign(
         return _client(user).post(
             "/attachments/presign",
             headers=_AUTH,
-            json={"content_type": content_type, "size_bytes": size_bytes},
+            json={"content_type": content_type, "size_bytes": size_bytes, "filename": filename},
         )
 
 
@@ -467,6 +469,9 @@ def _bodies() -> dict[str, dict[str, Any]]:
         },
         "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
         "presign_storage_full": _refusal(_presign("image/png", 128, library_full=True)),
+        "presign_paste_too_long": _refusal(
+            _presign("text/plain", PASTED_TEXT_MAX_BYTES + 1, filename=PASTED_TEXT_FILENAME)
+        ),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),
         # Every voice request at the day's spend cap: dictation, live talk's session and saves.

@@ -355,6 +355,8 @@ export type FailureArea =
   /** A thumb up or down on a reply (`useMessageFeedback`). */
   | "message_feedback"
   | "attachment_upload"
+  /** A long paste could not be written as its file; it stays text in the composer. */
+  | "paste_attachment"
   | "paywall_load"
   | "purchase"
   | "purchase_restore"
@@ -380,7 +382,12 @@ export type FailureArea =
    */
   | "push_unregister"
   /** Continue under a cut-off reply could not be sent; the button comes back to try again. */
-  | "reply_continue";
+  | "reply_continue"
+  /**
+   * A live dictation's call could not be made (the composer recorded the clip instead) or
+   * dropped mid-take (what was heard landed).
+   */
+  | "live_dictation";
 
 /** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
 const failureAllowed = reportLimit(10 * 60_000, 20);

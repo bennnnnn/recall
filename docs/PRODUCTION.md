@@ -369,6 +369,16 @@ minute; past either, `POST /speech/live/persist` answers 429. The expiry hang-up
 needs the worker: while it is down, a call may run past its reservation until
 OpenAI's own session limit (nothing is saved, no tools).
 
+Live dictation (the composer mic in a dev build) uses the same pattern for an OpenAI
+transcription-only session (`gpt-live-transcribe`, about $0.017 a minute against the
+recorded path's $0.003): `POST /speech/dictation/session` takes one of the day's
+`speech_transcription` slots and keeps the secret, `/dictation/connect` opens the call and
+schedules a `dictation_hangup` job for `SPEECH_DICTATION_MAX_SECONDS` (45) plus 15 s, and
+`/dictation/end` hangs up at once (`modules/speech/dictation.py`). A take that heard nothing
+gets its slot back, at most 10 a day. `SPEECH_LIVE_DICTATION_ENABLED=false` sends every
+phone to the recorded upload; `SPEECH_DICTATION_MODEL=gpt-4o-mini-transcribe` keeps it live
+at the cheaper price, with words arriving per phrase (after each pause) rather than per word.
+
 ### QA (sandbox / test track)
 
 - [ ] Free: mic and live talk open the plans; read-aloud uses the phone voice;

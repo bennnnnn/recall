@@ -46,6 +46,7 @@ def _row(content_type: str, *, verified: bool = True, reserved: bool = False) ->
         size_bytes=5,
         verified_at=None if not verified else datetime(2026, 8, 1, tzinfo=UTC),
         source="upload",
+        original_filename=None,
         library_visible=True,
         created_at=created,
     )
@@ -425,3 +426,28 @@ async def test_a_maths_problem_on_the_maths_tab_stays_maths(transcription: str) 
     )
     assert result.image_math_extract == _EXTRACTED
     assert SCAN_CONFIRMED_PREFIX not in result.content
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "caption, read",
+    [("What does this say?", "What does this say?\n\nthe pasted words"), ("", "the pasted words")],
+)
+async def test_a_paste_is_the_turns_words_and_stays_the_rows_attachment(
+    caption: str, read: str
+) -> None:
+    """The turn's read and readers get pasted text as typed words; the row keeps its chip."""
+    from app.services.prompt_safety import PASTED_TEXT_HEADER
+
+    row = _row("text/plain")
+
+    def pasted_lines(gateway: object, **kwargs: Any) -> tuple[list[str], bool]:
+        ref = f"[File: /attachments/{kwargs['attachment_id']}/file]"
+        return [ref, f"{PASTED_TEXT_HEADER}\nthe pasted words"], False
+
+    result, _, _ = await _run(
+        [row], content=caption, fakes={"format": AsyncMock(side_effect=pasted_lines)}
+    )
+    assert result.content == read
+    assert result.user_content.endswith(f"{PASTED_TEXT_HEADER}\nthe pasted words")
+    assert result.user_content.startswith(caption or "[File: ")

@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   useWindowDimensions,
   View,
@@ -34,6 +33,7 @@ import {
   useComposerPrompt,
   ComposerScanHint,
   COMPOSER_SCAN_HINT_HEIGHT,
+  ComposerStatusLines,
 } from "@/features/chat/components/ComposerControls";
 import { ComposerSendControls } from "@/features/chat/components/ComposerSendControls";
 import { ComposerTextMeasure } from "@/features/chat/components/ComposerTextMeasure";
@@ -51,6 +51,7 @@ import { useComposerFieldLayout } from "@/features/chat/hooks/useComposerFieldLa
 import { useComposerRowFit } from "@/features/chat/hooks/useComposerRowFit";
 import { useMathKeyboardInsert, useMathKeyboardRequests } from "@/features/chat/hooks/useMathKeyboardInsert";
 import { useMathPadField } from "@/features/chat/hooks/useMathPadField";
+import { useComposerPaste } from "@/features/chat/hooks/useComposerPaste";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
@@ -65,6 +66,8 @@ import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlo
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX } from "@/lib/type";
+import type { ActionFeedbackTone } from "@/ui/feedback/ActionBanner";
+import type { IconName } from "@/ui/icons/names";
 
 function noopComposerInput(_text: string) {}
 function noopOpen() {}
@@ -86,6 +89,13 @@ type Props = {
   sendStatus?: string;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
+  /** Makes a long paste the composer's attachment; false when it could not (useComposerPaste). */
+  onPasteAsFile?: (text: string) => boolean;
+  /**
+   * Says why a paste added nothing, in the chat's banner over the composer (it rises with the
+   * keyboard; the app's toast sits under it). Without it the app's toast says it.
+   */
+  onNotice?: (message: string, icon?: IconName, tone?: ActionFeedbackTone) => void;
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
   onSend: (text?: string) => void;
@@ -131,6 +141,7 @@ export const ChatComposer = memo(function ChatComposer({
   sendStatus,
   pendingAttachment,
   onRemoveAttachment,
+  onPasteAsFile, onNotice,
   onCloseAttachSheet,
   onPickAttachment,
   onSend,
@@ -168,13 +179,15 @@ export const ChatComposer = memo(function ChatComposer({
     onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
   });
   const { showMathPreview, mathBarOpen, toggleMathBar } = math;
+  const hasAttachment = Boolean(pendingAttachment) || attachPicking;
+  const { tooLong, ...paste } = useComposerPaste({ input, onPasteAsFile, onNotice, hasAttachment, field: math });
   const padUnder = math.mathBarOpen ? math.padHeight : 0;
   const mathChromeHeight =
     padUnder +
     (math.mathBarOpen && liveAnswerShows(input) ? MATH_LIVE_ANSWER_HEIGHT : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? COMPOSER_SCAN_HINT_HEIGHT : 0) +
-    (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
+    (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0) + (tooLong ? COMPOSER_STATUS_LINE_HEIGHT : 0);
 
   // Kept while the drawer hides the composer, so opening it does not re-lay out the chat.
   useEffect(() => {
@@ -251,10 +264,11 @@ export const ChatComposer = memo(function ChatComposer({
 
   const sendAndCloseMath = useCallback(
     (text?: string) => {
+      if (tooLong) return;
       if (math.mathBarOpen) toggleMathBar();
       onSend(text);
     },
-    [math.mathBarOpen, onSend, toggleMathBar],
+    [math.mathBarOpen, onSend, toggleMathBar, tooLong],
   );
 
   if (!visible || liveTalkActive) return null;
@@ -302,6 +316,7 @@ export const ChatComposer = memo(function ChatComposer({
         showSend={showSend}
         sendBusy={sendBusy}
         isOffline={isOffline} quotaBlocked={quotaBlocked}
+        tooLong={tooLong}
         attachBusy={attachPicking}
         showMic={showMic && !mathBarOpen}
         voiceRecording={voiceRecording}
@@ -444,7 +459,7 @@ export const ChatComposer = memo(function ChatComposer({
                     // pad dismisses that keyboard before it takes the field, so
                     // correction does not flip mid-word inside one native session.
                     {...composerNativeInputTraits(math.mathBarOpen || showMathPreview)}
-                    onChangeText={math.onChangeText}
+                    onChangeText={paste.onFieldChange}
                     onLayout={onInputLayout}
                     onContentSizeChange={onInputContentSizeChange}
                     scrollEnabled={fieldOverflows && !composerExpanded}
@@ -481,16 +496,7 @@ export const ChatComposer = memo(function ChatComposer({
                 {trailingControls}
               </View>
             ) : null}
-            {sendStatus ? (
-              <Text
-                style={s.sendStatus}
-                testID="composer-send-status"
-                accessibilityRole="text"
-                accessibilityLiveRegion="polite"
-              >
-                {sendStatus}
-              </Text>
-            ) : null}
+            <ComposerStatusLines s={s} input={input} tooLong={tooLong} sendStatus={sendStatus} />
           </View>
           </View>
           {math.mathBarOpen ? (
@@ -504,7 +510,7 @@ export const ChatComposer = memo(function ChatComposer({
               onStop={onStop}
               streaming={streaming}
               onBackspace={math.backspace}
-              onPaste={() => pasteClipboardText(math.pasteText)}
+              onPaste={() => pasteClipboardText(paste.onPadPaste)}
               group={math.mathGroup}
               onGroupChange={math.setMathGroup}
             />

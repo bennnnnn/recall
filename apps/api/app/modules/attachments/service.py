@@ -30,6 +30,7 @@ from app.modules.attachments.content_types import (
     normalize_content_type as normalize_content_type,
 )
 from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
+from app.modules.attachments.pasted_text import pasted_text_in as pasted_text_in
 
 
 @dataclass(frozen=True, slots=True)

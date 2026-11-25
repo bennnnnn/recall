@@ -14,6 +14,15 @@ type RealtimeSessionCredential = {
   max_duration_seconds?: number;
 };
 
+/** A minted live dictation; its OpenAI secret stays on the server (connect with `connectDictationSession`). */
+export type DictationSessionCredential = {
+  call_id: string;
+  expires_at: number;
+  model: string;
+  /** The server hangs the call up this long after it connects. */
+  max_duration_seconds: number;
+};
+
 export const speechApi = {
   liveTalkStatus: (token: string) => request<LiveTalkStatus>("/speech/live", token),
   createRealtimeSession: (token: string, body: { chatId?: string | null; bargeIn?: boolean }) =>
@@ -66,6 +75,35 @@ export const speechApi = {
       method: "POST",
       body: JSON.stringify({ call_id: callId }),
     }),
+  /** Charge one of today's voice inputs for a live dictation and mint its session. */
+  createDictationSession: (token: string, body: { language?: string }) =>
+    request<DictationSessionCredential>(
+      "/speech/dictation/session",
+      token,
+      { method: "POST", body: JSON.stringify({ language: body.language }) },
+      true,
+      15_000,
+    ),
+  /** The dictation's WebRTC offer: the server opens the OpenAI call and answers with its SDP. */
+  connectDictationSession: (
+    token: string,
+    body: { callId: string; sdp: string },
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ) =>
+    request<{ sdp: string }>(
+      "/speech/dictation/connect",
+      token,
+      { method: "POST", body: JSON.stringify({ call_id: body.callId, sdp: body.sdp }), signal },
+      true,
+      timeoutMs,
+    ),
+  /** The take stopped: the server hangs the call up, and gives the voice input back if nothing was heard. */
+  endDictationSession: (token: string, callId: string, heard: boolean) =>
+    request<void>("/speech/dictation/end", token, {
+      method: "POST",
+      body: JSON.stringify({ call_id: callId, heard }),
+    }),
   realtimeTool: (token: string, body: {
     chat_id: string; call_id: string; turn_id: string;
     name: "memory_lookup" | "web_search"; query: string;
@@ -74,7 +112,8 @@ export const speechApi = {
   }, true, 15_000),
 };
 
-function speechLanguageHint(): string | undefined {
+/** The app's language, as the transcription's hint (`pt`, `am`). */
+export function speechLanguageHint(): string | undefined {
   const language = (i18n.resolvedLanguage || i18n.language || "").trim().toLowerCase();
   if (!language) return undefined;
   return language.split("-")[0] || undefined;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Image, type ImageLoadEventData } from "expo-image";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import {
   LazyComposerImageEnlarge,
 } from "@/features/attachments/components/LazyDraftAttachmentViewers";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import { attachmentDisplayName } from "@/features/attachments/model/pastedText";
 import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model/attachmentImageSize";
 import { isReadableTextContentType } from "@/features/attachments/model/gallery";
 import { isPdfContentType } from "@/lib/messageAttachments";
@@ -66,7 +67,7 @@ function PendingAttachmentViewer({ attachment, open, onClose }: {
       alertDialog({ title: t(shareFailureKey(error, "common.share_failed")) }),
     );
   };
-  const props = { visible: open, onClose, localUri, fileName, onShare, sharing };
+  const props = { visible: open, onClose, localUri, fileName: attachmentDisplayName(fileName, t), onShare, sharing };
   const viewer = fileViewer(contentType);
   if (viewer === "pdf") return <LazyAttachmentPdfViewer {...props} />;
   return viewer === "text" ? <LazyAttachmentTextViewer {...props} /> : null;
@@ -91,6 +92,14 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
         />
         {viewer}
       </>
+    );
+  }
+
+  if (attachment.pasted) {
+    return (
+      <PastedTextChip {...{ attachment, uploading, onRemove }} pasted={attachment.pasted} onOpen={() => setOpen(true)}>
+        {viewer}
+      </PastedTextChip>
     );
   }
 
@@ -122,19 +131,77 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
           {attachment.fileName}
         </Text>
       </Pressable>
-      {uploading ? (
-        <ActivityIndicator size="small" color={C.primary} />
-      ) : (
-        <Pressable
-          onPress={onRemove}
-          hitSlop={13}
-          accessibilityRole="button"
-          accessibilityLabel={t("chat.remove_attachment_a11y")}
-        >
-          <Icon name="close-circle" size={IconSize.sm} color={C.textTertiary} />
-        </Pressable>
-      )}
+      <FileChipEnd uploading={uploading} onRemove={onRemove} />
       {viewer}
+    </View>
+  );
+}
+
+/** The × that drops a file chip's draft, or the spinner while it uploads. */
+function FileChipEnd({ uploading, onRemove }: Pick<Props, "uploading" | "onRemove">) {
+  const C = useTheme();
+  const { t } = useTranslation();
+  return uploading ? (
+    <ActivityIndicator size="small" color={C.primary} />
+  ) : (
+    <Pressable
+      onPress={onRemove}
+      hitSlop={13}
+      accessibilityRole="button"
+      accessibilityLabel={t("chat.remove_attachment_a11y")}
+    >
+      <Icon name="close-circle" size={IconSize.sm} color={C.textTertiary} />
+    </Pressable>
+  );
+}
+
+/**
+ * Text pasted into the composer (pastedText.ts), shown as a file: its first words, then
+ * "Pasted text" and its length. A tap reads the whole of it.
+ */
+function PastedTextChip({
+  pasted,
+  uploading,
+  onRemove,
+  onOpen,
+  children,
+}: Pick<Props, "uploading" | "onRemove"> & {
+  pasted: NonNullable<PendingAttachment["pasted"]>;
+  onOpen: () => void;
+  children: ReactNode;
+}) {
+  const C = useTheme();
+  const { t } = useTranslation();
+  const s = useMemo(() => makeStyles(C), [C]);
+  const length = t("chat.pasted_text_chars", { count: pasted.chars });
+  return (
+    <View
+      style={[s.fileWrap, s.pastedWrap]}
+      accessibilityLabel={uploading ? t("chat.sending") : undefined}
+      accessibilityState={{ busy: Boolean(uploading) }}
+      testID="composer-pasted-text"
+    >
+      <Pressable
+        style={s.fileOpen}
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.pasted_text_open_a11y", { length })}
+        testID="composer-file-open"
+      >
+        <View style={s.fileIcon}>
+          <Icon name="file-text" size={IconSize.sm} color={C.primary} />
+        </View>
+        <View style={s.pastedLines}>
+          <Text style={s.pastedPreview} numberOfLines={1}>
+            {pasted.preview}
+          </Text>
+          <Text style={s.pastedMeta} numberOfLines={1}>
+            {t("chat.pasted_text")} · {length}
+          </Text>
+        </View>
+      </Pressable>
+      <FileChipEnd uploading={uploading} onRemove={onRemove} />
+      {children}
     </View>
   );
 }
@@ -271,5 +338,11 @@ function makeStyles(C: Theme) {
       ...Type.compact,
       color: C.textSecondary,
     },
+    // As wide as the composer: the first words fill the line. Two lines of text are 34pt
+    // against the icon's 32, so the padding gives back the difference (FILE_PREVIEW_EXTRA).
+    pastedWrap: { alignSelf: "stretch", paddingVertical: Space.xs - 1 },
+    pastedLines: { flexShrink: 1, flexGrow: 1 },
+    pastedPreview: { ...Type.compact, color: C.text },
+    pastedMeta: { ...Type.meta, color: C.textSecondary },
   });
 }
