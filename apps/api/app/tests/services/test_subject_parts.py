@@ -79,3 +79,30 @@ async def test_a_part_whose_read_gives_up_leaves_the_others_read(
 
     assert not readings.readings_declined()
     assert found.verified is not None and found.verified.subject == "physics"
+
+
+async def test_a_maths_part_whose_solve_read_gives_up_leaves_the_others_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A subject's own reads in a part's solve are the part's too: maths reading its first
+    part timing out leaves the second part and the whole message read (review of #2589)."""
+    from app.core import readings, sympy_executor
+
+    real = sympy_executor.run_sympy
+    parts = ("Solve 2x + 3 = 11.", "Solve 3x - 4 = 5.")
+
+    async def first_read_times_out(fn: Any, *args: Any, **kwargs: Any) -> Any:
+        if fn is readings._record and getattr(args[0], "__name__", "") == "read_math_request":
+            if args[1][0] == parts[0]:
+                raise TimeoutError
+        return await real(fn, *args, **kwargs)
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", first_read_times_out)
+    readings.begin_turn()
+
+    found = await build_subject_augmentation(
+        " ".join(parts), _SETTINGS, parts=parts, parts_answer_all=False
+    )
+
+    assert not readings.readings_declined()
+    assert found.verified is not None and found.verified.subject == "math"

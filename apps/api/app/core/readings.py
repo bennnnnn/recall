@@ -26,7 +26,8 @@ import inspect
 import logging
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from types import FrameType
 from typing import Any, cast
@@ -40,6 +41,8 @@ _DECLINED = ("__declined__",)
 # live read is a running task), never sent to a pool worker, which could not take them.
 _TURN = "__turn__"
 _MEMO: ContextVar[dict[tuple[Any, ...], Any] | None] = ContextVar("readings", default=None)
+# Set by ``reads_aside``: the reads within it never decline the turn.
+_ASIDE: ContextVar[bool] = ContextVar("reads_aside", default=False)
 _IMMUTABLE = (str, int, float, bool, bytes, type(None), frozenset)
 _COROUTINE_FLAGS = inspect.CO_COROUTINE | inspect.CO_ASYNC_GENERATOR
 # Production logs a reading on the loop at most once per reading in this window.
@@ -47,6 +50,18 @@ _LOG_EVERY_SECONDS = 300.0
 _last_logged: dict[str, float] = {}
 # Called with the reading's name and the async function running it on the loop (tests).
 on_loop_hooks: list[Callable[[str, str], None]] = []
+
+
+@contextmanager
+def reads_aside() -> Iterator[None]:
+    """Within it, every ``read_off_loop`` is a ``read_aside``: a read the turn can do
+    without (one part of a message, whichever subject reads it), whose pool giving up
+    returns its None and never declines the turn's other readings."""
+    token = _ASIDE.set(True)
+    try:
+        yield
+    finally:
+        _ASIDE.reset(token)
 
 
 def begin_turn() -> None:
@@ -231,6 +246,8 @@ async def read_off_loop[T](
     """
     from app.core.sympy_executor import run_sympy
 
+    if _ASIDE.get():
+        return await read_aside(fn, *args, timeout=timeout, **kwargs)
     memo = _MEMO.get()
     if memo is None:
         memo = {}
