@@ -17,7 +17,8 @@ type Props = {
   /** "3 of 10 free messages left today. Upgrade for more." */
   label: string;
   onUpgrade: () => void;
-  onDismiss: () => void;
+  /** None while the day's messages are used up: the banner then stays, to say why Send is off. */
+  onDismiss?: () => void;
 };
 
 export function ChatQuotaNudge({
@@ -48,9 +49,11 @@ export function ChatQuotaNudge({
       <Pressable style={s.quotaNudgeCta} onPress={onUpgrade} hitSlop={{ top: 10, bottom: 10 }} accessibilityRole="button">
         <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
       </Pressable>
-      <Pressable onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 8, right: 10 }} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
-        <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
-      </Pressable>
+      {onDismiss ? (
+        <Pressable onPress={onDismiss} hitSlop={{ top: 10, bottom: 10, left: 8, right: 10 }} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
+          <Icon name="close" size={IconSize.xs} color={theme.textTertiary} />
+        </Pressable>
+      ) : null}
     </Animated.View>
   );
 }

@@ -101,6 +101,8 @@ type Props = {
   onSend: (text?: string) => void;
   onStop: () => void;
   isOffline: boolean;
+  /** A free plan's messages are used up for today: Send is off (the banner above says why). */
+  quotaBlocked?: boolean;
   voiceAvailable?: boolean;
   voiceRecording?: boolean;
   voiceTranscribing?: boolean;
@@ -144,7 +146,7 @@ export const ChatComposer = memo(function ChatComposer({
   onPickAttachment,
   onSend,
   onStop,
-  isOffline,
+  isOffline, quotaBlocked = false,
   voiceAvailable = false,
   voiceRecording = false,
   voiceTranscribing = false,
@@ -313,7 +315,7 @@ export const ChatComposer = memo(function ChatComposer({
         onSend={() => sendAndCloseMath()}
         showSend={showSend}
         sendBusy={sendBusy}
-        isOffline={isOffline}
+        isOffline={isOffline} quotaBlocked={quotaBlocked}
         tooLong={tooLong}
         attachBusy={attachPicking}
         showMic={showMic && !mathBarOpen}
