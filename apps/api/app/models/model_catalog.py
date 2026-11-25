@@ -379,14 +379,25 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openrouter",
         selectable=False,
     ),
-    # The recorded clip (the mic where live dictation cannot run): OpenRouter's
-    # /audio/transcriptions, billed per second of audio. Its hosts list $0.0002 to
-    # $0.00067 a minute and OpenRouter picks the host (2026-11-24 calls were billed
-    # $0.00067); gpt-4o-mini-transcribe cost about three times that per clip.
+    # The recorded clip (the mic where live dictation cannot run), for the languages
+    # ``speech.service`` gives it: OpenRouter's /audio/transcriptions, billed per second of
+    # audio. Its hosts list $0.0002 to $0.00067 a minute and OpenRouter picks the host
+    # (2026-11-24 calls were billed $0.00067); gpt-4o-mini-transcribe cost about three
+    # times that per clip.
     _or(
         id="speech-stt-model",
         label="Speech transcription",
         model="openai/whisper-large-v3-turbo",
+        selectable=False,
+    ),
+    # The recorded clip in every other language (Whisper wrote Amharic as garbage and
+    # misspelt Hindi, 2026-11-24), with no language, and when Whisper fails.
+    ChatModel(
+        id="speech-stt-openai-model",
+        label="Speech transcription (OpenAI)",
+        model="openai/gpt-4o-mini-transcribe",
+        provider="openai",
+        api_key_field="openai_api_key",
         selectable=False,
     ),
     # Live dictation (the composer mic): the only transcriber that writes words while

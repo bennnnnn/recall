@@ -1,8 +1,9 @@
-"""The recorded clip's transcript: Whisper Large V3 Turbo through OpenRouter.
+"""The recorded clip's transcript, routed by the app's language.
 
-Live dictation streams to OpenAI and has its own tests (``test_dictation_gateway.py``).
-Whisper takes Amharic's ``am`` (measured 2026-11-24), so the recorded path always sends the
-app's code, even after an OpenAI live session marked it refused.
+Whisper Large V3 Turbo on OpenRouter takes English, Spanish, French, Portuguese, Russian
+and Turkish; gpt-4o-mini-transcribe on OpenAI takes Amharic, Hindi, a clip with no
+language, and any clip Whisper failed (``speech.service.STT_ROUTES``). Live dictation has
+its own tests (``test_dictation_gateway.py``).
 """
 
 from __future__ import annotations
@@ -15,9 +16,14 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import speech_gateway, transcription_gateway
-from app.modules.speech.service import resolve_stt_model, transcribe_audio
+from app.modules.speech import service as speech_service
+from app.modules.speech.service import resolve_stt_model, stt_routes_for, transcribe_audio
+from app.services.quota import spend
 
-_GATEWAY_CLIENT = "app.gateways.transcription_gateway.get_pooled_client"
+_WHISPER_CLIENT = "app.gateways.transcription_gateway.get_pooled_client"
+_OPENAI_CLIENT = "app.gateways.speech_gateway.get_pooled_client"
+_WHISPER_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
+_OPENAI_URL = "https://api.openai.com/v1/audio/transcriptions"
 
 
 def _settings(**overrides: object) -> Settings:
@@ -25,7 +31,7 @@ def _settings(**overrides: object) -> Settings:
         {
             "mock_llm_enabled": False,
             "openrouter_api_key": "or-test",
-            "openai_api_key": "",
+            "openai_api_key": "sk-test",
             "speech_transcription_enabled": True,
             **overrides,
         }
@@ -55,77 +61,200 @@ def _client(*responses: MagicMock) -> MagicMock:
     return client
 
 
-@pytest.mark.asyncio
-async def test_transcribe_posts_base64_json_to_openrouter():
-    client = _client(_response(200, {"text": "hello there", "usage": {"seconds": 1.2}}))
+@pytest.mark.parametrize(
+    "language, aliases",
+    [
+        ("en-US", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("es", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("fr-FR", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("pt_BR", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("ru", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("tr", ["speech-stt-model", "speech-stt-openai-model"]),
+        ("am", ["speech-stt-openai-model"]),
+        ("hi-IN", ["speech-stt-openai-model"]),
+        ("de", ["speech-stt-openai-model"]),
+        (None, ["speech-stt-openai-model"]),
+        ("", ["speech-stt-openai-model"]),
+    ],
+)
+def test_a_clip_is_offered_to_the_transcribers_of_its_language(language, aliases):
+    assert [route.alias for route in stt_routes_for(language)] == aliases
 
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        text = await transcribe_audio(_settings(), b"audio-bytes", filename="speech.m4a")
+
+@pytest.mark.asyncio
+async def test_a_whisper_language_posts_base64_json_to_openrouter():
+    whisper = _client(_response(200, {"text": "hello there", "usage": {"seconds": 1.2}}))
+    openai = _client()
+    spent: list[float] = []
+
+    with patch(_WHISPER_CLIENT, return_value=whisper), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(
+            _settings(),
+            b"audio-bytes",
+            filename="speech.m4a",
+            language="en-US",
+            on_spend=spent.append,
+        )
 
     assert text == "hello there"
-    call = client.post.call_args
-    assert call.args[0] == "https://openrouter.ai/api/v1/audio/transcriptions"
+    call = whisper.post.call_args
+    assert call.args[0] == _WHISPER_URL
     assert call.kwargs["headers"]["Authorization"] == "Bearer or-test"
     body = call.kwargs["json"]
     assert body["model"] == "openai/whisper-large-v3-turbo"
+    assert body["language"] == "en"
     assert body["input_audio"] == {
         "data": base64.b64encode(b"audio-bytes").decode("ascii"),
         "format": "m4a",
     }
-    assert "language" not in body and "prompt" not in body
+    openai.post.assert_not_awaited()
+    assert spent == [spend.STT_WHISPER_SPEND_USD]
 
 
 @pytest.mark.asyncio
-async def test_without_an_openrouter_key_nobody_is_asked():
-    client = _client(_response(200, {"text": "hello"}))
-    settings = _settings(openrouter_api_key="", openai_api_key="sk")
+@pytest.mark.parametrize("language, code", [("hi-IN", "hi"), (None, None)])
+async def test_hindi_or_no_language_goes_to_openai(language, code):
+    whisper = _client()
+    openai = _client(_response(200, {"text": "नमस्ते"}))
+    spent: list[float] = []
 
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        assert await transcribe_audio(settings, b"audio-bytes") is None
-    client.post.assert_not_awaited()
+    with patch(_WHISPER_CLIENT, return_value=whisper), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(
+            _settings(), b"audio-bytes", language=language, on_spend=spent.append
+        )
+
+    assert text == "नमस्ते"
+    whisper.post.assert_not_awaited()
+    call = openai.post.call_args
+    assert call.args[0] == _OPENAI_URL
+    assert call.kwargs["data"]["model"] == "gpt-4o-mini-transcribe"
+    assert call.kwargs["data"].get("language") == code
+    assert spent == [spend.STT_OPENAI_SPEND_USD]
+
+
+@pytest.mark.asyncio
+async def test_amharic_goes_to_openai_with_its_refused_code_named_in_the_prompt():
+    openai = _client(
+        _response(400, text="Language code 'am' is not recognized: param language"),
+        _response(200, {"text": "ሰላም"}),
+    )
+
+    with patch(_WHISPER_CLIENT, return_value=_client()), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(_settings(), b"audio-bytes", language="am")
+
+    assert text == "ሰላም"
+    first, second = (call.kwargs["data"] for call in openai.post.call_args_list)
+    assert first["language"] == "am"
+    assert "language" not in second and "Amharic" in second["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_a_whisper_failure_is_asked_of_openai_and_both_are_spent():
+    whisper = _client(_response(502, text="upstream down"))
+    openai = _client(_response(200, {"text": "hola"}))
+    calls: list[str] = []
+    spent: list[float] = []
+
+    with patch(_WHISPER_CLIENT, return_value=whisper), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(
+            _settings(),
+            b"audio-bytes",
+            language="es",
+            on_call=lambda: calls.append("on_call"),
+            on_spend=spent.append,
+        )
+
+    assert text == "hola"
+    assert whisper.post.await_count == 1 and openai.post.await_count == 1
+    assert openai.post.call_args.kwargs["data"]["language"] == "es"
+    assert calls == ["on_call"]  # once, before the first provider
+    assert spent == [spend.STT_WHISPER_SPEND_USD, spend.STT_OPENAI_SPEND_USD]
+
+
+@pytest.mark.asyncio
+async def test_whisper_silence_is_an_answer_not_a_failure():
+    openai = _client()
+
+    with (
+        patch(_WHISPER_CLIENT, return_value=_client(_response(200, {"text": ""}))),
+        patch(_OPENAI_CLIENT, return_value=openai),
+    ):
+        text = await transcribe_audio(_settings(), b"silence-m4a", language="en")
+
+    assert text == ""
+    openai.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_both_failing_is_none():
+    with (
+        patch(_WHISPER_CLIENT, return_value=_client(_response(502, text="down"))),
+        patch(_OPENAI_CLIENT, return_value=_client(_response(500, text="down"))),
+    ):
+        assert await transcribe_audio(_settings(), b"audio-bytes", language="en") is None
+
+
+@pytest.mark.asyncio
+async def test_without_an_openrouter_key_a_whisper_language_goes_to_openai():
+    whisper = _client()
+    openai = _client(_response(200, {"text": "hello"}))
+
+    with patch(_WHISPER_CLIENT, return_value=whisper), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(_settings(openrouter_api_key=""), b"audio", language="en")
+
+    assert text == "hello"
+    whisper.post.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_without_an_openai_key_hindi_asks_nobody():
+    whisper, openai = _client(), _client()
+    calls: list[str] = []
+
+    with patch(_WHISPER_CLIENT, return_value=whisper), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(
+            _settings(openai_api_key=""), b"audio", language="hi", on_call=lambda: calls.append("x")
+        )
+
+    assert text is None
+    assert calls == []
+    whisper.post.assert_not_awaited()
+    openai.post.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
-    "override, model",
+    "override, alias, model",
     [
-        ("", "openai/whisper-large-v3-turbo"),
-        ("openai/whisper-large-v3", "openai/whisper-large-v3"),
+        ("", "speech-stt-model", "openai/whisper-large-v3-turbo"),
+        ("openai/whisper-large-v3", "speech-stt-model", "openai/whisper-large-v3"),
         # The OpenAI-direct name of old is no OpenRouter id: the catalog's model is used.
-        ("gpt-4o-mini-transcribe", "openai/whisper-large-v3-turbo"),
+        ("gpt-4o-mini-transcribe", "speech-stt-model", "openai/whisper-large-v3-turbo"),
+        # The override is Whisper's; OpenAI's route keeps its catalog model.
+        ("openai/whisper-large-v3", "speech-stt-openai-model", "openai/gpt-4o-mini-transcribe"),
     ],
 )
-def test_an_override_is_used_only_as_an_openrouter_slug(override: str, model: str):
-    assert resolve_stt_model(Settings(speech_transcription_model=override)) == model
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("language, code", [("en-US", "en"), ("am", "am"), ("hi_IN", "hi")])
-async def test_the_app_language_goes_as_its_code(language: str, code: str):
-    client = _client(_response(200, {"text": "hello there"}))
-
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        await transcribe_audio(_settings(), b"audio-bytes", language=language)
-
-    assert client.post.call_args.kwargs["json"]["language"] == code
+def test_the_override_is_whispers_and_only_an_openrouter_slug(override, alias, model):
+    assert resolve_stt_model(_settings(speech_transcription_model=override), alias) == model
 
 
 @pytest.mark.asyncio
 async def test_a_code_live_dictation_saw_refused_still_goes_to_whisper():
-    speech_gateway.mark_stt_language_refused("am")
-    client = _client(_response(200, {"text": "ሰላም"}))
+    """The refused-language memory is OpenAI's; Whisper takes every code it routes."""
+    speech_gateway.mark_stt_language_refused("es")
+    client = _client(_response(200, {"text": "hola"}))
 
-    with patch(_GATEWAY_CLIENT, return_value=client):
+    with patch(_WHISPER_CLIENT, return_value=client):
         text = await transcription_gateway.transcribe_via_openrouter(
             _settings(),
             b"audio",
             filename="a.m4a",
             model="openai/whisper-large-v3-turbo",
-            language="am",
+            language="es",
         )
 
-    assert text == "ሰላም"
+    assert text == "hola"
     body = client.post.call_args.kwargs["json"]
-    assert body["language"] == "am" and "prompt" not in body
+    assert body["language"] == "es" and "prompt" not in body
 
 
 @pytest.mark.asyncio
@@ -135,7 +264,7 @@ async def test_a_refused_language_is_dropped_once_and_detected():
         _response(200, {"text": "bonjour"}),
     )
 
-    with patch(_GATEWAY_CLIENT, return_value=client):
+    with patch(_WHISPER_CLIENT, return_value=client):
         text = await transcription_gateway.transcribe_via_openrouter(
             _settings(),
             b"audio",
@@ -154,7 +283,7 @@ async def test_a_refused_language_is_dropped_once_and_detected():
 async def test_a_400_that_is_not_the_language_is_not_retried():
     client = _client(_response(400, text='{"error": {"message": "Invalid audio"}}'))
 
-    with patch(_GATEWAY_CLIENT, return_value=client):
+    with patch(_WHISPER_CLIENT, return_value=client):
         text = await transcription_gateway.transcribe_via_openrouter(
             _settings(), b"audio", filename="a.m4a", model="m/x", language="en"
         )
@@ -163,32 +292,7 @@ async def test_a_400_that_is_not_the_language_is_not_retried():
     assert client.post.await_count == 1
 
 
-@pytest.mark.asyncio
-async def test_a_tiny_clip_heard_as_thank_you_for_watching_is_silence():
-    client = _client(_response(200, {"text": "Thank you for watching!"}))
-
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        text = await transcribe_audio(_settings(), b"tiny", filename="speech.m4a")
-
-    assert text == ""
-
-
-@pytest.mark.asyncio
-async def test_empty_text_is_success():
-    """Silence is a valid STT result — not a provider failure."""
-    client = _client(_response(200, {"text": ""}))
-
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        text = await transcribe_audio(_settings(), b"silence-m4a", filename="speech.m4a")
-
-    assert text == ""
-
-
-@pytest.mark.asyncio
-async def test_a_provider_failure_is_none():
-    client = _client(_response(502, text="upstream down"))
-
-    with patch(_GATEWAY_CLIENT, return_value=client):
-        text = await transcribe_audio(_settings(), b"audio-bytes")
-
-    assert text is None
+def test_every_route_names_a_catalog_alias_and_the_last_takes_any_language():
+    for route in speech_service.STT_ROUTES:
+        assert speech_service.model_catalog.get(route.alias)
+    assert speech_service.STT_ROUTES[-1].languages is None

@@ -29,7 +29,8 @@ __all__ = [
     "IMAGE_SEARCH_SPEND_USD",
     "LIVE_TALK_SPEND_USD_PER_MINUTE",
     "MATHPIX_READ_SPEND_USD",
-    "STT_SPEND_USD",
+    "STT_OPENAI_SPEND_USD",
+    "STT_WHISPER_SPEND_USD",
     "TTS_SPEND_USD",
     "get_global_spend_micro_usd",
     "global_spend_exceeded",
@@ -45,11 +46,15 @@ IMAGE_SEARCH_SPEND_USD = 0.01
 # One photo's Mathpix call. A vision read of the page is priced by the
 # gateway on top, so this stays the old all-in estimate (conservative).
 MATHPIX_READ_SPEND_USD = 0.005
-# One recorded clip on Whisper Large V3 Turbo (OpenRouter, billed per second of audio).
-# The dearest of its hosts is $0.0000111/s and OpenRouter picks the host. The phone stops a
-# take at 45 s ($0.0005); the server takes up to 5 MB, about 310 s of the phone's 128 kbps
-# AAC ($0.0035). Rounded up to cover that whole upload.
-STT_SPEND_USD = 0.004
+# One recorded clip, by the transcriber that took it (``speech.service``; a Whisper failure
+# then asked of OpenAI adds both). The phone stops a take at 45 s; the server takes up to
+# 5 MB, about 310 s of the phone's 128 kbps AAC, and each estimate covers that whole upload.
+# Whisper Large V3 Turbo on OpenRouter bills per second, $0.0000111/s at its dearest host
+# (OpenRouter picks it): 310 s is $0.0035.
+STT_WHISPER_SPEND_USD = 0.004
+# gpt-4o-mini-transcribe bills tokens: an 11 s Amharic clip named in the prompt cost $0.00075
+# (its Ethiopic output is token-heavy; Hindi about half that), so 310 s is about $0.021.
+STT_OPENAI_SPEND_USD = 0.025
 TTS_SPEND_USD = 0.015
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not

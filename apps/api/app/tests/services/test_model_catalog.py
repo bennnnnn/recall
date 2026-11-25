@@ -236,7 +236,10 @@ def test_speech_stt_alias_uses_whisper_on_openrouter():
     stt = model_catalog.get("speech-stt-model")
     assert stt.api_key_field == "openrouter_api_key"
     assert model_catalog.openrouter_slug("speech-stt-model") == "openai/whisper-large-v3-turbo"
-    # Live dictation stays on OpenAI directly.
+    # Amharic, Hindi and Whisper's failures stay on OpenAI directly, as does live dictation.
+    stt_openai = model_catalog.get("speech-stt-openai-model")
+    assert stt_openai.api_key_field == "openai_api_key"
+    assert stt_openai.model == "openai/gpt-4o-mini-transcribe"
     assert model_catalog.get("speech-dictation-model").api_key_field == "openai_api_key"
 
 
