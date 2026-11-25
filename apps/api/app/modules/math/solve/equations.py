@@ -21,6 +21,7 @@ from app.modules.math.solve.equation_conditions import (
     original_domain_conditions,
 )
 from app.modules.math.solve.odd_roots import real_odd_root_solutions
+from app.modules.math.solve.poly_size import MAX_EXPANDED_TERMS, degree_bound, expanded_terms
 from app.modules.math.solve.parse import (
     SolveServiceError,
     _expr_needs_real_domain,
@@ -60,10 +61,20 @@ def _classify_no_solution(lhs: Any, rhs: Any) -> Literal["none", "infinite"]:
 
 
 def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
-    """Refuse high-degree polynomials before ``solve()`` occupies the 5s pool."""
+    """Refuse high-degree polynomials before ``solve()`` occupies the 5s pool.
+
+    The degree is read off the expression's tree first (``poly_size``): one within the cap
+    needs no expansion. Only one the tree puts above it is expanded to read its true degree
+    (terms may cancel), and only when that expansion is small: ``(x+1)^3000`` took 1.6 s to
+    expand just to be refused."""
     max_degree = get_settings().math_max_poly_degree
     expr = lhs - rhs
     for name in variables:
+        bound = degree_bound(expr, Symbol(name))
+        if bound is not None and bound <= max_degree:
+            continue
+        if expanded_terms(expr) > MAX_EXPANDED_TERMS:
+            raise SolveServiceError("Polynomial degree too high")
         poly = expr.as_poly(Symbol(name))
         if poly is None:
             continue
