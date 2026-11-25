@@ -30,6 +30,15 @@ GREEK_NAMES = (
 )  # fmt: skip
 
 
+# A function the message defines, one letter of one letter: "f(x) = x^2", "g ( t )=3t",
+# "F(x) =". Never one with a letter, a digit or a mark glued before its name ("2f(x) = 6",
+# "of(x)"), nor a comparison ("f(x) == 3"). Every reader of a definition asks this one
+# pattern: four had drifted apart (audit, 2026-11-25).
+FUNCTION_DEFINITION = re.compile(
+    r"(?<!\w)(?P<name>[A-Za-z])\s*\(\s*(?P<var>[A-Za-z])\s*\)\s*=(?!=)"
+)
+
+
 def names_longest_first(names: frozenset[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Longest first, so a regex or prefix match reads ``sinh`` before ``sin``."""
     return tuple(sorted(names, key=lambda name: (-len(name), name)))
