@@ -5,8 +5,9 @@ from pydantic import BaseModel
 
 class MediaSettings(BaseModel):
     speech_transcription_enabled: bool = True
-    # The recorded clip's transcriber, an OpenRouter slug (openai/whisper-large-v3); empty,
-    # or a name with no provider part, uses the catalog alias `speech-stt-model`.
+    # The recorded clip's Whisper route (en/es/fr/pt/ru/tr), an OpenRouter slug
+    # (openai/whisper-large-v3); empty, or a name with no provider part, uses the catalog
+    # alias `speech-stt-model`. The OpenAI route (`speech-stt-openai-model`) is not overridden.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
     # Live dictation: the composer mic streams to an OpenAI transcription session over

@@ -52,9 +52,10 @@ MATHPIX_READ_SPEND_USD = 0.005
 # Whisper Large V3 Turbo on OpenRouter bills per second, $0.0000111/s at its dearest host
 # (OpenRouter picks it): 310 s is $0.0035.
 STT_WHISPER_SPEND_USD = 0.004
-# gpt-4o-mini-transcribe bills tokens: an 11 s Amharic clip named in the prompt cost $0.00075
-# (its Ethiopic output is token-heavy; Hindi about half that), so 310 s is about $0.021.
-STT_OPENAI_SPEND_USD = 0.025
+# gpt-4o-mini-transcribe bills tokens ($3/M audio in, $5/M text out): an 11 s Amharic clip
+# named in the prompt read 128 tokens and once wrote 118 Ethiopic ones, about $0.001 (Hindi
+# about half that), so 310 s is about $0.028.
+STT_OPENAI_SPEND_USD = 0.03
 TTS_SPEND_USD = 0.015
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not
