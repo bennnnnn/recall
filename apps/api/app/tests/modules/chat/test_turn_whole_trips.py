@@ -103,8 +103,8 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 # "ambient" scope: the store's whole-store block, cached under the memory generation (two
 # Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named
 # no word the rules know, live QA 2026-11-22, ``prompt_builder._context_plan``).
-# A Free turn reads the day's message count before its paid reads start (one GET,
-# ``TurnResources.message_left``): at the cap it is refused before any model call
+# A Free turn, a regenerate too, reads the day's message count before its paid reads start
+# (one GET, ``TurnResources.message_left``): at the cap it is refused before any model call
 # (audit, 2026-11-25). A plan with no cap reads nothing.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
@@ -163,7 +163,7 @@ CEILINGS: dict[str, Ceiling] = {
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=31, models=3),
+        Counts(sql=10, checkouts=3, transactions=3, redis=32, models=3),
         Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT,
     ),
