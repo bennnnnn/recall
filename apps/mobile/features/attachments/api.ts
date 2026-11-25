@@ -38,6 +38,9 @@ export const attachmentsApi = {
       body: JSON.stringify(body),
     }),
   deleteAttachment,
+  /** What the account keeps in Library and its plan's total (Settings → Storage). */
+  getLibraryStorage: (token: string) =>
+    request<{ used_bytes: number; limit_bytes: number }>("/attachments/storage", token),
   /** Composer cancel of an unlinked upload — same DELETE as Library delete. */
   cancelAttachment: deleteAttachment,
   confirmAttachment: (token: string, attachmentId: string) =>

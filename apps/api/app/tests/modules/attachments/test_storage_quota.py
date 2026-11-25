@@ -111,7 +111,8 @@ async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
     owner, other = await make_user(), await make_user()
     assert await storage_quota.stored_bytes(db_session, owner.id) == 0
     rows = [
-        # A Library upload, a pending upload, a resend's hidden copy, a generated picture.
+        # A Library upload, a pending upload, a resend's hidden copy (it counts: resending
+        # would otherwise store without limit), a generated picture.
         (owner.id, 1_000, "upload", True, datetime.now(UTC)),
         (owner.id, 2_000, "upload", True, None),
         (owner.id, 3_000, "upload", False, datetime.now(UTC)),
@@ -134,3 +135,37 @@ async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
     await db_session.flush()
     assert await storage_quota.stored_bytes(db_session, owner.id) == 10_000
     assert await storage_quota.stored_bytes(db_session, other.id) == 9_999
+
+
+@pytest.mark.parametrize("plan, total", [("free", 400 * MIB), ("pro", 4 * GIB)])
+def test_storage_route_reports_what_the_presign_counts(plan: str, total: int) -> None:
+    """Settings shows the bytes kept against the plan's total: the numbers the presign checks."""
+    from fastapi.testclient import TestClient
+
+    from app.core.db import get_db
+    from app.core.deps import get_current_user, get_settings_dep
+    from app.main import create_app
+
+    user = _user(plan)
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings()
+    app.dependency_overrides[get_db] = lambda: fake_session()
+    stored = AsyncMock(return_value=123 * MIB)
+    with patch.object(storage_quota, "stored_bytes", stored):
+        r = TestClient(app).get("/attachments/storage", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    assert r.json() == {"used_bytes": 123 * MIB, "limit_bytes": total}
+    assert stored.await_args is not None and stored.await_args.args[1] == user.id
+
+
+@pytest.mark.asyncio
+async def test_lookup_photos_are_not_counted_against_the_library() -> None:
+    """A web lookup's reference photos belong to their message, not the Library (owner)."""
+    session = fake_session()
+    session.scalar.return_value = 5
+    assert await storage_quota.stored_bytes(session, uuid4()) == 5
+    sql = str(session.scalar.await_args.args[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "attachments.source NOT IN ('search')" in sql
+    # A resend's copy still counts: resending would otherwise store without limit.
+    assert "library_visible" not in sql

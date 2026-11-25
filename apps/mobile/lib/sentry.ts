@@ -363,6 +363,8 @@ export type FailureArea =
   | "purchase_sync"
   /** The reminder a day before a free trial ends could not be set. */
   | "trial_reminder"
+  /** Settings could not read how much the Library keeps; the Storage row shows no value. */
+  | "library_storage"
   /** The server's half of a sign-out, or the record of one still owed (lib/pendingLogout.ts). */
   | "sign_out"
   /**

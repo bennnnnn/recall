@@ -36,6 +36,10 @@ const KEPT_EVERYWHERE = new Set([
   "chat.math_keyboard_group_trig", // trig function keys
   "rich.chemistry_ph_value", // the pH symbol
   "rich.graph_expr_placeholder", // a formula
+  // Size units most languages write as English does; French (Mo) and Russian (МБ) their own.
+  "settings.storage_kb",
+  "settings.storage_mb",
+  "settings.storage_gb",
 ]);
 
 /** Words each language spells as English does: a match is the translation. */

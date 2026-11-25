@@ -28,6 +28,13 @@ class AttachmentPresignOut(BaseModel):
     api_upload: bool = False
 
 
+class LibraryStorageOut(BaseModel):
+    """What the account keeps in its Library against its plan's total (Settings shows it)."""
+
+    used_bytes: int
+    limit_bytes: int
+
+
 class AttachmentOut(BaseModel):
     id: UUID
     content_type: str
