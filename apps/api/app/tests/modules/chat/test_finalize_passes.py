@@ -726,6 +726,32 @@ async def test_a_formula_chart_is_drawn_by_sympy_and_a_data_chart_is_left_alone(
 
 
 @pytest.mark.asyncio
+async def test_a_formula_chart_out_of_time_loses_only_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every chart of a reply was one pool job, so one slow chart lost them all (audit
+    2026-11-25): each is its own job now, and one that runs out of time stays as written."""
+    jobs: list[str] = []
+
+    async def first_times_out(fn: Any, *args: Any, **_kwargs: Any) -> Any:
+        jobs.append(args[0])
+        if len(jobs) == 1:
+            raise TimeoutError
+        return fn(*args)
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", first_times_out)
+    slow = '```chart\n{"type":"function","series":[{"name":"f","fn":"tan(x)"}]}\n```'
+    quick = '```chart\n{"type":"function","series":[{"name":"g","fn":"x^2"}]}\n```'
+
+    drawn = await draw_formula_charts(_state(f"First:\n\n{slow}\n\nThen:\n\n{quick}\n\nDone."))
+
+    assert len(jobs) == 2
+    assert f"First:\n\n{slow}" in drawn
+    assert '```graph\n{"type":"function","expr":"x^2"' in drawn
+    assert drawn.endswith("Done.")
+
+
+@pytest.mark.asyncio
 async def test_a_fall_back_after_the_cards_keeps_an_uncertain_photo_unchecked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
