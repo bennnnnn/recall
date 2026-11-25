@@ -3,6 +3,7 @@ share it (audit 2026-11-25: routing ran a full solve for a bool, then the solve 
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -19,7 +20,7 @@ _LINE = "A 2 kg ball falls 5 m. Find its speed."
 
 
 @pytest.fixture
-def solves(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def solves(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
     calls: list[str] = []
     real = physics_prompt._solve_physics_request
 
