@@ -83,6 +83,16 @@ _PHOTO_READING_PREAMBLE = (
 # Markers persisted into user bubbles by attachment_content.format_attachment_lines.
 _ATTACHMENT_MARKERS = ("[File:", "[Image:", "[File attached:", "[File (")
 
+# The excerpt header of text the user pasted into the composer, which the phone sent as a
+# file (modules/attachments/pasted_text.py). It starts as every excerpt does, so everything
+# that hides or strips excerpts hides it too; the prompt reads it as the user's own words.
+PASTED_TEXT_HEADER = "[File (text/plain; pasted)]"
+_PASTED_TEXT_FRAME = (
+    "[The user pasted the text below into their message. It is part of what they wrote: "
+    "read it as their own words, as if they had typed it.]"
+)
+_FILE_REF_LINE = re.compile(r"^\[File: /attachments/[0-9a-fA-F-]+/file\]$")
+
 # Neutralize forged fence closers inside untrusted payloads.
 _UNTRUSTED_FENCE_LINE = re.compile(
     r"^\s*\[(?:BEGIN|END) UNTRUSTED CONTENT[^\]]*\]\s*$",
@@ -291,6 +301,44 @@ def wrap_persisted_attachment_excerpts(content: str) -> str:
         return content
     start = min(indexes)
     prefix = content[:start]
-    excerpt = content[start:]
+    pasted, excerpt = _lift_pasted_text(content[start:])
     wrapped = wrap_untrusted("user attachments", excerpt)
+    if pasted:
+        return "\n\n".join(part for part in (prefix.rstrip(), *pasted, wrapped) if part.strip())
     return f"{prefix}{wrapped}" if prefix else wrapped
+
+
+def _lift_pasted_text(excerpt: str) -> tuple[list[str], str]:
+    """The user's pasted text out of a message's attachment lines, framed as their words,
+    and the attachment lines left to wrap as untrusted.
+
+    A pasted block is ``PASTED_TEXT_HEADER`` on the line right after its file's own link
+    (``format_attachment_lines`` writes the two together), and runs to the next attachment
+    marker. Another document's excerpt cannot hold that header: it is rewritten there
+    (``attachments.content``), so a file cannot pass itself off as the user's words.
+    """
+    lines = excerpt.split("\n")
+    pasted: list[str] = []
+    rest: list[str] = []
+    block: list[str] | None = None
+    for index, line in enumerate(lines):
+        if block is not None and line.lstrip().startswith(_ATTACHMENT_MARKERS):
+            pasted.append(_framed_paste(block))
+            block = None
+        if block is not None:
+            block.append(line)
+        elif (
+            line.strip() == PASTED_TEXT_HEADER
+            and index > 0
+            and _FILE_REF_LINE.match(lines[index - 1].strip())
+        ):
+            block = []
+        else:
+            rest.append(line)
+    if block is not None:
+        pasted.append(_framed_paste(block))
+    return pasted, "\n".join(rest)
+
+
+def _framed_paste(lines: list[str]) -> str:
+    return f"{_PASTED_TEXT_FRAME}\n" + "\n".join(lines).strip("\n")

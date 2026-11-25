@@ -42,6 +42,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/galleryListCache.ts",
     "model/localAttachmentFile.ts",
     "model/openedDocument.ts",
+    "model/pastedText.ts",
     "model/pendingComposerAttachment.ts",
   ],
   auth: [],

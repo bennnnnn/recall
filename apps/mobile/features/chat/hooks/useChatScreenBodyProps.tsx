@@ -56,7 +56,9 @@ type Params = {
   routeLoader: Pick<ReturnType<typeof useChatRouteLoader>, "titleGenerating" | "startNewChat" | "hasMoreOlder" |
     "loadingOlder" | "newerPage" | "chatLoading" | "loadOlderMessages">;
   messageList: Pick<ReturnType<typeof useChatMessageList>, "renderItem"> & { headerTitleLabel: string | null };
-  chatActions: Pick<ReturnType<typeof useChatActions>, "setMenuVisible" | "actionBanner" | "dismissActionBanner">;
+  chatActions: Pick<
+    ReturnType<typeof useChatActions>, "setMenuVisible" | "actionBanner" | "dismissActionBanner" | "showActionBanner"
+  >;
   menuOverlayOpen: boolean;
   /** The header ⋮ button; the chat menu drops from it. */
   menuAnchorRef: RefObject<HostInstance | null>;
@@ -130,8 +132,9 @@ function useListProps(p: Params, header: ReactElement): ChatScreenListProps {
 function useComposerProps(p: Params): ChatScreenComposerProps {
   const { streaming, replySaving, sendBusy, sendStatus, handleSend, stopGeneration, isOffline, liveTalkActive = false } = p;
   const keyboard = p.keyboard.composerKeyboard;
+  const onNotice = p.chatActions.showActionBanner;
   const {
-    attachPicking, pendingAttachment, removePendingAttachment, handlePickAttachment, onOpenMathScanner,
+    attachPicking, pendingAttachment, removePendingAttachment, attachPastedText, handlePickAttachment, onOpenMathScanner,
     onMathChromeHeightChange, onInputFrameExtraChange,
   } = p.wiring.attachments;
   const {
@@ -140,13 +143,14 @@ function useComposerProps(p: Params): ChatScreenComposerProps {
   return useMemo(
     () => ({
       keyboard, streaming, replySaving, attachPicking, sendBusy, sendStatus, pendingAttachment,
-      onRemoveAttachment: removePendingAttachment, onPickAttachment: handlePickAttachment, onOpenMathScanner,
+      onRemoveAttachment: removePendingAttachment, onPasteAsFile: attachPastedText, onNotice, onPickAttachment: handlePickAttachment,
+      onOpenMathScanner,
       onMathChromeHeightChange, onInputFrameExtraChange, onSend: handleSend, onStop: stopGeneration, isOffline,
       voiceAvailable, voiceRecording, voiceTranscribing, voiceMeterLevel, onVoicePress: toggleVoiceInput,
       onCancelVoice: cancelVoiceInput, onLiveTalkPress, liveTalkActive,
     }),
     [keyboard, streaming, replySaving, attachPicking, sendBusy, sendStatus, pendingAttachment, removePendingAttachment,
-      handlePickAttachment, onOpenMathScanner, onMathChromeHeightChange, onInputFrameExtraChange, handleSend,
+      attachPastedText, onNotice, handlePickAttachment, onOpenMathScanner, onMathChromeHeightChange, onInputFrameExtraChange, handleSend,
       stopGeneration, isOffline, voiceAvailable, voiceRecording, voiceTranscribing, voiceMeterLevel, toggleVoiceInput,
       cancelVoiceInput, onLiveTalkPress, liveTalkActive],
   );

@@ -355,6 +355,8 @@ export type FailureArea =
   /** A thumb up or down on a reply (`useMessageFeedback`). */
   | "message_feedback"
   | "attachment_upload"
+  /** A long paste could not be written as its file; it stays text in the composer. */
+  | "paste_attachment"
   | "paywall_load"
   | "purchase"
   | "purchase_restore"

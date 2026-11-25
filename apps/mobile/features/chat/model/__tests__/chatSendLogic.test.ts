@@ -146,4 +146,23 @@ describe("chatSendLogic", () => {
     expect(pending.text).toContain("Look");
     expect(pending.model).toBe("smart-chat");
   });
+
+  it("draws a paste sent alone as its chip, never as the file's name", () => {
+    const pasted = {
+      kind: "file" as const,
+      localUri: "file:///cache/PastedText/paste-1.txt",
+      contentType: "text/plain",
+      fileName: "pasted-text.txt",
+      pasted: { chars: 3000, preview: "p" },
+    };
+    const alone = buildOptimisticUserMessage({ text: "", attached: pasted, optimisticId: "o1", createdAt: "now" });
+    expect(alone.content).toBe("");
+    expect(alone.local_file_name).toBe("pasted-text.txt");
+    const asked = buildOptimisticUserMessage({ text: " Tidy this ", attached: pasted, optimisticId: "o2", createdAt: "now" });
+    expect(asked.content).toBe("Tidy this");
+    const picked = { ...pasted, fileName: "notes.txt", pasted: undefined };
+    expect(buildOptimisticUserMessage({ text: "", attached: picked, optimisticId: "o3", createdAt: "now" }).content).toBe(
+      "notes.txt",
+    );
+  });
 });

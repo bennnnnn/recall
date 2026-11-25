@@ -307,6 +307,29 @@ describe("UserMessageContent attachments", () => {
     const { findByText } = await render(<UserMessageContent message={message} />);
     expect(await findByText("pdf:Lease 2026.pdf")).toBeOnTheScreen();
   });
+
+  it("calls a sent paste Pasted text and never shows its text in the bubble", async () => {
+    const PASTE = "0d7c3b6e-2f4a-4b8c-9e1d-5a6b7c8d9e0f";
+    mockIndexStatus.mockImplementation(() => ({ indexed: true, failed: false, fileName: "pasted-text.txt" }));
+    const content = `What is this about?\n\n[File: /attachments/${PASTE}/file]\n[File (text/plain)]\nChapter one. It was a bright cold day.`;
+    const { getByText, queryByText } = await render(<UserMessageContent message={userMessage(content)} />);
+    expect(getByText("chat.pasted_text")).toBeOnTheScreen();
+    expect(getByText("What is this about?")).toBeOnTheScreen();
+    expect(queryByText(/bright cold day/)).toBeNull();
+    expect(queryByText("pasted-text.txt")).toBeNull();
+  });
+
+  it("draws a paste being sent as its chip, before the server's copy arrives", async () => {
+    const message = {
+      ...userMessage(""),
+      local_file_uri: "file:///cache/PastedText/paste-1.txt",
+      local_file_name: "pasted-text.txt",
+      local_file_content_type: "text/plain",
+    };
+    const { getByLabelText, queryByText } = await render(<UserMessageContent message={message} />);
+    expect(getByLabelText("chat.pasted_text")).toBeOnTheScreen();
+    expect(queryByText("pasted-text.txt")).toBeNull();
+  });
 });
 
 describe("line breaks the user typed", () => {

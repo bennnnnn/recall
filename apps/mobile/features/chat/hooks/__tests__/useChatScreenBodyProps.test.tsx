@@ -40,6 +40,8 @@ const handleScrollEnd = jest.fn();
 const handleSend = jest.fn();
 const scrollToLatest = jest.fn();
 const dismissActionBanner = jest.fn();
+const showActionBanner = jest.fn();
+const attachPastedText = jest.fn(() => true);
 const startNewChat = jest.fn();
 const setMenuVisible = jest.fn();
 const closeAttachSheet = jest.fn();
@@ -110,7 +112,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
       loadOlderMessages,
     },
     messageList: { headerTitleLabel: "Trip", renderItem },
-    chatActions: { setMenuVisible, actionBanner: null, dismissActionBanner },
+    chatActions: { setMenuVisible, actionBanner: null, dismissActionBanner, showActionBanner },
     menuOverlayOpen: false,
     menuAnchorRef,
     handleSend,
@@ -121,6 +123,7 @@ function useHarness(streaming: boolean, messages: Message[], replySaving = false
         attachPicking: false,
         pendingAttachment: null,
         removePendingAttachment,
+        attachPastedText,
         handlePickAttachment,
         handleAttachmentSheetSelect,
         mathScannerOpen: false,
@@ -196,6 +199,12 @@ describe("useChatScreenBodyProps", () => {
 
     await rerender({ streaming: true, messages: firstMessages });
     expect(result.current.bodyProps).toBe(streaming);
+  });
+
+  it("hands the composer the paste writer and the chat's banner", async () => {
+    const { result } = await renderHook(() => useHarness(false, [message]));
+    expect(result.current.bodyProps.composer.onPasteAsFile).toBe(attachPastedText);
+    expect(result.current.bodyProps.composer.onNotice).toBe(showActionBanner);
   });
 
   it("tells the composer when the reply is only saving, so Send is offered then", async () => {

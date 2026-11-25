@@ -81,6 +81,7 @@ it.each([
   ["presign_too_large", "too_large"],
   ["presign_daily_limit", "daily_limit"],
   ["presign_storage_full", "storage_full"],
+  ["presign_paste_too_long", "paste_too_long"],
 ])("names a refused upload: %s", (name, reason) => {
   const failure = presignFailure(refused(name));
   expect(failure).toBeInstanceOf(AttachmentError);

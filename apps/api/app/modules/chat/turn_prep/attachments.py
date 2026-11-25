@@ -144,7 +144,7 @@ async def _process_attachment_inputs(
         on_status=on_status,
     )
     user_content = _with_attachment_markers(kept, attachment_lines)
-    content = reading.content
+    content = _with_pasted_text(reading.content, attachment_lines)
 
     return AttachmentProcessResult(
         user=user,
@@ -386,6 +386,7 @@ async def _read_turn_attachments(
                 size_bytes=row.size_bytes,
                 settings=settings,
                 data=data,
+                filename=row.original_filename,
             )
             if is_image and data:
                 image_bytes[row.storage_key] = data
@@ -422,6 +423,18 @@ async def _refuse_bad_upload(
 
         await counters.refund(upload_counter(row.content_type), redis, user_id)
     raise AttachmentValidationError(error)
+
+
+def _with_pasted_text(content: str, attachment_lines: list[str]) -> str:
+    """The turn's words with any text the user pasted as a file after them, as typed text
+    would be: the turn's read, its subject readers and its retrieval query read it too
+    (``attachments/pasted_text.py``). The stored row keeps the paste as its attachment."""
+    from app.modules.attachments import service as attachments_service
+
+    pasted = attachments_service.pasted_text_in(attachment_lines)
+    if not pasted:
+        return content
+    return f"{content.rstrip()}\n\n{pasted}" if content.strip() else pasted
 
 
 def _with_attachment_markers(user_content: str, attachment_lines: list[str]) -> str:
