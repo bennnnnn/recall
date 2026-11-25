@@ -70,6 +70,7 @@ _MAKERS = {
     "tencent": "Tencent",
     "perplexity": "Perplexity",
     "black-forest-labs": "Black Forest Labs",
+    "hexgrad": "hexgrad",
 }
 
 

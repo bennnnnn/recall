@@ -76,6 +76,11 @@ class ChatModel:
     # (Anthropic's prompt-caching docs: Haiku 5.5 from 512 tokens). Providers that cache
     # an identical prefix on their own need no mark (OpenRouter's prompt-caching guide).
     cache_breakpoints: bool = False
+    # A voice model (Listen): the languages it reads well, as ISO 639-1 codes; empty when it
+    # reads any. Listen gives a text to the first model of its lane that speaks its language.
+    speaks_languages: frozenset[str] = frozenset()
+    # A voice model billed by the character: USD per 1M characters read.
+    usd_per_m_chars: float | None = None
 
 
 def _or(
@@ -398,15 +403,34 @@ CATALOG: tuple[ChatModel, ...] = (
         api_key_field="openai_api_key",
         selectable=False,
     ),
+    # Listen (a reply played aloud) in the languages Kokoro reads: $0.99 per 1M characters
+    # at DeepInfra, $4 at Together, OpenRouter's two hosts (GET /api/v1/models/hexgrad/
+    # kokoro-82m/endpoints, 2026-11-24), against tts-1's $15. Kokoro also reads Italian,
+    # Japanese and Chinese, which are not app languages; Russian, Turkish and Amharic go to
+    # tts-1. Priced at Together's rate, the dearer host a request can fall back to.
+    ChatModel(
+        id="speech-tts-kokoro-model",
+        label="Kokoro TTS",
+        model="hexgrad/kokoro-82m",
+        provider="openrouter",
+        api_key_field=OPENROUTER_KEY,
+        selectable=False,
+        description="Listen in English, Spanish, French, Hindi and Portuguese.",
+        speaks_languages=frozenset({"en", "es", "fr", "hi", "pt"}),
+        usd_per_m_chars=4.0,
+    ),
+    # Listen in every other language, and whenever a text's language is unclear: tts-1
+    # reads any. $15 per 1M characters (OpenAI's pricing page). gpt-4o-mini-tts took 7-30 s
+    # per clip, tts-1 1-2 s (measured 2026-11-03).
     ChatModel(
         id="speech-tts-model",
         label="OpenAI TTS",
-        # tts-1: gpt-4o-mini-tts took 7-30 s per clip, tts-1 1-2 s (measured 2026-11-03).
         model="openai/tts-1",
         provider="openai",
         api_key_field="openai_api_key",
         selectable=False,
-        description="OpenAI read-aloud.",
+        description="OpenAI Listen, any language.",
+        usd_per_m_chars=15.0,
     ),
     ChatModel(
         id="speech-tts-fast-model",
@@ -415,8 +439,9 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openai",
         api_key_field="openai_api_key",
         selectable=False,
-        # The phone still offers it as the fast read-aloud choice (``ttsPreference.ts``).
-        description="OpenAI read-aloud; the same model as speech-tts-model.",
+        # The phone still offers it as the fast Listen choice (``ttsPreference.ts``).
+        description="OpenAI Listen; the same model as speech-tts-model.",
+        usd_per_m_chars=15.0,
     ),
     ChatModel(
         id="live-talk-model",
@@ -480,6 +505,20 @@ def vision_backup_alias() -> str:
 
 def structured_fallback_alias() -> str:
     return ROUTING.structured_fallback
+
+
+def speaks(model_id: str, language: str | None) -> bool:
+    """Whether a voice model reads ``language`` (None: a text whose language is unclear)."""
+    model = get(model_id)
+    if not model.speaks_languages:
+        return True
+    return language is not None and language in model.speaks_languages
+
+
+def read_aloud_aliases(language: str | None) -> tuple[str, ...]:
+    """Listen's models for a text in ``language``, first choice first: the lane's entries
+    that speak it. The lane ends in a model that reads any language, so this is never empty."""
+    return tuple(alias for alias in ROUTING.read_aloud if speaks(alias, language))
 
 
 def reads_images(model_id: str) -> bool:

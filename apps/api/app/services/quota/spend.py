@@ -30,7 +30,6 @@ __all__ = [
     "LIVE_TALK_SPEND_USD_PER_MINUTE",
     "MATHPIX_READ_SPEND_USD",
     "STT_SPEND_USD",
-    "TTS_SPEND_USD",
     "get_global_spend_micro_usd",
     "global_spend_exceeded",
     "live_talk_spend_usd",
@@ -46,7 +45,8 @@ IMAGE_SEARCH_SPEND_USD = 0.01
 # gateway on top, so this stays the old all-in estimate (conservative).
 MATHPIX_READ_SPEND_USD = 0.005
 STT_SPEND_USD = 0.01
-TTS_SPEND_USD = 0.015
+# Listen (TTS) is priced per clip by its characters, at its model's catalog rate
+# (``ChatModel.usd_per_m_chars``): ``modules/speech/service.synthesize_speech``.
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not
 # by saved turn: the phone posts the turns, so a count of them is the client's.

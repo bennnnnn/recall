@@ -21,14 +21,21 @@ import {
   TTS_DEVICE_MODEL,
   TTS_QUALITY_MODEL,
 } from "@/features/speech/model/ttsPreference";
-import { USER_VOICES, voiceLabel } from "@/features/speech/model/voices";
+import {
+  replyVoiceLabel,
+  replyVoicesFor,
+  USER_VOICES,
+  voiceLabel,
+} from "@/features/speech/model/voices";
 import { numberFormat } from "@/lib/money/format";
 
 const DEFAULT_VOICE = "default";
 
 /**
- * Settings → Voice. The voice is saved on the account and used by read-aloud
- * and live talk; speed and the on-device voice are this phone's.
+ * Settings → Voice. Two voices are saved on the account: live talk's, and the one a reply
+ * plays in when the user taps Listen (only the voices of the model that plays replies in the
+ * app's language, so the voice picked is the voice heard). Speed and the on-device voice are
+ * this phone's.
  */
 export default function VoiceSettingsScreen() {
   const { user, updateUser } = useAuth();
@@ -56,6 +63,11 @@ export default function VoiceSettingsScreen() {
     ],
     [t],
   );
+  const replyVoices = replyVoicesFor(user?.locale);
+  const replyOptions = useMemo(
+    () => replyVoices.map((voice) => ({ key: voice.id, label: replyVoiceLabel(voice.id) })),
+    [replyVoices],
+  );
   const rateLabel = useMemo(() => {
     const format = numberFormat(i18n.language);
     return (value: number) => `${format.format(value)}×`;
@@ -66,12 +78,26 @@ export default function VoiceSettingsScreen() {
   }));
 
   const voice = user?.tts_voice ?? null;
+  // The server sends the voice that really plays; an older server sends none.
+  const replyVoice = user?.reply_voice ?? null;
 
   return (
     <SettingsPage>
       <SettingsGroup>
         <SettingsMenuRow
-          title={t("settings.voice")}
+          title={t("settings.voice_reply")}
+          subtitle={t("settings.voice_reply_summary")}
+          value={replyVoice ? replyVoiceLabel(replyVoice) : t("settings.voice_default")}
+          options={replyOptions}
+          selectedKey={replyVoice ?? ""}
+          busy={action.busy === "reply_voice"}
+          onSelect={(key) => {
+            if (!replyVoices.some((candidate) => candidate.id === key)) return;
+            void action.run("reply_voice", () => updateUser({ reply_voice: key }));
+          }}
+        />
+        <SettingsMenuRow
+          title={t("settings.voice_live")}
           subtitle={t("settings.voice_choice_summary")}
           value={voice ? voiceLabel(voice) : t("settings.voice_default")}
           options={voiceOptions}

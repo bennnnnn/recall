@@ -23,7 +23,7 @@ _DEFAULT_PCM_RATE = 24000
 # The OpenAI audio models this gateway calls. An operator override outside them is not
 # used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
 _TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
-# Read aloud speaks with tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
+# Listen's OpenAI model is tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
 _SPEECH_MODEL_FAMILIES = ("tts-1", "gpt-4o-mini-tts")
 _DEFAULT_PCM_CHANNELS = 1
 _PCM_SAMPLE_WIDTH = 2
@@ -43,22 +43,6 @@ _AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
 def can_transcribe_with(model: str) -> bool:
     """Whether ``model`` (``openai/`` or bare) is one this gateway transcribes with."""
     return model.removeprefix("openai/") in _TRANSCRIBE_MODELS
-
-
-# The voices tts-1 has. The Voice setting also chooses live talk's voice, which has marin,
-# cedar, ballad and verse: tts-1 speaks those as its nearest voice.
-_TTS1_VOICES = frozenset(
-    {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
-)
-_TTS1_NEAREST = {"marin": "coral", "cedar": "onyx", "ballad": "echo", "verse": "ash"}
-
-
-def voice_for(model: str, voice: str) -> str:
-    """``voice`` as ``model`` can speak it: itself, or tts-1's nearest (alloy at worst)."""
-    if not model.removeprefix("openai/").startswith("tts-1"):
-        return voice
-    nearest = _TTS1_NEAREST.get(voice, voice)
-    return nearest if nearest in _TTS1_VOICES else "alloy"
 
 
 def can_speak_with(model: str) -> bool:

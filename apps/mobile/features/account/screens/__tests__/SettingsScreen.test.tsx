@@ -37,6 +37,7 @@ jest.mock("@/contexts/AuthContext", () => ({
       push_notifications_enabled: true,
       sign_in_provider: "google",
       tts_voice: "cedar",
+      reply_voice: "am_michael",
       plan: mockIsPro ? "pro" : "free",
     },
     signOut: mockSignOut,
@@ -137,9 +138,9 @@ describe("settings home", () => {
     expect(getNotificationPermissionGranted).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the chosen voice on the Voice row", async () => {
+  it("shows the reply voice, the one Listen plays, on the Voice row", async () => {
     const { getByText } = await render(<SettingsScreen />);
-    expect(getByText("Cedar")).toBeTruthy();
+    expect(getByText("Michael")).toBeTruthy();
   });
 
   it("changes the language from a menu on the main page", async () => {

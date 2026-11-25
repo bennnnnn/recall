@@ -17,11 +17,10 @@ class MediaSettings(BaseModel):
     # The phone stops a take at 45 s; the server hangs a dictation up this long + 15 s after
     # its connect whatever the phone does, so a mic left open cannot run up cost.
     speech_dictation_max_seconds: int = 45
-    # Cloud TTS (read-aloud). Operator override (OpenAI model); empty →
-    # catalog alias `speech-tts-model`.
+    # Cloud TTS (Listen). The model by the text's language is the catalog's
+    # (``ROUTING.read_aloud``); this overrides only its OpenAI model (empty → tts-1).
     speech_tts_enabled: bool = True
     speech_tts_model: str = ""
-    speech_tts_voice: str = ""
     # Turn-taking live voice: WebRTC + OpenAI gpt-realtime (not OpenRouter).
     # Its minutes allowance per plan is monthly_live_talk_minutes (plans.py).
     speech_live_talk_enabled: bool = True

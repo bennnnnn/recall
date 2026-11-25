@@ -15,7 +15,7 @@ import {
 import { useAccent, useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { voiceLabel } from "@/features/speech/model/voices";
+import { replyVoiceLabel, voiceLabel } from "@/features/speech/model/voices";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
 import { LANGUAGES } from "@/lib/i18n/languages";
@@ -73,7 +73,12 @@ export default function SettingsScreen() {
       : Boolean(user?.push_notifications_enabled) && osPushGranted
         ? t("settings.on")
         : t("settings.off");
-  const voiceValue = user?.tts_voice ? voiceLabel(user.tts_voice) : t("settings.voice_default");
+  // The reply voice: the one a tap on Listen plays (live talk's is on the Voice page).
+  const voiceValue = user?.reply_voice
+    ? replyVoiceLabel(user.reply_voice)
+    : user?.tts_voice
+      ? voiceLabel(user.tts_voice)
+      : t("settings.voice_default");
 
   return (
     <SettingsPage ownBarTitle={t("settings.title")}>

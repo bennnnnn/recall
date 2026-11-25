@@ -21,6 +21,7 @@ from app.modules.speech.gates import (
     require_voice_spend_ok,
     reserve_day_or_raise,
 )
+from app.modules.speech.listen_reply import remember_reply_language, reply_language
 from app.modules.speech.schemas import (
     SPEECH_MAX_AUDIO_BYTES,
     SPEECH_MAX_REQUEST_BYTES,
@@ -30,6 +31,7 @@ from app.modules.speech.schemas import (
     SpeechTtsIn,
     SpeechTtsOut,
 )
+from app.modules.speech.text_language import text_language
 from app.modules.speech.tts_followup import (
     normalize_tts_part,
     store_tts_followup,
@@ -102,6 +104,9 @@ async def synthesize_speech(
         )
         reserved_day = await reserve_day_or_raise("speech_tts", redis, user, settings)
 
+    # A rest clip plays in its reply's language unless it says otherwise (``listen_reply``).
+    lead_language = await reply_language(redis, user.id, lead_hash) if part == "rest" else None
+    spent: list[float] = []
     async with RefundDayOnFailure("speech_tts", redis, user.id, reserved_day) as refund:
         alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
@@ -110,7 +115,10 @@ async def synthesize_speech(
             language=body.language,
             model_alias=alias,
             voice=user.tts_voice,
+            reply_voice=user.reply_voice,
+            reply_language=lead_language,
             on_call=refund.spend,
+            on_spend=spent.append,
         )
         if not result:
             raise HTTPException(
@@ -120,8 +128,12 @@ async def synthesize_speech(
         audio_bytes, content_type = result
         if part == "lead":
             await store_tts_followup(redis, followup_key, body.text)
-        if billed:
-            await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
+            await remember_reply_language(
+                redis, user.id, tts_lead_hash(body.text), text_language(body.text)
+            )
+        # Every clip is paid for by its characters, a rest clip that took no daily slot too.
+        if spent:
+            await quota_service.record_voice_spend(redis, sum(spent))
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,

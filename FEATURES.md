@@ -309,10 +309,21 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   plus bounded read-only memory lookup and web search.
   Search sources use the existing reply chips. The chat header (drawer / ⋮) stays
   available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API.
-- ✅ **Read aloud (TTS)** — defaults to OpenAI **gpt-4o-mini-tts** PCM
-  (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
-  another utterance's unbilled quota) and starts playback on the first sentence.
-  The legacy fast alias maps to the same OpenAI model; an explicit phone-voice choice
+- ✅ **Listen (TTS; "read aloud" in code)** — the reply's own language picks the model, not
+  the app's (`modules/speech/text_language.py`): **Kokoro 82M** on OpenRouter
+  (`hexgrad/kokoro-82m`, `POST /api/v1/audio/speech`, $0.99 per 1M characters at DeepInfra,
+  asked first; $4 at Together, its fallback) for English, Spanish, French, Hindi and
+  Portuguese, and OpenAI **tts-1** ($15 per 1M characters) for Russian, Turkish, Amharic and
+  any text whose language is unclear or mixed (a word of another script, too few words to
+  tell). Both answer MP3. When Kokoro fails, tts-1 plays the clip. The phone sends a reply
+  in ~150-character clips (`POST /speech/tts` lead then rest, rest bound to the lead hash so
+  it cannot steal another utterance's unbilled quota) and starts playback on the first; the
+  lead's language holds for the reply's rest clips (`listen_reply.py`), so a clip of numbers
+  never switches voice, and a rest clip that reads as another language goes to tts-1. Each
+  clip records its spend by its characters at its model's catalog rate (Kokoro priced at
+  Together's $4, the dearer host). Measured 2026-11-24: Kokoro about 0.5 s a clip, tts-1
+  1.3-3.6 s. The routing is the catalog's: `ROUTING.read_aloud` and each voice model's
+  `speaks_languages`. The legacy fast alias maps to tts-1; an explicit phone-voice choice
   is preserved. The natural (cloud) voice is Pro, **100/day**; Free reads with the
   phone's own voice and never calls the server (which refuses Free with 403).
   Settings disclose AI-generated audio. Mic permission is not required.
@@ -987,9 +998,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   thinks there itself. A
   model the user picked with Auto off keeps the regenerate. The old `users.response_style` column is
   dropped (migration `0134`).
-- ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
-  talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
-  pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
+- ✅ **Voice** — two voices, what you pick is what you hear. **Reply voice**
+  (`users.reply_voice`) lists only the voices of the model that plays replies in the app's
+  language (Kokoro's for en/es/fr/hi/pt, tts-1's for ru/tr/am: `models/voice_catalog.py`, the
+  phone's `features/speech/model/voices.ts`, both held to `docs/fixtures/reply_voices.json`);
+  never picked, it follows the live talk voice's gender. One swap remains: a reply in another
+  language than the app's plays in that language's voice of the same gender. **Live talk
+  voice** (`users.tts_voice`, the realtime model's voices; Default keeps the server's). Listen
+  speed (0.75×–1.5×, on the device, pitch kept) and Use on-device voice (offline device speech
+  instead of the cloud voice).
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
 - ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
   kind under it, today to-do reminders
@@ -1105,8 +1122,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Two plans** — `users.plan` is `free` | `pro` (the display name "Pro" lives in i18n
   only, `plans.*`; one paid plan since 2026-11-24, migration `0135` moved the dev accounts on
   the retired `plus` to `pro`). Free: every model in the free pool, 3 AI images a day, no
-  voice input, no natural read-aloud, no live talk. Pro: every model, voice input and
-  read-aloud, 15 images a day and 60 live talk minutes a month. Pro is billed monthly or
+  voice input, no natural Listen voice, no live talk. Pro: every model, voice input and
+  Listen, 15 images a day and 60 live talk minutes a month. Pro is billed monthly or
   yearly, with a 3-day free trial set up in the stores; the period stays in the store and
   the server never sees it. Prices live in the stores; the app shows the offering's
   localized price. One place decides: `modules/billing/entitlements.py`.
@@ -1547,7 +1564,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Open with Recall (a PDF shared or opened from Files, Mail, WhatsApp… lands attached in New chat; iOS `CFBundleDocumentTypes`, Android VIEW/SEND filters + `modules/opened-document`; held through sign-in, fenced per account) | ✅ iOS verified on the Simulator (share sheet, cold, warm); Android built and unit-tested, device check pending. Needs a native build |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Live talk (speech-to-speech, Pro, 60 min/month) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
-| Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
+| Audio out (Listen) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
 | Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; **dev build** for camera) |
@@ -1655,7 +1672,7 @@ drawer FTS search ✅.
 | Daily messages | 10 | 1,000 |
 | Daily tokens | 400k | 15M |
 | Speech transcriptions/day | 0 (not included) | 200 |
-| Speech TTS (read aloud)/day | 0 (phone voice only) | 100 |
+| Speech TTS (Listen)/day | 0 (phone voice only) | 100 |
 | AI images/day | 3 | 15 |
 | Live talk | not included | 60 min/month |
 | Tavily searches/day | 20 (then DDG only) | 150 |
