@@ -1,7 +1,7 @@
 """Direct OpenAI Realtime boundary for live talk and live dictation.
 
-Read-aloud and the recorded dictation fallback use speech_gateway; all voice uses OpenAI
-directly. No OpenAI key reaches the phone: the server mints a short-lived Realtime client
+Listen's tts-1 clips and the recorded dictation fallback use speech_gateway (Kokoro's
+Listen clips go through OpenRouter, ``openrouter_speech_gateway``). No OpenAI key reaches the phone: the server mints a short-lived Realtime client
 secret (a live talk session, or a transcription-only one for the composer mic), keeps it,
 and posts the phone's WebRTC offer with it (``create_realtime_call``), so it learns the
 call's id and can end the call itself with the permanent key (``hangup_realtime_call``).

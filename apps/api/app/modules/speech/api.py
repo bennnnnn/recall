@@ -10,9 +10,12 @@ from app.core.consent import get_consented_user
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.core.request_limits import reject_oversized
+from app.core.validation import normalize_locale_code
 from app.models.orm import User
+from app.modules.billing.entitlements import Feature
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech import service as speech_service
+from app.modules.speech import voice_preview
 from app.modules.speech.gates import (
     charge_tts_tokens,
     refund_day_on_failure,
@@ -21,6 +24,7 @@ from app.modules.speech.gates import (
     require_voice_spend_ok,
     reserve_day_or_raise,
 )
+from app.modules.speech.listen_reply import remember_reply_language, reply_language
 from app.modules.speech.schemas import (
     SPEECH_MAX_AUDIO_BYTES,
     SPEECH_MAX_REQUEST_BYTES,
@@ -29,7 +33,10 @@ from app.modules.speech.schemas import (
     SpeechTranscriptionOut,
     SpeechTtsIn,
     SpeechTtsOut,
+    VoicePreviewIn,
+    VoicePreviewOut,
 )
+from app.modules.speech.text_language import UNSURE
 from app.modules.speech.tts_followup import (
     normalize_tts_part,
     store_tts_followup,
@@ -103,6 +110,9 @@ async def synthesize_speech(
     # No daily count: every part is charged to the day's token budget by its length.
     charged = await charge_tts_tokens(redis, user, settings, body.text)
 
+    # A rest clip plays in its reply's language unless it says otherwise (``listen_reply``).
+    lead_language = await reply_language(redis, user.id, lead_hash) if part == "rest" else None
+    played: list[speech_service.ListenClip] = []
     async with charged as refund:
         alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
@@ -111,7 +121,10 @@ async def synthesize_speech(
             language=body.language,
             model_alias=alias,
             voice=user.tts_voice,
+            reply_voice=user.reply_voice,
+            reply_language=lead_language,
             on_call=refund.spend,
+            on_played=played.append,
         )
         if not result:
             raise HTTPException(
@@ -121,14 +134,65 @@ async def synthesize_speech(
         audio_bytes, content_type = result
         if part == "lead":
             await store_tts_followup(redis, followup_key, body.text)
-        if billed:
-            await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
+        # Every clip is paid for by its characters, a rest clip that took no daily slot too.
+        for clip in played:
+            # What played, not what was read: a lead tts-1 played keeps the reply on it, and
+            # so does a rest clip Kokoro failed on, so the reply's voice does not come back.
+            if part == "lead":
+                await remember_reply_language(
+                    redis, user.id, tts_lead_hash(body.text), clip.reply_language
+                )
+            elif part == "rest" and clip.fell_back:
+                await remember_reply_language(redis, user.id, lead_hash, UNSURE)
+            await quota_service.record_voice_spend(redis, clip.usd)
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,
             model=alias,
             lead_hash=tts_lead_hash(body.text) if part == "lead" else None,
         )
+
+
+@router.post("/voice-preview", response_model=VoicePreviewOut)
+async def preview_voice(
+    body: VoicePreviewIn,
+    user: User = Depends(get_consented_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> VoicePreviewOut:
+    """The voice picked in Settings saying its name (``voice_preview``). No Listen tokens;
+    a per-minute rate limit, and a made clip counts toward the day's provider spend."""
+    feature: Feature = "speech_tts" if body.kind == "reply" else "live_talk"
+    require_plan_feature(user, settings, feature, quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE)
+    redis = get_redis_client()
+    await require_voice_spend_ok(redis, settings)
+    await require_speech_rate(
+        redis,
+        settings,
+        f"speech_preview_rl:{user.id}",
+        quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
+    )
+    spent: list[float] = []
+    try:
+        clip = await voice_preview.voice_preview(
+            settings,
+            redis,
+            kind=body.kind,
+            voice=body.voice,
+            language=normalize_locale_code(user.locale),
+            on_spend=spent.append,
+        )
+    except voice_preview.UnknownVoiceError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown voice"
+        ) from exc
+    for usd in spent:
+        await quota_service.record_voice_spend(redis, usd)
+    if clip is None:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No preview")
+    audio, content_type = clip
+    return VoicePreviewOut(
+        audio_base64=base64.b64encode(audio).decode("ascii"), content_type=content_type
+    )
 
 
 @router.post("/transcribe", response_model=SpeechTranscriptionOut)

@@ -15,7 +15,7 @@ import {
 import { useAccent, useAppearance } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { voiceLabel } from "@/features/speech/model/voices";
+import { heardVoiceLabel } from "@/features/speech/model/voices";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
 import { LANGUAGES } from "@/lib/i18n/languages";
@@ -73,7 +73,7 @@ export default function SettingsScreen() {
       : Boolean(user?.push_notifications_enabled) && osPushGranted
         ? t("settings.on")
         : t("settings.off");
-  const voiceValue = user?.tts_voice ? voiceLabel(user.tts_voice) : t("settings.voice_default");
+  const voiceValue = heardVoiceLabel(user) ?? t("settings.voice_default");
 
   return (
     <SettingsPage ownBarTitle={t("settings.title")}>

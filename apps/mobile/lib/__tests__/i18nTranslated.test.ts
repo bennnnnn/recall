@@ -29,6 +29,7 @@ const KEPT_EVERYWHERE = new Set([
   "plans.pro", // the plan's name, as the stores show it
   "upgrade.plan_title", // "Recall Pro": the product and the plan's name
   "chat.live_talk_a11y", // Live talk is the feature's name in every locale
+  "settings.voice_live", // Settings → Voice names the feature's voice row by it too
   "share.attachment_pdf",
   "common.ok",
   "chat.math_converter_clear", // the calculator's AC key
@@ -44,7 +45,9 @@ const KEPT_EVERYWHERE = new Set([
 
 /** Words each language spells as English does: a match is the translation. */
 const SAME_WORD: Record<Locale, readonly string[]> = {
-  am: [],
+  am: [
+    "settings.voice_reply", // TTS: Amharic has no usual word for text-to-speech
+  ],
   es: [
     "chat.math_converter_cat_amount", // Moles
     "rich.callout_info",

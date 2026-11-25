@@ -41,6 +41,7 @@ def api_user(**kw: Any) -> MagicMock:
     u.push_notifications_enabled = kw.get("push_notifications_enabled", True)
     u.push_reminders_enabled = kw.get("push_reminders_enabled", True)
     u.tts_voice = kw.get("tts_voice", None)
+    u.reply_voice = kw.get("reply_voice", None)
     u.email_reminders_enabled = kw.get("email_reminders_enabled", False)
     u.reminder_lead_minutes = kw.get("reminder_lead_minutes", 10)
     u.quiet_hours_enabled = kw.get("quiet_hours_enabled", False)

@@ -324,11 +324,28 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   plus bounded read-only memory lookup and web search.
   Search sources use the existing reply chips. The chat header (drawer / ⋮) stays
   available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API.
-- ✅ **Read aloud (TTS)** — defaults to OpenAI **gpt-4o-mini-tts** PCM
-  (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
-  another utterance's unbilled quota) and starts playback on the first sentence.
-  The legacy fast alias maps to the same OpenAI model; an explicit phone-voice choice
-  is preserved. The natural (cloud) voice is Pro, **100/day**; Free reads with the
+- ✅ **Listen (TTS; "read aloud" in code)** — the reply's own language picks the model, not
+  the app's (`modules/speech/text_language.py`): **Kokoro 82M** on OpenRouter
+  (`hexgrad/kokoro-82m`, `POST /api/v1/audio/speech`, $0.99 per 1M characters at DeepInfra,
+  asked first; $4 at Together, its fallback) for English, Spanish, French, Hindi and
+  Portuguese, and OpenAI **tts-1** ($15 per 1M characters) for Russian, Turkish, Amharic and
+  any text that is mixed: a letter of another script (symbols such as θ, Ω or º aside), or
+  words of another listed language contesting it. A clip too plain to name its language by
+  its words ("Divide both sides by 3.") plays in its reply's language, or the app's (the
+  phone's `language`), when nothing contests it. Both answer MP3. When Kokoro fails (or takes
+  over 6 s), tts-1 plays the clip and the rest of that reply. The phone sends a reply
+  in ~150-character clips (`POST /speech/tts` lead then rest, rest bound to the lead hash so
+  it cannot steal another utterance's unbilled quota) and starts playback on the first; the
+  lead's language holds for the reply's rest clips (`listen_reply.py`), so a clip of numbers
+  never switches voice, and a rest clip that reads as another language goes to tts-1. On the
+  corpus replies (sweep, STEM, replays; 2026-11-24) 98.1% of English clips play on Kokoro, and
+  every Spanish, French, Portuguese and Hindi one. Each
+  clip records its spend by its characters at its model's catalog rate (Kokoro priced at
+  Together's $4, the dearer host). Measured 2026-11-24: Kokoro about 0.5 s a clip, tts-1
+  1.3-3.6 s. The routing is the catalog's: `ROUTING.read_aloud` and each voice model's
+  `speaks_languages`. The legacy fast alias maps to tts-1; an explicit phone-voice choice
+  is preserved. The natural (cloud) voice is Pro, with no daily count (each clip is charged
+  to the day's tokens by its text's length); Free plays replies with the
   phone's own voice and never calls the server (which refuses Free with 403).
   Settings disclose AI-generated audio. Mic permission is not required.
   Cloud 502 falls back to on-device `expo-speech` (a speech 502 is not an API outage).
@@ -961,7 +978,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   web searches **40** a day, then none (no DuckDuckGo; the reply says they reset
   tomorrow); AI images **30**; photo lookups **30**; documents **100**; voice input
   **100**; scanned PDFs OCR'd **100** (each copy a Library resend makes counts); photo
-  uploads follow messages (no count); read-aloud has no count, each clip charged to the
+  uploads follow messages (no count); Listen has no count, each clip charged to the
   day's tokens by its text's tokens (about four characters each).
 - ✅ **What a message covers** — a photo-lookup turn takes its chat message like any turn
   (given back if the lookup fails); a turn whose search reached a provider, or that sends
@@ -1023,9 +1040,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   thinks there itself. A
   model the user picked with Auto off keeps the regenerate. The old `users.response_style` column is
   dropped (migration `0134`).
-- ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
-  talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
-  pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
+- ✅ **Voice** — two voices, what you pick is what you hear; short rows, no subtitles under
+  the voice and speed rows. **TTS** (`users.reply_voice`) lists only the voices of the model that plays replies in the app's
+  language (Kokoro's for en/es/fr/hi/pt, tts-1's for ru/tr/am: `models/voice_catalog.py`, the
+  phone's `features/speech/model/voices.ts`, both held to `docs/fixtures/reply_voices.json`);
+  never picked (or set back to "Same as live talk"), it follows the live talk voice's
+  gender; `/auth/me` sends the pick (`reply_voice`) and the voice that plays
+  (`reply_voice_heard`). Two swaps remain, each to the voice of the same gender: a reply in
+  another language than the app's plays in that language's voice, and a clip Kokoro fails to
+  play is played by tts-1 (the rest of that reply stays on tts-1). **Live talk**
+  (`users.tts_voice`, the realtime model's voices; Default keeps the server's). **Speed**
+  (0.75×–1.5×, on the device, pitch kept) and **Phone's voice** ("Plays replies offline with your
+  phone's built-in voice."). A voice picked in either menu says "Hi, I'm {Name}." in the app's
+  language, through the engine that will speak it (`POST /speech/voice-preview`,
+  `modules/speech/voice_preview.py`): a TTS voice by Kokoro or tts-1 (never a fallback in
+  another voice), a live talk voice by gpt-4o-mini-tts, which has every voice gpt-realtime
+  speaks. Each clip is made once per voice and language and kept in Redis for 30 days; the
+  phone keeps it for the run. A preview takes no Listen tokens, only the speech rate limit, and
+  Default (the server's live talk voice) says nothing.
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
 - ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
   kind under it, today to-do reminders
@@ -1142,8 +1174,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only, `plans.*`; one paid plan since 2026-11-24, migration `0135` moved the dev accounts on
   the retired `plus` to `pro`). Free: every model in the free pool, 10 messages a day (its
   uploads, searches and lookups part of them), 3 AI images a day, no voice input, no
-  natural read-aloud, no live talk. Pro: every model, unlimited messages, voice input and
-  read-aloud, 30 images a day and 60 live talk minutes a month (numbers: §9). Pro is billed monthly or
+  natural Listen voice, no live talk. Pro: every model, unlimited messages, voice input and
+  Listen, 30 images a day and 60 live talk minutes a month (numbers: §9). Pro is billed monthly or
   yearly, with a 3-day free trial set up in the stores; the period stays in the store and
   the server never sees it. Prices live in the stores; the app shows the offering's
   localized price. One place decides: `modules/billing/entitlements.py`.
@@ -1584,7 +1616,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Open with Recall (a PDF shared or opened from Files, Mail, WhatsApp… lands attached in New chat; iOS `CFBundleDocumentTypes`, Android VIEW/SEND filters + `modules/opened-document`; held through sign-in, fenced per account) | ✅ iOS verified on the Simulator (share sheet, cold, warm); Android built and unit-tested, device check pending. Needs a native build |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Live talk (speech-to-speech, Pro, 60 min/month) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
-| Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
+| Audio out (Listen) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
 | Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; **dev build** for camera) |
@@ -1692,7 +1724,7 @@ drawer FTS search ✅.
 | Daily messages | 10 | unlimited |
 | Daily tokens | 400k | 15M |
 | Speech transcriptions/day | 0 (not included) | 100 |
-| Speech TTS (read aloud) | 0 (phone voice only) | no count; tokens by length |
+| Speech TTS (Listen) | 0 (phone voice only) | no count; tokens by length |
 | AI images/day | 3 | 30 |
 | Photo lookups/day | follow messages | 30 |
 | Photo / document uploads/day | follow messages | follow messages / 100 |

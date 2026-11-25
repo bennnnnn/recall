@@ -41,22 +41,6 @@ _AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
 }
 
 
-# The voices tts-1 has. The Voice setting also chooses live talk's voice, which has marin,
-# cedar, ballad and verse: tts-1 speaks those as its nearest voice.
-_TTS1_VOICES = frozenset(
-    {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
-)
-_TTS1_NEAREST = {"marin": "coral", "cedar": "onyx", "ballad": "echo", "verse": "ash"}
-
-
-def voice_for(model: str, voice: str) -> str:
-    """``voice`` as ``model`` can speak it: itself, or tts-1's nearest (alloy at worst)."""
-    if not model.removeprefix("openai/").startswith("tts-1"):
-        return voice
-    nearest = _TTS1_NEAREST.get(voice, voice)
-    return nearest if nearest in _TTS1_VOICES else "alloy"
-
-
 def can_speak_with(model: str) -> bool:
     """Whether ``model`` (``openai/`` or bare) is one this gateway reads aloud with."""
     return model.removeprefix("openai/").startswith(_SPEECH_MODEL_FAMILIES)
