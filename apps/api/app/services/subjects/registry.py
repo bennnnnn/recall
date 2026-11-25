@@ -496,6 +496,11 @@ class MoneyPeer(Protocol):
         """The reply with the market note and the calculator card under it."""
         ...
 
+    def read_requests(self, texts: Sequence[str], earlier: Sequence[str | Sequence[str]]) -> None:
+        """Read in the turn's pool read the money requests ``prepare`` and
+        ``prepare_standing`` will ask, so they never read the user's words on the loop."""
+        ...
+
     def reads(self, text: str) -> bool:
         """``text`` is a money request the peer works: routing leaves it to the money card."""
         ...

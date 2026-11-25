@@ -286,8 +286,8 @@ async def lookup_iupac_name(smiles: str, redis: Redis | None = None) -> str | No
             logger.debug("PubChem cache read failed", exc_info=True)
             cached = None
         if cached:
-            name = cached.decode() if isinstance(cached, bytes) else str(cached)
-            return None if name == _MISSING else name
+            known = cached.decode() if isinstance(cached, bytes) else str(cached)
+            return None if known == _MISSING else known
     url = f"{PUG_REST_URL}/compound/smiles/{quote(smiles, safe='')}/property/IUPACName/JSON"
     fetched = await _pug_get(url, "iupac")
     props = None if fetched.data is None else _first_properties(fetched.data)

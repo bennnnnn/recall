@@ -25,6 +25,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from app.core.readings import kept_per_turn
 from app.modules.money.catalog import PRODUCTS, Product
 from app.modules.money.compounding import UNKNOWN, compounding_per_year
 from app.modules.money.fits import (
@@ -185,6 +186,7 @@ def bare_year(text: str) -> bool:
     return _YEAR.fullmatch(text.strip()) is not None
 
 
+@kept_per_turn
 def read_money_request(text: str) -> MoneyRequest | None:
     """The money request in ``text``, or None when it is not one.
 

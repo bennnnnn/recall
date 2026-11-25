@@ -231,9 +231,12 @@ async def test_a_physics_problem_with_a_car_and_a_percent_gets_no_money_turn(
 async def test_the_money_cards_rate_lookup_is_the_turns_search(
     fake_redis: Redis, monkeypatch: Any
 ) -> None:
-    """A mortgage turn's rate lookup searches on the turn's one budget (its one search on
-    Free), never a fresh budget of its own beside the read's and the reply's."""
+    """A mortgage turn's rate lookup searches on the turn's reservation (its message on
+    Free, its one slot on Pro), never a fresh budget of its own; but beside the turn's one
+    search, not on it, so neither the lookup nor the reply's search is refused (audit,
+    2026-11-25)."""
     from app.modules.money import service as money_service
+    from app.modules.web_search import SideSearchBudget
 
     budget = object()
     seen: list[object] = []
@@ -247,4 +250,5 @@ async def test_the_money_cards_rate_lookup_is_the_turns_search(
     await money_prep.money_turn(
         request, _identity(), Settings(), fake_redis, single_plan(request.content)
     )
-    assert seen and all(passed is budget for passed in seen)
+    assert seen
+    assert all(isinstance(passed, SideSearchBudget) and passed.turn is budget for passed in seen)

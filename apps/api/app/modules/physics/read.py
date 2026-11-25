@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- the point of this module is the micro sign and the Greek mu.
+# ruff: noqa: RUF001, RUF002 -- the point of this module is the micro sign and the Greek mu.
 """Read a photographed physics problem back as the text a student would type.
 
 The turn states the reading as the confirmed line, then the chat solves that

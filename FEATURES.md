@@ -982,8 +982,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   day's tokens by its text's tokens (about four characters each).
 - ✅ **What a message covers** — a photo-lookup turn takes its chat message like any turn
   (given back if the lookup fails); a turn whose search reached a provider, or that sends
-  a PDF that may be OCR'd, keeps its message even when stopped before the reply; the money
-  card's rate lookup, the read's search and the reply's own call share the turn's one search; a profile photo or a picture's reference
+  a PDF that may be OCR'd, keeps its message even when stopped before the reply; the
+  read's search and the reply's own call share the turn's one search, and the money card's
+  rate lookups search beside it on its reservation (each answer kept for every user); a profile photo or a picture's reference
   photo needs no message left (presign `purpose`).
 - ✅ **Upload size and Library total** — every upload, photo or document, is held to
   10 MB at presign, on the API's own upload and on the stored R2 object, and to the

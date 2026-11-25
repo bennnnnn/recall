@@ -105,6 +105,13 @@ class MoneyPeer:
 
         return await finish_money_reply(turn, text, settings, english=english)
 
+    def read_requests(self, texts: Sequence[str], earlier: Sequence[str | Sequence[str]]) -> None:
+        """Read the money requests a turn will ask of ``texts`` after the user's ``earlier``
+        lines (``money.reading``): in the turn's pool read, never on the event loop."""
+        from app.modules.money.reading import read_requests
+
+        read_requests(texts, earlier)
+
     def reads(self, text: str) -> bool:
         """``text`` is a money request this peer works (a loan, card payoff or savings):
         routing leaves it to the money card, never a subject's lane."""

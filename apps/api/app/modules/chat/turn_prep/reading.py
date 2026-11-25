@@ -215,6 +215,7 @@ def ask_turn_readings(
     for text in earlier_lines:
         detect_subject(text)
         plan_turn(text, chemistry_enabled=chemistry)
+    _read_money_requests(content, plan, earlier_lines, chemistry)
     if prior_user:
         detect_subject(prior_user, chemistry_enabled=chemistry)
     route_chat_model(
@@ -239,6 +240,22 @@ def _read_money_yield(
         content, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry
     )
     MONEY.yields_to(content, subject)
+
+
+def _read_money_requests(
+    content: str, plan: TurnPlan, earlier_lines: tuple[str, ...], chemistry: bool
+) -> None:
+    """The money request each request of the message makes after the user's earlier lines,
+    each in the parts its own turn read it in, and the chat's standing one: what the money
+    turn asks (``turn_prep.money``), read here so it never reads them on the loop."""
+    from app.modules.chat.turn_prep.intents import plan_turn
+    from app.services.subjects.registry import MONEY
+
+    earlier = []
+    for line in reversed(earlier_lines):
+        line_plan = plan_turn(line, chemistry_enabled=chemistry)
+        earlier.append(line_plan.texts() if line_plan.multi else (line,))
+    MONEY.read_requests(plan.texts() if plan.multi else (content,), earlier)
 
 
 def _read_place_requests(

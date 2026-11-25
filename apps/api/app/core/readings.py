@@ -139,6 +139,11 @@ async def read_aside[T](
         _MEMO.set(memo)
     if _DECLINED in memo:
         return None
+    keyer = getattr(fn, "_reading_key", None)
+    key = keyer(*args, **kwargs) if keyer is not None else None
+    if key is not None and key in memo:
+        kept: T = memo[key]
+        return _fresh(kept)
     try:
         result: T
         result, recorded = await run_sympy(
