@@ -21,6 +21,12 @@ _KOKORO = "app.gateways.openrouter_speech_gateway.synthesize_via_openrouter"
 _OPENAI = "app.gateways.speech_gateway.synthesize_via_openai"
 
 
+def _last(mock: AsyncMock) -> Any:
+    call = mock.await_args
+    assert call is not None
+    return call
+
+
 def _settings(**kw: Any) -> Settings:
     return Settings(
         openai_api_key="sk-test", openrouter_api_key="or-test", mock_llm_enabled=False, **kw
@@ -78,8 +84,8 @@ async def test_a_reply_voice_is_made_once_by_kokoro_then_kept() -> None:
             )  # fmt: skip
             assert clip == (b"ID3heart", "audio/mpeg")
     kokoro.assert_awaited_once()
-    assert kokoro.await_args.args[1] == "Hi, I'm Heart."
-    assert kokoro.await_args.kwargs == {"model": "hexgrad/kokoro-82m", "voice": "af_heart"}
+    assert _last(kokoro).args[1] == "Hi, I'm Heart."
+    assert _last(kokoro).kwargs == {"model": "hexgrad/kokoro-82m", "voice": "af_heart"}
     openai.assert_not_awaited()
     assert spent == [pytest.approx(len("Hi, I'm Heart.") * 4.0 / 1_000_000)]
 
@@ -106,9 +112,9 @@ async def test_a_live_talk_voice_is_spoken_by_gpt_4o_mini_tts_in_the_app_languag
         )
     assert clip == (b"ID3marin", "audio/mpeg")
     kokoro.assert_not_awaited()
-    assert openai.await_args.args[1] == "Hola, soy Marin."
-    assert openai.await_args.kwargs["model"] == "openai/gpt-4o-mini-tts"
-    assert openai.await_args.kwargs["voice"] == "marin"
+    assert _last(openai).args[1] == "Hola, soy Marin."
+    assert _last(openai).kwargs["model"] == "openai/gpt-4o-mini-tts"
+    assert _last(openai).kwargs["voice"] == "marin"
 
 
 @pytest.mark.asyncio
