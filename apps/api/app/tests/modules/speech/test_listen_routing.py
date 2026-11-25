@@ -54,7 +54,7 @@ GERMAN = "Natürlich, hier ist die Antwort: Wasser kocht bei hundert Grad und da
         # Words two languages write are in no list (review, 2026-11-24): "mais" (fr, pt),
         # "dos" (es, pt); a single letter is no word ("y" in "il y a", and a variable).
         ("Você pode usar mais água.", "pt"),
-        ("Hay dos soluciones: hay que sumar las ecuaciones.", "es"),
+        ("Hay dos soluciones: primero hay que sumar las ecuaciones, luego restar.", "es"),
         ("Il y a deux solutions et elles sont simples.", "fr"),
         (HINDI, "hi"),
         (RUSSIAN, "ru"),
@@ -127,6 +127,38 @@ PLAIN_ENGLISH = [
 ]
 
 
+# English leads of STEM, money and recipe replies: words other lists once held ("per",
+# "pour", "die", "Los Angeles") made them read as no language, and the whole reply went to tts-1.
+ENGLISH_LEADS = [
+    "The speed is 20 meters per second, so per minute it's 1200 meters in total.",
+    "Pour the batter into the pan and bake for 25 minutes at 180 degrees.",
+    "Pour 200 ml of milk per cup of flour, then whisk until smooth.",
+    "A cell will die without oxygen, and the den of the problem is the enzyme.",
+    "Ben earns $15 per hour, so in a 40-hour week he makes $600 before tax.",
+    "Your monthly payment on a $20,000 loan at 6% for 5 years is about $387.",
+    "Interest is charged per month, so the card's 24% APR is 2% each month.",
+    "The flight from Los Angeles to Las Vegas takes about an hour.",
+    "Notre-Dame is in Paris, and São Paulo is the largest city in Brazil.",
+    "Add salt and pepper, then let the soup simmer for 10 minutes.",
+    "Na and Cl ions form sodium chloride, which dissolves in water.",
+    "The voltage is 12 V and the current is 3 A, so the resistance is 4 Ω.",
+    "Mix the dough with your hands, cover it and let it rise for an hour.",
+    "Divide the total by the number of people: $90 split three ways is $30 each.",
+    "The derivative of x² is 2x, so the slope at x = 3 is 6.",
+    "Et al. means and others, as in Smith et al. (2020).",
+    "The au pair works 30 hours a week and gets $200 per week.",
+    "Mit and von are German words, but this sentence is in English.",
+    "Ho ho ho, said Santa, and the elves laughed per tradition.",
+    "Photosynthesis needs light, water and carbon dioxide to make glucose.",
+]
+
+
+@pytest.mark.parametrize("lead", ENGLISH_LEADS)
+def test_an_english_lead_plays_in_english(lead: str) -> None:
+    assert text_language(lead) in (None, "en")
+    assert clip_language(lead, None, "en-US") == "en"
+
+
 @pytest.mark.parametrize("clip", PLAIN_ENGLISH)
 def test_plain_english_plays_in_the_app_language_or_its_reply(clip: str) -> None:
     assert clip_language(clip, None, "en-US") == "en"  # a lead: the app's language
@@ -151,6 +183,12 @@ def test_plain_english_plays_in_the_app_language_or_its_reply(clip: str) -> None
         ("Divide both sides by 3.", "hi", None),
         ("Москва", "en", "ru"),
         ("Python and Москва", "en", None),
+        (
+            "Water in Chinese is 水 (shuǐ), and it is one of the first characters most learners "
+            "pick up.",
+            "en",
+            None,
+        ),
         # No app language, or one Kokoro does not read (tts-1 reads it either way).
         ("Divide both sides by 3.", None, None),
         ("Divide both sides by 3.", "ru", None),
@@ -462,3 +500,33 @@ def test_only_a_voice_a_reply_model_has_can_be_saved() -> None:
     for wrong in ("marin", "af_alloy", "Kore", ""):
         with pytest.raises(ValueError):
             UserUpdate(reply_voice=wrong)
+
+
+def test_a_rest_clip_kokoro_failed_on_keeps_the_rest_of_the_reply_on_tts1() -> None:
+    client = TestClient(app_with_user(api_user(plan="pro")))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    calls: list[dict[str, Any]] = []
+    # The lead plays on Kokoro; Kokoro fails on rest clip 1, which tts-1 plays.
+    played = iter(["speech-tts-kokoro-model", "speech-tts-model", "speech-tts-model"])
+
+    async def synth(_settings: Any, _text: str, **kwargs: Any) -> tuple[bytes, str]:
+        calls.append(kwargs)
+        kwargs["on_played"](ListenClip(next(played), "en", 0.001))
+        return b"mp3", "audio/mpeg"
+
+    with (
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.synthesize_speech", synth),
+        patch("app.modules.speech.api.quota_service.record_voice_spend", AsyncMock()),
+    ):
+        lead_hash = _post_tts(client, ENGLISH, part="lead").json()["lead_hash"]
+        _post_tts(client, "And here is the next part.", part="rest", lead_hash=lead_hash)
+        _post_tts(client, "And the last part.", part="rest", lead_hash=lead_hash)
+    assert [call["reply_language"] for call in calls] == [None, "en", UNSURE]
+
+
+def test_a_clip_tts1_played_in_a_kokoro_language_fell_back() -> None:
+    assert ListenClip("speech-tts-model", "en", 0.0).fell_back
+    assert not ListenClip("speech-tts-kokoro-model", "en", 0.0).fell_back
+    assert not ListenClip("speech-tts-model", "ru", 0.0).fell_back
+    assert not ListenClip("speech-tts-model", None, 0.0).fell_back

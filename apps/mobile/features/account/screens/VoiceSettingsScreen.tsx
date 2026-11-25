@@ -147,16 +147,23 @@ function ReplyVoiceRow({
     [replyVoices, t],
   );
   const heard = user?.reply_voice_heard ?? null;
+  const picked = user?.reply_voice ?? null;
+  // A pick from another app language (George, now in Russian) is not in this list: the voice
+  // heard in its place is ticked.
+  const ticked = picked
+    ? replyVoices.some((voice) => voice.id === picked)
+      ? picked
+      : (heard ?? FOLLOW_LIVE_VOICE)
+    : FOLLOW_LIVE_VOICE;
   return (
     <SettingsMenuRow
       title={t("settings.voice_reply")}
       value={heard ? replyVoiceLabel(heard) : t("settings.voice_default")}
       options={options}
-      selectedKey={user?.reply_voice ?? FOLLOW_LIVE_VOICE}
+      selectedKey={ticked}
       busy={action.busy === "reply_voice"}
       onSelect={(key) => {
         const next = key === FOLLOW_LIVE_VOICE ? null : key;
-        if (next && !replyVoices.some((candidate) => candidate.id === next)) return;
         void action.run("reply_voice", () => updateUser({ reply_voice: next })).then((saved) => {
           // Same as live talk says the voice that now follows, read from the saved account.
           if (saved) preview("reply", next);

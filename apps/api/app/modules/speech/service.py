@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.core.config import Settings
+from app.core.log_text import log_safe
 from app.gateways import mock_llm, openrouter_speech_gateway, speech_gateway
 from app.models import model_catalog
 from app.models.model_catalog import openrouter_slug
@@ -43,6 +44,14 @@ class ListenClip:
         if self.language is None or model_catalog.speaks(self.alias, None):
             return UNSURE
         return self.language
+
+    @property
+    def fell_back(self) -> bool:
+        """A model other than its language's first played it: Kokoro failed on a clip in a
+        language it reads, and tts-1 played it."""
+        if self.language is None:
+            return False
+        return model_catalog.read_aloud_aliases(self.language)[0] != self.alias
 
 
 def normalize_tts_alias(raw: str | None) -> str:
@@ -157,7 +166,9 @@ async def synthesize_speech(
         audio = await _synthesize_with(settings, alias, plain, speaker, language, model_alias)
         if audio is None:
             continue
-        logger.info("Listen clip model=%s language=%s chars=%s", alias, spoken, len(plain))
+        logger.info(
+            "Listen clip model=%s language=%s chars=%s", alias, log_safe(spoken), len(plain)
+        )
         if on_played is not None:
             price = model_catalog.get(alias).usd_per_m_chars or 0.0
             on_played(ListenClip(alias, spoken, len(plain) * price / 1_000_000))

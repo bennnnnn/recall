@@ -321,12 +321,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`hexgrad/kokoro-82m`, `POST /api/v1/audio/speech`, $0.99 per 1M characters at DeepInfra,
   asked first; $4 at Together, its fallback) for English, Spanish, French, Hindi and
   Portuguese, and OpenAI **tts-1** ($15 per 1M characters) for Russian, Turkish, Amharic and
-  any text whose language is unclear or mixed (a word of another script, too few words to
-  tell). Both answer MP3. When Kokoro fails, tts-1 plays the clip. The phone sends a reply
+  any text that is mixed: a letter of another script (symbols such as θ, Ω or º aside), or
+  words of another listed language contesting it. A clip too plain to name its language by
+  its words ("Divide both sides by 3.") plays in its reply's language, or the app's (the
+  phone's `language`), when nothing contests it. Both answer MP3. When Kokoro fails (or takes
+  over 6 s), tts-1 plays the clip and the rest of that reply. The phone sends a reply
   in ~150-character clips (`POST /speech/tts` lead then rest, rest bound to the lead hash so
   it cannot steal another utterance's unbilled quota) and starts playback on the first; the
   lead's language holds for the reply's rest clips (`listen_reply.py`), so a clip of numbers
-  never switches voice, and a rest clip that reads as another language goes to tts-1. Each
+  never switches voice, and a rest clip that reads as another language goes to tts-1. On the
+  corpus replies (sweep, STEM, replays; 2026-11-24) 98.1% of English clips play on Kokoro, and
+  every Spanish, French, Portuguese and Hindi one. Each
   clip records its spend by its characters at its model's catalog rate (Kokoro priced at
   Together's $4, the dearer host). Measured 2026-11-24: Kokoro about 0.5 s a clip, tts-1
   1.3-3.6 s. The routing is the catalog's: `ROUTING.read_aloud` and each voice model's

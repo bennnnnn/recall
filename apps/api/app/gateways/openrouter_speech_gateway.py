@@ -8,6 +8,7 @@ character read; the response's ``X-Generation-Id`` names the call in OpenRouter'
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from app.core.config import Settings
@@ -18,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 _OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech"
 # A clip is about 150 characters (the phone's ``ttsLead.ts``): Kokoro answered one in about
-# half a second (2026-11-24). Past this the request falls back to tts-1 inside the phone's
-# own 60 s wait.
-_TTS_TIMEOUT = 20.0
+# half a second (2026-11-24). A clip waits at most this long for it, then tts-1 plays it and
+# the rest of the reply (``ListenClip.fell_back``), so a hang delays one clip, not every one.
+_TTS_TIMEOUT = 6.0
 # DeepInfra serves Kokoro at $0.99 per 1M characters, Together at $4: ask DeepInfra first,
 # and let OpenRouter fall back to Together when DeepInfra is down.
 _PROVIDER = {"order": ["deepinfra"], "allow_fallbacks": True}
@@ -42,14 +43,15 @@ async def synthesize_via_openrouter(
         "provider": _PROVIDER,
     }
     try:
-        response = await get_pooled_client(_TTS_TIMEOUT).post(
-            _OPENROUTER_SPEECH_URL,
-            headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
+        async with asyncio.timeout(_TTS_TIMEOUT):
+            response = await get_pooled_client(_TTS_TIMEOUT).post(
+                _OPENROUTER_SPEECH_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
         if response.status_code >= 400:
             logger.warning(
                 "OpenRouter TTS failed model=%s status=%s body=%s",

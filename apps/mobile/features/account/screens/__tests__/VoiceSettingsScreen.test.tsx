@@ -169,3 +169,14 @@ it("says a live talk voice picked, and nothing for Default or on a plan without 
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ tts_voice: "sage" }));
   expect(mockPreviewVoice).not.toHaveBeenCalled();
 });
+
+it("ticks the voice heard when the pick is from another app language", async () => {
+  // George was picked in English; the app is in Russian now, where tts-1 plays it as Ash.
+  mockLocale = "ru";
+  mockReplyVoice = "bm_george";
+  mockReplyHeard = "ash";
+  const view = await render(<VoiceSettingsScreen />);
+  expect(view.getByLabelText("settings.voice_reply, Ash")).toBeTruthy();
+  await fireEvent.press(view.getByText("settings.voice_reply"));
+  expect(view.getByRole("radio", { name: "Ash" }).props.accessibilityState.checked).toBe(true);
+});

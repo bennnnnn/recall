@@ -36,6 +36,7 @@ from app.modules.speech.schemas import (
     VoicePreviewIn,
     VoicePreviewOut,
 )
+from app.modules.speech.text_language import UNSURE
 from app.modules.speech.tts_followup import (
     normalize_tts_part,
     store_tts_followup,
@@ -134,11 +135,14 @@ async def synthesize_speech(
             await store_tts_followup(redis, followup_key, body.text)
         # Every clip is paid for by its characters, a rest clip that took no daily slot too.
         for clip in played:
+            # What played, not what was read: a lead tts-1 played keeps the reply on it, and
+            # so does a rest clip Kokoro failed on, so the reply's voice does not come back.
             if part == "lead":
-                # What played, not what was read: a lead tts-1 played keeps the reply on it.
                 await remember_reply_language(
                     redis, user.id, tts_lead_hash(body.text), clip.reply_language
                 )
+            elif part == "rest" and clip.fell_back:
+                await remember_reply_language(redis, user.id, lead_hash, UNSURE)
             await quota_service.record_voice_spend(redis, clip.usd)
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),

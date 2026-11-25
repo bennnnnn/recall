@@ -9,20 +9,22 @@ holds only numbers or a name.
 
 A language is named only on plain evidence, else None and the any-language model reads it:
 
-* another script (Cyrillic, Ethiopic, Devanagari) when nearly every letter is of it;
-* a Latin-script language when its own common words make up a real share of the text, far
-  ahead of every other language's, and no letter of another script is in it.
+* another script (Cyrillic, Ethiopic, Devanagari) when nearly every letter (97%) is of it;
+* a Latin-script language when every letter is Latin and its own common words make up a
+  real share of the text, far ahead of every other language's.
 
 A clip too short or too plain to tell ("Divide both sides by 3.") plays in its reply's
 language, or the app's, when nothing in it says otherwise (``clip_language``).
 
-Each word is in one list only, and a common word another listed language (English
-included) also writes is in none: "de", "que", "a", "no", "mais", "das", "dos", "les" and
-"per" are in several languages, and "na" and "em" are sodium and a dash in English, so they
-are in no list. A single letter is never a word here ("y" is Spanish "and", and a variable
-in "x + y = 5"), and a web address's parts are not words (the "com" of example.com is not
-Portuguese "with"). Italian, German and Turkish are listed
-only so that a text in one of them is never read as Spanish, French or Portuguese.
+Each word is in one list only, and a word another listed language writes in everyday text,
+English above all, is in none: "de", "que", "a", "no", "mais", "das", "dos" and "les" are in
+several of these languages; "per", "pour", "die", "den", "ben", "hay", "est", "et" (et al.),
+"au" (au pair), "ho", "ciao", "mit", "von", "sen" and "na" (sodium) are English words too,
+and "Los Angeles", "Las Vegas", "São Paulo" and "Notre-Dame" are English text. A single
+letter is never a word here ("y" is Spanish "and", and a variable in "x + y = 5"), and a web
+address's parts are not words (the "com" of example.com is not Portuguese "with"). Italian,
+German and Turkish are listed only so that a text in one of them is never read as Spanish,
+French or Portuguese.
 
 Letters used as symbols are no script: Greek (θ, Ω, µ in a formula) and the signs that are
 letters to Unicode (º, ª, Ω as the ohm sign, the modifier letters of a pronunciation).
@@ -40,8 +42,9 @@ from app.services.text_normalize import straighten_apostrophes
 UNSURE = ""
 
 _WORD = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?")
-# A web address or a file name ("example.com", "www.who.int", "main.py"): no words of a language.
-_ADDRESS = re.compile(r"\S*\w\.\w\S*")
+# A dot inside a token makes it a web address or a file name ("example.com", "main.py"): no
+# words of a language. Matched token by token, so no input can make it backtrack.
+_DOTTED = re.compile(r"\w\.\w")
 _SCRIPTS = {"CYRILLIC": "ru", "ETHIOPIC": "am", "DEVANAGARI": "hi"}
 # Letters a reply writes as symbols, by the first word of their Unicode name: "θ = 30°",
 # "R = 10 Ω", "el 1º de mayo", "5 µm" are still one language's text.
@@ -65,32 +68,32 @@ _WORDS: dict[str, frozenset[str]] = {
         it's don't can't let's you're that's here's there's isn't doesn't""".split()
     ),
     "es": frozenset(
-        """el los las están muy pero también cuando hay puede puedes usted tú más qué cómo
-        dónde aquí ahora hola gracias tiene tienes hacer puedo mucho ya ellos yo esa ese eso
-        esto estos nuestro nuestra hace estoy eres pueden entonces aunque cuál según después
-        siempre""".split()
+        """el están muy pero también cuando puede puedes usted tú más qué cómo dónde aquí
+        ahora hola gracias tiene tienes hacer puedo ya ellos esa ese eso esto estos nuestro
+        nuestra hace estoy eres pueden entonces aunque cuál según después siempre ejemplo
+        primero nosotros ustedes luego mismo mejor bueno necesitas""".split()
     ),
     "fr": frozenset(
-        """des et est une elle ils elles nous vous je pas pour avec dans au aux cette ces sont
-        être avoir très bonjour merci c'est n'est leur votre notre aussi donc ça peut fait
-        comme qu'il qu'on j'ai d'un d'une sur""".split()
+        """des une ils elles nous vous je avec dans aux cette ces sont être avoir très bonjour
+        merci c'est n'est leur votre aussi donc ça peut comme qu'il qu'on j'ai d'un d'une voici
+        beaucoup toujours cela alors déjà même où chez quelque parce""".split()
     ),
     "pt": frozenset(
-        """não é são você vocês com uma nas ao aos pela também isso isto muito mas seu
-        sua ele ela eles elas então foi tem têm estão olá obrigado obrigada pode podem fazer
-        aqui onde já nós essa esse ainda assim agora coisa""".split()
+        """não é você vocês com uma ao aos pela também isso isto muito mas seu sua ele ela
+        eles elas então foi tem têm estão olá obrigado obrigada pode podem fazer aqui onde já
+        nós essa esse ainda assim agora coisa""".split()
     ),
     "it": frozenset(
-        """della delle degli gli nel nella sono è che questo questa anche molto ciao
-        grazie alla perché più può essere hai ho""".split()
+        """della delle degli gli nel nella sono è questo questa anche grazie perché più può
+        essere""".split()
     ),
     "de": frozenset(
-        """der die und ist nicht ein eine mit für auf sie ich wir auch sind zu den dem von
-        werden kann haben wird oder aber wenn wie""".split()
+        """der und ist nicht ein eine für sie ich wir auch sind zu werden kann haben wird oder
+        aber wenn wie""".split()
     ),
     "tr": frozenset(
-        """bir bu için ile çok gibi daha olarak var değil ben sen merhaba şey olan kadar nasıl
-        neden evet hayır sonra şimdi bunu ise""".split()
+        """bir için ile çok gibi daha olarak değil merhaba şey olan kadar nasıl neden evet
+        hayır sonra şimdi bunu""".split()
     ),
 }
 # Letters only one of these languages writes: each word holding one is that language's.
@@ -126,7 +129,8 @@ def one_script(text: str) -> str | None:
 
 def _latin_hits(text: str) -> tuple[list[str], Counter[str]]:
     """``text``'s words, and how many of them each listed language's own words are."""
-    plain = _ADDRESS.sub(" ", straighten_apostrophes(text))
+    tokens = straighten_apostrophes(text).split()
+    plain = " ".join(token for token in tokens if not _DOTTED.search(token))
     words = [word.casefold() for word in _WORD.findall(plain) if len(word) > 1]
     hits: Counter[str] = Counter()
     for word in words:
@@ -161,6 +165,10 @@ def text_language(text: str) -> str | None:
         return None
     if script != "LATIN":
         return _SCRIPTS.get(script)
+    # A Latin-script language only when every letter is Latin: "water is 水 in Chinese" is no
+    # text Kokoro's English voice reads.
+    if set(_letter_scripts(text)) != {"LATIN"}:
+        return None
     return _latin_language(text)
 
 

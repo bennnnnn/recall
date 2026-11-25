@@ -4,7 +4,8 @@ its alias to ``model_removal.REMOVED_ALIASES``, no migration: a saved switch of 
 off, a request naming it is Auto, and startup refuses lanes that still name it.
 
 Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
-Voice uses OpenAI directly with ``OPENAI_API_KEY``.
+Voice uses OpenAI directly with ``OPENAI_API_KEY``, except Listen in the languages Kokoro
+reads, which goes through OpenRouter (``speech-tts-kokoro-model``).
 
 Prices are USD per 1M tokens (approximate OpenRouter rates — update as needed).
 A model is "available" when its configured key is set (or mock mode is on).
@@ -441,7 +442,6 @@ CATALOG: tuple[ChatModel, ...] = (
         selectable=False,
         # The phone still offers it as the fast Listen choice (``ttsPreference.ts``).
         description="OpenAI Listen; the same model as speech-tts-model.",
-        usd_per_m_chars=15.0,
     ),
     # Settings → Voice says "Hi, I'm Marin." in the live talk voice picked: gpt-4o-mini-tts
     # has every voice gpt-realtime speaks, tts-1 lacks marin, cedar, ballad and verse

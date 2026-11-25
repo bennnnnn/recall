@@ -72,7 +72,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 4.2 | PDF attach + preview | ☐ | ☐ | |
 | 4.3 | Speech → transcription → composer | ☐ | ☐ | Dev build; mic works with typed text too |
 | 4.4 | Cancel voice recording (no upload) | ☐ | ☐ | Dev build |
-| 4.5 | Read aloud (assistant + vocab) | ☐ | ☐ | Dev build; cloud TTS + device fallback |
+| 4.5 | Listen (assistant + vocab): Kokoro in en/es/fr/hi/pt, tts-1 in ru/tr/am; Settings → Voice previews say "Hi, I'm {Name}." | ☐ | ☐ | Dev build; cloud TTS + device fallback |
 | 4.6 | Export chat as PDF from the ⋯ menu | ☐ | ☐ | Full thread; headings/lists/code preserved |
 | 4.7 | Export learning topic as PDF | ☐ | ☐ | Vocab words / trivia facts from project screen |
 | 4.8 | Upload limits | ☐ | ☐ | Free: a chat photo or file with none of the day's messages left is refused with the quota line; a profile photo or a picture's reference photo still uploads. Pro: photos have no daily count; the 101st document of the day is refused ("file uploads"). |
