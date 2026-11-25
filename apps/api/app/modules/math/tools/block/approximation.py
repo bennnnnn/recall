@@ -88,7 +88,7 @@ def _rule_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | N
     letter, name, formula = _RULES[rule]
     variable = intent.variable or "x"
     worked = rule_sum(
-        intent.expr[: settings.math_max_expr_length],
+        intent.expr,
         variable,
         intent.integral_lower,
         intent.integral_upper,
@@ -157,9 +157,7 @@ def _newton_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock |
         return None
     variable = intent.variable or "x"
     start = repr(intent.newton_guess)
-    iterates = newton_iterates(
-        intent.expr[: settings.math_max_expr_length], variable, start, intent.numeric_steps
-    )
+    iterates = newton_iterates(intent.expr, variable, start, intent.numeric_steps)
     f = parse_expression(intent.expr, [variable])
     slope = f.diff(Symbol(variable))
     first = intent.numeric_first_index
@@ -219,7 +217,7 @@ def _euler_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | 
     ):
         return None
     points = euler_points(
-        intent.expr[: settings.math_max_expr_length],
+        intent.expr,
         intent.initial_x,
         intent.initial_y,
         intent.numeric_step_size,

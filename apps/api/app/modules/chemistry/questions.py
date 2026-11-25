@@ -35,6 +35,20 @@ def _question_sentences(text: str) -> list[tuple[str, str]]:
     return asked
 
 
+def _question_sentence_count(text: str) -> int:
+    """How many sentences of ``text`` ask something: ``_question_sentences`` counted, in one
+    pass, without the statements each one carries."""
+    return sum(1 for piece in _SENTENCE_END.split(text) if piece.strip().endswith("?"))
+
+
+def question_count(text: str) -> int:
+    """How many questions ``chemistry_questions`` reads in ``text``, in time linear in its
+    length: building them carries the substance named before each, which grows with every
+    question (0.64 s for a 3.6k-character message, audit 2026-11-25)."""
+    _setup, labelled = labelled_part_texts(text)
+    return len(labelled) if labelled else _question_sentence_count(text)
+
+
 @dataclass(frozen=True)
 class Question:
     """One question of the message: as asked (its setup before it), and as a reader takes it,
@@ -82,4 +96,4 @@ def asks_more_questions(text: str, answers: str) -> bool:
     if not asks_several(text):
         return False
     lines = [line for line in answers.splitlines() if line.strip()]
-    return len(chemistry_questions(text)) > max(len(lines), 1)
+    return question_count(text) > max(len(lines), 1)

@@ -147,7 +147,6 @@ async def test_routing_reads_physics_in_the_pool(
     read; routing the message again on the loop reads nothing."""
     from app.modules.chat.model_routing.route import route_chat_model
     from app.modules.physics import extract as physics_extract
-    from app.modules.physics import lane
 
     settings = Settings()
     begin_turn()
@@ -155,11 +154,9 @@ async def test_routing_reads_physics_in_the_pool(
     begin_turn()
     for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
         cached.cache_clear()
-    lane._physics_solves.cache_clear()
     await read_turn_message(text, [], settings)
     for cached in (physics_extract._extract_physics_intent, physics_extract.needs_physics):
         cached.cache_clear()
-    lane._physics_solves.cache_clear()
 
     ran: list[str] = []
 

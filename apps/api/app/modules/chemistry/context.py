@@ -402,10 +402,22 @@ async def build_chemistry_augmentation(
         "Use the SMILES above verbatim in a ```smiles fence if you show the structure.",
     ]
     if _DESCRIPTOR_CUE.search(content) is not None:
-        descriptors = _descriptor_block(compound.smiles)
+        descriptors = await _descriptors_off_loop(compound.smiles, settings)
         if descriptors is not None:
             lines.extend(["", descriptors])
     return "\n".join(lines), None, False, False
+
+
+async def _descriptors_off_loop(smiles: str, settings: Settings) -> str | None:
+    """``_descriptor_block`` in the pool: RDKit's import and its descriptors never run on
+    the event loop. A pool that gives up leaves the context without them."""
+    try:
+        return await run_sympy(
+            _descriptor_block, smiles, timeout=settings.stem_solve_timeout_seconds
+        )
+    except Exception as exc:
+        logger.info("descriptor context not read (%s)", type(exc).__name__)
+        return None
 
 
 def _iupac_smiles(content: str) -> str | None:

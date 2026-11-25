@@ -12,7 +12,12 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.readings import kept_reading
-from app.modules.physics.cross_check import cross_check, cross_check_on
+from app.modules.physics.cross_check import (
+    cross_check,
+    cross_check_on,
+    drop_reading,
+    start_reading,
+)
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.field_lines.contract import FIELD_DRAW_CONTRACT
 from app.modules.physics.followup import (
@@ -21,7 +26,11 @@ from app.modules.physics.followup import (
     physics_followup_whole,
     shown_physics_problem,
 )
-from app.modules.physics.prompt import build_physics_augmentation, unverified_physics_note
+from app.modules.physics.prompt import (
+    build_physics_augmentation,
+    solved_already,
+    unverified_physics_note,
+)
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
 from app.modules.physics.scene_drawing.contract import (
     DESCRIBED_PICTURE_SPEECH,
@@ -152,6 +161,9 @@ class PhysicsFence:
 
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
+
+    def samples(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return False  # its check samples nothing
 
     def check(
         self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
@@ -383,15 +395,23 @@ class PhysicsSubject:
 
     async def solve(self, request: SubjectRequest, settings: Settings) -> SubjectAugmentation:
         text = _physics_request_text(request.text)
-        block, physics_verified, solve_failed, unanswerable = await build_physics_augmentation(
-            text,
-            settings,
-            needs_subject=True,
-        )
-        if isinstance(physics_verified, VerifiedPhysicsBlock) and cross_check_on(settings):
-            # A second reading that differs: the model answers, unchecked (``cross_check``).
-            if await cross_check(physics_verified, text, settings) == "disagree":
-                block, physics_verified = unverified_physics_note(), None
+        checks = cross_check_on(settings)
+        # A line the turn already solved to a checked answer (routing asked it) gets its
+        # cross-check's reading started now, beside the solve, not after it.
+        early = start_reading(text, settings) if checks and solved_already(text, settings) else None
+        try:
+            block, physics_verified, solve_failed, unanswerable = await build_physics_augmentation(
+                text,
+                settings,
+                needs_subject=True,
+            )
+            if isinstance(physics_verified, VerifiedPhysicsBlock) and checks:
+                # A second reading that differs: the model answers, unchecked (``cross_check``).
+                verdict = await cross_check(physics_verified, text, settings, under_way=early)
+                if verdict == "disagree":
+                    block, physics_verified = unverified_physics_note(), None
+        finally:
+            drop_reading(early)
         return SubjectAugmentation(
             subject="physics",
             prompt_block=block,

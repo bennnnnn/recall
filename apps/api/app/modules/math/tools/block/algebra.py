@@ -215,8 +215,8 @@ def _verified_block_equation(
         return None
     request = intent._request_text or ""
     eq = EquationInput(
-        lhs=intent.lhs[: settings.math_max_expr_length],
-        rhs=intent.rhs[: settings.math_max_expr_length],
+        lhs=intent.lhs,
+        rhs=intent.rhs,
         variables=[intent.variable],
         complex_roots=wants_complex_roots(request),
         real_only=wants_real_roots(request),
@@ -305,20 +305,19 @@ def _verified_block_inequality(
 ) -> VerifiedMathBlock | None:
     if not (intent.lhs and intent.rhs and intent.comparator):
         return None
-    max_len = settings.math_max_expr_length
     if intent.lower is not None and intent.comparator_upper is not None:
         result = math_solve.solve_compound_inequality(
-            intent.lower[:max_len],
+            intent.lower,
             intent.comparator,
-            intent.lhs[:max_len],
+            intent.lhs,
             intent.comparator_upper,
-            intent.rhs[:max_len],
+            intent.rhs,
             intent.variable,
         )
     else:
         result = math_solve.solve_inequality(
-            intent.lhs[:max_len],
-            intent.rhs[:max_len],
+            intent.lhs,
+            intent.rhs,
             intent.variable,
             intent.comparator,
         )
@@ -326,16 +325,16 @@ def _verified_block_inequality(
     answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
     if intent.lower is not None and intent.comparator_upper is not None:
         key_steps, given = compound_inequality_trace(
-            intent.lower[:max_len],
+            intent.lower,
             intent.comparator,
-            intent.lhs[:max_len],
+            intent.lhs,
             intent.comparator_upper,
-            intent.rhs[:max_len],
+            intent.rhs,
             intent.variable,
         )
     else:
         key_steps, given = inequality_trace(
-            intent.lhs[:max_len], intent.rhs[:max_len], intent.variable, intent.comparator
+            intent.lhs, intent.rhs, intent.variable, intent.comparator
         )
     lines.extend(stringify_key_steps(key_steps))
     # Reconstruct the inequality text ("x > 4" / "1 < x < 5") so the
@@ -351,7 +350,7 @@ def _verified_block_inequality(
         )
     else:
         ineq_text = f"{intent.lhs} {intent.comparator} {intent.rhs}"
-    line_spec = math_solve.number_line_spec_from_expr(ineq_text[:max_len], intent.variable)
+    line_spec = math_solve.number_line_spec_from_expr(ineq_text, intent.variable)
     if line_spec is not None:
         # SymPy prints ``x \leq -2 \wedge -\infty < x``; the trace's last
         # line (``x \le -2``) is the same verified set, spelled for people.
@@ -383,8 +382,8 @@ def _verified_block_system(
         return None
     capped_equations = [
         (
-            lhs[: settings.math_max_expr_length],
-            rhs[: settings.math_max_expr_length],
+            lhs,
+            rhs,
         )
         for lhs, rhs in intent.system_equations
     ]
@@ -413,7 +412,7 @@ def _verified_block_numerical_method(
     if not (intent.expr and intent.newton_guess is not None):
         return None
     newton_input = NewtonMethodInput(
-        expr=intent.expr[: settings.math_max_expr_length],
+        expr=intent.expr,
         variable=intent.variable,
         initial_guess=intent.newton_guess,
     )

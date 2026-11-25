@@ -211,11 +211,32 @@ def verdict(
     return "agree"
 
 
-async def _reading_in_time(question: str, settings: Settings, alias: str) -> Any | None:
-    """One reader's formal reading of ``question``, or None after ``formal_wait_seconds``."""
+def start_reading(question: str, settings: Settings) -> asyncio.Task[Any]:
+    """The first reader's reading of ``question``, started beside the solve it will hold:
+    the check then waits only on what is left of it, not on the solve and then the read."""
+    from app.models.routing_lanes import ROUTING
     from app.modules.physics.formal_read import formal_reading
 
-    task = asyncio.create_task(formal_reading(question, settings, model_alias=alias))
+    return asyncio.create_task(
+        formal_reading(question, settings, model_alias=ROUTING.physics_setup)
+    )
+
+
+def drop_reading(task: asyncio.Task[Any] | None) -> None:
+    """A reading started early that nothing waits on any more: stopped, its error read."""
+    if task is not None and not task.done():
+        task.cancel()
+        task.add_done_callback(lambda done: done.cancelled() or done.exception())
+
+
+async def _reading_in_time(
+    question: str, settings: Settings, alias: str, under_way: asyncio.Task[Any] | None = None
+) -> Any | None:
+    """One reader's formal reading of ``question``, or None after ``formal_wait_seconds``
+    (``under_way``: the reading, already started)."""
+    from app.modules.physics.formal_read import formal_reading
+
+    task = under_way or asyncio.create_task(formal_reading(question, settings, model_alias=alias))
     try:
         # Waited on, never awaited: a reading still out when the wait ends is no reading.
         await asyncio.wait([task], timeout=settings.formal_wait_seconds)
@@ -237,7 +258,13 @@ def _solved_verdict(answers: list[tuple[float, str]], reading: Any) -> Verdict:
     )
 
 
-async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Settings) -> Verdict:
+async def cross_check(
+    block: VerifiedPhysicsBlock,
+    question: str,
+    settings: Settings,
+    *,
+    under_way: asyncio.Task[Any] | None = None,
+) -> Verdict:
     """The block held to a reading of ``question`` the server solved (module docstring).
 
     One reader, as a rule. Only when the server could not solve its setup and the reader's own
@@ -256,7 +283,7 @@ async def cross_check(block: VerifiedPhysicsBlock, question: str, settings: Sett
     started = time.monotonic()
     found: Verdict = "unread"
     how = "no reading in time"
-    reading = await _reading_in_time(question, settings, ROUTING.physics_setup)
+    reading = await _reading_in_time(question, settings, ROUTING.physics_setup, under_way)
     if reading is not None:
         found = _solved_verdict(answers, reading)
         how = "first reading"

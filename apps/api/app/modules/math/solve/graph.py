@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
+import traceback
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+from pydantic import ValidationError
 from sympy import (
     EmptySet,
     FiniteSet,
@@ -50,6 +54,8 @@ from app.modules.math.solve.graph_sampling import (
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
+
+logger = logging.getLogger(__name__)
 
 
 def _split_into_segments(points: list[list[float]]) -> list[list[list[float]]]:
@@ -491,3 +497,79 @@ def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec
         title=cleaned[:64],
         intervals=intervals,
     )
+
+
+@dataclass(frozen=True)
+class GraphCall:
+    """What the model's graph tool call draws, worked out in one pool job: an axis-aligned
+    ellipse, a number line, or one or two sampled curves. ``failed``: a sample failed.
+    ``invalid``: a curve's input the schema refused (its message, for the model, as the
+    tool said it before). ``failures``: each read that raised, with its traceback, for the
+    API process to log (a pool worker logs nowhere)."""
+
+    ellipse: GraphBlockSpec | None = None
+    line: GraphBlockSpec | None = None
+    curve: GraphSampleResult | None = None
+    curve2: GraphSampleResult | None = None
+    failed: bool = False
+    invalid: str | None = None
+    failures: tuple[str, ...] = ()
+
+
+def sample_graph_call(
+    expr: str,
+    variable: str,
+    x_min: float,
+    x_max: float,
+    n: int,
+    expr2: str | None,
+    variable2: str,
+) -> GraphCall:
+    """The graph tool's call, in one pool job: it was up to four round trips, two of whose
+    results a second curve discarded. A decline (``SolveServiceError``) is raised with its
+    reason; any other failure of a shape's read moves on to the next, as before."""
+    failures: list[str] = []
+    if not expr2:
+        ellipse = _shape_or_none(failures, build_ellipse_graph_spec, expr, n)
+        if ellipse is not None:
+            return GraphCall(ellipse=ellipse, failures=tuple(failures))
+        line = _shape_or_none(failures, number_line_spec_from_expr, expr, variable)
+        if line is not None:
+            return GraphCall(line=line, failures=tuple(failures))
+    curves: list[GraphSampleResult] = []
+    for curve_expr, curve_variable in ((expr, variable), (expr2, variable2)):
+        if not curve_expr:
+            continue
+        try:
+            data = GraphSampleInput(
+                expr=curve_expr, variable=curve_variable, x_min=x_min, x_max=x_max, n=n
+            )
+        except ValidationError as exc:
+            return GraphCall(invalid=str(exc), failures=tuple(failures))
+        try:
+            curves.append(sample_function(data))
+        except SolveServiceError:
+            raise
+        except Exception as exc:
+            logger.info("graph call not sampled (%s)", type(exc).__name__)
+            failures.append(traceback.format_exc())
+            return GraphCall(failed=True, failures=tuple(failures))
+    return GraphCall(
+        curve=curves[0],
+        curve2=curves[1] if len(curves) > 1 else None,
+        failures=tuple(failures),
+    )
+
+
+def _shape_or_none(failures: list[str], build: Any, *args: Any) -> GraphBlockSpec | None:
+    """A shape's read of the call: None when it is no such shape or the read failed (its
+    traceback added to ``failures``)."""
+    try:
+        spec: GraphBlockSpec | None = build(*args)
+    except SolveServiceError:
+        raise
+    except Exception as exc:
+        logger.info("graph call shape not read (%s)", type(exc).__name__)
+        failures.append(traceback.format_exc())
+        return None
+    return spec

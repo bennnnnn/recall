@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -39,7 +40,7 @@ from app.services.answer_fence import (
     normalize_owned_fences,
     strip_forged_verified_markers,
 )
-from app.services.md_fence_scan import map_closed_fences
+from app.services.md_fence_scan import iter_fences, map_closed_fences
 from app.services.part.answer_cards import land_part_answer_cards
 from app.services.part.fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
@@ -196,8 +197,18 @@ async def check_math_fences(state: FinalizeState) -> str:
             return state.text
         # Direct verified replies already carry ```answer. Running that rewrite
         # on the SymPy pool can queue behind an integral for no benefit — keep
-        # it in-process.
-        return math_fence.check(state.text, verified, False, state.ctx.user_message_content)
+        # it in-process, unless it would resample a sparse curve: that is SymPy,
+        # never run on the event loop.
+        if not math_fence.samples(state.text, verified):
+            return math_fence.check(state.text, verified, False, state.ctx.user_message_content)
+        return await sympy_executor.run_sympy(
+            math_fence.check,
+            state.text,
+            verified,
+            False,
+            state.ctx.user_message_content,
+            timeout=state.settings.stem_solve_timeout_seconds,
+        )
     if not math_fence.needs_check(state.text, verified):
         return state.text
     if state.on_status is not None:
@@ -223,16 +234,34 @@ async def check_math_fences(state: FinalizeState) -> str:
 async def draw_formula_charts(state: FinalizeState) -> str:
     """A chart the model wrote as a formula (``"fn": "sin(x)"``): the phone never
     evaluates one, so SymPy samples it into a ```graph, or a note takes its place.
-    After the maths pass, which would strip a ```graph no solver wrote."""
+    After the maths pass, which would strip a ```graph no solver wrote.
+
+    Each chart is its own pool job, within one budget for them all: in one job, a reply's
+    every chart was lost when one ran out of time (audit 2026-11-25). A chart the budget
+    does not reach stays as the model wrote it, as every chart did on a timeout."""
     maths = subject_adapter("math").fence
-    if not maths.draws(state.text, state.settings):
-        return state.text
-    return await sympy_executor.run_sympy(
-        maths.draw,
-        state.text,
-        state.settings,
-        timeout=state.settings.stem_solve_timeout_seconds,
-    )
+    text, settings = state.text, state.settings
+    if not maths.draws(text, settings):
+        return text
+    deadline = time.monotonic() + settings.stem_solve_timeout_seconds
+    pieces: list[str] = []
+    cursor = 0
+    for fence in iter_fences(text):
+        chart = text[fence.start : fence.end]
+        if not fence.closed or not maths.draws(chart, settings):
+            continue
+        left = deadline - time.monotonic()
+        if left <= 0:
+            break
+        try:
+            drawn = await sympy_executor.run_sympy(maths.draw, chart, settings, timeout=left)
+        except Exception as exc:
+            logger.info("formula chart not drawn (%s)", type(exc).__name__)
+            continue
+        pieces.extend((text[cursor : fence.start], drawn))
+        cursor = fence.end
+    pieces.append(text[cursor:])
+    return "".join(pieces)
 
 
 def recover_math_fences(state: FinalizeState) -> str:

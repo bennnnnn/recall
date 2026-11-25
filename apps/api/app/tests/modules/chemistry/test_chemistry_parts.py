@@ -18,6 +18,7 @@ from app.modules.chemistry.questions import (
     MORE_QUESTIONS_NOTE,
     asks_more_questions,
     chemistry_questions,
+    question_count,
 )
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import route_case
@@ -143,3 +144,42 @@ def test_one_question_keeps_its_instant_reply() -> None:
     verified = build_verified_chemistry(intent)
     assert not asks_more_questions(text, "M(H2O) = 18.02 g/mol")
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=False, user_text=text)
+
+
+_MANY = "What is the molar mass of CO2? How many moles are in 34 g of NH3? " * 400
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a) molar mass of NH3 b) moles in 34 g of NH3",
+        "What is the molar mass of H2O? How many moles are in 36 g of H2O?",
+        "Dissolve 5 g of NaCl. What is its molarity in 1 L? And in 2 L? Why?",
+        "What is the molar mass of CO2?",
+        "Hello there.",
+        _MANY[:3600],
+    ],
+)
+def test_the_question_count_is_the_questions_read(text: str) -> None:
+    assert question_count(text) == len(chemistry_questions(text))
+
+
+def test_counting_questions_never_reads_their_substances(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reading each question's substance grows with every question before it: 3.3 s for a
+    32k-character message on the event loop (audit 2026-11-25). Counting reads none."""
+
+    def reads(_text: str) -> tuple[str, ...]:
+        raise AssertionError("a substance read to count questions")
+
+    monkeypatch.setattr("app.modules.chemistry.questions.named_species", reads)
+    assert asks_more_questions(_MANY, "M(CO2) = 44.01 g/mol")
+
+
+def test_a_message_past_the_cap_is_never_read_question_by_question(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def reads(_text: str) -> tuple[object, ...]:
+        raise AssertionError("questions built past the cap")
+
+    monkeypatch.setattr("app.modules.chemistry.parts.chemistry_questions", reads)
+    assert _read_parts(_MANY) == ((), None)

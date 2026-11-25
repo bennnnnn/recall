@@ -15,7 +15,6 @@ from app.modules.chat.model_routing.route import (
     route_chat_model,
     routed_chat_model,
 )
-from app.modules.physics import lane as routing_physics
 
 # Auto's maths lane, whichever model runs it (``ROUTING.math``).
 _MATH = model_catalog.auto_math_alias()
@@ -432,16 +431,14 @@ def test_physics_route_declines_when_the_solver_raises(
         raise ZeroDivisionError("solver bug")
 
     monkeypatch.setattr(physics_prompt, "solve_physics_request", broken)
-    routing_physics._physics_solves.cache_clear()
-    try:
-        assert route_chat_model(_VERIFIED_PHYSICS) == "smart-chat"
-    finally:
-        routing_physics._physics_solves.cache_clear()
+    assert route_chat_model(_VERIFIED_PHYSICS) == "smart-chat"
     assert "physics routing solve failed" in caplog.text
 
 
 def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Within a turn: the turn keeps the routing read and its solve (no process cache)."""
     import app.modules.physics.prompt as physics_prompt
+    from app.core.readings import begin_turn
 
     calls = 0
     real = physics_prompt.solve_physics_request
@@ -452,20 +449,17 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
         return real(*args)
 
     monkeypatch.setattr(physics_prompt, "solve_physics_request", counting)
-    routing_physics._physics_solves.cache_clear()
-    try:
-        for _ in range(3):
-            assert route_chat_model(_VERIFIED_PHYSICS) == "hy4-flash"
-            assert (
-                route_chat_model(
-                    "and its kinetic energy?",
-                    prior_user=_VERIFIED_PHYSICS,
-                    prior_model="smart-chat",
-                )
-                is not None
+    begin_turn()
+    for _ in range(3):
+        assert route_chat_model(_VERIFIED_PHYSICS) == "hy4-flash"
+        assert (
+            route_chat_model(
+                "and its kinetic energy?",
+                prior_user=_VERIFIED_PHYSICS,
+                prior_model="smart-chat",
             )
-    finally:
-        routing_physics._physics_solves.cache_clear()
+            is not None
+        )
     assert calls == 1
 
 
@@ -487,7 +481,6 @@ def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) ->
     ],
 )
 def test_physics_the_subject_order_reads_keeps_the_strong_lane(question: str) -> None:
-    routing_physics._physics_solves.cache_clear()
     assert routed_chat_model(question) == ("smart-chat", "physics")
     assert message_needs_thinking(question)
 
@@ -508,5 +501,4 @@ def test_physics_the_subject_order_reads_keeps_the_strong_lane(question: str) ->
     ],
 )
 def test_a_line_physics_only_claims_by_its_words_keeps_the_everyday_lane(line: str) -> None:
-    routing_physics._physics_solves.cache_clear()
     assert routed_chat_model(line) == ("hy4-flash", "everyday")

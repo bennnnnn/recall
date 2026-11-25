@@ -62,7 +62,7 @@ def _verified_block_graph(
     max_points = settings.math_graph_max_points
     if intent.school_op == "polar":
         sample = math_solve.sample_polar_curve(
-            intent.expr[: settings.math_max_expr_length],
+            intent.expr,
             intent.variable if intent.variable else "theta",
             max_points,
         )
@@ -82,8 +82,8 @@ def _verified_block_graph(
         return _diagram_block(lines, spec)
     if intent.school_op == "parametric" and intent.expr2:
         sample = math_solve.sample_parametric_curve(
-            intent.expr[: settings.math_max_expr_length],
-            intent.expr2[: settings.math_max_expr_length],
+            intent.expr,
+            intent.expr2,
             intent.variable if intent.variable else "t",
             max_points,
         )
@@ -105,9 +105,7 @@ def _verified_block_graph(
         return _diagram_block(lines, spec)
     # Axis-aligned circle/ellipse relations (x^2+y^2=1, x^2/9+y^2/4=1) are
     # not y=f(x) — sample parametrically into the same ```graph fence.
-    ellipse_spec = math_solve.build_ellipse_graph_spec(
-        intent.expr[: settings.math_max_expr_length], settings.math_graph_max_points
-    )
+    ellipse_spec = math_solve.build_ellipse_graph_spec(intent.expr, settings.math_graph_max_points)
     if ellipse_spec is not None:
         lines.append(
             f"Relation samples for {ellipse_spec.expr}: "
@@ -116,9 +114,7 @@ def _verified_block_graph(
         )
         return _diagram_block(lines, ellipse_spec)
 
-    line_spec = math_solve.number_line_spec_from_expr(
-        intent.expr[: settings.math_max_expr_length], intent.variable
-    )
+    line_spec = math_solve.number_line_spec_from_expr(intent.expr, intent.variable)
     if line_spec is not None:
         lines.append(
             f"Shaded region for {line_spec.expr} on the number line: "
@@ -149,7 +145,7 @@ def _verified_block_graph(
         return _diagram_block(lines, region)
     sample = math_solve.sample_function(
         GraphSampleInput(
-            expr=intent.expr[: settings.math_max_expr_length],
+            expr=intent.expr,
             variable=intent.variable,
             x_min=x_min,
             x_max=x_max,
@@ -192,7 +188,7 @@ def _verified_block_graph_pair(
     domain_explicit = intent.graph_x_min is not None and intent.graph_x_max is not None
     sample1 = math_solve.sample_function(
         GraphSampleInput(
-            expr=intent.expr[: settings.math_max_expr_length],
+            expr=intent.expr,
             variable=intent.variable,
             x_min=x_min,
             x_max=x_max,
@@ -201,7 +197,7 @@ def _verified_block_graph_pair(
     )
     sample2 = math_solve.sample_function(
         GraphSampleInput(
-            expr=intent.expr2[: settings.math_max_expr_length],
+            expr=intent.expr2,
             variable=intent.variable,
             x_min=x_min,
             x_max=x_max,

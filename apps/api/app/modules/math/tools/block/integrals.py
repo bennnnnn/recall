@@ -64,9 +64,7 @@ def _integral(
         )
     else:
         out = math_solve.integrate_expression(expr, intent.variable)
-        trace, given, checked_answer = integral_trace(
-            expr[: settings.math_max_expr_length], intent.variable
-        )
+        trace, given, checked_answer = integral_trace(expr, intent.variable)
         return out, trace, given, checked_answer
     return out, [], None, None
 
