@@ -88,9 +88,24 @@ def solve_physics_request(
     asked it of the line, and the turn's solve and the follow-ups asked it again, a full
     solve each time (audit, 2026-11-25).
     """
-    if settings is get_settings() or settings == get_settings():
+    if _as_configured(settings):
         return _solved_once(user_content, needs_subject)
     return _solve_physics_request(user_content, settings, needs_subject)
+
+
+# What a turn's settings may narrow for its user (``account.settings_for_user``): the
+# physics solve reads neither, so a user with web search off shares the app's solve.
+_UNREAD_SWITCHES = ("web_search_enabled", "image_search_enabled")
+
+
+def _as_configured(settings: Settings) -> bool:
+    """``settings`` solve as the app's own do: the same, but for switches the solve never
+    reads."""
+    app = get_settings()
+    if settings is app:
+        return True
+    same_switches = {name: getattr(app, name) for name in _UNREAD_SWITCHES}
+    return settings.model_copy(update=same_switches) == app
 
 
 @kept_per_turn
@@ -104,7 +119,7 @@ def _solved_once(
 def solved_already(user_content: str, settings: Settings) -> bool:
     """Whether this turn has already solved ``user_content`` to a verified answer under
     ``settings`` (routing asks it of the line): no solve is run here."""
-    if not (settings is get_settings() or settings == get_settings()):
+    if not _as_configured(settings):
         return False
     kept = kept_answer(_solved_once, user_content, True)
     return kept is not None and kept[0] == "verified"

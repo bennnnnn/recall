@@ -12,7 +12,6 @@ from app.core.config import Settings, get_settings
 from app.core.readings import begin_turn
 from app.modules.chat.model_routing.route import route_chat_model
 from app.modules.chat.turn_prep.reading import read_turn_message
-from app.modules.physics import lane
 from app.modules.physics import prompt as physics_prompt
 from app.modules.physics.prompt import build_physics_augmentation
 
@@ -29,9 +28,7 @@ def solves(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         return real(*args)
 
     monkeypatch.setattr(physics_prompt, "_solve_physics_request", counting)
-    lane._physics_solves.cache_clear()
     yield calls
-    lane._physics_solves.cache_clear()
 
 
 async def test_routing_and_the_solve_share_one_solve(solves: list[str]) -> None:
@@ -99,4 +96,38 @@ async def test_the_cross_check_reading_starts_beside_the_solve(
 
     assert found.verified is not None
     assert events == ["reading", "solved"]
+    assert solves == [_LINE]
+
+
+async def test_a_turn_after_one_that_routed_the_line_still_shares_its_solve(
+    solves: list[str],
+) -> None:
+    """A regenerate, or a line a worker has seen: routing's read is the turn's, not a
+    process cache's, so the new turn keeps the solve and starts its cross-check early."""
+    from app.modules.physics.prompt import solved_already
+
+    settings = get_settings()
+    for _ in range(2):
+        begin_turn()
+        await read_turn_message(_LINE, [], settings)
+        route_chat_model(_LINE, settings=settings)
+        assert solved_already(_LINE, settings)
+        await build_physics_augmentation(_LINE, settings, needs_subject=True)
+
+    assert solves == [_LINE, _LINE]  # one each turn
+
+
+async def test_a_user_with_web_search_off_shares_the_apps_solve(solves: list[str]) -> None:
+    """A user's copy of the settings has both search switches off; the physics solve reads
+    neither, so the copy shares routing's solve."""
+    from app.modules.physics.prompt import solved_already
+
+    app = get_settings()
+    users = app.model_copy(update={"web_search_enabled": False, "image_search_enabled": False})
+    begin_turn()
+    await read_turn_message(_LINE, [], users)
+    route_chat_model(_LINE, settings=users)
+
+    assert solved_already(_LINE, users)
+    await build_physics_augmentation(_LINE, users, needs_subject=True)
     assert solves == [_LINE]
