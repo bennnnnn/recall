@@ -679,6 +679,34 @@ async def test_sympy_adapter_graph_pair_via_expr2():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "call",
+    [
+        {"expr": "x**2"},
+        {"expr": "x**2", "expr2": "2*x"},
+        {"expr": "x**2 + y**2 = 1"},
+        {"expr": "x > 3"},
+    ],
+)
+async def test_sympy_adapter_graph_is_one_pool_job(monkeypatch, call):
+    """A graph call was up to four pool round trips, two of them discarded when a second
+    curve was asked (audit 2026-11-25): it is one, whatever it draws."""
+    from app.core import sympy_executor
+
+    real = sympy_executor.run_sympy
+    jobs = []
+
+    async def counting(fn, *args, **kwargs):
+        jobs.append(fn)
+        return await real(fn, *args, **kwargs)
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", counting)
+    result = await SympyAdapter(Settings()).invoke({"action": "graph", **call}, tool_context())
+    assert result.data is not None
+    assert len(jobs) == 1
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_graph_ellipse_relation():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": "graph", "expr": "x**2 + y**2 = 1"}, tool_context())

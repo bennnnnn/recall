@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -491,3 +492,63 @@ def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec
         title=cleaned[:64],
         intervals=intervals,
     )
+
+
+@dataclass(frozen=True)
+class GraphCall:
+    """What the model's graph tool call draws, worked out in one pool job: an axis-aligned
+    ellipse, a number line, or one or two sampled curves; ``failed`` when a sample failed."""
+
+    ellipse: GraphBlockSpec | None = None
+    line: GraphBlockSpec | None = None
+    curve: GraphSampleResult | None = None
+    curve2: GraphSampleResult | None = None
+    failed: bool = False
+
+
+def sample_graph_call(
+    expr: str,
+    variable: str,
+    x_min: float,
+    x_max: float,
+    n: int,
+    expr2: str | None,
+    variable2: str,
+) -> GraphCall:
+    """The graph tool's call, in one pool job: it was up to four round trips, two of whose
+    results a second curve discarded. A decline (``SolveServiceError``) is raised with its
+    reason; any other failure of a shape's read moves on to the next, as before."""
+    if not expr2:
+        ellipse = _shape_or_none(build_ellipse_graph_spec, expr, n)
+        if ellipse is not None:
+            return GraphCall(ellipse=ellipse)
+        line = _shape_or_none(number_line_spec_from_expr, expr, variable)
+        if line is not None:
+            return GraphCall(line=line)
+    try:
+        curve = sample_function(
+            GraphSampleInput(expr=expr, variable=variable, x_min=x_min, x_max=x_max, n=n)
+        )
+        curve2 = (
+            sample_function(
+                GraphSampleInput(expr=expr2, variable=variable2, x_min=x_min, x_max=x_max, n=n)
+            )
+            if expr2
+            else None
+        )
+    except SolveServiceError:
+        raise
+    except Exception:
+        return GraphCall(failed=True)
+    return GraphCall(curve=curve, curve2=curve2)
+
+
+def _shape_or_none(build: Any, *args: Any) -> GraphBlockSpec | None:
+    """A shape's read of the call: None when it is no such shape or the read failed."""
+    try:
+        spec: GraphBlockSpec | None = build(*args)
+    except SolveServiceError:
+        raise
+    except Exception:
+        return None
+    return spec

@@ -17,13 +17,13 @@ from app.modules.math.schemas import (
     EquationInput,
     GeometryBlockSpec,
     GraphBlockSpec,
-    GraphSampleInput,
     MathExprResult,
     NewtonMethodInput,
     RectangleGeometryInput,
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
+from app.modules.math.solve.graph import sample_graph_call
 from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
@@ -493,16 +493,25 @@ class SympyAdapter:
             return ToolResult(name=self.name, content="Math error: graph requires an expression.")
         expr = raw_expr.strip()
 
-        # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)).
-        # Shared with the heuristic _verified_block_graph so the sampling and
-        # y-range viewport stay in one place (math_solve.build_ellipse_graph_spec).
-        # Routed through the bounded subprocess pool like the original
-        # sample_ellipse call was, so a pathological relation still can't
-        # block the worker event loop.
-        ellipse_spec = await self._run_off_loop(math_solve.build_ellipse_graph_spec, expr, n)
-        if ellipse_spec is None or str(args.get("expr2") or "").strip():
-            ellipse_spec = None
-        if ellipse_spec is not None:
+        # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)) — then a
+        # number line, then the curve(s): one pool job (``sample_graph_call``), as every
+        # chat-path SymPy call runs, so a pathological relation can't block the event loop.
+        # A second curve is never an ellipse or a number line.
+        expr2_raw = str(args.get("expr2") or "").strip()
+        sampled = await self._run_off_loop(
+            sample_graph_call,
+            expr,
+            variable,
+            x_min,
+            x_max,
+            n,
+            expr2_raw or None,
+            str(args.get("variable2") or variable),
+        )
+        if sampled is None or sampled.failed:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        if sampled.ellipse is not None:
+            ellipse_spec = sampled.ellipse
             fence = ellipse_spec.model_dump()
             return ToolResult(
                 name=self.name,
@@ -511,9 +520,8 @@ class SympyAdapter:
                 ),
                 data=_fence_data(fence),
             )
-
-        line_spec = await self._run_off_loop(math_solve.number_line_spec_from_expr, expr, variable)
-        if line_spec is not None and not str(args.get("expr2") or "").strip():
+        if sampled.line is not None:
+            line_spec = sampled.line
             fence = line_spec.model_dump()
             return ToolResult(
                 name=self.name,
@@ -523,20 +531,11 @@ class SympyAdapter:
                 ),
                 data=_fence_data(fence),
             )
-
-        graph_input = GraphSampleInput(
-            expr=expr,
-            variable=variable,
-            x_min=x_min,
-            x_max=x_max,
-            n=n,
-        )
-        graph_result = await self._run_off_loop(math_solve.sample_function, graph_input)
+        graph_result = sampled.curve
         if graph_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         has_discontinuity = len(graph_result.segments) > 1
 
-        expr2_raw = str(args.get("expr2") or "").strip()
         expr2 = expr2_raw or None
         variable2 = None
         points2 = None
@@ -544,17 +543,7 @@ class SympyAdapter:
         label = str(args.get("label") or "").strip() or None
         label2 = str(args.get("label2") or "").strip() or None
         if expr2:
-            var2 = str(args.get("variable2") or variable)
-            sample2 = await self._run_off_loop(
-                math_solve.sample_function,
-                GraphSampleInput(
-                    expr=expr2,
-                    variable=var2,
-                    x_min=x_min,
-                    x_max=x_max,
-                    n=n,
-                ),
-            )
+            sample2 = sampled.curve2
             if sample2 is None:
                 return ToolResult(name=self.name, content="Math error: timed out.")
             expr2 = sample2.expr
