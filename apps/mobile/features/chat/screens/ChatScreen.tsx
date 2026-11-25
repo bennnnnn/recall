@@ -78,7 +78,7 @@ function ChatScreen() {
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const errors = useChatErrorHandlers(isPaid);
   const { chatError, dismissChatError } = errors;
-  const quotaNudge = useQuotaNudge({ isPaid });
+  const quotaNudge = useQuotaNudge({ isPaid, chatError });
   // The one hook cycle left: useChat calls it on the first reply, and the title poll that
   // answers it (the route loader's) reads the thread useChat holds. Bound once the render commits.
   const onFirstReplyRef = useRef<(id?: string | null, reply?: FirstReply) => Promise<void>>(async () => {});
@@ -147,7 +147,7 @@ function ChatScreen() {
     // A reply that is only saving (after `stream_end`) does not hold the next send.
     streaming: (streaming && !finalizing) || imageGen.generating,
     sendMessage: chat.sendMessage, sendStart: chat.sendStart, editThread, messages, selectedModel, updateUser,
-    locationSwitch, t, onStreamBusy: errors.handleStreamBusy, onOfflineBlocked: notifyOfflineBlocked, isOffline,
+    locationSwitch, t, onStreamBusy: errors.handleStreamBusy, onOfflineBlocked: notifyOfflineBlocked, isOffline, quotaBlocked: quotaNudge.outOfMessages,
     // A send shows the newest message, scrolled up or not; from an old search hit's window, the newest page first.
     beforeSend: newerPage ? () => jumpToLatest().then(scroll.scrollToLatest) : async () => scroll.scrollToLatest(),
     imageGenerating: imageGen.generating,
@@ -205,7 +205,7 @@ function ChatScreen() {
     styles: s, theme: C, routeChatId, insetsTop: insets.top, router, layout, keyboard, scroll, scrollToLatest,
     messages, chatTitle: metadata.chatTitle, routeLoader, messageList, chatActions, menuOverlayOpen, menuAnchorRef,
     handleSend: send.handleSend, wiring: composerWiring, quotaNudge, errors, retryChatError, upgrade, isPaid,
-    isOffline, streaming: streamActive, replySaving: finalizing, sendBusy: historyPending || sendPhase !== "idle",
+    isOffline, quotaBlocked: quotaNudge.outOfMessages, streaming: streamActive, replySaving: finalizing, sendBusy: historyPending || sendPhase !== "idle",
     sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined, stopGeneration: stopTurn,
     liveTalkActive: liveTalk.visible,
   });

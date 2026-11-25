@@ -17,6 +17,8 @@ type Props = {
   showSend: boolean;
   sendBusy: boolean;
   isOffline: boolean;
+  /** A free plan's messages are used up for today. */
+  quotaBlocked?: boolean;
   /** The draft is longer than a message may be: Send waits (the composer's note says why). */
   tooLong?: boolean;
   /** A picked file is still being prepared: send, the mic and live talk wait for it. */
@@ -37,6 +39,7 @@ export function ComposerSendControls({
   showSend,
   sendBusy,
   isOffline,
+  quotaBlocked = false,
   tooLong = false,
   attachBusy,
   showMic,
@@ -63,7 +66,7 @@ export function ComposerSendControls({
     );
   }
   const voiceActive = voiceRecording || voiceTranscribing;
-  const sendDisabled = isOffline || sendBusy || attachBusy || tooLong;
+  const sendDisabled = isOffline || sendBusy || attachBusy || quotaBlocked || tooLong;
   return (
     <View style={s.sendBtnSlot}>
       {showMic && onVoicePress ? (
@@ -86,7 +89,7 @@ export function ComposerSendControls({
           hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={sendBusy ? t("chat.sending") : t("chat.send_a11y")}
-          accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
+          accessibilityHint={isOffline ? t("chat.offline_body") : quotaBlocked ? t("chat.quota_exceeded_free") : undefined}
           accessibilityState={{ disabled: sendDisabled, busy: sendBusy }}
         >
           {sendBusy ? (
@@ -95,7 +98,7 @@ export function ComposerSendControls({
             <Icon
               name="arrow-up"
               size={IconSize.sm}
-              color={isOffline || tooLong ? theme.textTertiary : theme.onPrimary}
+              color={isOffline || quotaBlocked || tooLong ? theme.textTertiary : theme.onPrimary}
             />
           )}
         </Pressable>
