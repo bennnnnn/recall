@@ -20,7 +20,7 @@ jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, t
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => ({ usage: null }) }));
 let mockStorage: { usedBytes: number; limitBytes: number } | null = null;
-jest.mock("@/features/attachments/hooks/useLibraryStorage", () => ({
+jest.mock("@/features/account/hooks/useLibraryStorage", () => ({
   useLibraryStorage: () => mockStorage,
 }));
 jest.mock("@/features/billing/components/UpgradeSheet", () => ({

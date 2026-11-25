@@ -15,7 +15,7 @@ function amount(value: number, locale: string): string {
   return numberFormat(locale, { maximumFractionDigits: digits }).format(value);
 }
 
-export function formatStorageSize(bytes: number, locale: string, t: Translate): string {
+function formatStorageSize(bytes: number, locale: string, t: Translate): string {
   if (bytes >= GB) return t("settings.storage_gb", { size: amount(bytes / GB, locale) });
   // Under one MB but not empty: kilobytes, never "0 MB" for a Library that holds a file.
   if (bytes > 0 && bytes < MB) {

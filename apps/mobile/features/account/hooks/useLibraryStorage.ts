@@ -6,7 +6,7 @@ import { attachmentsApi } from "@/features/attachments/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { reportFailure } from "@/lib/sentry";
 
-export type LibraryStorage = { usedBytes: number; limitBytes: number };
+type LibraryStorage = { usedBytes: number; limitBytes: number };
 
 /**
  * What the account keeps in Library against its plan's total, read each time the screen

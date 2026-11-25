@@ -1,6 +1,6 @@
 import en from "@/lib/i18n/en.json";
 import fr from "@/lib/i18n/fr.json";
-import { formatStorageSize, storageUsedOfTotal } from "@/features/attachments/model/storageSize";
+import { storageUsedOfTotal } from "@/features/account/model/storageSize";
 
 function translator(bundle: Record<string, string>) {
   return (key: string, options?: Record<string, unknown>) =>
@@ -21,7 +21,7 @@ it.each([
   [1.25 * GB, "1.3 GB"],
   [4 * GB, "4 GB"],
 ])("%d bytes read as %s", (bytes, shown) => {
-  expect(formatStorageSize(bytes, "en", t)).toBe(shown);
+  expect(storageUsedOfTotal(bytes, 4 * GB, "en", t)).toBe(`${shown} of 4 GB`);
 });
 
 it("says what is kept of the plan's total", () => {

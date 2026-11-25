@@ -9,8 +9,8 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLibraryStorage } from "@/features/attachments/hooks/useLibraryStorage";
-import { storageUsedOfTotal } from "@/features/attachments/model/storageSize";
+import { useLibraryStorage } from "@/features/account/hooks/useLibraryStorage";
+import { storageUsedOfTotal } from "@/features/account/model/storageSize";
 import { planNameKey, planOf } from "@/lib/plan";
 
 function manageSubscriptionUrl(): string {
