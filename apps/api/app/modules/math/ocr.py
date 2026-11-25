@@ -138,10 +138,33 @@ def transcription_needs_vision(text: str) -> bool:
     return False
 
 
-def _extract_from_mathpix_text(text: str) -> MathImageExtract | None:
-    if transcription_needs_vision(text):
+def read_mathpix_texts(source_text: str, latex_text: str) -> MathImageExtract | None:
+    """The equation Mathpix's LaTeX states, unless its plain text or the LaTeX reads as
+    prose, a diagram or calculus (each looked at once). Runs in the SymPy pool: the
+    equation readers parse what the photo says."""
+    if transcription_needs_vision(source_text):
         return None
-    return extract_from_confirmed_reading(text)
+    if latex_text != source_text and transcription_needs_vision(latex_text):
+        return None
+    return extract_from_confirmed_reading(latex_text)
+
+
+async def _read_mathpix_off_loop(
+    source_text: str, latex_text: str, settings: Settings
+) -> MathImageExtract | None:
+    """``read_mathpix_texts`` in the pool; a pool that gives up leaves the photo to vision."""
+    from app.core.sympy_executor import run_sympy
+
+    try:
+        return await run_sympy(
+            read_mathpix_texts,
+            source_text,
+            latex_text,
+            timeout=settings.stem_solve_timeout_seconds,
+        )
+    except Exception as exc:
+        logger.info("mathpix reading not read (%s)", type(exc).__name__)
+        return None
 
 
 def _empty(*, uncertain: bool = False) -> MathOcrResult:
@@ -217,11 +240,7 @@ async def extract_math_from_image(
         # domain that the equation-only LaTeX omits. Preserve both roles.
         mathpix_source_text = (mathpix.text or mathpix.latex).strip()
         confidence = mathpix.confidence
-        parsed = (
-            None
-            if transcription_needs_vision(mathpix_source_text)
-            else _extract_from_mathpix_text(mathpix_text)
-        )
+        parsed = await _read_mathpix_off_loop(mathpix_source_text, mathpix_text, settings)
         high_conf = confidence is None or confidence >= settings.mathpix_confidence_min
         if parsed is not None and parsed.found and high_conf:
             if len(mathpix_source_text) > 2000:
