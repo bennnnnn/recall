@@ -288,9 +288,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   transcriber writes it follows the app's language (`speech.service.STT_ROUTES`): English,
   Spanish, French, Portuguese, Russian and Turkish go to Whisper Large V3 Turbo through
   OpenRouter (`speech-stt-model`, `gateways/transcription_gateway.py`; billed per second of
-  audio, $0.0002-0.0007 a minute by host); Amharic, Hindi, a clip with no language, and any
-  clip Whisper failed go to OpenAI's `gpt-4o-mini-transcribe` (`speech-stt-openai-model`,
-  ~$0.003 a minute) as before. Whisper wrote Amharic as garbage and misspelt Hindi on
+  audio, $0.0002-0.0007 a minute by host); Amharic goes to OpenAI's `gpt-4o-transcribe`
+  (`speech-stt-openai-large-model`, ~$0.01 a minute of Amharic), which writes it in Ethiopic
+  script; Hindi, a clip with no language, and any clip a route before failed go to
+  `gpt-4o-mini-transcribe` (`speech-stt-openai-model`, ~$0.003 a minute) as before. Whisper
+  wrote Amharic as garbage and misspelt Hindi, and mini wrote Amharic in Latin letters, on
   2026-11-24. Both pass the app's language; a code OpenAI refuses (Amharic's `am`) is sent as
   the language's name in the prompt instead. Pro, **100/day**; on Free the mic opens
   the plans (the server refuses Free with 403).
@@ -1676,7 +1678,7 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → Whisper Large V3 Turbo on OpenRouter for en/es/fr/pt/ru/tr, `gpt-4o-mini-transcribe` for Amharic, Hindi, no language and Whisper failures (app-language hint, no-speech gate) | Real-phone check of the live path (dev build); Amharic quality on real speech |
+| Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → Whisper Large V3 Turbo on OpenRouter for en/es/fr/pt/ru/tr, `gpt-4o-transcribe` for Amharic, `gpt-4o-mini-transcribe` for Hindi, no language and failures (app-language hint, no-speech gate) | Real-phone check of the live path (dev build); Amharic quality on real speech |
 | Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON; each clip charged to the day's tokens by length) | — |
 

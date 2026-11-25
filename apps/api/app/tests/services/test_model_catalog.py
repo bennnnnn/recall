@@ -240,6 +240,9 @@ def test_speech_stt_alias_uses_whisper_on_openrouter():
     stt_openai = model_catalog.get("speech-stt-openai-model")
     assert stt_openai.api_key_field == "openai_api_key"
     assert stt_openai.model == "openai/gpt-4o-mini-transcribe"
+    stt_large = model_catalog.get("speech-stt-openai-large-model")
+    assert stt_large.api_key_field == "openai_api_key"
+    assert stt_large.model == "openai/gpt-4o-transcribe"
     assert model_catalog.get("speech-dictation-model").api_key_field == "openai_api_key"
 
 

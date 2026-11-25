@@ -400,6 +400,16 @@ CATALOG: tuple[ChatModel, ...] = (
         api_key_field="openai_api_key",
         selectable=False,
     ),
+    # The recorded clip in Amharic: gpt-4o-mini-transcribe wrote it in Latin letters, this
+    # one in Ethiopic script (2026-11-24). About twice mini's price.
+    ChatModel(
+        id="speech-stt-openai-large-model",
+        label="Speech transcription (OpenAI, large)",
+        model="openai/gpt-4o-transcribe",
+        provider="openai",
+        api_key_field="openai_api_key",
+        selectable=False,
+    ),
     # Live dictation (the composer mic): the only transcriber that writes words while
     # they are spoken; the gpt-4o ones wait for a pause (measured 2026-11-23). About
     # $0.017 a minute.

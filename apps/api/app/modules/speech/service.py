@@ -22,6 +22,7 @@ _MOCK_MP3_BYTES = b"\xff\xfb\x90\x00" + b"\x00" * 64
 
 _STT_ALIAS = "speech-stt-model"
 _STT_OPENAI_ALIAS = "speech-stt-openai-model"
+_STT_OPENAI_LARGE_ALIAS = "speech-stt-openai-large-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
 LIVE_TALK_ALIAS = "live-talk-model"
@@ -86,14 +87,17 @@ class SttRoute:
 
 # Tried in order; a clip goes to every route that takes its language until one answers.
 # Whisper read English and Spanish right and Amharic as garbage, and misspelt Hindi
-# (2026-11-24): it takes only the languages below, and OpenAI takes the rest, a clip with
-# no language, and any clip Whisper failed.
+# (2026-11-24): it takes only the languages below. gpt-4o-mini-transcribe wrote Amharic in
+# Latin letters and gpt-4o-transcribe in Ethiopic, so Amharic goes to the larger one.
+# gpt-4o-mini-transcribe takes the rest, a clip with no language, and any clip the routes
+# before it failed.
 STT_ROUTES: tuple[SttRoute, ...] = (
     SttRoute(
         _STT_ALIAS,
         frozenset({"en", "es", "fr", "pt", "ru", "tr"}),
         quota_spend.STT_WHISPER_SPEND_USD,
     ),
+    SttRoute(_STT_OPENAI_LARGE_ALIAS, frozenset({"am"}), quota_spend.STT_OPENAI_LARGE_SPEND_USD),
     SttRoute(_STT_OPENAI_ALIAS, None, quota_spend.STT_OPENAI_SPEND_USD),
 )
 

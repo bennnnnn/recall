@@ -1,9 +1,10 @@
 """The recorded clip's transcript, routed by the app's language.
 
 Whisper Large V3 Turbo on OpenRouter takes English, Spanish, French, Portuguese, Russian
-and Turkish; gpt-4o-mini-transcribe on OpenAI takes Amharic, Hindi, a clip with no
-language, and any clip Whisper failed (``speech.service.STT_ROUTES``). Live dictation has
-its own tests (``test_dictation_gateway.py``).
+and Turkish; gpt-4o-transcribe on OpenAI takes Amharic; gpt-4o-mini-transcribe takes
+Hindi, any other language, a clip with no language, and any clip the routes before it
+failed (``speech.service.STT_ROUTES``). Live dictation has its own tests
+(``test_dictation_gateway.py``).
 """
 
 from __future__ import annotations
@@ -70,7 +71,8 @@ def _client(*responses: MagicMock) -> MagicMock:
         ("pt_BR", ["speech-stt-model", "speech-stt-openai-model"]),
         ("ru", ["speech-stt-model", "speech-stt-openai-model"]),
         ("tr", ["speech-stt-model", "speech-stt-openai-model"]),
-        ("am", ["speech-stt-openai-model"]),
+        ("am", ["speech-stt-openai-large-model", "speech-stt-openai-model"]),
+        ("am-ET", ["speech-stt-openai-large-model", "speech-stt-openai-model"]),
         ("hi-IN", ["speech-stt-openai-model"]),
         ("de", ["speech-stt-openai-model"]),
         (None, ["speech-stt-openai-model"]),
@@ -133,19 +135,40 @@ async def test_hindi_or_no_language_goes_to_openai(language, code):
 
 
 @pytest.mark.asyncio
-async def test_amharic_goes_to_openai_with_its_refused_code_named_in_the_prompt():
+async def test_amharic_goes_to_gpt_4o_transcribe_with_its_refused_code_named_in_the_prompt():
     openai = _client(
         _response(400, text="Language code 'am' is not recognized: param language"),
         _response(200, {"text": "ሰላም"}),
     )
+    spent: list[float] = []
 
     with patch(_WHISPER_CLIENT, return_value=_client()), patch(_OPENAI_CLIENT, return_value=openai):
-        text = await transcribe_audio(_settings(), b"audio-bytes", language="am")
+        text = await transcribe_audio(
+            _settings(), b"audio-bytes", language="am-ET", on_spend=spent.append
+        )
 
     assert text == "ሰላም"
     first, second = (call.kwargs["data"] for call in openai.post.call_args_list)
+    assert first["model"] == second["model"] == "gpt-4o-transcribe"
     assert first["language"] == "am"
     assert "language" not in second and "Amharic" in second["prompt"]
+    assert spent == [spend.STT_OPENAI_LARGE_SPEND_USD]
+
+
+@pytest.mark.asyncio
+async def test_a_gpt_4o_transcribe_failure_is_asked_of_mini():
+    openai = _client(_response(500, text="down"), _response(200, {"text": "ሰላም"}))
+    spent: list[float] = []
+
+    with patch(_WHISPER_CLIENT, return_value=_client()), patch(_OPENAI_CLIENT, return_value=openai):
+        text = await transcribe_audio(
+            _settings(), b"audio-bytes", language="am", on_spend=spent.append
+        )
+
+    assert text == "ሰላም"
+    models = [call.kwargs["data"]["model"] for call in openai.post.call_args_list]
+    assert models == ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]
+    assert spent == [spend.STT_OPENAI_LARGE_SPEND_USD, spend.STT_OPENAI_SPEND_USD]
 
 
 @pytest.mark.asyncio

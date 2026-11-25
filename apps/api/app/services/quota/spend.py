@@ -29,6 +29,7 @@ __all__ = [
     "IMAGE_SEARCH_SPEND_USD",
     "LIVE_TALK_SPEND_USD_PER_MINUTE",
     "MATHPIX_READ_SPEND_USD",
+    "STT_OPENAI_LARGE_SPEND_USD",
     "STT_OPENAI_SPEND_USD",
     "STT_WHISPER_SPEND_USD",
     "TTS_SPEND_USD",
@@ -56,6 +57,10 @@ STT_WHISPER_SPEND_USD = 0.004
 # named in the prompt read 128 tokens and once wrote 118 Ethiopic ones, about $0.001 (Hindi
 # about half that), so 310 s is about $0.028.
 STT_OPENAI_SPEND_USD = 0.03
+# gpt-4o-transcribe (Amharic) bills twice mini's rates ($6/M audio in, $10/M text out): an
+# 11 s Amharic clip read 112 audio tokens and wrote 129 Ethiopic ones, about $0.002
+# (2026-11-24), so 310 s of speech is about $0.055.
+STT_OPENAI_LARGE_SPEND_USD = 0.06
 TTS_SPEND_USD = 0.015
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not
