@@ -205,6 +205,11 @@ class SubjectFence(Protocol):
         """Whether ``check`` has anything to do, before the pool is asked."""
         ...
 
+    def samples(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        """Whether ``check`` would run SymPy on ``text`` (maths resamples a curve too sparse
+        to draw): a check the turn would run in process goes to the pool instead."""
+        ...
+
     def check(
         self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
     ) -> str:

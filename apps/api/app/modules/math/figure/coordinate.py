@@ -206,7 +206,7 @@ def function_graph(request: FigureRequest, texts: list[str]) -> dict[str, object
     try:
         sample = math_solve.sample_function(
             GraphSampleInput(
-                expr=expr[: settings.math_max_expr_length],
+                expr=expr,
                 variable=variable,
                 x_min=x_min,
                 x_max=x_max,

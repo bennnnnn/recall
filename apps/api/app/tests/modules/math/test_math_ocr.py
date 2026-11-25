@@ -71,6 +71,47 @@ async def test_extract_math_uses_mathpix_when_high_confidence_equation():
 
 
 @pytest.mark.asyncio
+async def test_mathpix_text_is_read_in_the_pool_and_looked_at_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The scan's equation readers ran on the event loop, and the vision check twice on the
+    same text (audit 2026-11-25): both are one pool job now."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+    )
+    from app.core import sympy_executor
+
+    real = sympy_executor.run_sympy
+    jobs: list[str] = []
+    looks: list[str] = []
+    looked = math_ocr.transcription_needs_vision
+
+    async def recording(fn, *args, **kwargs):
+        jobs.append(fn.__name__)
+        return await real(fn, *args, **kwargs)
+
+    def looking(text: str) -> bool:
+        looks.append(text)
+        return looked(text)
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", recording)
+    monkeypatch.setattr(math_ocr, "transcription_needs_vision", looking)
+    reading = MathpixOcrResult(text="2x+7=15", latex="2x+7=15", confidence=0.95)
+    with patch("app.gateways.mathpix_gateway.ocr_image", AsyncMock(return_value=reading)):
+        result = await math_ocr.extract_math_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+
+    assert result.extract is not None and result.extract.kind == "equation"
+    assert jobs == ["read_mathpix_texts"]
+    assert looks == ["2x+7=15"]
+
+
+@pytest.mark.asyncio
 async def test_mathpix_preserves_plain_text_constraint_missing_from_latex():
     settings = Settings(
         mock_llm_enabled=False,
