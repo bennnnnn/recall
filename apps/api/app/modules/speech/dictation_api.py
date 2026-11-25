@@ -18,8 +18,8 @@ from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.modules.speech import dictation
 from app.modules.speech.gates import (
-    RefundDayOnFailure,
     SpeechRefusedError,
+    refund_day_on_failure,
     require_plan_feature,
     require_speech_rate,
     require_voice_spend_ok,
@@ -92,7 +92,7 @@ async def create_dictation_session(
     )
     day = await reserve_day_or_raise("speech_transcription", redis, user, settings)
     # A mint is not billed: any failure here gives the slot back.
-    async with RefundDayOnFailure("speech_transcription", redis, user.id, day):
+    async with refund_day_on_failure("speech_transcription", redis, user.id, day):
         session = await dictation.open_session(
             redis, settings, user.id, day=day, language=body.language or user.locale
         )

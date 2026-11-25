@@ -75,17 +75,29 @@ def _presign(
     size_bytes: int,
     *,
     at_daily_cap: bool = False,
+    messages_used: bool = False,
     library_full: bool = False,
+    busy: bool = False,
     filename: str | None = None,
 ) -> Any:
+    """POST /attachments/presign: Pro at its day's documents, or Free (whose uploads
+    follow its messages) with none of the day's messages left."""
     user = _user()
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    day = counters.utc_today().isoformat()
     if at_daily_cap:
-        day = counters.utc_today().isoformat()
-        cap = counters.limit("image_upload", user, Settings())
-        asyncio.run(_seed(fake_redis, f"imgup:{user.id}:{day}", cap))
+        user.plan = "pro"
+        cap = counters.limit("document_upload", user, Settings())
+        asyncio.run(_seed(fake_redis, f"docup:{user.id}:{day}", cap))
+    if messages_used:
+        cap = counters.limit("chat_message", user, Settings())
+        asyncio.run(_seed(fake_redis, f"chatmsg:{user.id}:{day}", cap))
+    if busy:
+        # Another presign of the account's holds the Library's turn the whole wait.
+        asyncio.run(_seed(fake_redis, f"recall:library_presign:{user.id}", 1))
     stored = Settings().library_storage_bytes if library_full else 0
     with (
+        patch("app.modules.attachments.storage_quota.PRESIGN_WAIT_SECONDS", 0.1),
         patch("app.modules.attachments.upload.get_redis_client", return_value=fake_redis),
         patch(
             "app.modules.attachments.storage_quota.stored_bytes",
@@ -467,7 +479,9 @@ def _bodies() -> dict[str, dict[str, Any]]:
             "status": (too_large := _presign("image/png", 10_485_761)).status_code,
             "detail": too_large.json()["detail"],
         },
-        "presign_daily_limit": _refusal(_presign("image/png", 128, at_daily_cap=True)),
+        "presign_daily_limit": _refusal(_presign("application/pdf", 128, at_daily_cap=True)),
+        "presign_messages_used": _refusal(_presign("image/png", 128, messages_used=True)),
+        "presign_busy": _refusal(_presign("image/png", 128, busy=True)),
         "presign_storage_full": _refusal(_presign("image/png", 128, library_full=True)),
         "presign_paste_too_long": _refusal(
             _presign("text/plain", PASTED_TEXT_MAX_BYTES + 1, filename=PASTED_TEXT_FILENAME)

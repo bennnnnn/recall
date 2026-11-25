@@ -16,10 +16,17 @@ async function deleteAttachment(token: string, attachmentId: string): Promise<vo
   }
 }
 
+/**
+ * What an upload is for. A chat file goes out with a message, so on a plan whose uploads
+ * follow messages the server wants one left; a profile photo or a picture's reference
+ * photo does not (apps/api modules/attachments/upload.py).
+ */
+export type UploadPurpose = "chat" | "avatar" | "reference";
+
 export const attachmentsApi = {
   presignAttachment: (
     token: string,
-    body: { content_type: string; size_bytes: number; filename?: string },
+    body: { content_type: string; size_bytes: number; filename?: string; purpose?: UploadPurpose },
   ) =>
     request<{
       attachment_id: string;

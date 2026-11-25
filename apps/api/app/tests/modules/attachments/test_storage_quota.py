@@ -78,17 +78,18 @@ async def test_presign_checks_the_library_total(
 
 @pytest.mark.asyncio
 async def test_a_full_library_takes_no_daily_upload_slot() -> None:
-    user = _user()
+    """Pro's documents count a day: a full Library refuses before one is taken."""
+    user = _user("pro")
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch.object(storage_quota, "stored_bytes", AsyncMock(return_value=GIB)),
+        patch.object(storage_quota, "stored_bytes", AsyncMock(return_value=5 * GIB)),
         patch.object(attachment_upload, "get_redis_client", return_value=redis),
         pytest.raises(attachment_upload.AttachmentUploadError),
     ):
         await attachment_upload.create_presigned_upload(
-            fake_session(), Settings(), user=user, content_type="image/png", size_bytes=10
+            fake_session(), Settings(), user=user, content_type="application/pdf", size_bytes=10
         )
-    assert await redis.get(counters.daily_key("imgup", user.id)) is None
+    assert await redis.get(counters.daily_key("docup", user.id)) is None
 
 
 @pytest.mark.parametrize("plan, upgrade", [("free", True), ("pro", False)])
@@ -165,3 +166,5 @@ async def test_lookup_photos_are_not_counted_against_the_library() -> None:
     assert await storage_quota.stored_bytes(session, uuid4()) == 5
     sql = str(session.scalar.await_args.args[0].compile(compile_kwargs={"literal_binds": True}))
     assert "attachments.source NOT IN ('search')" in sql
+    # A resend's copy and a profile photo are hidden from Library: not counted either.
+    assert "attachments.library_visible IS true" in sql

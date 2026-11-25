@@ -25,6 +25,7 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import User
 from app.modules.money.agreement import card_figures
 from app.modules.money.block import money_block, standing_block
@@ -84,6 +85,7 @@ async def prepare_money_turn(
     location: str | None,
     earlier: Sequence[str | Sequence[str]] = (),
     last_reply: str = "",
+    search_budget: TavilyBudget | None = None,
 ) -> MoneyTurn | None:
     """The money turn ``text`` asks for, or None when it is not one.
 
@@ -103,7 +105,14 @@ async def prepare_money_turn(
     if request is None:
         return None
     return await _prepared(
-        request, text, settings, redis, user=user, location=location, last_reply=last_reply
+        request,
+        text,
+        settings,
+        redis,
+        user=user,
+        location=location,
+        last_reply=last_reply,
+        search_budget=search_budget,
     )
 
 
@@ -115,6 +124,7 @@ async def prepare_read_turn(
     user: User | None,
     location: str | None,
     conversation: Sequence[tuple[str, str]],
+    search_budget: TavilyBudget | None = None,
 ) -> MoneyTurn | None:
     """The money turn the chat's request makes, read by a model (``model_read``) and held
     to the chat's words (``read_check``): for a turn the read calls money that no word rule
@@ -135,7 +145,14 @@ async def prepare_read_turn(
         return None
     last_reply = next((line for role, line in reversed(chat) if role == "assistant"), "")
     return await _prepared(
-        request, text, settings, redis, user=user, location=location, last_reply=last_reply
+        request,
+        text,
+        settings,
+        redis,
+        user=user,
+        location=location,
+        last_reply=last_reply,
+        search_budget=search_budget,
     )
 
 
@@ -148,6 +165,7 @@ async def _prepared(
     user: User | None,
     location: str | None,
     last_reply: str,
+    search_budget: TavilyBudget | None = None,
 ) -> MoneyTurn:
     """The turn for ``request``: today's average started, the numbers worked, the block."""
     # The card and the prompt use one currency: the one named, else the user's place's.
@@ -164,13 +182,22 @@ async def _prepared(
     if workable and product.rate_lookup(request.variant) is not None:
         lookup = create_background_task(
             current_average(
-                product, term, country, settings, redis, user=user, variant=request.variant
+                product,
+                term,
+                country,
+                settings,
+                redis,
+                user=user,
+                variant=request.variant,
+                budget=search_budget,
             ),
             name="money_average",
         )
     if workable and product.variant(request.variant) is not None and product.lookup is not None:
         stand_in = create_background_task(
-            current_average(product, term, country, settings, redis, user=user),
+            current_average(
+                product, term, country, settings, redis, user=user, budget=search_budget
+            ),
             name="money_average_stand_in",
         )
     average = None
@@ -193,6 +220,7 @@ async def prepare_standing_turn(
     location: str | None,
     earlier: Sequence[str | Sequence[str]],
     last_reply: str,
+    search_budget: TavilyBudget | None = None,
 ) -> MoneyTurn | None:
     """The chat's earlier loan for a message about it that is no money request itself."""
     if not settings.money_enabled or not about_the_loan(text, last_reply):
@@ -212,7 +240,14 @@ async def prepare_standing_turn(
         country = country_for(request.currency, location)
         task = create_background_task(
             current_average(
-                product, term, country, settings, redis, user=user, variant=request.variant
+                product,
+                term,
+                country,
+                settings,
+                redis,
+                user=user,
+                variant=request.variant,
+                budget=search_budget,
             ),
             name="money_average_standing",
         )

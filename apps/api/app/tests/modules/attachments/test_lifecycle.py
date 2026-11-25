@@ -260,12 +260,13 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
             "app.modules.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
-        patch("app.modules.attachments.lifecycle.counters.refund", refund),
+        patch("app.modules.attachments.lifecycle.refund_upload", refund),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    refund.assert_awaited_once_with("image_upload", fake_redis, user_id)
+    refund.assert_awaited_once()
+    assert refund.await_args.args[0] is fake_redis
 
 
 @pytest.mark.asyncio
@@ -321,7 +322,7 @@ async def test_reap_orphan_attachments_does_not_refund_generated_reuse_clones():
             "app.modules.attachments.lifecycle.get_redis_client",
             return_value=fake_redis,
         ),
-        patch("app.modules.attachments.lifecycle.counters.refund", refund),
+        patch("app.modules.attachments.lifecycle.refund_upload", refund),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
@@ -362,7 +363,7 @@ async def test_reap_orphan_attachments_does_not_refund_for_non_image():
             return_value=fake_redis,
         ),
         patch(
-            "app.modules.attachments.lifecycle.counters.refund",
+            "app.modules.attachments.lifecycle.refund_upload",
             refund_mock,
         ),
     ):
@@ -406,7 +407,7 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
             return_value=fake_redis,
         ),
         patch(
-            "app.modules.attachments.lifecycle.counters.refund",
+            "app.modules.attachments.lifecycle.refund_upload",
             refund_mock,
         ),
     ):

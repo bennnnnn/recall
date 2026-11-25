@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 
+import { useAccountSession } from "@/contexts/accountSession";
 import { useAuth } from "@/contexts/AuthContext";
 import { attachmentsApi } from "@/features/attachments/api";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
@@ -12,11 +13,13 @@ type LibraryStorage = { usedBytes: number; limitBytes: number };
 /**
  * What the account keeps in Library against its plan's total, read each time the screen
  * shows (a file deleted in Library, or a plan bought, shows on the way back) and once when
- * the API answers after an outage. Another account's or plan's numbers are never shown.
+ * the API answers after an outage. Keyed on the account, never the token: the hourly token
+ * rotation reads nothing again (NET-11). Another account's or plan's numbers are never shown.
  */
 export function useLibraryStorage(): LibraryStorage | null {
-  const { token, user } = useAuth();
-  const key = `${getSessionGeneration()}:${user?.id ?? ""}:${user?.plan ?? ""}`;
+  const { account, getToken } = useAccountSession();
+  const { user } = useAuth();
+  const key = `${getSessionGeneration()}:${account ?? ""}:${user?.plan ?? ""}`;
   const [read, setRead] = useState<{ key: string; storage: LibraryStorage } | null>(null);
   const readAtRef = useRef<number | undefined>(undefined);
   const mountedRef = useRef(true);
@@ -28,7 +31,8 @@ export function useLibraryStorage(): LibraryStorage | null {
   }, []);
 
   const load = useCallback(() => {
-    if (!token) return;
+    const token = getToken();
+    if (!account || !token) return;
     attachmentsApi
       .getLibraryStorage(token)
       .then((r) => {
@@ -39,7 +43,7 @@ export function useLibraryStorage(): LibraryStorage | null {
         }
       })
       .catch((error: unknown) => reportFailure("library_storage", error));
-  }, [token, key]);
+  }, [account, getToken, key]);
 
   useFocusEffect(load);
   useReconnectRefresh(load, { readAt: () => readAtRef.current });

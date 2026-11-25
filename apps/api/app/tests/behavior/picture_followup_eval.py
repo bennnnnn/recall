@@ -270,7 +270,7 @@ async def run_turn(settings: Any, row: dict[str, Any]) -> tuple[str, str]:
         user=user,
         prior_count=len(rows),
     )
-    _attach_reads(ctx, settings, read, misses)
+    _attach_reads(ctx, settings, read, misses, None)  # the reply builds its own
     reply = ctx.instant_reply or ""
     if not reply:
         await run_tool_loop_path(

@@ -62,7 +62,7 @@ async def _confirm(row: Any, gateway: MagicMock, **repo: Any) -> None:
             repo.get("delete_rows", AsyncMock(return_value=1)),
         ),
         patch.object(attachment_workflow, "get_storage_gateway", return_value=gateway),
-        patch.object(attachment_workflow.counters, "refund", AsyncMock()),
+        patch.object(attachment_workflow, "refund_upload", AsyncMock()),
     ):
         await attachment_workflow.confirm_upload(fake_session(), Settings(), user, row.id)
 

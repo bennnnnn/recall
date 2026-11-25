@@ -79,6 +79,13 @@ describe("uploadSendAttachment", () => {
     expect(reportFailure).not.toHaveBeenCalled();
   });
 
+  it("names what the upload is for: a chat file by default, a picture's reference photo", async () => {
+    jest.mocked(uploadChatAttachment).mockResolvedValue("id-2");
+    await uploadSendAttachment("token", file("a.pdf"));
+    await uploadSendAttachment("token", file("b.png"), "reference");
+    expect(jest.mocked(uploadChatAttachment).mock.calls.map((call) => call[2])).toEqual(["chat", "reference"]);
+  });
+
   it("reports a failed upload and throws it on for the caller's toast", async () => {
     const failure = new Error("presign refused");
     jest.mocked(uploadChatAttachment).mockRejectedValueOnce(failure);

@@ -8,10 +8,20 @@ from datetime import date
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
-from app.services.quota.counters import COUNTERS, daily_key, limit, refund, reserve, used
+from app.services.quota.counters import (
+    COUNTERS,
+    daily_key,
+    limit,
+    refund,
+    reserve,
+    unlimited,
+    used,
+)
 
 
 async def reserve_message(redis: Redis, user: User, settings: Settings) -> date | None:
@@ -33,5 +43,22 @@ async def reset_messages(redis: Redis, user_id: UUID) -> None:
     await redis.delete(daily_key(COUNTERS["chat_message"].prefix, user_id))
 
 
+async def has_message_left(redis: Redis, user: User, settings: Settings) -> bool:
+    """Whether *user* may still send a message today (an upload waits for its send)."""
+    if unlimited_messages(user, settings):
+        return True
+    try:
+        used_today = await messages_used(redis, user.id)
+    except RedisError as exc:
+        raise RedisUnavailableError() from exc
+    return used_today < daily_message_limit(user, settings)
+
+
+def unlimited_messages(user: User, settings: Settings) -> bool:
+    """The plan has no daily message cap (Pro): its token guard is the only daily stop."""
+    return unlimited("chat_message", user, settings)
+
+
 def daily_message_limit(user: User, settings: Settings) -> int:
+    """The plan's messages a day; 0 on an unlimited plan, which shows no count."""
     return limit("chat_message", user, settings)
