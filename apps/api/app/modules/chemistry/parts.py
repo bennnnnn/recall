@@ -23,7 +23,12 @@ from app.core.sympy_executor import run_sympy
 from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry
 from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.questions import Question, asks_several, chemistry_questions
+from app.modules.chemistry.questions import (
+    Question,
+    asks_several,
+    chemistry_questions,
+    question_count,
+)
 from app.modules.chemistry.reply_policy import attach_chemistry_fence_hint
 from app.services.solving import SubjectAugmentation
 from app.services.worked_parts import answers_in_parts
@@ -65,9 +70,10 @@ def _read_parts(
 ) -> tuple[tuple[Question, ...], tuple[tuple[VerifiedChemistry, ...], tuple[str, ...]] | None]:
     """The message's questions, and each one's verified block and reply when all verify. Runs
     in the SymPy pool: every reading and solve here parses with it."""
+    # Counted first: a message of more questions than the cap is never read one by one.
+    if not 2 <= question_count(text) <= _MAX_QUESTIONS:
+        return (), None
     questions = chemistry_questions(text)
-    if not 2 <= len(questions) <= _MAX_QUESTIONS:
-        return questions, None
     return questions, _solve_each(questions)
 
 
