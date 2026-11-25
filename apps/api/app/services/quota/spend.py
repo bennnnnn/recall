@@ -32,7 +32,6 @@ __all__ = [
     "STT_OPENAI_LARGE_SPEND_USD",
     "STT_OPENAI_SPEND_USD",
     "STT_WHISPER_SPEND_USD",
-    "TTS_SPEND_USD",
     "get_global_spend_micro_usd",
     "global_spend_exceeded",
     "live_talk_spend_usd",
@@ -61,7 +60,8 @@ STT_OPENAI_SPEND_USD = 0.03
 # 11 s Amharic clip read 112 audio tokens and wrote 129 Ethiopic ones, about $0.002
 # (2026-11-24), so 310 s of speech is about $0.055.
 STT_OPENAI_LARGE_SPEND_USD = 0.06
-TTS_SPEND_USD = 0.015
+# Listen (TTS) is priced per clip by its characters, at its model's catalog rate
+# (``ChatModel.usd_per_m_chars``): ``modules/speech/service.synthesize_speech``.
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not
 # by saved turn: the phone posts the turns, so a count of them is the client's.

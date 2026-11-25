@@ -110,7 +110,16 @@ export const speechApi = {
   }) => request<{ content: string; sources?: SearchSource[] }>("/speech/live/tool", token, {
     method: "POST", body: JSON.stringify(body),
   }, true, 15_000),
+  /** A voice saying its name ("Hi, I'm Heart."), in the app's language, by its own engine. */
+  voicePreview: (token: string, body: { voice: string; kind: VoicePreviewKind }) =>
+    request<VoicePreviewClip>("/speech/voice-preview", token, {
+      method: "POST", body: JSON.stringify(body),
+    }, true, 15_000),
 };
+
+/** "reply": the TTS voice a reply plays in; "live": the live talk voice. */
+export type VoicePreviewKind = "reply" | "live";
+export type VoicePreviewClip = { audio_base64: string; content_type: string };
 
 /** The app's language, as the transcription's hint (`pt`, `am`). */
 export function speechLanguageHint(): string | undefined {

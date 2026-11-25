@@ -90,6 +90,7 @@ _PROFILE_FIELDS = (
     "quiet_hours_start_minute",
     "quiet_hours_end_minute",
     "tts_voice",
+    "reply_voice",
     "created_at",
     "updated_at",
 )

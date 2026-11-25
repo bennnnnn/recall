@@ -33,6 +33,7 @@ UNCOMPRESSED_PATHS = frozenset(
         "/auth/refresh",
         "/speech/live/session",
         "/speech/tts",
+        "/speech/voice-preview",
     }
 )
 

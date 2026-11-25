@@ -93,6 +93,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "components/VoiceMicButton.tsx",
     "hooks/useLiveTalk.ts",
     "hooks/useVoiceInput.ts",
+    "hooks/useVoicePreview.ts",
     "model/pronunciation.ts",
     "model/readAloudSession.ts",
     "model/speechRate.ts",

@@ -7,6 +7,7 @@ import { useAuthToken, useAuthUserReader } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { readAloudIsCut, readReplyAloud, stopReadingAloud } from "@/features/speech/model/pronunciation";
 import { readAloudSession } from "@/features/speech/model/readAloudSession";
+import { listenVoiceKey } from "@/features/speech/model/voices";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { speechLocale } from "@/lib/i18n/languages";
@@ -136,7 +137,8 @@ function useReadAloud(messageId: string, markdown: string) {
     const result = await readReplyAloud(messageId, markdown, speechLocale(user?.locale), {
       token: cloudVoice ? token : null,
       preferCloud: cloudVoice,
-      voice: user?.tts_voice ?? null,
+      // The server plays the account's voices; a change of either must not replay a cached clip.
+      voice: listenVoiceKey(user),
     });
     if (!result.ok) {
       reportRecoverableError(

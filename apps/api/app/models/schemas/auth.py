@@ -19,8 +19,15 @@ from app.core.validation import (
     normalize_locale_code,
 )
 from app.models.model_removal import current_choices, requested_choice
-from app.models.schemas.common import EmojiUse, ModelChoice, ResponseTone, UserVoice
+from app.models.schemas.common import (
+    EmojiUse,
+    ModelChoice,
+    ReplyVoice,
+    ResponseTone,
+    UserVoice,
+)
 from app.models.schemas.text import UserText
+from app.models.voice_catalog import reply_voice_for_app
 
 # The longest custom instructions a user may save; the prompt builders read this too.
 CUSTOM_INSTRUCTIONS_MAX_CHARS = 1000
@@ -63,6 +70,9 @@ class UserOut(BaseModel):
     quiet_hours_start_minute: int = 1320
     quiet_hours_end_minute: int = 420
     locale: str = "en"
+    # The reply voice the user picked; null when they never did (it follows the live talk
+    # voice). The voice a reply really plays in is ``reply_voice_heard`` below.
+    reply_voice: str | None = None
     timezone: str = "UTC"
     location: str | None = None
     # When the user last set the Location switch; read before ``location_enabled`` below.
@@ -98,6 +108,15 @@ class UserOut(BaseModel):
     def default_model(self) -> str:
         """Derived from ``enabled_models`` (``chosen_model_id``), never stored apart."""
         return chosen_model_id(self.enabled_models)
+
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def reply_voice_heard(self) -> str:
+        """The voice a reply in the app's language really plays in: the one picked, or the
+        one the live talk voice gives (``voice_catalog.reply_voice_for_app``)."""
+        locale = normalize_locale_code(self.locale)
+        return reply_voice_for_app(locale, self.reply_voice, self.tts_voice)
 
     # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]
@@ -161,8 +180,10 @@ class UserUpdate(BaseModel):
     ai_data_consent: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None
-    # null puts the server default back.
+    # Live talk's voice; null puts the server default back.
     tts_voice: UserVoice | None = None
+    # A reply's voice (``voice_catalog``); null follows the live talk voice again.
+    reply_voice: ReplyVoice | None = None
     email_reminders_enabled: bool | None = None
     reminder_lead_minutes: int | None = Field(default=None, ge=5, le=60)
     quiet_hours_enabled: bool | None = None

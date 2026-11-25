@@ -115,6 +115,10 @@ class RoutingLanes:
     # does, HY4 Flash on Free sends no reasoning. STEM nothing verified goes to
     # the maths lane, hard or not (the owner's call, 2026-11-11).
     decided: Mapping[str, tuple[str, str, str]]
+    # Listen, in order: a text goes to the first model that speaks its language
+    # (``ChatModel.speaks_languages``) and, when that one fails, to the next that does. The
+    # last reads any language, so a text whose language is unclear always has one.
+    read_aloud: tuple[str, ...]
 
 
 ROUTING = RoutingLanes(
@@ -152,6 +156,7 @@ ROUTING = RoutingLanes(
             "chemistry": ("math", "math", "math"),
         }
     ),
+    read_aloud=("speech-tts-kokoro-model", "speech-tts-model"),
 )
 
 

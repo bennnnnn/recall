@@ -3,7 +3,7 @@ import type { SearchSource } from "@/lib/searchSources";
 
 export type { SearchSource };
 
-/** Voices both read-aloud and live talk speak (the server's UserVoice). */
+/** Live talk's voices (the server's UserVoice). A reply plays in a `reply_voice`. */
 export type UserVoice =
   | "marin"
   | "cedar"
@@ -41,8 +41,16 @@ export type User = {
   push_notifications_enabled: boolean;
   /** Each push kind's own switch, under the master one. */
   push_reminders_enabled?: boolean;
-  /** Read-aloud and live talk voice; null is the server default. */
+  /** Live talk's voice; null is the server default. */
   tts_voice?: UserVoice | null;
+  /**
+   * The reply voice the user picked for Listen, one of `replyVoicesFor(locale)`
+   * (features/speech/model/voices.ts); null when they never did or chose "Follow live talk
+   * voice". Saving null follows the live talk voice again.
+   */
+  reply_voice?: string | null;
+  /** The voice a reply in the app's language really plays in, picked or not (server-made). */
+  reply_voice_heard?: string | null;
   email_reminders_enabled?: boolean;
   /** False when the server cannot send email (no provider set up): hide the switch. */
   email_reminders_available?: boolean;

@@ -433,6 +433,19 @@ export async function readReplyAloud(
   }
 }
 
+/**
+ * Play a voice preview (Settings → Voice) once, in the audio session Listen uses, so it obeys
+ * the silent switch and ducks other audio the same way. It stops a reading in progress.
+ */
+export async function playVoicePreview(audioBase64: string, contentType: string): Promise<SpeakResult> {
+  stopSpeaking();
+  stopReadingInBackground();
+  const generation = speakGeneration;
+  await preparePlaybackAudioMode();
+  if (!isCurrentSpeak(generation)) return { ok: true };
+  return playCloudBase64(audioBase64, contentType, generation);
+}
+
 /** Stop the reading and close its player: its Stop, the app going to the background, sign-out. */
 export function stopReadingAloud(): void {
   stopSpeaking();

@@ -18,6 +18,7 @@ const BUNDLES: Record<string, string>[] = [en, am, es, fr, hi, pt, ru, tr];
 
 /** Keys with one text in every language that stay apart, and why. */
 const KEPT_APART: Record<string, string> = {
+  "chat.live_talk_a11y settings.voice_live": "the Live talk button's label, and its voice row in Settings",
   "chat.attach_file chat.title_file": "the attach sheet's row, and a chat a file opened is titled with",
   "chat.delete chat.delete_confirm_title": "an action, and the title of the dialog it opens",
   "chat.email_card_subject chat.email_card_subject_placeholder": "a field's label, and its placeholder",
