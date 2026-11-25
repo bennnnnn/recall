@@ -337,6 +337,7 @@ function serverBody(method: string, path: string, body?: string): unknown {
   if (p === "/memories/documents") return { documents: [], scanning: false };
   if (p === "/memories") return [];
   if (p === "/attachments") return { items: [], next_cursor: null };
+  if (p === "/attachments/storage") return { used_bytes: 0, limit_bytes: 400 * 1024 ** 2 };
   if (p === "/auth/sessions") return { sessions: [] };
   if (/^\/attachments\/[^/]+\/url$/.test(p)) {
     return {
@@ -689,6 +690,8 @@ const SCREENS = [
 /** A screen's read on opening it (none: it shows what the app already holds). */
 const SCREEN_READS: Record<string, number> = {
   memory: 1, gallery: 1, usage: 1, archived: 1, memorySettings: 1, security: 1,
+  // Storage: what Library keeps of the plan's total, read each time Settings shows.
+  settings: 1,
 };
 
 /** Screens opened a second time, whose read the server answers 304. */
@@ -1296,7 +1299,7 @@ const RECOVERY_CASES: RecoveryCase[] = [
     show: (app) => showOnly(app, "memoryPage", { key: "profile" }),
     read: /^GET \/memories\/documents(?: \(304\))?$/,
   },
-  { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments\b/ },
+  { title: "the library", show: (app) => showOnly(app, "gallery"), read: /^GET \/attachments(?:\?|$)/ },
   // Settings' two lists (useFocusedList): the archived chats come with the drawer's list.
   {
     title: "the archived chats",
@@ -1308,10 +1311,11 @@ const RECOVERY_CASES: RecoveryCase[] = [
     show: (app) => showOnly(app, "security"),
     read: /^GET \/auth\/sessions(?: \(304\))?$/,
   },
-  // Settings' two pages that read on opening, not lists: the day's usage and memory's count.
+  // Settings' pages that read on opening, not lists: the day's usage, memory's count, and
+  // Settings' own Storage row.
   { title: "the day's usage", show: (app) => showOnly(app, "usage"), read: /^GET \/chats\/usage\/today$/ },
   { title: "memory settings", show: (app) => showOnly(app, "memorySettings"), read: /^GET \/memories$/ },
-  { title: "settings, no list", show: (app) => showOnly(app, "settings"), read: null },
+  { title: "settings' storage", show: (app) => showOnly(app, "settings"), read: /^GET \/attachments\/storage$/ },
   {
     title: "a new chat, no list",
     show: async (app) => {
