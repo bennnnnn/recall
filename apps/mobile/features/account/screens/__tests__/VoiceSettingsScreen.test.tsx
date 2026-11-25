@@ -9,19 +9,26 @@ let mockVoice: string | null = null;
 let mockReplyVoice: string | null = null;
 let mockReplyHeard = "af_heart";
 let mockLocale = "en";
+let mockFeatures = ["speech_tts", "live_talk"];
+const mockPreviewVoice = jest.fn();
+
+function mockUser() {
+  return {
+    tts_voice: mockVoice,
+    reply_voice: mockReplyVoice,
+    reply_voice_heard: mockReplyHeard,
+    locale: mockLocale,
+    features: mockFeatures,
+  };
+}
 
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({
-    token: "tok",
-    user: {
-      tts_voice: mockVoice,
-      reply_voice: mockReplyVoice,
-      reply_voice_heard: mockReplyHeard,
-      locale: mockLocale,
-    },
-    updateUser: mockUpdateUser,
-  }),
+  useAuth: () => ({ token: "tok", user: mockUser(), updateUser: mockUpdateUser }),
+  useAuthUserReader: () => () => mockUser(),
+}));
+jest.mock("@/features/speech/model/voicePreview", () => ({
+  previewVoice: (...args: unknown[]) => mockPreviewVoice(...args),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/speech/model/speechRate", () => ({
@@ -42,6 +49,7 @@ beforeEach(() => {
   mockReplyVoice = null;
   mockReplyHeard = "af_heart";
   mockLocale = "en";
+  mockFeatures = ["speech_tts", "live_talk"];
   mockUpdateUser.mockResolvedValue(undefined);
 });
 
@@ -117,4 +125,47 @@ it("pins the voice heard while following live talk, and can follow it again", as
   await fireEvent.press(view.getByText("settings.voice_reply"));
   await fireEvent.press(view.getByLabelText("settings.voice_reply_follow"));
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: null }));
+});
+
+it("says the TTS voice picked, in the engine that plays it", async () => {
+  const view = await render(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_reply"));
+  await fireEvent.press(view.getByLabelText("George"));
+  await waitFor(() => expect(mockPreviewVoice).toHaveBeenCalledWith("tok", "reply", "bm_george", "en"));
+});
+
+it("Same as live talk says the voice that now follows", async () => {
+  mockReplyVoice = "bm_george";
+  mockReplyHeard = "bm_george";
+  mockUpdateUser.mockImplementation(async () => {
+    mockReplyVoice = null;
+    mockReplyHeard = "am_michael"; // what the server sends back: cedar's gender
+  });
+  const view = await render(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_reply"));
+  await fireEvent.press(view.getByLabelText("settings.voice_reply_follow"));
+  await waitFor(() => expect(mockPreviewVoice).toHaveBeenCalledWith("tok", "reply", "am_michael", "en"));
+});
+
+it("says a live talk voice picked, and nothing for Default or on a plan without it", async () => {
+  const view = await render(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_live"));
+  await fireEvent.press(view.getByLabelText("Cedar"));
+  await waitFor(() => expect(mockPreviewVoice).toHaveBeenCalledWith("tok", "live", "cedar", "en"));
+
+  mockPreviewVoice.mockClear();
+  mockVoice = "cedar";
+  await view.rerender(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_live"));
+  await fireEvent.press(view.getByLabelText("settings.voice_default"));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ tts_voice: null }));
+  expect(mockPreviewVoice).not.toHaveBeenCalled();
+
+  mockFeatures = [];
+  mockVoice = null;
+  await view.rerender(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_live"));
+  await fireEvent.press(view.getByLabelText("Sage"));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ tts_voice: "sage" }));
+  expect(mockPreviewVoice).not.toHaveBeenCalled();
 });

@@ -1,11 +1,11 @@
 """The voices Listen's models have, and which one plays a reply: what the user picks is
 what they hear.
 
-Settings → Voice has two pickers. "Live talk voice" (``users.tts_voice``) is a voice of
-the realtime model. "Reply voice" (``users.reply_voice``) lists the voices of the model
-that plays replies in the app's language (``picker_voices``): Kokoro's for English, Spanish,
-French, Hindi and Portuguese, tts-1's for Russian, Turkish and Amharic, and "Follow live talk
-voice" (null). A reply in that language plays in exactly the voice picked.
+Settings → Voice has two pickers. "Live talk" (``users.tts_voice``) is a voice of the
+realtime model. "TTS" (``users.reply_voice``) lists the voices of the model that plays
+replies in the app's language (``picker_voices``): Kokoro's for English, Spanish, French,
+Hindi and Portuguese, tts-1's for Russian, Turkish and Amharic, and "Same as live talk"
+(null). A reply in that language plays in exactly the voice picked.
 
 Two swaps remain, documented here and in FEATURES.md (Settings → Voice), both of them to the
 voice of the same gender as the one picked (the first of that gender in the model's list,
@@ -96,7 +96,7 @@ def voices_of(alias: str, language: str | None) -> tuple[Voice, ...]:
 
 
 def picker_voices(language: str) -> tuple[Voice, ...]:
-    """The Reply voice picker's list for an app language: the voices of the model that
+    """The TTS picker's list for an app language: the voices of the model that
     plays replies in it."""
     return voices_of(read_aloud_aliases(language)[0], language)
 

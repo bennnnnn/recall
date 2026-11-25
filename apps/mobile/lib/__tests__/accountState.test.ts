@@ -154,6 +154,8 @@ const IN_FLIGHT = [
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
   "features/speech/model/liveDictationView.ts#listeners",
+  // A voice saying its name: the same clip for every account.
+  "features/speech/model/voicePreview.ts#clips",
   // A pattern per fence language, and an id per maths formatter function.
   "lib/fence/scan.ts#WORD_PATTERNS",
   "lib/markdown/preprocessStream.ts#formatterIds",

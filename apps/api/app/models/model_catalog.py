@@ -443,6 +443,20 @@ CATALOG: tuple[ChatModel, ...] = (
         description="OpenAI Listen; the same model as speech-tts-model.",
         usd_per_m_chars=15.0,
     ),
+    # Settings → Voice says "Hi, I'm Marin." in the live talk voice picked: gpt-4o-mini-tts
+    # has every voice gpt-realtime speaks, tts-1 lacks marin, cedar, ballad and verse
+    # (measured 2026-11-24: all ten voices, 0.6-1.7 s a line). About $0.015 a minute of audio,
+    # some 15 characters a second: priced at $20 per 1M characters.
+    ChatModel(
+        id="speech-voice-preview-model",
+        label="Voice preview",
+        model="openai/gpt-4o-mini-tts",
+        provider="openai",
+        api_key_field="openai_api_key",
+        selectable=False,
+        description="Live talk voices saying their name in Settings.",
+        usd_per_m_chars=20.0,
+    ),
     ChatModel(
         id="live-talk-model",
         label="Live talk",

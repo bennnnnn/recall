@@ -1027,18 +1027,24 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   thinks there itself. A
   model the user picked with Auto off keeps the regenerate. The old `users.response_style` column is
   dropped (migration `0134`).
-- ✅ **Voice** — two voices, what you pick is what you hear. **Reply voice**
-  (`users.reply_voice`) lists only the voices of the model that plays replies in the app's
+- ✅ **Voice** — two voices, what you pick is what you hear; short rows, no subtitles under
+  the voice and speed rows. **TTS** (`users.reply_voice`) lists only the voices of the model that plays replies in the app's
   language (Kokoro's for en/es/fr/hi/pt, tts-1's for ru/tr/am: `models/voice_catalog.py`, the
   phone's `features/speech/model/voices.ts`, both held to `docs/fixtures/reply_voices.json`);
-  never picked (or set back to "Follow live talk voice"), it follows the live talk voice's
+  never picked (or set back to "Same as live talk"), it follows the live talk voice's
   gender; `/auth/me` sends the pick (`reply_voice`) and the voice that plays
   (`reply_voice_heard`). Two swaps remain, each to the voice of the same gender: a reply in
   another language than the app's plays in that language's voice, and a clip Kokoro fails to
-  play is played by tts-1 (the rest of that reply stays on tts-1). **Live talk
-  voice** (`users.tts_voice`, the realtime model's voices; Default keeps the server's). Listen
-  speed (0.75×–1.5×, on the device, pitch kept) and Use on-device voice (offline device speech
-  instead of the cloud voice).
+  play is played by tts-1 (the rest of that reply stays on tts-1). **Live talk**
+  (`users.tts_voice`, the realtime model's voices; Default keeps the server's). **Speed**
+  (0.75×–1.5×, on the device, pitch kept) and **Phone's voice** ("Plays replies offline with your
+  phone's built-in voice."). A voice picked in either menu says "Hi, I'm {Name}." in the app's
+  language, through the engine that will speak it (`POST /speech/voice-preview`,
+  `modules/speech/voice_preview.py`): a TTS voice by Kokoro or tts-1 (never a fallback in
+  another voice), a live talk voice by gpt-4o-mini-tts, which has every voice gpt-realtime
+  speaks. Each clip is made once per voice and language and kept in Redis for 30 days; the
+  phone keeps it for the run. A preview takes no Listen tokens, only the speech rate limit, and
+  Default (the server's live talk voice) says nothing.
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
 - ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
   kind under it, today to-do reminders

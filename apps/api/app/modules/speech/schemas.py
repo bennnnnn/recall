@@ -1,6 +1,7 @@
 """Speech request and response models."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -50,3 +51,15 @@ class SpeechLiveStatusOut(BaseModel):
     limit_seconds: int = 0
     min_session_seconds: int = 0
     resets_at: datetime | None = None
+
+
+class VoicePreviewIn(BaseModel):
+    # A voice id: Kokoro's ("af_heart") or OpenAI's ("marin"), checked against its engine.
+    voice: str = Field(min_length=1, max_length=16)
+    # "reply": the TTS (Listen) voice; "live": the live talk voice.
+    kind: Literal["reply", "live"]
+
+
+class VoicePreviewOut(BaseModel):
+    audio_base64: str
+    content_type: str = "audio/mpeg"
