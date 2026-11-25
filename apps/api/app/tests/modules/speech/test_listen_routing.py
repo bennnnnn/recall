@@ -103,8 +103,9 @@ def test_kokoro_reads_its_five_app_languages_and_tts1_the_rest() -> None:
             "speech-tts-kokoro-model",
             "speech-tts-model",
         )
-    for language in ("ru", "tr", "am", None):
-        assert model_catalog.read_aloud_aliases(language) == ("speech-tts-model",)
+    unclear: tuple[str | None, ...] = ("ru", "tr", "am", None)
+    for other in unclear:
+        assert model_catalog.read_aloud_aliases(other) == ("speech-tts-model",)
     kokoro = model_catalog.get("speech-tts-kokoro-model")
     assert (kokoro.provider, kokoro.api_key_field) == ("openrouter", "openrouter_api_key")
     assert model_catalog.openrouter_slug("speech-tts-kokoro-model") == "hexgrad/kokoro-82m"
@@ -156,7 +157,10 @@ def _client(response: MagicMock) -> AsyncMock:
     return client
 
 
-_KEYS = {"openai_api_key": "sk-test", "openrouter_api_key": "or-test", "mock_llm_enabled": False}
+def _keys(openrouter_api_key: str = "or-test") -> Settings:
+    return Settings(
+        openai_api_key="sk-test", openrouter_api_key=openrouter_api_key, mock_llm_enabled=False
+    )
 
 
 @pytest.mark.asyncio
@@ -169,7 +173,7 @@ async def test_a_kokoro_language_plays_through_openrouter_as_mp3(text: str, voic
     spent: list[float] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
         result = await synthesize_speech(
-            Settings(**_KEYS), text, reply_voice="af_bella", on_spend=spent.append
+            _keys(), text, reply_voice="af_bella", on_spend=spent.append
         )
     assert result == (b"ID3kokoro", "audio/mpeg")
     openai.post.assert_not_called()
@@ -191,9 +195,7 @@ async def test_other_languages_and_unclear_text_play_through_tts1(text: str) -> 
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
     spent: list[float] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
-        result = await synthesize_speech(
-            Settings(**_KEYS), text, voice="cedar", on_spend=spent.append
-        )
+        result = await synthesize_speech(_keys(), text, voice="cedar", on_spend=spent.append)
     assert result == (b"ID3tts1", "audio/mpeg")
     openrouter.post.assert_not_called()
     body = openai.post.call_args.kwargs["json"]
@@ -216,7 +218,7 @@ async def test_a_kokoro_failure_falls_back_to_tts1(kokoro: MagicMock) -> None:
     calls: list[str] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
         result = await synthesize_speech(
-            Settings(**_KEYS),
+            _keys(),
             ENGLISH,
             reply_voice="am_michael",
             on_call=lambda: calls.append("call"),
@@ -232,14 +234,14 @@ async def test_a_kokoro_timeout_falls_back_to_tts1() -> None:
     openrouter.post = AsyncMock(side_effect=TimeoutError())
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
-        assert await synthesize_speech(Settings(**_KEYS), ENGLISH) == (b"ID3tts1", "audio/mpeg")
+        assert await synthesize_speech(_keys(), ENGLISH) == (b"ID3tts1", "audio/mpeg")
 
 
 @pytest.mark.asyncio
 async def test_without_an_openrouter_key_kokoro_languages_play_through_tts1() -> None:
     openrouter = _client(_response(b"ID3kokoro", "audio/mpeg"))
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
-    settings = Settings(**{**_KEYS, "openrouter_api_key": ""})
+    settings = _keys(openrouter_api_key="")
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
         assert await synthesize_speech(settings, SPANISH) == (b"ID3tts1", "audio/mpeg")
     openrouter.post.assert_not_called()

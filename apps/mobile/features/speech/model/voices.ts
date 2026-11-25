@@ -1,4 +1,4 @@
-import type { UserVoice } from "@/lib/api";
+import type { User, UserVoice } from "@/lib/api";
 
 /** Settings → Voice → Live talk voice, in the order the menu lists them. Names are not translated. */
 export const USER_VOICES: readonly UserVoice[] = [
@@ -82,4 +82,15 @@ export function replyVoicesFor(locale: string | null | undefined): readonly Repl
 export function replyVoiceLabel(id: string): string {
   const name = id.includes("_") ? id.slice(id.indexOf("_") + 1) : id;
   return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/**
+ * The voice the Settings page's Voice row names: the reply voice, the one a tap on Listen
+ * plays (live talk's is on the Voice page); the live talk voice from an older server; else null.
+ */
+export function heardVoiceLabel(
+  user: Pick<User, "reply_voice" | "tts_voice"> | null | undefined,
+): string | null {
+  if (user?.reply_voice) return replyVoiceLabel(user.reply_voice);
+  return user?.tts_voice ? voiceLabel(user.tts_voice) : null;
 }
