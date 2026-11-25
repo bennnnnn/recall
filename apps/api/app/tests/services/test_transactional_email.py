@@ -8,7 +8,7 @@ from app.core.config import Settings
 from app.core.validation import LOCALE_NAMES
 from app.gateways import email_gateway
 from app.modules.notifications import transactional_email as tx_email
-from app.modules.notifications.email_copy import TEMPLATES
+from app.modules.notifications.email_copy import GREETINGS, RECEIPT_LINES, TEMPLATES
 from app.tests.fakes import redis_mock
 
 
@@ -43,17 +43,59 @@ def test_build_welcome_uses_locale_template():
     assert "Hola" in text
 
 
-@pytest.mark.parametrize("kind", ["welcome", "receipt"])
+@pytest.mark.parametrize("kind", sorted(TEMPLATES))
 @pytest.mark.parametrize("locale", sorted(LOCALE_NAMES))
 def test_every_app_language_has_its_own_email(kind: str, locale: str) -> None:
-    """Each app language writes its own welcome and receipt, with English's placeholders
-    (Hindi and Amharic fell back to English, 2026-11-20)."""
+    """Each app language writes its own copy of every email, with English's placeholders
+    (Hindi and Amharic fell back to English, 2026-11-20; every language's to-do reminder,
+    2026-11-25)."""
     copy = TEMPLATES[kind][locale]
     english = TEMPLATES[kind]["en"]
     for part in ("subject", "text", "html"):
         assert _placeholders(copy[part]) == _placeholders(english[part]), (locale, part)
     if locale != "en":
-        assert copy["subject"] != english["subject"]
+        assert copy["text"] != english["text"]
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALE_NAMES))
+def test_every_app_language_greets_and_writes_a_receipt(locale: str) -> None:
+    assert set(GREETINGS[locale]) == set(GREETINGS["en"])
+    assert set(RECEIPT_LINES[locale]) == set(RECEIPT_LINES["en"])
+    if locale != "en":
+        for key, line in RECEIPT_LINES[locale].items():
+            assert line != RECEIPT_LINES["en"][key], (locale, key)
+        assert GREETINGS[locale]["unnamed"] != GREETINGS["en"]["unnamed"]
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALE_NAMES))
+def test_no_email_speaks_english_in_another_language(locale: str) -> None:
+    """A user with no name got "Hola there" (2026-11-25); a receipt said "Event: RENEWAL"."""
+    if locale == "en":
+        return
+    user = _user(name="", locale=locale)
+    emails = [
+        tx_email.build_welcome(user),
+        tx_email.build_receipt(
+            user,
+            event_type="RENEWAL",
+            store="app_store",
+            expiration="2026-08-01T00:00:00+00:00",
+        ),
+        tx_email.build_todo_reminder(user, title="T", content="C"),
+    ]
+    for subject, html, text in emails:
+        for part in (subject, html, text):
+            for english in ("there", "Event:", "Store:", "Renews:", "Open Recall", "Hi "):
+                assert english not in part, (locale, english)
+            assert "RENEWAL" not in part and "app_store" not in part
+
+
+@pytest.mark.parametrize("locale", ["es", "fr", "pt", "ru", "tr"])
+def test_the_welcome_offers_no_learning_project(locale: str) -> None:
+    """The learning projects were removed (migration 0106); five welcomes still offered one."""
+    _, html, text = tx_email.build_welcome(_user(locale=locale))
+    for word in ("aprendizaje", "apprentissage", "aprendizado", "учебный", "öğrenme"):
+        assert word not in text and word not in html
 
 
 def _placeholders(template: str) -> set[str]:
@@ -119,40 +161,40 @@ def test_build_receipt_includes_event_and_optional_fields():
         user,
         event_type="INITIAL_PURCHASE",
         store="app_store",
-        product_id="recall.pro.monthly",
         expiration="2026-08-01T00:00:00+00:00",
     )
     assert subject == "Your Recall receipt"
-    assert "INITIAL_PURCHASE" in text
-    assert "app_store" in text
-    assert "recall.pro.monthly" in text
-    assert "2026-08-01T00:00:00+00:00" in text
-    assert "INITIAL_PURCHASE" in html
+    assert "Your Recall Pro subscription has started.\n" in text
+    assert "Bought through: App Store\n" in text
+    assert "Renews on: 2026-08-01\n" in text
+    assert "Your Recall Pro subscription has started.<br/>" in html
+    for raw in ("INITIAL_PURCHASE", "app_store", "T00:00:00"):
+        assert raw not in text and raw not in html
 
 
 def test_build_receipt_without_optional_fields_does_not_render_placeholders():
     user = _user(name="Bo", locale="en")
     _, _, text = tx_email.build_receipt(user, event_type="RENEWAL")
-    assert "RENEWAL" in text
-    # No expiration line when not provided.
-    assert "Renews:" not in text
+    assert "Your Recall Pro subscription has renewed." in text
+    # No store or renewal line when not provided.
+    assert "Renews" not in text and "Bought" not in text
+    assert "{" not in text
 
 
-def test_build_receipt_escapes_html_fields():
-    """event_type/store/product_id come from RevenueCat webhook data — less
-    trusted than direct user input — and must be escaped in the html variant
-    without corrupting the intentional <br/> separators around them."""
-    user = _user(name="Bo", locale="en")
+def test_a_receipt_names_no_event_or_store_it_does_not_know():
+    """event_type and store come from RevenueCat webhook data: an unknown one is said in
+    general words, never echoed into the email (nor its markup)."""
+    user = _user(name="Bo", locale="es")
     _, html, text = tx_email.build_receipt(
         user,
         event_type="<script>alert(1)</script>",
-        store="app_store",
-        product_id="recall.pro.monthly",
+        store="<b>evil</b>",
+        expiration="not a date",
     )
-    assert "<script>" not in html
-    assert "&lt;script&gt;" in html
-    assert "<br/>" in html  # the real separator survives escaping the fields around it
-    assert "<script>alert(1)</script>" in text
+    assert "Tu suscripción a Recall Pro está activa." in text
+    for part in (html, text):
+        assert "script" not in part and "evil" not in part and "not a date" not in part
+    assert "<br/>" in html
 
 
 @pytest.mark.asyncio
@@ -180,7 +222,7 @@ async def test_send_purchase_receipt_dispatches_via_gateway():
     assert ok is True
     kwargs = mocked.await_args.kwargs
     assert kwargs["subject"] == "Your Recall receipt"
-    assert "RENEWAL" in kwargs["text"]
+    assert "has renewed" in kwargs["text"]
 
 
 @pytest.mark.asyncio

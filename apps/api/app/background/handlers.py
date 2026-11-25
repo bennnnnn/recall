@@ -283,7 +283,6 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
             user,
             event_type=str(payload.get("event_type") or ""),
             store=payload.get("store"),
-            product_id=payload.get("product_id"),
             expiration=payload.get("expiration"),
         )
     else:

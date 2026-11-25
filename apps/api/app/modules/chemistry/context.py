@@ -18,7 +18,7 @@ from app.modules.chemistry.block import (
     verified_iupac,
     verified_structure,
 )
-from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
+from app.modules.chemistry.elements import BY_NAME, BY_NUMBER, BY_SYMBOL, Element
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.extractors.atom_particles import asks_more_particles
@@ -60,16 +60,8 @@ _STOICH_CUE = re.compile(
     r"\b(?:how\s+much|how\s+many|amount\s+of|moles\s+of|grams?\s+of|limiting\s+reagent)\b",
     re.IGNORECASE,
 )
-# British and IUPAC spellings the table (which follows the American ones) does not carry.
-_ELEMENT_SPELLINGS = {"aluminium": "Al", "caesium": "Cs", "sulphur": "S"}
-_ELEMENT_BY_NAME: dict[str, Element] = {
-    **{element.name.lower(): element for element in ELEMENTS},
-    **{
-        spelling: next(e for e in ELEMENTS if e.symbol == symbol)
-        for spelling, symbol in _ELEMENT_SPELLINGS.items()
-    },
-}
-_SYMBOL_BY_TEXT: dict[str, Element] = {element.symbol: element for element in ELEMENTS}
+# Either spelling of a name ("aluminium", "aluminum"): the one table, ``elements.BY_NAME``.
+_ELEMENT_BY_NAME: dict[str, Element] = {name: BY_SYMBOL[symbol] for name, symbol in BY_NAME.items()}
 # "carbon dioxide", "sodium chloride", "hydrogen bond": the element word names a compound or a
 # bond, not the element.
 _COMPOUND_FOLLOWERS = frozenset(
@@ -200,7 +192,7 @@ def _named_elements(content: str) -> list[Element]:
         if element is not None:
             found.setdefault(element.number, element)
     for symbol in _SYMBOL_AFTER_CUE.finditer(content):
-        element = _SYMBOL_BY_TEXT.get(symbol.group(1))
+        element = BY_SYMBOL.get(symbol.group(1))
         if element is not None:
             found.setdefault(element.number, element)
     return list(found.values())[:_MAX_ELEMENTS]

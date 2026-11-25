@@ -1,20 +1,26 @@
-"""Transactional email content + dispatch (welcome, purchase receipts).
+"""Transactional email content + dispatch (welcome, purchase receipts, to-do reminders).
 
-Templates are locale-aware via ``user.locale``. English is the source and the
-fallback for any locale without a dedicated translation; the structure makes
-adding more locales a data-only change. All dispatch goes through
-``email_gateway.send_email`` and is best-effort.
+Every email is in the user's language (``user.locale``): each app language has its own copy
+(``email_copy``), English only for a locale the app does not offer. No word of an email is
+RevenueCat's or the code's own (an event name, a store id, a timestamp). All dispatch goes
+through ``email_gateway.send_email`` and is best-effort.
 """
 
 from __future__ import annotations
 
 import html as html_lib
+from datetime import datetime
 from typing import Any
 
 from app.core.config import Settings
 from app.gateways import email_gateway
 from app.models.orm import User
-from app.modules.notifications.email_copy import TEMPLATES
+from app.modules.notifications.email_copy import (
+    GREETINGS,
+    RECEIPT_LINES,
+    STORE_NAMES,
+    TEMPLATES,
+)
 from app.services import locale as locale_service
 
 # Locale codes supported by the mobile app (mirrors services/locale.py).
@@ -26,9 +32,13 @@ def _locale_for(user: User) -> str:
     return code if code in _SUPPORTED_LOCALES else "en"
 
 
-def _display_name(user: User) -> str:
+def _greeting(user: User, locale: str, *, html: bool) -> str:
+    """The email's opening line in ``locale``: by name, or without one when there is none."""
     name = (user.name or "").strip()
-    return name if name else "there"
+    bundle = GREETINGS.get(locale, GREETINGS["en"])
+    if not name:
+        return _esc(bundle["unnamed"]) if html else bundle["unnamed"]
+    return bundle["named"].format(name=_esc(name) if html else name)
 
 
 def _template(kind: str, locale: str) -> dict[str, str]:
@@ -47,11 +57,10 @@ def _esc(value: object) -> str:
     """HTML-escape a value bound for an `html` template variant.
 
     Every value going into the HTML template is escaped: name, title, content and body
-    are user-entered (a to-do's text, a display name) and event_type, store and
-    product_id come from RevenueCat webhooks, so a to-do titled
-    ``<img src=x onerror=...>`` would otherwise be live markup in the recipient's mail
-    client. Not for the ``text`` variant: plain text needs no escaping, and ``&amp;``
-    would only be noise.
+    are user-entered (a to-do's text, a display name) and the receipt's store and date come
+    from RevenueCat webhooks, so a to-do titled ``<img src=x onerror=...>`` would otherwise
+    be live markup in the recipient's mail client. Not for the ``text`` variant: plain text
+    needs no escaping, and ``&amp;`` would only be noise.
     """
     return html_lib.escape(str(value))
 
@@ -69,12 +78,36 @@ def build_welcome(user: User) -> tuple[str, str, str]:
     """Return (subject, html, text) for the welcome email."""
     locale = _locale_for(user)
     tpl = _template("welcome", locale)
-    name = _display_name(user)
     return (
         tpl["subject"],
-        _render(tpl["html"], name=_esc(name)),
-        _render(tpl["text"], name=name),
+        _render(tpl["html"], greeting=_greeting(user, locale, html=True)),
+        _render(tpl["text"], greeting=_greeting(user, locale, html=False)),
     )
+
+
+def receipt_lines(
+    locale: str, *, event_type: str, store: str | None, expiration: str | None
+) -> tuple[list[str], str | None]:
+    """The receipt's lines in ``locale``: what happened to the plan and the store it was
+    bought through, then the day it renews (read in UTC), or None. A store or a date it
+    cannot name is left out."""
+    copy = RECEIPT_LINES.get(locale, RECEIPT_LINES["en"])
+    lines = [copy.get(event_type, copy["other"])]
+    store_name = STORE_NAMES.get((store or "").strip().lower())
+    if store_name:
+        lines.append(copy["store"].format(store=store_name))
+    day = _day(expiration)
+    return lines, None if day is None else copy["renews"].format(date=day)
+
+
+def _day(instant: str | None) -> str | None:
+    """``2026-08-01T00:00:00+00:00`` as the date ``2026-08-01``; None when it is no time."""
+    if not instant:
+        return None
+    try:
+        return datetime.fromisoformat(instant).date().isoformat()
+    except ValueError:
+        return None
 
 
 def build_receipt(
@@ -82,44 +115,25 @@ def build_receipt(
     *,
     event_type: str,
     store: str | None = None,
-    product_id: str | None = None,
     expiration: str | None = None,
 ) -> tuple[str, str, str]:
     """Return (subject, html, text) for a purchase/renewal receipt."""
     locale = _locale_for(user)
     tpl = _template("receipt", locale)
-    name = _display_name(user)
-
-    event_line = f"Event: {event_type}\n"
-    if store:
-        event_line += f"Store: {store}\n"
-    if product_id:
-        event_line += f"Product: {product_id}\n"
-    expiration_line = f"Renews: {expiration}\n" if expiration else ""
-
-    # Built independently from event_line/expiration_line (not derived via
-    # str.replace) so each field can be escaped before it's embedded — the
-    # text variant must stay unescaped, so the two can't share one fragment.
-    event_line_html = f"Event: {_esc(event_type)}<br/>"
-    if store:
-        event_line_html += f"Store: {_esc(store)}<br/>"
-    if product_id:
-        event_line_html += f"Product: {_esc(product_id)}<br/>"
-    expiration_line_html = f"Renews: {_esc(expiration)}<br/>" if expiration else ""
-
+    lines, renews = receipt_lines(locale, event_type=event_type, store=store, expiration=expiration)
     return (
         tpl["subject"],
         _render(
             tpl["html"],
-            name=_esc(name),
-            event_line_html=event_line_html,
-            expiration_line_html=expiration_line_html,
+            greeting=_greeting(user, locale, html=True),
+            event_line_html="".join(f"{_esc(line)}<br/>" for line in lines),
+            expiration_line_html=f"{_esc(renews)}<br/>" if renews else "",
         ),
         _render(
             tpl["text"],
-            name=name,
-            event_line=event_line,
-            expiration_line=expiration_line,
+            greeting=_greeting(user, locale, html=False),
+            event_line="".join(f"{line}\n" for line in lines),
+            expiration_line=f"{renews}\n" if renews else "",
         ),
     )
 
@@ -127,11 +141,20 @@ def build_receipt(
 def build_todo_reminder(user: User, *, title: str, content: str) -> tuple[str, str, str]:
     locale = _locale_for(user)
     tpl = _template("todo_reminder", locale)
-    name = _display_name(user)
     return (
         _render(tpl["subject"], title=title, content=_strip_header_chars(content)),
-        _render(tpl["html"], name=_esc(name), title=_esc(title), content=_esc(content)),
-        _render(tpl["text"], name=name, title=title, content=content),
+        _render(
+            tpl["html"],
+            greeting=_greeting(user, locale, html=True),
+            title=_esc(title),
+            content=_esc(content),
+        ),
+        _render(
+            tpl["text"],
+            greeting=_greeting(user, locale, html=False),
+            title=title,
+            content=content,
+        ),
     )
 
 
@@ -151,15 +174,10 @@ async def send_purchase_receipt(
     *,
     event_type: str,
     store: str | None = None,
-    product_id: str | None = None,
     expiration: str | None = None,
 ) -> bool:
     subject, html, text = build_receipt(
-        user,
-        event_type=event_type,
-        store=store,
-        product_id=product_id,
-        expiration=expiration,
+        user, event_type=event_type, store=store, expiration=expiration
     )
     return await email_gateway.send_email(
         settings, to=user.email, subject=subject, html=html, text=text

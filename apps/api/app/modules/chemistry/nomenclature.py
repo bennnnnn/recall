@@ -13,6 +13,7 @@ import math
 import re
 from dataclasses import dataclass
 
+from app.modules.chemistry.elements import BY_SYMBOL, OTHER_SPELLINGS
 
 @dataclass(frozen=True, slots=True)
 class Ion:
@@ -86,8 +87,8 @@ _ANIONS: tuple[Ion, ...] = (
     Ion("SCN", "thiocyanate", -1, polyatomic=True),
 )
 _ALIASES = {
-    "aluminium": "aluminum",
-    "caesium": "cesium",
+    # An element's other spelling is the table's (``elements.OTHER_SPELLINGS``).
+    **{spelling: BY_SYMBOL[symbol].name.lower() for spelling, symbol in OTHER_SPELLINGS.items()},
     "sulphate": "sulfate",
     "sulphide": "sulfide",
     "sulphite": "sulfite",
