@@ -266,6 +266,13 @@ constant and an activity. A chemistry question routes to physics for them
   the setting, and in grams and °C a specific heat is per gram and degree (`0.558 J/(g·°C)`,
   not `558 J/(kg·K)`).
 
+The ideal-gas density `ρ = PM/RT` is physics' law too, but only chemistry reads a molar mass
+from the gas it names ("the density of CO2 at STP"): its two rows (a density, and a molar mass
+from a density) take physics' arithmetic in their own names and units
+(`services/law_binding/shared_laws.py`), never a copy. The shared-law test reads every
+chemistry row's formula, its symbols by dimension, against physics' catalog, so a law
+written again under another name fails it (`test_shared_law_formulas.py`).
+
 Every converted answer shows the conversion as its last substitution row. Routing also runs
 the other way: a closed chemistry calculation (a mass percent, a molality, a cell potential)
 is chemistry's before physics can claim its numbers. A gas law with no unit, or a Celsius

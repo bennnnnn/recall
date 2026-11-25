@@ -13,6 +13,16 @@ from __future__ import annotations
 
 from app.modules.chemistry.formula_record import FormulaLaw, _law
 from app.modules.chemistry.stated_laws import STATED_LAWS
+from app.services.law_binding.shared_laws import IDEAL_GAS_DENSITY, in_names, solved_for
+
+# A gas's density is physics' law (``shared_laws``): these rows read its arithmetic in their
+# own names and units (atm, g/mol, K, g/L, the gas constant in L·atm/(mol·K)).
+_GAS_NAMES = {
+    "pres": "pressure",
+    "temp": "temperature",
+    "R_gas": "R_atm",
+    "ideal_gas_density": "density",
+}
 
 _BUILT_IN: dict[str, FormulaLaw] = {
     law.op: law
@@ -182,7 +192,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "ρ = PM / RT",
             "Density, ρ",
             ("ρ", "g/L"),
-            "pressure*molar_mass/(R_atm*temperature)",
+            in_names(IDEAL_GAS_DENSITY.expression, _GAS_NAMES),
             (
                 ("pressure", "P", "atm"),
                 ("molar_mass", "M({formula})", "g/mol"),
@@ -197,7 +207,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "M = ρRT / P",
             "Molar mass, M",
             ("M", "g/mol"),
-            "density*R_atm*temperature/pressure",
+            solved_for(IDEAL_GAS_DENSITY, "molar_mass", _GAS_NAMES),
             (
                 ("density", "ρ", "g/L"),
                 ("temperature", "T", "K"),
