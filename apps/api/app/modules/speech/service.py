@@ -116,11 +116,6 @@ STT_ROUTES: tuple[SttRoute, ...] = (
     ),
     SttRoute(_STT_OPENAI_ALIAS, None, quota_spend.STT_OPENAI_SPEND_USD),
 )
-# The Whisper models OpenRouter lists for /audio/transcriptions: the only values
-# SPEECH_TRANSCRIPTION_MODEL may set (an old OpenAI-direct or other name is ignored).
-_WHISPER_OVERRIDES = frozenset(
-    {"openai/whisper-large-v3-turbo", "openai/whisper-large-v3", "openai/whisper-1"}
-)
 
 
 def stt_routes_for(language: str | None) -> tuple[SttRoute, ...]:
@@ -136,7 +131,7 @@ def resolve_stt_model(settings: Settings, alias: str = _STT_ALIAS) -> str:
     with another of OpenRouter's Whisper models; any other value (``gpt-4o-mini-transcribe``
     from when the clip went to OpenAI directly) uses the catalog's model."""
     override = (settings.speech_transcription_model or "").strip()
-    if alias == _STT_ALIAS and override in _WHISPER_OVERRIDES:
+    if alias == _STT_ALIAS and transcription_gateway.can_transcribe_with(override):
         return override
     return openrouter_slug(alias)
 

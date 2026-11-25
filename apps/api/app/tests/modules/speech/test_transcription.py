@@ -397,31 +397,27 @@ async def test_a_code_live_dictation_saw_refused_still_goes_to_whisper():
     assert body["language"] == "es" and "prompt" not in body
 
 
-@pytest.mark.asyncio
-async def test_a_refused_language_is_dropped_once_and_detected():
-    client = _client(
-        _response(400, text='{"error": {"message": "Unsupported language: xx"}}'),
-        _response(200, {"text": "bonjour"}),
-    )
-
-    with patch(_WHISPER_CLIENT, return_value=client):
-        text = await transcription_gateway.transcribe_via_openrouter(
-            _settings(),
-            b"audio",
-            filename="a.m4a",
-            model="openai/whisper-large-v3-turbo",
-            language="xx-YY",
-        )
-
-    assert text == "bonjour"
-    first, second = (call.kwargs["json"] for call in client.post.call_args_list)
-    assert first["language"] == "xx"
-    assert "language" not in second
+@pytest.mark.parametrize(
+    "model, takes",
+    [
+        ("openai/whisper-large-v3-turbo", True),
+        ("openai/whisper-large-v3", True),
+        ("openai/whisper-1", True),
+        ("openai/gpt-4o-mini-transcribe", False),
+        ("gpt-4o-mini-transcribe", False),
+        ("google/gemini-3.5-transcribe", False),
+        ("", False),
+    ],
+)
+def test_the_gateway_names_the_whisper_models_it_sends(model: str, takes: bool):
+    assert transcription_gateway.can_transcribe_with(model) is takes
 
 
 @pytest.mark.asyncio
-async def test_a_400_that_is_not_the_language_is_not_retried():
-    client = _client(_response(400, text='{"error": {"message": "Invalid audio"}}'))
+async def test_a_400_is_a_failure_asked_once():
+    """Whisper takes every language its route sends: a 400 is not retried here, and the
+    route loop asks OpenAI next."""
+    client = _client(_response(400, text='{"error": {"message": "Unsupported language"}}'))
 
     with patch(_WHISPER_CLIENT, return_value=client):
         text = await transcription_gateway.transcribe_via_openrouter(
