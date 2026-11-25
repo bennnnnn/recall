@@ -158,3 +158,21 @@ async def test_storage_sweep_purges_the_users_jobs(fake_redis: Any, monkeypatch)
     )
     assert "gone-" not in text and gone not in text
     assert "kept-secret" in text
+
+
+@pytest.mark.asyncio
+async def test_a_due_member_no_entry_reads_from_is_dropped(fake_redis: Any) -> None:
+    """``member_fields`` is the one reader of a waiting member: one it cannot read could
+    never run, so moving due entries drops it instead of putting it back every minute."""
+    from app.core.jobs import delayed
+
+    await jobs.enqueue_later(fake_redis, "memory", {"user_id": "u"}, delay_s=0)
+    for junk in ("not-json", '{"fields": ["a list"]}', '{"no": "fields"}'):
+        await fake_redis.zadd(delayed.DELAYED_ZSET, {junk: 1.0})
+
+    moved = await delayed.move_due(fake_redis, now=10**10)
+
+    assert moved == 1
+    assert await delayed.delayed_depth(fake_redis) == 0
+    [(_id, fields)] = await fake_redis.xrange(jobs.JOBS_STREAM)
+    assert fields["type"] == "memory"

@@ -40,6 +40,7 @@ from app.modules.chat.turn_intercepts import (
     intercept_new_turn,
     intercept_regenerate,
     may_paint,
+    regenerate_may_paint,
     start_reply_picture,
 )
 from app.modules.chat.turn_load import (
@@ -151,6 +152,42 @@ async def _refuse_a_spent_day(
     ):
         return
     raise QuotaExceededError(quota_exceeded_message(turn.user))
+
+
+async def _refuse_a_spent_regenerate(
+    deps: ChatTurnDeps, settings: Settings, res: TurnResources, turn: RegenerateTurn
+) -> None:
+    """A regenerate at the cap, as a new turn (``_refuse_a_spent_day``): only a painted
+    picture, the reply redone or the line's words, may still answer it."""
+    if await res.message_left(turn.user, settings):
+        return
+    if regenerate_may_paint(
+        deps,
+        settings,
+        user=turn.user,
+        content=turn.content,
+        recent=turn.before_line,
+        backup=turn.backup,
+    ):
+        return
+    raise QuotaExceededError(quota_exceeded_message(turn.user))
+
+
+async def _reserve_regenerate(
+    res: TurnResources, settings: Settings, turn: RegenerateTurn, model_alias: str | None
+) -> tuple[list[UUID], str]:
+    """The line's photos and the model that reads them, with the turn's message and tokens
+    reserved for that model."""
+    current_image_ids, model = _regenerate_images(turn, settings, model_alias)
+    await res.reserve(
+        user=turn.user,
+        content=turn.content,
+        model=model,
+        settings=settings,
+        max_output=settings.max_output_tokens,
+        vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
+    )
+    return current_image_ids, model
 
 
 @contextmanager
@@ -462,6 +499,7 @@ async def stream_regenerate_response(
         )
         if outcome is not None:
             outcome.mark_user_message_saved()  # The message answered again just loaded.
+        await _refuse_a_spent_regenerate(deps, settings, res, turn)
         settings, live_read = _turn_settings(settings, turn.user, turn.content, turn.before_line)
         misses: set[str] = set()
         with _reads_stopped_on_error(live_read):
@@ -469,15 +507,7 @@ async def stream_regenerate_response(
                 deps, settings, turn, chat_id, outcome, misses=misses, status=status, read=live_read
             ):
                 return
-            current_image_ids, model = _regenerate_images(turn, settings, model_alias)
-            await res.reserve(
-                user=turn.user,
-                content=turn.content,
-                model=model,
-                settings=settings,
-                max_output=settings.max_output_tokens,
-                vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
-            )
+            current_image_ids, model = await _reserve_regenerate(res, settings, turn, model_alias)
             request = TurnRequest(
                 user_id=user_id,
                 chat_id=chat_id,

@@ -247,3 +247,26 @@ async def test_a_turn_sending_a_pdf_keeps_its_message_on_a_plan_whose_ocr_it_cov
     await res.refund()  # stopped before the first token
 
     assert await quota_service.messages_used(fake_redis, user.id) == (1 if kept else 0)
+
+
+@pytest.mark.parametrize(
+    ("plan", "settings", "used", "left"),
+    [
+        ("free", _SETTINGS, 2, True),
+        ("free", _SETTINGS, 3, False),
+        # Free set to no messages (chat paused): no message left, not "no cap".
+        ("free", Settings(daily_message_limit=0), 0, False),
+        ("pro", Settings(), 50, True),
+    ],
+)
+async def test_message_left_agrees_with_the_reserve(fake_redis, plan, settings, used, left):
+    """The at-cap check before a turn's paid reads answers as ``reserve`` would: a plan set
+    to none refuses every turn, so its reads must not start (review of #2590)."""
+    user = _user(plan)
+    for _ in range(used):
+        await quota_service.reserve_message(fake_redis, user, Settings(daily_message_limit=10**6))
+    res = _resources(fake_redis, user)
+    assert await res.message_left(user, settings) is left
+    if not left:
+        with pytest.raises(QuotaExceededError):
+            await res.reserve(user=user, content="hi", model="free-chat", settings=settings)

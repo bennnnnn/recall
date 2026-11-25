@@ -16,6 +16,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.memory import locks
+from app.modules.memory import repository as memories_repo
 from app.repositories import users as users_repo
 
 
@@ -53,30 +54,97 @@ async def test_a_holder_that_stopped_frees_the_lock_after_one_ttl(short_lock: An
     assert await locks.take_memory_write_lock(user_id) is not None
 
 
-async def test_consolidation_keeps_the_lock_while_it_merges() -> None:
-    """The pass that runs one model call per pair holds a keeper from take to release."""
-    from app.core.config import Settings
-    from app.modules.memory import consolidation_workflow as workflow
+def _holder(name: str, order: list[str]) -> tuple[Any, list[Any]]:
+    """A holder's call and the patches that record its lock's take, keep, stop and release.
 
-    order: list[str] = []
+    Extraction, consolidation and learning progress import the lock's functions; instruct
+    and the hand edits call them through ``locks``. Each runs its shortest path: the user
+    gone, memory off, nothing deleted."""
+    from app.core.config import Settings
+    from app.modules.memory import (
+        consolidation_workflow,
+        crud,
+        extraction_workflow,
+        instruct,
+        learning_progress,
+    )
+
     keeper = MagicMock()
 
     def keep(_user_id: Any, token: Any) -> Any:
         order.append(f"keep:{token}")
         return keeper
 
-    with (
-        patch.object(workflow, "acquire_memory_write_lock", AsyncMock(return_value="tok")),
-        patch.object(workflow, "keep_memory_write_lock", keep),
-        patch.object(workflow, "stop_keeping", lambda k: order.append(f"stop:{k is keeper}")),
-        patch.object(
-            workflow,
-            "release_memory_write_lock",
-            AsyncMock(side_effect=lambda *_args: order.append("release")),
-        ),
-        patch.object(users_repo, "get_by_id", AsyncMock(return_value=None)),
-        patch.object(workflow, "SessionLocal", MagicMock()),
-    ):
-        await workflow.consolidate_user_memory_sections(Settings(), user_id=uuid4())
+    def stop(kept: Any) -> None:
+        order.append(f"stop:{kept is keeper}")
+
+    release = AsyncMock(side_effect=lambda *_args: order.append("release"))
+    common: dict[str, Any] = {"keep_memory_write_lock": keep, "stop_keeping": stop}
+    common["release_memory_write_lock"] = release
+    gone = patch.object(users_repo, "get_by_id", AsyncMock(return_value=None))
+    settings, user_id = Settings(), uuid4()
+    if name in ("extraction", "consolidation", "learning progress"):
+        module = {
+            "extraction": extraction_workflow,
+            "consolidation": consolidation_workflow,
+            "learning progress": learning_progress,
+        }[name]
+        taken: dict[str, Any] = {
+            "acquire_memory_write_lock": AsyncMock(return_value="tok"),
+            **common,
+        }
+        patches = [patch.multiple(module, **taken), patch.object(module, "SessionLocal"), gone]
+        call = {
+            "extraction": lambda: extraction_workflow.extract_and_store_memories(
+                settings, user_id=user_id, chat_id=uuid4(), transcript="I live in Denver."
+            ),
+            "consolidation": lambda: consolidation_workflow.consolidate_user_memory_sections(
+                settings, user_id=user_id
+            ),
+            "learning progress": lambda: learning_progress.record_learning_progress(
+                settings, user_id=user_id, chat_id=uuid4(), text="Learning X", started_at=None
+            ),
+        }[name]
+        return call, patches
+    if name == "instruct":
+        taken = {"take_memory_write_lock": AsyncMock(return_value="tok"), **common}
+        off = AsyncMock(return_value=MagicMock(memory_enabled=False))
+        patches = [
+            patch.multiple(locks, **taken),
+            patch.object(instruct, "SessionLocal"),
+            patch.object(instruct, "load_memory_snapshot", off),
+        ]
+
+        async def ask() -> None:
+            with pytest.raises(instruct.MemoryOffError):
+                await instruct.apply_memory_instruction(
+                    settings, user_id=user_id, instruction="forget my city"
+                )
+
+        return ask, patches
+    taken = {
+        "acquire_memory_write_lock_or_raise": AsyncMock(return_value="tok"),
+        **common,
+    }
+    patches = [
+        patch.multiple(locks, **taken),
+        patch.object(memories_repo, "delete_by_id", AsyncMock(return_value=0)),
+    ]
+    return lambda: crud.delete_memory(AsyncMock(), user_id, uuid4()), patches
+
+
+@pytest.mark.parametrize(
+    "holder", ["extraction", "consolidation", "learning progress", "instruct", "hand edit"]
+)
+async def test_every_holder_keeps_the_lock_while_it_works(holder: str) -> None:
+    """Each holder takes, keeps, stops keeping, then releases the lock, on every path."""
+    from contextlib import ExitStack
+
+    order: list[str] = []
+    call, patches = _holder(holder, order)
+    with ExitStack() as stack:
+        for each in patches:
+            stack.enter_context(each)
+        await call()
 
     assert order == ["keep:tok", "stop:True", "release"]

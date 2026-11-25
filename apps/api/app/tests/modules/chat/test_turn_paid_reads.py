@@ -247,3 +247,51 @@ async def test_a_refused_regenerate_stops_its_reads(fake_redis: Any, refused_at:
     await asyncio.sleep(0)
     assert reads.live.cancelled()
     assert stopped.called is (refused_at == "top_up")
+
+
+@pytest.mark.parametrize(
+    ("redone", "reads_start"), [("free-chat", False), ("image-gen-model", True)]
+)
+async def test_an_at_cap_regenerate_starts_no_paid_read(
+    fake_redis: Any, redone: str, reads_start: bool
+) -> None:
+    """Review of #2590: a regenerate at 10/10 started its reads before ``reserve`` refused
+    it. Now it is refused first, as a new turn is; a painted reply redone (it takes no chat
+    message) still goes to the intercept, whose read decides."""
+    from types import SimpleNamespace
+
+    from app.models.orm import Chat
+
+    user = make_user(plan="free")
+    chat_id = uuid4()
+    await _spend_the_day(fake_redis, user)
+    window = [
+        SimpleNamespace(id=uuid4(), role="user", content="a cat", model=None),
+        SimpleNamespace(id=uuid4(), role="assistant", content="Miso.", model=redone),
+    ]
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        users={"get_by_id": AsyncMock(return_value=user)},
+        chats={"get_by_id": AsyncMock(return_value=Chat(id=chat_id, user_id=user.id))},
+        messages={
+            "list_recent": AsyncMock(return_value=window),
+            "count_for_chat": AsyncMock(return_value=len(window)),
+        },
+        model_choice={"resolve_regenerate_model": lambda *_args, **_kwargs: "free-chat"},
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+    )
+    with (
+        _watched_reads() as reads,
+        patch.object(turn_load, "wait_for_pending_finalize", AsyncMock()),
+        patch.object(stream_entry, "intercept_regenerate", AsyncMock(return_value=True)),
+    ):
+        try:
+            async for _ in stream_entry.stream_regenerate_response(
+                deps, fake_redis, Settings(), user_id=user.id, chat_id=chat_id
+            ):
+                pass
+            refused = False
+        except QuotaExceededError:
+            refused = True
+    assert refused is not reads_start
+    assert reads.start.called is reads_start

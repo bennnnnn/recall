@@ -461,6 +461,33 @@ async def test_a_failed_piece_stores_nothing_and_the_job_retries():
     replace_mock.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_a_provider_outage_stores_nothing_and_the_job_retries():
+    """A batch the provider did not embed raises in the gateway; indexing turns it into the
+    job's retry, as for a piece with no vector (review of #2590)."""
+    from app.gateways.embedding_gateway import EmbeddingUnavailableError
+
+    message = MagicMock(id=uuid4(), chat_id=uuid4(), role="user")
+    message.content = "My lease ends in March 2027 and the landlord wants sixty days notice."
+
+    async def _down(_settings, texts, *, concurrency):
+        raise EmbeddingUnavailableError("down")
+
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
+        patch("app.modules.conversation.history_rag.embedding_gateway.embed_many", _down),
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
+            AsyncMock(),
+        ) as replace_mock,
+        pytest.raises(HistoryEmbeddingUnavailable),
+    ):
+        await index_message(
+            Settings(chat_history_rag_enabled=True), user_id=uuid4(), message=message
+        )
+    replace_mock.assert_not_awaited()
+
+
 async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = True) -> int:
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
     account = SimpleNamespace(memory_enabled=memory_on, memory_edited_at=edited_at)

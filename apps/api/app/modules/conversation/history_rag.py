@@ -83,9 +83,12 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
     if not planned:
         return 0
     texts = [piece for _message, pieces in planned for piece in pieces]
-    vectors = await embedding_gateway.embed_many(
-        settings, texts, concurrency=settings.embedding_concurrency
-    )
+    try:
+        vectors = await embedding_gateway.embed_many(
+            settings, texts, concurrency=settings.embedding_concurrency
+        )
+    except embedding_gateway.EmbeddingUnavailableError as exc:
+        raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, provider unavailable") from exc
     if len(vectors) != len(texts) or any(
         vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
     ):

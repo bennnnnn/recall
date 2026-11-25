@@ -104,9 +104,14 @@ async def move_due(redis: Redis, *, now: float | None = None, limit: int = _MOVE
     for member in due:
         if not await redis.zrem(DELAYED_ZSET, member):
             continue
+        fields = member_fields(member)
+        if fields is None:
+            # Not an entry this queue wrote: it could never run, so it is dropped, not
+            # put back to fail again every minute.
+            logger.error("Unreadable delayed job dropped (%d chars)", len(member))
+            continue
         try:
-            fields = json.loads(member)["fields"]
-            await append_entry(redis, {str(key): str(value) for key, value in fields.items()})
+            await append_entry(redis, fields)
             moved += 1
         except Exception:
             logger.warning("Delayed job could not go back on the stream; retrying", exc_info=True)

@@ -153,6 +153,23 @@ def may_paint(
     )
 
 
+def regenerate_may_paint(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    *,
+    user: User,
+    content: str,
+    recent: list[Any],
+    backup: RegenerateBackup | None,
+) -> bool:
+    """Whether a regenerate may be answered by a painted picture: the reply redone is one
+    (its words need not name it, ``_image_regenerate_content``), or the line's words could
+    ask for one (``may_paint``; the line was read in the pool as the turn loaded)."""
+    if backup is not None and backup.model == _IMAGE_GEN_MODEL:
+        return True
+    return may_paint(deps, settings, user=user, content=content, recent=recent, revisions=True)
+
+
 async def try_image_gen_for_turn(
     deps: ChatTurnDeps,
     settings: Settings,
