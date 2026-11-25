@@ -120,3 +120,33 @@ async def test_turn_sources_without_a_search_are_quietly_empty(caplog):
     sources, warnings = await _sources_with(redis, caplog, uuid4())
     assert sources == []
     assert warnings == []
+
+
+@pytest.mark.asyncio
+async def test_voice_search_past_the_days_searches_says_so():
+    """Pro past its 40 searches: the voice model hears that today's searches are used up
+    (as chat's reply does), not a generic "no live results"."""
+    from app.modules.web_search.tool import _SEARCH_LIMIT
+
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    user = make_user(plan="pro", memory_enabled=True, timezone="UTC")
+    await redis.set(f"tavily:{user.id}:{_today()}", 40, ex=600)
+    search = AsyncMock(side_effect=AssertionError("no provider past the day's searches"))
+    with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
+        result = await execute_tool(
+            Settings(tavily_api_key="k", web_search_enabled=True),
+            redis,
+            user=user,
+            call_id="c",
+            turn_id="t",
+            name="web_search",
+            query="who won the race today",
+        )
+    assert result["content"] == _SEARCH_LIMIT
+    search.assert_not_awaited()
+
+
+def _today() -> str:
+    from app.services.quota.counters import utc_today
+
+    return utc_today().isoformat()

@@ -219,24 +219,125 @@ async def test_skip_tavily_when_user_missing(fake_redis):
 @pytest.mark.parametrize("used_today, skip", [(0, False), (1, True)])
 @pytest.mark.asyncio
 async def test_skip_tavily_follows_the_daily_cap(fake_redis, quota_clock, used_today, skip):
-    """Tavily runs while a slot is left today (reserve returns its day), then DuckDuckGo."""
+    """Pro: Tavily runs while a slot is left today (reserve returns its day); past it the
+    budget says the day's searches are used up."""
     from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.modules.billing.entitlements import setting_name
     from app.modules.web_search.search_cache import TurnTavilyBudget
 
-    settings = Settings(
-        tavily_api_key="test-key", **{setting_name("daily_web_searches", "free"): 1}
-    )
-    user = MagicMock(id=uuid4(), plan="free")
+    settings = Settings(tavily_api_key="test-key", **{setting_name("daily_web_searches", "pro"): 1})
+    user = MagicMock(id=uuid4(), plan="pro")
     key = f"tavily:{user.id}:2026-10-16"
     if used_today:
         await fake_redis.set(key, used_today, ex=60)
     budget = TurnTavilyBudget(settings=settings, user=user)
     assert await budget.skip_tavily(fake_redis) is skip
+    assert budget.daily_limit_reached is skip
     # A reserved search stays spent; one past the cap is given back at once.
     assert await fake_redis.get(key) == "1"
+
+
+@pytest.mark.asyncio
+async def test_pro_past_its_searches_searches_nothing(fake_redis, quota_clock):
+    """Pro's 40 a day are the most it gets: past them a turn reaches no provider, not
+    even the DuckDuckGo fallback, and the web_search tool tells the model why, so the
+    reply says the day's searches are used up instead of answering from memory."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.gateways.mcp.base import ToolContext
+    from app.modules.web_search.search_cache import TurnTavilyBudget
+    from app.modules.web_search.tool import _SEARCH_LIMIT, WebSearchAdapter
+
+    settings = Settings(tavily_api_key="test-key", web_search_enabled=True)
+    assert settings.daily_tavily_searches_pro == 40
+    user = MagicMock(id=uuid4(), plan="pro")
+    await fake_redis.set(f"tavily:{user.id}:2026-10-16", 40, ex=60)
+    search = AsyncMock(side_effect=AssertionError("no provider past the day's searches"))
+    ctx = ToolContext(
+        user=user,
+        redis=fake_redis,
+        chat_id=uuid4(),
+        user_timezone="UTC",
+        user_query="who won the race today?",
+        tavily_budget=TurnTavilyBudget(settings=settings, user=user),
+    )
+    with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
+        result = await WebSearchAdapter(settings).invoke({"query": "race winner"}, ctx)
+
+    search.assert_not_awaited()
+    assert result.content == _SEARCH_LIMIT
+    assert "used up" in result.content and "from memory" in result.content
+    assert await fake_redis.get(f"tavily:{user.id}:2026-10-16") == "40"
+
+
+@pytest.mark.asyncio
+async def test_pro_within_its_searches_asks_tavily_first(fake_redis, quota_clock):
+    """Within the 40 the turn's search takes one slot and asks Tavily (skip_tavily False);
+    DuckDuckGo stands in only when Tavily itself fails, inside the gateway
+    (``test_search_web_falls_back_to_duckduckgo``)."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    settings = Settings(tavily_api_key="test-key", web_search_enabled=True)
+    user = MagicMock(id=uuid4(), plan="pro")
+    await fake_redis.set(f"tavily:{user.id}:2026-10-16", 39, ex=60)
+    hit = WebSearchHit(title="t", url="https://t.example", snippet="s")
+    search = AsyncMock(return_value=[hit])
+    with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
+        from app.modules.web_search.search_cache import _run_search
+
+        hits, _ = await _run_search(settings, ["q"], user=user, redis=fake_redis)
+
+    assert hits == [hit]
+    assert search.await_args.kwargs["skip_tavily"] is False
+    assert await fake_redis.get(f"tavily:{user.id}:2026-10-16") == "40"
+
+
+@pytest.mark.asyncio
+async def test_free_search_never_skips_tavily_or_counts(fake_redis, quota_clock):
+    """Free's searches follow its messages: every turn's search is Tavily's, whatever was
+    searched today, and no daily search counter is kept (never the DuckDuckGo fallback)."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import TurnTavilyBudget
+
+    settings = Settings(tavily_api_key="test-key")
+    user = MagicMock(id=uuid4(), plan="free")
+    for _ in range(25):
+        budget = TurnTavilyBudget(settings=settings, user=user)
+        assert await budget.skip_tavily(fake_redis) is False
+    assert await fake_redis.get(f"tavily:{user.id}:2026-10-16") is None
+
+
+@pytest.mark.parametrize("plan, second_runs", [("free", False), ("pro", True)])
+@pytest.mark.asyncio
+async def test_a_free_turn_covers_one_search(fake_redis, plan, second_runs):
+    """Free's message covers one search: a second search call in the same turn (the reply's
+    own ``web_search`` after the read's) reaches no provider, and the ledger says the
+    search was used. Pro's turn searches as before."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.modules.web_search.search_cache import TurnTavilyBudget, _run_search
+
+    settings = Settings(tavily_api_key="test-key", web_search_enabled=True)
+    user = MagicMock(id=uuid4(), plan=plan)
+    budget = TurnTavilyBudget(settings=settings, user=user)
+    search = AsyncMock(return_value=[WebSearchHit(title="t", url="https://a.example", snippet="s")])
+    with patch("app.modules.web_search.search_cache.web_search_gateway.search_web", search):
+        first, _ = await _run_search(settings, ["q1"], user=user, redis=fake_redis, budget=budget)
+        second, _ = await _run_search(settings, ["q2"], user=user, redis=fake_redis, budget=budget)
+
+    assert len(first) == 1
+    assert bool(second) is second_runs
+    assert search.await_count == (2 if second_runs else 1)
+    assert budget.search_used is not second_runs
+    # The first search's own query, Tavily's: never skipped to DuckDuckGo.
+    assert search.await_args_list[0].kwargs["skip_tavily"] is False
 
 
 @pytest.mark.asyncio

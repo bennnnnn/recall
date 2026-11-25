@@ -3,7 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Directory, File, Paths } from "expo-file-system";
 
 import { api } from "@/lib/api";
-import { uploadAttachmentBytes } from "@/features/attachments/api";
+import { uploadAttachmentBytes, type UploadPurpose } from "@/features/attachments/api";
 import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
 import { DOCUMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/attachments/model/attachmentPrep";
@@ -328,6 +328,7 @@ export async function pickDocument(): Promise<PendingAttachment | null> {
 export async function uploadChatAttachment(
   token: string,
   pending: PendingAttachment,
+  purpose: UploadPurpose = "chat",
 ): Promise<string> {
   requireTokenSession(token);
   const generation = getSessionGeneration();
@@ -343,6 +344,7 @@ export async function uploadChatAttachment(
     content_type: pending.contentType,
     size_bytes: sizeBytes,
     filename: pending.fileName,
+    purpose,
   }).catch((error: unknown) => {
     throw presignFailure(error);
   });

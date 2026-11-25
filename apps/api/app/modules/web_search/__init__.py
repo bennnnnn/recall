@@ -40,6 +40,7 @@ if TYPE_CHECKING:
     from app.modules.web_search.search_cache import (
         TurnTavilyBudget,
         run_cached_search,
+        turn_search_budget,
     )
     from app.modules.web_search.source_credits import drop_source_credits
     from app.modules.web_search.tool import WebSearchAdapter
@@ -70,6 +71,7 @@ _EXPORTS = {
     "names_its_place": "geo_intent",
     "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
+    "turn_search_budget": "search_cache",
     "sources_payload": "formatting",
     "strip_sources_from_text": "formatting",
     "wants_dated_results": "recency",
@@ -102,6 +104,7 @@ __all__ = [
     "run_cached_search",
     "sources_payload",
     "strip_sources_from_text",
+    "turn_search_budget",
     "wants_dated_results",
 ]
 

@@ -2,7 +2,6 @@ import base64
 import binascii
 import json
 from collections.abc import Callable
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -15,7 +14,8 @@ from app.models.orm import User
 from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech import service as speech_service
 from app.modules.speech.gates import (
-    RefundDayOnFailure,
+    charge_tts_tokens,
+    refund_day_on_failure,
     require_plan_feature,
     require_speech_rate,
     require_voice_spend_ok,
@@ -84,7 +84,6 @@ async def synthesize_speech(
     redis = get_redis_client()
     await require_voice_spend_ok(redis, settings)
     part = normalize_tts_part(body.part)
-    reserved_day: date | None = None
     followup_key = tts_followup_key(user.id)
     consumed_followup = False
     lead_hash = (body.lead_hash or "").strip()
@@ -92,7 +91,7 @@ async def synthesize_speech(
         consumed_followup = await try_consume_tts_followup(
             redis, followup_key, len(body.text), lead_hash
         )
-    # Same utterance as the lead: short clips within the char budget share one slot.
+    # Same utterance as the lead: its rest shares the lead's request (rate, spend).
     billed = not consumed_followup
     if billed:
         await require_speech_rate(
@@ -101,9 +100,10 @@ async def synthesize_speech(
             f"speech_tts_rl:{user.id}",
             quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
         )
-        reserved_day = await reserve_day_or_raise("speech_tts", redis, user, settings)
+    # No daily count: every part is charged to the day's token budget by its length.
+    charged = await charge_tts_tokens(redis, user, settings, body.text)
 
-    async with RefundDayOnFailure("speech_tts", redis, user.id, reserved_day) as refund:
+    async with charged as refund:
         alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
             settings,
@@ -194,7 +194,7 @@ async def transcribe_speech(
     # that keeps the slot; only a failure before the call gives it back.
     # Each transcriber asked adds its estimate: a Whisper failure retried on OpenAI is both.
     spent: list[float] = []
-    async with RefundDayOnFailure("speech_transcription", redis, user.id, day) as refund:
+    async with refund_day_on_failure("speech_transcription", redis, user.id, day) as refund:
         result = await _transcribe_bytes(
             settings, data, filename, language, refund.spend, spent.append
         )

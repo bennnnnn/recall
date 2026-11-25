@@ -296,16 +296,34 @@ server only knows the ids `free` and `pro`.
 | | Free | Pro |
 |---|---|---|
 | Models | free pool | all; Auto's everyday turns on the stronger model |
-| Chat messages / day | 10 | 1,000 |
-| Tokens / day (cost guardrail) | 400k | 15M |
-| Voice input / day | — | 200 |
-| Natural read-aloud / day | — (phone voice only) | 100 |
-| AI images / day | 3 | 15 |
-| Reference-photo lookups / day | 15 | 60 |
-| Web searches (Tavily) / day | 20 | 150 |
-| Image / document uploads / day | 5 / 10 | 30 / 100 |
+| Chat messages / day | 10 | unlimited |
+| Tokens / day (cost guardrail) | 400k | 15M (Pro's only daily stop) |
+| Voice input / day | — | 100 |
+| Natural read-aloud | — (phone voice only) | no count: each clip takes its text's tokens (about 4 characters each) from the day's tokens |
+| AI images / day | 3 | 30 |
+| Reference-photo lookups / day | follow messages | 30 |
+| Web searches (Tavily) / day | follow messages (one a turn) | 40, then none (no DuckDuckGo) |
+| Photo uploads / day | follow messages | follow messages (no count) |
+| Document uploads / day | follow messages | 100 |
+| Scanned PDFs OCR'd / day | follow messages | 100 (each copy a resend makes counts) |
+| File size (every upload) | 10 MB | 10 MB |
 | Library storage | 400 MiB | 4 GiB |
 | Live talk | — | 60 min / UTC calendar month |
+
+Owner's limits, 2026-11-24. "Follow messages" (`FOLLOW_MESSAGES` / `_PRO`, a list of
+allowances per plan) means no daily count of its own: an upload is allowed while the
+account has a message left today and does not use one up (the send does; with none
+left it is refused `quota_exceeded`, the chat's own words); a turn's search or photo
+lookup, and a sent scanned PDF's OCR, are covered by that turn's message, and at most
+one search a turn reaches the providers. Past Pro's 40 searches a turn searches
+nothing, not even DuckDuckGo, and the reply says today's searches are used up and
+reset tomorrow; DuckDuckGo stands in only when Tavily itself fails. What bounds uploads
+that are never sent: the 10 MB per file. A profile photo or an AI picture's reference
+photo (`purpose` `avatar` / `reference` on the presign) needs no message left: it goes
+out with none. A chat upload's refund gives back only a slot its presign recorded
+taking (`attachments/quota.record_upload_slot`). Bounds besides: the 10 MB per file (presign, the API's own upload and the stored
+R2 object are each held to it), the Library total (checked at every presign, one
+presign at a time per account) and the per-minute request limits.
 
 Every number is a setting in `core/settings/plans.py` (`<NAME>` for Free,
 `<NAME>_PRO` for Pro; see `apps/api/.env.example`). A metered feature belongs to
@@ -699,7 +717,7 @@ index jobs at once than it has of them.
 | `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), the idle ping included (`DB_IDLE_PING_SECONDS` below), so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
 | `DB_IDLE_PING_SECONDS` | `10` | A pooled Postgres connection idle this long is pinged on checkout: one simple `SELECT 1`, outside any transaction, so PgBouncer's transaction mode is fine with it. One used more recently is trusted, and one the server already closed (Neon suspend, a restart) is replaced without a round trip (`core/pool_liveness.py`). This replaced `pool_pre_ping`, which pinged on every checkout with three round trips (BEGIN, `;`, ROLLBACK: about 36 ms to Neon) before each session's first query. A connection that died within the window and that asyncpg has not yet seen close fails its first statement, and the pool recycles every older connection. A chat turn's reads, the save of its message and the save of its reply then run once more on a new connection (`pool_liveness.run_unit`, only when none of their statements had succeeded, so nothing is written twice). Any other request answers `503` + `Retry-After`, which the phone does not retry by itself: the user sees the error and tries again. `0` pings every checkout again. |
 | `LIBRARY_STORAGE_BYTES` / `_PRO` | 400 MiB / 4 GiB | Bytes one account keeps in its Library (the sum of its attachment rows: uploads, resend copies, generated pictures, reference photos), checked at presign. Over it: 409 `storage_full`; the user deletes files to make room. Generated pictures and reference photos count toward it but are not refused by it. |
-| `DAILY_DOCUMENT_LIMIT` / `_PRO` | `10` / `100` | Document (PDF, Word, text) uploads per user per UTC day, reserved at presign like images (`DAILY_IMAGE_LIMIT*`). Each is read and parsed on the API machine; a turn reads its files two at a time and drops a document's bytes once its excerpt is taken. |
+| `DAILY_DOCUMENT_LIMIT` / `_PRO` | `10` / `100` | Document (PDF, Word, text) uploads per user per UTC day, reserved at presign, on a plan that does not list `daily_document_uploads` in `FOLLOW_MESSAGES*` (Free does: its count is unused). Each is read and parsed on the API machine; a turn reads its files two at a time and drops a document's bytes once its excerpt is taken. |
 | `CHAT_HISTORY_RAG_SEARCH_WINDOW` / `ATTACHMENT_RAG_SEARCH_WINDOW` | `2000` / `2000` | Chunks one recall search ranks: the user's (or the chat's) newest. Exact distances over a bounded set; older chunks stay with their chat. |
 | `ANALYTICS_EVENT_RETENTION_DAYS` | `90` | Product events older than this are counted into `product_event_daily` and deleted by an hourly worker cycle (`ANALYTICS_RETENTION_DELETE_BATCH` 5,000 rows a statement, `ANALYTICS_RETENTION_MAX_DELETES_PER_CYCLE` 200,000 a run). `0` keeps them. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. Any other failure retries later (15 s, 1 min, 4 min, 16 min, 30 min, ±20%) and goes to the DLQ after the sixth attempt. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
@@ -767,9 +785,13 @@ Settings includes its reservation.
 
 **Scanned PDFs.** A PDF with no text layer is read with up to
 `ATTACHMENT_OCR_INDEX_MAX_PAGES` vision calls by the index job, which first
-takes one of the owner's daily image-upload slots (`DAILY_IMAGE_LIMIT*`). At
-the cap the file stays attached but is not searchable that day; a PDF read
-from its text layer gets the slot back.
+takes one of the owner's daily scanned-document slots
+(`DAILY_SCANNED_DOCUMENT_LIMIT*`, Pro 100). Every file the job reads counts, a
+Library resend's copy included (the copy is read again and never passes the
+presign's document count). Free's follow its messages: the PDF's own message
+covers it, so a turn that sends a PDF keeps its message even when stopped before the
+reply. At the cap the file stays attached but is not searchable that day; a
+PDF read from its text layer gets the slot back.
 
 ---
 

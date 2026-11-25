@@ -23,10 +23,21 @@ from app.modules.attachments.pasted_text import (
     PASTED_TEXT_MAX_BYTES,
     is_pasted_text,
 )
-from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
-from app.modules.attachments.schemas import AttachmentPresignOut
-from app.modules.attachments.storage_quota import has_room_for, storage_full_message
+from app.modules.attachments.quota import (
+    has_current_upload_reservation,
+    record_upload_slot,
+    refund_upload,
+    upload_counter,
+)
+from app.modules.attachments.schemas import AttachmentPresignOut, UploadPurpose
+from app.modules.attachments.storage_quota import (
+    has_room_for,
+    library_presign,
+    storage_full_message,
+)
 from app.services.quota import counters
+from app.services.quota.chat_messages import has_message_left
+from app.services.quota.messages import quota_exceeded_message
 
 
 class AttachmentUploadError(DomainError):
@@ -51,8 +62,10 @@ async def create_presigned_upload(
     content_type: str,
     size_bytes: int,
     filename: str | None = None,
+    purpose: UploadPurpose = "chat",
 ) -> AttachmentPresignOut:
-    """Validate, check Library room, reserve the day's slot, presign, create a pending row.
+    """Validate, check Library room, reserve the day's slot (or, on a plan whose uploads
+    follow messages, check one is left), presign, create a pending row.
 
     Both backends presign (local returns an API upload URL), so the Library total
     is checked here for both.
@@ -68,49 +81,69 @@ async def create_presigned_upload(
         raise AttachmentUploadError(PASTE_TOO_LONG_MESSAGE, status_code=400, code="paste_too_long")
 
     normalized = normalize_content_type(content_type)
-    room = await has_room_for(session, settings, user, size_bytes)
-    await session.commit()  # end the read: no transaction open across the presign
-    if not room:
-        raise AttachmentUploadError(
-            storage_full_message(user), status_code=409, code="storage_full"
-        )
-
-    gateway = get_storage_gateway(settings)
-    if isinstance(gateway, UnconfiguredStorageGateway):
-        raise AttachmentUploadError(
-            "Attachment storage is not configured",
-            status_code=503,
-        )
-
     redis = get_redis_client()
-    counter = upload_counter(normalized)
-    reserved_day = await counters.reserve(counter, redis, user, settings)
-    if not reserved_day:
-        raise AttachmentUploadError(
-            counters.limit_message(counter, user), status_code=429, code="daily_limit"
-        )
+    # One presign at a time per account: the Library total read and the pending row that
+    # adds to it are one step, so uploads racing the read cannot pass it together.
+    async with library_presign(redis, user.id):
+        room = await has_room_for(session, settings, user, size_bytes)
+        await session.commit()  # end the read: no transaction open across the presign
+        if not room:
+            raise AttachmentUploadError(
+                storage_full_message(user), status_code=409, code="storage_full"
+            )
 
-    try:
-        presigned = await gateway.presign_upload(
-            user_id=str(user.id),
-            content_type=normalized,
-            size_bytes=size_bytes,
-        )
-        attachment_id = UUID(presigned.attachment_id)
-        await attachments_repo.create_pending(
-            session,
-            attachment_id=attachment_id,
-            user_id=user.id,
-            storage_key=presigned.storage_key,
-            content_type=normalized,
-            size_bytes=size_bytes,
-            original_filename=original_filename,
-            commit=False,
-        )
-        await session.commit()
-    except Exception:
-        await counters.refund(counter, redis, user.id, day=reserved_day)
-        raise
+        gateway = get_storage_gateway(settings)
+        if isinstance(gateway, UnconfiguredStorageGateway):
+            raise AttachmentUploadError(
+                "Attachment storage is not configured",
+                status_code=503,
+            )
+
+        counter = upload_counter(normalized)
+        # A plan whose uploads follow its messages takes no upload slot: a chat file goes
+        # out with a message, so it may come while one is left, and the send takes it. A
+        # profile photo or a picture's reference photo is sent with no message.
+        if (
+            purpose == "chat"
+            and counters.follows_messages(counter, user, settings)
+            and not await has_message_left(redis, user, settings)
+        ):
+            raise AttachmentUploadError(
+                quota_exceeded_message(user), status_code=429, code="quota_exceeded"
+            )
+        # On a plan whose uploads follow its messages the reserve takes no slot: nothing to
+        # give back or record.
+        took_slot = not counters.follows_messages(counter, user, settings)
+        reserved_day = await counters.reserve(counter, redis, user, settings)
+        if not reserved_day:
+            raise AttachmentUploadError(
+                counters.limit_message(counter, user), status_code=429, code="daily_limit"
+            )
+
+        try:
+            presigned = await gateway.presign_upload(
+                user_id=str(user.id),
+                content_type=normalized,
+                size_bytes=size_bytes,
+            )
+            attachment_id = UUID(presigned.attachment_id)
+            await attachments_repo.create_pending(
+                session,
+                attachment_id=attachment_id,
+                user_id=user.id,
+                storage_key=presigned.storage_key,
+                content_type=normalized,
+                size_bytes=size_bytes,
+                original_filename=original_filename,
+                commit=False,
+            )
+            await session.commit()
+        except Exception:
+            if took_slot:
+                await counters.refund(counter, redis, user.id, day=reserved_day)
+            raise
+        if took_slot:
+            await record_upload_slot(redis, attachment_id, reserved_day)
 
     return AttachmentPresignOut(
         attachment_id=attachment_id,
@@ -149,4 +182,4 @@ async def cancel_pending_upload(
     failed = await delete_storage_keys(settings, removed)
     await enqueue_failed_storage_deletes(failed)
     if has_current_upload_reservation(row):
-        await counters.refund(upload_counter(row.content_type), get_redis_client(), user.id)
+        await refund_upload(get_redis_client(), row)

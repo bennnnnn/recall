@@ -38,6 +38,10 @@ export function formatUsageSummary(
   isPaid: boolean,
   t: Translate,
 ): string {
+  // A plan with no daily message cap (Pro) shows no count; only its hidden cost guard stops a day.
+  if (usage.messages_unlimited) {
+    return usage.remaining <= 0 ? t("settings.usage_exhausted_paid") : t("settings.usage_unlimited");
+  }
   const messages = usageMessages(usage);
   if (messages) {
     const left = messages.total - messages.used;

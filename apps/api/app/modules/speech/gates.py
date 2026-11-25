@@ -1,4 +1,5 @@
-"""The gates a paid speech request passes before it spends: plan, spend cap, rate, day.
+"""The gates a paid speech request passes before it spends: plan, spend cap, rate, day
+(read-aloud: its tokens).
 
 Each raises a ``SpeechRefusedError`` (a ``DomainError``): 403 opens the paywall, 429
 says which limit it hit. Callers keep their own order of checks.
@@ -7,6 +8,7 @@ says which limit it hit. Callers keep their own order of checks.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Literal
 from uuid import UUID
@@ -22,9 +24,13 @@ from app.modules.billing import can_use
 from app.modules.billing.entitlements import Feature
 from app.services import quota as quota_service
 from app.services.quota import counters
+from app.services.quota.messages import SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE
 
-# Speech's per-day counters in ``services/quota/counters.COUNTERS``.
-SpeechCounter = Literal["speech_tts", "speech_transcription"]
+# Speech's per-day counter in ``services/quota/counters.COUNTERS``: read-aloud has none,
+# its tokens are charged instead (``charge_tts_tokens``).
+SpeechCounter = Literal["speech_transcription"]
+
+_CHARS_PER_TOKEN = 4
 
 _RATE_WINDOW_SECONDS = 60
 
@@ -83,44 +89,83 @@ async def reserve_day_or_raise(
     return day
 
 
-class RefundDayOnFailure:
-    """``async with``: give a reserved slot back to its day when the block fails.
+class RefundOnFailure:
+    """``async with``: give back what a request took (a day's slot, read-aloud's tokens)
+    when the block fails.
 
-    A 429 refusal keeps the slot (a cap refusal is not a failed request), and so
-    does any failure once the provider was asked (``spend``): the provider may bill
-    a call that errored, returned nothing usable or was cut short by a cancel. It
-    refunded those, so a client that hung up mid-call, or audio the provider turns
-    away after upload, never used up the day. Any other refusal, error or
-    cancellation (before the call) refunds it. Without a *day* (nothing was
-    reserved) nothing is refunded. The block's exception always propagates. A
-    class rather than ``@asynccontextmanager``, whose generator would turn a
-    StopAsyncIteration out of Redis into a RuntimeError.
+    A 429 refusal keeps it (a cap refusal is not a failed request), and so does any
+    failure once the provider was asked (``spend``): the provider may bill a call that
+    errored, returned nothing usable or was cut short by a cancel. It refunded those,
+    so a client that hung up mid-call, or audio the provider turns away after upload,
+    never used up the day. Any other refusal, error or cancellation (before the call)
+    gives it back. With nothing to give back (*give_back* None) nothing happens. The
+    block's exception always propagates. A class rather than
+    ``@asynccontextmanager``, whose generator would turn a StopAsyncIteration out of
+    Redis into a RuntimeError.
     """
 
-    def __init__(
-        self, counter: SpeechCounter, redis: Redis, user_id: UUID, day: date | None
-    ) -> None:
-        self.counter: SpeechCounter = counter
-        self.redis = redis
-        self.user_id = user_id
-        self.day = day
+    def __init__(self, give_back: Callable[[], Awaitable[None]] | None) -> None:
+        self._give_back = give_back
         self.spent = False
 
     def spend(self) -> None:
-        """The provider is being asked: from here a failure keeps the slot."""
+        """The provider is being asked: from here a failure keeps what was taken."""
         self.spent = True
 
-    async def __aenter__(self) -> RefundDayOnFailure:
+    async def __aenter__(self) -> RefundOnFailure:
         return self
 
     async def __aexit__(
         self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object
     ) -> None:
-        if exc is None or not self.day or self.spent:
+        if exc is None or self._give_back is None or self.spent:
             return
         # A refusal from the gates or the route (an HTTPException) names its status.
         if getattr(exc, "status_code", None) == status.HTTP_429_TOO_MANY_REQUESTS:
             return
         if not isinstance(exc, asyncio.CancelledError | Exception):
             return
-        await counters.refund(self.counter, self.redis, self.user_id, day=self.day)
+        await self._give_back()
+
+
+def refund_day_on_failure(
+    counter: SpeechCounter, redis: Redis, user_id: UUID, day: date | None
+) -> RefundOnFailure:
+    """``RefundOnFailure`` for a slot of *counter* taken on *day* (None: none taken)."""
+    if not day:
+        return RefundOnFailure(None)
+    return RefundOnFailure(lambda: counters.refund(counter, redis, user_id, day=day))
+
+
+def tts_tokens(text: str) -> int:
+    """What read-aloud charges to the day's token budget: the text's tokens, about four
+    characters each (the same reckoning a prompt's estimate uses), at least one."""
+    return max(1, -(-len(text) // _CHARS_PER_TOKEN))
+
+
+async def charge_tts_tokens(
+    redis: Redis, user: User, settings: Settings, text: str
+) -> RefundOnFailure:
+    """Take read-aloud's tokens from today's budget (it has no daily count of its own);
+    429 ``daily_limit`` when what is left cannot cover them. The returned guard gives
+    them back if the request fails before the provider is asked."""
+    wanted = tts_tokens(text)
+    owner = str(user.id)
+    # The day charged, so a refund after UTC midnight gives back to it, not the new day.
+    day = counters.utc_today()
+    granted = await quota_service.reserve_usage_up_to(
+        redis,
+        owner,
+        wanted,
+        daily_limit=quota_service.daily_limit_for_user(user, settings),
+        day=day,
+    )
+    if granted < wanted:
+        await quota_service.refund_usage(redis, owner, granted, day=day)
+        raise SpeechRefusedError(
+            SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            code="daily_limit",
+            feature="speech_tts",
+        )
+    return RefundOnFailure(lambda: quota_service.refund_usage(redis, owner, granted, day=day))

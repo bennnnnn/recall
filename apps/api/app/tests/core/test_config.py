@@ -353,8 +353,12 @@ def _env_value(name: str, annotation: object, default: object, index: int) -> tu
     """A value unlike the default for one field: its env text and what it must parse to."""
     if annotation is bool:
         return ("false" if default else "true"), not default
-    if annotation is int:
+    # A plan allowance may be None (no cap); its env text is still a number.
+    if annotation is int or annotation == int | None:
         return str(1000 + index), 1000 + index
+    # A plan's list of allowances (``follow_messages``): JSON in the env.
+    if annotation == list[str]:
+        return f'["value-{name}"]', [f"value-{name}"]
     if annotation is float:
         return f"{index}.25", float(f"{index}.25")
     assert annotation is str, f"{name}: add a case for {annotation!r}"
