@@ -6,7 +6,8 @@ import logging
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
+from app.core.readings import kept_per_turn, run_with_readings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.chain_solve import solve_chain
 from app.modules.physics.extract import extract_physics_intent, needs_physics
@@ -82,7 +83,27 @@ def solve_physics_request(
     ``failed``: a template matched and its solve failed. ``symbolic`` and ``verified``
     carry the block; ``picture`` carries a free-body diagram and no result ("draw the
     forces on a box on a 30° incline" names no mass and no μ).
+
+    Under the app's own settings a text is solved once a turn (``_solved_once``): routing
+    asked it of the line, and the turn's solve and the follow-ups asked it again, a full
+    solve each time (audit, 2026-11-25).
     """
+    if settings is get_settings() or settings == get_settings():
+        return _solved_once(user_content, needs_subject)
+    return _solve_physics_request(user_content, settings, needs_subject)
+
+
+@kept_per_turn
+def _solved_once(
+    user_content: str, needs_subject: bool | None
+) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None]:
+    """``solve_physics_request`` under the app's settings, kept for the turn by its text."""
+    return _solve_physics_request(user_content, get_settings(), needs_subject)
+
+
+def _solve_physics_request(
+    user_content: str, settings: Settings, needs_subject: bool | None
+) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None]:
     detected = needs_physics(user_content) if needs_subject is None else needs_subject
     if not detected:
         return "skip", None
@@ -210,10 +231,9 @@ async def build_physics_augmentation(
     """
     if not settings.physics_enabled:
         return None, None, False, False
-    from app.core.sympy_executor import run_sympy
-
     try:
-        outcome, block, no_answer = await run_sympy(
+        # With the turn's readings: a text routing already solved is not solved again.
+        outcome, block, no_answer = await run_with_readings(
             solve_or_say_why,
             user_content,
             settings,

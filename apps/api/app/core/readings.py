@@ -153,6 +153,27 @@ async def read_aside[T](
     return result
 
 
+async def run_with_readings[T](
+    fn: Callable[..., T],
+    *args: Any,
+    timeout: float,  # noqa: ASYNC109 - the pool implements it
+) -> T:
+    """``run_sympy(fn, *args)`` for a solve, with the turn's readings: what the turn already
+    read (routing solved the line's physics) is not worked out again in the worker, and what
+    the worker reads is kept. It raises as ``run_sympy`` does. Outside a turn, or on a turn
+    whose readings were declined, it runs as a plain solve: a declined value is for the
+    turn's own reads, never a solve's."""
+    from app.core.sympy_executor import run_sympy
+
+    memo = _MEMO.get()
+    if memo is None or _DECLINED in memo:
+        return await run_sympy(fn, *args, timeout=timeout)
+    result: T
+    result, recorded = await run_sympy(_record, fn, args, {}, _pool_seed(memo), timeout=timeout)
+    memo.update(recorded)
+    return result
+
+
 def _pool_seed(memo: dict[tuple[Any, ...], Any]) -> dict[tuple[Any, ...], Any]:
     """The readings so far, for the worker; what the turn keeps for itself stays here: one
     unpicklable kept value (the live read's task) failed every turn's read (2026-11-21)."""
