@@ -23,7 +23,7 @@ from app.modules.math.schemas import (
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
-from app.modules.math.solve.graph import sample_graph_call
+from app.modules.math.solve.graph import GraphCall, sample_graph_call
 from app.modules.math.solve.restated import REWRITES, card_restates
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
@@ -484,6 +484,39 @@ class SympyAdapter:
             data=_fence_data(fence),
         )
 
+    def _graph_shape(self, sampled: GraphCall | None) -> ToolResult | None:
+        """The call's result when it is no curve: an error, an ellipse or a number line.
+        A pool worker logs nowhere, so what failed in it is logged here, as it was."""
+        if sampled is not None:
+            for failure in sampled.failures:
+                logger.warning("sympy MCP tool call failed\n%s", failure)
+            if sampled.invalid is not None:
+                return ToolResult(name=self.name, content=f"Math error: {sampled.invalid}")
+        if sampled is None or sampled.failed:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        if sampled.ellipse is not None:
+            ellipse_spec = sampled.ellipse
+            return ToolResult(
+                name=self.name,
+                content=_verified_content(
+                    f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}",
+                ),
+                data=_fence_data(ellipse_spec.model_dump()),
+            )
+        if sampled.line is not None:
+            line_spec = sampled.line
+            return ToolResult(
+                name=self.name,
+                content=_verified_content(
+                    f"Shaded region for {line_spec.expr} on the number line "
+                    "(open circle = not included).",
+                ),
+                data=_fence_data(line_spec.model_dump()),
+            )
+        if sampled.curve is None:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        return None
+
     async def _action_graph(self, args: dict[str, Any]) -> ToolResult:
         variable = str(args.get("variable") or "x")
         x_min, x_max, named = graph_range(args)
@@ -508,38 +541,10 @@ class SympyAdapter:
             expr2_raw or None,
             str(args.get("variable2") or variable),
         )
-        if sampled is not None:
-            for failure in sampled.failures:
-                # Raised in a pool worker, which logs nowhere: seen here, as it was.
-                logger.warning("sympy MCP tool call failed\n%s", failure)
-            if sampled.invalid is not None:
-                return ToolResult(name=self.name, content=f"Math error: {sampled.invalid}")
-        if sampled is None or sampled.failed:
-            return ToolResult(name=self.name, content="Math error: timed out.")
-        if sampled.ellipse is not None:
-            ellipse_spec = sampled.ellipse
-            fence = ellipse_spec.model_dump()
-            return ToolResult(
-                name=self.name,
-                content=_verified_content(
-                    f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}",
-                ),
-                data=_fence_data(fence),
-            )
-        if sampled.line is not None:
-            line_spec = sampled.line
-            fence = line_spec.model_dump()
-            return ToolResult(
-                name=self.name,
-                content=_verified_content(
-                    f"Shaded region for {line_spec.expr} on the number line "
-                    "(open circle = not included).",
-                ),
-                data=_fence_data(fence),
-            )
+        shape = self._graph_shape(sampled)
+        if shape is not None or sampled is None or sampled.curve is None:
+            return shape or ToolResult(name=self.name, content="Math error: timed out.")
         graph_result = sampled.curve
-        if graph_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
         has_discontinuity = len(graph_result.segments) > 1
 
         expr2 = expr2_raw or None
