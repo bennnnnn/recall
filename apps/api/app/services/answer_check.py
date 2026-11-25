@@ -31,6 +31,7 @@ from typing import Literal
 
 from app.services.answer_fence import CHEMISTRY_NOTATION_LINE, answer_header_and_value
 from app.services.glyphs import SUBSCRIPT_DIGITS, SUPERSCRIPT_SIGNED
+from app.services.latex_markup import without_markup
 from app.services.md_fence_scan import Fence, map_fence_blocks
 from app.services.school_rounding import round_places
 from app.services.workout import names_a_formula
@@ -56,40 +57,20 @@ class VerifiedValue:
 _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 _SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+")
-_TEX_WRAPPERS = re.compile(r"\\(?:mathrm|text|textrm|mathbf|operatorname|mathit|rm)\s*\{([^{}]*)\}")
-_TEX_FRAC = re.compile(r"\\[dt]?frac\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}\s*\{\s*(-?\d+(?:\.\d+)?)\s*\}")
-_TEX_SPACING = re.compile(r"\\(?:qquad|quad|[,;:! ])")
-_TEX_WORDS = {
-    r"\times": "\u00d7", r"\cdot": "·", r"\approx": "≈", r"\simeq": "≈", r"\pm": "±",
-    r"\%": "%", r"\left": "", r"\right": "", r"\circ": "°", r"\degree": "°",
-    # A unit's own letter: "50\,\Omega" is 50 Ω, read as a resistance, not as no value.
-    r"\Omega": "Ω",
-    # Greek mu, a name ("\mu_k = 0.25") or the micro prefix ("\mu m", read as um below).
-    r"\mu": "\u03bc",
-    # A Greek name for a value: "\lambda = 500 nm", "\Delta T = 2 K".
-    r"\Delta": "\u0394", r"\alpha": "\u03b1", r"\beta": "\u03b2", r"\gamma": "\u03b3",
-    r"\theta": "\u03b8", r"\lambda": "\u03bb", r"\rho": "\u03c1", r"\sigma": "\u03c3",
-    r"\tau": "\u03c4", r"\eta": "\u03b7", r"\omega": "\u03c9", r"\phi": "\u03c6",
-    r"\varepsilon": "\u03b5", r"\epsilon": "\u03b5",
-}  # fmt: skip
 
 
 def _clean(text: str) -> str:
-    """Prose or a TeX answer as plain text a number scanner can read."""
+    """Prose or a TeX answer as plain text a number scanner can read.
+
+    The TeX is written plain by the one converter subjects read questions with
+    (``latex_markup.without_markup``), a line at a time so a long reply is read whole; this
+    adds only what a number scanner needs beyond it (Unicode scripts and spaces, emphasis)."""
     out = text.replace("\r\n", "\n").replace("\u2212", "-").replace("\u2009", " ")
     out = out.replace("\u00a0", " ").replace("\u202f", " ")
+    out = "\n".join(without_markup(line) for line in out.split("\n"))
     out = _SUPERSCRIPT_RUN.sub(lambda match: "^" + match.group(0).translate(_SUPERSCRIPTS), out)
     out = out.translate(_SUBSCRIPTS)
-    out = _TEX_SPACING.sub(" ", out)
-    for word, plain in _TEX_WORDS.items():
-        out = re.sub(re.escape(word) + r"(?![A-Za-z])", plain, out)
-    out = re.sub(r"\^\s*\{\s*([-+]?\d+)\s*\}", r"^\1", out)
-    for _ in range(3):
-        out = _TEX_WRAPPERS.sub(r"\1", out)
-    out = _TEX_FRAC.sub(r"\1/\2", out)
-    out = re.sub(r"\^\s*\{\s*°\s*\}|\^\s*°", "°", out)
     # Math delimiters and emphasis are presentation only.
-    out = re.sub(r"\\[()\[\]]", " ", out)
     out = out.replace("$", " ").replace("**", " ").replace("__", " ").replace("`", " ")
     return out
 

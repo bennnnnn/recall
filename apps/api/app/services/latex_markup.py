@@ -34,6 +34,8 @@ _WRAPPERS = frozenset(
         "mathsf",
         "mathnormal",
         "mbox",
+        "rm",
+        "boxed",
         "operatorname",
         "ce",
         "pu",
@@ -103,9 +105,11 @@ _COMMAND = re.compile(r"\\([A-Za-z]+|.)")
 _DELIMITERS = frozenset({"(", ")", "[", "]"})
 # A fraction's part, or a script, that needs no brackets: "1", "m", "s^2", "v_0".
 _SIMPLE = re.compile(r"[\w.°]+(?:[\^_][\w.]+)?")
+# A signed number is one part too: \\frac{-3}{4} is -3/4.
+_SIGNED_NUMBER = re.compile(r"-\d+(?:\.\d+)?")
 # A denominator that needs no brackets: a number or one unit ("s^2", "kg", "cm^3"). Any other
 # keeps its brackets: \frac{1}{4\pi\varepsilon_0} is 1/(4πε_0), never (1/4)πε_0.
-_ONE_TERM = re.compile(r"\d+(?:\.\d+)?|[A-Za-z]{1,3}(?:\^-?\d+)?")
+_ONE_TERM = re.compile(r"\d+(?:\.\d+)?|[A-Za-z\u0391-\u03a9\u03b1-\u03c9]{1,3}(?:\^-?\d+)?")
 # A signed power or an ion's charge as a superscript: "s^{-2}" is s^-2, "Fe^{3+}" Fe^3+.
 _CHARGE = re.compile(r"-\d+|\d*[+-]")
 _FORMULA_COUNT = re.compile(r"(?<=[A-Za-z)\]])_(\d+)")
@@ -247,7 +251,9 @@ def _fraction(tex: _Tex, start: int, at: int, out: list[str]) -> tuple[str, int]
         return top
     numerator, denominator = top[0].strip(), bottom[0].strip()
     shown = [
-        numerator if _SIMPLE.fullmatch(numerator) else f"({numerator})",
+        numerator
+        if _SIMPLE.fullmatch(numerator) or _SIGNED_NUMBER.fullmatch(numerator)
+        else f"({numerator})",
         denominator if _ONE_TERM.fullmatch(denominator) else f"({denominator})",
     ]
     fraction = f"{shown[0]}/{shown[1]}"
