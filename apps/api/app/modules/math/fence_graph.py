@@ -82,12 +82,11 @@ def _resample_curve(
     x_min: float,
     x_max: float,
     n: int,
-    max_expr_length: int,
 ) -> tuple[list[list[float]], list[list[list[float]]], str, str, float, float] | None:
     try:
         sample = math_solve.sample_function(
             GraphSampleInput(
-                expr=expr[:max_expr_length],
+                expr=expr,
                 variable=variable,
                 x_min=x_min,
                 x_max=x_max,
@@ -139,7 +138,6 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     x_min, x_max = _sample_domain(spec)
     settings = get_settings()
     n = settings.math_graph_max_points
-    max_len = settings.math_max_expr_length
 
     points = spec.points
     segments = spec.segments or []
@@ -148,14 +146,14 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     out_x_min, out_x_max = float(spec.x_min), float(spec.x_max)
 
     if needs1:
-        sampled = _resample_curve(spec.expr, spec.variable, x_min, x_max, n, max_len)
+        sampled = _resample_curve(spec.expr, spec.variable, x_min, x_max, n)
         if sampled is not None:
             points, segments, expr, variable, out_x_min, out_x_max = sampled
 
     points2 = spec.points2
     segments2 = spec.segments2
     if needs2 and spec.expr2:
-        sampled2 = _resample_curve(spec.expr2, var2, x_min, x_max, n, max_len)
+        sampled2 = _resample_curve(spec.expr2, var2, x_min, x_max, n)
         if sampled2 is not None:
             points2, segments2, _, _, _, _ = sampled2
 

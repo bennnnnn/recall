@@ -21,12 +21,12 @@ from app.modules.math.solve.equation_conditions import (
     original_domain_conditions,
 )
 from app.modules.math.solve.odd_roots import real_odd_root_solutions
-from app.modules.math.solve.poly_size import MAX_EXPANDED_TERMS, degree_bound, expanded_terms
 from app.modules.math.solve.parse import (
     SolveServiceError,
     _expr_needs_real_domain,
     parse_equation,
 )
+from app.modules.math.solve.poly_size import MAX_EXPANDED_TERMS, degree_bound, expanded_terms
 from app.modules.math.solve.real_domain import (
     RejectedRoot,
     not_real,
