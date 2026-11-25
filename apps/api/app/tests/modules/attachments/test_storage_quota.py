@@ -98,7 +98,7 @@ def test_the_full_library_message_offers_an_upgrade_only_on_free(plan: str, upgr
 
 
 @pytest.mark.asyncio
-async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
+async def test_stored_bytes_sums_what_library_shows_of_the_user_only(db_session) -> None:
     async def make_user() -> Any:
         return await users.create(
             db_session,
@@ -111,7 +111,8 @@ async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
     owner, other = await make_user(), await make_user()
     assert await storage_quota.stored_bytes(db_session, owner.id) == 0
     rows = [
-        # A Library upload, a pending upload, a resend's hidden copy, a generated picture.
+        # A Library upload, a pending upload, a resend's hidden copy (not counted: Library
+        # never shows it), a generated picture.
         (owner.id, 1_000, "upload", True, datetime.now(UTC)),
         (owner.id, 2_000, "upload", True, None),
         (owner.id, 3_000, "upload", False, datetime.now(UTC)),
@@ -132,7 +133,7 @@ async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
             )
         )
     await db_session.flush()
-    assert await storage_quota.stored_bytes(db_session, owner.id) == 10_000
+    assert await storage_quota.stored_bytes(db_session, owner.id) == 7_000
     assert await storage_quota.stored_bytes(db_session, other.id) == 9_999
 
 
