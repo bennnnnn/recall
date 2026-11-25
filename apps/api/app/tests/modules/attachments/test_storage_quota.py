@@ -155,3 +155,13 @@ def test_storage_route_reports_what_the_presign_counts(plan: str, total: int) ->
     assert r.status_code == 200
     assert r.json() == {"used_bytes": 123 * MIB, "limit_bytes": total}
     assert stored.await_args is not None and stored.await_args.args[1] == user.id
+
+
+@pytest.mark.asyncio
+async def test_lookup_photos_are_not_counted_against_the_library() -> None:
+    """A web lookup's reference photos belong to their message, not the Library (owner)."""
+    session = fake_session()
+    session.scalar.return_value = 5
+    assert await storage_quota.stored_bytes(session, uuid4()) == 5
+    sql = str(session.scalar.await_args.args[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "attachments.source NOT IN ('search')" in sql

@@ -3,8 +3,9 @@
 Daily upload counts cap how fast files arrive, not how many stay: a free
 account could keep about 4.5 GB more every month, forever. Every attachment row
 is real stored bytes (a resend copies the object, ``reuse.py``), generated
-pictures and reference photos included, so the total is one SUM over the
-user's rows (``ix_attachments_user``). A pending upload counts from its
+pictures included, so the total is one SUM over the user's rows
+(``ix_attachments_user``). A web lookup's reference photos are part of their
+message, not the Library, and are left out. A pending upload counts from its
 presign. Two presigns that race the read can both pass, which costs at most a
 few files' size past the cap (each is capped by size and by the daily counts).
 """
@@ -27,11 +28,17 @@ STORAGE_FULL_MESSAGE_FREE = (
 STORAGE_FULL_MESSAGE_PAID = "Your Library is full. Delete files you no longer need to make room."
 
 
+# A reference photo a web lookup found (``search``) is part of its message, never a Library
+# item: it is not counted against the plan's total (owner, 2026-11-24).
+_NOT_STORED_SOURCES = ("search",)
+
+
 async def stored_bytes(session: AsyncSession, user_id: UUID) -> int:
-    """Bytes in every attachment row the user owns, pending uploads included."""
+    """Bytes in the user's attachment rows, pending uploads included, lookup photos not."""
     total = await session.scalar(
         select(func.coalesce(func.sum(Attachment.size_bytes), 0)).where(
-            Attachment.user_id == user_id
+            Attachment.user_id == user_id,
+            Attachment.source.not_in(_NOT_STORED_SOURCES),
         )
     )
     return int(total or 0)
