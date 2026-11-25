@@ -19,6 +19,10 @@ jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn(
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, token: "tok" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => ({ usage: null }) }));
+let mockStorage: { usedBytes: number; limitBytes: number } | null = null;
+jest.mock("@/features/attachments/hooks/useLibraryStorage", () => ({
+  useLibraryStorage: () => mockStorage,
+}));
 jest.mock("@/features/billing/components/UpgradeSheet", () => ({
   UpgradeSheet: ({ visible }: { visible: boolean }) => {
     mockUpgradeVisible = visible;
@@ -30,6 +34,7 @@ const PAID = ["all_models", "image_generation", "speech_transcription", "speech_
 
 beforeEach(() => {
   mockUpgradeVisible = false;
+  mockStorage = null;
 });
 
 it("free: names the plan and opens the plans sheet", async () => {
@@ -61,4 +66,21 @@ it("Pro: usage is a row that opens its own page", async () => {
   expect(screen.getByText("plans.pro")).toBeOnTheScreen();
   expect(screen.getByText("settings.usage_group")).toBeOnTheScreen();
   expect(screen.queryByText(/settings\.live_talk_minutes_left/)).toBeNull();
+});
+
+it("Storage says what Library keeps of the plan's total, and opens Library", async () => {
+  const { router } = jest.requireMock("expo-router") as { router: { push: jest.Mock } };
+  mockUser = { email: "a@b.c", plan: "free", features: ["image_generation"] };
+  mockStorage = { usedBytes: 123 * 1024 ** 2, limitBytes: 400 * 1024 ** 2 };
+  const screen = await render(<AccountSettingsSection />);
+  expect(screen.getByText(/settings\.storage_value/)).toBeOnTheScreen();
+  await fireEvent.press(screen.getByText("settings.storage"));
+  expect(router.push).toHaveBeenCalledWith("/gallery");
+});
+
+it("Storage shows no number before the server answers", async () => {
+  mockUser = { email: "a@b.c", plan: "pro", features: [...PAID] };
+  const screen = await render(<AccountSettingsSection />);
+  expect(screen.getByText("settings.storage")).toBeOnTheScreen();
+  expect(screen.queryByText(/settings\.storage_value/)).toBeNull();
 });

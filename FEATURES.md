@@ -64,7 +64,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (generated images, uploaded images, and files — not web lookup / reference photos,
   which stay on the chat). Tabs: All / Generated / Uploaded / Files. Each account keeps
   at most 400 MB (free) or 4 GiB (Pro) in it, checked at presign
-  (`library_storage_bytes`; over it, 409 `storage_full`).
+  (`library_storage_bytes`; over it, 409 `storage_full`). Settings → Account → **Storage**
+  shows what is kept of that total ("123 MB of 400 MB", `GET /attachments/storage`, the
+  sum the presign checks) and opens Library.
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant

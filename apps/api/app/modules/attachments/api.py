@@ -18,7 +18,9 @@ from app.modules.attachments.schemas import (
     AttachmentOut,
     AttachmentPresignIn,
     AttachmentPresignOut,
+    LibraryStorageOut,
 )
+from app.modules.attachments.storage_quota import library_storage
 from app.modules.attachments.upload import create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
@@ -83,6 +85,17 @@ async def list_attachments(
         limit=limit,
         cursor=cursor,
     )
+
+
+@router.get("/storage", response_model=LibraryStorageOut)
+async def get_library_storage(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> LibraryStorageOut:
+    """How much the user keeps in Library and their plan's total, as the presign counts it."""
+    used, limit = await library_storage(session, settings, user)
+    return LibraryStorageOut(used_bytes=used, limit_bytes=limit)
 
 
 @router.post(

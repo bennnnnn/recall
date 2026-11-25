@@ -9,6 +9,8 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLibraryStorage } from "@/features/attachments/hooks/useLibraryStorage";
+import { storageUsedOfTotal } from "@/features/attachments/model/storageSize";
 import { planNameKey, planOf } from "@/lib/plan";
 
 function manageSubscriptionUrl(): string {
@@ -18,7 +20,8 @@ function manageSubscriptionUrl(): string {
 }
 
 /**
- * Email, plan, and the Usage page. Free opens the plans page (which also restores a
+ * Email, plan, the Usage page, and Storage: what the Library keeps of the plan's total,
+ * opening Library, where files are deleted. Free opens the plans page (which also restores a
  * purchase); the paid plan shows its name and has its own row to manage the subscription
  * in the store.
  */
@@ -28,6 +31,7 @@ export function AccountSettingsSection() {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const plan = planOf(user);
   const planName = t(planNameKey(plan));
+  const storage = useLibraryStorage();
 
   return (
     <>
@@ -55,6 +59,16 @@ export function AccountSettingsSection() {
           icon="bar-chart"
           title={t("settings.usage_group")}
           href="/settings/usage"
+        />
+        <SettingsLinkRow
+          icon="hard-drive"
+          title={t("settings.storage")}
+          value={
+            storage
+              ? storageUsedOfTotal(storage.usedBytes, storage.limitBytes, user?.locale ?? "en", t)
+              : undefined
+          }
+          href="/gallery"
         />
       </SettingsGroup>
 

@@ -45,5 +45,11 @@ async def has_room_for(
     return await stored_bytes(session, user.id) + size_bytes <= cap
 
 
+async def library_storage(session: AsyncSession, settings: Settings, user: User) -> tuple[int, int]:
+    """(bytes kept, the plan's total): the same sum and total the presign checks."""
+    cap = allowance(user, "library_storage_bytes", settings)
+    return await stored_bytes(session, user.id), cap
+
+
 def storage_full_message(user: User) -> str:
     return plan_message(user, free=STORAGE_FULL_MESSAGE_FREE, paid=STORAGE_FULL_MESSAGE_PAID)
