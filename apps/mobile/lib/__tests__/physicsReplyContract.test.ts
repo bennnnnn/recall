@@ -54,8 +54,8 @@ describe("server physics replies", () => {
 
   it("reads degrees as degrees, not as a power", () => {
     const { reply } = contract.replies.launch_angles!;
-    expect(markdownToCopyText(reply)).toContain("23.7° or 66.3°");
-    expect(markdownToSpeechText(reply)).toContain("23.7 degrees or 66.3 degrees");
+    expect(markdownToCopyText(reply)).toContain("23.69° or 66.31°");
+    expect(markdownToSpeechText(reply)).toContain("23.69 degrees or 66.31 degrees");
     expect(markdownToSpeechText(reply)).not.toContain("power of ∘");
   });
 });
