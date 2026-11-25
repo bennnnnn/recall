@@ -3,7 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { FieldSheet } from "@/ui/overlay/FieldSheet";
 import { SettingsMenuRow, SettingsSwitchRow } from "@/features/account/components/settingsUi";
 
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/ui/overlay/Sheet", () => {

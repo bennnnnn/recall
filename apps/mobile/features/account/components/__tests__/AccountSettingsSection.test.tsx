@@ -15,7 +15,7 @@ jest.mock("react-i18next", () => ({
       options ? `${key} ${JSON.stringify(options)}` : key,
   }),
 }));
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mockUser, token: "tok" }) }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => ({ usage: null }) }));

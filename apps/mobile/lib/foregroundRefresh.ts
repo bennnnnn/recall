@@ -17,6 +17,8 @@ export const FOREGROUND_STALE_MS = {
   chatList: CONTEXT_REFRESH_STALE_MS,
   todos: CONTEXT_REFRESH_STALE_MS,
   usage: CONTEXT_REFRESH_STALE_MS,
+  /** The signed-in user (`/auth/me`): another device, the store or a chat may have changed it. */
+  profile: 30_000,
   models: 5 * 60_000,
   /** The device's push token at the server. */
   pushRegistration: 12 * 60 * 60_000,
