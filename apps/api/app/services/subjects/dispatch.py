@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.readings import read_off_loop, reading
+from app.core.readings import read_off_loop, reading, reads_aside
 from app.core.sympy_executor import run_sympy
 from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
@@ -171,8 +171,10 @@ async def _paired_direct_reply(
         return None
     replies: list[str] = []
     for part in parts:
-        piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
-        reply = await read_direct_reply(piece.verified, part, settings)
+        # One part's reads may give up without declining the other's (``reads_aside``).
+        with reads_aside():
+            piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
+            reply = await read_direct_reply(piece.verified, part, settings)
         if reply is None:
             return None
         replies.append(reply.strip())
@@ -189,15 +191,22 @@ async def _solve_parts(
     redis: Redis | None,
     whole: Callable[[], Awaitable[SubjectAugmentation]],
 ) -> SubjectAugmentation:
-    """Each question solved on its own (``build_subject_augmentation``'s ``parts``)."""
-    pieces = [
-        await build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts
-    ]
+    """Each question solved on its own (``build_subject_augmentation``'s ``parts``).
+
+    Every read a part's solve makes, its subject's included, is one the turn can do without
+    (``reads_aside``): a part whose read gives up is that part unsolved, never the turn's
+    other readings declined, so the other parts and the whole message are still read. One
+    part at a time: the pool runs one solve per user at once, so solved together the parts
+    would only queue, and a part past the queue's wait would go unsolved."""
+    pieces: list[SubjectAugmentation] = []
+    replies: list[str | None] = []
+    with reads_aside():
+        for part in parts:
+            pieces.append(await build_subject_augmentation(part, settings, pair=False, redis=redis))
+        if answer_all:
+            for piece, part in zip(pieces, parts, strict=True):
+                replies.append(await read_direct_reply(piece.verified, part, settings))
     if answer_all:
-        replies = [
-            await read_direct_reply(piece.verified, part, settings)
-            for piece, part in zip(pieces, parts, strict=True)
-        ]
         blocks = tuple(piece.verified for piece in pieces if piece.verified is not None)
         if all(reply is not None for reply in replies) and len(blocks) == len(pieces):
             # The first part's block stands for the turn's verified solve (the trace); the

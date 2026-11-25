@@ -119,6 +119,9 @@ class ChemistryFence:
     def needs_check(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
         return True
 
+    def samples(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        return False  # its check samples nothing
+
     def check(
         self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
     ) -> str:

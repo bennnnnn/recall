@@ -7,7 +7,9 @@ request on it with it (code-health audit SCALE-01). Readers run in the SymPy poo
 - a ``@reading`` computed on the loop for production async code inside a turn whose
   message was read (it asked another text or argument than the read covered), reported by
   ``readings.on_loop_hooks``;
-- a SymPy entry point (parse, sympify, solve, simplify, …) called there.
+- a SymPy entry point (parse, sympify, solve, simplify, …) called there;
+- RDKit reading a molecule there (``Chem.MolFromSmiles``): every descriptor, drawing and
+  formula RDKit works out starts from one.
 
 "Production async code" is the innermost ``async def`` on the stack: a test that calls a
 reader from its own async body is not a finding. ``RECALL_STRICT_LOOP=0`` turns it off.
@@ -92,7 +94,18 @@ def install() -> None:
         # ``from sympy import solve`` binds the package's name.
         if getattr(sympy, attr, None) is original:
             setattr(sympy, attr, guarded)
+    _guard_rdkit()
     readings.on_loop_hooks.append(_on_loop_reading)
+
+
+def _guard_rdkit() -> None:
+    try:
+        from rdkit import Chem
+    except ImportError:  # pragma: no cover - RDKit is a dependency
+        return
+    original = Chem.MolFromSmiles
+    if not hasattr(original, "__wrapped__"):
+        Chem.MolFromSmiles = _guarded("rdkit.MolFromSmiles", original)
 
 
 def _on_loop_reading(name: str, caller: str) -> None:

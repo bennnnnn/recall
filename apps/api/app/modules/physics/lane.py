@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import re
-from functools import lru_cache
 
 from app.core.readings import reading
 
@@ -84,15 +83,16 @@ def _looks_like_physics_homework(content: str) -> bool:
 
 
 @reading(declined=False)
-@lru_cache(maxsize=128)
 def _physics_solves(content: str) -> bool:
     """Whether the verified solver answers this line: a question in lettered parts the
     template answers one of ("the speed with no friction", then "the maximum speed" with
     it) is the strong model's (2026-11-16).
 
-    Routing asks this of the current line and again of a prior one, every turn; the
-    answer only depends on the text. Any failure is a decline: the strong model answers
-    it, and the turn never fails for a routing hint.
+    Routing asks this of the current line and again of a prior one, every turn. The turn
+    keeps it (a reading), and its solve with it (``prompt._solved_once``), which the turn's
+    own solve then uses: no process cache sits above it, or a line a worker had seen kept
+    no solve for its new turn and was solved again. Any failure is a decline: the strong
+    model answers it, and the turn never fails for a routing hint.
     """
     from app.core.config import get_settings
     from app.modules.physics.prompt import solve_physics_request

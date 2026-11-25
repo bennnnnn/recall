@@ -26,7 +26,8 @@ import inspect
 import logging
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 from types import FrameType
 from typing import Any, cast
@@ -40,6 +41,8 @@ _DECLINED = ("__declined__",)
 # live read is a running task), never sent to a pool worker, which could not take them.
 _TURN = "__turn__"
 _MEMO: ContextVar[dict[tuple[Any, ...], Any] | None] = ContextVar("readings", default=None)
+# Set by ``reads_aside``: the reads within it never decline the turn.
+_ASIDE: ContextVar[bool] = ContextVar("reads_aside", default=False)
 _IMMUTABLE = (str, int, float, bool, bytes, type(None), frozenset)
 _COROUTINE_FLAGS = inspect.CO_COROUTINE | inspect.CO_ASYNC_GENERATOR
 # Production logs a reading on the loop at most once per reading in this window.
@@ -47,6 +50,18 @@ _LOG_EVERY_SECONDS = 300.0
 _last_logged: dict[str, float] = {}
 # Called with the reading's name and the async function running it on the loop (tests).
 on_loop_hooks: list[Callable[[str, str], None]] = []
+
+
+@contextmanager
+def reads_aside() -> Iterator[None]:
+    """Within it, every ``read_off_loop`` is a ``read_aside``: a read the turn can do
+    without (one part of a message, whichever subject reads it), whose pool giving up
+    returns its None and never declines the turn's other readings."""
+    token = _ASIDE.set(True)
+    try:
+        yield
+    finally:
+        _ASIDE.reset(token)
 
 
 def begin_turn() -> None:
@@ -119,7 +134,23 @@ def kept_per_turn[F: Callable[..., Any]](fn: F) -> F:
             memo[kept_key] = fn(*args, **kwargs)
         return _fresh(memo[kept_key])
 
+    # A function takes attributes; mypy models none.
+    read._kept_key = lambda *args, **kwargs: _key(name, signature, args, kwargs)  # type: ignore[attr-defined]
     return cast(F, read)
+
+
+def kept_answer[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
+    """The turn's kept answer of the ``kept_per_turn`` reader ``fn`` at these arguments, or
+    None when the turn has not asked it. Never computes one."""
+    memo = _MEMO.get()
+    keyer = getattr(fn, "_kept_key", None)
+    if memo is None or keyer is None:
+        return None
+    key = keyer(*args, **kwargs)
+    if key is None or ("__kept__", *key) not in memo:
+        return None
+    kept: T = memo[("__kept__", *key)]
+    return _fresh(kept)
 
 
 async def read_aside[T](
@@ -139,6 +170,11 @@ async def read_aside[T](
         _MEMO.set(memo)
     if _DECLINED in memo:
         return None
+    keyer = getattr(fn, "_reading_key", None)
+    key = keyer(*args, **kwargs) if keyer is not None else None
+    if key is not None and key in memo:
+        kept: T = memo[key]
+        return _fresh(kept)
     try:
         result: T
         result, recorded = await run_sympy(
@@ -149,6 +185,27 @@ async def read_aside[T](
             "reading %s set aside (%s)", getattr(fn, "__qualname__", fn), type(exc).__name__
         )
         return None
+    memo.update(recorded)
+    return result
+
+
+async def run_with_readings[T](
+    fn: Callable[..., T],
+    *args: Any,
+    timeout: float,  # noqa: ASYNC109 - the pool implements it
+) -> T:
+    """``run_sympy(fn, *args)`` for a solve, with the turn's readings: what the turn already
+    read (routing solved the line's physics) is not worked out again in the worker, and what
+    the worker reads is kept. It raises as ``run_sympy`` does. Outside a turn, or on a turn
+    whose readings were declined, it runs as a plain solve: a declined value is for the
+    turn's own reads, never a solve's."""
+    from app.core.sympy_executor import run_sympy
+
+    memo = _MEMO.get()
+    if memo is None or _DECLINED in memo:
+        return await run_sympy(fn, *args, timeout=timeout)
+    result: T
+    result, recorded = await run_sympy(_record, fn, args, {}, _pool_seed(memo), timeout=timeout)
     memo.update(recorded)
     return result
 
@@ -189,6 +246,8 @@ async def read_off_loop[T](
     """
     from app.core.sympy_executor import run_sympy
 
+    if _ASIDE.get():
+        return await read_aside(fn, *args, timeout=timeout, **kwargs)
     memo = _MEMO.get()
     if memo is None:
         memo = {}

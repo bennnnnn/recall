@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from types import SimpleNamespace
 from typing import Any, cast
@@ -725,6 +726,32 @@ async def test_a_formula_chart_is_drawn_by_sympy_and_a_data_chart_is_left_alone(
 
 
 @pytest.mark.asyncio
+async def test_a_formula_chart_out_of_time_loses_only_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every chart of a reply was one pool job, so one slow chart lost them all (audit
+    2026-11-25): each is its own job now, and one that runs out of time stays as written."""
+    jobs: list[str] = []
+
+    async def first_times_out(fn: Any, *args: Any, **_kwargs: Any) -> Any:
+        jobs.append(args[0])
+        if len(jobs) == 1:
+            raise TimeoutError
+        return fn(*args)
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", first_times_out)
+    slow = '```chart\n{"type":"function","series":[{"name":"f","fn":"tan(x)"}]}\n```'
+    quick = '```chart\n{"type":"function","series":[{"name":"g","fn":"x^2"}]}\n```'
+
+    drawn = await draw_formula_charts(_state(f"First:\n\n{slow}\n\nThen:\n\n{quick}\n\nDone."))
+
+    assert len(jobs) == 2
+    assert f"First:\n\n{slow}" in drawn
+    assert '```graph\n{"type":"function","expr":"x^2"' in drawn
+    assert drawn.endswith("Done.")
+
+
+@pytest.mark.asyncio
 async def test_a_fall_back_after_the_cards_keeps_an_uncertain_photo_unchecked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -778,3 +805,33 @@ async def test_a_fall_back_before_the_chemistry_pass_keeps_no_structure_name(
     assert await run_finalize_passes(state) is False
     assert "Caffeine" not in state.text
     assert "```smiles\nCCO\n```" in state.text
+
+
+@pytest.mark.asyncio
+async def test_a_server_reply_whose_curve_is_sparse_is_resampled_off_the_loop() -> None:
+    """A server-written graph reply is checked in process, but a canonical curve too sparse
+    to draw is resampled with SymPy: that resample runs in the pool (the loop guard fails
+    this test when it runs on the event loop), and the reply still gets the full curve."""
+    from app.services.solving import VerifiedMathBlock
+    from app.services.subjects.registry import subject_adapter
+
+    sparse = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "points": [[-3.0, 9.0], [0.0, 0.0], [3.0, 9.0]],
+    }
+    verified = VerifiedMathBlock(text="graph", canonical_fence=sparse)
+    body = '```graph\n{"type":"function","expr":"x**2","points":[[0,0],[1,1]]}\n```'
+    state = _state(body)
+    state.ctx.instant_reply = body
+    state.ctx.verified_subject = verified
+    state.deps = turn_deps(math_fence=subject_adapter("math").fence)
+
+    out = await check_math_fences(state)
+
+    start = out.index("```graph\n") + len("```graph\n")
+    spec = json.loads(out[start : out.index("\n```", start)])
+    assert len(spec["points"]) >= 48

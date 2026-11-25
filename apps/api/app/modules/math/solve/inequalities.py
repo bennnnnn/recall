@@ -3,6 +3,7 @@ as a student writes them (``-1 < x < 5``, ``x < -1 \\text{ or } x > 1``)."""
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from sympy import (
@@ -31,7 +32,12 @@ from app.modules.math.solve.parse import (
 )
 from app.modules.math.solve.solved_functions import reject_unsolved_functions
 
+# The answer card and the number line ask a solution set of the same text, one after the
+# other in one pool job: kept, it is solved once (audit 2026-11-25). A set is immutable.
+_SOLVED_SETS = 64
 
+
+@lru_cache(maxsize=_SOLVED_SETS)
 def compound_solution_set(
     low: str, low_op: str, mid: str, high_op: str, high: str, variable: str
 ) -> Any:
@@ -151,6 +157,7 @@ def inequality_solution_latex(solution: Any, sym: Any) -> str:
     return r" \text{ or } ".join(text for text in shown if text)
 
 
+@lru_cache(maxsize=_SOLVED_SETS)
 def inequality_solution_set(lhs: str, rhs: str, comparator: str, variable: str) -> Any:
     """The solution set of ``lhs CMP rhs``, an Interval/Union: the answer card's and the
     number line's, solved once here (the number line used to solve it its own way)."""

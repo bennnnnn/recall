@@ -143,7 +143,7 @@ def _differentiate(
     trace: list[KeyStep] = []
     given: str | None = None
     if intent.derivative_order in (None, 1):
-        trace, given = derivative_trace(expr[: settings.math_max_expr_length], intent.variable)
+        trace, given = derivative_trace(expr, intent.variable)
     out = math_solve.differentiate_expression(expr, intent.variable, intent.derivative_order)
     if not out.solved:
         return None
