@@ -196,8 +196,18 @@ async def check_math_fences(state: FinalizeState) -> str:
             return state.text
         # Direct verified replies already carry ```answer. Running that rewrite
         # on the SymPy pool can queue behind an integral for no benefit — keep
-        # it in-process.
-        return math_fence.check(state.text, verified, False, state.ctx.user_message_content)
+        # it in-process, unless it would resample a sparse curve: that is SymPy,
+        # never run on the event loop.
+        if not math_fence.samples(state.text, verified):
+            return math_fence.check(state.text, verified, False, state.ctx.user_message_content)
+        return await sympy_executor.run_sympy(
+            math_fence.check,
+            state.text,
+            verified,
+            False,
+            state.ctx.user_message_content,
+            timeout=state.settings.stem_solve_timeout_seconds,
+        )
     if not math_fence.needs_check(state.text, verified):
         return state.text
     if state.on_status is not None:

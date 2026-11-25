@@ -164,6 +164,11 @@ class MathFence:
 
         return needs_math_fence_validate(text, _math_block(verified))
 
+    def samples(self, text: str, verified: VerifiedSolveBlock | None) -> bool:
+        from app.modules.math.fence import check_samples
+
+        return check_samples(_math_block(verified))
+
     def check(
         self, text: str, verified: VerifiedSolveBlock | None, correct: bool, user_text: str
     ) -> str:

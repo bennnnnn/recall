@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from types import SimpleNamespace
 from typing import Any, cast
@@ -778,3 +779,33 @@ async def test_a_fall_back_before_the_chemistry_pass_keeps_no_structure_name(
     assert await run_finalize_passes(state) is False
     assert "Caffeine" not in state.text
     assert "```smiles\nCCO\n```" in state.text
+
+
+@pytest.mark.asyncio
+async def test_a_server_reply_whose_curve_is_sparse_is_resampled_off_the_loop() -> None:
+    """A server-written graph reply is checked in process, but a canonical curve too sparse
+    to draw is resampled with SymPy: that resample runs in the pool (the loop guard fails
+    this test when it runs on the event loop), and the reply still gets the full curve."""
+    from app.services.solving import VerifiedMathBlock
+    from app.services.subjects.registry import subject_adapter
+
+    sparse = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "points": [[-3.0, 9.0], [0.0, 0.0], [3.0, 9.0]],
+    }
+    verified = VerifiedMathBlock(text="graph", canonical_fence=sparse)
+    body = '```graph\n{"type":"function","expr":"x**2","points":[[0,0],[1,1]]}\n```'
+    state = _state(body)
+    state.ctx.instant_reply = body
+    state.ctx.verified_subject = verified
+    state.deps = turn_deps(math_fence=subject_adapter("math").fence)
+
+    out = await check_math_fences(state)
+
+    start = out.index("```graph\n") + len("```graph\n")
+    spec = json.loads(out[start : out.index("\n```", start)])
+    assert len(spec["points"]) >= 48

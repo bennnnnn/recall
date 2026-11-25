@@ -37,7 +37,7 @@ from app.modules.math.fence_answer import reply_asks_instead_of_answering
 from app.modules.math.fence_canonical import canonical_replacement
 from app.modules.math.fence_canonical import spec_fence_kind as spec_fence_kind
 from app.modules.math.fence_conflict import contradicted_reading, rewrite_answer_fences
-from app.modules.math.fence_graph import densify_sparse_graph
+from app.modules.math.fence_graph import densify_sparse_graph, needs_densify
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.text_plot import strip_text_plots
 from app.modules.math.tools.direct_counting import verified_counting_fence
@@ -498,6 +498,24 @@ def needs_math_fence_validate(content: str, verified: VerifiedMathBlock | None) 
         return True
     lower = content.lower()
     return any(marker in lower for marker in _FENCE_VALIDATE_MARKERS)
+
+
+def check_samples(verified: VerifiedMathBlock | None) -> bool:
+    """Whether ``validate_math_fences`` may sample a curve (SymPy) for ``verified``: one of
+    its graphs is a curve too sparse to draw, which the rewrite resamples wherever it puts
+    that graph. No SymPy: the turn asks it before checking a server reply in process."""
+    if verified is None:
+        return False
+    for fence in (verified.canonical_fence, *(verified.canonical_fences or [])):
+        if fence is None:
+            continue
+        try:
+            spec = GraphBlockSpec.model_validate(fence)
+        except (ValidationError, TypeError):
+            continue
+        if needs_densify(spec):
+            return True
+    return False
 
 
 def validate_math_fences_worker(

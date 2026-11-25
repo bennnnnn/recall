@@ -109,6 +109,19 @@ def _resample_curve(
     )
 
 
+def needs_densify(spec: GraphBlockSpec) -> bool:
+    """Whether ``densify_sparse_graph`` would sample this spec with SymPy: a continuous curve
+    listed too sparsely to draw. No SymPy: a check that may run on the event loop asks it."""
+    if spec.type in {"vertical", "number_line", "trajectory", "inequality"} or _is_point_marker(
+        spec
+    ):
+        return False
+    var2 = (spec.variable2 or spec.variable).strip() or "x"
+    return _curve_needs_densify(spec.points, spec.expr, spec.variable) or _curve_needs_densify(
+        spec.points2, spec.expr2, var2
+    )
+
+
 def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     """Re-sample sparse continuous curve(s) so the client draws smooth plots.
 
@@ -116,16 +129,12 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     when curve 1 was already dense left a sparse ``points2`` as a jagged
     polyline, and densifying curve 1 preserved but never resampled curve 2.
     """
-    if spec.type in {"vertical", "number_line", "trajectory", "inequality"} or _is_point_marker(
-        spec
-    ):
+    if not needs_densify(spec):
         return spec
 
     var2 = (spec.variable2 or spec.variable).strip() or "x"
     needs1 = _curve_needs_densify(spec.points, spec.expr, spec.variable)
     needs2 = _curve_needs_densify(spec.points2, spec.expr2, var2)
-    if not needs1 and not needs2:
-        return spec
 
     x_min, x_max = _sample_domain(spec)
     settings = get_settings()
