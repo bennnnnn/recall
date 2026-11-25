@@ -119,7 +119,23 @@ def kept_per_turn[F: Callable[..., Any]](fn: F) -> F:
             memo[kept_key] = fn(*args, **kwargs)
         return _fresh(memo[kept_key])
 
+    # A function takes attributes; mypy models none.
+    read._kept_key = lambda *args, **kwargs: _key(name, signature, args, kwargs)  # type: ignore[attr-defined]
     return cast(F, read)
+
+
+def kept_answer[T](fn: Callable[..., T], *args: Any, **kwargs: Any) -> T | None:
+    """The turn's kept answer of the ``kept_per_turn`` reader ``fn`` at these arguments, or
+    None when the turn has not asked it. Never computes one."""
+    memo = _MEMO.get()
+    keyer = getattr(fn, "_kept_key", None)
+    if memo is None or keyer is None:
+        return None
+    key = keyer(*args, **kwargs)
+    if key is None or ("__kept__", *key) not in memo:
+        return None
+    kept: T = memo[("__kept__", *key)]
+    return _fresh(kept)
 
 
 async def read_aside[T](

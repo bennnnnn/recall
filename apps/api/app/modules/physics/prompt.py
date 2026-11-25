@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.core.config import Settings, get_settings
-from app.core.readings import kept_per_turn, run_with_readings
+from app.core.readings import kept_answer, kept_per_turn, run_with_readings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.chain_solve import solve_chain
 from app.modules.physics.extract import extract_physics_intent, needs_physics
@@ -99,6 +99,15 @@ def _solved_once(
 ) -> tuple[PhysicsOutcome, VerifiedPhysicsBlock | None]:
     """``solve_physics_request`` under the app's settings, kept for the turn by its text."""
     return _solve_physics_request(user_content, get_settings(), needs_subject)
+
+
+def solved_already(user_content: str, settings: Settings) -> bool:
+    """Whether this turn has already solved ``user_content`` to a verified answer under
+    ``settings`` (routing asks it of the line): no solve is run here."""
+    if not (settings is get_settings() or settings == get_settings()):
+        return False
+    kept = kept_answer(_solved_once, user_content, True)
+    return kept is not None and kept[0] == "verified"
 
 
 def _solve_physics_request(
