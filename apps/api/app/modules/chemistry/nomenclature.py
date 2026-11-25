@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from app.modules.chemistry.elements import BY_SYMBOL, OTHER_SPELLINGS
 
+
 @dataclass(frozen=True, slots=True)
 class Ion:
     formula: str

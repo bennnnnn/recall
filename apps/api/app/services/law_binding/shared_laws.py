@@ -33,8 +33,6 @@ class SharedLaw:
 # The density of an ideal gas: rho = PM/RT.
 IDEAL_GAS_DENSITY = SharedLaw("physics", "ideal_gas_density", "pres*molar_mass/(R_gas*temp)")
 
-SHARED_LAWS: tuple[SharedLaw, ...] = (IDEAL_GAS_DENSITY,)
-
 _NAME = re.compile(r"[A-Za-z_][A-Za-z_0-9]*")
 
 

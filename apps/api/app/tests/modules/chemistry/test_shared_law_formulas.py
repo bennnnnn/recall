@@ -18,7 +18,10 @@ import sympy
 
 from app.modules.chemistry.formula_laws import FORMULA_LAWS, FormulaLaw
 from app.modules.physics.catalog import CATALOG
-from app.services.law_binding.shared_laws import SHARED_LAWS, in_names, solved_for
+from app.services.law_binding.shared_laws import IDEAL_GAS_DENSITY, in_names, solved_for
+
+# Every law two subjects share (``law_binding.shared_laws``).
+SHARED_LAWS = (IDEAL_GAS_DENSITY,)
 from app.services.law_binding.spec import FormulaSpec
 from app.services.units import get_unit_registry
 
