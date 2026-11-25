@@ -47,6 +47,8 @@ import { forgetSyncRecords } from "@/lib/syncRecords";
 import { tokenSubject } from "@/lib/tokenSubject";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useUpdateUser } from "@/contexts/useUpdateUser";
+import { ProfileRereadContext } from "@/contexts/profileReread";
+import { useProfileReread } from "@/contexts/useProfileReread";
 import { AuthLoadingShell } from "@/components/AuthLoadingShell";
 
 type AuthContextValue = {
@@ -143,6 +145,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   }, []);
   const isCurrent = useCallback((generation: number) =>
     mountedRef.current && generation === getSessionGeneration(), []);
+  // Each server answer with the whole user is `markRead`; a return or a Settings page reads it again.
+  const { reread: rereadProfile, markRead, readAtRef, savesWaitingRef } = useProfileReread({
+    signedIn: Boolean(token && user), tokenRef, userRef, revisionRef: updateUserGenRef, isCurrent, setCurrentUser, setProfileValidated,
+  });
 
   const setIgnoreUnauthorized = useCallback((value: boolean) => {
     ignoreUnauthorizedRef.current = value;
@@ -252,7 +258,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         setCurrentToken(currentToken);
         if (revision === updateUserGenRef.current) {
           setCurrentUser(me);
-          setProfileValidated(true);
+          markRead();
           void writeCachedUser(me);
         }
       } catch {
@@ -264,7 +270,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       }
     })();
     return () => { cancelled = true; mountedRef.current = false; };
-  }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser, endSession]);
+  }, [hydrationAttempt, isCurrent, setCurrentToken, setCurrentUser, endSession, markRead]);
 
   const restored = !loading || startupFailed;
   useEffect(() => {
@@ -294,10 +300,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (!saved || !isCurrent(generation)) return;
     setCurrentToken(result.access_token);
     setCurrentUser(result.user);
-    setProfileValidated(true);
+    markRead();
     setLoading(false);
     void writeCachedUser(result.user);
-  }, [isCurrent, setCurrentToken, setCurrentUser]);
+  }, [isCurrent, setCurrentToken, setCurrentUser, markRead]);
 
   const signInWithGoogle = useCallback(() => signIn(async (current) => {
     const idToken = await signInWithGoogleIdToken();
@@ -330,12 +336,12 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       if (userRef.current && refreshedUser && userRef.current.id !== refreshedUser.id) return;
       setCurrentToken(accessToken);
       if (refreshedUser) {
-        setProfileValidated(true);
+        markRead();
         setCurrentUser((previous) => previous ? { ...previous, ...refreshedUser } : refreshedUser);
       }
     });
     return () => setTokenRefreshHandler(null);
-  }, [setCurrentToken, setCurrentUser]);
+  }, [setCurrentToken, setCurrentUser, markRead]);
 
   useEffect(() => {
     if (user?.locale) void ensureLocale(user.locale);
@@ -358,9 +364,9 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     const me = await read(token);
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
-    setProfileValidated(true);
+    markRead();
     void writeCachedUser(me);
-  }, [token, sessionGeneration, isCurrent, setCurrentUser]);
+  }, [token, sessionGeneration, isCurrent, setCurrentUser, markRead]);
 
   const completeOnboarding = useCallback(async () => {
     if (!isCurrent(sessionGeneration)) return;
@@ -369,7 +375,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   }, [sessionGeneration, isCurrent]);
 
   const updateUser = useUpdateUser({
-    token, sessionGeneration, profileValidated, isCurrent, userRef,
+    token, sessionGeneration, profileValidated, isCurrent, userRef, savesWaitingRef, readAtRef,
     revisionRef: updateUserGenRef, setCurrentUser, setProfileValidated,
   });
 
@@ -386,40 +392,13 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     return () => setConsentRequiredHandler(null);
   }, [mergeUser]);
 
-  const value = useMemo(
-    () => ({
-      user,
-      token,
-      loading,
-      profileValidated,
-      signInWithGoogle,
-      signInWithApple,
-      signInWithDev,
-      signOut,
-      refreshUser,
-      updateUser,
-      mergeUser,
-      onboarded,
-      completeOnboarding,
-      setIgnoreUnauthorized,
-    }),
-    [
-      user,
-      token,
-      loading,
-      profileValidated,
-      signInWithGoogle,
-      signInWithApple,
-      signInWithDev,
-      signOut,
-      refreshUser,
-      updateUser,
-      mergeUser,
-      onboarded,
-      completeOnboarding,
-      setIgnoreUnauthorized,
-    ],
-  );
+  const value = useMemo(() => ({
+    user, token, loading, profileValidated, signInWithGoogle, signInWithApple, signInWithDev,
+    signOut, refreshUser, updateUser, mergeUser, onboarded, completeOnboarding, setIgnoreUnauthorized,
+  }), [
+    user, token, loading, profileValidated, signInWithGoogle, signInWithApple, signInWithDev,
+    signOut, refreshUser, updateUser, mergeUser, onboarded, completeOnboarding, setIgnoreUnauthorized,
+  ]);
 
   const tokenBag = useMemo(() => ({ token }), [token]);
   const readUser = useCallback(() => userRef.current, []);
@@ -436,9 +415,11 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
       <AccountSessionContext.Provider value={accountSession}>
         <AuthUserReaderContext.Provider value={readUser}>
           <AuthContext.Provider value={value}>
-            {loading || startupFailed
-              ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} onSignOut={signOutFromLaunch} />
-              : children}
+            <ProfileRereadContext.Provider value={rereadProfile}>
+              {loading || startupFailed
+                ? <AuthLoadingShell failed={startupFailed} onRetry={retryStartup} onSignOut={signOutFromLaunch} />
+                : children}
+            </ProfileRereadContext.Provider>
           </AuthContext.Provider>
         </AuthUserReaderContext.Provider>
       </AccountSessionContext.Provider>

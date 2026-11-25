@@ -12,6 +12,10 @@ type Options = {
   userRef: MutableRefObject<User | null>;
   /** Bumped by every change to the user here and by AuthContext's mergeUser: the latest wins. */
   revisionRef: MutableRefObject<number>;
+  /** Saves not yet answered: a profile re-read waits for none (contexts/useProfileReread.ts). */
+  savesWaitingRef: MutableRefObject<number>;
+  /** When the server last answered with the whole user: a save's answer is a read. */
+  readAtRef: MutableRefObject<number | null>;
   setCurrentUser: (next: User | null | ((previous: User | null) => User | null)) => void;
   setProfileValidated: (validated: boolean) => void;
 };
@@ -46,6 +50,8 @@ export function useUpdateUser({
   isCurrent,
   userRef,
   revisionRef,
+  savesWaitingRef,
+  readAtRef,
   setCurrentUser,
   setProfileValidated,
 }: Options): (patch: Partial<User>) => Promise<void> {
@@ -53,14 +59,13 @@ export function useUpdateUser({
   // What the server last said the user is: read when no save is waiting, then each answer.
   // A failed last save puts this back, never a snapshot holding an earlier save that failed.
   const confirmed = useRef<User | null>(null);
-  const waiting = useRef(0);
   return useCallback((patch: Partial<User>) => {
     if (!token || !isCurrent(sessionGeneration)) return Promise.resolve();
     const revision = ++revisionRef.current;
     const snapshot = userRef.current;
     const snapshotValidated = profileValidated;
-    if (waiting.current === 0) confirmed.current = snapshot;
-    waiting.current += 1;
+    if (savesWaitingRef.current === 0) confirmed.current = snapshot;
+    savesWaitingRef.current += 1;
     setCurrentUser((previous) => previous ? { ...previous, ...patch } : previous);
     return queue.run(async () => {
       try {
@@ -70,6 +75,7 @@ export function useUpdateUser({
         if (!isCurrent(sessionGeneration)) return;
         confirmed.current = updated;
         if (revision === revisionRef.current) {
+          readAtRef.current = Date.now();
           setCurrentUser(updated);
           setProfileValidated(true);
           void writeCachedUser(updated);
@@ -84,8 +90,8 @@ export function useUpdateUser({
         // Failed, whoever owns the user now: no caller may count this save as made.
         throw new Error("update failed");
       } finally {
-        waiting.current -= 1;
+        savesWaitingRef.current -= 1;
       }
     });
-  }, [token, sessionGeneration, profileValidated, isCurrent, userRef, revisionRef, setCurrentUser, setProfileValidated, queue]);
+  }, [token, sessionGeneration, profileValidated, isCurrent, userRef, revisionRef, savesWaitingRef, readAtRef, setCurrentUser, setProfileValidated, queue]);
 }

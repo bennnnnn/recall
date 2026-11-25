@@ -690,8 +690,12 @@ const SCREENS = [
 /** A screen's read on opening it (none: it shows what the app already holds). */
 const SCREEN_READS: Record<string, number> = {
   memory: 1, gallery: 1, usage: 1, archived: 1, memorySettings: 1, security: 1,
-  // Storage: what Library keeps of the plan's total, read each time Settings shows.
-  settings: 1,
+  // Storage: what Library keeps of the plan's total, read each time Settings shows. And the
+  // profile (/auth/me): a Settings page that gains focus reads it again once the last read is
+  // 30 s old, so a change made on another device shows. Settings opens a minute after launch.
+  settings: 2,
+  // 30 s after Settings' read: the pages opened between it fall within the window.
+  preferences: 1,
 };
 
 /** Screens opened a second time, whose read the server answers 304. */
@@ -723,16 +727,18 @@ const CEILINGS: Record<string, number> = {
   ...Object.fromEntries(REVISITED.map((name) => [`open ${name} again`, 1])),
   ...Object.fromEntries(REVISITED.map((name) => [`leave ${name} again`, 0])),
   "a minute in the background": 0,
-  // To-dos, the open chat and the drawer's chats (ETag, 304), the check; no socket until a send.
-  "return after a minute": 4,
+  // To-dos, the open chat and the drawer's chats (ETag, 304), the check, and the profile
+  // (/auth/me, older than 30 s: another device may have changed it); no socket until a send.
+  "return after a minute": 5,
   // And the model list (older than 5 minutes).
-  "return after 10 minutes": 5,
+  "return after 10 minutes": 6,
   // iOS goes inactive and back without leaving: nothing is read again.
   "Control Centre and back, 6 minutes on": 0,
   // The zone sent to the server, and the to-dos read again for their new notify_at.
   "the phone's zone changes while the app runs": 2,
-  // A return's reads, the zone sent, and the to-dos read once: after the zone landed.
-  "return after 10 minutes, in another zone": 6,
+  // A return's reads, the zone sent, and the to-dos and the profile read once: after the zone
+  // landed, so neither carries the old zone.
+  "return after 10 minutes, in another zone": 7,
   "50 minutes in the foreground": 0,
   // One refresh before the read, then the page.
   "open chat 2 after the token expired": 2,
@@ -896,6 +902,13 @@ it("keeps every step of an everyday session within its requests", async () => {
   expect(steps.filter((s) => s.requests.includes("PATCH /auth/me")).map((s) => s.title)).toEqual([
     "the phone's zone changes while the app runs", "return after 10 minutes, in another zone",
   ]);
+  // The profile: each launch, the first Settings page 30 s after the last read, each return;
+  // never a token refresh (it answers with the account), a page hop or Control Centre.
+  expect(steps.filter((s) => s.requests.includes("GET /auth/me")).map((s) => s.title)).toEqual([
+    "cold start after sign-in", "open settings", "open preferences", "return after a minute",
+    "return after 10 minutes", "return after 10 minutes, in another zone", "cold start again",
+  ]);
+  expect(steps.flatMap((s) => s.requests).filter((r) => r === "GET /auth/me")).toHaveLength(7);
   expect(steps.find((s) => s.title === "open memory again")?.requests).toEqual(["GET /memories/documents (304)"]);
   expect(steps.find((s) => s.title === "open security again")?.requests).toEqual(["GET /auth/sessions (304)"]);
 });
@@ -1182,10 +1195,11 @@ const OUTAGE_CEILINGS: Record<string, number> = {
   // before): one landed since the outage.
   "the 30 s after, the API back": 2,
   "a minute in the background": 0,
-  // The return's reads (to-dos, the chat, the drawer's chats; no socket until a send) fail once;
+  // The return's reads (to-dos, the chat, the drawer's chats, the profile; no socket until a
+  // send) fail once, and the profile is not tried again until the next return or Settings visit;
   // the connection check backs off (1.5 s, 3 s, 6 s, 12 s, 24 s), each asking Google whether it is
   // the API. Once it passes, the page on screen is read again, 0 to 10 s later.
-  "return while the API is down 30 s, then 30 s": 15,
+  "return while the API is down 30 s, then 30 s": 16,
   // One socket try, then the send over SSE, refused: the phone says so and stops. The 503 asks
   // for a connection check, which shows the banner; its loop checks again at 1.5 s and 3 s.
   "send while the API answers 503": 8,

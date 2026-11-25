@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, ScrollView, StyleSheet, View, type HostInstance } from "react-native";
-import { type Href, Redirect, router } from "expo-router";
+import { type Href, Redirect, router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { SETTINGS_PROFILE_STALE_MS, useRereadProfile } from "@/contexts/profileReread";
 import type { User } from "@/lib/api";
 import { SettingsPinnedBar } from "@/features/account/components/SettingsPinnedBar";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
@@ -41,7 +42,9 @@ export function useSettingsContentStyle(options?: { underStatusBar?: boolean }) 
  * A Settings page: sends a signed-out visitor to login, then scrolls its
  * groups with the shared padding. The page without a stack header (Settings
  * home) passes `ownBarTitle`: it starts under the status bar and keeps its own
- * Back on screen (SettingsPinnedBar).
+ * Back on screen (SettingsPinnedBar). A page gaining focus reads the user again when the
+ * last read is older than SETTINGS_PROFILE_STALE_MS: a setting changed on another device,
+ * the plan the store renewed or ended, shows here without a restart.
  */
 export function SettingsPage({
   children,
@@ -51,6 +54,8 @@ export function SettingsPage({
   ownBarTitle?: string;
 }) {
   const { token } = useAuth();
+  const rereadProfile = useRereadProfile();
+  useFocusEffect(useCallback(() => { rereadProfile(SETTINGS_PROFILE_STALE_MS); }, [rereadProfile]));
   const theme = useTheme();
   const contentStyle = useSettingsContentStyle({ underStatusBar: ownBarTitle != null });
   const [scrollY] = useState(() => new Animated.Value(0));

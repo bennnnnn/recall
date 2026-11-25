@@ -232,11 +232,18 @@ def test_is_available_without_keys():
     assert model_health.is_available(minimax, settings) is False
 
 
-def test_speech_stt_alias_uses_direct_openai():
+def test_speech_stt_alias_uses_whisper_on_openrouter():
     stt = model_catalog.get("speech-stt-model")
-    assert stt.model == "openai/gpt-4o-mini-transcribe"
-    assert stt.api_key_field == "openai_api_key"
-    assert model_catalog.openrouter_slug("speech-stt-model") == "openai/gpt-4o-mini-transcribe"
+    assert stt.api_key_field == "openrouter_api_key"
+    assert model_catalog.openrouter_slug("speech-stt-model") == "openai/whisper-large-v3-turbo"
+    # Amharic, Hindi and Whisper's failures stay on OpenAI directly, as does live dictation.
+    stt_openai = model_catalog.get("speech-stt-openai-model")
+    assert stt_openai.api_key_field == "openai_api_key"
+    assert stt_openai.model == "openai/gpt-4o-mini-transcribe"
+    stt_large = model_catalog.get("speech-stt-openai-large-model")
+    assert stt_large.api_key_field == "openai_api_key"
+    assert stt_large.model == "openai/gpt-4o-transcribe"
+    assert model_catalog.get("speech-dictation-model").api_key_field == "openai_api_key"
 
 
 # ── Capabilities and routing lanes ────────────────────────────────────────────

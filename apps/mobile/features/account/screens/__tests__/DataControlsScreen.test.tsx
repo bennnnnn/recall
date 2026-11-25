@@ -22,7 +22,7 @@ let mockProgress = "idle";
 let mockUser: Record<string, unknown>;
 
 jest.mock("expo-router", () => ({
-  Redirect: () => null,
+  Redirect: () => null, useFocusEffect: () => {},
   router: { push: jest.fn() },
   useRouter: () => ({ replace: mockReplace }),
   useNavigation: () => ({ setOptions: jest.fn() }),

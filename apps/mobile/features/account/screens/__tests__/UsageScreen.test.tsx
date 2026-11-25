@@ -12,7 +12,7 @@ jest.mock("react-i18next", () => ({
       options ? `${key} ${JSON.stringify(options)}` : key,
   }),
 }));
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "tok", user: mockUser }) }));
 jest.mock("@/features/account/hooks/useUsage", () => ({ useUsage: () => mockUsage }));
 jest.mock("@/lib/quota", () => ({ formatUsageSummary: () => "80% of today's limit left" }));

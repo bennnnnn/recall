@@ -10,7 +10,7 @@ import { SettingsPinnedBar } from "@/features/account/components/SettingsPinnedB
 import { SettingsPage } from "@/features/account/components/settingsUi";
 
 jest.mock("expo-router", () => ({
-  Redirect: () => null,
+  Redirect: () => null, useFocusEffect: () => {},
   router: { push: jest.fn() },
   useRouter: () => ({ back: jest.fn(), canGoBack: () => true, replace: jest.fn() }),
 }));
