@@ -4,9 +4,11 @@ Daily upload counts cap how fast files arrive, not how many stay: a free
 account could keep about 4.5 GB more every month, forever. Every attachment row
 is real stored bytes (a resend copies the object, ``reuse.py``), generated
 pictures included, so the total is one SUM over the user's rows
-(``ix_attachments_user``). Only what Library shows counts (owner, 2026-11-24): a web
-lookup's reference photos, the copies a resend makes and a profile photo are part of a
-message or the profile, hidden from Library (``library_visible`` false), and left out. A
+(``ix_attachments_user``). A web lookup's reference photos are part of their message,
+never a Library item, and are left out (owner, 2026-11-24): the server picks them, so they
+do not grow with what the user sends. A resend's copy (hidden from Library, a full copy of
+the bytes) still counts: Pro has no daily message cap, and resending one file message after
+message would otherwise store without limit; it goes when its chat is deleted. A
 pending upload counts from its presign. An account's presigns run one at a time
 (``library_presign``): two that raced the read both passed, and with photo uploads no
 longer counted a day, a burst of them could have gone well past the total.
@@ -43,12 +45,11 @@ _NOT_STORED_SOURCES = ("search",)
 
 
 async def stored_bytes(session: AsyncSession, user_id: UUID) -> int:
-    """Bytes in what the user's Library shows, pending uploads included: a lookup photo, a
-    resend's copy and a profile photo (hidden from Library) are not counted."""
+    """Bytes in the user's attachment rows, pending uploads and resend copies included,
+    lookup photos not."""
     total = await session.scalar(
         select(func.coalesce(func.sum(Attachment.size_bytes), 0)).where(
             Attachment.user_id == user_id,
-            Attachment.library_visible.is_(True),
             Attachment.source.not_in(_NOT_STORED_SOURCES),
         )
     )

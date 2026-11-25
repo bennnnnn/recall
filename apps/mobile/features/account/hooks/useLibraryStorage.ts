@@ -22,6 +22,11 @@ export function useLibraryStorage(): LibraryStorage | null {
   const key = `${getSessionGeneration()}:${account ?? ""}:${user?.plan ?? ""}`;
   const [read, setRead] = useState<{ key: string; storage: LibraryStorage } | null>(null);
   const readAtRef = useRef<number | undefined>(undefined);
+  // The account and plan now: a read made under another lands nowhere.
+  const keyRef = useRef(key);
+  useEffect(() => {
+    keyRef.current = key;
+  }, [key]);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -36,11 +41,11 @@ export function useLibraryStorage(): LibraryStorage | null {
     attachmentsApi
       .getLibraryStorage(token)
       .then((r) => {
+        // An answer for another account or plan (it changed while this read was out) is not
+        // this screen's: it neither shows nor counts as the read since an outage.
+        if (!mountedRef.current || keyRef.current !== key) return;
         readAtRef.current = Date.now();
-        // Kept under the account and plan it was read for: the return shows it only for those.
-        if (mountedRef.current) {
-          setRead({ key, storage: { usedBytes: r.used_bytes, limitBytes: r.limit_bytes } });
-        }
+        setRead({ key, storage: { usedBytes: r.used_bytes, limitBytes: r.limit_bytes } });
       })
       .catch((error: unknown) => reportFailure("library_storage", error));
   }, [account, getToken, key]);

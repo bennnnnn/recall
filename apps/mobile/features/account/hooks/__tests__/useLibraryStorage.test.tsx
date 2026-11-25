@@ -80,3 +80,15 @@ it("reads nothing again when only the token rotates", async () => {
   await act(async () => {});
   expect(mockGetStorage).toHaveBeenCalledTimes(1);
 });
+
+it("keeps the new plan's answer when the old read lands after it", async () => {
+  const freeRead = deferred<{ used_bytes: number; limit_bytes: number }>();
+  const proRead = deferred<{ used_bytes: number; limit_bytes: number }>();
+  mockGetStorage.mockReturnValueOnce(freeRead.promise).mockReturnValueOnce(proRead.promise);
+  const { result, rerender } = await renderHook(() => useLibraryStorage());
+  mockPlan = "pro";
+  await rerender({});
+  await act(async () => proRead.resolve({ used_bytes: 120 * MB, limit_bytes: 4096 * MB }));
+  await act(async () => freeRead.resolve({ used_bytes: 120 * MB, limit_bytes: 400 * MB }));
+  expect(result.current).toEqual({ usedBytes: 120 * MB, limitBytes: 4096 * MB });
+});

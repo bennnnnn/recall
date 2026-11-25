@@ -98,7 +98,7 @@ def test_the_full_library_message_offers_an_upgrade_only_on_free(plan: str, upgr
 
 
 @pytest.mark.asyncio
-async def test_stored_bytes_sums_what_library_shows_of_the_user_only(db_session) -> None:
+async def test_stored_bytes_sums_every_row_of_the_user_only(db_session) -> None:
     async def make_user() -> Any:
         return await users.create(
             db_session,
@@ -111,8 +111,8 @@ async def test_stored_bytes_sums_what_library_shows_of_the_user_only(db_session)
     owner, other = await make_user(), await make_user()
     assert await storage_quota.stored_bytes(db_session, owner.id) == 0
     rows = [
-        # A Library upload, a pending upload, a resend's hidden copy (not counted: Library
-        # never shows it), a generated picture.
+        # A Library upload, a pending upload, a resend's hidden copy (it counts: resending
+        # would otherwise store without limit), a generated picture.
         (owner.id, 1_000, "upload", True, datetime.now(UTC)),
         (owner.id, 2_000, "upload", True, None),
         (owner.id, 3_000, "upload", False, datetime.now(UTC)),
@@ -133,7 +133,7 @@ async def test_stored_bytes_sums_what_library_shows_of_the_user_only(db_session)
             )
         )
     await db_session.flush()
-    assert await storage_quota.stored_bytes(db_session, owner.id) == 7_000
+    assert await storage_quota.stored_bytes(db_session, owner.id) == 10_000
     assert await storage_quota.stored_bytes(db_session, other.id) == 9_999
 
 
@@ -167,5 +167,5 @@ async def test_lookup_photos_are_not_counted_against_the_library() -> None:
     assert await storage_quota.stored_bytes(session, uuid4()) == 5
     sql = str(session.scalar.await_args.args[0].compile(compile_kwargs={"literal_binds": True}))
     assert "attachments.source NOT IN ('search')" in sql
-    # A resend's copy and a profile photo are hidden from Library: not counted either.
-    assert "attachments.library_visible IS true" in sql
+    # A resend's copy still counts: resending would otherwise store without limit.
+    assert "library_visible" not in sql
