@@ -1,9 +1,9 @@
 """The OpenAI side of dictation: the live session's shape, and a language OpenAI refuses.
 
-Amharic's ``am`` is a code neither OpenAI transcription endpoint takes (measured
-2026-11-23: the realtime mint answers 400 "Invalid value: 'am'", the recorded upload 400
-"Language code 'am' is not recognized"). The recorded path failed every Amharic dictation
-with a 502; both now name the language in the prompt instead.
+Amharic's ``am`` is a code OpenAI's transcribers do not take (measured 2026-11-23: the
+realtime mint answers 400 "Invalid value: 'am'"); the live paths name the language in the
+prompt instead. The recorded clip goes to Whisper on OpenRouter, which takes ``am``
+(``test_transcription.py``).
 """
 
 from __future__ import annotations
@@ -130,51 +130,6 @@ async def test_no_key_mints_nothing():
 
 
 @pytest.mark.asyncio
-async def test_the_recorded_path_names_a_refused_language_in_the_prompt():
-    client = MagicMock()
-    client.post = AsyncMock(
-        side_effect=[
-            _response(400, text='{"error": {"param": "language"}}'),
-            _response(200, {"text": "ሰላም"}),
-        ]
-    )
-
-    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
-        text = await speech_gateway.transcribe_via_openai(
-            Settings(openai_api_key="sk-test"),
-            b"audio",
-            filename="a.m4a",
-            model="openai/gpt-4o-mini-transcribe",
-            language="am",
-        )
-
-    assert text == "ሰላም"
-    first, second = (call.kwargs["data"] for call in client.post.call_args_list)
-    assert first["language"] == "am"
-    assert "language" not in second
-    assert "Amharic" in second["prompt"]
-
-
-@pytest.mark.asyncio
-async def test_the_recorded_path_keeps_a_language_openai_takes():
-    client = MagicMock()
-    client.post = AsyncMock(return_value=_response(200, {"text": "hola"}))
-
-    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
-        text = await speech_gateway.transcribe_via_openai(
-            Settings(openai_api_key="sk-test"),
-            b"audio",
-            filename="a.m4a",
-            model="gpt-4o-mini-transcribe",
-            language="es",
-        )
-
-    assert text == "hola"
-    assert client.post.await_count == 1
-    assert client.post.call_args.kwargs["data"]["language"] == "es"
-
-
-@pytest.mark.asyncio
 async def test_a_mint_racing_another_still_retries_without_the_refused_language():
     """Two Amharic mints at once: the other one marked "am" refused while this one's own
     refused request was out, and this one gave up with a 502."""
@@ -201,17 +156,15 @@ async def test_a_mint_racing_another_still_retries_without_the_refused_language(
     assert client.post.await_count == 2
 
 
-def test_every_voice_path_names_a_language_one_of_them_saw_refused():
-    """One memory: the recorded clip's refusal reaches live dictation and live talk."""
+def test_both_live_paths_name_a_language_one_of_them_saw_refused():
+    """One memory: live dictation's refusal reaches live talk, and the other way round."""
     speech_gateway.mark_stt_language_refused("am")
 
     dictation = _input(
         openai_speech_gateway.transcription_session_config("gpt-live-transcribe", "am")
     )
     live_talk = openai_speech_gateway.realtime_session_config(Settings(), "Recall", language="am")
-    recorded = speech_gateway._transcription_payload("gpt-4o-mini-transcribe", "am")
 
     for transcription in (dictation["transcription"], _input(live_talk)["transcription"]):
         assert "language" not in transcription and "languages" not in transcription
         assert "Amharic" in transcription["prompt"]
-    assert "language" not in recorded and "Amharic" in recorded["prompt"]

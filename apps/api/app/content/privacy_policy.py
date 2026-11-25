@@ -48,7 +48,7 @@ We do not sell your personal data and do not use it for advertising.
 
 - **AI model providers, through OpenRouter**: Your messages, recent chat history, relevant saved memory and reminders, profile details that help the answer (your name and, when relevant, email address, age, country, job, custom instructions, time zone and location), photos and files you attach with the text read from them, photos you scan in the scanner (math, physics and chemistry), and web search results. OpenRouter forwards each request to a company that runs the chosen model: the model's maker (currently Anthropic, OpenAI, DeepSeek, Alibaba's Qwen, Z.ai, Tencent, Perplexity, and Black Forest Labs for AI images) or another hosting provider OpenRouter works with. Background work uses the same route: chat titles, memory, follow-up questions, reading photos and scanned PDFs, and the search indexes described above.
 - **Perplexity, to decide how a message is handled**: Each message you send, with up to four earlier messages of that chat, goes through OpenRouter to Perplexity's Decider model, which reads it to decide whether the answer needs a web search, which model answers it and how long that model thinks. It writes no reply.
-- **OpenAI, for voice**: When you use voice input, read aloud or live talk, your recorded audio and the text to be read go to OpenAI. During live talk your phone connects to OpenAI directly with a short-lived key, and OpenAI also receives that conversation's instructions, which include recent messages, relevant memory, your custom instructions and upcoming reminders.
+- **OpenAI, for voice**: When you use voice input, read aloud or live talk, your recorded audio and the text to be read go to OpenAI. When voice input cannot stream live, the recorded clip instead goes through OpenRouter to a company that hosts OpenAI's Whisper speech model, which writes it down. During live talk your phone connects to OpenAI directly with a short-lived key, and OpenAI also receives that conversation's instructions, which include recent messages, relevant memory, your custom instructions and upcoming reminders.
 - **Mathpix, for math photos**: Photos of math problems you scan, or send asking for a solution, go to Mathpix to read the math. Recall asks Mathpix not to keep them to improve its service.
 - **Tavily, for web search and photo lookups**: Search words Recall writes from your message, which can include your city or, for nearby questions, your coordinates. If Tavily has no answer or your daily search allowance is used up, our server sends the same search words to public search engines (such as DuckDuckGo, Bing or Google) instead. You can turn web search and photo lookups off in Settings → Data controls.
 - **PubChem, for chemistry**: The names or structures of chemicals in a chemistry question, to look up their properties. No account details are sent.
@@ -57,7 +57,7 @@ Each of these services handles the data under its own terms and privacy policy. 
 
 ## Service Providers
 
-- **OpenRouter** routes AI requests to the model providers above.
+- **OpenRouter** routes AI requests to the model providers above, and recorded voice clips to a speech-to-text host.
 - **OpenAI** provides voice input, read aloud and live talk.
 - **Mathpix** reads math in photos.
 - **Tavily** provides web search and reference photos; public search engines are the backup.

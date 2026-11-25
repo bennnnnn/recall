@@ -45,7 +45,11 @@ IMAGE_SEARCH_SPEND_USD = 0.01
 # One photo's Mathpix call. A vision read of the page is priced by the
 # gateway on top, so this stays the old all-in estimate (conservative).
 MATHPIX_READ_SPEND_USD = 0.005
-STT_SPEND_USD = 0.01
+# One recorded clip on Whisper Large V3 Turbo (OpenRouter, billed per second of audio).
+# The dearest of its hosts is $0.0000111/s and OpenRouter picks the host. The phone stops a
+# take at 45 s ($0.0005); the server takes up to 5 MB, about 310 s of the phone's 128 kbps
+# AAC ($0.0035). Rounded up to cover that whole upload.
+STT_SPEND_USD = 0.004
 TTS_SPEND_USD = 0.015
 # An upper estimate of one minute of gpt-realtime conversation: audio both
 # ways plus the context each reply re-reads. Live talk is priced by time, not

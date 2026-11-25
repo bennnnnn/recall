@@ -232,11 +232,12 @@ def test_is_available_without_keys():
     assert model_health.is_available(minimax, settings) is False
 
 
-def test_speech_stt_alias_uses_direct_openai():
+def test_speech_stt_alias_uses_whisper_on_openrouter():
     stt = model_catalog.get("speech-stt-model")
-    assert stt.model == "openai/gpt-4o-mini-transcribe"
-    assert stt.api_key_field == "openai_api_key"
-    assert model_catalog.openrouter_slug("speech-stt-model") == "openai/gpt-4o-mini-transcribe"
+    assert stt.api_key_field == "openrouter_api_key"
+    assert model_catalog.openrouter_slug("speech-stt-model") == "openai/whisper-large-v3-turbo"
+    # Live dictation stays on OpenAI directly.
+    assert model_catalog.get("speech-dictation-model").api_key_field == "openai_api_key"
 
 
 # ── Capabilities and routing lanes ────────────────────────────────────────────

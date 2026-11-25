@@ -74,9 +74,9 @@ def test_a_failed_clip_keeps_its_slot_only_once_the_provider_was_asked(
 @pytest.mark.parametrize(
     "settings, asked",
     [
-        ({"openai_api_key": "k", "mock_llm_enabled": False}, True),
+        ({"openrouter_api_key": "k", "mock_llm_enabled": False}, True),
         ({"mock_llm_enabled": True}, True),
-        ({"openai_api_key": "", "mock_llm_enabled": False}, False),
+        ({"openrouter_api_key": "", "mock_llm_enabled": False}, False),
         ({"speech_transcription_enabled": False}, False),
     ],
 )
@@ -89,7 +89,7 @@ async def test_transcribe_audio_says_it_asks_the_provider_only_when_it_does(
         order.append("provider")
         return "hello"
 
-    with patch.object(speech_service.speech_gateway, "transcribe_via_openai", gateway):
+    with patch.object(speech_service.transcription_gateway, "transcribe_via_openrouter", gateway):
         await speech_service.transcribe_audio(
             Settings(**settings), b"audio", on_call=lambda: order.append("on_call")
         )

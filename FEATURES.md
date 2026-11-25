@@ -281,9 +281,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   when nothing was heard, at most 10 times a day on the phone's word), and hangs the call up
   itself `SPEECH_DICTATION_MAX_SECONDS` (45 s, the phone's own limit) + 15 s after the connect by a delayed
   `dictation_hangup` job. Where WebRTC is missing (Expo Go) or the call cannot be made, the mic
-  records a clip (`expo-audio`) and uploads it to `/speech/transcribe` (`gpt-4o-mini-transcribe`)
-  as before. Both pass the app's language; a code OpenAI refuses (Amharic's `am`) is sent as
-  the language's name in the prompt instead. Pro, **200/day**; on Free the mic opens
+  records a clip (`expo-audio`, at most 45 s) and uploads it to `/speech/transcribe`, which
+  transcribes it with Whisper Large V3 Turbo through OpenRouter (`speech-stt-model`,
+  `gateways/transcription_gateway.py`; billed per second of audio, $0.0002-0.0007 a minute by
+  host, against gpt-4o-mini-transcribe's ~$0.003). Both pass the app's language: Whisper takes
+  every app language's code, Amharic's `am` included, while a code OpenAI's live session refuses
+  (`am`) is sent as the language's name in its prompt. Whisper reads Amharic badly (synthetic
+  speech came back as garbled text, 2026-11-24) and misspells some Hindi words. Pro,
+  **200/day**; on Free the mic opens
   the plans (the server refuses Free with 403).
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
@@ -1645,7 +1650,7 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → `gpt-4o-mini-transcribe` (app-language hint, no-speech gate) | Real-phone check of the live path (dev build); Amharic quality on real speech |
+| Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → Whisper Large V3 Turbo on OpenRouter (app-language code, no-speech gate) | Real-phone check of the live path (dev build); the fallback's Amharic (garbled on synthetic speech) and Hindi spelling |
 | Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps) | — |
 

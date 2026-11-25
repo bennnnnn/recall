@@ -3,8 +3,8 @@ provider, and availability. Adding a provider/model is one entry here. Removing 
 its alias to ``model_removal.REMOVED_ALIASES``, no migration: a saved switch of it is
 off, a request naming it is Auto, and startup refuses lanes that still name it.
 
-Chat and image models route through **OpenRouter** using ``OPENROUTER_API_KEY``.
-Voice uses OpenAI directly with ``OPENAI_API_KEY``.
+Chat, image and recorded-clip transcription models route through **OpenRouter** using
+``OPENROUTER_API_KEY``. Live voice and read-aloud use OpenAI directly with ``OPENAI_API_KEY``.
 
 Prices are USD per 1M tokens (approximate OpenRouter rates — update as needed).
 A model is "available" when its configured key is set (or mock mode is on).
@@ -379,17 +379,19 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openrouter",
         selectable=False,
     ),
-    ChatModel(
+    # The recorded clip (the mic where live dictation cannot run): OpenRouter's
+    # /audio/transcriptions, billed per second of audio. Its hosts list $0.0002 to
+    # $0.00067 a minute and OpenRouter picks the host (2026-11-24 calls were billed
+    # $0.00067); gpt-4o-mini-transcribe cost about three times that per clip.
+    _or(
         id="speech-stt-model",
         label="Speech transcription",
-        model="openai/gpt-4o-mini-transcribe",
-        provider="openai",
-        api_key_field="openai_api_key",
+        model="openai/whisper-large-v3-turbo",
         selectable=False,
     ),
     # Live dictation (the composer mic): the only transcriber that writes words while
     # they are spoken; the gpt-4o ones wait for a pause (measured 2026-11-23). About
-    # $0.017 a minute against mini-transcribe's $0.003.
+    # $0.017 a minute.
     ChatModel(
         id="speech-dictation-model",
         label="Live dictation",

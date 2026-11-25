@@ -6,10 +6,12 @@ import logging
 from collections.abc import Callable
 
 from app.core.config import Settings
-from app.gateways import mock_llm, speech_gateway
+from app.gateways import mock_llm, speech_gateway, transcription_gateway
+from app.models import model_catalog
 from app.models.model_catalog import openrouter_slug
 from app.modules.speech.schemas import SPEECH_MAX_AUDIO_BYTES
 from app.modules.speech.transcript_validation import sanitize_transcript
+from app.services import model_health
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +71,17 @@ def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = N
     return speech_gateway.voice_for(model, chosen)
 
 
+def resolve_stt_model(settings: Settings) -> str:
+    """The recorded clip's transcriber: the operator's OpenRouter slug, else the catalog's.
+
+    An override without a provider part (``gpt-4o-mini-transcribe``, from when the clip went
+    to OpenAI directly) is not an OpenRouter id, so the catalog's model is used instead."""
+    override = (settings.speech_transcription_model or "").strip()
+    if "/" in override:
+        return override
+    return openrouter_slug(_STT_ALIAS)
+
+
 async def transcribe_audio(
     settings: Settings,
     audio_bytes: bytes,
@@ -91,19 +104,16 @@ async def transcribe_audio(
         if on_call is not None:
             on_call()
         return "This is a mock transcription."
-    if not settings.openai_api_key:
+    if not model_health.is_available(model_catalog.get(_STT_ALIAS), settings):
         return None
 
-    model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
-    if not speech_gateway.can_transcribe_with(model):
-        model = openrouter_slug(_STT_ALIAS)
     if on_call is not None:
         on_call()
-    text = await speech_gateway.transcribe_via_openai(
+    text = await transcription_gateway.transcribe_via_openrouter(
         settings,
         audio_bytes,
         filename=filename,
-        model=model,
+        model=resolve_stt_model(settings),
         language=language,
     )
     if text is None:
