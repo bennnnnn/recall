@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel
 
 from app.models.model_removal import requested_choice
+from app.models.voice_catalog import REPLY_VOICE_IDS
 
 MessageRole = Literal["user", "assistant", "system"]
 
@@ -26,11 +27,20 @@ MemoryOpKind = Literal["add", "update", "supersede", "delete", "mute"]
 ResponseTone = Literal["funny", "professional", "casual", "soft"]
 EmojiUse = Literal["off", "some", "more"]
 
-# Voices both read-aloud (gpt-4o-mini-tts) and live talk (realtime) can speak,
-# so one choice sounds the same in both.
+# Live talk's voices (the realtime model's). A reply plays in ``ReplyVoice`` below.
 UserVoice = Literal[
     "marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"
 ]
+
+
+def _reply_voice(value: str) -> str:
+    if value not in REPLY_VOICE_IDS:
+        raise ValueError(f"Unknown reply voice: {value}")
+    return value
+
+
+# A voice of a model that plays replies (Listen): ``models/voice_catalog.py``.
+ReplyVoice = Annotated[str, AfterValidator(_reply_voice)]
 
 MessageFeedback = Literal["up", "down"]
 

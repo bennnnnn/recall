@@ -19,8 +19,8 @@ or alert on every usage-billed account.
 | Upstash | Redis (jobs, quota, rate limits, sign-out) | Pay as you go | `us-east-1` | No production database yet; local dev uses Homebrew Redis. |
 | Fly.io | API and worker machines | Pay as you go (card on file) | `iad` | Not deployed. `recall-api.fly.dev` answers as an unrelated app, so the name `recall-api` may be taken: pick a free name and update `fly.toml` and the app's `EXPO_PUBLIC_API_URL`. |
 | Cloudflare R2 | Attachments | Pay as you go | Location hint: Eastern North America | Not created. |
-| OpenRouter | Chat models | Prepaid credits with auto top-up | — | Dev key in `apps/api/.env`. |
-| OpenAI | Speech to text, read aloud, live talk | Pay as you go with a monthly limit | — | |
+| OpenRouter | Chat models; Listen (Kokoro) in English, Spanish, French, Hindi, Portuguese | Prepaid credits with auto top-up | — | Dev key in `apps/api/.env`. |
+| OpenAI | Speech to text, live talk, Listen (tts-1) in Russian, Turkish, Amharic and when Kokoro fails | Pay as you go with a monthly limit | — | |
 | Tavily | Web search, reference photos | A plan sized to search volume | — | |
 | Resend | Transactional email | Free tier until volume needs more; verify the sending domain | — | |
 | RevenueCat | Pro subscription (monthly and yearly) | Free until its revenue threshold | — | |
@@ -755,8 +755,11 @@ UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
   compression, follow-up questions, attachment OCR, embeddings,
   the reference resolver, maths extraction;
-- a fixed price per call for images, photo lookup, scan reads, voice input and
-  read-aloud (`services/quota/spend.py`);
+- a fixed price per call for images, photo lookup, scan reads and voice input
+  (`services/quota/spend.py`);
+- Listen (read aloud) per clip by its characters, at its model's catalog price
+  (`ChatModel.usd_per_m_chars`: Kokoro $4 per 1M, tts-1 $15 per 1M;
+  `modules/speech/service.synthesize_speech`);
 - live talk by time: the reserved minutes at mint, settled at
   `POST /speech/live/end` ([§4b](#live-talk-minutes)).
 

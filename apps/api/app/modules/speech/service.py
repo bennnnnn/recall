@@ -8,10 +8,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from app.core.config import Settings
-from app.gateways import mock_llm, speech_gateway, transcription_gateway
+from app.core.log_text import log_safe
+from app.gateways import (
+    mock_llm,
+    openrouter_speech_gateway,
+    speech_gateway,
+    transcription_gateway,
+)
 from app.models import model_catalog
 from app.models.model_catalog import openrouter_slug
+from app.models.voice_catalog import voice_for
 from app.modules.speech.schemas import SPEECH_MAX_AUDIO_BYTES
+from app.modules.speech.text_language import UNSURE, clip_language
 from app.modules.speech.transcript_validation import sanitize_transcript
 from app.services import model_health
 from app.services.quota import spend as quota_spend
@@ -27,23 +35,33 @@ _STT_OPENAI_LARGE_ALIAS = "speech-stt-openai-large-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
 LIVE_TALK_ALIAS = "live-talk-model"
-_OPENAI_TTS_VOICES = frozenset(
-    {
-        "alloy",
-        "echo",
-        "fable",
-        "onyx",
-        "nova",
-        "shimmer",
-        "ash",
-        "ballad",
-        "coral",
-        "sage",
-        "verse",
-        "marin",
-        "cedar",
-    }
-)
+
+
+@dataclass(frozen=True)
+class ListenClip:
+    """What played one Listen clip: the catalog alias, the language it was read in (None:
+    unclear) and the call's estimated USD."""
+
+    alias: str
+    language: str | None
+    usd: float
+
+    @property
+    def reply_language(self) -> str:
+        """What the rest of the reply should follow: the language, when a model that reads
+        only some languages played it; ``UNSURE`` when the any-language model did (unclear
+        text, or Kokoro failed), so the rest stays in that one voice too."""
+        if self.language is None or model_catalog.speaks(self.alias, None):
+            return UNSURE
+        return self.language
+
+    @property
+    def fell_back(self) -> bool:
+        """A model other than its language's first played it: Kokoro failed on a clip in a
+        language it reads, and tts-1 played it."""
+        if self.language is None:
+            return False
+        return model_catalog.read_aloud_aliases(self.language)[0] != self.alias
 
 
 def normalize_tts_alias(raw: str | None) -> str:
@@ -56,7 +74,8 @@ def normalize_tts_alias(raw: str | None) -> str:
 
 
 def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
-    """Both read-aloud aliases use OpenAI; ignore stale non-OpenAI overrides."""
+    """The OpenAI model Listen asks: tts-1, or an operator's OpenAI override; a stale
+    non-OpenAI override is ignored."""
     chosen = normalize_tts_alias(alias)
     if chosen == TTS_FAST_ALIAS:
         return openrouter_slug(TTS_FAST_ALIAS)
@@ -64,16 +83,6 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
     if speech_gateway.can_speak_with(raw):
         return raw
     return openrouter_slug(TTS_QUALITY_ALIAS)
-
-
-def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = None) -> str:
-    """The user's voice, else the configured one; never one left from Gemini/Kokoro."""
-    chosen = (user_voice or "").strip().lower()
-    if chosen not in _OPENAI_TTS_VOICES:
-        configured = (settings.speech_tts_voice or "").strip().lower()
-        chosen = configured if configured in _OPENAI_TTS_VOICES else "alloy"
-    # The model may lack the voice (it is live talk's choice too): the gateway picks its nearest.
-    return speech_gateway.voice_for(model, chosen)
 
 
 @dataclass(frozen=True)
@@ -216,11 +225,20 @@ async def synthesize_speech(
     language: str | None = None,
     model_alias: str | None = None,
     voice: str | None = None,
+    reply_voice: str | None = None,
+    reply_language: str | None = None,
     on_call: Callable[[], None] | None = None,
+    on_played: Callable[[ListenClip], None] | None = None,
 ) -> tuple[bytes, str] | None:
-    """Return (audio_bytes, content_type) for OpenAI TTS.
+    """Return (audio_bytes, content_type) of ``text`` played aloud.
 
-    ``on_call`` runs just before the provider is asked (the mock counts as one)."""
+    The text's own language picks the model (``text_language``): Kokoro for the languages
+    it reads, tts-1 for the rest and for a text whose language is unclear; when Kokoro
+    fails, tts-1 reads the clip. ``language`` is the app's locale, ``voice`` the live talk
+    voice and ``reply_voice`` the reply voice the user picked (``voice_catalog``);
+    ``reply_language`` is what the reply's lead clip was read as (``clip_language``).
+    ``on_call`` runs just before the first provider is asked (the mock counts as one), and
+    ``on_played`` with what played the clip (``ListenClip``)."""
     if not settings.speech_tts_enabled:
         return None
     plain = " ".join((text or "").split()).strip()
@@ -228,22 +246,54 @@ async def synthesize_speech(
         return None
     if len(plain) > _MAX_TTS_CHARS:
         plain = plain[:_MAX_TTS_CHARS]
+    spoken = clip_language(plain, reply_language, language)
+    aliases = [
+        alias
+        for alias in model_catalog.read_aloud_aliases(spoken)
+        if getattr(settings, model_catalog.get(alias).api_key_field, "")
+    ]
     # Mock chat must not fake TTS when a key is present: a stub MP3 fails
     # playback and the app falls back to on-device speech.
-    if mock_llm.should_mock_llm(settings) and not settings.openai_api_key:
+    if mock_llm.should_mock_llm(settings) and not aliases:
         if on_call is not None:
             on_call()
         return _MOCK_MP3_BYTES, "audio/mpeg"
-    if not settings.openai_api_key:
+    if not aliases:
         return None
-
-    model = resolve_tts_model(settings, alias=model_alias)
     if on_call is not None:
         on_call()
+    for alias in aliases:
+        speaker = voice_for(alias, spoken, reply_voice, voice)
+        audio = await _synthesize_with(settings, alias, plain, speaker, language, model_alias)
+        if audio is None:
+            continue
+        logger.info(
+            "Listen clip model=%s language=%s chars=%s", alias, log_safe(spoken), len(plain)
+        )
+        if on_played is not None:
+            price = model_catalog.get(alias).usd_per_m_chars or 0.0
+            on_played(ListenClip(alias, spoken, len(plain) * price / 1_000_000))
+        return audio
+    return None
+
+
+async def _synthesize_with(
+    settings: Settings,
+    alias: str,
+    text: str,
+    voice: str,
+    language: str | None,
+    model_alias: str | None,
+) -> tuple[bytes, str] | None:
+    """One Listen model's audio of ``text``, by its catalog provider; None when it fails."""
+    if model_catalog.get(alias).provider == "openrouter":
+        return await openrouter_speech_gateway.synthesize_via_openrouter(
+            settings, text, model=openrouter_slug(alias), voice=voice
+        )
     return await speech_gateway.synthesize_via_openai(
         settings,
-        plain,
-        model=model,
-        voice=resolve_tts_voice(settings, model, voice),
+        text,
+        model=resolve_tts_model(settings, alias=model_alias),
+        voice=voice,
         language=language,
     )

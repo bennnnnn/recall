@@ -15,7 +15,6 @@ from app.modules.speech.service import (
     TTS_QUALITY_ALIAS,
     normalize_tts_alias,
     resolve_tts_model,
-    resolve_tts_voice,
     synthesize_speech,
     transcribe_audio,
 )
@@ -228,34 +227,6 @@ def test_resolve_tts_model_uses_openai_for_both_aliases_and_stale_overrides():
     assert normalize_tts_alias("speech-tts-fast-model") == TTS_FAST_ALIAS
 
 
-def test_resolve_tts_voice_migrates_non_openai_voices():
-    for stale in ("Kore", "af_alloy", ""):
-        assert (
-            resolve_tts_voice(Settings(speech_tts_voice=stale), "openai/gpt-4o-mini-tts") == "alloy"
-        )
-    assert (
-        resolve_tts_voice(Settings(speech_tts_voice="marin"), "openai/gpt-4o-mini-tts") == "marin"
-    )
-
-
-@pytest.mark.parametrize(
-    "user_voice, expected",
-    [("cedar", "cedar"), (" Coral ", "coral"), (None, "marin"), ("Kore", "marin")],
-)
-def test_resolve_tts_voice_prefers_the_users_voice(user_voice, expected):
-    settings = Settings(speech_tts_voice="marin")
-    assert resolve_tts_voice(settings, "openai/gpt-4o-mini-tts", user_voice) == expected
-
-
-@pytest.mark.parametrize(
-    "user_voice, expected",
-    [("marin", "coral"), ("cedar", "onyx"), ("ballad", "echo"), ("verse", "ash"), ("sage", "sage")],
-)
-def test_tts1_reads_a_live_talk_only_voice_as_its_nearest(user_voice, expected):
-    # The Voice setting is live talk's too, which has marin, cedar, ballad and verse.
-    assert resolve_tts_voice(Settings(), "openai/tts-1", user_voice) == expected
-
-
 def test_pcm_to_wav_writes_riff_header():
     wav = pcm_to_wav(b"\x00\x00" * 8, sample_rate=24000, channels=1)
     assert wav[:4] == b"RIFF"
@@ -269,7 +240,6 @@ async def test_synthesize_openai_omits_language_field():
         openai_api_key="sk-test",
         speech_tts_enabled=True,
         speech_tts_model="openai/gpt-4o-mini-tts",
-        speech_tts_voice="alloy",
     )
     response = MagicMock()
     response.status_code = 200
@@ -285,7 +255,9 @@ async def test_synthesize_openai_omits_language_field():
         patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.speech_gateway.get_pooled_client", return_value=client),
     ):
-        result = await synthesize_speech(settings, "Hello world", language="en-US")
+        result = await synthesize_speech(
+            settings, "Hello world", language="en-US", reply_voice="alloy"
+        )
 
     assert result is not None
     audio, content_type = result
@@ -327,7 +299,7 @@ async def test_synthesize_legacy_fast_alias_requests_openai_mp3():
     assert result == (b"ID3kokoro", "audio/mpeg")
     body = client.post.call_args.kwargs["json"]
     assert body["model"] == "tts-1"
-    assert body["voice"] == "alloy"
+    assert body["voice"] == "coral"  # no voice picked: the first female voice of tts-1
     assert body["response_format"] == "mp3"
     # tts-1 takes no instructions: it reads the language from the text.
     assert "instructions" not in body
@@ -360,7 +332,9 @@ async def test_synthesize_uses_openai_when_mock_llm_but_key_present():
 
 
 @pytest.mark.asyncio
-async def test_voice_never_uses_openrouter_key_as_fallback():
+async def test_voice_never_uses_openrouter_key_for_openai():
+    # "Hello" is no clear language, so only tts-1 may read it: the OpenRouter key never
+    # stands in for OpenAI's.
     settings = Settings(mock_llm_enabled=False, openai_api_key="", openrouter_api_key="router-only")
     with (
         patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),

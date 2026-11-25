@@ -378,6 +378,8 @@ export type FailureArea =
   | "launch_splash_set_options"
   /** Pause or resume of a reading aloud failed (a clip's player gone, the phone's voice refusing). */
   | "read_aloud_control"
+  /** A voice picked in Settings → Voice could not say its name; the pick is saved anyway. */
+  | "voice_preview"
   /**
    * Turning push off could not remove this phone's token from the server. The switch still
    * turns off and the next sync tries again; the call failing on every phone once went unseen.

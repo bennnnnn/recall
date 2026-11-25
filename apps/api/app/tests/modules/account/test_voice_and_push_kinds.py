@@ -62,3 +62,18 @@ def test_patch_rejects_a_voice_live_talk_cannot_speak(voice: str) -> None:
     response, update = _patch_me({"tts_voice": voice})
     assert response.status_code == 422
     update.assert_not_awaited()
+
+
+def test_patch_saves_a_reply_voice_apart_from_the_live_talk_voice() -> None:
+    response, update = _patch_me({"reply_voice": "bm_george"}, reply_voice="bm_george")
+    assert response.status_code == 200
+    assert response.json()["reply_voice"] == "bm_george"
+    assert update.await_args.kwargs["reply_voice"] == "bm_george"
+    assert "tts_voice" not in update.await_args.kwargs
+
+
+@pytest.mark.parametrize("voice", ["marin", "af_alloy", "Kore", ""])
+def test_patch_rejects_a_voice_no_reply_model_has(voice: str) -> None:
+    response, update = _patch_me({"reply_voice": voice})
+    assert response.status_code == 422
+    update.assert_not_awaited()

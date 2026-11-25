@@ -431,7 +431,7 @@ def test_speech_tts_stops_at_the_days_tokens():
         )
     assert first.status_code == 200
     assert second.status_code == 429
-    assert "read-aloud" in second.json()["detail"]["message"].lower()
+    assert "listen" in second.json()["detail"]["message"].lower()
 
 
 def test_speech_tts_lead_allows_multiple_rest_followups():
@@ -603,7 +603,7 @@ def test_speech_tts_rate_limit_message():
         )
     assert first.status_code == 200
     assert second.status_code == 429
-    assert "read-aloud" in second.json()["detail"]["message"].lower()
+    assert "listen" in second.json()["detail"]["message"].lower()
 
 
 def test_speech_tts_disabled():

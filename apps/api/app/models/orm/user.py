@@ -91,8 +91,11 @@ class User(Base):
     push_reminders_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
-    # Read-aloud and live talk voice; None keeps the server default.
+    # Live talk's voice; None keeps the server default.
     tts_voice: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # The voice a reply plays in (Listen), from ``models/voice_catalog.py``; None follows
+    # the live talk voice.
+    reply_voice: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email_reminders_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )

@@ -28,10 +28,11 @@ SPEECH_LIMIT_EXCEEDED_MESSAGE = (
 )
 SPEECH_NOT_IN_PLAN_MESSAGE = "Voice input isn't part of your plan. Upgrade to dictate messages."
 SPEECH_RATE_LIMIT_MESSAGE = "Too many voice requests. Please wait a moment and try again."
-SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many read-aloud requests. Please wait a moment and try again."
-SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE = "Daily read-aloud limit reached. Try again tomorrow."
+SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many Listen requests. Please wait a moment and try again."
+SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE = "Daily Listen limit reached. Try again tomorrow."
 SPEECH_TTS_NOT_IN_PLAN_MESSAGE = (
-    "Read aloud isn't part of your plan. Upgrade for it, or use your phone's voice."
+    "The natural voice for Listen isn't part of your plan. "
+    "Upgrade for it, or use your phone's voice."
 )
 
 IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
