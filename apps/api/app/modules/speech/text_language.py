@@ -13,16 +13,19 @@ A language is named only on plain evidence, else None and the any-language model
 * a Latin-script language when its own common words make up a real share of the text, far
   ahead of every other language's, and no letter of another script is in it.
 
+A clip too short or too plain to tell ("Divide both sides by 3.") plays in its reply's
+language, or the app's, when nothing in it says otherwise (``clip_language``).
+
 Each word is in one list only, and a common word another listed language (English
-included) also writes is in none: "de", "que", "a", "no", "mais", "das", "dos" and "les" are
-in several languages, so in no list. One exception, Spanish "y": French writes it only in
-"il y a", which counts as French, and a Spanish text without it often has too few listed
-words. Italian, German and
-Turkish are listed only so that a text in one of them is never read as Spanish, French or
-Portuguese.
+included) also writes is in none: "de", "que", "a", "no", "mais", "das", "dos", "les" and
+"per" are in several languages, and "na" and "em" are sodium and a dash in English, so they
+are in no list. A single letter is never a word here ("y" is Spanish "and", and a variable
+in "x + y = 5"), and a web address's parts are not words (the "com" of example.com is not
+Portuguese "with"). Italian, German and Turkish are listed
+only so that a text in one of them is never read as Spanish, French or Portuguese.
 
 Letters used as symbols are no script: Greek (θ, Ω, µ in a formula) and the signs that are
-letters to Unicode (º, ª, Ω as the ohm sign).
+letters to Unicode (º, ª, Ω as the ohm sign, the modifier letters of a pronunciation).
 """
 
 from __future__ import annotations
@@ -37,11 +40,13 @@ from app.services.text_normalize import straighten_apostrophes
 UNSURE = ""
 
 _WORD = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?")
+# A web address or a file name ("example.com", "www.who.int", "main.py"): no words of a language.
+_ADDRESS = re.compile(r"\S*\w\.\w\S*")
 _SCRIPTS = {"CYRILLIC": "ru", "ETHIOPIC": "am", "DEVANAGARI": "hi"}
 # Letters a reply writes as symbols, by the first word of their Unicode name: "θ = 30°",
 # "R = 10 Ω", "el 1º de mayo", "5 µm" are still one language's text.
 _SYMBOL_SCRIPTS = frozenset(
-    {"GREEK", "MASCULINE", "FEMININE", "MICRO", "OHM", "KELVIN", "ANGSTROM"}
+    {"GREEK", "MASCULINE", "FEMININE", "MICRO", "OHM", "KELVIN", "ANGSTROM", "MODIFIER"}
 )
 # Letters of one script are at least this share of a text before it is of that script: a
 # stray symbol (θ in "θ = 30°") is let through, a word of another language is not.
@@ -60,7 +65,7 @@ _WORDS: dict[str, frozenset[str]] = {
         it's don't can't let's you're that's here's there's isn't doesn't""".split()
     ),
     "es": frozenset(
-        """el los las y están muy pero también cuando hay puede puedes usted tú más qué cómo
+        """el los las están muy pero también cuando hay puede puedes usted tú más qué cómo
         dónde aquí ahora hola gracias tiene tienes hacer puedo mucho ya ellos yo esa ese eso
         esto estos nuestro nuestra hace estoy eres pueden entonces aunque cuál según después
         siempre""".split()
@@ -71,12 +76,12 @@ _WORDS: dict[str, frozenset[str]] = {
         comme qu'il qu'on j'ai d'un d'une sur""".split()
     ),
     "pt": frozenset(
-        """não é são você vocês com uma na nas em ao aos pela também isso isto muito mas seu
+        """não é são você vocês com uma nas ao aos pela também isso isto muito mas seu
         sua ele ela eles elas então foi tem têm estão olá obrigado obrigada pode podem fazer
         aqui onde já nós essa esse ainda assim agora coisa""".split()
     ),
     "it": frozenset(
-        """della delle degli gli nel nella sono è per che questo questa anche molto ciao
+        """della delle degli gli nel nella sono è che questo questa anche molto ciao
         grazie alla perché più può essere hai ho""".split()
     ),
     "de": frozenset(
@@ -119,15 +124,12 @@ def one_script(text: str) -> str | None:
     return script if count >= _ONE_SCRIPT * total else None
 
 
-def _latin_language(text: str) -> str | None:
-    words = [word.casefold() for word in _WORD.findall(straighten_apostrophes(text))]
-    if len(words) < _MIN_WORDS:
-        return None
+def _latin_hits(text: str) -> tuple[list[str], Counter[str]]:
+    """``text``'s words, and how many of them each listed language's own words are."""
+    plain = _ADDRESS.sub(" ", straighten_apostrophes(text))
+    words = [word.casefold() for word in _WORD.findall(plain) if len(word) > 1]
     hits: Counter[str] = Counter()
-    for index, word in enumerate(words):
-        if word == "y" and index and words[index - 1] == "il":
-            hits["fr"] += 1  # "il y a"
-            continue
+    for word in words:
         for language, vocabulary in _WORDS.items():
             if word in vocabulary:
                 hits[language] += 1
@@ -135,6 +137,13 @@ def _latin_language(text: str) -> str | None:
             if any(letter in word for letter in letters):
                 hits[language] += 1
     hits["es"] += text.count("¿") + text.count("¡")
+    return words, +hits
+
+
+def _latin_language(text: str) -> str | None:
+    words, hits = _latin_hits(text)
+    if len(words) < _MIN_WORDS:
+        return None
     ranked = hits.most_common(2)
     if not ranked:
         return None
@@ -155,22 +164,46 @@ def text_language(text: str) -> str | None:
     return _latin_language(text)
 
 
-def clip_language(text: str, reply_language: str | None) -> str | None:
+def _app_code(locale: str | None) -> str | None:
+    """The language code of the app's locale ("en-US" -> "en"), or None."""
+    code = (locale or "").strip().lower().replace("_", "-").split("-", 1)[0]
+    return code if len(code) == 2 and code.isalpha() else None
+
+
+def _uncontested(text: str, language: str) -> bool:
+    """``text`` can be ``language``'s: every letter is of its script and, in Latin script, no
+    word of another listed language is in it. Plain English such as "Divide both sides by 3."
+    names too few listed words to be read as English, yet nothing says it is anything else."""
+    if not set(_letter_scripts(text)) <= {script_of_language(language)}:
+        return False
+    if script_of_language(language) != "LATIN":
+        return True
+    _words, hits = _latin_hits(text)
+    return not set(hits) - {language}
+
+
+def clip_language(
+    text: str, reply_language: str | None, app_language: str | None = None
+) -> str | None:
     """The language one clip of a reply is read in.
 
-    ``reply_language`` is what the reply's lead clip was read as: None when there is no
-    record of it (a reply in one clip, or the record expired), ``UNSURE`` when the lead could
-    not be told. A clip follows its reply's language unless it says otherwise itself: it
-    reads as another language, or holds letters of another script. Then it, alone, goes to
-    the any-language model.
+    ``reply_language`` is what the reply's lead clip played in: None when there is no record
+    of it (the lead itself, a reply in one clip, or the record expired), ``UNSURE`` when the
+    any-language model played the lead, which keeps the whole reply on it. ``app_language``
+    is the app's locale, the phone's ``language``.
+
+    A clip that plainly reads as a language is read in it (a rest clip only when that is its
+    reply's language). One whose words are too few to tell follows its reply's language, or
+    with no record the app's, when nothing in it says otherwise (``_uncontested``): no word
+    of another listed language, no letter of another script. Else it goes, alone, to the
+    any-language model.
     """
-    own = text_language(text)
-    if reply_language is None:
-        return own
     if reply_language == UNSURE:
         return None
-    if own == reply_language:
-        return own
-    if own is None and set(_letter_scripts(text)) <= {script_of_language(reply_language)}:
-        return reply_language
+    own = text_language(text)
+    if own is not None:
+        return own if reply_language in (None, own) else None
+    expected = reply_language or _app_code(app_language)
+    if expected and _uncontested(text, expected):
+        return expected
     return None

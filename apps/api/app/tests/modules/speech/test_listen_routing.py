@@ -52,9 +52,9 @@ GERMAN = "Natürlich, hier ist die Antwort: Wasser kocht bei hundert Grad und da
         (PORTUGUESE, "pt"),
         ("Você pode me dizer onde fica a estação? Não sei o caminho.", "pt"),
         # Words two languages write are in no list (review, 2026-11-24): "mais" (fr, pt),
-        # "dos" (es, pt), "il y a" (French, not Spanish "y").
+        # "dos" (es, pt); a single letter is no word ("y" in "il y a", and a variable).
         ("Você pode usar mais água.", "pt"),
-        ("Hay dos soluciones: x = 2 y x = 3.", "es"),
+        ("Hay dos soluciones: hay que sumar las ecuaciones.", "es"),
         ("Il y a deux solutions et elles sont simples.", "fr"),
         (HINDI, "hi"),
         (RUSSIAN, "ru"),
@@ -114,6 +114,52 @@ def test_clip_language_follows_the_reply_unless_the_clip_says_otherwise(
     clip: str, lead: str | None, language: str | None
 ) -> None:
     assert clip_language(clip, lead) == language
+
+
+# Plain English a homework reply is made of, too short or too plain to name English by its
+# words (the simulator, 2026-11-24: 3 of 7 everyday sentences went to tts-1).
+PLAIN_ENGLISH = [
+    "Given: x + y = 5 and x − y = −1. Required: x and y. Solution: add the equations to get "
+    "2x = 4, so x = 2.",
+    "Photosynthesis turns light energy into chemical energy stored in glucose.",
+    "Divide both sides by 3.",
+    "Newton's second law says force equals mass times acceleration, F = ma.",
+]
+
+
+@pytest.mark.parametrize("clip", PLAIN_ENGLISH)
+def test_plain_english_plays_in_the_app_language_or_its_reply(clip: str) -> None:
+    assert clip_language(clip, None, "en-US") == "en"  # a lead: the app's language
+    assert clip_language(clip, "en", "en-US") == "en"  # a rest clip: its reply's
+    assert clip_language(clip, UNSURE, "en-US") is None  # a reply tts-1 started stays there
+
+
+@pytest.mark.parametrize(
+    "clip, app, language",
+    [
+        # Nothing contests the app's language: it plays in it.
+        ("Hay dos soluciones: x = 2 y x = 3.", "es", "es"),
+        ("Claro, eu explico com palavras e um exemplo simples.", "pt-BR", "pt"),
+        ("Visit example.com for the details.", "en", "en"),
+        ("Na + Cl gives NaCl.", "en", "en"),
+        ("x + y = 5", "fr", "fr"),
+        # Another language's words contest it: tts-1 reads the clip.
+        ("Claro, eu explico com palavras e um exemplo simples.", "en", None),
+        ("Divide both sides by 3.", "es", None),
+        ("Bonjour is good morning in French.", "en", None),
+        # The clip's script is not the app language's: its own language, or none.
+        ("Divide both sides by 3.", "hi", None),
+        ("Москва", "en", "ru"),
+        ("Python and Москва", "en", None),
+        # No app language, or one Kokoro does not read (tts-1 reads it either way).
+        ("Divide both sides by 3.", None, None),
+        ("Divide both sides by 3.", "ru", None),
+    ],
+)
+def test_an_unclear_clip_takes_the_app_language_only_when_nothing_contests_it(
+    clip: str, app: str | None, language: str | None
+) -> None:
+    assert clip_language(clip, None, app) == language
 
 
 def test_kokoro_reads_its_five_app_languages_and_tts1_the_rest() -> None:
@@ -225,6 +271,22 @@ async def test_other_languages_and_unclear_text_play_through_tts1(text: str) -> 
     (clip,) = played
     assert clip.usd == pytest.approx(len(text) * 15.0 / 1_000_000)
     assert clip.reply_language == UNSURE  # the rest of the reply stays on tts-1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clip", PLAIN_ENGLISH)
+async def test_a_plain_english_lead_plays_on_kokoro_in_the_voice_picked(clip: str) -> None:
+    openrouter = _client(_response(b"ID3kokoro", "audio/mpeg"))
+    openai = _client(_response(b"ID3tts1", "audio/mpeg"))
+    played: list[ListenClip] = []
+    with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
+        result = await synthesize_speech(
+            _keys(), clip, language="en-US", reply_voice="am_puck", on_played=played.append
+        )
+    assert result == (b"ID3kokoro", "audio/mpeg")
+    openai.post.assert_not_called()
+    assert openrouter.post.call_args.kwargs["json"]["voice"] == "am_puck"
+    assert played[0].reply_language == "en"
 
 
 @pytest.mark.asyncio

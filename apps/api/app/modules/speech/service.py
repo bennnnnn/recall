@@ -136,7 +136,7 @@ async def synthesize_speech(
         return None
     if len(plain) > _MAX_TTS_CHARS:
         plain = plain[:_MAX_TTS_CHARS]
-    spoken = clip_language(plain, reply_language)
+    spoken = clip_language(plain, reply_language, language)
     aliases = [
         alias
         for alias in model_catalog.read_aloud_aliases(spoken)
