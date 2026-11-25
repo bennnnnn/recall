@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -78,11 +79,18 @@ def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = N
 @dataclass(frozen=True)
 class SttRoute:
     """One transcriber of the recorded clip: its catalog alias, the app languages it takes
-    (None: any, and a clip with no language) and the spend one clip is estimated at."""
+    (None: any, and a clip with no language), the spend one clip is estimated at, and how
+    long one try may take (None: whatever is left of ``STT_DEADLINE_SECONDS``)."""
 
     alias: str
     languages: frozenset[str] | None
     spend_usd: float
+    try_seconds: float | None = None
+
+
+# The phone stops waiting for /speech/transcribe at 25 s (``features/speech/api.ts``): every
+# try, a fallback included, ends by this, leaving the upload a few seconds.
+STT_DEADLINE_SECONDS = 20.0
 
 
 # Tried in order; a clip goes to every route that takes its language until one answers.
@@ -96,9 +104,22 @@ STT_ROUTES: tuple[SttRoute, ...] = (
         _STT_ALIAS,
         frozenset({"en", "es", "fr", "pt", "ru", "tr"}),
         quota_spend.STT_WHISPER_SPEND_USD,
+        # A 43 s clip took at most 3.2 s (2026-11-24): a hanging host leaves OpenAI 12 s.
+        try_seconds=8.0,
     ),
-    SttRoute(_STT_OPENAI_LARGE_ALIAS, frozenset({"am"}), quota_spend.STT_OPENAI_LARGE_SPEND_USD),
+    SttRoute(
+        _STT_OPENAI_LARGE_ALIAS,
+        frozenset({"am"}),
+        quota_spend.STT_OPENAI_LARGE_SPEND_USD,
+        # A 45 s Amharic clip took 5 s: mini still gets 8 s.
+        try_seconds=12.0,
+    ),
     SttRoute(_STT_OPENAI_ALIAS, None, quota_spend.STT_OPENAI_SPEND_USD),
+)
+# The Whisper models OpenRouter lists for /audio/transcriptions: the only values
+# SPEECH_TRANSCRIPTION_MODEL may set (an old OpenAI-direct or other name is ignored).
+_WHISPER_OVERRIDES = frozenset(
+    {"openai/whisper-large-v3-turbo", "openai/whisper-large-v3", "openai/whisper-1"}
 )
 
 
@@ -112,10 +133,10 @@ def stt_routes_for(language: str | None) -> tuple[SttRoute, ...]:
 
 def resolve_stt_model(settings: Settings, alias: str = _STT_ALIAS) -> str:
     """The model a route's alias sends. ``SPEECH_TRANSCRIPTION_MODEL`` overrides Whisper's
-    with another OpenRouter slug; one with no provider part (``gpt-4o-mini-transcribe``)
-    is no OpenRouter id, so the catalog's model is used instead."""
+    with another of OpenRouter's Whisper models; any other value (``gpt-4o-mini-transcribe``
+    from when the clip went to OpenAI directly) uses the catalog's model."""
     override = (settings.speech_transcription_model or "").strip()
-    if alias == _STT_ALIAS and "/" in override:
+    if alias == _STT_ALIAS and override in _WHISPER_OVERRIDES:
         return override
     return openrouter_slug(alias)
 
@@ -164,16 +185,29 @@ async def transcribe_audio(
             on_call()
         return "This is a mock transcription."
 
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + STT_DEADLINE_SECONDS
     asked = False
     for route in stt_routes_for(language):
         if not model_health.is_available(model_catalog.get(route.alias), settings):
             continue
+        left = deadline - loop.time()
+        if left <= 0:
+            break
         if not asked and on_call is not None:
             on_call()
         asked = True
         if on_spend is not None:
             on_spend(route.spend_usd)
-        text = await _transcribe_with(settings, route, audio_bytes, filename, language)
+        budget = min(left, route.try_seconds) if route.try_seconds else left
+        try:
+            async with asyncio.timeout(budget):
+                text = await _transcribe_with(settings, route, audio_bytes, filename, language)
+        except TimeoutError:
+            logger.warning(
+                "Speech transcription timed out alias=%s after=%.1fs", route.alias, budget
+            )
+            text = None
         if text is not None:
             return sanitize_transcript(text, audio_size=len(audio_bytes))
         logger.warning("Speech transcription route failed alias=%s", route.alias)

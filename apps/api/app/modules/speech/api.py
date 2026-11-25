@@ -194,13 +194,15 @@ async def transcribe_speech(
     # that keeps the slot; only a failure before the call gives it back.
     # Each transcriber asked adds its estimate: a Whisper failure retried on OpenAI is both.
     spent: list[float] = []
+    # Recorded whatever the outcome: a 502 after both failed, or a hang-up, may still be billed.
     async with refund_day_on_failure("speech_transcription", redis, user.id, day) as refund:
-        result = await _transcribe_bytes(
-            settings, data, filename, language, refund.spend, spent.append
-        )
-        if spent:
-            await quota_service.record_voice_spend(redis, sum(spent))
-        return result
+        try:
+            return await _transcribe_bytes(
+                settings, data, filename, language, refund.spend, spent.append
+            )
+        finally:
+            if spent:
+                await quota_service.record_voice_spend(redis, sum(spent))
 
 
 @router.get("/live", response_model=SpeechLiveStatusOut)

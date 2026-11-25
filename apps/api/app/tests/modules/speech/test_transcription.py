@@ -9,7 +9,10 @@ failed (``speech.service.STT_ROUTES``). Live dictation has its own tests
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import dataclasses
+import time
 from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -250,14 +253,126 @@ async def test_without_an_openai_key_hindi_asks_nobody():
     [
         ("", "speech-stt-model", "openai/whisper-large-v3-turbo"),
         ("openai/whisper-large-v3", "speech-stt-model", "openai/whisper-large-v3"),
-        # The OpenAI-direct name of old is no OpenRouter id: the catalog's model is used.
+        ("openai/whisper-1", "speech-stt-model", "openai/whisper-1"),
+        # The values of old (OpenAI-direct names, the old .env.example's suggestion) and
+        # any other model are not OpenRouter Whispers: the catalog's model is used.
         ("gpt-4o-mini-transcribe", "speech-stt-model", "openai/whisper-large-v3-turbo"),
+        ("openai/gpt-4o-mini-transcribe", "speech-stt-model", "openai/whisper-large-v3-turbo"),
+        ("google/gemini-3.5-transcribe", "speech-stt-model", "openai/whisper-large-v3-turbo"),
         # The override is Whisper's; OpenAI's route keeps its catalog model.
         ("openai/whisper-large-v3", "speech-stt-openai-model", "openai/gpt-4o-mini-transcribe"),
     ],
 )
-def test_the_override_is_whispers_and_only_an_openrouter_slug(override, alias, model):
+def test_the_override_is_whispers_and_only_an_openrouter_whisper(override, alias, model):
     assert resolve_stt_model(_settings(speech_transcription_model=override), alias) == model
+
+
+def _short_deadline(deadline: float, try_seconds: float) -> object:
+    """The route loop with a ``deadline`` and every capped try held to ``try_seconds``."""
+    routes = tuple(
+        dataclasses.replace(route, try_seconds=try_seconds) if route.try_seconds else route
+        for route in speech_service.STT_ROUTES
+    )
+    return patch.multiple(speech_service, STT_ROUTES=routes, STT_DEADLINE_SECONDS=deadline)
+
+
+async def _hang(*_args: object, **_kwargs: object) -> str | None:
+    await asyncio.sleep(60)
+    return "never"
+
+
+@pytest.mark.asyncio
+async def test_a_hanging_whisper_host_still_leaves_openai_time():
+    openai = AsyncMock(return_value="hello")
+    spent: list[float] = []
+
+    with (
+        _short_deadline(deadline=1.0, try_seconds=0.05),
+        patch.object(transcription_gateway, "transcribe_via_openrouter", _hang),
+        patch.object(speech_gateway, "transcribe_via_openai", openai),
+    ):
+        started = time.monotonic()
+        text = await transcribe_audio(_settings(), b"audio", language="en", on_spend=spent.append)
+
+    assert text == "hello"
+    assert time.monotonic() - started < 0.5
+    assert spent == [spend.STT_WHISPER_SPEND_USD, spend.STT_OPENAI_SPEND_USD]
+
+
+@pytest.mark.asyncio
+async def test_every_try_ends_by_the_shared_deadline():
+    with (
+        _short_deadline(deadline=0.2, try_seconds=0.15),
+        patch.object(transcription_gateway, "transcribe_via_openrouter", _hang),
+        patch.object(speech_gateway, "transcribe_via_openai", _hang),
+    ):
+        started = time.monotonic()
+        text = await transcribe_audio(_settings(), b"audio", language="en")
+
+    assert text is None
+    assert time.monotonic() - started < 0.4
+
+
+def test_the_real_tries_fit_under_the_phones_wait():
+    """The phone stops waiting at 25 s; each route's cap leaves the fallback some time."""
+    assert speech_service.STT_DEADLINE_SECONDS < 25
+    for route in speech_service.STT_ROUTES:
+        if route.try_seconds is not None:
+            assert route.try_seconds <= speech_service.STT_DEADLINE_SECONDS - 5
+
+
+def _post_clip(language: str) -> tuple[int, AsyncMock]:
+    import fakeredis.aioredis
+    from fastapi.testclient import TestClient
+
+    from app.core.deps import get_settings_dep
+    from app.tests.api_support import api_user, app_with_user
+
+    app = app_with_user(api_user(plan="pro"))
+    app.dependency_overrides[get_settings_dep] = lambda: _settings()
+    record = AsyncMock()
+    with (
+        patch(
+            "app.modules.speech.api.get_redis_client",
+            return_value=fakeredis.aioredis.FakeRedis(decode_responses=True),
+        ),
+        patch("app.modules.speech.api.quota_service.record_voice_spend", record),
+    ):
+        response = TestClient(app).post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            json={"audio_base64": base64.b64encode(b"audio").decode(), "language": language},
+        )
+    return response.status_code, record
+
+
+def test_the_endpoint_records_both_estimates_when_both_fail():
+    with (
+        patch.object(
+            transcription_gateway, "transcribe_via_openrouter", AsyncMock(return_value=None)
+        ),
+        patch.object(speech_gateway, "transcribe_via_openai", AsyncMock(return_value=None)),
+    ):
+        status, record = _post_clip("es")
+
+    assert status == 502
+    record.assert_awaited_once()
+    assert record.await_args.args[1] == pytest.approx(
+        spend.STT_WHISPER_SPEND_USD + spend.STT_OPENAI_SPEND_USD
+    )
+
+
+def test_the_endpoint_records_only_the_route_that_answered():
+    with (
+        patch.object(
+            transcription_gateway, "transcribe_via_openrouter", AsyncMock(return_value="hola")
+        ),
+        patch.object(speech_gateway, "transcribe_via_openai", AsyncMock(return_value="x")),
+    ):
+        status, record = _post_clip("es")
+
+    assert status == 200
+    assert record.await_args.args[1] == pytest.approx(spend.STT_WHISPER_SPEND_USD)
 
 
 @pytest.mark.asyncio

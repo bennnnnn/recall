@@ -20,8 +20,8 @@ from app.gateways.speech_gateway import audio_format_from_filename, stt_language
 logger = logging.getLogger(__name__)
 
 _OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
-# A 43 s English clip came back in 1-2 s (Whisper Large V3 Turbo, 2026-11-24); a 45 s
-# Amharic one took 20 s, so the phone's longest take fits with room to spare.
+# The pooled client's own limit; ``speech.service`` holds each try to far less (its route
+# deadline), so a hanging host still leaves the OpenAI fallback time before the phone gives up.
 _TRANSCRIBE_TIMEOUT = 30.0
 
 
