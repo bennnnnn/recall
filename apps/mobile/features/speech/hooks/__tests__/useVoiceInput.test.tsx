@@ -8,6 +8,12 @@ import { deleteVoiceRecording, startVoiceRecording, type VoiceRecorder } from "@
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
 
 jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
+// The recorded path: a build without WebRTC (live takes: useComposerLiveDictation.test.tsx).
+jest.mock("@/features/speech/model/liveDictation", () => ({
+  isLiveDictationAvailable: () => false,
+  startLiveDictation: jest.fn(),
+}));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
 jest.mock("@/ui/overlay/dialogs", () => ({ offerSettings: jest.fn(async () => false) }));

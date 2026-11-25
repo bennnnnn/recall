@@ -1,5 +1,6 @@
 import { speechApi } from "@/features/speech/api";
-import { createRealtimeVoiceSession, webRtcMicConstraints, type RealtimeVoiceEvent } from "@/features/speech/model/realtimeVoice";
+import { createRealtimeVoiceSession, type RealtimeVoiceEvent } from "@/features/speech/model/realtimeVoice";
+import { webRtcMicConstraints } from "@/features/speech/model/realtimePeer";
 import * as webrtc from "react-native-webrtc";
 
 jest.mock("react-native", () => ({

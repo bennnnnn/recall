@@ -94,6 +94,7 @@ export function useChatComposerWiring({
       attachPicking: send.attachPicking,
       pendingAttachment: send.pendingAttachment,
       removePendingAttachment: send.removePendingAttachment,
+      attachPastedText: send.attachPastedText,
       handlePickAttachment: send.handlePickAttachment,
       handleAttachmentSheetSelect: send.handleAttachmentSheetSelect,
       mathScannerOpen: send.mathScannerOpen,

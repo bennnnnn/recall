@@ -11,33 +11,38 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import { useLiveDictationView } from "@/features/speech/model/liveDictationView";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 const BAR_COUNT = 36;
+// Beside a live take's words the waveform keeps a few bars, so the words have the row.
+const BARS_BESIDE_WORDS = 12;
 const MIN_H = 3;
 const MAX_H = 26;
 
 type BarProps = {
   index: number;
+  /** How many bars the row draws: its centre and the sweep follow it. */
+  count: number;
   meter: SharedValue<number>;
   phase: SharedValue<number>;
   processing: SharedValue<number>;
   color: string;
 };
 
-function WaveBar({ index, meter, phase, processing, color }: BarProps) {
+function WaveBar({ index, count, meter, phase, processing, color }: BarProps) {
   const style = useAnimatedStyle(() => {
-    const center = (BAR_COUNT - 1) / 2;
+    const center = (count - 1) / 2;
     const dist = Math.abs(index - center) / center;
     const centerWeight = 1 - dist * 0.5;
     const wave = Math.sin(phase.value * Math.PI * 2 + index * 0.38) * 0.5 + 0.5;
     const proc = processing.value;
     const recordingLevel = 0.08 + meter.value * centerWeight * (0.25 + 0.75 * wave);
     // One bump traveling L→R — reads as "working on the take", not live mic.
-    const sweep = phase.value * (BAR_COUNT + 8) - 4;
+    const sweep = phase.value * (count + 8) - 4;
     const d = Math.abs(index - sweep);
     const bump = Math.max(0, 1 - d / 3.4);
     const processingLevel = 0.1 + 0.78 * bump;
@@ -63,13 +68,22 @@ type Props = {
   meterLevel?: MeterLevel;
 };
 
-/** Live meter while dictating; a traveling sweep + label while transcribing. */
+/**
+ * Live meter while dictating; a traveling sweep + label while transcribing. A live take
+ * (`liveDictation.ts`) shows its words as they are spoken, the latest at the end, and keeps
+ * them up while the last ones land; while its call connects it says it is starting.
+ */
 export function VoiceComposerWaveform({
   recording: _recording,
-  transcribing,
+  transcribing: uploading,
   meterLevel,
 }: Props) {
   const { t } = useTranslation();
+  const live = useLiveDictationView();
+  const starting = live.phase === "starting";
+  const words = live.phase === "idle" ? "" : live.text;
+  // The sweep: a take on its way to the server, or a call still connecting.
+  const transcribing = uploading || starting;
   const theme = useTheme();
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -109,8 +123,13 @@ export function VoiceComposerWaveform({
     });
   }, [transcribing, processing, reduceMotion]);
 
-  const indices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
-  const label = transcribing ? t("chat.voice_transcribing") : t("chat.voice_listening");
+  const barCount = words ? BARS_BESIDE_WORDS : BAR_COUNT;
+  const indices = useMemo(() => Array.from({ length: barCount }, (_, i) => i), [barCount]);
+  const label = starting
+    ? t("chat.voice_starting")
+    : uploading
+      ? t("chat.voice_transcribing")
+      : t("chat.voice_listening");
   // The accent, as the stop button beside it: it follows Settings → Accent.
   const barColor = theme.primary;
 
@@ -122,16 +141,21 @@ export function VoiceComposerWaveform({
       accessibilityLiveRegion="polite"
       accessibilityState={{ busy: transcribing }}
     >
-      {transcribing ? (
+      {words ? (
+        <Text style={s.words} numberOfLines={1} ellipsizeMode="head" testID="voice-live-words">
+          {words}
+        </Text>
+      ) : transcribing ? (
         <Text style={s.status} numberOfLines={1}>
-          {t("chat.voice_transcribing")}
+          {label}
         </Text>
       ) : null}
-      <View style={s.bars}>
+      <View style={[s.bars, words ? s.barsBesideWords : null]}>
         {indices.map((i) => (
           <WaveBar
             key={i}
             index={i}
+            count={barCount}
             meter={meter}
             phase={phase}
             processing={processing}
@@ -158,6 +182,12 @@ function makeStyles(t: Theme) {
       color: t.textSecondary,
       flexShrink: 0,
     },
+    words: {
+      ...Type.body,
+      color: t.text,
+      flex: 1,
+      minWidth: 0,
+    },
     bars: {
       flex: 1,
       flexDirection: "row",
@@ -165,6 +195,10 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
       gap: 2,
       height: MAX_H,
+    },
+    barsBesideWords: {
+      flex: 0,
+      flexShrink: 0,
     },
   });
 }

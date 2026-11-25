@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import type { IconName } from "@/ui/icons/names";
+import type { ActionFeedbackTone } from "@/ui/feedback/ActionBanner";
 
 import { api, type Message } from "@/lib/api";
 import { patchCachedChatMessage } from "@/features/chat/model/messageCache";
@@ -31,6 +32,9 @@ type Options = {
   t: Translate;
 };
 
+/** The chat's banner over the composer; `tone` colours its icon (a refusal "error", else "success"). */
+type ChatActionBanner = { message: string; icon?: IconName; tone?: ActionFeedbackTone };
+
 export function useChatActions({
   token,
   chatId,
@@ -48,14 +52,11 @@ export function useChatActions({
   const messagesRef = useLatestRef(messages);
   const emailSavesRef = useRef(new Map<string, Promise<boolean>>());
   const [menuVisible, setMenuVisible] = useState(false);
-  const [actionBanner, setActionBanner] = useState<{
-    message: string;
-    icon?: IconName;
-  } | null>(null);
+  const [actionBanner, setActionBanner] = useState<ChatActionBanner | null>(null);
 
   const showActionBanner = useCallback(
-    (message: string, icon?: IconName) => {
-      setActionBanner({ message, icon });
+    (message: string, icon?: IconName, tone?: ActionFeedbackTone) => {
+      setActionBanner({ message, icon, tone });
     },
     [],
   );

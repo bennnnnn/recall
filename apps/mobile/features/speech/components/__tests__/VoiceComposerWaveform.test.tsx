@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
+import { hideLiveDictation, showLiveDictation } from "@/features/speech/model/liveDictationView";
 import { lightTheme } from "@/lib/theme";
 
 jest.mock("react-native-reanimated", () => {
@@ -46,5 +47,17 @@ describe("VoiceComposerWaveform", () => {
     expect(
       bars.every((node) => StyleSheet.flatten(node.props.style).backgroundColor === lightTheme.primary),
     ).toBe(true);
+  });
+
+  it("keeps a live take's words up while its last ones land, and says it is transcribing", async () => {
+    showLiveDictation({ phase: "finishing", text: "see you at noon" });
+    const { getByTestId, getByLabelText, getAllByTestId } = await render(
+      <VoiceComposerWaveform recording={false} transcribing meterLevel={{ value: 0.2 } as SharedValue<number>} />,
+    );
+    expect(getByTestId("voice-live-words")).toHaveTextContent("see you at noon");
+    // A screen reader heard "Listening" on a row marked busy.
+    expect(getByLabelText("chat.voice_transcribing")).toBeOnTheScreen();
+    expect(getAllByTestId("voice-waveform-bar")).toHaveLength(12);
+    hideLiveDictation();
   });
 });

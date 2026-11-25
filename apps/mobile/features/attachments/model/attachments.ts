@@ -1,13 +1,21 @@
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { File } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 
 import { api } from "@/lib/api";
 import { uploadAttachmentBytes, type UploadPurpose } from "@/features/attachments/api";
 import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
 import { DOCUMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/attachments/model/attachmentPrep";
-import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import { adoptLocalCopy, discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import {
+  isPastedText,
+  PASTED_TEXT_CONTENT_TYPE,
+  PASTED_TEXT_FILE_NAME,
+  pastedTextPreview,
+} from "@/features/attachments/model/pastedText";
+import { PASTED_TEXT_DIRECTORY } from "@/lib/accountFiles";
+import { charCount } from "@/lib/charCount";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { cameraPermissionNeedsSettings } from "@/lib/cameraPermission";
 import { offerSettings } from "@/ui/overlay/dialogs";
@@ -25,6 +33,8 @@ export type PendingAttachment = {
   existingAttachmentId?: string;
   /** The composer uploaded `existingAttachmentId` and no message links it, so dropping the draft cancels it. */
   uploadedForDraft?: boolean;
+  /** Text pasted into the composer and sent as this file (pastedText.ts): its length and first words. */
+  pasted?: { chars: number; preview: string };
 };
 
 let nativePickerActive = false;
@@ -155,8 +165,12 @@ export function discardDraftAttachment(token: string | null, attachment: Pending
   }
 }
 
+/**
+ * What a message with only an attachment asks. A photo or a paste asks nothing more: the
+ * pasted text is the message, read as the same words typed would be.
+ */
 function defaultAttachmentPrompt(pending: PendingAttachment): string {
-  return pending.kind === "image" ? "" : "Summarize this file.";
+  return pending.kind === "image" || isPastedText(pending) ? "" : "Summarize this file.";
 }
 
 /** Text sent to the API for a message that may include an attachment. */
@@ -168,6 +182,28 @@ export function messageTextForSend(
   if (trimmed) return trimmed;
   if (!attached) return "";
   return defaultAttachmentPrompt(attached);
+}
+
+/**
+ * The paste written to a file in the cache and described as a composer attachment. The
+ * file is the composer's own copy: dropping the draft deletes it, and the launch sweep and
+ * sign-out clear any left behind (lib/accountFiles.ts). Throws when it cannot be written.
+ */
+export function pastedTextAttachment(text: string): PendingAttachment {
+  const directory = new Directory(Paths.cache, PASTED_TEXT_DIRECTORY);
+  directory.create({ idempotent: true, intermediates: true });
+  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const file = new File(directory, `paste-${unique}.txt`);
+  file.create();
+  file.writeSync(text);
+  adoptLocalCopy(file.uri);
+  return {
+    localUri: file.uri,
+    contentType: PASTED_TEXT_CONTENT_TYPE,
+    fileName: PASTED_TEXT_FILE_NAME,
+    kind: "file",
+    pasted: { chars: charCount(text), preview: pastedTextPreview(text) },
+  };
 }
 
 async function ensureSquareCropPermission(): Promise<void> {

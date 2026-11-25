@@ -112,6 +112,13 @@
    "message": "Your Library is full. Delete files you no longer need, or upgrade for more room."
   }
  },
+ "presign_paste_too_long": {
+  "status": 400,
+  "detail": {
+   "code": "paste_too_long",
+   "message": "Pasted text can be at most 200,000 characters. Attach it as a file instead."
+  }
+ },
  "dictation_daily_limit": {
   "status": 429,
   "detail": {

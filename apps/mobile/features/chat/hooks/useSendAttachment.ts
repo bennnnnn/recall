@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type SetStateAction } from "r
 
 import {
   discardDraftAttachment,
+  pastedTextAttachment,
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
@@ -35,6 +36,22 @@ export function useSendAttachment(token: string | null) {
     setPendingAttachment(next);
     if (previous && previous !== next) discardDraftAttachment(tokenRef.current, previous);
   }, [setPendingAttachment, tokenRef]);
+
+  /**
+   * A long paste becomes the draft's attachment, written to its own file. False when the
+   * file could not be written: the composer keeps the paste as text.
+   */
+  const attachPastedText = useCallback((text: string): boolean => {
+    let attachment: PendingAttachment;
+    try {
+      attachment = pastedTextAttachment(text);
+    } catch (error) {
+      reportFailure("paste_attachment", error);
+      return false;
+    }
+    replacePendingAttachment(attachment);
+    return true;
+  }, [replacePendingAttachment]);
 
   /** Leaving a thread keeps its attachment beside its text; arriving brings that thread's back. */
   const switchAttachmentThread = useCallback((fromKey: string, toKey: string) => {
@@ -88,6 +105,7 @@ export function useSendAttachment(token: string | null) {
     pendingAttachmentRef,
     setPendingAttachment,
     replacePendingAttachment,
+    attachPastedText,
     switchAttachmentThread,
     stashAttachmentForThread,
     resetAttachmentDrafts,

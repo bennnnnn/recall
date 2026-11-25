@@ -41,7 +41,7 @@ from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
 from app.modules.memory import learning_progress as memory_learning
 from app.modules.notifications import transactional_email as transactional_email_service
-from app.modules.speech import live_call
+from app.modules.speech import dictation, live_call
 from app.repositories import users as users_repo
 from app.services import quota as quota_service
 
@@ -353,3 +353,6 @@ def register_all() -> None:
     # Ends a live talk call when its reserved minutes run out, or after /live/end could
     # not confirm the hang-up; it retries until OpenAI does (speech.live_call).
     register(live_call.HANGUP_JOB, live_call.handle_hangup_job)
+    # Ends a live dictation at its time limit, or after the phone's stop could not confirm
+    # the hang-up (speech.dictation).
+    register(dictation.HANGUP_JOB, dictation.handle_hangup_job)

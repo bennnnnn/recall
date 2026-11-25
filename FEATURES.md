@@ -92,6 +92,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   scanner, profile) is uploaded as a re-encode with no EXIF, GPS or XMP, upright; PNG and
   WebP keep their format, the rest become JPEG, and a GIF keeps its frames with its
   metadata blocks dropped (`features/attachments/model/attachmentPrep.ts`).
+- ✅ **Long pastes become a file** — one paste of more than 2,000 characters goes in as a
+  "Pasted text" chip (its first words and length; a tap reads it all, × removes it) and is
+  sent as `pasted-text.txt` through the attachment upload. The model reads up to 32,000
+  characters of it inline, as much as a typed message, and the rest by retrieval; other
+  documents keep their 12,000. One paste holds at most 200,000 characters (about 100
+  pages): a longer one adds nothing and says so, and the API refuses it too. A typed draft
+  over 32,000 characters shows a note and holds Send (`features/chat/model/composerPaste.ts`,
+  `features/chat/model/messageLimit.ts`, `modules/attachments/pasted_text.py`).
 - ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
   section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
@@ -264,10 +272,22 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   **DuckDuckGo only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A
   search that finds nothing or fails says so in the tool result, so the reply cannot look
   live from training data.
-- ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
-  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Pro,
-  **100/day**; on Free the mic opens the plans (the server refuses Free with 403). Not
-  available in Expo Go.
+- ✅ **Voice input (STT)** — live dictation: in a dev build the composer mic streams over
+  **WebRTC** to an OpenAI Realtime transcription-only session (`gpt-live-transcribe`, catalog
+  alias `speech-dictation-model`; no model answers in it), and the words show in the
+  composer's row while the user speaks ("Starting…" while the call connects); a stretch's final
+  text replaces its words. The stop commits the last audio, and the whole take lands in the
+  draft about half a second later (after the draft, never over typed text): a cancelled take,
+  a chat left mid-take or a failed send restored never finds half-heard words in a draft. The server mints the session and
+  keeps its secret (`POST /speech/dictation/session`, `/connect`, `/end`;
+  `modules/speech/dictation.py`), charges one `speech_transcription` slot per take (given back
+  when nothing was heard, at most 10 times a day on the phone's word), and hangs the call up
+  itself `SPEECH_DICTATION_MAX_SECONDS` (45 s, the phone's own limit) + 15 s after the connect by a delayed
+  `dictation_hangup` job. Where WebRTC is missing (Expo Go) or the call cannot be made, the mic
+  records a clip (`expo-audio`) and uploads it to `/speech/transcribe` (`gpt-4o-mini-transcribe`)
+  as before. Both pass the app's language; a code OpenAI refuses (Amharic's `am`) is sent as
+  the language's name in the prompt instead. Pro, **100/day**; on Free the mic opens
+  the plans (the server refuses Free with 403).
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
   ends your turn; the orb never shows “Transcribing…”. Physical devices enable
@@ -1650,7 +1670,7 @@ drawer FTS search ✅.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
+| Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → `gpt-4o-mini-transcribe` (app-language hint, no-speech gate) | Real-phone check of the live path (dev build); Amharic quality on real speech |
 | Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON; each clip charged to the day's tokens by length) | — |
 

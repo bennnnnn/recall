@@ -17,6 +17,8 @@ type Props = {
   showSend: boolean;
   sendBusy: boolean;
   isOffline: boolean;
+  /** The draft is longer than a message may be: Send waits (the composer's note says why). */
+  tooLong?: boolean;
   /** A picked file is still being prepared: send, the mic and live talk wait for it. */
   attachBusy: boolean;
   showMic: boolean;
@@ -35,6 +37,7 @@ export function ComposerSendControls({
   showSend,
   sendBusy,
   isOffline,
+  tooLong = false,
   attachBusy,
   showMic,
   voiceRecording,
@@ -60,7 +63,7 @@ export function ComposerSendControls({
     );
   }
   const voiceActive = voiceRecording || voiceTranscribing;
-  const sendDisabled = isOffline || sendBusy || attachBusy;
+  const sendDisabled = isOffline || sendBusy || attachBusy || tooLong;
   return (
     <View style={s.sendBtnSlot}>
       {showMic && onVoicePress ? (
@@ -92,7 +95,7 @@ export function ComposerSendControls({
             <Icon
               name="arrow-up"
               size={IconSize.sm}
-              color={isOffline ? theme.textTertiary : theme.onPrimary}
+              color={isOffline || tooLong ? theme.textTertiary : theme.onPrimary}
             />
           )}
         </Pressable>

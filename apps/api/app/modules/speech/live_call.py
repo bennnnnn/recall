@@ -139,15 +139,29 @@ async def end_call(redis: Redis, settings: Settings, user_id: UUID, session_id: 
     """Hang up the session's call. True when nothing of it can still run: no call was
     opened (none can be now), or OpenAI confirmed it is over."""
     session_id = session_id.strip()
+    return await hang_up_kept_call(
+        redis,
+        settings,
+        secret_key=_secret_key(user_id, session_id),
+        call_key=_call_key(user_id, session_id),
+    )
+
+
+async def hang_up_kept_call(
+    redis: Redis, settings: Settings, *, secret_key: str, call_key: str
+) -> bool:
+    """Hang up a call whose secret and id the server keeps (live talk, live dictation).
+    True when nothing of it can still run: no call was opened (none can be now), or
+    OpenAI confirmed it is over."""
     # A connect still to come finds no secret and opens nothing.
-    await redis.delete(_secret_key(user_id, session_id))
-    raw = await redis.get(_call_key(user_id, session_id))
+    await redis.delete(secret_key)
+    raw = await redis.get(call_key)
     if raw is None:
         return True
     outcome = await openai_speech_gateway.hangup_realtime_call(settings, _text(raw))
     if outcome == "failed":
         return False
-    await redis.delete(_call_key(user_id, session_id))
+    await redis.delete(call_key)
     return True
 
 

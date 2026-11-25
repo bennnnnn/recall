@@ -10,6 +10,7 @@ import { LinkPreviewTrust } from "@/components/markdown/LinkPreviewTrust";
 import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
 import { sentMessageShowsMathPreview } from "@/lib/math/draftText";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
+import { attachmentDisplayName, PASTED_TEXT_FILE_NAME } from "@/features/attachments/model/pastedText";
 import { Message } from "@/lib/api";
 import {
   fileLabelFromContentType,
@@ -71,10 +72,11 @@ export function UserMessageContent({ message, actionsHint }: Props) {
     failed: fileIndexFailed,
     fileName: fileUploadName,
   } = useAttachmentIndexed(nonPdfFile?.attachmentId);
+  const nonPdfFileName = message.local_file_name ?? fileUploadName;
   const nonPdfFileLabel =
-    message.local_file_name ??
-    fileUploadName ??
-    fileLabelFromContentType(nonPdfFile?.contentType, t);
+    nonPdfFileName ? attachmentDisplayName(nonPdfFileName, t) : fileLabelFromContentType(nonPdfFile?.contentType, t);
+  // A paste being sent has no marker in its text yet: it draws as its chip from the start.
+  const fileChip = (parsed.hasFileAttachment || message.local_file_name === PASTED_TEXT_FILE_NAME) && !showPdf;
   const nonPdfFileStatus = fileIndexFailed
     ? t("chat.file_index_failed")
     : fileIndexed
@@ -85,8 +87,7 @@ export function UserMessageContent({ message, actionsHint }: Props) {
     !(showPdf && (parsed.caption === pdfFileName || parsed.caption.endsWith(".pdf")));
   const plainText =
     !hasImages && !showPdf && !parsed.hasFileAttachment ? message.content.trim() : "";
-  const showTextBubble =
-    showCaption || (parsed.hasFileAttachment && !showPdf) || plainText.length > 0;
+  const showTextBubble = showCaption || fileChip || plainText.length > 0;
   const bodyText = showCaption ? parsed.caption : plainText;
   const collapseText = shouldCollapseMessage(bodyText);
   // The text reads as one element with the actions hint; one with a link stays open for it.
@@ -129,7 +130,7 @@ export function UserMessageContent({ message, actionsHint }: Props) {
             accessible={textIsOneElement}
             accessibilityHint={textIsOneElement ? actionsHint : undefined}
           >
-            {parsed.hasFileAttachment && !showPdf ? (
+            {fileChip ? (
               <View
                 style={s.fileChip}
                 accessibilityLabel={nonPdfFileStatus}

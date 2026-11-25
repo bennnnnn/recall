@@ -1,12 +1,17 @@
 import { act, renderHook } from "@testing-library/react-native";
 
 import { useSendAttachment, uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
-import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import {
+  pastedTextAttachment,
+  uploadChatAttachment,
+  type PendingAttachment,
+} from "@/features/attachments/model/attachments";
 import { reportFailure } from "@/lib/sentry";
 
 const mockDiscard = jest.fn();
 jest.mock("@/features/attachments/model/attachments", () => ({
   discardDraftAttachment: (...args: unknown[]) => mockDiscard(...args),
+  pastedTextAttachment: jest.fn(),
   uploadChatAttachment: jest.fn(),
 }));
 jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
@@ -86,5 +91,29 @@ describe("uploadSendAttachment", () => {
     jest.mocked(uploadChatAttachment).mockRejectedValueOnce(failure);
     await expect(uploadSendAttachment("token", file("big.pdf"))).rejects.toBe(failure);
     expect(reportFailure).toHaveBeenCalledWith("attachment_upload", failure);
+  });
+});
+
+describe("a long paste as the draft's attachment", () => {
+  it("becomes the attachment, in place of one the draft held", async () => {
+    const pasted = { ...file("pasted-text.txt"), contentType: "text/plain", pasted: { chars: 3000, preview: "p" } };
+    jest.mocked(pastedTextAttachment).mockReturnValueOnce(pasted);
+    const { result } = await renderHook(() => useSendAttachment("token"));
+    let taken = false;
+    await act(async () => { taken = result.current.attachPastedText("p".repeat(3000)); });
+    expect(taken).toBe(true);
+    expect(result.current.pendingAttachment).toBe(pasted);
+  });
+
+  it("says no when the file cannot be written, and reports it", async () => {
+    jest.mocked(pastedTextAttachment).mockImplementationOnce(() => {
+      throw new Error("disk full");
+    });
+    const { result } = await renderHook(() => useSendAttachment("token"));
+    let taken = true;
+    await act(async () => { taken = result.current.attachPastedText("p".repeat(3000)); });
+    expect(taken).toBe(false);
+    expect(result.current.pendingAttachment).toBeNull();
+    expect(reportFailure).toHaveBeenCalledWith("paste_attachment", expect.any(Error));
   });
 });

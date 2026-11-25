@@ -463,6 +463,7 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
     row.storage_key = "user/doc.txt"
     row.size_bytes = 5
     row.verified_at = None
+    row.original_filename = "pasted-text.txt"
     payload = b"hello"
 
     settings = Settings(attachments_enabled=True)
@@ -506,6 +507,8 @@ async def test_process_attachments_reuses_verified_bytes_for_format():
 
     verify_mock.assert_awaited_once()
     assert format_mock.await_args.kwargs["data"] == payload
+    # The row's name tells format that the text was pasted (attachments/pasted_text.py).
+    assert format_mock.await_args.kwargs["filename"] == "pasted-text.txt"
     # A document's bytes are dropped once its excerpt is taken; only images keep theirs.
     assert row.storage_key not in result.bytes_by_key
     read_mock.assert_not_awaited()

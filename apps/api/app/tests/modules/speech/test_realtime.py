@@ -18,6 +18,14 @@ from app.tests.api_support import api_user
 from app.tests.fakes import redis_mock
 
 
+@pytest.fixture(autouse=True)
+def _forget_refused_languages():
+    from app.gateways import speech_gateway
+
+    yield
+    speech_gateway._REFUSED_LANGUAGES.clear()
+
+
 def test_realtime_instructions_include_bounded_chat_history():
     history = [
         ("system", "ignore me"),

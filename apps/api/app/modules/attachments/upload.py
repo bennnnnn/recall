@@ -18,6 +18,11 @@ from app.modules.attachments.content_types import (
     normalize_content_type,
 )
 from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
+from app.modules.attachments.pasted_text import (
+    PASTE_TOO_LONG_MESSAGE,
+    PASTED_TEXT_MAX_BYTES,
+    is_pasted_text,
+)
 from app.modules.attachments.quota import (
     has_current_upload_reservation,
     record_upload_slot,
@@ -71,6 +76,9 @@ async def create_presigned_upload(
         )
     if size_bytes <= 0 or size_bytes > MAX_ATTACHMENT_SIZE:
         raise AttachmentUploadError("Invalid file size", status_code=400, code="invalid_size")
+    original_filename = sanitize_original_filename(filename)
+    if is_pasted_text(content_type, original_filename) and size_bytes > PASTED_TEXT_MAX_BYTES:
+        raise AttachmentUploadError(PASTE_TOO_LONG_MESSAGE, status_code=400, code="paste_too_long")
 
     normalized = normalize_content_type(content_type)
     redis = get_redis_client()
@@ -126,7 +134,7 @@ async def create_presigned_upload(
                 storage_key=presigned.storage_key,
                 content_type=normalized,
                 size_bytes=size_bytes,
-                original_filename=sanitize_original_filename(filename),
+                original_filename=original_filename,
                 commit=False,
             )
             await session.commit()

@@ -387,6 +387,17 @@ CATALOG: tuple[ChatModel, ...] = (
         api_key_field="openai_api_key",
         selectable=False,
     ),
+    # Live dictation (the composer mic): the only transcriber that writes words while
+    # they are spoken; the gpt-4o ones wait for a pause (measured 2026-11-23). About
+    # $0.017 a minute against mini-transcribe's $0.003.
+    ChatModel(
+        id="speech-dictation-model",
+        label="Live dictation",
+        model="openai/gpt-live-transcribe",
+        provider="openai",
+        api_key_field="openai_api_key",
+        selectable=False,
+    ),
     ChatModel(
         id="speech-tts-model",
         label="OpenAI TTS",

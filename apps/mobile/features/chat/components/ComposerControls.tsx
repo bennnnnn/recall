@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { COMPOSER_INPUT_LINE_HEIGHT } from "@/features/chat/model/composerLogic";
+import { MESSAGE_MAX_CHARS, messageChars } from "@/features/chat/model/messageLimit";
 import { useHomeOnScreen } from "@/features/home/model/homeOnScreen";
 import { selection as hapticSelection } from "@/lib/haptics";
 import { Space } from "@/lib/space";
@@ -202,5 +203,51 @@ export function ComposerExpandControl({
         />
       </Pressable>
     </View>
+  );
+}
+
+/**
+ * The lines under the field: a draft longer than a message may be (how long it is and the
+ * most, while Send waits), then the send's own status (locating, sending). One line each:
+ * the composer reserves COMPOSER_STATUS_LINE_HEIGHT for each that shows.
+ */
+export function ComposerStatusLines({ s, input, tooLong, sendStatus }: {
+  s: ComposerStyles;
+  input: string;
+  tooLong: boolean;
+  sendStatus?: string;
+}) {
+  return (
+    <>
+      {tooLong ? <ComposerTooLongNote s={s} input={input} /> : null}
+      {sendStatus ? (
+        <Text
+          style={s.sendStatus}
+          testID="composer-send-status"
+          accessibilityRole="text"
+          accessibilityLiveRegion="polite"
+        >
+          {sendStatus}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
+function ComposerTooLongNote({ s, input }: { s: ComposerStyles; input: string }) {
+  const { t } = useTranslation();
+  return (
+    <Text
+      style={[s.sendStatus, s.tooLongNote]}
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={0.8}
+      maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
+      testID="composer-too-long"
+      accessibilityRole="text"
+      accessibilityLiveRegion="polite"
+    >
+      {t("chat.message_too_long", { chars: messageChars(input), max: MESSAGE_MAX_CHARS })}
+    </Text>
   );
 }

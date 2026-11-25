@@ -28,6 +28,8 @@ const listing: Record<string, string[]> = {
   "file:///cache/ImageManipulator/": ["C3.jpg"],
   // A PDF another app opened in Recall, copied for the composer.
   "file:///cache/OpenedFiles/": ["opened-1.pdf", "opened-2.pdf"],
+  // A long paste written as a file to send.
+  "file:///cache/PastedText/": ["paste-1.txt", "paste-2.txt"],
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +41,8 @@ const ageDays: Record<string, number> = {
   "file:///cache/ImageManipulator/C3.jpg": 30,
   "file:///cache/OpenedFiles/opened-1.pdf": 9,
   "file:///cache/OpenedFiles/opened-2.pdf": 1,
+  "file:///cache/PastedText/paste-1.txt": 10,
+  "file:///cache/PastedText/paste-2.txt": 0,
 };
 
 beforeEach(() => {
@@ -75,6 +79,9 @@ it("sign-out deletes a named PDF by the URI it was written under", async () => {
       // And every file another app opened in Recall.
       "file:///cache/OpenedFiles/opened-1.pdf",
       "file:///cache/OpenedFiles/opened-2.pdf",
+      // And every long paste written to send.
+      "file:///cache/PastedText/paste-1.txt",
+      "file:///cache/PastedText/paste-2.txt",
       // A file expo-sharing staged under its type's extension (iOS).
       "file:///cache/expo-sharing-tmp/",
     ].sort(),
@@ -89,6 +96,7 @@ it("the launch sweep deletes only picker copies older than a week", async () => 
       "file:///cache/ImagePicker/A1.jpg",
       "file:///cache/ImageManipulator/C3.jpg",
       "file:///cache/OpenedFiles/opened-1.pdf",
+      "file:///cache/PastedText/paste-1.txt",
     ].sort(),
   );
 });

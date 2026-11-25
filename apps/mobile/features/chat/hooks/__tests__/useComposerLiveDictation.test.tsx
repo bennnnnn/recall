@@ -1,0 +1,438 @@
+import type { SharedValue } from "react-native-reanimated";
+import React, { useLayoutEffect } from "react";
+import { NativeModules, Text } from "react-native";
+import { act, render, screen, waitFor } from "@testing-library/react-native";
+import * as webrtc from "react-native-webrtc";
+
+import { useComposerDictation } from "@/features/chat/hooks/useComposerDictation";
+import { speechApi } from "@/features/speech/api";
+import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
+import { transcribeSpeech, type User } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
+import { reportFailure } from "@/lib/sentry";
+import { startVoiceRecording } from "@/lib/speech/voiceAudio";
+
+// The composer mic on a build with WebRTC: the words show on the composer's row while the
+// user speaks, and the whole take lands in the draft at the stop. The call is a fake whose
+// data channel delivers OpenAI's transcription events.
+
+jest.mock("react-native-reanimated", () => {
+  const { View } = jest.requireActual("react-native");
+  const linear = (t: number) => t;
+  return {
+    __esModule: true,
+    default: { View },
+    Easing: { linear, ease: linear, sin: linear, inOut: () => linear, out: () => linear, in: () => linear, cubic: linear },
+    // Stable across renders, as Reanimated's own.
+    useSharedValue: (init: number) => {
+      const { useState } = jest.requireActual("react");
+      const [shared] = useState(() => {
+        const value = { value: init, set: (next: number) => { value.value = next; } };
+        return value;
+      });
+      return shared;
+    },
+    useAnimatedStyle: (fn: () => object) => fn(),
+    useAnimatedReaction: () => undefined,
+    withTiming: (v: number) => v,
+    withRepeat: (v: number) => v,
+  };
+});
+jest.mock("expo-modules-core", () => ({ requireOptionalNativeModule: () => null }));
+jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
+jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => ({ profileValidated: true }) }));
+jest.mock("@/lib/reportRecoverableError", () => ({ reportRecoverableError: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
+jest.mock("@/ui/overlay/dialogs", () => ({ offerSettings: jest.fn(async () => false) }));
+jest.mock("@/lib/speech/voiceAudio", () => ({
+  VOICE_MAX_RECORDING_MS: 45_000,
+  isVoiceInputAvailable: () => true,
+  loadExpoAudio: () => ({}),
+  requestVoicePermission: jest.fn(async () => ({ granted: true })),
+  startVoiceRecording: jest.fn(async () => ({ stop: async () => null, subscribeMetering: () => () => {} })),
+  deleteVoiceRecording: jest.fn(async () => undefined),
+  yieldMicToWebRtc: jest.fn(async () => undefined),
+  meteringLevel: () => 0.12,
+}));
+jest.mock("@/features/speech/api", () => ({
+  speechApi: {
+    createDictationSession: jest.fn(),
+    connectDictationSession: jest.fn(),
+    endDictationSession: jest.fn(async () => undefined),
+  },
+  speechLanguageHint: () => "am",
+}));
+jest.mock("react-native-webrtc", () => ({
+  mediaDevices: { getUserMedia: jest.fn() },
+  RTCPeerConnection: jest.fn(),
+  RTCSessionDescription: jest.fn((value) => value),
+}));
+
+type Channel = {
+  readyState: string;
+  send: jest.Mock;
+  close: jest.Mock;
+  onopen?: () => void;
+  onmessage?: (message: { data: unknown }) => void;
+};
+
+const proUser = { plan: "pro", features: ["speech_transcription"] } as unknown as User;
+const track = { kind: "audio", enabled: true, stop: jest.fn() };
+const peerClose = jest.fn();
+let channel: Channel;
+let input = "";
+const setInput = jest.fn((next: string | ((prev: string) => string)) => {
+  input = typeof next === "function" ? next(input) : next;
+});
+const openUpgrade = jest.fn();
+let current: ReturnType<typeof useComposerDictation>;
+
+function Probe({ routeChatId = "chat-1" }: { routeChatId?: string }) {
+  const dictation = useComposerDictation({
+    token: "tok",
+    user: proUser,
+    routeChatId,
+    setInput,
+    openUpgrade,
+    t: (key) => key,
+  });
+  useLayoutEffect(() => { current = dictation; });
+  const active = dictation.voiceRecording || dictation.voiceTranscribing;
+  return active ? (
+    <VoiceComposerWaveform
+      recording={dictation.voiceRecording}
+      transcribing={dictation.voiceTranscribing}
+      meterLevel={dictation.voiceMeterLevel as SharedValue<number>}
+    />
+  ) : (
+    <Text>field</Text>
+  );
+}
+
+const emit = async (event: object) => {
+  await act(async () => { channel.onmessage?.({ data: JSON.stringify(event) }); });
+};
+const delta = (item: string, text: string) =>
+  emit({ type: "conversation.item.input_audio_transcription.delta", item_id: item, delta: text });
+const completed = (item: string, transcript: string) =>
+  emit({ type: "conversation.item.input_audio_transcription.completed", item_id: item, transcript });
+const sent = () => channel.send.mock.calls.map(([value]) => JSON.parse(value as string));
+const refusal = (status: number, code: string) =>
+  new ApiRequestError(status, JSON.stringify({ detail: { code, message: code } }));
+
+async function startTake(caret: { start: number; end: number } | null = null) {
+  await render(<Probe />);
+  await act(async () => { current.toggleVoiceInput(caret); });
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  (NativeModules as Record<string, unknown>).WebRTCModule = {};
+  (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+  input = "";
+  track.enabled = true;
+  channel = { readyState: "open", send: jest.fn(), close: jest.fn() };
+  (webrtc.mediaDevices.getUserMedia as jest.Mock).mockResolvedValue({
+    getAudioTracks: () => [track],
+    getTracks: () => [track],
+  });
+  (webrtc.RTCPeerConnection as unknown as jest.Mock).mockImplementation(() => ({
+    addTrack: jest.fn(),
+    createDataChannel: () => channel,
+    createOffer: async () => ({ sdp: "v=0\nm=audio" }),
+    setLocalDescription: async () => undefined,
+    setRemoteDescription: async () => { channel.onopen?.(); },
+    getReceivers: () => [],
+    close: peerClose,
+  }));
+  (speechApi.createDictationSession as jest.Mock).mockResolvedValue({
+    call_id: "dict-1",
+    expires_at: 1,
+    model: "gpt-live-transcribe",
+    max_duration_seconds: 45,
+  });
+  (speechApi.connectDictationSession as jest.Mock).mockResolvedValue({ sdp: "v=0\nm=audio answer" });
+});
+
+afterEach(() => {
+  delete (NativeModules as Record<string, unknown>).WebRTCModule;
+});
+
+it("shows the words as they are spoken, and the stop lands the whole take in the draft at the caret", async () => {
+  input = "Dear Sam,Thanks.";
+  await startTake({ start: 9, end: 9 });
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  // The offer went through Recall's dictation route; no OpenAI secret is on the phone.
+  expect((speechApi.connectDictationSession as jest.Mock).mock.calls[0][1]).toEqual({
+    callId: "dict-1",
+    sdp: "v=0\nm=audio",
+  });
+  expect(speechApi.createDictationSession).toHaveBeenCalledWith("tok", { language: "am" });
+  expect(current.voiceRecording).toBe(true);
+
+  const words = () => screen.getByTestId("voice-live-words");
+  await delta("i1", " see");
+  expect(words()).toHaveTextContent("see");
+  await delta("i1", " you");
+  expect(words()).toHaveTextContent("see you");
+  // The stretch's final text replaces its words.
+  await completed("i1", "See you");
+  expect(words()).toHaveTextContent("See you");
+  await delta("i2", " at noon");
+  expect(words()).toHaveTextContent("See you at noon");
+  // The draft holds no half-heard words while the take runs (the field is hidden meanwhile).
+  expect(input).toBe("Dear Sam,Thanks.");
+
+  // Stop: the rest of the audio is committed, and its final text lands. No upload.
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  expect(current.voiceTranscribing).toBe(true);
+  // The words stay up while the last ones land; no "Transcribing…" wait.
+  expect(screen.getByTestId("voice-live-words")).toHaveTextContent("See you at noon");
+  expect(screen.queryByText("chat.voice_transcribing")).toBeNull();
+  expect(track.enabled).toBe(false);
+
+  await emit({ type: "input_audio_buffer.committed", item_id: "i2", previous_item_id: "i1" });
+  await completed("i2", "at noon.");
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+  expect(input).toBe("Dear Sam, See you at noon. Thanks.");
+  expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+  expect(peerClose).toHaveBeenCalled();
+  expect(transcribeSpeech).not.toHaveBeenCalled();
+  expect(startVoiceRecording).not.toHaveBeenCalled();
+  expect(screen.getByText("field")).toBeOnTheScreen();
+});
+
+it("follows the draft with the words when the field was not being edited", async () => {
+  input = "Typed first";
+  await startTake(null);
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " then spoken");
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  await emit({ type: "input_audio_buffer.committed", item_id: "i1", previous_item_id: null });
+  await completed("i1", "then spoken");
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+  expect(input).toBe("Typed first then spoken");
+});
+
+it("says it is starting while the call connects", async () => {
+  (speechApi.createDictationSession as jest.Mock).mockReturnValue(new Promise(() => undefined));
+  await startTake();
+  expect(screen.getByText("chat.voice_starting")).toBeOnTheScreen();
+  // A stop before the call connects drops the take: nothing was heard yet.
+  await act(async () => { current.toggleVoiceInput(); });
+  expect(current.voiceRecording).toBe(false);
+  expect(screen.getByText("field")).toBeOnTheScreen();
+});
+
+it("leaves the draft as it was and says so when nothing was heard", async () => {
+  input = "draft";
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  await emit({ type: "error", error: { code: "input_audio_buffer_commit_empty" } });
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+  expect(input).toBe("draft");
+  expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.voice_transcribe_empty");
+  // The server gives the day's voice input back.
+  expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", false);
+});
+
+it("waits for a stretch still being written when the stop has nothing left to commit", async () => {
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("a", " last phrase");
+  await act(async () => { current.toggleVoiceInput(); });
+  await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+  // A server-VAD commit took the audio during the stop's tail.
+  await emit({ type: "error", error: { code: "input_audio_buffer_commit_empty" } });
+  expect(current.voiceTranscribing).toBe(true);
+  await completed("a", "Last phrase.");
+  await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+  expect(input).toBe("Last phrase.");
+});
+
+it("keeps what was heard when the call drops mid-take", async () => {
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " half a thought");
+  const pc = (webrtc.RTCPeerConnection as unknown as jest.Mock).mock.results[0].value as {
+    connectionState?: string;
+    onconnectionstatechange?: () => void;
+  };
+  await act(async () => {
+    pc.connectionState = "failed";
+    pc.onconnectionstatechange?.();
+  });
+  expect(input).toBe("half a thought");
+  expect(current.voiceRecording).toBe(false);
+  expect(reportFailure).toHaveBeenCalledWith("live_dictation", expect.any(Error));
+  expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+});
+
+it("leaves the draft as it was when the take is cancelled", async () => {
+  input = "draft";
+  await startTake();
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " never mind");
+  await act(async () => { current.cancelVoiceInput(); });
+  expect(input).toBe("draft");
+  expect(current.voiceRecording).toBe(false);
+  expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+});
+
+it("leaves no half-heard words in the chat the user leaves mid-take", async () => {
+  input = "draft for chat one";
+  const view = await render(<Probe />);
+  await act(async () => { current.toggleVoiceInput(null); });
+  await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+  await delta("i1", " I was thinking we sho");
+  // The drawer opens chat two: the take ends, and chat one's draft is what the user typed.
+  await view.rerender(<Probe routeChatId="chat-2" />);
+  expect(input).toBe("draft for chat one");
+  expect(current.voiceRecording).toBe(false);
+  await completed("i1", "I was thinking we should go.");
+  expect(input).toBe("draft for chat one");
+});
+
+describe("the take's timers", () => {
+  const advance = async (ms: number) => {
+    await act(async () => { await jest.advanceTimersByTimeAsync(ms); });
+  };
+  const connected = async () => {
+    for (let i = 0; i < 20 && !(speechApi.connectDictationSession as jest.Mock).mock.calls.length; i += 1) {
+      await advance(0);
+    }
+    await advance(0);
+    expect(speechApi.connectDictationSession).toHaveBeenCalled();
+  };
+
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it("lands the words heard when the stop gets no answer, once the final wait runs out", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " no answer came");
+    await act(async () => { current.toggleVoiceInput(); });
+    await advance(200); // the stop's tail
+    expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" });
+    await advance(2_400);
+    expect(current.voiceTranscribing).toBe(true);
+    await advance(200); // FINAL_WAIT_MS (2.5 s) has passed
+    expect(current.voiceTranscribing).toBe(false);
+    expect(input).toBe("no answer came");
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+  });
+
+  it("stops the take at its time limit and lands its words", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " a long thought");
+    await advance(44_900);
+    expect(current.voiceRecording).toBe(true);
+    await advance(100); // VOICE_MAX_RECORDING_MS and the server's 45 s
+    expect(current.voiceRecording).toBe(false);
+    await advance(200);
+    expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" });
+    await emit({ type: "input_audio_buffer.committed", item_id: "i1", previous_item_id: null });
+    await completed("i1", "A long thought.");
+    await advance(0);
+    expect(input).toBe("A long thought.");
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+  });
+
+  it("hangs up a take cancelled while its last words land", async () => {
+    await startTake();
+    await connected();
+    await delta("i1", " stop then cancel");
+    await act(async () => { current.toggleVoiceInput(); });
+    await advance(200);
+    expect(current.voiceTranscribing).toBe(true);
+    await act(async () => { current.cancelVoiceInput(); });
+    // The finishing call is hung up at once, not when its final wait runs out.
+    expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", true);
+    await advance(3_000);
+    expect(input).toBe("");
+  });
+});
+
+describe("the recorded fallback", () => {
+  it("records the clip in Expo Go, which has no WebRTC", async () => {
+    delete (NativeModules as Record<string, unknown>).WebRTCModule;
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    expect(speechApi.createDictationSession).not.toHaveBeenCalled();
+  });
+
+  it("records the clip, saying nothing, on a server without live dictation", async () => {
+    (speechApi.createDictationSession as jest.Mock).mockRejectedValue(refusal(503, "not_configured"));
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    expect(current.voiceRecording).toBe(true);
+    expect(reportFailure).not.toHaveBeenCalled();
+    expect(reportRecoverableError).not.toHaveBeenCalled();
+  });
+
+  it("records the clip and reports it when the call could not be made", async () => {
+    (speechApi.connectDictationSession as jest.Mock).mockRejectedValue(refusal(502, "upstream_failed"));
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    expect(reportFailure).toHaveBeenCalledWith("live_dictation", expect.any(ApiRequestError));
+    // The minted session is ended, and its voice input given back.
+    await waitFor(() =>
+      expect(speechApi.endDictationSession).toHaveBeenCalledWith("tok", "dict-1", false),
+    );
+    expect(peerClose).toHaveBeenCalled();
+  });
+
+  it("records nothing when the stop comes while a failed call hands over to the recorder", async () => {
+    (speechApi.connectDictationSession as jest.Mock).mockRejectedValue(refusal(502, "upstream_failed"));
+    let opened!: (recorder: { stop: () => Promise<null>; subscribeMetering: () => () => void }) => void;
+    const recorder = { stop: jest.fn(async () => null), subscribeMetering: () => () => {} };
+    (startVoiceRecording as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { opened = resolve; }));
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    await act(async () => { current.toggleVoiceInput(); });
+    expect(current.voiceRecording).toBe(false);
+    await act(async () => { opened(recorder); });
+    // The recorder that arrived after the stop is stopped at once, not left recording.
+    expect(recorder.stop).toHaveBeenCalled();
+    expect(current.voiceRecording).toBe(false);
+  });
+
+  it("records the clip when the connect runs past its deadline", async () => {
+    // withDeadline's timeout rejects as an AbortError, which is not the take's own cancel.
+    const timedOut = Object.assign(new Error("Request canceled"), { name: "AbortError" });
+    (speechApi.connectDictationSession as jest.Mock).mockRejectedValue(timedOut);
+    await startTake();
+    await waitFor(() => expect(startVoiceRecording).toHaveBeenCalled());
+    expect(current.voiceRecording).toBe(true);
+    expect(screen.queryByText("chat.voice_starting")).toBeNull();
+    expect(reportFailure).toHaveBeenCalledWith("live_dictation", timedOut);
+  });
+
+  it("opens the plans, recording nothing, when the plan has no voice input", async () => {
+    (speechApi.createDictationSession as jest.Mock).mockRejectedValue(refusal(403, "not_in_plan"));
+    await startTake();
+    await waitFor(() => expect(openUpgrade).toHaveBeenCalledWith("voice"));
+    expect(startVoiceRecording).not.toHaveBeenCalled();
+    expect(current.voiceRecording).toBe(false);
+  });
+
+  it("says the day's voice input is used, recording nothing", async () => {
+    (speechApi.createDictationSession as jest.Mock).mockRejectedValue(refusal(429, "daily_limit"));
+    await startTake();
+    await waitFor(() =>
+      expect(reportRecoverableError).toHaveBeenCalledWith(null, "chat.voice_daily_limit"),
+    );
+    expect(startVoiceRecording).not.toHaveBeenCalled();
+  });
+});
