@@ -297,7 +297,8 @@ async def test_generate_for_chat_the_first_closed_gate_answers(turn, first, late
 
 async def test_generate_for_chat_at_the_daily_cap_refuses_and_keeps_the_count(turn):
     key = counters.daily_key("imggen", turn.user.id)
-    await turn.redis.set(key, 15)
+    cap = counters.limit("image_generation", turn.user, Settings(**turn.settings))
+    await turn.redis.set(key, cap)
 
     error = await _refused(turn)
 
@@ -306,7 +307,7 @@ async def test_generate_for_chat_at_the_daily_cap_refuses_and_keeps_the_count(tu
         counters.limit_message("image_generation", turn.user),
     )
     assert (error.code, error.fields) == ("daily_limit", {"feature": "image_generation"})
-    assert await turn.slot() == "15"
+    assert await turn.slot() == str(cap)
     assert "provider" not in turn.names()
 
 

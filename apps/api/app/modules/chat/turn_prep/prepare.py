@@ -18,6 +18,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.ids import uuid7
 from app.exceptions import ChatNotFoundError
+from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import Attachment, Chat, User
 from app.modules.billing import plan as plan_service
 from app.modules.chat.model_routing.route import last_user_turn
@@ -72,6 +73,7 @@ async def prepare_chat_turn(
     on_user_saved: Callable[[], None] | None = None,
     unhealthy: frozenset[str] | None = None,
     half_open: frozenset[str] = frozenset(),
+    search_budget: TavilyBudget | None = None,
 ) -> StreamContext:
     """``on_user_saved`` runs once the user's row has committed (an error after
     that point must not offer to resend the message). ``unhealthy`` and
@@ -136,6 +138,7 @@ async def prepare_chat_turn(
         unhealthy_models=unhealthy,
         half_open_models=half_open,
         said=attachments.said,
+        search_budget=search_budget,
     )
     persist: asyncio.Task[None] | None = None
     if history is None:

@@ -25,7 +25,9 @@ def _request(text: str, *, image: bool = False, history: tuple[str, ...] = ()) -
         for line in history
         for role, line in (("user", line), ("assistant", "About $340 a month."))
     ]
-    return SimpleNamespace(content=text, has_image_attachment=image, recent_messages=rows)
+    return SimpleNamespace(
+        content=text, has_image_attachment=image, recent_messages=rows, search_budget=None
+    )
 
 
 def _identity() -> Any:
@@ -154,14 +156,21 @@ async def test_earlier_lines_are_never_planned_on_the_loop(
     reply = SimpleNamespace(role="assistant", content="ok")
     many = [user("a"), user("b"), user("c"), user("d"), user("e"), user(_CAR), reply]
     turn = await _money_turn(
-        SimpleNamespace(content=_WHAT_IF, has_image_attachment=False, recent_messages=many),
+        SimpleNamespace(
+            content=_WHAT_IF, has_image_attachment=False, recent_messages=many, search_budget=None
+        ),
         single_plan(_WHAT_IF),
         fake_redis,
     )
     assert turn is not None and turn.request.values["months"] == 36
     photo_only = [user(_CAR), reply, user(""), reply]
     turn = await _money_turn(
-        SimpleNamespace(content=_WHAT_IF, has_image_attachment=False, recent_messages=photo_only),
+        SimpleNamespace(
+            content=_WHAT_IF,
+            has_image_attachment=False,
+            recent_messages=photo_only,
+            search_budget=None,
+        ),
         single_plan(_WHAT_IF),
         fake_redis,
     )
@@ -217,3 +226,25 @@ async def test_a_physics_problem_with_a_car_and_a_percent_gets_no_money_turn(
         "What effort at the end of the handle is needed to lift a car weighing 9000 N?"
     )
     assert await _money_turn(_request(line), single_plan(line), fake_redis) is None
+
+
+async def test_the_money_cards_rate_lookup_is_the_turns_search(
+    fake_redis: Redis, monkeypatch: Any
+) -> None:
+    """A mortgage turn's rate lookup searches on the turn's one budget (its one search on
+    Free), never a fresh budget of its own beside the read's and the reply's."""
+    from app.modules.money import service as money_service
+
+    budget = object()
+    seen: list[object] = []
+
+    async def current_average(*_args: Any, budget: object = None, **_kwargs: Any) -> None:
+        seen.append(budget)
+
+    monkeypatch.setattr(money_service, "current_average", current_average)
+    request = _request("what is my mortgage for 300k dollars house")
+    request.search_budget = budget
+    await money_prep.money_turn(
+        request, _identity(), Settings(), fake_redis, single_plan(request.content)
+    )
+    assert seen and all(passed is budget for passed in seen)

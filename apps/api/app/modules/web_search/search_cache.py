@@ -20,6 +20,7 @@ import hashlib
 import itertools
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -55,15 +56,66 @@ class TurnTavilyBudget:
     It is also the turn's search ledger: each query that reached the providers
     is recorded as answered (hits or none) or failed, and ``search_failed`` says
     every one of them failed.
+
+    On a plan whose searches follow its messages (``follow_messages``) no
+    daily slot is taken: the turn's message covers its search, and Tavily answers
+    it (DuckDuckGo only when Tavily fails). The message covers one search: a
+    later one in the same turn is refused (``begin_search``), and
+    ``search_used`` says so. A chat turn shares one budget across its read's
+    search and the reply's own calls (``StreamContext.search_budget``).
+
+    On a plan with a daily cap, a turn past it gets no search at all, never the
+    DuckDuckGo fallback (owner, 2026-11-24: "no more than 40");
+    ``daily_limit_reached`` says so, so the reply can say today's searches are
+    used up instead of answering from memory.
     """
 
     settings: Settings
     user: User | None
+    # Called when a search reaches a provider on a plan whose searches follow messages:
+    # the turn keeps its message from then on (``turn_resources.share_turn_search``).
+    on_provider_call: Callable[[], None] | None = None
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _decided: bool = False
     _skip_tavily: bool = False
     _answered: int = 0
     _failed: int = 0
+    _begun: bool = False
+    _refused: bool = False
+    _limit_reached: bool = False
+
+    def begin_search(self) -> bool:
+        """Whether a search call may run in this turn; on a plan whose searches follow its
+        messages, only the turn's first does. The queries one call fans out are one search."""
+        if self.user is None or not counters.follows_messages(
+            "tavily_search", self.user, self.settings
+        ):
+            return True
+        if self._begun:
+            self._refused = True
+            return False
+        self._begun = True
+        return True
+
+    def note_provider_call(self) -> None:
+        """A search is about to reach a provider: on a plan whose searches follow its
+        messages, the turn's message now pays for it (``on_provider_call``)."""
+        if (
+            self.on_provider_call is not None
+            and self.user is not None
+            and counters.follows_messages("tavily_search", self.user, self.settings)
+        ):
+            self.on_provider_call()
+
+    @property
+    def search_used(self) -> bool:
+        """A search was refused: the turn's message had already covered one."""
+        return self._refused
+
+    @property
+    def daily_limit_reached(self) -> bool:
+        """The plan's daily searches are used up: this turn searches nothing."""
+        return self._limit_reached
 
     def record_search(self, *, failed: bool) -> None:
         if failed:
@@ -77,11 +129,12 @@ class TurnTavilyBudget:
         return self._failed > 0 and self._answered == 0
 
     async def skip_tavily(self, redis: Redis) -> bool:
-        """Whether this turn must skip Tavily (daily cap, no user, or Redis fail).
+        """Whether this turn must skip Tavily (no user, or Redis fail): DuckDuckGo then.
 
-        Reserves at most once. DuckDuckGo stays uncapped (latency only) when
-        this returns True. A missing user or a Redis error fail closed to DDG
-        so we never run Tavily without a counted slot.
+        Reserves at most once. A missing user or a Redis error fail closed to
+        DDG so we never run Tavily without a counted slot. At the plan's daily
+        cap it returns True too, with ``daily_limit_reached`` set: the caller
+        then searches nothing.
         """
         async with self._lock:
             if self._decided:
@@ -102,6 +155,7 @@ class TurnTavilyBudget:
             try:
                 reserved = await counters.reserve("tavily_search", redis, self.user, self.settings)
                 self._skip_tavily = not reserved
+                self._limit_reached = not reserved
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -113,6 +167,18 @@ class TurnTavilyBudget:
                 self._skip_tavily = True
             self._decided = True
             return self._skip_tavily
+
+
+def turn_search_budget(
+    settings: Settings, user: User | None, *, keep_message: Callable[[], None]
+) -> TurnTavilyBudget:
+    """A chat turn's one search budget, made before its prep so the money card's rate
+    lookup, the read's search and the reply's own calls share it
+    (``StreamContext.search_budget``). On a plan whose searches follow its messages the
+    message covers the search: once one reaches a provider ``keep_message`` keeps it
+    spent, even when the user stops the turn or the socket drops before any reply. Given
+    back, a Free user could search without end."""
+    return TurnTavilyBudget(settings=settings, user=user, on_provider_call=keep_message)
 
 
 async def run_cached_search(
@@ -157,6 +223,8 @@ async def _run_search(
     # Without one: one reservation for this call's fanned-out queries only.
     if budget is None:
         budget = TurnTavilyBudget(settings=settings, user=user)
+    if not budget.begin_search():
+        return [], []
     news_task = (
         asyncio.ensure_future(
             _search_with_cache(
@@ -267,6 +335,22 @@ def _search_cache_key(
     return key if topic == "general" else f"{key}:{topic}"
 
 
+def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
+    """Cached hits as stored (a JSON list of hit dicts), or None for anything else."""
+    if not isinstance(payload, list):
+        return None
+    return [
+        WebSearchHit(
+            title=str(item.get("title") or ""),
+            url=str(item.get("url") or ""),
+            snippet=str(item.get("snippet") or ""),
+            published=str(item.get("published") or ""),
+        )
+        for item in payload
+        if isinstance(item, dict)
+    ]
+
+
 async def _search_with_cache(
     settings: Settings,
     query: str,
@@ -288,20 +372,6 @@ async def _search_with_cache(
     # the general search's to say.
     ledger = budget if topic == "general" else None
     cache_redis = redis if redis is not None else get_redis_client()
-
-    def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
-        if not isinstance(payload, list):
-            return None
-        return [
-            WebSearchHit(
-                title=str(item.get("title") or ""),
-                url=str(item.get("url") or ""),
-                snippet=str(item.get("snippet") or ""),
-                published=str(item.get("published") or ""),
-            )
-            for item in payload
-            if isinstance(item, dict)
-        ]
 
     async def _cached_hits() -> list[WebSearchHit] | None:
         """This query's cached hits (counted as a search), or None on a miss or error."""
@@ -337,6 +407,11 @@ async def _search_with_cache(
         # Reserve one Tavily slot for the whole turn (shared budget), only now
         # that this query has missed cache and is about to hit the network.
         skip_tavily = await budget.skip_tavily(cache_redis) if budget is not None else False
+        if budget is not None and budget.daily_limit_reached:
+            # Today's searches are used up: no provider, DuckDuckGo included.
+            return []
+        if budget is not None:
+            budget.note_provider_call()
 
         try:
             hits = await web_search_gateway.search_web(

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { refusalCode, resolveChatError } from "@/features/chat/model/errorMessage";
 import { AttachmentError, attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
 import { ApiRequestError } from "@/lib/api/errorBody";
@@ -18,6 +19,11 @@ function localFailure(error: unknown, t: (key: string) => string): string {
 }
 
 /** Image generation on the chat screen: the chat uploads its reference photo and words its failures. */
+/** A picture's reference photo: no message goes with it, so none need be left. */
+function uploadReferencePhoto(token: string, attachment: PendingAttachment) {
+  return uploadSendAttachment(token, attachment, "reference");
+}
+
 export function useChatImageGeneration({ isPaid, t, ...options }: Options) {
   const describeFailure = useCallback(
     (message: string, code: string | undefined, error: unknown) => {
@@ -33,5 +39,5 @@ export function useChatImageGeneration({ isPaid, t, ...options }: Options) {
     },
     [isPaid, t],
   );
-  return useImageGeneration({ ...options, t, uploadReference: uploadSendAttachment, describeFailure });
+  return useImageGeneration({ ...options, t, uploadReference: uploadReferencePhoto, describeFailure });
 }

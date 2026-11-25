@@ -53,11 +53,12 @@ def test_live_talk_is_only_on_pro():
         (
             "pro",
             {
-                "daily_messages": 1000,
                 "daily_tokens": 15_000_000,
-                "daily_image_generations": 15,
-                "daily_speech_transcriptions": 200,
-                "daily_speech_tts": 100,
+                "daily_image_generations": 30,
+                "daily_image_searches": 30,
+                "daily_web_searches": 40,
+                "daily_document_uploads": 100,
+                "daily_speech_transcriptions": 100,
                 "monthly_live_talk_minutes": 60,
             },
         ),
@@ -144,3 +145,69 @@ def test_plan_catalog_lists_exactly_free_and_pro():
     pro = catalog[1]
     assert pro["allowances"]["monthly_live_talk_minutes"] == 60
     assert "live_talk" in pro["features"]
+
+
+_EXTRAS = {
+    "daily_image_uploads",
+    "daily_document_uploads",
+    "daily_web_searches",
+    "daily_image_searches",
+    "daily_scanned_documents",
+}
+
+
+def test_free_counts_only_messages_and_pro_only_its_photos_follow_them():
+    """Owner's limits, 2026-11-24. Free's uploads, searches and lookups have no number of
+    their own: they follow its messages. Pro's photos follow its (unlimited) messages;
+    its documents (100), searches (40) and lookups (30) count on their own."""
+    settings = Settings(_env_file=None)
+    for name in _EXTRAS:
+        assert entitlements.follows_messages("free", name, settings)
+        assert entitlements.follows_messages("pro", name, settings) is (
+            name == "daily_image_uploads"
+        )
+    # Picture making is no part of a message: Free keeps its three a day.
+    assert not entitlements.follows_messages("free", "daily_image_generations", settings)
+    # The messages themselves never follow, whatever a plan lists.
+    listed = Settings(_env_file=None, follow_messages=["daily_messages"])
+    assert not entitlements.follows_messages("free", "daily_messages", listed)
+    # A plan setting, not a code path: an empty list counts Free's caps again.
+    off = Settings(_env_file=None, follow_messages=[])
+    assert not any(entitlements.follows_messages("free", name, off) for name in _EXTRAS)
+
+
+def test_every_listed_allowance_is_one():
+    settings = Settings(_env_file=None)
+    for listed in (settings.follow_messages, settings.follow_messages_pro):
+        assert set(listed) <= set(entitlements.ALLOWANCES)
+
+
+def test_pro_messages_are_unlimited_and_free_counts_ten():
+    settings = Settings(_env_file=None)
+    assert entitlements.is_unlimited("pro", "daily_messages", settings)
+    assert not entitlements.is_unlimited("free", "daily_messages", settings)
+    assert entitlements.allowance("free", "daily_messages", settings) == 10
+    # The cost guard behind Pro's unlimited chat stays.
+    assert not entitlements.is_unlimited("pro", "daily_tokens", settings)
+
+
+def test_read_aloud_has_no_count_and_stays_off_free():
+    """Pro's read-aloud has no daily count (its tokens are charged); Free has none."""
+    settings = Settings(_env_file=None)
+    assert entitlements.is_unlimited("pro", "daily_speech_tts", settings)
+    assert entitlements.can_use("pro", "speech_tts", settings)
+    assert not entitlements.can_use("free", "speech_tts", settings)
+
+
+def test_plan_catalog_shows_no_number_where_a_plan_has_none():
+    """The paywall never reads a separate upload or search count for Free, nor a message
+    count for Pro."""
+    free, pro = entitlements.plan_catalog(Settings(_env_file=None))
+    assert set(free["follow_messages"]) == _EXTRAS
+    assert _EXTRAS.isdisjoint(free["allowances"])
+    assert free["allowances"]["daily_messages"] == 10
+    assert pro["follow_messages"] == ["daily_image_uploads"]
+    assert pro["allowances"]["daily_scanned_documents"] == 100
+    assert pro["unlimited"] == ["daily_messages", "daily_speech_tts"]
+    assert "daily_messages" not in pro["allowances"]
+    assert pro["allowances"]["daily_web_searches"] == 40

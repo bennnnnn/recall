@@ -1499,7 +1499,7 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
     await act(async () => { current.setPendingAttachment(file); });
     await send();
-    expect(uploadAttachment).toHaveBeenCalledWith("token", file);
+    expect(uploadAttachment).toHaveBeenCalledWith("token", file, "chat");
     expect(mockFeedbackError).toHaveBeenCalledWith(message);
     expect(mockSetInput).toHaveBeenLastCalledWith("hello");
     expect(current.pendingAttachment).toEqual(file);

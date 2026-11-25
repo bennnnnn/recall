@@ -172,7 +172,11 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
     )
     captured = {}
     resource = SimpleNamespace(
-        reserve=AsyncMock(), reserved_tokens=100, lock_key="lock", lock_token="token"
+        reserve=AsyncMock(),
+        reserved_tokens=100,
+        lock_key="lock",
+        lock_token="token",
+        search_budget=lambda *_: None,
     )
 
     @asynccontextmanager

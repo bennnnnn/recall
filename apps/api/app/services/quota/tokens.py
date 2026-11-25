@@ -155,6 +155,7 @@ async def reserve_usage_up_to(
     wanted: int,
     *,
     daily_limit: int,
+    day: date | None = None,
 ) -> int:
     """Take ``wanted`` of today's tokens, or all that is left; 0 when none is.
 
@@ -167,7 +168,7 @@ async def reserve_usage_up_to(
     """
     if wanted <= 0 or daily_limit <= 0:
         return 0
-    key = _usage_key(user_id, utc_today())
+    key = _usage_key(user_id, day or utc_today())
     try:
         try:
             granted = await redis.eval(
@@ -203,10 +204,11 @@ async def _reserve_up_to_watched(redis: Redis, key: str, wanted: int, daily_limi
     raise RedisError("Quota reserve kept losing its WATCH")
 
 
-async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
+async def refund_usage(redis: Redis, user_id: str, amount: int, *, day: date | None = None) -> None:
+    """Give back *amount* tokens taken on *day* (today when not given)."""
     if amount <= 0:
         return
-    await refund_daily(redis, _usage_key(user_id, utc_today()), amount=amount)
+    await refund_daily(redis, _usage_key(user_id, day or utc_today()), amount=amount)
 
 
 async def adjust_usage(

@@ -22,6 +22,7 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.gateways.mcp.base import TavilyBudget
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.models.routing_lanes import ROUTING
@@ -87,12 +88,14 @@ async def current_average(
     user: User | None = None,
     today: date | None = None,
     variant: str = "",
+    budget: TavilyBudget | None = None,
 ) -> MarketRate | None:
     """Today's checked average for ``product`` (its ``variant`` kind) at ``term`` in
     ``country``, or None.
 
-    A miss spends one of ``user``'s daily searches (no user: the free provider only);
-    the answer then serves everyone asking the same thing until it expires.
+    A miss is a search on the turn's ``budget`` (its one search; no user: the free
+    provider only); the answer then serves everyone asking the same thing until it
+    expires.
     """
     lookup = product.rate_lookup(variant)
     if lookup is None:
@@ -107,7 +110,11 @@ async def current_average(
         return replace(cached, spread=lookup.spread)
     try:
         hits, _ = await run_cached_search(
-            settings, [search_query(lookup, bucket, country)], user=user, redis=redis
+            settings,
+            [search_query(lookup, bucket, country)],
+            user=user,
+            redis=redis,
+            budget=budget,
         )
     except Exception:
         logger.info("money rate search failed for %s", product.key, exc_info=True)

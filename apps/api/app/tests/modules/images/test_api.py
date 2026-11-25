@@ -49,7 +49,7 @@ def test_generate_image_refused_when_the_plan_has_none():
     assert r.status_code == 403
 
 
-@pytest.mark.parametrize("plan, cap", [("free", 3), ("pro", 15)])
+@pytest.mark.parametrize("plan, cap", [("free", 3), ("pro", 30)])
 def test_generate_image_stops_at_each_plans_daily_cap(quota_clock, plan, cap):
     """Free gets a few a day; the endpoint enforces each plan's number."""
     user = _fake_user(plan=plan)

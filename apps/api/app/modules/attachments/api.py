@@ -104,6 +104,7 @@ async def presign_upload(
             content_type=body.content_type,
             size_bytes=body.size_bytes,
             filename=body.filename,
+            purpose=body.purpose,
         )
     except StorageUnavailableError as exc:
         raise _storage_http_error() from exc

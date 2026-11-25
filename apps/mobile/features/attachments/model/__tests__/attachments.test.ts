@@ -313,7 +313,7 @@ it("reuploads a restored Library document after its rejected server ID is remove
 
   expect(File).toHaveBeenCalledWith("file:///cache/library-notes.pdf");
   expect(api.presignAttachment).toHaveBeenCalledWith("token", {
-    content_type: "application/pdf", size_bytes: 3, filename: "notes.pdf",
+    content_type: "application/pdf", size_bytes: 3, filename: "notes.pdf", purpose: "chat",
   });
   expect(requestRaw).toHaveBeenCalledWith("/attachments/a1/upload", "token", expect.objectContaining({ method: "PUT", body: expect.any(ArrayBuffer) }), true, expect.any(Number));
 });
@@ -427,7 +427,7 @@ describe("every picked photo leaves without its metadata, as something the API t
     expect(sent).toEqual(reencoded);
     expect(jpegHasGps(sent)).toBe(false);
     expect(api.presignAttachment).toHaveBeenCalledWith("token", {
-      content_type: "image/jpeg", size_bytes: reencoded.length, filename: "geotagged.jpg",
+      content_type: "image/jpeg", size_bytes: reencoded.length, filename: "geotagged.jpg", purpose: "chat",
     });
   });
 

@@ -20,9 +20,11 @@ from app.core.config import Settings
 from app.modules.speech import service as speech_service
 from app.tests.api_support import api_user, app_with_user
 
+# Route -> its service call, the day's counter it takes from, and what one request takes:
+# a transcription one slot; read-aloud its text's tokens ("hello": 2), from the day's budget.
 _ROUTES = {
-    "transcribe": ("transcribe_audio", "speech"),
-    "tts": ("synthesize_speech", "tts"),
+    "transcribe": ("transcribe_audio", "speech", "1"),
+    "tts": ("synthesize_speech", "usage", "2"),
 }
 
 
@@ -54,7 +56,7 @@ def _provider(asked: bool, outcome: str) -> Callable[..., Any]:
 def test_a_failed_clip_keeps_its_slot_only_once_the_provider_was_asked(
     quota_clock, route: str, outcome: str, asked: bool
 ) -> None:
-    service_fn, prefix = _ROUTES[route]
+    service_fn, prefix, taken = _ROUTES[route]
     user = api_user(plan="pro")
     client = TestClient(app_with_user(user))
     redis: Any = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -68,7 +70,7 @@ def test_a_failed_clip_keeps_its_slot_only_once_the_provider_was_asked(
         else:
             assert _post(client, route).status_code == 502
         slot = asyncio.run(redis.get(f"{prefix}:{user.id}:2026-10-16"))
-    assert slot == ("1" if asked else "0")
+    assert slot == (taken if asked else "0")
 
 
 @pytest.mark.parametrize(

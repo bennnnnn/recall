@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.config import Settings
-from app.gateways.mcp.base import ToolContext, ToolResult
+from app.gateways.mcp.base import TavilyBudget, ToolContext, ToolResult
 from app.models.schemas.tools import WebSearchToolInput
 from app.modules.web_search.formatting import NEWEST_SOURCE_RULE, sources_payload
 from app.modules.web_search.geo_intent import is_geo_query
@@ -41,6 +41,21 @@ _SEARCH_FAILED = (
     "from memory as checked."
 )
 
+# A second search in a turn whose message covers one (``TurnTavilyBudget.begin_search``).
+_SEARCH_USED = (
+    "Not searched: this message's web search is already used. Answer from the results "
+    "you have; say plainly what you could not check, and do not fill in current facts "
+    "from memory."
+)
+
+# The plan's daily searches are used up (``TurnTavilyBudget.daily_limit_reached``).
+_SEARCH_LIMIT = (
+    "Not searched: the user's web searches for today are used up; they reset at "
+    "midnight UTC. Tell the user plainly that you can't search the web again until "
+    "then. Do not give current facts (news, prices, scores, results, who holds a post, "
+    "releases) from memory, and do not present an answer from memory as checked."
+)
+
 # A small explicit list size: one to ten, from number_text's one table.
 _COUNT_WORDS = {word: value for word, value in NUMBER_WORDS.items() if 1 <= value <= 10}
 
@@ -60,6 +75,16 @@ def _requested_news_count(text: str) -> int | None:
 
 
 _SHOWN = 8
+
+
+def _not_searched(budget: TavilyBudget) -> str | None:
+    """Why no search ran, for the model to say: today's searches used up, or this
+    message's one search already made. None when one ran (a failed one says so itself)."""
+    if budget.search_failed:
+        return None
+    if budget.daily_limit_reached:
+        return _SEARCH_LIMIT
+    return _SEARCH_USED if budget.search_used else None
 
 
 class WebSearchAdapter:
@@ -141,6 +166,10 @@ class WebSearchAdapter:
             dated=wants_dated_results(user_query),
             recent=args.get("recent") is not False,
         )
+        if not hits and (refused := _not_searched(ctx.tavily_budget)):
+            result = ToolResult(name=self.name, content=refused)
+            ctx.first_results[self.name] = result
+            return result
         if news_today:
             hits = filter_hits_to_today(hits, ctx.user_timezone)
         requested_count = _requested_news_count(user_query) if news_today else None

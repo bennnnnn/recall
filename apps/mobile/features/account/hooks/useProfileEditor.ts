@@ -156,7 +156,7 @@ export function useProfileEditor() {
       });
     };
     try {
-      if (photo) uploadedId = await uploadChatAttachment(token, photo);
+      if (photo) uploadedId = await uploadChatAttachment(token, photo, "avatar");
       if (!isCurrent(revision)) {
         cancelUpload();
         return;

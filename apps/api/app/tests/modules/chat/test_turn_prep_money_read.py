@@ -116,7 +116,9 @@ def _setup(monkeypatch: pytest.MonkeyPatch, reading: MoneyReading | None, subjec
 def _request(line: str) -> Any:
     index = next(i for i, (role, text) in enumerate(_CHAT) if role == "user" and text == line)
     rows = [SimpleNamespace(role=role, content=text) for role, text in _CHAT[: index + 1]]
-    return SimpleNamespace(content=line, has_image_attachment=False, recent_messages=rows)
+    return SimpleNamespace(
+        content=line, has_image_attachment=False, recent_messages=rows, search_budget=None
+    )
 
 
 async def _run(
@@ -174,7 +176,9 @@ async def test_advice_the_read_calls_everyday_is_never_read_for_money(
 ) -> None:
     line = "Is 3 per hour a good salary ?"
     seen = _setup(monkeypatch, MoneyReading(calculate=True, product="loan"), "everyday")
-    request = SimpleNamespace(content=line, has_image_attachment=False, recent_messages=[])
+    request = SimpleNamespace(
+        content=line, has_image_attachment=False, recent_messages=[], search_budget=None
+    )
     turn = await _run(line, fake_redis, request=request)
     assert turn is None and seen == []
 

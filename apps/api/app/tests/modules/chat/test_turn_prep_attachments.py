@@ -9,6 +9,7 @@ from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
 from app.modules.chat.model_routing import choice as model_choice
 from app.modules.chat.turn_prep import TurnPromptBundle
+from app.modules.chat.turn_prep import attachments as turn_prep_attachments
 from app.modules.chat.turn_prep.request import TurnRequest
 from app.modules.conversation import chats_repository, messages_repository
 from app.modules.math.ocr import MathOcrResult
@@ -114,8 +115,9 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             "app.modules.attachments.content.purge_invalid_upload",
             AsyncMock(),
         ),
-        patch(
-            "app.services.quota.counters.refund",
+        patch.object(
+            turn_prep_attachments,
+            "refund_upload",
             AsyncMock(),
         ) as refund_mock,
     ):
@@ -131,7 +133,8 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
                 attachment_ids=[attachment_id],
             )
 
-    refund_mock.assert_awaited_once_with("image_upload", redis, user_id)
+    refund_mock.assert_awaited_once()
+    assert refund_mock.await_args.args[0] is redis
 
 
 @pytest.mark.asyncio
