@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.readings import read_aside, read_off_loop, reading
+from app.core.readings import read_off_loop, reading
 from app.core.sympy_executor import run_sympy
 from app.services.problem_followup import message_role_content
 from app.services.solving import SubjectAugmentation, VerifiedSolveBlock
@@ -61,15 +61,11 @@ async def read_subject(
     *,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
-    aside: bool = False,
 ) -> SubjectName | None:
-    """``detect_subject`` read off the event loop, in the SymPy pool (``core/readings``).
-
-    ``aside``: a read the turn can do without (one part of the message), which never declines
-    the turn's other readings when the pool gives up on it (``read_aside``)."""
+    """``detect_subject`` read off the event loop, in the SymPy pool (``core/readings``)."""
     if image_math_extract is not None:
         return "math"
-    return await (read_aside if aside else read_off_loop)(
+    return await read_off_loop(
         _subject_of_text,
         text,
         has_image_attachment,
@@ -106,7 +102,6 @@ async def build_subject_augmentation(
     pair: bool = True,
     parts: Sequence[str] = (),
     parts_answer_all: bool = False,
-    aside: bool = False,
 ) -> SubjectAugmentation:
     """The turn's subject solve.
 
@@ -116,9 +111,6 @@ async def build_subject_augmentation(
     of the message is one (``parts_answer_all``) and each answers itself, the reply is the
     question in parts; otherwise the first part that verifies keeps its card, where the
     whole message read as one problem verified nothing.
-
-    ``aside``: the text is one part of the message, so a pool that gives up on its reads
-    leaves that part unsolved and every other part's reads as they were.
     """
     if len(parts) >= 2 and not has_image_attachment:
         return await _solve_parts(
@@ -152,7 +144,6 @@ async def build_subject_augmentation(
         settings,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
-        aside=aside,
     )
     if subject is None:
         return SubjectAugmentation(None, None, None)
@@ -180,10 +171,8 @@ async def _paired_direct_reply(
         return None
     replies: list[str] = []
     for part in parts:
-        piece = await build_subject_augmentation(
-            part, settings, pair=False, redis=redis, aside=True
-        )
-        reply = await read_direct_reply(piece.verified, part, settings, aside=True)
+        piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
+        reply = await read_direct_reply(piece.verified, part, settings)
         if reply is None:
             return None
         replies.append(reply.strip())
@@ -201,15 +190,12 @@ async def _solve_parts(
     whole: Callable[[], Awaitable[SubjectAugmentation]],
 ) -> SubjectAugmentation:
     """Each question solved on its own (``build_subject_augmentation``'s ``parts``)."""
-    # One at a time: the pool runs one solve per user at once, so solved together the
-    # parts would only queue, and a part past the queue's wait would go unsolved.
     pieces = [
-        await build_subject_augmentation(part, settings, pair=False, redis=redis, aside=True)
-        for part in parts
+        await build_subject_augmentation(part, settings, pair=False, redis=redis) for part in parts
     ]
     if answer_all:
         replies = [
-            await read_direct_reply(piece.verified, part, settings, aside=True)
+            await read_direct_reply(piece.verified, part, settings)
             for piece, part in zip(pieces, parts, strict=True)
         ]
         blocks = tuple(piece.verified for piece in pieces if piece.verified is not None)
@@ -237,14 +223,11 @@ async def read_direct_reply(
     *,
     has_image_attachment: bool = False,
     verified_request_text: str | None = None,
-    aside: bool = False,
 ) -> str | None:
-    """``maybe_direct_subject_reply`` off the event loop: its checks parse with SymPy.
-
-    ``aside``: one part's reply, which the turn can do without (``read_subject``)."""
+    """``maybe_direct_subject_reply`` off the event loop: its checks parse with SymPy."""
     if verified is None:
         return None
-    return await (read_aside if aside else read_off_loop)(
+    return await read_off_loop(
         maybe_direct_subject_reply,
         verified,
         user_text,

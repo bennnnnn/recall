@@ -13,8 +13,8 @@ from app.modules.math.solve.poly_size import (
     MAX_EXPANDED_TERMS,
     MAX_FACTOR_DEGREE,
     add_nodes,
-    expanded_terms,
-    total_degree_bound,
+    expansion_size,
+    size_degree,
 )
 from app.modules.math.solve.real_reading import complex_without_cause, read_written
 from app.modules.math.solve.simplest_form import simplest_form
@@ -47,7 +47,7 @@ def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
 def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
     """Expand a factored expression into a sum of terms."""
     parsed = parse_expression(expr, [variable])
-    if expanded_terms(parsed) > MAX_EXPANDED_TERMS:
+    if expansion_size(parsed) > MAX_EXPANDED_TERMS:
         raise SolveServiceError("Expression too large to expand")
     result = expand(parsed)
     return MathExprResult(result=str(result), latex=latex(result))
@@ -55,11 +55,12 @@ def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
 
 def _refuse_large_factoring(parsed: Any) -> None:
     """``factor`` expands each sum in the expression and factors it: one of high degree,
-    or one whose expansion is huge, runs past the solve's deadline ("(x+1)^300 - 1").
+    or one whose expansion is huge, runs past the solve's deadline ("(x+1)^300 - 1",
+    "1/(x+1)^300 - 1", which it puts over one denominator).
     A power of a small sum ("(x+1)^3000") factors its base alone and stays."""
     for node in add_nodes(parsed):
-        degree = total_degree_bound(node)
+        degree = size_degree(node)
         if (degree is not None and degree > MAX_FACTOR_DEGREE) or (
-            expanded_terms(node) > MAX_EXPANDED_TERMS
+            expansion_size(node) > MAX_EXPANDED_TERMS
         ):
             raise SolveServiceError("Expression too large to factor")

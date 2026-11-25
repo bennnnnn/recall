@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sympy import Add, Integer, Mul, Pow, Symbol
+from sympy import Add, Integer, Mul, Pow, Rational, Symbol
 
 # An expansion larger than this is refused before it is written out: a school
 # polynomial has a few dozen terms, ``(a+b+c)^10`` has 66.
@@ -47,21 +47,43 @@ def degree_bound(expr: Any, symbol: Symbol) -> int | None:
     return None
 
 
-def total_degree_bound(expr: Any) -> int | None:
-    """An upper bound on ``expr``'s total degree in all its symbols, or None (as above)."""
-    symbols = sorted(expr.free_symbols, key=str)
-    if not symbols:
+def size_degree(expr: Any) -> int | None:
+    """An upper bound on ``expr``'s total degree as SymPy writes it out, counting a power by
+    the size of its exponent: ``1/(x+1)^300`` puts a degree-300 polynomial in the
+    denominator, and ``(x+1)^(3001/2)`` one of degree 1500 before its root. None for a
+    function or a symbolic exponent."""
+    if not expr.free_symbols:
         return 0
-    bounds = [degree_bound(expr, symbol) for symbol in symbols]
-    if any(bound is None for bound in bounds):
-        return None
-    # Total degree is at most the sum of the degrees in each symbol.
-    return sum(bound for bound in bounds if bound is not None)
+    if isinstance(expr, Symbol):
+        return 1
+    if isinstance(expr, Add | Mul):
+        sizes = [size_degree(arg) for arg in expr.args]
+        if any(size is None for size in sizes):
+            return None
+        known = [size for size in sizes if size is not None]
+        return max(known) if isinstance(expr, Add) else sum(known)
+    if isinstance(expr, Pow) and (power := _power(expr.exp)) is not None:
+        base = size_degree(expr.base)
+        return None if base is None else base * power
+    return None
+
+
+def expansion_size(expr: Any) -> int:
+    """An upper bound on how many terms ``expand`` writes for ``expr``: the products it
+    multiplies out (``expanded_terms``), and no more than a polynomial of its degree in its
+    symbols has, C(d + k, k): ``(x+1)(x+2)…(x+10)`` multiplies 2^10 products into 11 terms."""
+    terms = expanded_terms(expr)
+    degree = size_degree(expr)
+    if degree is None:
+        return terms
+    return min(terms, _capped_choose(degree, len(expr.free_symbols)))
 
 
 def expanded_terms(expr: Any) -> int:
-    """An upper bound on how many terms ``expand`` writes for ``expr`` (before like terms
-    are collected), capped far above ``MAX_EXPANDED_TERMS``."""
+    """An upper bound on how many products ``expand`` multiplies out for ``expr`` (before
+    like terms are collected), capped far above ``MAX_EXPANDED_TERMS``. A power is sized by
+    its exponent's whole part, whatever its sign: ``(x+1)^(-9999)`` writes out a
+    denominator of 10000 terms."""
     if isinstance(expr, Add):
         return min(_HUGE, sum(expanded_terms(arg) for arg in expr.args))
     if isinstance(expr, Mul):
@@ -69,9 +91,8 @@ def expanded_terms(expr: Any) -> int:
         for arg in expr.args:
             total = min(_HUGE, total * expanded_terms(arg))
         return total
-    if isinstance(expr, Pow) and isinstance(expr.exp, Integer) and int(expr.exp) >= 0:
+    if isinstance(expr, Pow) and (power := _power(expr.exp)) is not None:
         terms = expanded_terms(expr.base)
-        power = int(expr.exp)
         if terms <= 1:
             return 1
         # The monomials of a k-term sum raised to n: C(n + k - 1, k - 1).
@@ -80,6 +101,14 @@ def expanded_terms(expr: Any) -> int:
         # A function of a sum expands inside it: count what its arguments write.
         return min(_HUGE, max(expanded_terms(arg) for arg in expr.args))
     return 1
+
+
+def _power(exponent: Any) -> int | None:
+    """The whole part of a numeric exponent's size (-3000 and 3001/2 are 3000 and 1500), or
+    None for a symbolic one."""
+    if not isinstance(exponent, Rational):
+        return None
+    return min(_HUGE, int(abs(exponent)))
 
 
 def add_nodes(expr: Any) -> list[Any]:

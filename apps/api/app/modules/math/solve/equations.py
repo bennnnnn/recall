@@ -26,7 +26,7 @@ from app.modules.math.solve.parse import (
     _expr_needs_real_domain,
     parse_equation,
 )
-from app.modules.math.solve.poly_size import MAX_EXPANDED_TERMS, degree_bound, expanded_terms
+from app.modules.math.solve.poly_size import MAX_EXPANDED_TERMS, degree_bound, expansion_size
 from app.modules.math.solve.real_domain import (
     RejectedRoot,
     not_real,
@@ -73,7 +73,7 @@ def _reject_high_degree(lhs: Any, rhs: Any, variables: list[str]) -> None:
         bound = degree_bound(expr, Symbol(name))
         if bound is not None and bound <= max_degree:
             continue
-        if expanded_terms(expr) > MAX_EXPANDED_TERMS:
+        if expansion_size(expr) > MAX_EXPANDED_TERMS:
             raise SolveServiceError("Polynomial degree too high")
         poly = expr.as_poly(Symbol(name))
         if poly is None:
