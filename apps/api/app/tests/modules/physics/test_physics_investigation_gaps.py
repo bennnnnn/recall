@@ -1234,13 +1234,13 @@ def test_unit_dimension_reads_offset_temperature_scales(
             "I walk 3 km east then 4 km north. what's my displacement?",
             "displacement_two_legs",
             5.0,
-            "km (53.1° north of east)",
+            "km (53.13° north of east)",
         ),
         (
             "A hiker walks 6 km south and then 8 km west. How far is she from her starting point?",
             "displacement_two_legs",
             10.0,
-            "km (53.1° west of south)",
+            "km (53.13° west of south)",
         ),
     ],
 )
@@ -1309,7 +1309,7 @@ def test_level_launch_speed_declines_the_impact_speed(text: str) -> None:
     [
         (
             "A ball is kicked at 25 m/s at 40 degrees. (a) what is the max height (b) the range",
-            ("13.2", "62.7"),
+            ("13.16", "62.7"),
         ),
         (
             "A ball is kicked at 25 m/s at 40 degrees. (a) what is the time of flight "

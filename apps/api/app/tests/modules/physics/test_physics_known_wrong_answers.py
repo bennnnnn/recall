@@ -37,7 +37,7 @@ def _answer(text: str) -> str | None:
         (
             "Light travels at 2 × 10^8 m/s in a medium. Find the refractive index.",
             "3.75e+07",
-            "1.5",
+            "1.50",
         ),
         (
             "Find the energy of a photon of frequency 5 × 10^14 Hz.",
@@ -59,7 +59,7 @@ def test_a_free_fall_speed_question_gets_a_speed_not_a_time() -> None:
     # Was 4.04 s: the ask fell through to the time-to-ground default.
     assert _answer(
         "A ball is dropped from 80 m. What is its speed just before it hits the ground?"
-    ) == ("39.6 m/s")
+    ) == ("39.62 m/s")
 
 
 def test_a_block_refuses_a_result_of_another_dimension() -> None:
@@ -81,7 +81,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
         "How much energy is needed to heat 2 kg of water from 20 °C to 80 °C? "
         "The specific heat capacity is 4200 J/kg°C."
     )
-    assert _answer(text) == "5.04 × 10⁵ J"
+    assert _answer(text) == "504000 J"
     intent = extract_physics_intent(text)
     assert intent is not None
     formulas = _solve_requested_quantities(intent).formulas
@@ -98,9 +98,9 @@ def test_cooling_releases_heat() -> None:
     ("text", "answer"),
     [
         # Was declined: the unlabelled 500 K was read as both reservoirs.
-        ("Find the efficiency of a Carnot engine operating between 500 K and 300 K.", "0.4 (40%)"),
-        ("Find the efficiency of a Carnot engine operating between 300 K and 500 K.", "0.4 (40%)"),
-        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.4 (40%)"),
+        ("Find the efficiency of a Carnot engine operating between 500 K and 300 K.", "0.40 (40%)"),
+        ("Find the efficiency of a Carnot engine operating between 300 K and 500 K.", "0.40 (40%)"),
+        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.400 (39.99%)"),
     ],
 )
 def test_carnot_reads_both_reservoirs(text: str, answer: str) -> None:
@@ -111,7 +111,7 @@ def test_a_rebound_reverses_the_velocity() -> None:
     # Was -0.4 N·s: 10 m/s in and 8 m/s back were read as two forward speeds.
     assert _answer(
         "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. Find the impulse."
-    ) == ("3.6 N·s (opposite to the initial motion)")
+    ) == ("3.60 N·s (opposite to the initial motion)")
 
 
 @pytest.mark.parametrize(
@@ -120,8 +120,8 @@ def test_a_rebound_reverses_the_velocity() -> None:
         # A force has no "initial motion": the impulse keeps its sign.
         ("A force of -10 N acts on a cart for 2 s. Find the impulse.", "-20 N·s"),
         # Slowing from -2 to -5 m/s is along the motion, not opposite it.
-        ("A 0.5 kg ball's velocity changes from -2 m/s to -5 m/s. Find the impulse.", "1.5 N·s"),
-        ("A 0.5 kg ball's velocity changes from 2 m/s to 5 m/s. Find the impulse.", "1.5 N·s"),
+        ("A 0.5 kg ball's velocity changes from -2 m/s to -5 m/s. Find the impulse.", "1.50 N·s"),
+        ("A 0.5 kg ball's velocity changes from 2 m/s to 5 m/s. Find the impulse.", "1.50 N·s"),
         # From rest there is no initial motion either: the sign is the direction.
         ("A 0.5 kg ball's velocity changes from 0 m/s to -4 m/s. Find the impulse.", "-2 N·s"),
     ],
@@ -134,7 +134,7 @@ def test_an_impulse_direction_is_only_relative_to_a_real_initial_motion(
 
 def test_both_launch_angles_are_answers() -> None:
     assert _answer("At what angle must a projectile be launched at 20 m/s to land 30 m away?") == (
-        "23.7° or 66.3°"
+        "23.69° or 66.31°"
     )
 
 
@@ -183,7 +183,7 @@ def test_a_body_without_a_school_g_does_not_get_earths(text: str) -> None:
             "c = 4.18 J/g°C",
             "4180 J",
         ),
-        ("How much heat is needed to raise 50 g of copper by 30 °C? c = 0.385 J/g°C", "577.5 J"),
+        ("How much heat is needed to raise 50 g of copper by 30 °C? c = 0.385 J/g°C", "577.50 J"),
     ],
 )
 def test_a_specific_heat_per_gram_is_read(text: str, answer: str) -> None:

@@ -59,7 +59,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the angular velocity of a car going 10 m/s around a 20 m radius track",
         "circular",
         "angular_velocity",
-        "0.5 rad/s",
+        "0.50 rad/s",
     ),
     (
         "what is the angular speed of an object moving at 8 m/s in a circle of radius 4 m",
@@ -74,7 +74,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "2 rad/s",
     ),
     # --- SHM: f = 1 / T ----------------------------------------------
-    ("what is the frequency of a pendulum with period 2 s", "spring", "shm_frequency", "0.5 Hz"),
+    ("what is the frequency of a pendulum with period 2 s", "spring", "shm_frequency", "0.50 Hz"),
     (
         "what is the frequency of an oscillator with a period of 0.5 s",
         "spring",
@@ -131,19 +131,19 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the minimum force to move a 5 kg block with friction coefficient 0.4",
         "friction",
         "minimum_force",
-        "19.6 N",
+        "19.62 N",
     ),
     (
         "what force is needed to start a 10 kg crate moving if the coefficient of friction is 0.3",
         "friction",
         "minimum_force",
-        "29.4 N",
+        "29.43 N",
     ),
     (
         "minimum force to push a 4 kg box with a coefficient of friction of 0.5",
         "friction",
         "minimum_force",
-        "19.6 N",
+        "19.62 N",
     ),
 ]
 

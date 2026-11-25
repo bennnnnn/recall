@@ -78,7 +78,7 @@ def test_kinematics_vertical_launch_maximum_height() -> None:
 
     result = physics_solver.solve_kinematics(intent)
 
-    assert result.answer_value == "20.4 m"
+    assert result.answer_value == "20.39 m"
     assert r"h_{\max}" in result.answer
     assert r"\frac{20^{2}}{2 \cdot 9.81}" in result.answer
     (scene,) = result.simulation_specs

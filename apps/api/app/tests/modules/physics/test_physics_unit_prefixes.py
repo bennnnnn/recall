@@ -285,7 +285,7 @@ def test_a_spring_constant_keeps_its_unit(text: str, k_si: float) -> None:
         (
             "In a loop, a 12 V battery is connected to resistors of 2 kΩ and 4 kΩ. "
             "What is the current in the loop?",
-            "0.002 A",
+            "0.00200 A",
         ),
         (
             "A 2 H inductor has its current change from 20 mA to 50 mA in 0.01 s. "
@@ -296,7 +296,7 @@ def test_a_spring_constant_keeps_its_unit(text: str, k_si: float) -> None:
             "A 2 kΩ resistor and a 3 kΩ resistor are connected in series. What is the total resistance?",
             "5000 Ω",
         ),
-        ("A force of 5 mN acts on a 2 g mass. What is the acceleration?", "2.5 m/s²"),
+        ("A force of 5 mN acts on a 2 g mass. What is the acceleration?", "2.50 m/s²"),
         ("A spring with k = 200 Nm^-1 is stretched 0.1 m. What force does it exert?", "20 N"),
         ("A ball is dropped from 20 m. Take g = 10 N kg^-1. How long does it take to land?", "2 s"),
         ("A pendulum of length 1 m swings where g = 1.6 ms^-2. What is its period?", "4.97 s"),

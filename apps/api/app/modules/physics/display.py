@@ -91,11 +91,17 @@ def latex_number(value: float, figures: int | None = None) -> str:
 
 
 # A unit written in words, by its symbol: the shared length, time and mass tables
-# (``unit_text``), then the units only physics writes.
+# (``unit_text``), then the units only physics writes. A unit whose symbol is a word (a
+# day, a ton) is written as typed: "7.21 days", never "7.21 day".
+_WORD_SYMBOLS = frozenset({"day", "ton"})
 _SPELLED = {
-    **LENGTH_UNITS,
-    **TIME_UNITS,
-    **MASS_UNITS,
+    **{
+        spelling: symbol
+        for table in (LENGTH_UNITS, TIME_UNITS, MASS_UNITS)
+        for spelling, symbol in table.items()
+        # A symbol is no spelling of itself: read case-blind, "h" would make a henry (H) an hour.
+        if symbol not in _WORD_SYMBOLS and spelling != symbol
+    },
     "newtons": "N",
     "newton": "N",
     "joules": "J",

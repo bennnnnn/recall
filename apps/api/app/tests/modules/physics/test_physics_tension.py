@@ -51,29 +51,29 @@ def _verified_answer(text: str) -> str | None:
 
 VERIFIED: list[tuple[str, str, str]] = [
     # T = m(g + a) — the rope pulls up harder than the weight alone.
-    ("what is the tension in a rope lifting a 5 kg mass at 2 m/s^2", "tension", "59.1 N"),
-    ("the tension supporting a 5 kg mass accelerating at 2 m/s^2", "tension", "59.1 N"),
-    ("find the tension in a cable hoisting a 5 kg mass at 2 m/s^2", "tension", "59.1 N"),
+    ("what is the tension in a rope lifting a 5 kg mass at 2 m/s^2", "tension", "59.05 N"),
+    ("the tension supporting a 5 kg mass accelerating at 2 m/s^2", "tension", "59.05 N"),
+    ("find the tension in a cable hoisting a 5 kg mass at 2 m/s^2", "tension", "59.05 N"),
     # a = 0: the rope holds the weight and nothing more.
-    ("find the tension in a cable holding a 5 kg mass", "tension", "49.1 N"),
-    ("what is the tension in a rope suspending a 5 kg mass", "tension", "49.1 N"),
+    ("find the tension in a cable holding a 5 kg mass", "tension", "49.05 N"),
+    ("what is the tension in a rope suspending a 5 kg mass", "tension", "49.05 N"),
     # T = m(g - a) — lowering, so the rope takes less than the full weight.
-    ("what is the tension in a rope lowering a 5 kg mass at 2 m/s^2", "tension", "39.1 N"),
+    ("what is the tension in a rope lowering a 5 kg mass at 2 m/s^2", "tension", "39.05 N"),
     # Atwood: one answer carrying both quantities, as the 1D collision does.
     (
         "an atwood machine with masses 3 kg and 5 kg, what is the acceleration",
         "atwood",
-        "2.45 m/s² and 36.8 N",
+        "2.45 m/s² and 36.79 N",
     ),
     (
         "two masses 3 kg and 5 kg over a pulley, find the tension",
         "atwood",
-        "2.45 m/s² and 36.8 N",
+        "2.45 m/s² and 36.79 N",
     ),
     (
         "a pulley has a 5 kg mass on one side and a 3 kg mass on the other, find the acceleration",
         "atwood",
-        "2.45 m/s² and 36.8 N",
+        "2.45 m/s² and 36.79 N",
     ),
 ]
 

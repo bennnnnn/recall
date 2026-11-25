@@ -42,7 +42,7 @@ def _answer(text: str) -> str | None:
         (
             "A piston moves in SHM with an amplitude of 5 cm and a period of 0.02 s. "
             "What is its top speed?",
-            "15.7\\,\\mathrm{m/s}",
+            "15.71\\,\\mathrm{m/s}",
         ),
         (
             "A tuning fork prong vibrates with amplitude 1 mm and period 2 ms. "
@@ -57,7 +57,7 @@ def _answer(text: str) -> str | None:
         (
             "A tsunami has a wavelength of 200 km and a period of 15 minutes. "
             "How fast does it travel?",
-            "222\\,\\mathrm{m/s}",
+            "222.22\\,\\mathrm{m/s}",
         ),
         ("A runner moves 0.1 m in 2 s. What is her speed?", "0.05\\,\\mathrm{m/s}"),
         ("A car covers 100 m over a period of 5 s. What is its speed?", "20\\,\\mathrm{m/s}"),
@@ -93,9 +93,9 @@ def _answer(text: str) -> str | None:
         (
             "Ignoring air resistance, a ball is dropped from 20 m. "
             "What is its speed when it hits the ground?",
-            "19.8\\,\\mathrm{m/s}",
+            "19.81\\,\\mathrm{m/s}",
         ),
-        ("A 70 kg astronaut stands on the Moon. What is her weight?", "113.4\\,\\mathrm{N}"),
+        ("A 70 kg astronaut stands on the Moon. What is her weight?", "113.40\\,\\mathrm{N}"),
     ],
 )
 def test_the_class_answers_right(text: str, answer: str) -> None:
@@ -170,14 +170,14 @@ def test_a_follow_up_that_changes_the_motion_is_no_new_problem() -> None:
         ("How much of a 100 g sample has decayed after 2 half-lives?", "75\\,\\mathrm{g}"),
         ("A sample has a half-life of 10 years. What percentage has decayed after 20 years?",
          "75\\,\\%"),
-        ("After 3 half-lives, what percentage of a sample remains?", "12.5\\,\\%"),
+        ("After 3 half-lives, what percentage of a sample remains?", "12.50\\,\\%"),
         ("A 100 g sample with half-life 5 years. How much is left after 15 years?",
-         "12.5\\,\\mathrm{g}"),
+         "12.50\\,\\mathrm{g}"),
         # A change with nothing of its kind before it is the law's own value.
         ("A spring's extension increases by 2 cm when a 4 N load is added. What is the spring "
          "constant?", "200\\,\\mathrm{N/m}"),
         ("The voltage across a 2 μF capacitor increases by 5 V. How much charge flows onto it?",
-         "1 \\times 10^{-5}\\,\\mathrm{C}"),
+         "1.00 \\times 10^{-5}\\,\\mathrm{C}"),
         # Set-aside air resistance, a duration said "a period", crests apart.
         ("A ball is dropped from 80 m with air resistance neglected. How long does it take to "
          "fall?", "4.04\\,\\mathrm{s}"),
@@ -207,9 +207,9 @@ def test_a_follow_up_that_changes_the_motion_is_no_new_problem() -> None:
         ("An object is placed 30 cm from a minus lens of focal length 15 cm. Find the image "
          "distance.", "10\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
         ("what is the image distance for a diverging lens of focal length 10 cm and object at "
-         "30 cm", "7.5\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
+         "30 cm", "7.50\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
         ("An object is 30 cm from a concave lens with focal length 10 cm. Where is the image "
-         "and how big is it?", "7.5\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of "
+         "and how big is it?", "7.50\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of "
          "the lens});\\quad 0.25\\ (\\text{upright and smaller})"),
     ],
 )  # fmt: skip

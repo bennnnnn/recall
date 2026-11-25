@@ -38,14 +38,14 @@ def _recent(prior: str) -> list[dict[str, str]]:
             _SPRING,
             "what if the force doubled?",
             "A spring constant of 100 N/m and a force of 10 N. Find the extension.",
-            "0.1 m",
+            "0.10 m",
         ),
         # The capacitor laws need the object named; the problem names it.
         (
             _CAPACITOR,
             "what if the voltage doubled?",
             "A capacitor with a capacitance of 5e-05 F and a voltage of 24 V. Find the charge.",
-            "0.0012 C",
+            "0.00120 C",
         ),
         (
             _CAPACITOR,

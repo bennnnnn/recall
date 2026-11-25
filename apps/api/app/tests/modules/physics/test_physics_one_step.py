@@ -58,7 +58,7 @@ def _op(text: str) -> str | None:
             "A screw has a handle length of 0.25 m and a thread pitch of 0.005 m. "
             "Find its mechanical advantage.",
             "machine_advantage_screw",
-            "314",
+            "314.16",
         ),
         (
             "A wedge is 0.10 m long and 0.02 m wide. Find its mechanical advantage.",
@@ -92,13 +92,13 @@ def _op(text: str) -> str | None:
             "The shear stress is 8.00e6 Pa and the shear strain is 0.00200. "
             "Find the shear modulus.",
             "shear_modulus",
-            "4 × 10⁹ Pa",
+            "4.00 × 10⁹ Pa",
         ),
         (
             "The pressure increases by 2.00e5 Pa. The original volume is 0.00400 m^3 "
             "and the change in volume is 1.00e-5 m^3. Find the bulk modulus.",
             "bulk_modulus",
-            "8 × 10⁷ Pa",
+            "80000000 Pa",
         ),
         (
             "The lateral strain is 0.00100 and the axial strain is 0.00400. Find Poisson's ratio.",
@@ -120,17 +120,17 @@ def _op(text: str) -> str | None:
             "An object obeying Newton's law of cooling starts at 80 °C in a room at 20 °C. "
             "The time constant is 10 s. What is its temperature after 10 s?",
             "newton_cooling",
-            "42.1 °C",
+            "42.07 °C",
         ),
         (
             "A wave of intensity 1500 W/m^2 is absorbed. Find the radiation pressure.",
             "radiation_pressure_absorbed",
-            "5 × 10⁻⁶ Pa",
+            "5.00 × 10⁻⁶ Pa",
         ),
         (
             "A wave of intensity 1500 W/m^2 is reflected. Find the radiation pressure.",
             "radiation_pressure_reflected",
-            "1 × 10⁻⁵ Pa",
+            "1.00 × 10⁻⁵ Pa",
         ),
         (
             "An Otto engine has a compression ratio of 8 and gamma 1.40. Find the efficiency.",

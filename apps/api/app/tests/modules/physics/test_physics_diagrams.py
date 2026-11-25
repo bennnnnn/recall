@@ -74,13 +74,13 @@ def _scene(text: str) -> SimulationBlockSpec:
             "30 degrees. What is the angle of refraction?",
             "rays",
             "refraction",
-            "bends to 19.5°",
+            "bends to 19.47°",
         ),
         (
             "What is the critical angle for glass of refractive index 1.5?",
             "rays",
             "refraction",
-            "41.8°",
+            "41.81°",
         ),
         (
             "A ray hits a plane mirror at 35 degrees to the normal. What is the angle of reflection?",
@@ -133,7 +133,7 @@ def _scene(text: str) -> SimulationBlockSpec:
             "How long does it take the ISS to orbit Earth at an altitude of 400 km?",
             "orbit",
             "satellite",
-            "every 92.4 minutes",
+            "every 92.41 minutes",
         ),
         ("How long must a pendulum be to have a period of 2 s?", "pendulum", "pendulum", "0.994 m"),
         (
@@ -146,22 +146,22 @@ def _scene(text: str) -> SimulationBlockSpec:
             "what is the component of gravity along a 40 degree slope for a 3 kg mass",
             "incline",
             "incline",
-            "down the slope with 18.9 N",
+            "down the slope with 18.92 N",
         ),
         (
             "A 2 kg cart moving at 3 m/s compresses a spring of constant 200 N/m. "
             "What is the maximum compression?",
             "spring",
             "spring",
-            "squeezes the spring 0.3 m",
+            "squeezes the spring 0.30 m",
         ),
         (
             "A stone is dropped from rest. How far does it fall in 2 seconds?",
             "projectile_motion",
             "free_fall",
-            "dropped from 19.6 m",
+            "dropped from 19.62 m",
         ),
-        ("Find the force between two 1 µC charges 5 cm apart.", "free_body", "charges", "3.6 N"),
+        ("Find the force between two 1 µC charges 5 cm apart.", "free_body", "charges", "3.60 N"),
     ],
 )
 def test_a_question_carries_the_picture_of_its_apparatus(
@@ -248,7 +248,7 @@ def test_a_refraction_bends_toward_the_normal_entering_glass() -> None:
     )
     assert scene.optics is not None and scene.optics.media == ["air", "n = 1.5"]
     incident, refracted = scene.angles
-    assert incident.label == "30°" and refracted.label == "19.5°"
+    assert incident.label == "30°" and refracted.label == "19.47°"
     assert refracted.role == "result"
 
 

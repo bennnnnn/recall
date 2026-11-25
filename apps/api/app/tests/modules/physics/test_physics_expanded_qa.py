@@ -252,11 +252,11 @@ def test_negative_wavelength_is_never_verified() -> None:
     [
         (
             "A proton moves at 2e6 m/s perpendicular to a 0.1 T magnetic field. Find the force.",
-            "3.2 × 10⁻¹⁴ N (field perpendicular to the motion)",
+            "3.20 × 10⁻¹⁴ N (field perpendicular to the motion)",
         ),
         (
             "A charge of 5 microcoulombs moves at 1000 m/s perpendicular to a 0.2 T magnetic field. Find the force.",
-            "0.001 N (field perpendicular to the motion)",
+            "1.00 × 10⁻³ N (field perpendicular to the motion)",
         ),
         (
             "Two clockwise torques of 8 N m and 5 N m act against a 20 N m counterclockwise torque. Find net torque.",

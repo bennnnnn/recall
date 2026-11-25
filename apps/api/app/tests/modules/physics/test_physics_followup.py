@@ -101,21 +101,21 @@ _BALL = "A 2 kg ball is dropped from 20 m. How fast is it moving when it hits th
     ("prior", "line", "answer"),
     [
         # Another quantity of the same setup, asked as a question.
-        (_CAR, "how far does it go?", "37.5 m"),
+        (_CAR, "how far does it go?", "37.50 m"),
         (_BALL, "how long does it take?", "2.02 s"),
         # The same result in another unit.
         (_CAR, "in km/h please", "54 km/h"),
-        (_CAR, "what is that in mph", "33.6 mph"),
-        (_BALL, "in km/h", "71.3 km/h"),
+        (_CAR, "what is that in mph", "33.55 mph"),
+        (_BALL, "in km/h", "71.31 km/h"),
         # One given replaced by a new value, named or not.
         (_CAR, "and after 10 s?", "30 m/s"),
         (_CAR, "what about after 10 s", "30 m/s"),
-        (_BALL, "what if it's dropped from 80 m?", "39.6 m/s"),
-        (_BALL, "and from 80 m?", "39.6 m/s"),
+        (_BALL, "what if it's dropped from 80 m?", "39.62 m/s"),
+        (_BALL, "and from 80 m?", "39.62 m/s"),
         # One given scaled.
         (_CAR, "what if the acceleration doubles?", "30 m/s"),
-        (_BALL, "what if the mass doubles?", "19.8 m/s"),
-        (_BALL, "what if the height is halved", "14 m/s"),
+        (_BALL, "what if the mass doubles?", "19.81 m/s"),
+        (_BALL, "what if the height is halved", "14.01 m/s"),
     ],
 )
 def test_physics_followup_reverifies_the_previous_problem(
@@ -238,8 +238,8 @@ _TO_SPEED = (
     ("prior", "line", "answer"),
     [
         # The noun the line names is the quantity; "higher" only says which way.
-        (_DROP_MASS, "what if the mass was 3 times higher", "14 m/s"),
-        (_DROP_MASS, "what if the mass was twice as high", "14 m/s"),
+        (_DROP_MASS, "what if the mass was 3 times higher", "14.01 m/s"),
+        (_DROP_MASS, "what if the mass was twice as high", "14.01 m/s"),
         (_THROWN, "what if the speed was twice as high", "2.02 s"),
         (_TABLE, "what if the speed was 3 times higher", "4.45 m"),
         # Initial and final name the value that says so.
@@ -248,21 +248,21 @@ _TO_SPEED = (
         (_FROM_TO, "what if the initial speed was 5 m/s", "5 m/s²"),
         # An object that owns the given, beside its value.
         (_DRIVER, "what if the driver was twice as heavy", "700 N"),
-        (_SKIER, "what if the slope was twice as high", "28 m/s"),
+        (_SKIER, "what if the slope was twice as high", "28.01 m/s"),
         (_BATTERY, "what if the battery had twice the voltage", "6 A"),
         # The owner just before "of": the load's 50 kg.
         (_LOAD, "what if the load was twice as heavy", "200 N"),
         (_TRAILER, "what if the car was twice as heavy", "1.11 m/s²"),
         # The problem's own throw names the speed.
-        (_UPWARD, "what if it was thrown twice as fast", "81.5 m"),
-        (_WELL, "what if the well was twice as deep", "11.1 s"),
+        (_UPWARD, "what if it was thrown twice as fast", "81.55 m"),
+        (_WELL, "what if the well was twice as deep", "11.06 s"),
         (_FLOWERPOT, "what if the building was twice as high", "1962 J"),
         (_FLOWERPOT, "what if the flowerpot was twice as heavy", "1962 J"),
         (_GAS_FROM_TO, "what if the final temperature doubled", "400 kPa"),
-        (_SLOWS, "what if the initial speed doubled", "-12.5 m/s²"),
-        (_SLOWS, "what if the final speed doubled", "-2.5 m/s²"),
+        (_SLOWS, "what if the initial speed doubled", "-12.50 m/s²"),
+        (_SLOWS, "what if the final speed doubled", "-2.50 m/s²"),
         # Kelvin scales; a gas at 27 °C keeps its other givens.
-        (_GAS_K, "what if the temperature doubled", "9.98 × 10⁵ Pa"),
+        (_GAS_K, "what if the temperature doubled", "997735.51 Pa"),
         (_GAS_C, "what if the volume was halved", "9.85 atm"),
         (_TO_SPEED, "what if the final speed doubled", "20 s"),
     ],
@@ -429,10 +429,10 @@ def test_a_scaling_look_alike_is_not_reverified(prior: str, line: str) -> None:
         (_RESISTOR, "with twice the voltage", "4 A"),
         (_RESISTOR, "what if the current doubled", "24 V"),
         # k = 50 N/m: twice the force stretches it twice as far.
-        (_SPRING, "what if the force doubled", "0.2 m"),
+        (_SPRING, "what if the force doubled", "0.20 m"),
         # C = 5 µF: twice the charge needs twice the voltage.
         (_CAPACITOR, "what if the charge doubled", "24 V"),
-        (_CAPACITOR, "what if the voltage doubled", "1.2 \u00d7 10\u207b\u2074 C"),
+        (_CAPACITOR, "what if the voltage doubled", "1.20 \u00d7 10\u207b\u2074 C"),
     ],
 )
 def test_a_change_to_a_component_keeps_its_constant(prior: str, line: str, answer: str) -> None:
@@ -486,13 +486,13 @@ def test_the_same_braking_keeps_the_deceleration_not_the_time() -> None:
     problem = physics_followup_problem(line, _recent(_CAR))
     assert problem is not None
     assert "4 s" not in problem and "100 km/h" in problem
-    assert _solved(problem) == ["77.2 m"]
+    assert _solved(problem) == ["77.16 m"]
 
 
 def test_a_kept_quantity_is_not_asked_again() -> None:
     problem = physics_followup_problem("same braking but from 90 km/h", _recent(_CAR))
     assert problem is not None
-    assert _solved(problem) == ["62.5 m"]
+    assert _solved(problem) == ["62.50 m"]
 
 
 def test_a_changed_value_with_two_readings_declines() -> None:

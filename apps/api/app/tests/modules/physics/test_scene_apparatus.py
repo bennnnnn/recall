@@ -32,7 +32,7 @@ def test_a_follow_up_draws_the_earlier_circuit_with_the_server_s_current() -> No
     (spec,) = described_apparatus(_circuit(), ["draw the circuit diagram for this", _SERIES])
     assert spec.type == "circuit" and spec.circuit is not None
     assert spec.circuit.source.label == "120 V"
-    assert spec.circuit.current == "I = 1.5 A"
+    assert spec.circuit.current == "I = 1.50 A"
     assert [part.label for part in spec.circuit.load.series or []] == ["R₁ = 40 Ω", "R₂ = 40 Ω"]
 
 

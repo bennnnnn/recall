@@ -54,4 +54,7 @@ def test_no_extractor_keeps_its_own_mass_or_speed_list() -> None:
 )
 def test_the_display_writes_the_tables_symbols(table: dict[str, str]) -> None:
     for spelling, symbol in table.items():
+        if symbol in {"day", "ton"}:  # a word is written as typed: "7.21 days"
+            assert plain_unit(spelling) == spelling
+            continue
         assert plain_unit(spelling) == plain_unit(symbol), spelling

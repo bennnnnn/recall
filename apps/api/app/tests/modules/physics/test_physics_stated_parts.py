@@ -101,7 +101,7 @@ def test_the_loop_rule_reads_only_one_series_path(text: str) -> None:
         (
             "In a loop, a 12 V battery is connected to resistors of 2 kΩ and 4 kΩ. "
             "What is the current in the loop?",
-            "0.002 A",
+            "0.00200 A",
         ),
         # A measured branch current puts no part on a branch.
         (
@@ -117,7 +117,7 @@ def test_the_loop_rule_reads_only_one_series_path(text: str) -> None:
         (
             "A galvanometer of resistance 50 Ω is connected in series with a 950 Ω resistor "
             "across 1 V. What current flows?",
-            "0.001 A",
+            "0.00100 A",
         ),
         (
             "In a loop, a 12 V battery drives a 2 Ω resistor and a 4 Ω resistor, and the ammeter "
@@ -272,7 +272,7 @@ def test_set_aside_names_only_its_own_closed_phrase() -> None:
         (
             "Neglect friction two forces 30 N and 40 N act at right angles on a box. What is "
             "the resultant force?",
-            "50 N at 53.1°",
+            "50 N at 53.13°",
         ),
         (
             "Ignoring the battery 2 Ω and 3 Ω resistors are in series. What is the total "

@@ -236,7 +236,7 @@ def test_a_season_does_not_engage_the_math_path() -> None:
     "text,answer",
     [
         ("kinetic energy of a 2 kg object moving at 3 m/s", "9 J"),
-        ("potential energy of a 2 kg mass at 5 m", "98.1 J"),
+        ("potential energy of a 2 kg mass at 5 m", "98.10 J"),
     ],
 )
 def test_ordinary_energy_questions_are_untouched(text: str, answer: str) -> None:

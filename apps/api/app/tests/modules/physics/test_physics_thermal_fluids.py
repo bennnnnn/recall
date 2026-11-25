@@ -27,12 +27,12 @@ def _answer(text: str) -> str | None:
         (
             "A gas at 300 K and 100 kPa occupies 2 m^3. Find the number of moles.",
             "ideal_gas_amount",
-            "80.2 mol",  # 1e5·2 / (8.314·300)
+            "80.18 mol",  # 1e5·2 / (8.314·300)
         ),
         (
             "A gas of 2 mol at 300 K occupies 0.05 m^3. Find the pressure.",
             "ideal_gas_pressure",
-            "99774 Pa",
+            "99773.55 Pa",
         ),
         (
             "A gas occupies 4 L at 2 atm. If the pressure is increased to 4 atm at constant "
@@ -71,19 +71,19 @@ def _answer(text: str) -> str | None:
             "0.00300 m^3, and an initial temperature of 300 K. The new pressure is "
             "1.00e5 Pa and the new temperature is 400 K. Find the new volume.",
             "combined_gas_volume",
-            "0.008 m³",  # 2e5·0.003·400 / (300·1e5)
+            "0.00800 m³",  # 2e5·0.003·400 / (300·1e5)
         ),
         (
             "An ideal gas has an initial pressure of 2.00e5 Pa, an initial volume of "
             "0.00300 m^3, and an initial temperature of 300 K. The new volume is "
             "0.00600 m^3 and the new temperature is 600 K. Find the new pressure.",
             "combined_gas_pressure",
-            "2 × 10⁵ Pa",
+            "200000 Pa",
         ),
         (
             "Find the rms speed of oxygen molecules at 300 K. The molar mass of oxygen is 32 g/mol.",
             "rms_speed",
-            "484 m/s",  # √(3·8.314·300/0.032)
+            "483.57 m/s",  # √(3·8.314·300/0.032)
         ),
         (
             "Find the average kinetic energy of a gas molecule at 300 K.",
@@ -94,7 +94,7 @@ def _answer(text: str) -> str | None:
             # "of 2 mol" in the question is the gas's amount, not the energy.
             "Find the internal energy of 2 mol of a diatomic gas at 300 K.",
             "diatomic_internal_energy",
-            "12472 J",  # 5/2·2·8.314·300
+            "12471.69 J",  # 5/2·2·8.314·300
         ),
         (
             "How much energy is needed to raise the temperature of 2 kg of water by 10 °C?",
@@ -129,13 +129,13 @@ def _answer(text: str) -> str | None:
         (
             "It takes 668000 J to melt 2 kg of ice. Find the specific latent heat of fusion.",
             "latent_heat_from_energy",
-            "3.34 × 10⁵ J/kg",
+            "334000 J/kg",
         ),
         (
             "A steel rod 2 m long is heated by 50 K. The expansion coefficient is "
             "12 × 10^-6 per K. Find the change in length.",
             "linear_expansion",
-            "0.0012 m",
+            "0.00120 m",
         ),
         (
             "Find the absolute pressure at a depth of 10 m in water.",
@@ -146,7 +146,7 @@ def _answer(text: str) -> str | None:
             "A 5 kg block of volume 0.002 m^3 is fully submerged in water. "
             "Find its apparent weight.",
             "apparent_weight_submerged",
-            "29.4 N",  # 49.05 - 19.62
+            "29.43 N",  # 49.05 - 19.62
         ),
         (
             "A 2.00 kg object of volume 0.00100 m^3 is submerged in water of density "
@@ -164,7 +164,7 @@ def _answer(text: str) -> str | None:
             "Water with surface tension 0.072 N/m rises in a capillary tube of radius 0.5 mm. "
             "Find the height of the rise.",
             "capillary_rise",
-            "29.4 mm",  # 2·0.072 / (1000·9.81·0.0005), contact angle 0
+            "29.36 mm",  # 2·0.072 / (1000·9.81·0.0005), contact angle 0
         ),
     ],
 )

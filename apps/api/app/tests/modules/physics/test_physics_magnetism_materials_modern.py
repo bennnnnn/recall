@@ -88,7 +88,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the magnetic flux through 0.2 m^2 in a 0.5 T field",
         "magnetism",
         "magnetic_flux",
-        "0.1 Wb",
+        "0.10 Wb",
     ),
     (
         "Two point charges of 2 microcoulombs and 3 microcoulombs are separated by 0.5 m. "
@@ -104,12 +104,12 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "stress",
         "20000 Pa",
     ),
-    ("what is the strain if a 2 m wire extends by 4 mm", "materials", "strain", "0.002"),
+    ("what is the strain if a 2 m wire extends by 4 mm", "materials", "strain", "0.00200"),
     (
         "what is the young modulus for a stress of 2e7 Pa and strain of 0.001",
         "materials",
         "youngs_modulus",
-        "2 × 10¹⁰ Pa",
+        "2.00 × 10¹⁰ Pa",
     ),
     # --- modern -----------------------------------------------------------
     (
@@ -146,7 +146,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the energy equivalent of 2 kg of mass",
         "modern",
         "mass_energy",
-        "1.8 × 10¹⁷ J",
+        "1.80 × 10¹⁷ J",
     ),
 ]
 

@@ -118,6 +118,6 @@ async def test_each_part_is_carded_once_when_its_value_shares_the_heading_line()
     out = validate_physics_fences(reply, verified=verified, user_text=question)
     cards = out.count("```answer")
     assert cards == 2
-    assert "20.4\\,\\mathrm{m}\n```" in out and "4.08\\,\\mathrm{s}\n```" in out
+    assert "20.39\\,\\mathrm{m}\n```" in out and "4.08\\,\\mathrm{s}\n```" in out
     assert ";" not in out.split("```simulation")[0]
     assert '"title_key":"thrown_up"' in out

@@ -60,7 +60,7 @@ async def _answer(text: str) -> str | None:
         (
             "If the angle of incidence on a plane mirror is 42.5 degrees, what is the angle of "
             "reflection?",
-            "42.5°",
+            "42.50°",
         ),
         (
             "A ray of light reflects off a plane mirror. The angle between the incident ray and "
@@ -82,19 +82,19 @@ async def test_law_of_reflection_reads_the_reference_line(question: str, answer:
         (
             "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 degrees. "
             "What is the angle of refraction?",
-            "19.5°",
+            "19.47°",
         ),
         # 30 degrees to the surface is 60 to the normal; read as 30 it gave 19.5.
         (
             "Light passes from air into glass (n = 1.5) at 30 degrees to the surface. "
             "What is the angle of refraction?",
-            "35.3°",
+            "35.26°",
         ),
         # "degree" was kept as radians and refused.
         (
             "Light passes from air into glass (n = 1.5) at an angle of incidence of 30 degree. "
             "What is the angle of refraction?",
-            "19.5°",
+            "19.47°",
         ),
     ],
 )
@@ -143,12 +143,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A projectile is launched at 20 m/s at 30 degrees above the horizontal. What is its "
             "maximum height? (g = 9.8 m/s^2)",
-            "5.1 m",
+            "5.10 m",
         ),
         (
             "A projectile is launched at 20 m/s at 45 degrees above the horizontal. What is its "
             "range? (g = 9.8 m/s^2)",
-            "40.8 m",
+            "40.82 m",
         ),
         ("What force is needed to accelerate a 5 kg mass at 3 m/s^2?", "15 N"),
         ("What is the weight of a 70 kg person? (g = 9.8 m/s^2)", "686 N"),
@@ -160,7 +160,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A 2 kg block slides down a frictionless incline at 30 degrees. What is its "
             "acceleration? (g = 9.8 m/s^2)",
-            "4.9 m/s²",
+            "4.90 m/s²",
         ),
         ("What is the gravitational force between two 1000 kg masses 2 m apart?", "1.67 × 10⁻⁵ N"),
         ("A spring with spring constant 200 N/m is stretched 0.1 m. What is the force?", "20 N"),
@@ -174,12 +174,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A spring with spring constant 400 N/m is compressed 0.05 m. How much elastic "
             "potential energy does it store?",
-            "0.5 J",
+            "0.50 J",
         ),
         (
             "A machine has an input energy of 500 J and a useful output of 400 J. What is its "
             "efficiency?",
-            "0.8 (80%)",
+            "0.80 (80%)",
         ),
         ("What is the momentum of a 3 kg ball moving at 4 m/s?", "12 kg·m/s"),
         ("A force of 10 N acts on a ball for 0.5 s. What is the impulse?", "5 N·s"),
@@ -191,9 +191,9 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ("A 12 V battery is connected to a 4 ohm resistor. What is the current?", "3 A"),
         ("What is the power of a device drawing 2 A at 230 V?", "460 W"),
         ("What is the total resistance of a 4 ohm and a 6 ohm resistor in series?", "10 Ω"),
-        ("What is the total resistance of a 4 ohm and a 6 ohm resistor in parallel?", "2.4 Ω"),
+        ("What is the total resistance of a 4 ohm and a 6 ohm resistor in parallel?", "2.40 Ω"),
         ("How much charge flows when a current of 3 A flows for 20 s?", "60 C"),
-        ("A 60 W bulb is on for 5 hours. How much energy does it use in kWh?", "0.3 kWh"),
+        ("A 60 W bulb is on for 5 hours. How much energy does it use in kWh?", "0.30 kWh"),
         (
             "What is the force between two charges of 2 microcoulombs each separated by 0.3 m?",
             "0.399 N",
@@ -201,12 +201,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ("A wave has a frequency of 50 Hz and a wavelength of 2 m. What is its speed?", "100 m/s"),
         ("What is the period of a wave with a frequency of 25 Hz?", "0.04 s"),
         ("What is the wavelength of a 100 MHz radio wave? (c = 3 x 10^8 m/s)", "3 m"),
-        ("What is the critical angle for glass with a refractive index of 1.5?", "41.8°"),
+        ("What is the critical angle for glass with a refractive index of 1.5?", "41.81°"),
         ("An object 2 cm tall forms an image 6 cm tall. What is the magnification?", "3"),
         (
             "How much energy is needed to melt 0.5 kg of ice? (specific latent heat of fusion = "
             "334000 J/kg)",
-            "1.67 × 10⁵ J",
+            "167000 J",
         ),
         (
             "A gas at 300 K and 100 kPa is heated to 600 K at constant volume. What is the new "
@@ -242,11 +242,11 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ("What is the energy equivalent of 1 g of mass?", "8.99 × 10¹³ J"),
         ("A 20 N force acts 0.5 m from a pivot. What is the moment?", "10 N·m"),
         # Each of these returned no verified answer.
-        ("A ball is thrown straight up at 15 m/s. How high does it go? (g = 9.8 m/s^2)", "11.5 m"),
+        ("A ball is thrown straight up at 15 m/s. How high does it go? (g = 9.8 m/s^2)", "11.48 m"),
         (
             "A ball is thrown vertically upward at 15 m/s. What is the maximum height? "
             "(g = 9.8 m/s^2)",
-            "11.5 m",
+            "11.48 m",
         ),
         (
             "A 2 kg cart moving at 3 m/s collides with and sticks to a stationary 1 kg cart. "
@@ -260,10 +260,10 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ),
         (
             "A 10 microfarad capacitor is charged to 12 V. How much charge does it store?",
-            "1.2 × 10⁻⁴ C",
+            "1.20 × 10⁻⁴ C",
         ),
-        ("What is the speed of light in water (n = 1.33)?", "2.25 × 10⁸ m/s"),
-        ("What is the speed of light in glass of refractive index 1.5?", "2 × 10⁸ m/s"),
+        ("What is the speed of light in water (n = 1.33)?", "225407863.16 m/s"),
+        ("What is the speed of light in glass of refractive index 1.5?", "199861638.67 m/s"),
         (
             "A concave mirror has a focal length of 10 cm. An object is placed 15 cm from the "
             "mirror. Where is the image?",
@@ -277,14 +277,14 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "What is the orbital speed of a satellite at a radius of 7 x 10^6 m around Earth? "
             "(mass of Earth = 6 x 10^24 kg)",
-            "7564 m/s",
+            "7563.62 m/s",
         ),
         (
             "A satellite orbits Earth at a radius of 7 x 10^6 m. What is its orbital speed? "
             "(mass of Earth = 6 x 10^24 kg)",
-            "7564 m/s",
+            "7563.62 m/s",
         ),
-        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7673 m/s"),
+        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7672.62 m/s"),
         ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{K}"),
         # A second, harder battery: each returned no verified answer.
         (
@@ -309,7 +309,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "5 rad/s²",
         ),
         ("What is the reactance of a 10 mH inductor at 50 Hz?", "3.14 Ω"),
-        ("What is the reactance of a 20 microfarad capacitor at 50 Hz?", "159 Ω"),
+        ("What is the reactance of a 20 microfarad capacitor at 50 Hz?", "159.15 Ω"),
         (
             "A gas expands at a constant pressure of 200 kPa from 0.01 m^3 to 0.03 m^3. How much "
             "work does it do?",
@@ -323,12 +323,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "Light of wavelength 400 nm shines on a metal with a work function of 2 eV. What is "
             "the maximum kinetic energy of the emitted electrons?",
-            "1.1 eV",
+            "1.10 eV",
         ),
         (
             "A 1000 kg car travelling at 20 m/s brakes to a stop. How much work is done by the "
             "brakes?",
-            "-2 × 10⁵ J",
+            "-200000 J",
         ),
         (
             "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. What is the "
@@ -343,12 +343,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. What is the magnitude of "
             "the change in momentum?",
-            "3.6 kg·m/s",
+            "3.60 kg·m/s",
         ),
         (
             "Copper has a linear expansion coefficient of 1.7 x 10^-5 per K. How much does a 2 m "
             "copper rod expand when heated by 50 K?",
-            "0.0017 m",
+            "0.00170 m",
         ),
         (
             "What is the moment of inertia of a solid disc of mass 2 kg and radius 0.5 m?",
@@ -372,7 +372,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A wire carrying a current of 3 A is 0.5 m long and lies perpendicular to a 0.2 T"
             " magnetic field. What is the force on the wire?",
-            "0.3 N",
+            "0.30 N",
         ),
         (
             "A transformer has 100 turns on the primary and 500 turns on the secondary. The "
@@ -386,13 +386,13 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ),
         (
             "What is the electric field strength 0.2 m from a point charge of 5 microcoulombs?",
-            "1.12 × 10⁶ N/C",
+            "1123443.97 N/C",
         ),
         ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.125 J"),
-        ("What is the RMS voltage of an AC supply with a peak voltage of 325 V?", "230 V"),
+        ("What is the RMS voltage of an AC supply with a peak voltage of 325 V?", "229.81 V"),
         (
             "A Carnot engine operates between 500 K and 300 K. What is its maximum efficiency?",
-            "0.4 (40%)",
+            "0.40 (40%)",
         ),
         (
             "A sound wave has a frequency of 440 Hz and travels at 340 m/s. What is its "
@@ -409,7 +409,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "7.27 × 10⁻¹⁰ m",
         ),
         ("A particle moves at 0.8c. What is its Lorentz factor?", "1.67"),
-        ("A 5 kg box is lifted 2 m in 4 s. What is the power? (g = 9.8 m/s^2)", "24.5 W"),
+        ("A 5 kg box is lifted 2 m in 4 s. What is the power? (g = 9.8 m/s^2)", "24.50 W"),
         (
             "A ball rolls off a 1.25 m high table at 3 m/s horizontally. How far from the "
             "table does it land? (g = 9.8 m/s^2)",
@@ -417,9 +417,9 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ),
         (
             "Two forces of 3 N and 4 N act at right angles. What is the resultant force?",
-            "5 N at 53.1°",
+            "5 N at 53.13°",
         ),
-        ("What is the escape velocity from Earth?", "11186 m/s"),
+        ("What is the escape velocity from Earth?", "11186.17 m/s"),
         (
             "How much of an 80 g sample of a radioactive isotope with a half-life of 10 days "
             "remains after 30 days?",
