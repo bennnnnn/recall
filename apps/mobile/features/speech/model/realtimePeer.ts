@@ -1,7 +1,8 @@
 import { NativeModules, Platform, TurboModuleRegistry } from "react-native";
 
 import { liveTalkDataChannelText } from "@/features/speech/model/liveTalkLogic";
-import { exchangeRealtimeSdp } from "@/features/speech/model/realtimeSdp";
+import { exchangeRealtimeSdp, type SdpExchange } from "@/features/speech/model/realtimeSdp";
+import { isPhysicalDevice } from "@/lib/expoRuntime";
 import { yieldMicToWebRtc } from "@/lib/speech/voiceAudio";
 
 /*
@@ -69,6 +70,8 @@ type WebRtcPeerConnection = {
   setLocalDescription: (description: WebRtcSessionDescription) => Promise<void>;
   setRemoteDescription: (description: WebRtcSessionDescription) => Promise<void>;
   getReceivers?: () => { track?: WebRtcTrack | null }[];
+  /** The call's statistics (an `RTCStatsReport`, a Map of reports). */
+  getStats?: () => Promise<unknown>;
   close: () => void;
 };
 
@@ -94,9 +97,18 @@ type RealtimePeer = {
   createOffer: () => Promise<string>;
   /**
    * Exchanges SDP through Recall's API for the minted session and waits for the data channel.
-   * `signal` (the hang-up) cancels the exchange's request.
+   * `signal` (the hang-up) cancels the exchange's request. `exchange` is the route that
+   * opens the call: live talk's, unless given (live dictation has its own).
    */
-  connect: (token: string, sessionId: string, offerSdp: string, signal?: AbortSignal) => Promise<void>;
+  connect: (
+    token: string,
+    sessionId: string,
+    offerSdp: string,
+    signal?: AbortSignal,
+    exchange?: SdpExchange,
+  ) => Promise<void>;
+  /** The mic's level, 0 to 1, from the call's statistics; null where the build reports none. */
+  micLevel: () => Promise<number | null>;
   closeChannel: () => void;
   /** Silences remote audio, stops the mic and closes the peer. */
   close: () => void;
@@ -105,6 +117,24 @@ type RealtimePeer = {
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const CONNECTION_TIMEOUT_MS = 10_000;
 const DEBUG_PREFIX = "[LiveTalk/WebRTC]";
+
+/**
+ * VoiceProcessing IO can deadlock CoreAudio on the iOS Simulator when
+ * expo-audio has also touched the session. Only the Simulator uses the
+ * half-duplex workaround; physical iOS/Android devices need AEC for barge-in.
+ * If ExpoDevice is not in this binary, use the Simulator path so Live Talk
+ * can start until the next native rebuild.
+ */
+export function webRtcMicConstraints(): {
+  echoCancellation: boolean;
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+} {
+  if (Platform.OS === "ios" && isPhysicalDevice() !== true) {
+    return { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+  }
+  return { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+}
 
 export function debugRealtime(stage: string, detail?: unknown): void {
   if (!__DEV__) return;
@@ -312,6 +342,32 @@ async function waitForConnection(connected: Promise<void>): Promise<void> {
   }
 }
 
+function statsReports(report: unknown): unknown[] {
+  if (report && typeof (report as Map<string, unknown>).values === "function") {
+    return Array.from((report as Map<string, unknown>).values());
+  }
+  return report && typeof report === "object" ? Object.values(report) : [];
+}
+
+/** The mic's `audioLevel` (0 to 1) from its `media-source` statistics, or null without one. */
+async function readMicLevel(pc: Pick<WebRtcPeerConnection, "getStats">): Promise<number | null> {
+  if (typeof pc.getStats !== "function") return null;
+  let report: unknown;
+  try {
+    report = await pc.getStats();
+  } catch (error) {
+    debugRealtime("stats-failed", error instanceof Error ? error.name : typeof error);
+    return null;
+  }
+  for (const entry of statsReports(report)) {
+    const stats = entry as { type?: unknown; kind?: unknown; audioLevel?: unknown };
+    if (stats.type === "media-source" && stats.kind === "audio" && typeof stats.audioLevel === "number") {
+      return stats.audioLevel;
+    }
+  }
+  return null;
+}
+
 /** The peer for the mic it is handed; one that cannot be built still frees that mic. */
 export function createRealtimePeer(
   webrtc: NativeWebRtc,
@@ -376,8 +432,8 @@ function buildRealtimePeer(
   return {
     send: (payload) => sendRealtimePayload(dataChannel, payload),
     createOffer: () => createLocalOffer(pc),
-    connect: async (token, sessionId, offerSdp, signal) => {
-      const answerSdp = await exchangeRealtimeSdp(token, sessionId, offerSdp, signal);
+    connect: async (token, sessionId, offerSdp, signal, exchange) => {
+      const answerSdp = await exchangeRealtimeSdp(token, sessionId, offerSdp, signal, exchange);
       debugRealtime("received-sdp-answer", {
         transport: "server-relayed",
         hasAudio: answerSdp.includes("m=audio"),
@@ -389,6 +445,7 @@ function buildRealtimePeer(
       }
       await waitForConnection(connected);
     },
+    micLevel: () => readMicLevel(pc),
     closeChannel: () => {
       try {
         dataChannel.close();

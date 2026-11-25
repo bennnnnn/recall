@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Literal
 from uuid import UUID
@@ -80,10 +79,6 @@ class RealtimeToolIn(BaseModel):
     turn_id: str = Field(min_length=1, max_length=128)
     name: Literal["memory_lookup", "web_search"]
     query: UserText = Field(min_length=1, max_length=500)
-
-
-def _safety_identifier(user: User) -> str:
-    return hashlib.sha256(f"recall:{user.id}".encode()).hexdigest()
 
 
 def _realtime_instructions(
@@ -180,7 +175,7 @@ async def create_realtime_session(
                 schedule_block=ctx.schedule_block,
                 custom_instructions=live_talk_service.voice_custom_instructions(user),
             ),
-            safety_identifier=_safety_identifier(user),
+            safety_identifier=openai_speech_gateway.safety_identifier(user.id),
             barge_in=body.barge_in,
             tools_enabled=body.tools_enabled,
             voice=user.tts_voice,

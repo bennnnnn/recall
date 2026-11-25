@@ -296,6 +296,7 @@
   "chat.voice_recording_empty": "L’enregistrement était trop court ou vide. Maintenez le micro un peu plus longtemps et réessayez.",
   "chat.voice_start_failed": "Impossible de démarrer l’enregistrement.",
   "chat.voice_start_hint": "Touchez pour commencer la dictée",
+  "chat.voice_starting": "Démarrage…",
   "chat.voice_stop_hint": "Touchez pour arrêter et transcrire",
   "chat.voice_transcribe_empty": "Nous n’avons distingué aucune parole. Réessayez un peu plus près du micro.",
   "chat.voice_transcribe_failed": "Impossible de transcrire votre enregistrement.",

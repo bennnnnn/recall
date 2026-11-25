@@ -294,6 +294,7 @@
   "chat.voice_recording_empty": "That recording was too short or empty. Hold the mic a bit longer and try again.",
   "chat.voice_start_failed": "Could not start recording.",
   "chat.voice_start_hint": "Tap to start dictating",
+  "chat.voice_starting": "Starting…",
   "chat.voice_stop_hint": "Tap to stop and transcribe",
   "chat.voice_transcribe_empty": "We couldn't make out any speech. Try again a little closer to the mic.",
   "chat.voice_transcribe_failed": "Could not transcribe your recording.",

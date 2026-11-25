@@ -141,6 +141,9 @@ const IN_FLIGHT = [
   "features/speech/model/pronunciation.ts#ttsStartLoggedFor",
   "features/speech/model/pronunciation.ts#ttsTapAt",
   "features/speech/model/ttsClipFetch.ts#prefetch",
+  // The live dictation's words on the waveform, for the take in progress; every end of a
+  // take (stop, cancel, unmount with the chat screen at sign-out) clears it.
+  "features/speech/model/liveDictationView.ts#view",
   // An ended session's logout still owed to the server, keyed by its own tokens; the next
   // account never reads it, and it must outlive the sign-out that wrote it.
   "lib/pendingLogout.ts#hasPending",
@@ -150,6 +153,7 @@ const IN_FLIGHT = [
 
 /** No account data: phone settings, native modules, players, listeners, counters, lookup tables. */
 const NO_ACCOUNT_DATA = [
+  "features/speech/model/liveDictationView.ts#listeners",
   // A pattern per fence language, and an id per maths formatter function.
   "lib/fence/scan.ts#WORD_PATTERNS",
   "lib/markdown/preprocessStream.ts#formatterIds",

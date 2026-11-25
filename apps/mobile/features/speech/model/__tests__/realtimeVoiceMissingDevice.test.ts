@@ -15,7 +15,8 @@ jest.mock("@/features/speech/api", () => ({
   speechApi: { createRealtimeSession: jest.fn() },
 }));
 
-import { isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/features/speech/model/realtimeVoice";
+import { isRealtimeVoiceAvailable } from "@/features/speech/model/realtimeVoice";
+import { webRtcMicConstraints } from "@/features/speech/model/realtimePeer";
 
 describe("realtimeVoice without ExpoDevice", () => {
   it("imports without crashing when the native module is missing", () => {

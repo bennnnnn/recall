@@ -18,7 +18,8 @@ jest.mock("@/features/speech/api", () => ({
   speechApi: { createRealtimeSession: jest.fn() },
 }));
 
-import { createRealtimeVoiceSession, isRealtimeVoiceAvailable, webRtcMicConstraints } from "@/features/speech/model/realtimeVoice";
+import { createRealtimeVoiceSession, isRealtimeVoiceAvailable } from "@/features/speech/model/realtimeVoice";
+import { webRtcMicConstraints } from "@/features/speech/model/realtimePeer";
 
 describe("realtimeVoice", () => {
   it("is unavailable when WebRTC is not in this native binary", () => {
