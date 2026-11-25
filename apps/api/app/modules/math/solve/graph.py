@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 import re
 from dataclasses import dataclass
@@ -51,6 +52,8 @@ from app.modules.math.solve.graph_sampling import (
 from app.modules.math.solve.inequalities import compound_solution_set, inequality_solution_set
 from app.modules.math.solve.parse import parse_expression
 from app.services.solving import SolveServiceError
+
+logger = logging.getLogger(__name__)
 
 
 def _split_into_segments(points: list[list[float]]) -> list[list[list[float]]]:
@@ -538,7 +541,8 @@ def sample_graph_call(
         )
     except SolveServiceError:
         raise
-    except Exception:
+    except Exception as exc:
+        logger.info("graph call not sampled (%s)", type(exc).__name__)
         return GraphCall(failed=True)
     return GraphCall(curve=curve, curve2=curve2)
 
@@ -549,6 +553,7 @@ def _shape_or_none(build: Any, *args: Any) -> GraphBlockSpec | None:
         spec: GraphBlockSpec | None = build(*args)
     except SolveServiceError:
         raise
-    except Exception:
+    except Exception as exc:
+        logger.info("graph call shape not read (%s)", type(exc).__name__)
         return None
     return spec
