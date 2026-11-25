@@ -284,7 +284,10 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "(mass of Earth = 6 x 10^24 kg)",
             "7563.62 m/s",
         ),
-        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7672.62 m/s"),
+        (
+            "A satellite orbits 400 km above Earth's surface. What is its orbital speed?",
+            "7672.62 m/s",
+        ),
         ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{K}"),
         # A second, harder battery: each returned no verified answer.
         (

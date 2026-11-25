@@ -192,7 +192,10 @@ PROBES: list[tuple[str, str | None]] = [
     ("Seven resistors of 3 Ω each are connected in series. Find the total resistance.", None),
     ("Eleven 11 Ω resistors are connected in parallel. Find the equivalent resistance.", None),
     ("two 4.7 kΩ resistors are connected in parallel. Find the equivalent resistance.", "2350 Ω"),
-    ("Two resistors, each 2 kΩ, are connected in series across 8 V. Find the current.", "0.00200 A"),
+    (
+        "Two resistors, each 2 kΩ, are connected in series across 8 V. Find the current.",
+        "0.00200 A",
+    ),
     (
         "Two 10 Ω resistors in parallel and a 20 Ω resistor in parallel with them across 10 V. Find the total current.",
         None,

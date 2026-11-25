@@ -18,7 +18,12 @@ import sympy
 
 from app.modules.chemistry.formula_laws import FORMULA_LAWS, FormulaLaw
 from app.modules.physics.catalog import CATALOG
-from app.services.law_binding.shared_laws import IDEAL_GAS_DENSITY, in_names, solved_for
+from app.services.law_binding.shared_laws import (
+    IDEAL_GAS_DENSITY,
+    SharedLaw,
+    in_names,
+    solved_for,
+)
 
 # Every law two subjects share (``law_binding.shared_laws``).
 SHARED_LAWS = (IDEAL_GAS_DENSITY,)
@@ -122,7 +127,7 @@ def test_no_chemistry_row_is_a_physics_law_written_again() -> None:
 
 
 @pytest.mark.parametrize("law", SHARED_LAWS, ids=lambda law: law.op)
-def test_a_shared_law_is_its_owners_arithmetic(law: object) -> None:
+def test_a_shared_law_is_its_owners_arithmetic(law: SharedLaw) -> None:
     assert law.owner == "physics"
     assert CATALOG[law.op].expression == law.expression
 

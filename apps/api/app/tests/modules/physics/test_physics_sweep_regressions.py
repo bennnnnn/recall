@@ -300,9 +300,7 @@ def test_a_price_beside_a_motion_question_is_ignored() -> None:
 
 
 def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
-    assert (
-        _answer("what is the energy used by a 2000 W heater in 3 hours") == "21600000 J (6 kWh)"
-    )
+    assert _answer("what is the energy used by a 2000 W heater in 3 hours") == "21600000 J (6 kWh)"
     # Seconds are a physics class's unit: no kWh beside them.
     assert _answer("A 60 W bulb is on for 30 s. How much energy does it use?") == "1800 J"
 

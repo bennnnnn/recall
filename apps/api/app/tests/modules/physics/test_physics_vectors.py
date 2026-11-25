@@ -577,7 +577,10 @@ def test_a_compass_working_uses_the_stated_angle_and_its_reference(
             "velocity.",
             "216.51 km/h east",
         ),
-        ("A ship sails 25 km on a bearing of 240°. Find the southward component.", "12.50 km south"),
+        (
+            "A ship sails 25 km on a bearing of 240°. Find the southward component.",
+            "12.50 km south",
+        ),
     ],
 )
 def test_a_component_asked_against_its_side_keeps_its_sign(text: str, answer: str) -> None:
