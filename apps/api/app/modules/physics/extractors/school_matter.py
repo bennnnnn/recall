@@ -13,7 +13,11 @@ from app.modules.physics.extractors.school_common import (
 )
 from app.modules.physics.extractors.stated_values import ordered_values
 from app.modules.physics.extractors.thermal_readings import _reservoir_temperatures
-from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
 
@@ -45,7 +49,7 @@ def extract_poiseuille(text: str, lower: str) -> PhysicsIntent | None:
 
 
 def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
-    mass = ordered_values(text, r"kg|tonnes?|tons?")
+    mass = ordered_values(text, MASS_UNITS)
     distance = _one(
         text,
         LENGTH_UNIT_PATTERN,

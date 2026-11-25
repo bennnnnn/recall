@@ -19,6 +19,7 @@ import re
 
 from app.services.rounding_rule import number_parts
 from app.services.school_rounding import round_figures, trim_zeros
+from app.services.unit_text import LENGTH_UNITS, MASS_UNITS, TIME_UNITS
 
 ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
@@ -87,31 +88,12 @@ def latex_number(value: float, figures: int = ANSWER_FIGURES) -> str:
     return rf"{mantissa} \times 10^{{{exponent}}}"
 
 
-# Spelled-out units a question may carry, as the symbol a textbook prints.
+# A unit written in words, by its symbol: the shared length, time and mass tables
+# (``unit_text``), then the units only physics writes.
 _SPELLED = {
-    "seconds": "s",
-    "second": "s",
-    "secs": "s",
-    "sec": "s",
-    "minutes": "min",
-    "minute": "min",
-    "mins": "min",
-    "hours": "h",
-    "hour": "h",
-    "hrs": "h",
-    "hr": "h",
-    "meters": "m",
-    "metres": "m",
-    "meter": "m",
-    "metre": "m",
-    "kilometers": "km",
-    "kilometres": "km",
-    "centimeters": "cm",
-    "centimetres": "cm",
-    "kilograms": "kg",
-    "kilogram": "kg",
-    "grams": "g",
-    "gram": "g",
+    **LENGTH_UNITS,
+    **TIME_UNITS,
+    **MASS_UNITS,
     "newtons": "N",
     "newton": "N",
     "joules": "J",

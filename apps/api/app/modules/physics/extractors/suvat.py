@@ -34,16 +34,19 @@ _SUVAT_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A rest state at one end and a speed at the other: "from rest ... 20 m/s",
     # "12 m/s to rest". This is the shape that carries no acceleration at all
     # (s = ½(u+v)t), so it cannot be found by looking for m/s².
-    re.compile(r"\b(?:from|at)\s+rest\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b", re.IGNORECASE),
     re.compile(
-        r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+(?:rest|a\s+(?:stop|halt))\b", re.IGNORECASE
+        rf"\b(?:from|at)\s+rest\b.{{0,80}}?\d\s*(?:{VELOCITY_UNIT_PATTERN})\b", re.IGNORECASE
+    ),
+    re.compile(
+        rf"\d\s*(?:{VELOCITY_UNIT_PATTERN})\b.{{0,80}}?\bto\s+(?:rest|a\s+(?:stop|halt))\b",
+        re.IGNORECASE,
     ),
     re.compile(r"\b(?:constant|uniform)\s+(?:ac|de)celeration\b", re.IGNORECASE),
     # "travelling 20 m/s takes 5 s to stop": the stop is the end of a deceleration.
-    re.compile(r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\bto\s+stop\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{VELOCITY_UNIT_PATTERN})\b.{{0,80}}?\bto\s+stop\b", re.IGNORECASE),
     re.compile(r"\bslows?\b.{0,80}?\d\s*m/s\^?2", re.IGNORECASE),
     re.compile(
-        r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b"
+        rf"\d\s*(?:{VELOCITY_UNIT_PATTERN})\b.{{0,80}}?\d\s*(?:{VELOCITY_UNIT_PATTERN})\b"
         r".{0,80}?\d\s*(?:seconds?|secs?|sec|s)\b.{0,80}?\bacceleration\b",
         re.IGNORECASE,
     ),

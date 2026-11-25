@@ -1,4 +1,4 @@
-"""Subject-neutral text vocabulary for scalar length and time units."""
+"""Subject-neutral text vocabulary for scalar length, time and mass units: one table each."""
 
 from __future__ import annotations
 
@@ -31,6 +31,26 @@ TIME_UNITS = {
     }.items()
     for alias in aliases
 }
+
+MASS_UNITS = {
+    alias: symbol
+    for symbol, aliases in {
+        "kg": ("kg", "kilogram", "kilograms"),
+        "g": ("g", "gram", "grams"),
+        "mg": ("mg", "milligram", "milligrams"),
+        "t": ("tonne", "tonnes"),
+        "ton": ("ton", "tons"),
+        "lb": ("lb", "lbs"),
+        "oz": ("oz",),
+    }.items()
+    for alias in aliases
+}
+
+
+def alternation(units: dict[str, str]) -> str:
+    """A table's spellings as one regex alternation, longest first ("grams" before "g")."""
+    return "|".join(re.escape(alias) for alias in sorted(units, key=len, reverse=True))
+
 
 QUANTITY_NUMBER = re.compile(SIGNED_DECIMAL)
 

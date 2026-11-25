@@ -14,7 +14,11 @@ from app.modules.physics.extractors.stated_values import (
     ordered_values,
     positioned_values,
 )
-from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -35,7 +39,7 @@ _GRAVITATION_CUES = (
 
 _GRAVITATION_CUE_RES: tuple[re.Pattern[str], ...] = (
     # "the force between two 1000 kg masses 10 m apart" names no topic word.
-    re.compile(r"\bforce\s+between\b.{0,80}?\d\s*(?:kg|tonnes?|tons?)\b", re.IGNORECASE),
+    re.compile(rf"\bforce\s+between\b.{{0,80}}?\d\s*(?:{MASS_UNITS})\b", re.IGNORECASE),
     re.compile(r"\bg\s+on\s+a\s+planet\b", re.IGNORECASE),
 )
 
@@ -54,7 +58,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     body = central_body(lower)
-    masses = ordered_values(cleaned, r"kg|tonnes?|tons?")
+    masses = ordered_values(cleaned, MASS_UNITS)
     radius = find_value_with_specific_unit(
         cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
@@ -157,7 +161,7 @@ def _central_masses(cleaned: str) -> list[tuple[float, str]]:
     orbiting = orbiting_body_masses(cleaned)
     return [
         (value, unit)
-        for at, value, unit in positioned_values(cleaned, r"kg|tonnes?|tons?")
+        for at, value, unit in positioned_values(cleaned, MASS_UNITS)
         if not any(start <= at < end for start, end in orbiting)
     ]
 

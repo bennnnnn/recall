@@ -16,7 +16,11 @@ from app.modules.physics.extractors.stated_values import (
     ordered_values,
 )
 from app.modules.physics.extractors.surface_gravity import detect_gravity
-from app.modules.physics.extractors.unit_patterns import NUMBER, VELOCITY_UNIT_PATTERN
+from app.modules.physics.extractors.unit_patterns import (
+    MASS_UNITS,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.motion import rolling_body
 from app.modules.physics.schemas import PhysicsIntent
@@ -192,13 +196,11 @@ def _read_energy_givens(cleaned: str) -> _EnergyGivens:
     """Each value by its own unit, nearest the words that name it."""
     return _EnergyGivens(
         # Mass (m) — use unit-specific search so force isn't picked up as mass.
-        mass=find_value_with_specific_unit(
-            cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body")
-        ),
+        mass=find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "object", "body")),
         # Velocity (v) — for KE = 1/2 m v^2
         velocity=find_value_with_specific_unit(
             cleaned,
-            r"m/s|km/h|mph|cm/s|mm/s",
+            VELOCITY_UNIT_PATTERN,
             ("velocity", "speed", "moving", "traveling", "travelling"),
         ),
         # Height (h) — for PE = m g h. Use length-specific search.
