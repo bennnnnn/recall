@@ -707,6 +707,41 @@ async def test_sympy_adapter_graph_is_one_pool_job(monkeypatch, call):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "call, said",
+    [
+        ({"expr": "x + " * 70 + "1"}, "at most 256 characters"),
+        ({"expr": "x**2", "expr2": "2*x", "variable2": "abcdefghij"}, "at most 8 characters"),
+    ],
+)
+async def test_sympy_graph_input_the_schema_refuses_says_why(call, said):
+    """A call past the schema's limits is told so, not "timed out" (it would retry it)."""
+    result = await SympyAdapter(Settings()).invoke({"action": "graph", **call}, tool_context())
+    assert result.data is None
+    assert result.content.startswith("Math error:") and said in result.content
+    assert "timed out" not in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_graph_failure_is_logged_as_a_warning(monkeypatch, caplog):
+    """A sample that raises in the pool worker, which logs nowhere, is logged by the API
+    process at warning with its traceback, as it was before the call became one job."""
+    import logging
+
+    def broken(_data):
+        raise RuntimeError("sampler bug")
+
+    monkeypatch.setattr("app.modules.math.solve.graph.sample_function", broken)
+    with caplog.at_level(logging.WARNING, logger="app.modules.math.tool"):
+        result = await SympyAdapter(Settings()).invoke(
+            {"action": "graph", "expr": "x**2"}, tool_context()
+        )
+    assert result.content == "Math error: timed out."
+    warned = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert any("RuntimeError: sampler bug" in r.getMessage() for r in warned)
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_graph_ellipse_relation():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": "graph", "expr": "x**2 + y**2 = 1"}, tool_context())

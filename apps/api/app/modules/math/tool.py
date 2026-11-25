@@ -508,6 +508,12 @@ class SympyAdapter:
             expr2_raw or None,
             str(args.get("variable2") or variable),
         )
+        if sampled is not None:
+            for failure in sampled.failures:
+                # Raised in a pool worker, which logs nowhere: seen here, as it was.
+                logger.warning("sympy MCP tool call failed\n%s", failure)
+            if sampled.invalid is not None:
+                return ToolResult(name=self.name, content=f"Math error: {sampled.invalid}")
         if sampled is None or sampled.failed:
             return ToolResult(name=self.name, content="Math error: timed out.")
         if sampled.ellipse is not None:
