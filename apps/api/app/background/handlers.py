@@ -276,9 +276,9 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
         raise JobDiscardError(f"transactional_email: user not found id={payload.get('user_id')}")
     kind = payload.get("kind")
     if kind == "welcome":
-        await transactional_email_service.send_welcome(settings, user)
+        result = await transactional_email_service.send_welcome(settings, user)
     elif kind == "receipt":
-        await transactional_email_service.send_purchase_receipt(
+        result = await transactional_email_service.send_purchase_receipt(
             settings,
             user,
             event_type=str(payload.get("event_type") or ""),
@@ -289,6 +289,8 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
     else:
         logger.warning("transactional_email: unknown kind=%s", kind)
         raise JobDiscardError(f"transactional_email: unknown kind={kind!r}")
+    # The gateway never raises: a send that a later try may deliver used to end the job.
+    transactional_email_service.require_sent(result, kind)
 
 
 @_unless_spend_capped

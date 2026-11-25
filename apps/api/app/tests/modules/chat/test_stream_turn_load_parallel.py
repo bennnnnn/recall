@@ -31,6 +31,7 @@ def _held_resources() -> SimpleNamespace:
     return SimpleNamespace(
         reserved_tokens=0,
         refund=AsyncMock(),
+        message_left=AsyncMock(return_value=True),
         lock_key="lock",
         lock_token="token",
     )

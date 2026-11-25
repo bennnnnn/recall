@@ -85,6 +85,7 @@ async def apply_memory_instruction(
     lock_token = await locks.take_memory_write_lock(user_id)
     if not lock_token:
         raise locks.MemoryWriteLockBusyError(user_id)
+    keeper = locks.keep_memory_write_lock(user_id, lock_token)
     try:
         # Short session: nothing stays open while the model works.
         async with SessionLocal() as session:
@@ -135,4 +136,5 @@ async def apply_memory_instruction(
             dropped=max(proposed - len(applied), 0),
         )
     finally:
+        locks.stop_keeping(keeper)
         await locks.release_memory_write_lock(user_id, lock_token)

@@ -300,6 +300,7 @@ def _stream_context(
         prior_count=prior_count,
         timing=timing,
         user_message_persist=persist,
+        user_message_id=turn.message_id,
         run_title=_first_reply(turn.recent_messages, prior_count),
         # The user's own pick runs whatever its health; Auto's claims its probe.
         model_named=plan_service.is_explicit_pick(turn.model_alias) and model == turn.model_alias,

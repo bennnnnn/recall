@@ -114,6 +114,17 @@ async def move_due(redis: Redis, *, now: float | None = None, limit: int = _MOVE
     return moved
 
 
+def member_fields(member: str | bytes) -> dict[str, str] | None:
+    """The stream entry a waiting member holds; None for one that is not ours."""
+    try:
+        fields = json.loads(member)["fields"]
+    except (TypeError, ValueError, KeyError):
+        return None
+    if not isinstance(fields, dict):
+        return None
+    return {str(key): str(value) for key, value in fields.items()}
+
+
 async def delayed_depth(redis: Redis) -> int:
     """Entries waiting for their next attempt."""
     return int(await redis.zcard(DELAYED_ZSET))

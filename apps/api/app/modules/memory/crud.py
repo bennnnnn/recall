@@ -37,9 +37,11 @@ class MemoryEmptyTextError(DomainError):
 async def _write_locked(user_id: UUID) -> AsyncIterator[None]:
     """Hold the user's memory write lock for the block (busy: ``MemoryWriteLockBusyError``)."""
     lock_token = await locks.acquire_memory_write_lock_or_raise(user_id)
+    keeper = locks.keep_memory_write_lock(user_id, lock_token)
     try:
         yield
     finally:
+        locks.stop_keeping(keeper)
         await locks.release_memory_write_lock(user_id, lock_token)
 
 

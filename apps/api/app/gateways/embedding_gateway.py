@@ -9,10 +9,11 @@ import hashlib
 import json
 import logging
 import struct
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from litellm import aembedding
+from litellm import BadRequestError, Timeout, UnprocessableEntityError, aembedding
 
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
@@ -51,17 +52,38 @@ def _input_index(item: Any) -> int:
         return 0  # a stable sort keeps the provider's order
 
 
-async def _embed_request(settings: Settings, texts: list[str]) -> list[list[float]] | None:
-    """One provider request for ``texts``; vectors in input order, or None when it failed."""
+class _Failed(Enum):
+    """Why a request gave no vectors, which decides what the batch does next."""
+
+    # The provider refused the request's input (a 400 or 422, or an answer that cannot be
+    # matched to its inputs): one text may be at fault, so the batch goes one at a time.
+    INPUT = "input"
+    # Rate limit, a 5xx, a dropped connection: the batch is tried again after a wait.
+    TRANSIENT = "transient"
+    # No answer in time, or no key: trying again now, or one text at a time, only
+    # multiplies the wait. The job's own retry comes back later.
+    FINAL = "final"
+
+
+# Provider errors about the request's input, not the provider's health.
+_INPUT_ERRORS: tuple[type[Exception], ...] = (BadRequestError, UnprocessableEntityError)
+# A batch that failed for the provider's health is tried this many times in all.
+_BATCH_ATTEMPTS = 3
+_BATCH_RETRY_BASE_S = 1.0
+_BATCH_RETRY_FACTOR = 4.0
+
+
+async def _embed_request(settings: Settings, texts: list[str]) -> list[list[float]] | _Failed:
+    """One provider request for ``texts``: vectors in input order, or why it failed."""
     if mock_llm.should_mock_llm(settings):
         return [_mock_vector() for _ in texts]
 
     route = get_model("embedding-model")
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
-        return None
+        return _Failed.FINAL
 
-    # No retries inside LiteLLM or the provider SDK: a failed batch falls back here.
+    # No retries inside LiteLLM or the provider SDK: ``_embed_batch`` decides.
     kwargs: dict[str, Any] = {"api_key": api_key, "num_retries": 0, "max_retries": 0}
     if route.api_base:
         kwargs["api_base"] = route.api_base
@@ -76,18 +98,44 @@ async def _embed_request(settings: Settings, texts: list[str]) -> list[list[floa
         # Providers may answer out of order; each item carries its input index.
         rows = sorted(response.data, key=_input_index)
         vectors = [list(item["embedding"]) for item in rows]
+    except (TimeoutError, Timeout):
+        logger.warning("Embedding timed out inputs=%d", len(texts))
+        return _Failed.FINAL
+    except _INPUT_ERRORS:
+        logger.warning("Embedding refused its input inputs=%d", len(texts), exc_info=True)
+        return _Failed.INPUT
     except Exception:
         logger.exception("Embedding failed")
-        return None
+        return _Failed.TRANSIENT
     if len(vectors) != len(texts):
         logger.error("Embedding returned %d vectors for %d inputs", len(vectors), len(texts))
-        return None
+        return _Failed.INPUT
     return vectors
 
 
 async def embed_text(settings: Settings, text: str) -> list[float] | None:
     vectors = await _embed_request(settings, [text])
-    return vectors[0] if vectors else None
+    return vectors[0] if isinstance(vectors, list) else None
+
+
+async def _embed_batch(settings: Settings, batch: list[str]) -> list[list[float] | None]:
+    """One batch's vectors. A refused input sends the batch one text at a time, so one bad
+    text cannot void the rest; a rate limit or 5xx retries the whole batch after a wait.
+    A timeout gives up at once: one text at a time, a provider outage cost 64 requests of
+    up to a minute each per batch, past the job's own timeout (audit, 2026-11-25)."""
+    for attempt in range(_BATCH_ATTEMPTS):
+        if attempt:
+            await asyncio.sleep(_BATCH_RETRY_BASE_S * _BATCH_RETRY_FACTOR ** (attempt - 1))
+        vectors = await _embed_request(settings, batch)
+        if isinstance(vectors, list):
+            return list(vectors)
+        if vectors is _Failed.INPUT:
+            if len(batch) == 1:
+                return [None]
+            return [await embed_text(settings, text) for text in batch]
+        if vectors is _Failed.FINAL:
+            break
+    return [None] * len(batch)
 
 
 async def embed_many(
@@ -99,11 +147,10 @@ async def embed_many(
     """Embed ``texts`` in requests of ``embedding_batch_size`` inputs, at most
     ``concurrency`` requests in flight.
 
-    Results are in input order. A batch whose request failed is embedded one
-    text at a time (``embed_text``), so one bad input cannot void its whole
-    batch; a text that still fails is None in its slot and the caller decides
-    whether to drop it. An error ``embed_text`` does not catch propagates and
-    fails the call.
+    Results are in input order. A batch that failed is handled by why
+    (``_embed_batch``); a text that still has no vector is None in its slot and
+    the caller decides whether to drop it. An error ``embed_text`` does not catch
+    propagates and fails the call.
     """
     semaphore = asyncio.Semaphore(max(1, concurrency))
     size = max(1, settings.embedding_batch_size)
@@ -111,10 +158,7 @@ async def embed_many(
 
     async def _batch(batch: list[str]) -> list[list[float] | None]:
         async with semaphore:
-            vectors = await _embed_request(settings, batch)
-            if vectors is not None:
-                return list(vectors)
-            return [await embed_text(settings, text) for text in batch]
+            return await _embed_batch(settings, batch)
 
     results = await gather_or_cancel(*(_batch(batch) for batch in batches))
     return [vector for batch in results for vector in batch]

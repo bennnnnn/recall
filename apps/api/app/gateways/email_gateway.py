@@ -1,10 +1,10 @@
 """Outbound transactional email gateway.
 
 Provider is Resend (https://resend.com) when ``resend_api_key`` is configured.
-With no key in development or test, :func:`send_email` logs the message instead
+With no key in development or test, :func:`deliver_email` logs the message instead
 so the rest of the pipeline (job enqueue, templates, locale selection) is
 exercised without any external account. Anywhere else a missing key means the
-email is not sent: ``send_email`` returns False, the reminder scheduler does not
+email is not sent: ``deliver_email`` says SKIPPED, the reminder scheduler does not
 start, and the API tells the app email reminders are unavailable. (The mock
 used to report success in production too, so reminders were marked sent and
 never delivered.) Sending is best-effort: a failure is logged and never raised
@@ -45,7 +45,7 @@ def _mocks_without_provider(settings: Settings) -> bool:
 
 
 def can_send(settings: Settings) -> bool:
-    """True when ``send_email`` delivers a message (or, in development/test, mocks it)."""
+    """True when ``deliver_email`` delivers a message (or, in development/test, mocks it)."""
     return settings.email_enabled and (is_configured(settings) or _mocks_without_provider(settings))
 
 
@@ -91,22 +91,6 @@ class EmailResult:
     @property
     def sent(self) -> bool:
         return self.outcome is EmailOutcome.SENT
-
-
-async def send_email(
-    settings: Settings,
-    *,
-    to: str,
-    subject: str,
-    html: str,
-    text: str,
-) -> bool:
-    """Send one transactional email. Returns True on success, False otherwise.
-
-    Never raises — callers (background jobs) rely on this not propagating.
-    """
-    result = await deliver_email(settings, to=to, subject=subject, html=html, text=text)
-    return result.sent
 
 
 async def deliver_email(

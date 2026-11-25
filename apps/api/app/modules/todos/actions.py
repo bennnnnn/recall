@@ -20,7 +20,7 @@ from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
 
-_ACTION_RELOAD_LIMIT = 500
+ACTION_RELOAD_LIMIT = 500
 
 # Defensive caps for LLM-inferred mutations applied from a chat transcript.
 # The model extracts actions from arbitrary user text; these limits prevent a
@@ -246,7 +246,9 @@ async def apply_todo_actions(
     """
     if not actions:
         return 0
-    items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
+    items = await todos_repo.list_for_user(
+        session, user_id, limit=ACTION_RELOAD_LIMIT, needed_first=True
+    )
     state = _TodoApplyState(
         session=session,
         user_id=user_id,

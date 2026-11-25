@@ -10,7 +10,8 @@ transports pass ``default_deps()``.
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
@@ -19,7 +20,7 @@ from redis.asyncio import Redis
 from app.core import readings
 from app.core.config import Settings
 from app.core.readings import keep_for_turn
-from app.exceptions import ChatNotFoundError
+from app.exceptions import ChatNotFoundError, QuotaExceededError
 from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import Attachment, Chat, User
 from app.modules.account import profile as profile_service
@@ -33,11 +34,12 @@ from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.posed_read import start_posed_read, stop_posed_read
 from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.stream_status import StreamReasoningFn, StreamStatusFn
-from app.modules.chat.turn_decision import TurnDecision
+from app.modules.chat.turn_decision import TurnDecision, drop_read
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_intercepts import (
     intercept_new_turn,
     intercept_regenerate,
+    may_paint,
     start_reply_picture,
 )
 from app.modules.chat.turn_load import (
@@ -69,6 +71,7 @@ from app.modules.chat.turn_resources import (
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chat.turn_trace import traced_turn
 from app.modules.images.reply_picture import ReplyPicture
+from app.services.quota import quota_exceeded_message
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,45 @@ def _attach_reads(
     ctx.figure = start_figure(settings, ctx)
     ctx.chart = start_chart(settings, ctx)
     ctx.formal = start_formal(settings, ctx)
+
+
+async def _refuse_a_spent_day(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    res: TurnResources,
+    turn: NewTurn,
+    content: str,
+    attachment_ids: list[UUID] | None,
+) -> None:
+    """At the day's message cap only a painted picture can answer a turn (it takes no chat
+    message); any other is refused here, before the turn's paid reads start. They used to
+    start first, so an at-cap send waited on them and the server paid for a turn it then
+    refused (audit, 2026-11-25). A picture's own words leave it to the intercept, as before."""
+    if await res.message_left(turn.user, settings):
+        return
+    if not attachment_ids and may_paint(
+        deps,
+        settings,
+        user=turn.user,
+        content=content,
+        recent=turn.recent,
+        revisions=turn.prior_count > 0,
+    ):
+        return
+    raise QuotaExceededError(quota_exceeded_message(turn.user))
+
+
+@contextmanager
+def _reads_stopped_on_error(live_read: asyncio.Task[TurnDecision | None] | None) -> Iterator[None]:
+    """A turn that fails before its reply streams (a quota refusal, a prepare or an
+    intercept error) stops the reads it started: nothing will ask them any more, and each
+    call would run, billed, to its own timeout."""
+    try:
+        yield
+    except BaseException:
+        stop_posed_read()
+        drop_read(live_read)
+        raise
 
 
 def _stop_pictures(ctx: StreamContext) -> None:
@@ -234,51 +276,50 @@ async def stream_chat_response(
             chat=chat,
             skip_usage_seed=skip_usage_seed,
         )
+        await _refuse_a_spent_day(deps, settings, res, turn, content, attachment_ids)
         settings, live_read = _turn_settings(settings, turn.user, content, turn.recent)
         misses: set[str] = set()
-        if not attachment_ids and await _new_turn_intercepted(
-            deps, settings, turn, chat_id, content, outcome, misses, status, live_read
-        ):
-            await res.refund()
-            return
-        timing.mark_phase("image_gen")
-        rows = await _reserve_new_turn(
-            deps, res, settings, turn, content=content, attachment_ids=attachment_ids
-        )
-        budget = res.search_budget(settings, turn.user)
-        ctx = await prepare_chat_turn(
-            user_id=user_id,
-            chat_id=chat_id,
-            content=content,
-            model_alias=model_alias,
-            settings=settings,
-            redis=redis,
-            reserved_tokens=res.reserved_tokens,
-            attachment_ids=attachment_ids or [],
-            attachment_rows=rows,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            on_status=status,
-            user=turn.user,
-            timing=timing,
-            chat=turn.chat,
-            turn_mode=turn.turn_mode,
-            prior_count=turn.prior_count,
-            recent_messages=turn.recent,
-            resolved_model=turn.model,
-            on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
-            unhealthy=turn.unhealthy,
-            half_open=turn.half_open,
-            search_budget=budget,
-        )
-        _attach_reads(ctx, settings, live_read, misses, budget)
-        try:
-            ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, content, live_read)
-            await top_up_reserve_for_prompt(
-                res, settings=settings, ctx=ctx, daily_limit=turn.daily_limit
+        with _reads_stopped_on_error(live_read):
+            if not attachment_ids and await _new_turn_intercepted(
+                deps, settings, turn, chat_id, content, outcome, misses, status, live_read, res
+            ):
+                return
+            timing.mark_phase("image_gen")
+            rows = await _reserve_new_turn(
+                deps, res, settings, turn, content=content, attachment_ids=attachment_ids
             )
+            budget = res.search_budget(settings, turn.user)
+            ctx = await prepare_chat_turn(
+                user_id=user_id,
+                chat_id=chat_id,
+                content=content,
+                model_alias=model_alias,
+                settings=settings,
+                redis=redis,
+                reserved_tokens=res.reserved_tokens,
+                attachment_ids=attachment_ids or [],
+                attachment_rows=rows,
+                client_timezone=client_timezone,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                on_status=status,
+                user=turn.user,
+                timing=timing,
+                chat=turn.chat,
+                turn_mode=turn.turn_mode,
+                prior_count=turn.prior_count,
+                recent_messages=turn.recent,
+                resolved_model=turn.model,
+                on_user_saved=outcome.mark_user_message_saved if outcome is not None else None,
+                unhealthy=turn.unhealthy,
+                half_open=turn.half_open,
+                search_budget=budget,
+            )
+        try:
+            _attach_reads(ctx, settings, live_read, misses, budget)
+            ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, content, live_read)
+            await _top_up(res, settings, ctx, turn.daily_limit, live_read)
             async for token in stream_and_finalize(
                 deps,
                 redis,
@@ -305,9 +346,11 @@ async def _new_turn_intercepted(
     misses: set[str],
     status: StreamStatusFn | None,
     read: asyncio.Task[TurnDecision | None] | None,
+    res: TurnResources,
 ) -> bool:
-    """A photo or a picture answered the new turn (``turn_intercepts``): no model reply."""
-    return await intercept_new_turn(
+    """A photo or a picture answered the new turn (``turn_intercepts``): no model reply, so
+    nothing asks the follow-up read and no reply's reservation is held."""
+    handled = await intercept_new_turn(
         deps,
         settings,
         user=turn.user,
@@ -320,6 +363,23 @@ async def _new_turn_intercepted(
         on_status=status,
         read=read,
     )
+    if handled:
+        stop_posed_read()
+        await res.refund()
+    return handled
+
+
+async def _top_up(
+    res: TurnResources,
+    settings: Settings,
+    ctx: StreamContext,
+    daily_limit: int,
+    live_read: asyncio.Task[TurnDecision | None] | None,
+) -> None:
+    """The reservation topped up to the prompt's size: refused, the turn's reads stop (the
+    caller's ``finally`` stops what began beside the reply)."""
+    with _reads_stopped_on_error(live_read):
+        await top_up_reserve_for_prompt(res, settings=settings, ctx=ctx, daily_limit=daily_limit)
 
 
 def _start_picture(
@@ -354,8 +414,9 @@ async def _regenerate_intercepted(
     status: StreamStatusFn | None,
     read: asyncio.Task[TurnDecision | None] | None,
 ) -> bool:
-    """A photo or a picture answered again, read with the chat before the line."""
-    return await intercept_regenerate(
+    """A photo or a picture answered again, read with the chat before the line: no model
+    reply, so nothing asks the follow-up read."""
+    handled = await intercept_regenerate(
         deps,
         settings,
         user=turn.user,
@@ -368,6 +429,9 @@ async def _regenerate_intercepted(
         read=read,
         recent_messages=turn.before_line,
     )
+    if handled:
+        stop_posed_read()
+    return handled
 
 
 @traced_turn("regenerate")
@@ -400,74 +464,74 @@ async def stream_regenerate_response(
             outcome.mark_user_message_saved()  # The message answered again just loaded.
         settings, live_read = _turn_settings(settings, turn.user, turn.content, turn.before_line)
         misses: set[str] = set()
-        if await _regenerate_intercepted(
-            deps, settings, turn, chat_id, outcome, misses=misses, status=status, read=live_read
-        ):
-            return
-        current_image_ids, model = _regenerate_images(turn, settings, model_alias)
-        await res.reserve(
-            user=turn.user,
-            content=turn.content,
-            model=model,
-            settings=settings,
-            max_output=settings.max_output_tokens,
-            vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
-        )
-        request = TurnRequest(
-            user_id=user_id,
-            chat_id=chat_id,
-            content=turn.content,
-            model=model,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            on_status=status,
-            user=turn.user,
-            chat=turn.chat,
-            timing=timing,
-            omit_message_ids=turn.omit_message_ids,
-            turn_mode=turn.turn_mode,
-            has_image_attachment=bool(current_image_ids),
-            recent_messages=turn.recent,
-            prior_count=turn.prior_count,
-            unhealthy_models=turn.unhealthy,
-            search_budget=res.search_budget(settings, turn.user),
-        )
-        bundle = await build_stream_prompt_context(request, settings, redis)
-        if current_image_ids:
-            await inject_regenerated_image_content(
-                bundle.prompt_messages,
+        with _reads_stopped_on_error(live_read):
+            if await _regenerate_intercepted(
+                deps, settings, turn, chat_id, outcome, misses=misses, status=status, read=live_read
+            ):
+                return
+            current_image_ids, model = _regenerate_images(turn, settings, model_alias)
+            await res.reserve(
+                user=turn.user,
+                content=turn.content,
+                model=model,
                 settings=settings,
-                user_id=user_id,
-                attachment_ids=current_image_ids,
+                max_output=settings.max_output_tokens,
+                vision_extra=vision_reserve_tokens(settings, len(current_image_ids)),
             )
-        ctx = stream_context_from_bundle(
-            bundle,
-            user_id=user_id,
-            chat_id=chat_id,
-            model=model,
-            user_message_content=turn.content,
-            reserved_tokens=res.reserved_tokens,
-            user=turn.user,
-            prior_count=turn.prior_count,
-            timing=timing,
-            run_title=False,
-            skip_memory_jobs=False,
-            regenerate_backup=turn.backup,
-            # Its model runs whatever its health; a regenerate thinks one level more.
-            model_named=True,
-            thinking=thinking_level(turn.content, regenerate=True, settings=settings),
-        )
-        _attach_reads(ctx, settings, live_read, misses, request.search_budget)
-        await top_up_reserve_for_prompt(
-            res,
-            settings=settings,
-            ctx=ctx,
-            daily_limit=deps.quota.daily_limit_for_user(turn.user, settings),
-        )
-        ctx.reply_picture = _start_picture(deps, settings, ctx, turn.user, turn.content, live_read)
+            request = TurnRequest(
+                user_id=user_id,
+                chat_id=chat_id,
+                content=turn.content,
+                model=model,
+                client_timezone=client_timezone,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                on_status=status,
+                user=turn.user,
+                chat=turn.chat,
+                timing=timing,
+                omit_message_ids=turn.omit_message_ids,
+                turn_mode=turn.turn_mode,
+                has_image_attachment=bool(current_image_ids),
+                recent_messages=turn.recent,
+                prior_count=turn.prior_count,
+                unhealthy_models=turn.unhealthy,
+                search_budget=res.search_budget(settings, turn.user),
+            )
+            bundle = await build_stream_prompt_context(request, settings, redis)
+            if current_image_ids:
+                await inject_regenerated_image_content(
+                    bundle.prompt_messages,
+                    settings=settings,
+                    user_id=user_id,
+                    attachment_ids=current_image_ids,
+                )
+            ctx = stream_context_from_bundle(
+                bundle,
+                user_id=user_id,
+                chat_id=chat_id,
+                model=model,
+                user_message_content=turn.content,
+                reserved_tokens=res.reserved_tokens,
+                user=turn.user,
+                prior_count=turn.prior_count,
+                timing=timing,
+                run_title=False,
+                skip_memory_jobs=False,
+                regenerate_backup=turn.backup,
+                user_message_id=turn.user_message_id,
+                # Its model runs whatever its health; a regenerate thinks one level more.
+                model_named=True,
+                thinking=thinking_level(turn.content, regenerate=True, settings=settings),
+            )
         try:
+            _attach_reads(ctx, settings, live_read, misses, request.search_budget)
+            limit = deps.quota.daily_limit_for_user(turn.user, settings)
+            await _top_up(res, settings, ctx, limit, live_read)
+            ctx.reply_picture = _start_picture(
+                deps, settings, ctx, turn.user, turn.content, live_read
+            )
             async for token in stream_and_finalize(
                 deps,
                 redis,

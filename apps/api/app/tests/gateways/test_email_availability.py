@@ -1,6 +1,6 @@
 """No email provider in production means no email, said plainly.
 
-``send_email``'s mock path returned True in every environment, so with
+The gateway's mock path returned True in every environment, so with
 RESEND_API_KEY unset in production the reminder scheduler marked to-do emails
 sent (``email_sent_at``) that never went out, welcome and receipt emails were
 dropped silently, and the app kept offering the email-reminder switch.
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -20,6 +21,11 @@ from app.background.email_reminder_scheduler import LOCK_KEY
 from app.core.config import Settings
 from app.gateways import email_gateway
 from app.models.schemas import UserOut
+
+
+async def _sent(settings: Settings, **message: Any) -> bool:
+    """Whether the gateway sent ``message`` (``deliver_email``'s outcome)."""
+    return (await email_gateway.deliver_email(settings, **message)).sent
 
 
 @pytest.mark.parametrize(
@@ -41,7 +47,7 @@ def test_can_send(environment: str, key: str, enabled: bool, can_send: bool) -> 
 async def test_production_without_a_key_reports_not_sent(caplog: pytest.LogCaptureFixture) -> None:
     settings = Settings(environment="production", resend_api_key="")
     with caplog.at_level(logging.WARNING, logger="app.gateways.email_gateway"):
-        sent = await email_gateway.send_email(
+        sent = await _sent(
             settings, to="user@example.com", subject="Reminder", html="<p>x</p>", text="x"
         )
     assert sent is False
@@ -51,9 +57,7 @@ async def test_production_without_a_key_reports_not_sent(caplog: pytest.LogCaptu
 
 async def test_development_without_a_key_still_mocks_a_send() -> None:
     settings = Settings(environment="development", resend_api_key="")
-    assert await email_gateway.send_email(
-        settings, to="user@example.com", subject="Hi", html="<p>x</p>", text="x"
-    )
+    assert await _sent(settings, to="user@example.com", subject="Hi", html="<p>x</p>", text="x")
 
 
 @pytest.mark.parametrize(

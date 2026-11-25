@@ -400,6 +400,7 @@ async def persist_live_talk_turn(
             user=user,
             chat_id=chat_id,
             user_message=user_content,
+            user_message_id=user_message.id if user_message is not None else None,
             assistant=assistant_message,
             prior_count=prior_count,
             run_title=untitled,

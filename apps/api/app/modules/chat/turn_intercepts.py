@@ -119,6 +119,40 @@ def _gen_request(
     return request
 
 
+def may_paint(
+    deps: ChatTurnDeps,
+    settings: Settings,
+    *,
+    user: User,
+    content: str,
+    recent: list[Any],
+    revisions: bool,
+) -> bool:
+    """Whether a new message's words could ask this user for a painted picture, the one
+    answer that takes no chat message: the intercept's own candidate (``_gen_request``),
+    read without the shown pictures' labels, and any short line after a generated picture
+    (whose prompt only those labels may hold)."""
+    if (
+        revisions
+        and last_reply_is_generated_image(recent)
+        and settings.image_generation_enabled
+        and deps.plan.can_use(user, "image_generation", settings)
+    ):
+        return True
+    return (
+        _gen_request(
+            deps,
+            settings,
+            user=user,
+            content=content,
+            recent=recent,
+            revisions=revisions,
+            pictures={},
+        )
+        is not None
+    )
+
+
 async def try_image_gen_for_turn(
     deps: ChatTurnDeps,
     settings: Settings,

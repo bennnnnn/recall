@@ -92,6 +92,20 @@ class TurnResources:
         )
         return self.reserved_tokens
 
+    async def message_left(self, user: User, settings: Settings) -> bool:
+        """Whether ``reserve`` could still take one of today's messages: a read of the
+        count, no slot taken. True when the turn already holds one, on a plan with no
+        cap, and when Redis cannot say (``reserve`` then decides, as it always did)."""
+        if self.reserved_tokens > 0 or self.message_day is not None:
+            return True
+        cap = self.deps.quota.daily_message_limit(user, settings)
+        if cap <= 0:
+            return True
+        try:
+            return await self.deps.quota.messages_used(self.redis, user.id) < cap
+        except (RedisError, OSError, RedisUnavailableError):
+            return True
+
     async def refund(self) -> None:
         if self._refunded or (self.reserved_tokens <= 0 and self.message_day is None):
             return

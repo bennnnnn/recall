@@ -20,7 +20,12 @@ from app.modules.memory.consolidation import (
 )
 from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
 from app.modules.memory.facts import is_active_memory
-from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
+from app.modules.memory.locks import (
+    acquire_memory_write_lock,
+    keep_memory_write_lock,
+    release_memory_write_lock,
+    stop_keeping,
+)
 from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.switch import memory_switch_on
 from app.modules.memory.writes_repository import MemoryFactWrite
@@ -128,6 +133,7 @@ async def consolidate_user_memory_sections(
                 user_id,
             )
             return "skipped_lock"
+        keeper = keep_memory_write_lock(user_id, lock_token)
         try:
             async with SessionLocal() as session:
                 loaded = await _load_pairs(session, user_id)
@@ -148,6 +154,7 @@ async def consolidate_user_memory_sections(
             )
             return True
         finally:
+            stop_keeping(keeper)
             await release_memory_write_lock(user_id, lock_token)
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)

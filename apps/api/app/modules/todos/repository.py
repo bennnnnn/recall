@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import case, delete, exists, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,6 +52,23 @@ async def list_due_soon(
     return list(result.scalars().all())
 
 
+def _needed_first(user_id: UUID, limit: int) -> Any:
+    """The ids of the ``limit`` to-dos a turn needs most: open before done, an open one
+    by its due time (overdue first, undated last), then the most recently changed."""
+    open_due = case((TodoItem.checked.is_(False), TodoItem.due_at))
+    return (
+        select(TodoItem.id)
+        .where(TodoItem.user_id == user_id)
+        .order_by(
+            TodoItem.checked.asc(),
+            open_due.asc().nulls_last(),
+            TodoItem.updated_at.desc(),
+            TodoItem.id.asc(),
+        )
+        .limit(limit)
+    )
+
+
 async def list_for_user(
     session: AsyncSession,
     user_id: UUID,
@@ -59,11 +76,19 @@ async def list_for_user(
     limit: int = 1000,
     offset: int = 0,
     populate_existing: bool = False,
+    needed_first: bool = False,
 ) -> list[TodoItem]:
+    """A page of the user's to-dos in list order (topic, then the user's order).
+
+    ``needed_first``: the ``limit`` rows kept are the ones a turn needs most
+    (``_needed_first``), not the first ``limit`` in list order, which cut an overdue
+    reminder whose topic sorts late from the prompt and from a chat's edits.
+    """
+    statement = select(TodoItem).where(TodoItem.user_id == user_id)
+    if needed_first:
+        statement = statement.where(TodoItem.id.in_(_needed_first(user_id, limit)))
     result = await session.execute(
-        select(TodoItem)
-        .where(TodoItem.user_id == user_id)
-        .order_by(
+        statement.order_by(
             TodoItem.topic.asc(),
             TodoItem.sort_order.asc().nulls_last(),
             TodoItem.checked.asc(),

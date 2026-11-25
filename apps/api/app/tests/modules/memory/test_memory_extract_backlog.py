@@ -188,3 +188,38 @@ async def test_clear_failed_extract_passes_restarts_the_count(fake_redis):
         gave_up = await note_failed_extract_pass(user_id, chat_id)
 
     assert gave_up is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cursor_at, expected",
+    [
+        # Past a cursor, no rows means every line was read: the payload is not read again.
+        (datetime(2026, 9, 3, 10, 0, tzinfo=UTC), ""),
+        # No cursor yet (or Redis down): the payload's lines are all there is.
+        (None, "User: Forget that I live in Denver."),
+    ],
+)
+async def test_nothing_past_the_cursor_reads_nothing(cursor_at, expected):
+    redis = redis_mock()
+    redis.get = AsyncMock(
+        return_value=format_extract_cursor(cursor_at, uuid4()) if cursor_at else None
+    )
+    with (
+        patch(
+            "app.modules.memory.extract_backlog.chat_history.user_lines_since",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.modules.memory.extract_backlog.get_redis_client",
+            MagicMock(return_value=redis),
+        ),
+    ):
+        read = await expand_memory_extract_transcript(
+            AsyncMock(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            fallback_transcript="User: Forget that I live in Denver.",
+        )
+    assert read.transcript == expected
+    assert read.cursor is None

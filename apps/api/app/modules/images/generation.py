@@ -179,6 +179,7 @@ async def generate_for_chat(
             user=user,
             chat_id=chat_id,
             user_message=user_message.content,
+            user_message_id=user_message.id,
             assistant=assistant_message,
             prior_count=prior_count,
         )

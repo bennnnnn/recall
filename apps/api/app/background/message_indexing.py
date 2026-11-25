@@ -24,12 +24,15 @@ async def index_message_job(settings: Settings, payload: dict[str, Any]) -> None
     except (KeyError, TypeError, ValueError):
         logger.warning("message_index job missing ids payload=%s", payload)
         return
+    # A job queued before the turn's line rode in its payload has none: the chat's latest.
+    user_message_id = _optional_id(payload.get("user_message_id"))
 
     count = await chat_history_rag.index_turn_messages(
         settings,
         user_id=user_id,
         chat_id=chat_id,
         assistant_message_id=assistant_message_id,
+        user_message_id=user_message_id,
         memory_on=memory_switch_on,
     )
     if count:
@@ -39,3 +42,12 @@ async def index_message_job(settings: Settings, payload: dict[str, Any]) -> None
             chat_id,
             assistant_message_id,
         )
+
+
+def _optional_id(raw: object) -> UUID | None:
+    if not raw:
+        return None
+    try:
+        return UUID(str(raw))
+    except ValueError:
+        return None

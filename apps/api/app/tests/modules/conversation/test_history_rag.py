@@ -4,6 +4,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -674,3 +675,71 @@ async def test_the_prompt_dates_snippets_in_the_turn_s_zone_for_its_own_chat() -
     assert retrieve.await_args is not None
     assert retrieve.await_args.kwargs["timezone"] == "America/New_York"
     assert retrieve.await_args.kwargs["chat_id"] == chat_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("carries_line", [True, False])
+async def test_index_turn_messages_indexes_the_turns_own_line(carries_line: bool) -> None:
+    """The job runs after the turn: by then the chat's latest user line may be the next
+    turn's. A payload that carries the turn's line indexes it; an older one without it
+    still reads the chat's latest (audit, 2026-11-25)."""
+    settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
+    account = SimpleNamespace(memory_enabled=True, memory_edited_at=None)
+    chat_id = uuid4()
+    rows = {
+        role: SimpleNamespace(id=uuid4(), chat_id=chat_id, role=role, content=text)
+        for role, text in (
+            ("assistant", "Your apartment lease ends in March."),
+            ("user", "When does my apartment lease end again?"),
+        )
+    }
+    newer = SimpleNamespace(
+        id=uuid4(), chat_id=chat_id, role="user", content="And what about the parking spot?"
+    )
+
+    async def _by_id(_session: Any, message_id: Any, _chat_id: Any) -> Any:
+        return next((row for row in rows.values() if row.id == message_id), None)
+
+    async def _embed_many(_settings: Any, texts: list[str], **_kwargs: Any) -> Any:
+        return [[0.5] * 1536 for _ in texts]  # pgvector's column width
+
+    @asynccontextmanager
+    async def _session(*_args: Any, **_kwargs: Any) -> Any:
+        yield AsyncMock()
+
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _session),
+        patch("app.modules.conversation.history_rag.embedding_gateway.embed_many", _embed_many),
+        patch("app.modules.conversation.history_rag.chunks_repo.prune_beyond_window", AsyncMock()),
+        patch("app.modules.conversation.history_rag.presence_cache.mark_present", AsyncMock()),
+        patch(
+            "app.modules.conversation.history_rag.users_repo.get_by_id",
+            AsyncMock(return_value=account),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.has_chunks_for_user",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.modules.conversation.history_rag.messages_repo.get_by_id", _by_id),
+        patch(
+            "app.modules.conversation.history_rag.messages_repo.get_last_user",
+            AsyncMock(return_value=newer),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
+            AsyncMock(),
+        ) as stored,
+    ):
+        await index_turn_messages(
+            settings,
+            user_id=uuid4(),
+            chat_id=chat_id,
+            assistant_message_id=rows["assistant"].id,
+            user_message_id=rows["user"].id if carries_line else None,
+            memory_on=memory_switch_on,
+        )
+
+    assert stored.await_args is not None
+    indexed = {row[0] for row in stored.await_args.kwargs["messages"]}
+    line = rows["user"] if carries_line else newer
+    assert indexed == {line.id, rows["assistant"].id}
