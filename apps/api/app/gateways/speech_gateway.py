@@ -1,4 +1,8 @@
-"""Direct OpenAI dictation and read-aloud HTTP calls (provider boundary)."""
+"""Direct OpenAI recorded-clip transcription and read-aloud HTTP calls (provider boundary).
+
+The clip goes here for the languages Whisper reads badly (``speech.service``); Whisper on
+OpenRouter is ``transcription_gateway``.
+"""
 
 from __future__ import annotations
 
@@ -20,9 +24,6 @@ _OPENAI_SPEECH_URL = "https://api.openai.com/v1/audio/speech"
 _TRANSCRIBE_TIMEOUT = 20.0
 _TTS_TIMEOUT = 60.0
 _DEFAULT_PCM_RATE = 24000
-# The OpenAI audio models this gateway calls. An operator override outside them is not
-# used (``speech.service``), so a stale Gemini or Kokoro name never reaches OpenAI.
-_TRANSCRIBE_MODELS = frozenset({"gpt-4o-mini-transcribe", "gpt-4o-transcribe"})
 # Read aloud speaks with tts-1; gpt-4o-mini-tts stays an operator override (SPEECH_TTS_MODEL).
 _SPEECH_MODEL_FAMILIES = ("tts-1", "gpt-4o-mini-tts")
 _DEFAULT_PCM_CHANNELS = 1
@@ -38,11 +39,6 @@ _AUDIO_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".caf": "m4a",
     ".3gp": "m4a",
 }
-
-
-def can_transcribe_with(model: str) -> bool:
-    """Whether ``model`` (``openai/`` or bare) is one this gateway transcribes with."""
-    return model.removeprefix("openai/") in _TRANSCRIBE_MODELS
 
 
 # The voices tts-1 has. The Voice setting also chooses live talk's voice, which has marin,

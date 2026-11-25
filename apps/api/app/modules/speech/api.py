@@ -56,11 +56,12 @@ async def _transcribe_bytes(
     filename: str,
     language: str | None = None,
     on_call: Callable[[], None] | None = None,
+    on_spend: Callable[[float], None] | None = None,
 ) -> SpeechTranscriptionOut:
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     text = await speech_service.transcribe_audio(
-        settings, data, filename=filename, language=language, on_call=on_call
+        settings, data, filename=filename, language=language, on_call=on_call, on_spend=on_spend
     )
     if text is None:
         raise HTTPException(
@@ -191,10 +192,17 @@ async def transcribe_speech(
 
     # Once the audio is sent the provider may bill it, so a 502 or a hang-up after
     # that keeps the slot; only a failure before the call gives it back.
+    # Each transcriber asked adds its estimate: a Whisper failure retried on OpenAI is both.
+    spent: list[float] = []
+    # Recorded whatever the outcome: a 502 after both failed, or a hang-up, may still be billed.
     async with refund_day_on_failure("speech_transcription", redis, user.id, day) as refund:
-        result = await _transcribe_bytes(settings, data, filename, language, refund.spend)
-        await quota_service.record_voice_spend(redis, quota_service.STT_SPEND_USD)
-        return result
+        try:
+            return await _transcribe_bytes(
+                settings, data, filename, language, refund.spend, spent.append
+            )
+        finally:
+            if spent:
+                await quota_service.record_voice_spend(redis, sum(spent))
 
 
 @router.get("/live", response_model=SpeechLiveStatusOut)

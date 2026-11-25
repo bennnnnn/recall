@@ -199,8 +199,8 @@ exact production web origin and only the headers used by presigned uploads.
 | `REDIS_URL` | yes | `rediss://`; not localhost |
 | `GOOGLE_CLIENT_ID` | yes | Google Sign-In (ID-token audience) |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | for App Review 5.1.1(v) | A Sign in with Apple key (Apple Developer → Keys); `APPLE_PRIVATE_KEY` is the `.p8` contents. Account delete revokes the user's Apple grant with it. Unset: delete still works, boot logs a warning |
-| `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
-| `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
+| `OPENROUTER_API_KEY` | yes | Chat + the recorded voice clip's STT in en/es/fr/pt/ru/tr (`openai/whisper-large-v3-turbo`) |
+| `OPENAI_API_KEY` | voice | Live dictation, Live Talk (WebRTC Realtime; OpenRouter has none), read-aloud, and the recorded clip in other languages or when Whisper fails (`gpt-4o-transcribe` for Amharic, `gpt-4o-mini-transcribe` otherwise) |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; every access change, TRANSFER, plan sync, hourly reconcile |
@@ -389,7 +389,8 @@ OpenAI's own session limit (nothing is saved, no tools).
 
 Live dictation (the composer mic in a dev build) uses the same pattern for an OpenAI
 transcription-only session (`gpt-live-transcribe`, about $0.017 a minute against the
-recorded path's $0.003): `POST /speech/dictation/session` takes one of the day's
+recorded path's Whisper Large V3 Turbo on OpenRouter, $0.0002-0.0007 a minute, or
+`gpt-4o-mini-transcribe`, about $0.003, for Hindi, or `gpt-4o-transcribe` for Amharic): `POST /speech/dictation/session` takes one of the day's
 `speech_transcription` slots and keeps the secret, `/dictation/connect` opens the call and
 schedules a `dictation_hangup` job for `SPEECH_DICTATION_MAX_SECONDS` (45) plus 15 s, and
 `/dictation/end` hangs up at once (`modules/speech/dictation.py`). A take that heard nothing

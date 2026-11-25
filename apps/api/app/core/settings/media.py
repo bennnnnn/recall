@@ -5,7 +5,9 @@ from pydantic import BaseModel
 
 class MediaSettings(BaseModel):
     speech_transcription_enabled: bool = True
-    # Direct OpenAI voice. Empty overrides use the speech catalog aliases.
+    # The recorded clip's Whisper route (en/es/fr/pt/ru/tr): another of OpenRouter's Whisper
+    # models (openai/whisper-large-v3, openai/whisper-1); any other value uses the catalog
+    # alias `speech-stt-model`. The OpenAI routes are not overridden.
     speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
     # Live dictation: the composer mic streams to an OpenAI transcription session over
