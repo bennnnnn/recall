@@ -9,6 +9,9 @@ lettered (``services.subjects.dispatch.build_subject_augmentation``'s ``parts``)
 from __future__ import annotations
 
 import re
+from typing import Any
+
+import pytest
 
 from app.core.config import Settings
 from app.services.subjects.dispatch import build_subject_augmentation
@@ -49,4 +52,30 @@ async def test_a_part_beside_another_request_keeps_its_card() -> None:
 
     # The weather is the model's: no reply is written here, but a part's card stands.
     assert found.direct_text is None
+    assert found.verified is not None and found.verified.subject == "physics"
+
+
+async def test_a_part_whose_read_gives_up_leaves_the_others_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One part's read timing out is that part unsolved: it never declines the readings of
+    the parts after it, nor the rest of the turn's (audit 2026-11-25)."""
+    from app.core import readings, sympy_executor
+    from app.services.subjects import dispatch
+
+    real = sympy_executor.run_sympy
+
+    async def first_part_times_out(fn: Any, *args: Any, **kwargs: Any) -> Any:
+        if fn is readings._record and args[0] is dispatch._subject_of_text:
+            if args[1][0] == _PARTS[0]:
+                raise TimeoutError
+        return await real(fn, *args, **kwargs)
+
+    monkeypatch.setattr(sympy_executor, "run_sympy", first_part_times_out)
+    readings.begin_turn()
+    whole = f"{_PARTS[0]} {_PARTS[1].removeprefix(_SETUP).strip()}"
+
+    found = await build_subject_augmentation(whole, _SETTINGS, parts=_PARTS, parts_answer_all=False)
+
+    assert not readings.readings_declined()
     assert found.verified is not None and found.verified.subject == "physics"
