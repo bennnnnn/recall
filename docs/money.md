@@ -364,8 +364,10 @@ date it describes and the URL that states it from the top results. The reading c
 - the URL is one of the pages the search returned.
 
 Anything else is no average. One answer serves every turn for the same product, term bucket
-and country for `money_rate_cache_seconds`, so most turns never search. A miss spends one of the
-asking user's daily searches.
+and country for `money_rate_cache_seconds`, so most turns never search; an answer with no checked
+rate is kept a quarter of an hour, and turns asking while a lookup runs share it. A miss searches
+on the turn's reservation (its message on Free, one of its daily searches on Pro) beside the
+turn's own search, never in its place (`web_search.side_search_budget`).
 
 The country comes from the request's currency (birr → Ethiopia), else the user's saved place,
 else the United States; the query carries it, so every country takes the same path.
