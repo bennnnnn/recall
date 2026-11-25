@@ -32,7 +32,6 @@ from app.modules.math.solve.parse import (
 )
 from app.modules.math.solve.solved_functions import reject_unsolved_functions
 
-
 # The answer card and the number line ask a solution set of the same text, one after the
 # other in one pool job: kept, it is solved once (audit 2026-11-25). A set is immutable.
 _SOLVED_SETS = 64
