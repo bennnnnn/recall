@@ -296,4 +296,4 @@ async def _store_miss(redis: Redis | None, key: str) -> None:
     try:
         await redis.set(key, _MISS, ex=_MISS_SECONDS)
     except Exception:
-        logger.debug("money rate cache write failed for %s", key, exc_info=True)
+        logger.info("money rate miss not kept for %s", key, exc_info=True)

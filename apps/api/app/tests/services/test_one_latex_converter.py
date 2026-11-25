@@ -51,7 +51,12 @@ def test_the_posed_read_knows_every_command() -> None:
 
 @pytest.mark.parametrize(
     "path",
-    ["services/answer_check.py", "modules/chat/posed_read.py", "modules/physics/read.py"],
+    [
+        "services/answer_check.py",
+        "services/asked_value.py",
+        "modules/chat/posed_read.py",
+        "modules/physics/read.py",
+    ],
 )
 def test_no_reader_keeps_its_own_converter(path: str) -> None:
     source = (_APP / path).read_text(encoding="utf-8")

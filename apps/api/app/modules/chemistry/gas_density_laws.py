@@ -9,7 +9,7 @@ L·atm/(mol·K)), never a copy of it.
 
 from __future__ import annotations
 
-from app.modules.chemistry.formula_record import FormulaLaw, _law
+from app.modules.chemistry.formula_record import FormulaLaw
 from app.services.law_binding.shared_laws import IDEAL_GAS_DENSITY, in_names, solved_for
 
 _GAS_NAMES = {
@@ -20,34 +20,36 @@ _GAS_NAMES = {
 }
 
 GAS_DENSITY_LAWS: tuple[FormulaLaw, ...] = (
-    _law(
-        "gas_density",
-        "gases",
-        "Ideal gas density",
-        "ρ = PM / RT",
-        "Density, ρ",
-        ("ρ", "g/L"),
-        in_names(IDEAL_GAS_DENSITY.expression, _GAS_NAMES),
-        (
+    FormulaLaw(
+        op="gas_density",
+        kind="gases",
+        law_name="Ideal gas density",
+        formula="ρ = PM / RT",
+        find="Density, ρ",
+        result="ρ",
+        unit="g/L",
+        expression=in_names(IDEAL_GAS_DENSITY.expression, _GAS_NAMES),
+        given=(
             ("pressure", "P", "atm"),
             ("molar_mass", "M({formula})", "g/mol"),
             ("temperature", "T", "K"),
         ),
-        "ρ = ({pressure})({molar_mass}) / [({R_atm})({temperature})]",
+        substitution=("ρ = ({pressure})({molar_mass}) / [({R_atm})({temperature})]",),
     ),
-    _law(
-        "molar_mass_from_density",
-        "gases",
-        "Ideal gas density",
-        "M = ρRT / P",
-        "Molar mass, M",
-        ("M", "g/mol"),
-        solved_for(IDEAL_GAS_DENSITY, "molar_mass", _GAS_NAMES),
-        (
+    FormulaLaw(
+        op="molar_mass_from_density",
+        kind="gases",
+        law_name="Ideal gas density",
+        formula="M = ρRT / P",
+        find="Molar mass, M",
+        result="M",
+        unit="g/mol",
+        expression=solved_for(IDEAL_GAS_DENSITY, "molar_mass", _GAS_NAMES),
+        given=(
             ("density", "ρ", "g/L"),
             ("temperature", "T", "K"),
             ("pressure", "P", "atm"),
         ),
-        "M = ({density})({R_atm})({temperature}) / {pressure}",
+        substitution=("M = ({density})({R_atm})({temperature}) / {pressure}",),
     ),
 )

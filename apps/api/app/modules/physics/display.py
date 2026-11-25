@@ -21,6 +21,8 @@ from app.services.rounding_rule import number_parts
 from app.services.school_rounding import round_figures, trim_zeros
 from app.services.unit_text import LENGTH_UNITS, MASS_UNITS, TIME_UNITS
 
+# Figures a worked value and the answer agree to (``working_steps``); an answer itself is
+# written by the rule (``figures=None``).
 ANSWER_FIGURES = 3
 GIVEN_FIGURES = 6
 # A value the working reaches on its way to the answer that does not end within the
@@ -32,7 +34,7 @@ _SCIENTIFIC_FROM = 1e5
 _SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
 
-def _parts(value: float, figures: int) -> tuple[str, int | None]:
+def _parts(value: float, figures: int | None) -> tuple[str, int | None]:
     """(mantissa, exponent) after rounding half up, exponent None for plain form.
 
     An answer is written by the one rule every card follows (``services.rounding_rule``:
@@ -42,7 +44,7 @@ def _parts(value: float, figures: int) -> tuple[str, int | None]:
     rounding comes first, so 99999.97 is 1 × 10⁵ rather than 100000, and the plain form is
     fixed-point.
     """
-    if figures == ANSWER_FIGURES:
+    if figures is None:
         return number_parts(value)
     mantissa, exponent = round_figures(value, figures)
     rounded = float(mantissa.scaleb(exponent))
@@ -52,7 +54,7 @@ def _parts(value: float, figures: int) -> tuple[str, int | None]:
     return trim_zeros(f"{rounded:.{decimals}f}"), None
 
 
-def plain_number(value: float, figures: int = ANSWER_FIGURES) -> str:
+def plain_number(value: float, figures: int | None = None) -> str:
     """``39.6``, ``0.216``, ``3.31 × 10⁻¹⁹``."""
     if not math.isfinite(value):
         return str(value)
@@ -78,7 +80,7 @@ def latex_working(value: float) -> str:
     return latex_number(value, GIVEN_FIGURES if ends else WORKING_FIGURES)
 
 
-def latex_number(value: float, figures: int = ANSWER_FIGURES) -> str:
+def latex_number(value: float, figures: int | None = None) -> str:
     """``39.6``, ``3.31 \\times 10^{-19}``."""
     if not math.isfinite(value):
         return str(value)
@@ -246,7 +248,7 @@ def si_symbol(dimension: str) -> str:
     return expression.replace(" ** ", "^").replace(" / ", "/").replace(" * ", "*")
 
 
-def plain_quantity(value: float, unit: str, figures: int = ANSWER_FIGURES) -> str:
+def plain_quantity(value: float, unit: str, figures: int | None = None) -> str:
     shown_unit = plain_unit(unit)
     if not shown_unit:
         return plain_number(value, figures)
@@ -254,7 +256,7 @@ def plain_quantity(value: float, unit: str, figures: int = ANSWER_FIGURES) -> st
     return f"{plain_number(value, figures)}{gap}{shown_unit}"
 
 
-def latex_quantity(value: float, unit: str, figures: int = ANSWER_FIGURES) -> str:
+def latex_quantity(value: float, unit: str, figures: int | None = None) -> str:
     return f"{latex_number(value, figures)}{latex_unit(unit)}"
 
 
