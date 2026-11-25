@@ -5,7 +5,7 @@ import PreferencesSettingsScreen from "@/features/account/screens/PreferencesSet
 const mockSetHaptics = jest.fn();
 const mockUpdateUser = jest.fn();
 
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { response_tone: "casual" }, updateUser: mockUpdateUser }),
 }));

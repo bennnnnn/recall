@@ -9,7 +9,7 @@ const mockSetString = jest.fn(async (_text: string) => true);
 const mockConfig: { supportEmail: string | null } = { supportEmail: null };
 
 jest.mock("expo-constants", () => ({ expoConfig: { version: "2.3.4" } }));
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { locale: "en" } }),
 }));

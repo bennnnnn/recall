@@ -7,7 +7,7 @@ const mockSetSpeechRate = jest.fn();
 const mockSetTtsModel = jest.fn();
 let mockVoice: string | null = null;
 
-jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("expo-router", () => ({ Redirect: () => null, useFocusEffect: () => {}, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ token: "tok", user: { tts_voice: mockVoice }, updateUser: mockUpdateUser }),
 }));
