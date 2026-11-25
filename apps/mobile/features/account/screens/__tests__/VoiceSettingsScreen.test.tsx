@@ -6,14 +6,20 @@ const mockUpdateUser = jest.fn();
 const mockSetSpeechRate = jest.fn();
 const mockSetTtsModel = jest.fn();
 let mockVoice: string | null = null;
-let mockReplyVoice: string | null = "af_heart";
+let mockReplyVoice: string | null = null;
+let mockReplyHeard = "af_heart";
 let mockLocale = "en";
 
 jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     token: "tok",
-    user: { tts_voice: mockVoice, reply_voice: mockReplyVoice, locale: mockLocale },
+    user: {
+      tts_voice: mockVoice,
+      reply_voice: mockReplyVoice,
+      reply_voice_heard: mockReplyHeard,
+      locale: mockLocale,
+    },
     updateUser: mockUpdateUser,
   }),
 }));
@@ -33,7 +39,8 @@ jest.mock("@/features/speech/model/ttsPreference", () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockVoice = null;
-  mockReplyVoice = "af_heart";
+  mockReplyVoice = null;
+  mockReplyHeard = "af_heart";
   mockLocale = "en";
   mockUpdateUser.mockResolvedValue(undefined);
 });
@@ -87,9 +94,27 @@ it("lists only the reply voices of the app language's model and saves the one pi
 it("offers tts-1's voices where it plays replies", async () => {
   mockLocale = "ru";
   mockReplyVoice = "coral";
+  mockReplyHeard = "coral";
   const view = await render(<VoiceSettingsScreen />);
   expect(view.getByLabelText("settings.voice_reply, Coral")).toBeTruthy();
   await fireEvent.press(view.getByText("settings.voice_reply"));
   await fireEvent.press(view.getByLabelText("Onyx"));
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: "onyx" }));
+});
+
+it("pins the voice heard while following live talk, and can follow it again", async () => {
+  // Never picked: Follow is ticked and the row names the voice heard (Heart).
+  const view = await render(<VoiceSettingsScreen />);
+  expect(view.getByLabelText("settings.voice_reply, Heart")).toBeTruthy();
+  await fireEvent.press(view.getByText("settings.voice_reply"));
+  await fireEvent.press(view.getByLabelText("Heart"));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: "af_heart" }));
+
+  mockUpdateUser.mockClear();
+  mockReplyVoice = "bm_george";
+  mockReplyHeard = "bm_george";
+  await view.rerender(<VoiceSettingsScreen />);
+  await fireEvent.press(view.getByText("settings.voice_reply"));
+  await fireEvent.press(view.getByLabelText("settings.voice_reply_follow"));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: null }));
 });

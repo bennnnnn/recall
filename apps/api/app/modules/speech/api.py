@@ -31,7 +31,6 @@ from app.modules.speech.schemas import (
     SpeechTtsIn,
     SpeechTtsOut,
 )
-from app.modules.speech.text_language import text_language
 from app.modules.speech.tts_followup import (
     normalize_tts_part,
     store_tts_followup,
@@ -106,7 +105,7 @@ async def synthesize_speech(
 
     # A rest clip plays in its reply's language unless it says otherwise (``listen_reply``).
     lead_language = await reply_language(redis, user.id, lead_hash) if part == "rest" else None
-    spent: list[float] = []
+    played: list[speech_service.ListenClip] = []
     async with charged as refund:
         alias = speech_service.normalize_tts_alias(body.model)
         result = await speech_service.synthesize_speech(
@@ -118,7 +117,7 @@ async def synthesize_speech(
             reply_voice=user.reply_voice,
             reply_language=lead_language,
             on_call=refund.spend,
-            on_spend=spent.append,
+            on_played=played.append,
         )
         if not result:
             raise HTTPException(
@@ -128,12 +127,14 @@ async def synthesize_speech(
         audio_bytes, content_type = result
         if part == "lead":
             await store_tts_followup(redis, followup_key, body.text)
-            await remember_reply_language(
-                redis, user.id, tts_lead_hash(body.text), text_language(body.text)
-            )
         # Every clip is paid for by its characters, a rest clip that took no daily slot too.
-        if spent:
-            await quota_service.record_voice_spend(redis, sum(spent))
+        for clip in played:
+            if part == "lead":
+                # What played, not what was read: a lead tts-1 played keeps the reply on it.
+                await remember_reply_language(
+                    redis, user.id, tts_lead_hash(body.text), clip.reply_language
+                )
+            await quota_service.record_voice_spend(redis, clip.usd)
         return SpeechTtsOut(
             audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
             content_type=content_type,

@@ -19,8 +19,8 @@ from app.core.config import Settings
 from app.models import model_catalog
 from app.models.schemas.auth import UserOut, UserUpdate
 from app.models.voice_catalog import picker_voices, voice_for
-from app.modules.speech.service import synthesize_speech
-from app.modules.speech.text_language import UNSURE, clip_language, text_language
+from app.modules.speech.service import ListenClip, synthesize_speech
+from app.modules.speech.text_language import _WORDS, UNSURE, clip_language, text_language
 from app.tests.api_support import api_user, app_with_user
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "reply_voices.json"
@@ -51,6 +51,11 @@ GERMAN = "Natürlich, hier ist die Antwort: Wasser kocht bei hundert Grad und da
         (FRENCH, "fr"),
         (PORTUGUESE, "pt"),
         ("Você pode me dizer onde fica a estação? Não sei o caminho.", "pt"),
+        # Words two languages write are in no list (review, 2026-11-24): "mais" (fr, pt),
+        # "dos" (es, pt), "il y a" (French, not Spanish "y").
+        ("Você pode usar mais água.", "pt"),
+        ("Hay dos soluciones: x = 2 y x = 3.", "es"),
+        ("Il y a deux solutions et elles sont simples.", "fr"),
         (HINDI, "hi"),
         (RUSSIAN, "ru"),
         (AMHARIC, "am"),
@@ -65,6 +70,15 @@ GERMAN = "Natürlich, hier ist die Antwort: Wasser kocht bei hundert Grad und da
 )
 def test_text_language_names_only_a_plain_language(text: str, language: str | None) -> None:
     assert text_language(text) == language
+
+
+def test_no_word_is_in_two_languages_lists() -> None:
+    seen: dict[str, str] = {}
+    shared = []
+    for language, words in _WORDS.items():
+        shared += [(word, seen[word], language) for word in words if word in seen]
+        seen.update(dict.fromkeys(words, language))
+    assert shared == []
 
 
 @pytest.mark.parametrize("text", [ITALIAN, GERMAN])
@@ -82,6 +96,11 @@ def test_a_language_kokoro_reads_but_the_app_has_not_is_never_read_as_one_it_has
         # A clip of numbers or a name follows its reply's language.
         ("1, 2, 3 y 4.", "es", "es"),
         ("Paris, 2.1 million (2023).", "en", "en"),
+        # Letters written as symbols are no other script (review, 2026-11-24).
+        ("R = 10 Ω, so I = 1.2 A.", "en", "en"),
+        ("θ = 30°", "en", "en"),
+        ("A cell is about 10 µm across.", "en", "en"),
+        ("el 1º de mayo", "es", "es"),
         # A clip that reads as another language, or holds another script, goes to tts-1.
         (ENGLISH, "es", None),
         ("Moscú se escribe Москва.", "es", None),
@@ -170,10 +189,10 @@ def _keys(openrouter_api_key: str = "or-test") -> Settings:
 async def test_a_kokoro_language_plays_through_openrouter_as_mp3(text: str, voice: str) -> None:
     openrouter = _client(_response(b"ID3kokoro", "audio/mpeg"))
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
-    spent: list[float] = []
+    played: list[ListenClip] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
         result = await synthesize_speech(
-            _keys(), text, reply_voice="af_bella", on_spend=spent.append
+            _keys(), text, reply_voice="af_bella", on_played=played.append
         )
     assert result == (b"ID3kokoro", "audio/mpeg")
     openai.post.assert_not_called()
@@ -185,7 +204,10 @@ async def test_a_kokoro_language_plays_through_openrouter_as_mp3(text: str, voic
     assert body["voice"] == voice  # af_bella's gender in the text's own language
     assert body["response_format"] == "mp3"
     assert body["provider"]["order"] == ["deepinfra"]
-    assert spent == [pytest.approx(len(" ".join(text.split())) * 4.0 / 1_000_000)]
+    (clip,) = played
+    assert clip.alias == "speech-tts-kokoro-model"
+    assert clip.usd == pytest.approx(len(" ".join(text.split())) * 4.0 / 1_000_000)
+    assert clip.reply_language == text_language(text)
 
 
 @pytest.mark.asyncio
@@ -193,14 +215,29 @@ async def test_a_kokoro_language_plays_through_openrouter_as_mp3(text: str, voic
 async def test_other_languages_and_unclear_text_play_through_tts1(text: str) -> None:
     openrouter = _client(_response(b"ID3kokoro", "audio/mpeg"))
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
-    spent: list[float] = []
+    played: list[ListenClip] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
-        result = await synthesize_speech(_keys(), text, voice="cedar", on_spend=spent.append)
+        result = await synthesize_speech(_keys(), text, voice="cedar", on_played=played.append)
     assert result == (b"ID3tts1", "audio/mpeg")
     openrouter.post.assert_not_called()
     body = openai.post.call_args.kwargs["json"]
     assert (body["model"], body["voice"]) == ("tts-1", "ash")
-    assert spent == [pytest.approx(len(text) * 15.0 / 1_000_000)]
+    (clip,) = played
+    assert clip.usd == pytest.approx(len(text) * 15.0 / 1_000_000)
+    assert clip.reply_language == UNSURE  # the rest of the reply stays on tts-1
+
+
+@pytest.mark.asyncio
+async def test_a_rest_clip_of_numbers_plays_in_its_replys_kokoro_voice() -> None:
+    openrouter = _client(_response(b"ID3kokoro", "audio/mpeg"))
+    openai = _client(_response(b"ID3tts1", "audio/mpeg"))
+    with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
+        result = await synthesize_speech(
+            _keys(), "1, 2, 3 y 4.", reply_voice="af_heart", reply_language="es"
+        )
+    assert result == (b"ID3kokoro", "audio/mpeg")
+    openai.post.assert_not_called()
+    assert openrouter.post.call_args.kwargs["json"]["voice"] == "ef_dora"
 
 
 @pytest.mark.asyncio
@@ -216,16 +253,20 @@ async def test_a_kokoro_failure_falls_back_to_tts1(kokoro: MagicMock) -> None:
     openrouter = _client(kokoro)
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
     calls: list[str] = []
+    played: list[ListenClip] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
         result = await synthesize_speech(
             _keys(),
             ENGLISH,
             reply_voice="am_michael",
             on_call=lambda: calls.append("call"),
+            on_played=played.append,
         )
     assert result == (b"ID3tts1", "audio/mpeg")
     assert openai.post.call_args.kwargs["json"]["voice"] == "ash"
     assert calls == ["call"]
+    # tts-1 played it: the reply's rest clips stay on tts-1, in the same voice.
+    assert [(clip.alias, clip.reply_language) for clip in played] == [("speech-tts-model", UNSURE)]
 
 
 @pytest.mark.asyncio
@@ -266,7 +307,13 @@ def test_a_reply_keeps_its_leads_language_and_every_clip_is_paid_for() -> None:
     user = api_user(plan="pro", reply_voice="em_alex")
     client = TestClient(app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    synth = AsyncMock(return_value=(b"mp3", "audio/mpeg"))
+    calls: list[dict[str, Any]] = []
+
+    async def synth(_settings: Any, text: str, **kwargs: Any) -> tuple[bytes, str]:
+        calls.append(kwargs)
+        kwargs["on_played"](ListenClip("speech-tts-kokoro-model", "es", len(text) * 4e-6))
+        return b"mp3", "audio/mpeg"
+
     spend = AsyncMock()
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
@@ -278,10 +325,36 @@ def test_a_reply_keeps_its_leads_language_and_every_clip_is_paid_for() -> None:
         rest = _post_tts(client, "1, 2, 3 y 4.", part="rest", lead_hash=lead_hash)
     assert lead.status_code == rest.status_code == 200
     assert base64.b64decode(rest.json()["audio_base64"]) == b"mp3"
-    first, second = synth.await_args_list
-    assert first.kwargs["reply_language"] is None
-    assert second.kwargs["reply_language"] == "es"
-    assert second.kwargs["reply_voice"] == "em_alex"
+    first, second = calls
+    assert first["reply_language"] is None
+    assert second["reply_language"] == "es"
+    assert second["reply_voice"] == "em_alex"
+    # The rest clip took no daily slot, and its characters are still paid for.
+    assert [call.args[1] for call in spend.await_args_list] == [
+        pytest.approx(len(SPANISH) * 4e-6),
+        pytest.approx(len("1, 2, 3 y 4.") * 4e-6),
+    ]
+
+
+def test_a_lead_tts1_played_keeps_the_rest_of_the_reply_on_tts1() -> None:
+    client = TestClient(app_with_user(api_user(plan="pro")))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    calls: list[dict[str, Any]] = []
+
+    async def synth(_settings: Any, _text: str, **kwargs: Any) -> tuple[bytes, str]:
+        calls.append(kwargs)
+        # Kokoro failed on the English lead: tts-1 played it.
+        kwargs["on_played"](ListenClip("speech-tts-model", "en", 0.001))
+        return b"mp3", "audio/mpeg"
+
+    with (
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.synthesize_speech", synth),
+        patch("app.modules.speech.api.quota_service.record_voice_spend", AsyncMock()),
+    ):
+        lead_hash = _post_tts(client, ENGLISH, part="lead").json()["lead_hash"]
+        _post_tts(client, "And that is all.", part="rest", lead_hash=lead_hash)
+    assert calls[1]["reply_language"] == UNSURE
 
 
 def test_the_spend_recorded_is_what_the_service_reports() -> None:
@@ -289,8 +362,8 @@ def test_the_spend_recorded_is_what_the_service_reports() -> None:
     client = TestClient(app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
-    async def synth(*_args: Any, on_spend: Any = None, **_kwargs: Any) -> tuple[bytes, str]:
-        on_spend(0.0006)
+    async def synth(*_args: Any, on_played: Any = None, **_kwargs: Any) -> tuple[bytes, str]:
+        on_played(ListenClip("speech-tts-model", None, 0.0006))
         return b"mp3", "audio/mpeg"
 
     spend = AsyncMock()
@@ -303,15 +376,22 @@ def test_the_spend_recorded_is_what_the_service_reports() -> None:
     spend.assert_awaited_once_with(fake_redis, pytest.approx(0.0006))
 
 
-def test_the_account_shows_the_reply_voice_a_reply_in_the_app_language_plays_in() -> None:
-    out = UserOut.model_validate(api_user(locale="en", tts_voice="cedar"))
-    assert out.reply_voice == "am_michael"
-    out = UserOut.model_validate(api_user(locale="ru", tts_voice="marin"))
-    assert out.reply_voice == "coral"
-    out = UserOut.model_validate(api_user(locale="es", reply_voice="af_heart"))
-    assert out.reply_voice == "ef_dora"
-    out = UserOut.model_validate(api_user(locale="en", reply_voice="af_heart"))
-    assert out.reply_voice == "af_heart"
+@pytest.mark.parametrize(
+    "locale, picked, live, heard",
+    [
+        ("en", None, "cedar", "am_michael"),
+        ("ru", None, "marin", "coral"),
+        ("es", "af_heart", None, "ef_dora"),
+        ("en", "af_heart", "cedar", "af_heart"),
+    ],
+)
+def test_the_account_sends_the_pick_and_the_voice_heard(
+    locale: str, picked: str | None, live: str | None, heard: str
+) -> None:
+    """The phone ticks the pick (null: follow live talk) and names the voice heard."""
+    out = UserOut.model_validate(api_user(locale=locale, reply_voice=picked, tts_voice=live))
+    body = out.model_dump()
+    assert (body["reply_voice"], body["reply_voice_heard"]) == (picked, heard)
 
 
 def test_only_a_voice_a_reply_model_has_can_be_saved() -> None:

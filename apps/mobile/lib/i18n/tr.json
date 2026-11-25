@@ -1001,6 +1001,7 @@
   "settings.voice_live": "Canlı konuşma sesi",
   "settings.voice_reply": "Yanıt sesi",
   "settings.voice_reply_summary": "Dinle'ye dokunduğunda bir yanıtın çalındığı ses",
+  "settings.voice_reply_follow": "Canlı konuşma sesini izle",
   "settings.voice_summary": "Dinle ve canlı konuşma için sesler ve hız",
   "settings.web_search": "Web araması",
   "settings.web_search_off": "Web araması kapalı",

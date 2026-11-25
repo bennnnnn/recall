@@ -70,9 +70,9 @@ class UserOut(BaseModel):
     quiet_hours_start_minute: int = 1320
     quiet_hours_end_minute: int = 420
     locale: str = "en"
-    # The voice a reply in the app's language plays in: the one picked, or the one the
-    # live talk voice gives (``voice_catalog.reply_voice_for_app``). Never null.
-    reply_voice: str | None = Field(default=None, validate_default=True)
+    # The reply voice the user picked; null when they never did (it follows the live talk
+    # voice). The voice a reply really plays in is ``reply_voice_heard`` below.
+    reply_voice: str | None = None
     timezone: str = "UTC"
     location: str | None = None
     # When the user last set the Location switch; read before ``location_enabled`` below.
@@ -94,13 +94,6 @@ class UserOut(BaseModel):
         """A model the catalog dropped since it was saved is off; with none left, Auto."""
         return current_choices(value)
 
-    @field_validator("reply_voice")
-    @classmethod
-    def reply_voice_heard(cls, value: str | None, info: ValidationInfo) -> str:
-        """The voice a reply in the app's language really plays in."""
-        locale = normalize_locale_code(info.data.get("locale"))
-        return reply_voice_for_app(locale, value, info.data.get("tts_voice"))
-
     @field_validator("location_enabled")
     @classmethod
     def location_never_chosen_is_null(cls, value: bool | None, info: ValidationInfo) -> bool | None:
@@ -115,6 +108,15 @@ class UserOut(BaseModel):
     def default_model(self) -> str:
         """Derived from ``enabled_models`` (``chosen_model_id``), never stored apart."""
         return chosen_model_id(self.enabled_models)
+
+    # mypy rejects a decorator over @property; pydantic documents this ignore.
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def reply_voice_heard(self) -> str:
+        """The voice a reply in the app's language really plays in: the one picked, or the
+        one the live talk voice gives (``voice_catalog.reply_voice_for_app``)."""
+        locale = normalize_locale_code(self.locale)
+        return reply_voice_for_app(locale, self.reply_voice, self.tts_voice)
 
     # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]

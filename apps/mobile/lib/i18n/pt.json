@@ -1012,6 +1012,7 @@
   "settings.voice_live": "Voz da conversa ao vivo",
   "settings.voice_reply": "Voz das respostas",
   "settings.voice_reply_summary": "A voz de uma resposta quando você toca em Ouvir",
+  "settings.voice_reply_follow": "Seguir a voz da conversa ao vivo",
   "settings.voice_summary": "Vozes e velocidade para Ouvir e a conversa ao vivo",
   "settings.web_search": "Pesquisa na web",
   "settings.web_search_off": "Pesquisa na web desligada",

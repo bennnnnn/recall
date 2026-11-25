@@ -4,7 +4,13 @@
  * voice the phone offers is one the model that plays the reply really has.
  */
 import fixture from "../../../../../../docs/fixtures/reply_voices.json";
-import { replyVoiceLabel, replyVoicesFor, REPLY_VOICES } from "@/features/speech/model/voices";
+import {
+  heardVoiceLabel,
+  listenVoiceKey,
+  replyVoiceLabel,
+  replyVoicesFor,
+  REPLY_VOICES,
+} from "@/features/speech/model/voices";
 import { LANGUAGES } from "@/lib/i18n/languages";
 
 type Voice = { id: string; female: boolean };
@@ -32,4 +38,16 @@ it("names a voice without its language and gender prefix", () => {
   expect(replyVoiceLabel("af_heart")).toBe("Heart");
   expect(replyVoiceLabel("bm_george")).toBe("George");
   expect(replyVoiceLabel("coral")).toBe("Coral");
+});
+
+it("keys a reply's clips on both voices, so a change of either asks anew", () => {
+  expect(listenVoiceKey({ reply_voice: "af_heart", tts_voice: "sage" })).toBe("af_heart|sage");
+  expect(listenVoiceKey({ reply_voice: null, tts_voice: "coral" })).toBe("|coral");
+  expect(listenVoiceKey({ reply_voice: null, tts_voice: null })).toBeNull();
+});
+
+it("names the voice heard, or the live talk voice from an older server", () => {
+  expect(heardVoiceLabel({ reply_voice_heard: "am_michael", tts_voice: "cedar" })).toBe("Michael");
+  expect(heardVoiceLabel({ tts_voice: "cedar" })).toBe("Cedar");
+  expect(heardVoiceLabel(null)).toBeNull();
 });

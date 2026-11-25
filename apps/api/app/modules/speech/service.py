@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from app.core.config import Settings
 from app.gateways import mock_llm, openrouter_speech_gateway, speech_gateway
@@ -11,7 +12,7 @@ from app.models import model_catalog
 from app.models.model_catalog import openrouter_slug
 from app.models.voice_catalog import voice_for
 from app.modules.speech.schemas import SPEECH_MAX_AUDIO_BYTES
-from app.modules.speech.text_language import clip_language
+from app.modules.speech.text_language import UNSURE, clip_language
 from app.modules.speech.transcript_validation import sanitize_transcript
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,25 @@ _STT_ALIAS = "speech-stt-model"
 TTS_QUALITY_ALIAS = "speech-tts-model"
 TTS_FAST_ALIAS = "speech-tts-fast-model"
 LIVE_TALK_ALIAS = "live-talk-model"
+
+
+@dataclass(frozen=True)
+class ListenClip:
+    """What played one Listen clip: the catalog alias, the language it was read in (None:
+    unclear) and the call's estimated USD."""
+
+    alias: str
+    language: str | None
+    usd: float
+
+    @property
+    def reply_language(self) -> str:
+        """What the rest of the reply should follow: the language, when a model that reads
+        only some languages played it; ``UNSURE`` when the any-language model did (unclear
+        text, or Kokoro failed), so the rest stays in that one voice too."""
+        if self.language is None or model_catalog.speaks(self.alias, None):
+            return UNSURE
+        return self.language
 
 
 def normalize_tts_alias(raw: str | None) -> str:
@@ -98,7 +118,7 @@ async def synthesize_speech(
     reply_voice: str | None = None,
     reply_language: str | None = None,
     on_call: Callable[[], None] | None = None,
-    on_spend: Callable[[float], None] | None = None,
+    on_played: Callable[[ListenClip], None] | None = None,
 ) -> tuple[bytes, str] | None:
     """Return (audio_bytes, content_type) of ``text`` played aloud.
 
@@ -108,7 +128,7 @@ async def synthesize_speech(
     voice and ``reply_voice`` the reply voice the user picked (``voice_catalog``);
     ``reply_language`` is what the reply's lead clip was read as (``clip_language``).
     ``on_call`` runs just before the first provider is asked (the mock counts as one), and
-    ``on_spend`` with the estimated USD of the call that played the clip."""
+    ``on_played`` with what played the clip (``ListenClip``)."""
     if not settings.speech_tts_enabled:
         return None
     plain = " ".join((text or "").split()).strip()
@@ -138,9 +158,9 @@ async def synthesize_speech(
         if audio is None:
             continue
         logger.info("Listen clip model=%s language=%s chars=%s", alias, spoken, len(plain))
-        price = model_catalog.get(alias).usd_per_m_chars
-        if on_spend is not None and price is not None:
-            on_spend(len(plain) * price / 1_000_000)
+        if on_played is not None:
+            price = model_catalog.get(alias).usd_per_m_chars or 0.0
+            on_played(ListenClip(alias, spoken, len(plain) * price / 1_000_000))
         return audio
     return None
 

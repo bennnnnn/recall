@@ -12,8 +12,6 @@ import logging
 
 from redis.asyncio import Redis
 
-from app.modules.speech.text_language import UNSURE
-
 logger = logging.getLogger(__name__)
 
 # A long reply plays for a few minutes; each rest clip renews the record.
@@ -25,11 +23,12 @@ def _key(user_id: object, lead_hash: str) -> str:
 
 
 async def remember_reply_language(
-    redis: Redis, user_id: object, lead_hash: str, language: str | None
+    redis: Redis, user_id: object, lead_hash: str, language: str
 ) -> None:
-    """After a lead clip: the language it was read as (``UNSURE`` for none)."""
+    """After a lead clip: the language it played in (``UNSURE`` when the any-language model
+    played it)."""
     try:
-        await redis.set(_key(user_id, lead_hash), language or UNSURE, ex=_TTL_SECONDS)
+        await redis.set(_key(user_id, lead_hash), language, ex=_TTL_SECONDS)
     except Exception:
         logger.warning("Listen could not keep a reply's language", exc_info=True)
 

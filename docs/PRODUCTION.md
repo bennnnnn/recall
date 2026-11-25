@@ -754,8 +754,11 @@ UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
   (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
   compression, follow-up questions, attachment OCR, embeddings,
   the reference resolver, maths extraction;
-- a fixed price per call for images, photo lookup, scan reads, voice input and
-  read-aloud (`services/quota/spend.py`);
+- a fixed price per call for images, photo lookup, scan reads and voice input
+  (`services/quota/spend.py`);
+- Listen (read aloud) per clip by its characters, at its model's catalog price
+  (`ChatModel.usd_per_m_chars`: Kokoro $4 per 1M, tts-1 $15 per 1M;
+  `modules/speech/service.synthesize_speech`);
 - live talk by time: the reserved minutes at mint, settled at
   `POST /speech/live/end` ([§4b](#live-talk-minutes)).
 

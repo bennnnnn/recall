@@ -1001,6 +1001,7 @@
   "settings.voice_live": "Live talk की आवाज़",
   "settings.voice_reply": "जवाब की आवाज़",
   "settings.voice_reply_summary": "सुनें टैप करने पर जवाब इसी आवाज़ में चलता है",
+  "settings.voice_reply_follow": "Live talk की आवाज़ अपनाएँ",
   "settings.voice_summary": "सुनें और Live talk के लिए आवाज़ें और गति",
   "settings.web_search": "वेब सर्च",
   "settings.web_search_off": "वेब सर्च बंद",

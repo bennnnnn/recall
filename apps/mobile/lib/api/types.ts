@@ -44,11 +44,13 @@ export type User = {
   /** Live talk's voice; null is the server default. */
   tts_voice?: UserVoice | null;
   /**
-   * The voice a reply in the app's language plays in when the user taps Listen: one of
-   * `replyVoicesFor(locale)` (features/speech/model/voices.ts). The server sends the one that
-   * really plays, picked or not; saving null makes it follow the live talk voice again.
+   * The reply voice the user picked for Listen, one of `replyVoicesFor(locale)`
+   * (features/speech/model/voices.ts); null when they never did or chose "Follow live talk
+   * voice". Saving null follows the live talk voice again.
    */
   reply_voice?: string | null;
+  /** The voice a reply in the app's language really plays in, picked or not (server-made). */
+  reply_voice_heard?: string | null;
   email_reminders_enabled?: boolean;
   /** False when the server cannot send email (no provider set up): hide the switch. */
   email_reminders_available?: boolean;

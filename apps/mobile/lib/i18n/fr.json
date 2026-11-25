@@ -1012,6 +1012,7 @@
   "settings.voice_live": "Voix de la conversation en direct",
   "settings.voice_reply": "Voix des réponses",
   "settings.voice_reply_summary": "La voix d'une réponse quand vous touchez Écouter",
+  "settings.voice_reply_follow": "Suivre la voix de la conversation en direct",
   "settings.voice_summary": "Voix et vitesse pour Écouter et la conversation en direct",
   "settings.web_search": "Recherche web",
   "settings.web_search_off": "Recherche web désactivée",

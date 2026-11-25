@@ -30,6 +30,8 @@ import {
 import { numberFormat } from "@/lib/money/format";
 
 const DEFAULT_VOICE = "default";
+// The Reply voice menu's row that saves null: the reply follows the live talk voice.
+const FOLLOW_LIVE_VOICE = "follow";
 
 /**
  * Settings → Voice. Two voices are saved on the account: live talk's, and the one a reply
@@ -63,11 +65,6 @@ export default function VoiceSettingsScreen() {
     ],
     [t],
   );
-  const replyVoices = replyVoicesFor(user?.locale);
-  const replyOptions = useMemo(
-    () => replyVoices.map((voice) => ({ key: voice.id, label: replyVoiceLabel(voice.id) })),
-    [replyVoices],
-  );
   const rateLabel = useMemo(() => {
     const format = numberFormat(i18n.language);
     return (value: number) => `${format.format(value)}×`;
@@ -78,24 +75,11 @@ export default function VoiceSettingsScreen() {
   }));
 
   const voice = user?.tts_voice ?? null;
-  // The server sends the voice that really plays; an older server sends none.
-  const replyVoice = user?.reply_voice ?? null;
 
   return (
     <SettingsPage>
       <SettingsGroup>
-        <SettingsMenuRow
-          title={t("settings.voice_reply")}
-          subtitle={t("settings.voice_reply_summary")}
-          value={replyVoice ? replyVoiceLabel(replyVoice) : t("settings.voice_default")}
-          options={replyOptions}
-          selectedKey={replyVoice ?? ""}
-          busy={action.busy === "reply_voice"}
-          onSelect={(key) => {
-            if (!replyVoices.some((candidate) => candidate.id === key)) return;
-            void action.run("reply_voice", () => updateUser({ reply_voice: key }));
-          }}
-        />
+        <ReplyVoiceRow action={action} />
         <SettingsMenuRow
           title={t("settings.voice_live")}
           subtitle={t("settings.voice_choice_summary")}
@@ -135,5 +119,38 @@ export default function VoiceSettingsScreen() {
         />
       </SettingsGroup>
     </SettingsPage>
+  );
+}
+
+/**
+ * Reply voice: "Follow live talk voice" (saves null), then the voices of the model that plays
+ * replies in the app's language. The pick ticks its row; the row names the voice heard.
+ */
+function ReplyVoiceRow({ action }: { action: ReturnType<typeof useSettingsAction> }) {
+  const { user, updateUser } = useAuth();
+  const { t } = useTranslation();
+  const replyVoices = replyVoicesFor(user?.locale);
+  const options = useMemo(
+    () => [
+      { key: FOLLOW_LIVE_VOICE, label: t("settings.voice_reply_follow") },
+      ...replyVoices.map((voice) => ({ key: voice.id, label: replyVoiceLabel(voice.id) })),
+    ],
+    [replyVoices, t],
+  );
+  const heard = user?.reply_voice_heard ?? null;
+  return (
+    <SettingsMenuRow
+      title={t("settings.voice_reply")}
+      subtitle={t("settings.voice_reply_summary")}
+      value={heard ? replyVoiceLabel(heard) : t("settings.voice_default")}
+      options={options}
+      selectedKey={user?.reply_voice ?? FOLLOW_LIVE_VOICE}
+      busy={action.busy === "reply_voice"}
+      onSelect={(key) => {
+        const next = key === FOLLOW_LIVE_VOICE ? null : key;
+        if (next && !replyVoices.some((candidate) => candidate.id === next)) return;
+        void action.run("reply_voice", () => updateUser({ reply_voice: next }));
+      }}
+    />
   );
 }

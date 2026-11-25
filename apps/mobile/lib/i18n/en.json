@@ -1001,6 +1001,7 @@
   "settings.voice_live": "Live talk voice",
   "settings.voice_reply": "Reply voice",
   "settings.voice_reply_summary": "The voice a reply plays in when you tap Listen",
+  "settings.voice_reply_follow": "Follow live talk voice",
   "settings.voice_summary": "Voices and speed for Listen and live talk",
   "settings.web_search": "Web search",
   "settings.web_search_off": "Web search off",

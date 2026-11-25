@@ -1027,8 +1027,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`users.reply_voice`) lists only the voices of the model that plays replies in the app's
   language (Kokoro's for en/es/fr/hi/pt, tts-1's for ru/tr/am: `models/voice_catalog.py`, the
   phone's `features/speech/model/voices.ts`, both held to `docs/fixtures/reply_voices.json`);
-  never picked, it follows the live talk voice's gender. One swap remains: a reply in another
-  language than the app's plays in that language's voice of the same gender. **Live talk
+  never picked (or set back to "Follow live talk voice"), it follows the live talk voice's
+  gender; `/auth/me` sends the pick (`reply_voice`) and the voice that plays
+  (`reply_voice_heard`). Two swaps remain, each to the voice of the same gender: a reply in
+  another language than the app's plays in that language's voice, and a clip Kokoro fails to
+  play is played by tts-1 (the rest of that reply stays on tts-1). **Live talk
   voice** (`users.tts_voice`, the realtime model's voices; Default keeps the server's). Listen
   speed (0.75×–1.5×, on the device, pitch kept) and Use on-device voice (offline device speech
   instead of the cloud voice).

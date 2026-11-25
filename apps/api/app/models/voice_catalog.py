@@ -3,15 +3,19 @@ what they hear.
 
 Settings → Voice has two pickers. "Live talk voice" (``users.tts_voice``) is a voice of
 the realtime model. "Reply voice" (``users.reply_voice``) lists the voices of the model
-that plays replies in the app's language (``picker_voices``): Kokoro's for English,
-Spanish, French, Hindi and Portuguese, tts-1's for Russian, Turkish and Amharic. A reply in
-that language plays in exactly the voice picked.
+that plays replies in the app's language (``picker_voices``): Kokoro's for English, Spanish,
+French, Hindi and Portuguese, tts-1's for Russian, Turkish and Amharic, and "Follow live talk
+voice" (null). A reply in that language plays in exactly the voice picked.
 
-One swap remains, documented here and nowhere else: a reply in another language than the
-app's (a Spanish answer in an English app), or in no clear language, plays in a voice of
-that language's model, since a voice reads only its own language. It is the voice of the
-same gender as the one picked (the first of that gender in the model's list, the best
-rated), or the picked voice itself when that model has it too.
+Two swaps remain, documented here and in FEATURES.md (Settings → Voice), both of them to the
+voice of the same gender as the one picked (the first of that gender in the model's list,
+the best rated), or to the picked voice itself when that model has it too:
+
+* a reply in another language than the app's (a Spanish answer in an English app), or in no
+  clear language, plays in a voice of that language's model, since a voice reads only its
+  own language;
+* a clip Kokoro fails to play is played by tts-1 (bm_george is heard as ash), and the rest
+  of that reply stays on tts-1 (``ListenClip.reply_language``).
 
 A user who never picked a reply voice hears the one their live talk voice gives: that voice
 itself when the model has it (tts-1 has alloy, ash, coral, echo, sage and shimmer), else the

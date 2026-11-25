@@ -1023,6 +1023,7 @@
   "settings.voice_live": "Голос живого разговора",
   "settings.voice_reply": "Голос ответов",
   "settings.voice_reply_summary": "Голос, которым звучит ответ, когда вы нажимаете «Слушать»",
+  "settings.voice_reply_follow": "Как голос живого разговора",
   "settings.voice_summary": "Голоса и скорость для «Слушать» и живого разговора",
   "settings.web_search": "Поиск в интернете",
   "settings.web_search_off": "Поиск в интернете выключен",

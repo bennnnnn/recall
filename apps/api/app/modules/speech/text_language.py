@@ -13,9 +13,16 @@ A language is named only on plain evidence, else None and the any-language model
 * a Latin-script language when its own common words make up a real share of the text, far
   ahead of every other language's, and no letter of another script is in it.
 
-The word lists hold only words the other listed languages do not write ("de", "que", "a" and
-"no" are in several, so in none). Italian, German and Turkish are listed only so that a text
-in one of them is never read as Spanish, French or Portuguese.
+Each word is in one list only, and a common word another listed language (English
+included) also writes is in none: "de", "que", "a", "no", "mais", "das", "dos" and "les" are
+in several languages, so in no list. One exception, Spanish "y": French writes it only in
+"il y a", which counts as French, and a Spanish text without it often has too few listed
+words. Italian, German and
+Turkish are listed only so that a text in one of them is never read as Spanish, French or
+Portuguese.
+
+Letters used as symbols are no script: Greek (θ, Ω, µ in a formula) and the signs that are
+letters to Unicode (º, ª, Ω as the ohm sign).
 """
 
 from __future__ import annotations
@@ -31,6 +38,11 @@ UNSURE = ""
 
 _WORD = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)?")
 _SCRIPTS = {"CYRILLIC": "ru", "ETHIOPIC": "am", "DEVANAGARI": "hi"}
+# Letters a reply writes as symbols, by the first word of their Unicode name: "θ = 30°",
+# "R = 10 Ω", "el 1º de mayo", "5 µm" are still one language's text.
+_SYMBOL_SCRIPTS = frozenset(
+    {"GREEK", "MASCULINE", "FEMININE", "MICRO", "OHM", "KELVIN", "ANGSTROM"}
+)
 # Letters of one script are at least this share of a text before it is of that script: a
 # stray symbol (θ in "θ = 30°") is let through, a word of another language is not.
 _ONE_SCRIPT = 0.97
@@ -43,38 +55,37 @@ _MIN_WORDS = 2
 _WORDS: dict[str, frozenset[str]] = {
     "en": frozenset(
         """the and is are of to you your it its this that these those with what how why which
-        who they them their we our she not can will would should could have had does did
-        from by at if but there here then than just about into more some any when where
-        been being i'm it's don't can't let's you're that's here's there's isn't doesn't""".split()
+        who they them their we our she not would should could have had does did from by at if
+        but there here then than just about into more some any when where been being i'm
+        it's don't can't let's you're that's here's there's isn't doesn't""".split()
     ),
     "es": frozenset(
-        """el los las del y es está están muy pero también cuando hay puede puedes usted tú
-        más qué cómo dónde aquí ahora hola gracias tiene tienes hacer puedo mucho ya ellos
-        yo esa ese eso esto estos nuestro nuestra hace estoy eres pueden entonces aunque
-        cuál según después siempre""".split()
+        """el los las y están muy pero también cuando hay puede puedes usted tú más qué cómo
+        dónde aquí ahora hola gracias tiene tienes hacer puedo mucho ya ellos yo esa ese eso
+        esto estos nuestro nuestra hace estoy eres pueden entonces aunque cuál según después
+        siempre""".split()
     ),
     "fr": frozenset(
-        """les des du et est une il elle ils elles nous vous je pas pour avec dans au aux
-        cette ces mais sont être avoir très bonjour merci c'est n'est leur votre notre aussi
-        donc ça peut fait comme qu'il qu'on j'ai d'un d'une sur""".split()
+        """des et est une elle ils elles nous vous je pas pour avec dans au aux cette ces sont
+        être avoir très bonjour merci c'est n'est leur votre notre aussi donc ça peut fait
+        comme qu'il qu'on j'ai d'un d'une sur""".split()
     ),
     "pt": frozenset(
-        """não é são você vocês com uma um os do da dos das na nas em ao aos pelo pela também
-        isso isto muito mais mas seu sua ele ela eles elas então quando foi tem têm estão
-        olá obrigado obrigada pode podem fazer aqui onde já nós essa esse ainda assim agora
-        coisa""".split()
+        """não é são você vocês com uma na nas em ao aos pela também isso isto muito mas seu
+        sua ele ela eles elas então foi tem têm estão olá obrigado obrigada pode podem fazer
+        aqui onde já nós essa esse ainda assim agora coisa""".split()
     ),
     "it": frozenset(
         """della delle degli gli nel nella sono è per che questo questa anche molto ciao
-        grazie dei alla perché più può essere hai ho""".split()
+        grazie alla perché più può essere hai ho""".split()
     ),
     "de": frozenset(
-        """der die das und ist nicht ein eine mit für auf sie ich wir auch sind zu den dem
-        von werden kann haben wird oder aber wenn wie""".split()
+        """der die und ist nicht ein eine mit für auf sie ich wir auch sind zu den dem von
+        werden kann haben wird oder aber wenn wie""".split()
     ),
     "tr": frozenset(
-        """ve bir bu için ile çok gibi daha olarak var değil ben sen merhaba şey olan kadar
-        nasıl neden evet hayır sonra şimdi bunu ise""".split()
+        """bir bu için ile çok gibi daha olarak var değil ben sen merhaba şey olan kadar nasıl
+        neden evet hayır sonra şimdi bunu ise""".split()
     ),
 }
 # Letters only one of these languages writes: each word holding one is that language's.
@@ -88,7 +99,9 @@ def _script(char: str) -> str:
 
 
 def _letter_scripts(text: str) -> Counter[str]:
-    return Counter(_script(char) for char in text if char.isalpha())
+    """How many letters of each script ``text`` holds, letters used as symbols left out."""
+    scripts = (_script(char) for char in text if char.isalpha())
+    return Counter(script for script in scripts if script not in _SYMBOL_SCRIPTS)
 
 
 def script_of_language(language: str) -> str:
@@ -111,7 +124,10 @@ def _latin_language(text: str) -> str | None:
     if len(words) < _MIN_WORDS:
         return None
     hits: Counter[str] = Counter()
-    for word in words:
+    for index, word in enumerate(words):
+        if word == "y" and index and words[index - 1] == "il":
+            hits["fr"] += 1  # "il y a"
+            continue
         for language, vocabulary in _WORDS.items():
             if word in vocabulary:
                 hits[language] += 1
@@ -155,6 +171,6 @@ def clip_language(text: str, reply_language: str | None) -> str | None:
         return None
     if own == reply_language:
         return own
-    if own is None and _letter_scripts(text).keys() <= {script_of_language(reply_language)}:
+    if own is None and set(_letter_scripts(text)) <= {script_of_language(reply_language)}:
         return reply_language
     return None

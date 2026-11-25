@@ -1001,6 +1001,7 @@
   "settings.voice_live": "የቀጥታ ንግግር ድምፅ",
   "settings.voice_reply": "የመልስ ድምፅ",
   "settings.voice_reply_summary": "አዳምጥን ሲነኩ መልስ የሚጫወትበት ድምፅ",
+  "settings.voice_reply_follow": "የቀጥታ ንግግር ድምፅን ተከተል",
   "settings.voice_summary": "ለአዳምጥ እና ለቀጥታ ንግግር ድምፆች እና ፍጥነት",
   "settings.web_search": "የድር ፍለጋ",
   "settings.web_search_off": "የድር ፍለጋ ጠፍቷል",
