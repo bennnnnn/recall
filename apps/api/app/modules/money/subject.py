@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
     from app.core.config import Settings
+    from app.gateways.mcp.base import TavilyBudget
     from app.models.orm import User
     from app.modules.money.catalog import Product
     from app.modules.money.service import MoneyTurn
@@ -36,6 +37,7 @@ class MoneyPeer:
         location: str | None,
         earlier: Sequence[str | Sequence[str]],
         last_reply: str,
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         from app.modules.money.service import prepare_money_turn
 
@@ -47,6 +49,7 @@ class MoneyPeer:
             location=location,
             earlier=earlier,
             last_reply=last_reply,
+            search_budget=search_budget,
         )
 
     async def prepare_standing(
@@ -59,6 +62,7 @@ class MoneyPeer:
         location: str | None,
         earlier: Sequence[str | Sequence[str]],
         last_reply: str,
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         from app.modules.money.service import prepare_standing_turn
 
@@ -70,6 +74,7 @@ class MoneyPeer:
             location=location,
             earlier=earlier,
             last_reply=last_reply,
+            search_budget=search_budget,
         )
 
     async def prepare_read(
@@ -81,11 +86,18 @@ class MoneyPeer:
         user: User | None,
         location: str | None,
         conversation: Sequence[tuple[str, str]],
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         from app.modules.money.service import prepare_read_turn
 
         return await prepare_read_turn(
-            text, settings, redis, user=user, location=location, conversation=conversation
+            text,
+            settings,
+            redis,
+            user=user,
+            location=location,
+            conversation=conversation,
+            search_budget=search_budget,
         )
 
     async def finish(self, turn: MoneyTurn, text: str, settings: Settings, *, english: bool) -> str:

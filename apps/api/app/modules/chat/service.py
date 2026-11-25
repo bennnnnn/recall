@@ -281,6 +281,7 @@ async def today_usage(
         messages_used=messages,
         daily_messages=daily_messages,
         messages_left=max(0, daily_messages - messages),
+        messages_unlimited=quota_service.unlimited_messages(user, settings),
         date=day.isoformat(),
         input_tokens=input_tokens,
         output_tokens=output_tokens,

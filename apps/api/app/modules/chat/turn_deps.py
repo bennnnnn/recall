@@ -252,6 +252,7 @@ class ImageSearch(Protocol):
         query: str,
         user_message_content: str | None = ...,
         create_user_message: bool = ...,
+        takes_message: bool = ...,
     ) -> tuple[Message, Message]: ...
 
 

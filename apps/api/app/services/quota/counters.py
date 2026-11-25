@@ -13,6 +13,7 @@ from redis.exceptions import RedisError, ResponseError
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+from app.modules.billing import entitlements
 from app.modules.billing.entitlements import Allowance, allowance
 from app.services.quota.messages import (
     DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE,
@@ -26,7 +27,6 @@ from app.services.quota.messages import (
     QUOTA_EXCEEDED_MESSAGE_FREE,
     QUOTA_EXCEEDED_MESSAGE_PAID,
     SPEECH_LIMIT_EXCEEDED_MESSAGE,
-    SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE,
     plan_message,
 )
 
@@ -50,6 +50,9 @@ def daily_key(prefix: str, owner: str | UUID, day: date | None = None) -> str:
     """Per-user, per-UTC-day counter key shared by every daily cap."""
     return f"{prefix}:{owner}:{(day or utc_today()).isoformat()}"
 
+
+# The cap of a counter a plan leaves unlimited: counted, never reached.
+_NO_CAP = 2**62
 
 # Daily counters outlive their day by enough to read yesterday, then expire.
 DAILY_TTL = 60 * 60 * 48
@@ -162,8 +165,8 @@ CounterName = Literal[
     "chat_message",
     "image_upload",
     "document_upload",
+    "document_ocr",
     "speech_transcription",
-    "speech_tts",
     "tavily_search",
     "image_generation",
     "image_search",
@@ -213,19 +216,23 @@ COUNTERS: dict[CounterName, CounterSpec] = {
         message=(DOCUMENT_LIMIT_EXCEEDED_MESSAGE_FREE, DOCUMENT_LIMIT_EXCEEDED_MESSAGE_PAID),
         refund=True,
     ),
+    # A scanned PDF the index job reads with vision (``attachments/ocr_allowance``). At the
+    # cap the file stays attached unsearched: a refusal no one sees, so no message.
+    "document_ocr": CounterSpec(
+        prefix="ocr",
+        allowance="daily_scanned_documents",
+        message=None,
+        refund=True,
+    ),
     "speech_transcription": CounterSpec(
         prefix="speech",
         allowance="daily_speech_transcriptions",
         message=(SPEECH_LIMIT_EXCEEDED_MESSAGE, SPEECH_LIMIT_EXCEEDED_MESSAGE),
         refund=True,
     ),
-    "speech_tts": CounterSpec(
-        prefix="tts",
-        allowance="daily_speech_tts",
-        message=(SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE, SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE),
-        refund=True,
-    ),
-    # Past the cap a turn searches DuckDuckGo instead; a reserved search stays spent.
+    # Past the cap a turn searches nothing, DuckDuckGo included (the tool tells the model
+    # the day's searches are used up); a reserved search stays spent. A plan whose
+    # searches follow messages has no cap: every turn's search is Tavily's.
     "tavily_search": CounterSpec(
         prefix="tavily",
         allowance="daily_web_searches",
@@ -258,17 +265,36 @@ def limit(counter: CounterName, user: User, settings: Settings) -> int:
     return allowance(user, COUNTERS[counter].allowance, settings)
 
 
+def unlimited(counter: CounterName, user: User, settings: Settings) -> bool:
+    """*user*'s plan has no cap on *counter* (Pro's messages): slots are counted, never refused."""
+    return entitlements.is_unlimited(user, COUNTERS[counter].allowance, settings)
+
+
+def follows_messages(counter: CounterName, user: User, settings: Settings) -> bool:
+    """*user*'s plan counts *counter* as part of a chat message: it has no slots of its own.
+
+    ``reserve`` then takes nothing; an upload's caller checks for a message left
+    (``chat_messages.has_message_left``), since the upload comes before its send.
+    """
+    return entitlements.follows_messages(user, COUNTERS[counter].allowance, settings)
+
+
 async def reserve(
     counter: CounterName, redis: Redis, user: User, settings: Settings
 ) -> date | None:
     """Take one of today's *counter* slots for *user*.
 
     Returns the UTC day it was charged to, which a refund of this slot passes
-    back, or None at the plan's cap.
+    back, or None at the plan's cap; an unlimited plan's is never reached. On a
+    plan where *counter* follows messages nothing is taken: the day comes back,
+    and a refund lowers no counter of it.
     """
     day = utc_today()
-    cap = limit(counter, user, settings)
+    if follows_messages(counter, user, settings):
+        return day
     key = daily_key(COUNTERS[counter].prefix, user.id, day)
+    # No cap: the slot is still counted, so a refund gives back what it took.
+    cap = _NO_CAP if unlimited(counter, user, settings) else limit(counter, user, settings)
     return day if await _reserve_daily_slot(redis, key, limit=cap) else None
 
 

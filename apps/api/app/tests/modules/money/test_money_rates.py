@@ -186,3 +186,28 @@ async def test_a_mixed_average_says_what_it_averages_from_the_cache_too(
         product("mortgage"), 30, "the United States", Settings(), fake_redis, today=TODAY
     )
     assert mortgage is not None and mortgage.spread == ""
+
+
+async def test_current_average_searches_on_the_budget_it_is_given(monkeypatch, fake_redis) -> None:
+    budget = object()
+    given: list[object] = []
+
+    async def search(settings: Settings, found: list[str], **kwargs: Any) -> tuple[list, list]:
+        given.append(kwargs.get("budget"))
+        return HITS, []
+
+    async def read(**_: Any) -> RateReading:
+        return _reading()
+
+    monkeypatch.setattr(rates, "run_cached_search", search)
+    monkeypatch.setattr(rates.litellm_gateway, "complete_structured", read)
+    await current_average(
+        product("mortgage"),
+        30,
+        "the United States",
+        Settings(),
+        fake_redis,
+        today=TODAY,
+        budget=budget,  # type: ignore[arg-type]
+    )
+    assert given == [budget]

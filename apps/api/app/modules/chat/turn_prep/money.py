@@ -67,6 +67,7 @@ async def money_turn(
             location=identity.geo.user_location,
             earlier=earlier,
             last_reply=last_reply,
+            search_budget=request.search_budget,
         )
         if turn is not None:
             return replace(turn, multi=plan.multi)
@@ -84,6 +85,7 @@ async def money_turn(
             user=identity.user,
             location=identity.geo.user_location,
             conversation=_conversation(recent, request.content),
+            search_budget=request.search_budget,
         )
         if turn is not None:
             return turn
@@ -95,6 +97,7 @@ async def money_turn(
         location=identity.geo.user_location,
         earlier=earlier,
         last_reply=last_reply,
+        search_budget=request.search_budget,
     )
 
 

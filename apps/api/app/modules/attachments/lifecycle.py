@@ -16,9 +16,8 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.quota import has_current_upload_reservation, upload_counter
+from app.modules.attachments.quota import has_current_upload_reservation, refund_upload
 from app.modules.attachments.thumbnails import delete_thumbnails
-from app.services.quota import counters
 
 logger = logging.getLogger(__name__)
 
@@ -233,13 +232,12 @@ async def _reap_orphan_batch(settings: Settings) -> tuple[int, int]:
     if rows_to_refund:
         redis = get_redis_client()
         for row in rows_to_refund:
-            if has_current_upload_reservation(row):
-                try:
-                    await counters.refund(upload_counter(row.content_type), redis, row.user_id)
-                except Exception:
-                    logger.warning(
-                        "Upload quota refund failed user_id=%s", row.user_id, exc_info=True
-                    )
+            if not has_current_upload_reservation(row):
+                continue
+            try:
+                await refund_upload(redis, row)
+            except Exception:
+                logger.warning("Upload quota refund failed user_id=%s", row.user_id, exc_info=True)
     return len(orphans), len(removed_keys)
 
 

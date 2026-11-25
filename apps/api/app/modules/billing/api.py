@@ -29,6 +29,10 @@ class PlanOut(BaseModel):
     id: str
     features: list[str]
     allowances: dict[str, int]
+    # Allowances this plan counts as part of its messages, with no number of their own.
+    follow_messages: list[str] = []
+    # Allowances with no cap on this plan (Pro's daily messages).
+    unlimited: list[str] = []
 
 
 class PlansOut(BaseModel):

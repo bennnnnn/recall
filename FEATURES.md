@@ -264,8 +264,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   from memory. Measured on 70 live prompts before shipping: greetings, small talk, maths and
   advice do not search; questions whose answer changed since training search 22 of 24 times
   (the reply's model alone: 10 of 24). A greeting, a verified solve or a turn the server
-  answers itself is not offered the tool. Tavily (or the DuckDuckGo fallback) runs the search;
-  one Tavily reservation per turn. A Redis reserve failure (or a missing user) fails closed to
+  answers itself is not offered the tool. Tavily (or the DuckDuckGo fallback, when Tavily
+  fails) runs the search; one Tavily reservation per turn, shared by the read's search and the
+  reply's own call. Past the plan's daily searches (Pro 40) a turn searches nothing and the
+  tool tells the model the day's searches are used up; Free's searches follow its messages
+  (one a turn). A Redis reserve failure (or a missing user) fails closed to
   **DuckDuckGo only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A
   search that finds nothing or fails says so in the tool result, so the reply cannot look
   live from training data.
@@ -283,7 +286,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `dictation_hangup` job. Where WebRTC is missing (Expo Go) or the call cannot be made, the mic
   records a clip (`expo-audio`) and uploads it to `/speech/transcribe` (`gpt-4o-mini-transcribe`)
   as before. Both pass the app's language; a code OpenAI refuses (Amharic's `am`) is sent as
-  the language's name in the prompt instead. Pro, **200/day**; on Free the mic opens
+  the language's name in the prompt instead. Pro, **100/day**; on Free the mic opens
   the plans (the server refuses Free with 403).
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
@@ -933,9 +936,30 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Manual rename** — overrides the generated title.
 
 ## 9. Quotas & usage
-- ✅ **Daily messages** — what each plan offers: Free **10**, Pro **1,000** chat
-  messages a day (`DAILY_MESSAGE_LIMIT` / `_PRO`). A turn takes one before its reply
-  and gets it back when no reply is saved; an account deleted and made again keeps the day's.
+- ✅ **Daily messages** — what each plan offers: Free **10** chat messages a day, Pro
+  **unlimited** (`DAILY_MESSAGE_LIMIT` / `_PRO`, None for no cap; Settings → Usage shows
+  "Unlimited messages"). A turn takes one before its reply (counted on Pro too) and gets it
+  back when no reply is saved; an account deleted and made again keeps the day's.
+- ✅ **Free counts only messages** (owner, 2026-11-24) — Free's photo and document uploads,
+  web searches and photo lookups have no daily count (`FOLLOW_MESSAGES`): an upload is
+  allowed while a message is left and uses none (with none left: the chat's own
+  "used up today's free limit"), a turn's search or lookup is covered by its message (one
+  search a turn, Tavily first, DuckDuckGo only when Tavily fails). AI images stay 3 a day.
+- ✅ **Pro's limits** (owner, 2026-11-24) — unlimited messages behind the 15M-token guard;
+  web searches **40** a day, then none (no DuckDuckGo; the reply says they reset
+  tomorrow); AI images **30**; photo lookups **30**; documents **100**; voice input
+  **100**; scanned PDFs OCR'd **100** (each copy a Library resend makes counts); photo
+  uploads follow messages (no count); read-aloud has no count, each clip charged to the
+  day's tokens by its text's tokens (about four characters each).
+- ✅ **What a message covers** — a photo-lookup turn takes its chat message like any turn
+  (given back if the lookup fails); a turn whose search reached a provider, or that sends
+  a PDF that may be OCR'd, keeps its message even when stopped before the reply; the money
+  card's rate lookup, the read's search and the reply's own call share the turn's one search; a profile photo or a picture's reference
+  photo needs no message left (presign `purpose`).
+- ✅ **Upload size and Library total** — every upload, photo or document, is held to
+  10 MB at presign, on the API's own upload and on the stored R2 object, and to the
+  plan's Library total (400 MB / 4 GB) at presign; an account's presigns run one at a
+  time, so uploads racing the total cannot pass it together.
 - ✅ **Daily token limit** — a cost guardrail behind the messages, enforced in Redis with atomic
   **reserve → adjust → refund** (can't be bypassed by parallel requests): 400k / 15M a day
   (`DAILY_TOKEN_LIMIT` / `_PRO`), well above what the plan's messages use.
@@ -1104,9 +1128,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 12. Monetization
 - ✅ **Two plans** — `users.plan` is `free` | `pro` (the display name "Pro" lives in i18n
   only, `plans.*`; one paid plan since 2026-11-24, migration `0135` moved the dev accounts on
-  the retired `plus` to `pro`). Free: every model in the free pool, 3 AI images a day, no
-  voice input, no natural read-aloud, no live talk. Pro: every model, voice input and
-  read-aloud, 15 images a day and 60 live talk minutes a month. Pro is billed monthly or
+  the retired `plus` to `pro`). Free: every model in the free pool, 10 messages a day (its
+  uploads, searches and lookups part of them), 3 AI images a day, no voice input, no
+  natural read-aloud, no live talk. Pro: every model, unlimited messages, voice input and
+  read-aloud, 30 images a day and 60 live talk minutes a month (numbers: §9). Pro is billed monthly or
   yearly, with a 3-day free trial set up in the stores; the period stays in the store and
   the server never sees it. Prices live in the stores; the app shows the offering's
   localized price. One place decides: `modules/billing/entitlements.py`.
@@ -1539,7 +1564,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Qwen3.7 Flash, GLM 5.3 Flash backup, via OpenRouter) | ✅ Shipped |
 | Image generation (composer send, daily cap per plan: 3 / 10 / 15) | ✅ Shipped |
-| Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
+| Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; Free's follow its messages, Pro 30 a day; flag `image_search_enabled`) |
 | Answer photos (one real photo above an answer about something worth seeing, no "show me"; the model's hidden ```photo query, searched while the text streams) | ✅ Shipped (free+Pro; same daily cap and flag) |
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
@@ -1647,18 +1672,20 @@ drawer FTS search ✅.
 |---------|----------|
 | Live dictation: WebRTC → OpenAI Realtime transcription (`gpt-live-transcribe`) → words in the composer as spoken; server-minted secret, one daily slot a take, server hang-up at 45 s + 15 s. Fallback: record → `gpt-4o-mini-transcribe` (app-language hint, no-speech gate) | Real-phone check of the live path (dev build); Amharic quality on real speech |
 | Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
-| Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps) | — |
+| Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON; each clip charged to the day's tokens by length) | — |
 
 ### Cost guards (recent)
 | Guard | Free | Pro |
 |-------|------|-----|
-| Daily messages | 10 | 1,000 |
+| Daily messages | 10 | unlimited |
 | Daily tokens | 400k | 15M |
-| Speech transcriptions/day | 0 (not included) | 200 |
-| Speech TTS (read aloud)/day | 0 (phone voice only) | 100 |
-| AI images/day | 3 | 15 |
+| Speech transcriptions/day | 0 (not included) | 100 |
+| Speech TTS (read aloud) | 0 (phone voice only) | no count; tokens by length |
+| AI images/day | 3 | 30 |
+| Photo lookups/day | follow messages | 30 |
+| Photo / document uploads/day | follow messages | follow messages / 100 |
 | Live talk | not included | 60 min/month |
-| Tavily searches/day | 20 (then DDG only) | 150 |
+| Tavily searches/day | follow messages (one a turn) | 40, then none (no DDG) |
 | R1 / smart-chat quota weight | 3.5× token charge | Same |
 
 ### Integrations

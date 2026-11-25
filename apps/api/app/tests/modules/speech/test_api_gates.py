@@ -128,10 +128,7 @@ def test_speech_route_with_rate_limit_off_takes_no_rate_key(path):
 
 @pytest.mark.parametrize(
     "path, cap_setting, counter",
-    [
-        ("/speech/tts", "daily_speech_tts_pro", "speech_tts"),
-        ("/speech/transcribe", "daily_speech_transcriptions_pro", "speech_transcription"),
-    ],
+    [("/speech/transcribe", "daily_speech_transcriptions_pro", "speech_transcription")],
 )
 def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     from app.services.quota import counters
@@ -151,11 +148,40 @@ def test_speech_route_refuses_past_the_days_cap(path, cap_setting, counter):
     }
 
 
-def test_tts_provider_failure_is_502_and_gives_the_slot_back():
+def test_tts_is_charged_to_the_days_tokens_by_its_length():
+    """Read-aloud has no daily count: each clip takes its text's tokens (about four
+    characters each) from the day's budget, and a clip the rest cannot cover is refused."""
+    import asyncio
+
+    from app.services.quota.messages import SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE
+
+    user = api_user(plan="pro")
+    client = _client(user, daily_token_limit_pro=30, speech_rate_limit_per_minute=0)
+    with _speech("/speech/tts") as (fake_redis, _provider):
+        first = client.post("/speech/tts", headers=_AUTH, json={"text": "x" * 80})
+        used = asyncio.run(fake_redis.keys("usage:*"))
+        charged = [asyncio.run(fake_redis.get(key)) for key in used]
+        second = client.post("/speech/tts", headers=_AUTH, json={"text": "x" * 80})
+        after = [asyncio.run(fake_redis.get(key)) for key in used]
+        counted = asyncio.run(fake_redis.keys("tts:*"))
+    assert first.status_code == 200
+    assert charged == ["20"]
+    assert second.status_code == 429
+    assert second.json()["detail"] == {
+        "code": "daily_limit",
+        "message": SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE,
+        "feature": "speech_tts",
+    }
+    # The refused clip took nothing, and no daily read-aloud count is kept.
+    assert after == ["20"]
+    assert counted == []
+
+
+def test_tts_provider_failure_is_502_and_gives_the_tokens_back():
     import asyncio
 
     user = api_user(plan="pro")
-    client = _client(user, daily_speech_tts_pro=1)
+    client = _client(user)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
@@ -165,7 +191,7 @@ def test_tts_provider_failure_is_502_and_gives_the_slot_back():
         ),
     ):
         failed = client.post("/speech/tts", headers=_AUTH, json={"text": "hello"})
-        keys = asyncio.run(fake_redis.keys("tts:*"))
+        keys = asyncio.run(fake_redis.keys("usage:*"))
         values = [asyncio.run(fake_redis.get(key)) for key in keys]
     assert failed.status_code == 502
     assert failed.json() == {

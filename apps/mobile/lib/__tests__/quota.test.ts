@@ -49,6 +49,15 @@ describe("quota helpers", () => {
     expect(usageMessages(usage)).toBeNull();
   });
 
+  it("shows no count for a plan with no daily message cap", () => {
+    const t = (key: string, opts?: Record<string, unknown>) => `${key} ${JSON.stringify(opts ?? {})}`;
+    const pro = { ...usage, messages_used: 1200, daily_messages: 0, messages_unlimited: true };
+    expect(usageMessages(pro)).toBeNull();
+    expect(formatUsageSummary(pro, true, t)).toBe("settings.usage_unlimited {}");
+    // Only the hidden token guard ends a Pro day.
+    expect(formatUsageSummary({ ...pro, remaining: 0 }, true, t)).toBe("settings.usage_exhausted_paid {}");
+  });
+
   it("reads the day's share the same from GET /usage/today and from a turn's done", () => {
     // The nudge worked a turn's share out again by hand beside these helpers.
     const turn = { used_tokens: 12_000, daily_limit: 100_000, messages_used: 9, daily_messages: 10 };

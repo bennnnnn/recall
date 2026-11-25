@@ -249,6 +249,8 @@ async def try_image_lookup_for_turn(
             query=query,
             user_message_content=(content.strip() if create_user_message else None),
             create_user_message=create_user_message,
+            # The lookup is the turn: it takes the turn's message, given back if it fails.
+            takes_message=True,
         )
     except ImageSearchError as exc:
         # At the photo cap (or the spend cap) the turn is answered in words instead.

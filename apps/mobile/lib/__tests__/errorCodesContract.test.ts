@@ -80,6 +80,8 @@ it.each([
   ["presign_unsupported_type", "unsupported_type"],
   ["presign_too_large", "too_large"],
   ["presign_daily_limit", "daily_limit"],
+  ["presign_messages_used", "messages_used"],
+  ["presign_busy", "rate_limited"],
   ["presign_storage_full", "storage_full"],
   ["presign_paste_too_long", "paste_too_long"],
 ])("names a refused upload: %s", (name, reason) => {

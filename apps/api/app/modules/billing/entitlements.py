@@ -10,7 +10,8 @@ Every number is a ``core/config.py`` setting, named ``<base>`` for free and
 ``<base>_pro`` for Pro. A metered feature is part of a plan when
 that plan's allowance is above zero, so moving a feature between plans is a
 config change, not a code change. Callers ask ``can_use(user, feature)`` and
-``allowance(user, name)``; nothing else reads ``user.plan``.
+``allowance(user, name)`` (and ``follows_messages`` for an allowance a plan
+counts as part of its messages); nothing else reads ``user.plan``.
 
 Kept free of heavy imports: schemas and quota code import it.
 """
@@ -40,6 +41,7 @@ Allowance = Literal[
     "daily_tokens",
     "daily_image_uploads",
     "daily_document_uploads",
+    "daily_scanned_documents",
     "daily_web_searches",
     "daily_image_searches",
     "daily_image_generations",
@@ -56,6 +58,7 @@ _ALLOWANCE_SETTING: dict[Allowance, str] = {
     "daily_tokens": "daily_token_limit",
     "daily_image_uploads": "daily_image_limit",
     "daily_document_uploads": "daily_document_limit",
+    "daily_scanned_documents": "daily_scanned_document_limit",
     "daily_web_searches": "daily_tavily_searches",
     "daily_image_searches": "daily_image_searches",
     "daily_image_generations": "daily_image_generations",
@@ -94,28 +97,54 @@ def setting_name(name: Allowance, plan: PlanId) -> str:
     return base if plan == "free" else f"{base}_{plan}"
 
 
+def _plan_setting(subject: _HasPlan | str | None, base: str, settings: Settings) -> object:
+    """A per-plan setting, named like an allowance: ``<base>``, ``<base>_pro``."""
+    plan = plan_of(subject)
+    return getattr(settings, base if plan == "free" else f"{base}_{plan}")
+
+
 def has_strong_everyday_model(subject: _HasPlan | str | None, settings: Settings) -> bool:
     """Auto answers this plan's everyday turns with the stronger model.
 
     A switch per plan (``strong_everyday_model``, ``_pro``), read like an
     allowance's numbers. Not a ``Feature``: the app shows nothing for it.
     """
-    plan = plan_of(subject)
-    name = "strong_everyday_model" if plan == "free" else f"strong_everyday_model_{plan}"
-    return bool(getattr(settings, name))
+    return bool(_plan_setting(subject, "strong_everyday_model", settings))
+
+
+def follows_messages(subject: _HasPlan | str | None, name: Allowance, settings: Settings) -> bool:
+    """True when this plan counts *name* as part of a chat message, with no cap of its own.
+
+    An upload then needs a message left today; a search, a photo lookup or a sent
+    PDF's OCR is covered by its turn's message. Each plan lists them
+    (``follow_messages``, ``_pro``); the messages themselves never follow.
+    """
+    listed = _plan_setting(subject, "follow_messages", settings)
+    return name != "daily_messages" and isinstance(listed, list) and name in listed
+
+
+def is_unlimited(subject: _HasPlan | str | None, name: Allowance, settings: Settings) -> bool:
+    """True when this plan has no cap on *name* (its setting is None: Pro's messages, and
+    read-aloud, which the token budget meters)."""
+    return getattr(settings, setting_name(name, plan_of(subject))) is None
 
 
 def allowance(subject: _HasPlan | str | None, name: Allowance, settings: Settings) -> int:
-    """This plan's *name*: a daily cap, monthly minutes or Library bytes. Never negative."""
+    """This plan's *name*: a daily cap, monthly minutes or Library bytes. Never negative.
+
+    An unlimited allowance (``is_unlimited``) has no number: 0 here, so a caller that
+    forgot to ask refuses rather than grants. The daily counters ask first.
+    """
     value = getattr(settings, setting_name(name, plan_of(subject)))
-    return max(0, int(value))
+    return 0 if value is None else max(0, int(value))
 
 
 def can_use(subject: _HasPlan | str | None, feature: Feature, settings: Settings) -> bool:
     """True when the plan includes *feature*. Global ``*_enabled`` flags are separate."""
     if feature == "all_models":
         return is_paid(subject)
-    return allowance(subject, _FEATURE_ALLOWANCE[feature], settings) > 0
+    name = _FEATURE_ALLOWANCE[feature]
+    return is_unlimited(subject, name, settings) or allowance(subject, name, settings) > 0
 
 
 def features_for(subject: _HasPlan | str | None, settings: Settings) -> list[Feature]:
@@ -123,12 +152,25 @@ def features_for(subject: _HasPlan | str | None, settings: Settings) -> list[Fea
 
 
 def plan_catalog(settings: Settings) -> list[dict[str, object]]:
-    """Every plan with its features and numbers, for the paywall."""
+    """Every plan with its features and numbers, for the paywall.
+
+    An allowance the plan folds into its messages has no number of its own: it is
+    listed under ``follow_messages`` instead; one with no cap, under ``unlimited``.
+    """
     return [
         {
             "id": plan,
             "features": features_for(plan, settings),
-            "allowances": {name: allowance(plan, name, settings) for name in ALLOWANCES},
+            "allowances": {
+                name: allowance(plan, name, settings)
+                for name in ALLOWANCES
+                if not follows_messages(plan, name, settings)
+                and not is_unlimited(plan, name, settings)
+            },
+            "unlimited": [name for name in ALLOWANCES if is_unlimited(plan, name, settings)],
+            "follow_messages": [
+                name for name in ALLOWANCES if follows_messages(plan, name, settings)
+            ],
         }
         for plan in PLANS
     ]

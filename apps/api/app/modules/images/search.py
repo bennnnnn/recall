@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractContextManager, nullcontext
 from uuid import UUID
 
@@ -240,6 +241,36 @@ async def _add_photo_rows(
     )
 
 
+async def _take_lookup(
+    redis: Redis, user: User, settings: Settings, *, takes_message: bool
+) -> Callable[[], Awaitable[None]]:
+    """Take what a lookup costs: a chat message when the lookup is the turn (the intercept;
+    from the tool loop the reply's turn holds one), refused ``quota_exceeded`` with none
+    left so the turn meets the usual message-limit prompt, and a day's lookup (none on a
+    plan whose lookups follow messages). Returns how to give both back."""
+    message_day = None
+    if takes_message:
+        message_day = await quota_service.reserve_message(redis, user, settings)
+        if message_day is None:
+            raise ImageSearchError(
+                quota_service.quota_exceeded_message(user),
+                status_code=429,
+                code="quota_exceeded",
+            )
+    day = await counters.reserve("image_search", redis, user, settings)
+    if not day:
+        if message_day is not None:
+            await quota_service.refund_message(redis, user.id, message_day)
+        raise _photo_limit_refusal(user)
+
+    async def give_back() -> None:
+        await counters.refund("image_search", redis, user.id, day=day)
+        if message_day is not None:
+            await quota_service.refund_message(redis, user.id, message_day)
+
+    return give_back
+
+
 async def search_and_attach_for_chat(
     settings: Settings,
     *,
@@ -248,8 +279,10 @@ async def search_and_attach_for_chat(
     query: str,
     user_message_content: str | None = None,
     create_user_message: bool = True,
+    takes_message: bool = False,
 ) -> tuple[Message, Message]:
-    """Plan/quota/storage/persist path for a reference-photo lookup turn.
+    """Plan/quota/storage/persist path for a reference-photo lookup turn (its cost:
+    ``_take_lookup``; *takes_message* from the intercept, where the lookup is the turn).
 
     Returns (user_message, assistant_message). Raises ``ImageSearchError`` on
     expected failures (not found, quota, storage); unexpected exceptions are
@@ -283,9 +316,7 @@ async def search_and_attach_for_chat(
             status_code=429,
             code="spend_cap",
         )
-    day = await counters.reserve("image_search", redis, user, settings)
-    if not day:
-        raise _photo_limit_refusal(user)
+    give_back = await _take_lookup(redis, user, settings, takes_message=takes_message)
 
     written_keys: list[str] = []
     try:
@@ -326,9 +357,9 @@ async def search_and_attach_for_chat(
             await session.commit()
     except BaseException:
         # Any failure, an ImageSearchError or a cancellation too: drop the
-        # bytes written so far and give the day's slot back.
+        # bytes written so far and give the day's slot (and message) back.
         await _rollback_written_bytes(gateway, written_keys)
-        await counters.refund("image_search", redis, user.id, day=day)
+        await give_back()
         raise
 
     try:

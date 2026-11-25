@@ -80,6 +80,7 @@ if TYPE_CHECKING:
     from redis.asyncio import Redis
 
     from app.core.config import Settings
+    from app.gateways.mcp.base import TavilyBudget
     from app.models.orm import User
 
     # A money turn, from its prompt to its finalize; chat holds it for the turn.
@@ -456,6 +457,7 @@ class MoneyPeer(Protocol):
         location: str | None,
         earlier: Sequence[str | Sequence[str]],
         last_reply: str,
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         """The money turn ``text`` asks for, or None when it is not one."""
         ...
@@ -470,6 +472,7 @@ class MoneyPeer(Protocol):
         location: str | None,
         earlier: Sequence[str | Sequence[str]],
         last_reply: str,
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         """The chat's earlier loan, for a message about it that is no money request itself."""
         ...
@@ -483,6 +486,7 @@ class MoneyPeer(Protocol):
         user: User | None,
         location: str | None,
         conversation: Sequence[tuple[str, str]],
+        search_budget: TavilyBudget | None = None,
     ) -> MoneyTurn | None:
         """The money turn the chat's request makes, read by a model and held to the chat's
         words: for a turn the read calls money that no word rule read."""

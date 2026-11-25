@@ -150,6 +150,8 @@ it("uploads only on Save and blocks duplicate saves, cancellation, and photo sel
   expect(editor.visible).toBe(true);
   expect(editor.saving).toBe(true);
   expect(uploadChatAttachment).toHaveBeenCalledTimes(1);
+  // A profile photo goes out with no message: none need be left today.
+  expect(jest.mocked(uploadChatAttachment).mock.calls[0]?.[2]).toBe("avatar");
   expect(pickProfilePhoto).toHaveBeenCalledTimes(1);
   expect(mockUpdateUser).not.toHaveBeenCalled();
   await act(async () => { upload.resolve("avatar-id"); await Promise.resolve(); });

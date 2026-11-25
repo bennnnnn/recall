@@ -387,7 +387,7 @@ def test_speech_tts_cancelled_refunds():
         patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch("app.modules.speech.api.speech_service.synthesize_speech", boom),
         patch(
-            "app.services.quota.counters.refund",
+            "app.services.quota.refund_usage",
             AsyncMock(),
         ) as refund,
     ):
@@ -400,7 +400,8 @@ def test_speech_tts_cancelled_refunds():
     refund.assert_awaited()
 
 
-def test_speech_tts_daily_cap():
+def test_speech_tts_stops_at_the_days_tokens():
+    """Read-aloud has no daily count: a clip the day's token budget cannot cover is refused."""
     import fakeredis.aioredis
 
     from app.core.deps import get_current_user, get_settings_dep
@@ -408,7 +409,7 @@ def test_speech_tts_daily_cap():
     user = api_user(plan="pro")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_pro=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_token_limit_pro=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -434,6 +435,10 @@ def test_speech_tts_daily_cap():
 
 
 def test_speech_tts_lead_allows_multiple_rest_followups():
+    """The rest of a lead's utterance shares its request (no second rate-limit charge);
+    every clip still pays its own tokens."""
+    import asyncio
+
     import fakeredis.aioredis
 
     from app.core.deps import get_current_user, get_settings_dep
@@ -441,7 +446,7 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
     user = api_user(plan="pro")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_pro=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(speech_rate_limit_per_minute=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -472,10 +477,15 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
             headers={"Authorization": "Bearer tok"},
             json={"text": "another page", "part": "full"},
         )
+        tokens = [
+            asyncio.run(fake_redis.get(key)) for key in asyncio.run(fake_redis.keys("usage:*"))
+        ]
     assert lead.status_code == 200
     assert rest_one.status_code == 200
     assert rest_two.status_code == 200
     assert extra_full.status_code == 429
+    # "first clip", "second clip", "third clip": 3 tokens each; the refused page none.
+    assert tokens == ["9"]
 
 
 def test_speech_tts_rest_wrong_lead_hash_is_billed():
@@ -486,7 +496,7 @@ def test_speech_tts_rest_wrong_lead_hash_is_billed():
     user = api_user(plan="pro")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_pro=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(speech_rate_limit_per_minute=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -533,7 +543,7 @@ def test_speech_tts_rest_over_char_budget_is_billed():
     user = api_user(plan="pro")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_pro=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(speech_rate_limit_per_minute=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -571,7 +581,6 @@ def test_speech_tts_rate_limit_message():
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
         speech_rate_limit_per_minute=1,
-        daily_speech_tts_pro=100,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
@@ -617,7 +626,8 @@ def test_speech_tts_disabled():
     "path, provider, prefix, status_code",
     [
         ("/speech/transcribe", "transcribe_audio", "speech", 502),
-        ("/speech/tts", "synthesize_speech", "tts", 502),
+        # Read-aloud's tokens go back to the day they were charged to.
+        ("/speech/tts", "synthesize_speech", "usage", 502),
     ],
 )
 def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix, status_code):
