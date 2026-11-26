@@ -363,7 +363,7 @@ def check_working(state: FinalizeState) -> str:
 def reply_writes_decimal_comma(ctx: object) -> bool:
     """Whether the turn's reply writes a decimal comma ("3,7 m/s"): its language's."""
     user = getattr(ctx, "user", None)
-    locale = getattr(user, "locale", None) if user is not None else None
+    locale = user.locale if user is not None else None
     question = getattr(ctx, "user_message_content", None) or ""
     return writes_decimal_comma(question, locale if isinstance(locale, str) else None)
 
