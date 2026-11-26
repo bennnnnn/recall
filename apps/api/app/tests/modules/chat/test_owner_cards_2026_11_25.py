@@ -30,7 +30,9 @@ _FRICTION_TABLE = (
 _COLLISION = (
     "**Substitution**  \n$v_{fx} = \\frac{-(1300)(16)}{1000 + 1300}$  \n"
     "$v_{fx} = -9.043478260869565\\,\\mathrm{m/s}$  \n"
-    "$v_{fy} = 8.695652173913043\\,\\mathrm{m/s}$  \n$\\theta = 43.9^\\circ$\n\n"
+    "$v_{fy} = 8.695652173913043\\,\\mathrm{m/s}$  \n"
+    "$\\theta = \\tan^{-1}\\!\\left(\\frac{8.695652173913043}{9.043478260869565}\\right)$  \n"
+    "$\\theta = 43.9^\\circ$\n\n"
     "**Answer (b)**\n\n```answer\nverified: false\n"
     "$(-9.043478260869565\\hat{i} + 8.695652173913043\\hat{j})\\,\\mathrm{m/s}$, "
     "$12.546951\\ldots\\,\\mathrm{m/s}$, 43.9° north of west\n```"
@@ -49,7 +51,9 @@ def _card(reply: str) -> str:
         (
             _COLLISION,
             "$(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m/s}$, $12.55\\,\\mathrm{m/s}$, "
-            "43.90° north of west",
+            # tan⁻¹(8.695652 / 9.043478) is 43.877°: worked out from the working, never the
+            # model's 43.9° padded to 43.90.
+            "43.88° north of west",
         ),
     ],
     ids=["ramp", "table", "collision"],
@@ -119,3 +123,29 @@ def test_working_keeps_six_figures_never_a_calculators_sixteen(tex: str, shown: 
     assert "9.043478260869565" not in _line(
         "v_f = \\sqrt{(-9.043478260869565)^2 + (8.695652173913043)^2}"
     )
+
+
+@pytest.mark.parametrize(
+    ("above", "card", "shown"),
+    [
+        # Nothing works it out: the figures written, never a padded zero.
+        ("", "2.4\\,\\mathrm{m}", "2.4\\,\\mathrm{m}"),
+        ("$\\theta = 43.9^\\circ$", "43.9^\\circ", "43.9^\\circ"),
+        # The working holds it exactly (12 / 5) or unrounded (tan⁻¹): the rule's places.
+        (
+            "$x = \\frac{12}{5}$  \n$x = 2.4\\,\\mathrm{m}$",
+            "x = 2.4\\,\\mathrm{m}",
+            "x = 2.40\\,\\mathrm{m}",
+        ),
+        (
+            "$\\theta = \\tan^{-1}(0.9615)$  \n$\\theta = 43.9^\\circ$",
+            "\\theta = 43.9^\\circ",
+            "\\theta = 43.88^\\circ",
+        ),
+    ],
+)
+def test_a_card_is_padded_only_when_its_precision_is_known(
+    above: str, card: str, shown: str
+) -> None:
+    reply = f"{above}\n\n**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert _card(reply) == shown

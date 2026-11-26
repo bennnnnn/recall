@@ -25,7 +25,7 @@ from decimal import Decimal
 from fractions import Fraction
 from typing import TYPE_CHECKING
 
-from app.modules.chat.card_lists import listed_values
+from app.modules.chat.card_lists import known_value, listed_values
 from app.services.answer_check import (
     TRAILING_DOTS,
     Number,
@@ -41,7 +41,9 @@ from app.services.answer_fence import (
 )
 from app.services.md_fence_scan import iter_fences
 from app.services.rounding_rule import (
+    PLACES,
     RULE,
+    SMALL_BELOW,
     Precision,
     asked_precision,
     number_latex,
@@ -222,16 +224,17 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
     plain = plain_numbers(body)
     if plain is None:
-        return _listed_shown(body, precision)
+        return _listed_shown(body, above, precision)
     headers, value, read = plain
     numbers = list(read.numbers)
     written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
     for match, number, worked in zip(written, numbers, each, strict=True):
-        own = precision if worked is not None else _no_new_figures(match, number, precision)
+        known = worked or _known(match, value, above)
+        own = precision if known is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
-        pieces += [value[at : match.start()], _number_shown(match, worked or number, own)]
+        pieces += [value[at : match.start()], _number_shown(match, known or number, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
@@ -244,7 +247,18 @@ def _past_dots(value: str, at: int) -> int:
     return dots.end() if dots is not None else at
 
 
-def _listed_shown(body: str, precision: Precision) -> str | None:
+def _known(match: re.Match[str], value: str, above: str) -> Number | None:
+    """The value a card's number rounds, as the working above it works it out
+    (``card_lists.known_value``), when the card shows fewer places than the rule."""
+    written = match.group("number").replace(",", "")
+    places = len(written.partition(".")[2])
+    if places >= PLACES or match.group("braced", "bare", "calculator") != (None,) * 3:
+        return None
+    found = known_value(written, value[match.end() :], above)
+    return None if found is None else Number(Fraction(repr(found)), None)
+
+
+def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
     """A card of several values no single reading takes, each a number standing as a value: a
     vector's components ("(-9.0434 î + 8.6956 ĵ) m/s"), a magnitude, an angle and its
     direction. Each decimal number is written by the rule; a whole number, a script, a
@@ -260,8 +274,9 @@ def _listed_shown(body: str, precision: Precision) -> str | None:
         if "." not in number or match.group("braced", "bare", "calculator") != (None,) * 3:
             continue
         read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
-        own = _no_new_figures(match, read, precision)
-        pieces += [value[at : match.start()], _number_shown(match, read, own)]
+        known = _known(match, value, above)
+        own = precision if known is not None else _no_new_figures(match, read, precision)
+        pieces += [value[at : match.start()], _number_shown(match, known or read, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
@@ -289,16 +304,21 @@ def _figures(text: str) -> int:
 
 
 def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) -> Precision:
-    """The card's own value, with no working to take it from: in three figures or in powers
-    of ten the rule shows no more figures than the card wrote. A Kp of 1.2 x 10^-4 (two
-    figures, from 1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had."""
+    """The card's own value, with no working to take it from: the rule shows no more figures
+    than the card wrote, never a padded zero. A Kp of 1.2 x 10^-4 (two figures, from
+    1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had, and a θ of 43.9° (from
+    43.879°) as 43.90° a digit the true value contradicts (owner, 2026-11-25). A value the
+    working knows, or one the card wrote to more places, is written by the rule."""
     if precision != RULE:
         return precision
     mantissa, exponent = number_parts(abs(number.value), precision)
-    if exponent is None and abs(number.value) >= 1:
-        return precision  # two places, zeros kept: 2.4 is 2.40
-    written = _figures(match.group("number"))
-    return Precision(figures=written) if _figures(mantissa) > written else precision
+    digits = match.group("number").replace(",", "")
+    written = _figures(digits)
+    if _figures(mantissa) <= written:
+        return precision
+    if exponent is not None or abs(number.value) < SMALL_BELOW:
+        return Precision(figures=written)
+    return Precision(places=len(digits.partition(".")[2]))
 
 
 def _measured(unit: str) -> bool:

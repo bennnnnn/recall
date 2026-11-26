@@ -7,7 +7,10 @@ A chemistry solver's checked card is the exception: it keeps the data's signific
   below 1 too: 0.577 is 0.58, 0.4551 is 0.46 (owner, 2026-11-25, replacing 2026-11-19's
   three figures under 1). A whole result stays whole (1500). Only a value below 0.1
   (``SMALL_BELOW``), which two places would show as next to nothing, keeps three
-  significant figures (0.0649, 0.00123).
+  significant figures (0.0649, 0.00123). A zero is added only to a value known to that
+  place: the server's own, or one the working above a model's card works out
+  (``card_numbers``); a card the model rounded with nothing to work it from keeps the figures
+  it wrote (43.9°, never 43.90° for 43.877°).
 - Written in full below 10⁹; a power of ten only from 10⁹, or below 0.001, to three
   significant figures (6.02 × 10²³, 1.60 × 10⁻¹⁹).
 - No thousands separators: the card reads like the working above it.

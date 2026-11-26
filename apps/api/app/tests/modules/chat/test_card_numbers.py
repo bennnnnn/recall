@@ -33,7 +33,8 @@ def test_a_card_in_another_unit_than_its_working_keeps_its_own_value() -> None:
 @pytest.mark.parametrize(
     ("value", "shown"),
     [
-        ("x = 2 \\text{ or } x = -3.5", "x = 2 \\text{ or } x = -3.50"),
+        # Nothing above works -3.5 out: its figures as written, never a padded zero.
+        ("x = 2 \\text{ or } x = -3.5", "x = 2 \\text{ or } x = -3.5"),
         ("20\\,\\mathrm{m/s}", "20\\,\\mathrm{m/s}"),
         ("6.022 \\times 10^{23}", "6.02 \\times 10^{23}"),
         (
