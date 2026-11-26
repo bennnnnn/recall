@@ -110,7 +110,7 @@ async def test_sign_in_without_the_flag_leaves_consent_unset(
 async def test_sign_in_with_the_flag_records_consent_for_an_account_without_it(
     db_session: AsyncSession, fake_redis: Redis, provider: str
 ) -> None:
-    """One from before sign-in agreed, or one that withdrew in Data controls."""
+    """One from before sign-in agreed, or a client that sends no flag."""
     sub = str(uuid4())
     user = await _existing(db_session, provider, sub)
 

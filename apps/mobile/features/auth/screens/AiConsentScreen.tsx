@@ -7,22 +7,24 @@ import { useTranslation } from "react-i18next";
 import { AuthScrollLayout } from "@/components/AuthScrollLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAiConsentActions } from "@/features/auth/hooks/useAiConsentActions";
-import { AI_CONSENT_ITEMS, needsAiDataConsent } from "@/features/auth/model/aiConsent";
+import { needsAiDataConsent } from "@/features/auth/model/aiConsent";
 import { getLegalPrivacyUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
 /**
- * What Recall sends to which outside service, with agree, sign out or delete. A
+ * One sentence on what Recall sends to outside AI and search services, the privacy policy
+ * for the detail, and agree, sign out or delete: nothing to read through (owner,
+ * 2026-11-25). A
  * sign-in agrees by its tap (the line on LoginScreen), so this asks only an account
- * without the agreement: one from before that, or one that withdrew in Data controls.
+ * without the agreement: one from before that (there is no withdraw row; owner, 2026-11-25).
  * Agreeing here keeps the user signed in; signing out leads back to the sign-in page,
  * whose tap agrees too.
  */
@@ -93,21 +95,6 @@ function AiConsent() {
             <Text style={s.intro}>{t("onboarding.consent_intro")}</Text>
           </View>
 
-          <View style={s.items}>
-            {AI_CONSENT_ITEMS.map((item) => (
-              <View key={item.titleKey} style={s.item}>
-                <View style={s.itemIcon}>
-                  <Icon name={item.icon} size={IconSize.sm} color={theme.primary} />
-                </View>
-                <View style={s.itemText}>
-                  <Text style={s.itemTitle}>{t(item.titleKey)}</Text>
-                  <Text style={s.itemBody}>{t(item.bodyKey)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <Text style={s.footer}>{t("onboarding.consent_footer")}</Text>
           <Pressable
             onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
             accessibilityRole="link"
@@ -127,7 +114,7 @@ function AiConsent() {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1 },
-    hero: { alignItems: "center", marginBottom: Space.lg },
+    hero: { alignItems: "center", marginBottom: Space.md },
     badge: {
       width: 56,
       height: 56,
@@ -144,21 +131,7 @@ function makeStyles(theme: Theme) {
       marginTop: Space.xs,
       textAlign: "center",
     },
-    items: { gap: Space.md, marginBottom: Space.lg },
-    item: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
-    itemIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    itemText: { flex: 1 },
-    itemTitle: { ...Type.body, ...Weight.bold, color: theme.text, marginBottom: 2 },
-    itemBody: { ...Type.label, ...Weight.regular, color: theme.textSecondary },
-    footer: { ...Type.label, ...Weight.regular, color: theme.textSecondary },
-    linkWrap: { alignSelf: "flex-start", marginTop: Space.xs },
+    linkWrap: { alignSelf: "center", marginTop: Space.xs },
     link: { ...Type.label, color: theme.primary, textDecorationLine: "underline" },
     actions: { gap: Space.xs, marginTop: Space.lg },
     cta: { alignSelf: "stretch" },
