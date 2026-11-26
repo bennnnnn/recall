@@ -8,6 +8,10 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class extends Error { constructor() { super("Session changed"); } },
 }));
 
+jest.mock("expo-file-system", () => ({
+  File: jest.fn().mockImplementation(() => ({ text: async () => "Dear Sam,\n\nthe pasted   words" })),
+}));
+
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   ensureLocalAttachmentFile: jest.fn(),
 }));
@@ -23,6 +27,14 @@ beforeEach(() => {
 });
 
 describe("pendingFromLibraryItem", () => {
+  it("carries a Library paste as a paste, so the phone and the API agree on its words", async () => {
+    const item = { id: "p1", content_type: "text/plain", original_filename: "pasted-text.txt", download_url: "/attachments/p1/file" };
+    const pasted = await pendingFromLibraryItem({ ...item, pasted: true }, "tok");
+    expect(pasted.pasted).toEqual({ chars: 29, preview: "Dear Sam, the pasted words" });
+    const picked = await pendingFromLibraryItem(item, "tok");
+    expect(picked.pasted).toBeUndefined();
+  });
+
   it("downloads images and skips re-upload via existingAttachmentId", async () => {
     const pending = await pendingFromLibraryItem(
       {

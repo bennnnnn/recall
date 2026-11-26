@@ -94,6 +94,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
 
 /** Read only by the sign-in session that wrote it (checked against `getSessionGeneration()` or keyed by it). */
 const SCOPED_TO_SESSION = [
+  "features/memory/model/instructInFlight.ts#unanswered",
   "features/account/screens/NotificationsSettingsScreen.tsx#pending",
   "features/attachments/model/attachmentIndexStatus.ts#generation",
   "features/attachments/model/attachmentIndexStatus.ts#pollers",

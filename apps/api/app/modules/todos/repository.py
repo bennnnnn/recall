@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.modules.todos import write_log
-from app.modules.todos.limits import ensure_room_for_open
+from app.modules.todos.limits import TodoLimitError, ensure_room_for_open
 
 DEFAULT_TOPIC = "General"
 OPEN_CONTENT_DUE_UNIQUE = "uq_todo_open_content_due"
@@ -224,7 +224,15 @@ async def create(
     if planned is not None:
         return write_log.plan_create(planned, todo)
     # Every add goes through here (the list, a chat card's tap): one cap for all of them.
-    await ensure_room_for_open(session, user_id)
+    try:
+        await ensure_room_for_open(session, user_id)
+    except TodoLimitError:
+        # An add of a reminder already open adds nothing: the open-row unique answers it,
+        # as it did before the cap (callers skip it or return the row that is there).
+        if due_at is None or not await get_open_dated_duplicate(
+            session, user_id, content=content, due_at=due_at, due_has_time=todo.due_has_time
+        ):
+            raise
     session.add(todo)
     if commit:
         await session.commit()

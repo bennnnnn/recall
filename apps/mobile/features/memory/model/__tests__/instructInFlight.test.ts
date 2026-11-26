@@ -4,6 +4,7 @@ import { abortError, serverUnreachableError } from "@/lib/api/deadline";
 import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 import { request } from "@/lib/api/client";
 
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
 jest.mock("@/lib/api/client", () => ({ request: jest.fn(async () => ({})), requestRevalidated: jest.fn() }));
 
 describe("a typed memory edit", () => {

@@ -6,6 +6,7 @@
  */
 import type { MemoryFailure } from "@/features/memory/model/memoryFailure";
 import { isAbortError } from "@/lib/api/abort";
+import { getSessionGeneration } from "@/lib/auth";
 
 /** How long after an unanswered edit a busy memory is that edit still saving. */
 export const STILL_SAVING_MS = 90_000;
@@ -30,4 +31,24 @@ export function instructFailure(
 ): MemoryFailure {
   if (failure !== "busy" || unansweredAt === null) return failure;
   return now - unansweredAt < STILL_SAVING_MS ? "saving" : failure;
+}
+
+// This phone's last unanswered edit, by the sign-in that sent it. Shared by every memory
+// screen and kept across a remount: an edit from the list retried from a page (or after
+// leaving Memory) still meets its own edit. Another sign-in never reads it.
+let unanswered: { at: number; generation: number } | null = null;
+
+/** The edit went out and its wait ran out (`mayStillBeSaving`): it may land after. */
+export function noteInstructUnanswered(now = Date.now()): void {
+  unanswered = { at: now, generation: getSessionGeneration() };
+}
+
+/** An edit answered: nothing of this phone's is left saving. */
+export function noteInstructAnswered(): void {
+  unanswered = null;
+}
+
+/** When this sign-in's last edit went unanswered, or null. */
+export function unansweredSince(): number | null {
+  return unanswered && unanswered.generation === getSessionGeneration() ? unanswered.at : null;
 }

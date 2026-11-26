@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.limits import TodoLimitError
 from app.modules.todos.prompt_context import _normalize, _topic_key
 from app.modules.todos.recurrence import RecurrenceRule, is_recurrence_rule, snap_first_due
 from app.modules.todos.schemas import TodoActionItem
@@ -270,6 +271,9 @@ async def apply_todo_actions(
             # the caller's transaction usable.
             async with session.begin_nested():
                 applied += await handler(state, prepared)
+        except TodoLimitError:
+            # An expected refusal, not a failed action: the caller says the list is full.
+            raise
         except Exception:
             logger.exception(
                 "Failed todo action %s for user_id=%s topic=%s",

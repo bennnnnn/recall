@@ -42,7 +42,12 @@ class TodoLimitError(DomainError):
 
 
 async def ensure_room_for_open(session: AsyncSession, user_id: UUID) -> None:
-    """Refuse one more open to-do when the account already has ``OPEN_TODOS_MAX``."""
+    """Refuse one more open to-do when the account already has ``OPEN_TODOS_MAX``.
+
+    The account's adds take turns: a transaction-scoped advisory lock on the account is
+    held from the count to the commit, so adds sent at once cannot all read 999.
+    """
+    await session.execute(select(func.pg_advisory_xact_lock(func.hashtext(str(user_id)))))
     count = await session.scalar(
         select(func.count())
         .select_from(TodoItem)
