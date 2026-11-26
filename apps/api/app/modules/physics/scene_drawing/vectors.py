@@ -42,15 +42,21 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.modules.physics.display import GIVEN_FIGURES, plain_quantity
 from app.modules.physics.scene_drawing.headings import (
     Mention,
     Relative,
-    owner,
     read_heading,
-    sentence_at,
     stated_headings,
     states_angle,
     writes_a_direction,
+)
+from app.modules.physics.scene_drawing.ties import (
+    label_before,
+    label_of,
+    stated_after,
+    stick_together,
+    tie,
 )
 from app.modules.physics.scene_drawing.values import Stated, dimension_of
 from app.modules.physics.scene_drawing.vector_layout import SI_UNITS, Arrow, laid_out
@@ -62,20 +68,10 @@ logger = logging.getLogger(__name__)
 Quantity = Literal["velocity", "force", "displacement", "momentum"]
 # A value stated once that two arrows share: "two forces of 10 N each", "each of mass 2 kg".
 _SHARED = re.compile(r"\b(?:each|both|identical)\b", re.IGNORECASE)
-# The bodies stick after the collision: the one "after" a description may ask for.
-_TOGETHER = re.compile(
-    r"\b(?:together|stick(?:s|ing)?|stuck|lock(?:s|ed)?|coalesce[sd]?|combine[sd]?|coupled?"
-    r"|join(?:s|ed)?|embed(?:s|ded)?|as\s+one|hold(?:s|ing)?\s+on(?:to)?|grab(?:s|bed)?"
-    r"|cling(?:s|ing)?)\b",
-    re.IGNORECASE,
-)
-# A value stated once the bodies have collided: "After the collision the first ball moves
-# at 1 m/s to the left", "... and then rebounds at 2 m/s".
-_AFTER = re.compile(
-    r"\b(?:after(?:wards)?|subsequently|rebound\w*|bounces?\s+back|recoils?|final(?:ly)?)\b",
-    re.IGNORECASE,
-)
 _ANGLE_TOLERANCE = 0.5
+# An angle is a direction's own number ("30° above the horizontal"), never a value it
+# describes; a mass and a pure number have no direction.
+_NO_DIRECTION = frozenset({dimension_of("°"), dimension_of("kg"), None})
 # Bodies a picture holds (``SimulationBlockSpec.bodies``).
 _MOST_BODIES = 4
 
@@ -114,6 +110,8 @@ class _Read:
     headings: dict[int, list[Mention]]
     masses: dict[int, list[int]]
     after: frozenset[int]
+    # How many masses the question states: one stated "each" for every body is shared.
+    masses_stated: int = 0
     used: set[int] = field(default_factory=set)
     used_masses: set[int] = field(default_factory=set)
 
@@ -123,33 +121,30 @@ class _Read:
         kind = dimension_of(sample)
         givens = [given for given in stated.left if given.dimension == kind]
         ends = [stated.after_at(given) for given in givens]
+        kilograms = [g for g in stated.left if g.dimension == dimension_of("kg")]
         masses: dict[int, list[int]] = {}
-        for mass in (g for g in stated.left if g.dimension == dimension_of("kg")):
-            body = _owner_of(stated.text, mass.start, stated.after_at(mass), givens, ends)
+        for mass in kilograms:
+            rivals = [other for other in kilograms if other is not mass]
+            label = label_before(stated.text, mass.start)
+            end = stated.after_at(mass)
+            body = tie(stated.text, mass.start, end, givens, label, rivals, mass.unit)
             if body is not None:
                 masses.setdefault(body.start, []).append(mass.start)
-        after = frozenset(g.start for g in givens if _stated_after(stated.text, g))
-        heads = stated_headings(stated.text, givens, ends)
-        return cls(stated, givens, ends, heads, masses, after)
+        after = frozenset(g.start for g in givens if stated_after(stated.text, g))
+        # A direction goes to the nearest value of any kind ("a car travelling north at
+        # 20 m/s brakes with a force of 5000 N": north is the car's, not the force's), and
+        # only one of the picture's kind keeps it.
+        # A mass, an angle or a pure number has no direction of its own.
+        every = [g for g in stated.left if g.dimension not in _NO_DIRECTION]
+        heads = stated_headings(stated.text, every, [stated.after_at(g) for g in every])
+        mine = {given.start for given in givens}
+        heads = {start: found for start, found in heads.items() if start in mine}
+        return cls(stated, givens, ends, heads, masses, after, masses_stated=len(kilograms))
 
     def label(self, given: Given) -> str:
-        return self.stated.text[given.start : self.stated.after_at(given)].strip()
-
-
-def _owner_of(
-    text: str, start: int, end: int, givens: Sequence[Given], ends: Sequence[int]
-) -> Given | None:
-    """The value a mass or a name describes: the nearest in its clause or sentence, else the
-    first one after it ("Car A has a mass of 1000 kg. It travels north at 20 m/s.")."""
-    found = owner(text, start, end, givens, ends)
-    return found or next((g for g in givens if g.start >= end), None)
-
-
-def _stated_after(text: str, given: Given) -> bool:
-    """``given`` is a value the bodies have once they collided: its sentence says "after"
-    (or "rebounds", "finally") before it."""
-    low, _high = sentence_at(text, given.start)
-    return _AFTER.search(text, low, given.start) is not None
+        """The value as a label, written from its number and unit (a power of ten as the
+        answer card writes it), never the "1.2e4" the reading folded it to."""
+        return plain_quantity(given.value, given.unit, GIVEN_FIGURES)
 
 
 def described_vectors(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec]:
@@ -188,6 +183,8 @@ def _checked(described: _Vectors, question: str) -> list[Arrow] | None:
     if described.layout == "bodies" and len(described.arrows) > _MOST_BODIES:
         return None
     read = _Read.of(question, SI_UNITS[described.quantity])
+    # Read as the values are read, its markup off: "$90^\circ$" is 90°.
+    question = read.stated.text
     free = _free_pair(described, question)
     arrows: list[Arrow] = []
     for index, item in enumerate(described.arrows):
@@ -254,6 +251,8 @@ def _taken(
 
     def agrees(given: Given) -> bool:
         stated = read.headings.get(given.start, [])
+        if not all(mention.readable for mention in stated):
+            return False
         if isinstance(heading, Mention):
             return any(_matches(heading, mention) for mention in stated)
         return not stated
@@ -268,11 +267,14 @@ def _mass_of(read: _Read, written: str, body: Given) -> Given | None:
     """The mass the question gives the body whose value is ``body`` (Car A's 1000 kg, never
     Car B's); a mass stated once for every body ("two identical trolleys, each of mass
     2 kg") serves each."""
+    owned = {start for starts in read.masses.values() for start in starts}
     for mass in read.stated.equal_to(written, "kg"):
         if mass.start in read.masses.get(body.start, []) and mass.start not in read.used_masses:
             read.used_masses.add(mass.start)
             return mass
-        if _SHARED.search(read.stated.sentence(mass)):
+        # Shared only when it is no body's own: the one mass stated, or one tied to none.
+        alone = read.masses_stated == 1 or mass.start not in owned
+        if alone and _SHARED.search(read.stated.sentence(mass)):
             return mass
     return None
 
@@ -291,6 +293,8 @@ def _heading(
     value, an angle to an earlier arrow the question states, or, for the first arrow of a
     question that writes no direction at all, to the right."""
     stated = read.headings.get(given.start, [])
+    if not all(mention.readable for mention in stated):
+        return None, False  # its direction is unread ("a westerly", "north-north-east")
     if isinstance(heading, Mention) and free:
         return heading.angle, heading.compass
     if isinstance(heading, Mention):
@@ -337,8 +341,9 @@ def _named(name: str | None, body: Given, read: _Read) -> str | None:
     words = name.split()
     pattern = r"(?<!\w)" + r"\s+".join(re.escape(word) for word in words) + r"(?!\w)"
     text = read.stated.text
+    label = label_of(" ".join(words))
     for found in re.finditer(pattern, text, re.IGNORECASE):
-        named = _owner_of(text, found.start(), found.end(), read.givens, read.ends)
+        named = tie(text, found.start(), found.end(), read.givens, label)
         if named is not None and named.start == body.start:
             return " ".join(words)[:20]
     return None
@@ -362,4 +367,4 @@ def _sticks(described: _Vectors, arrows: list[Arrow], question: str) -> bool:
         return False
     if any(arrow.mass is None for arrow in arrows):
         return False
-    return _TOGETHER.search(question) is not None
+    return stick_together(Stated.of(question).text)

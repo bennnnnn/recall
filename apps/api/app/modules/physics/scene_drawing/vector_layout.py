@@ -112,7 +112,13 @@ def _bodies(arrows: Sequence[Arrow], quantity: str, question: str) -> Simulation
     vectors: list[SimulationVector] = []
     for index, arrow in enumerate(arrows):
         ux, uy = arrow.unit
-        ahead = sum(1 for other in arrows[:index] if _same_way(other, arrow))
+        # Bodies heading the same way queue with the faster one behind, so it can catch the
+        # slower one ahead: "a car at 25 m/s hits a truck at 10 m/s from behind".
+        ahead = sum(
+            1
+            for at, other in enumerate(arrows)
+            if at != index and _same_way(other, arrow) and (other.si, -at) < (arrow.si, -index)
+        )
         reach = _REACH * (1 + _QUEUE * ahead)
         x, y = -ux * reach, (_RADIUS if along_line else -uy * reach)
         box = arrow.name is not None and _BOXES.search(arrow.name) is not None
@@ -200,7 +206,7 @@ def _after(arrows: Sequence[Arrow]) -> SimulationBlockSpec | None:
         path=[[0.0, 0.0], [0.0, 0.0]], radius=_RADIUS * 1.3, label=together[:32] or None
     )
     ux, uy = vx / speed, vy / speed
-    angles = _off_axis(ux, uy, compass)
+    angles = _off_axis(ux, uy)
     return SimulationBlockSpec(
         type="free_body",
         title="After the Collision",
@@ -233,7 +239,7 @@ def _kg(arrow: Arrow) -> float:
     return mass.si if mass.si is not None else mass.value
 
 
-def _off_axis(ux: float, uy: float, compass: bool) -> list[SimulationAngle]:
+def _off_axis(ux: float, uy: float) -> list[SimulationAngle]:
     """The arc from the nearest axis to a velocity that lies along none."""
     direction = math.degrees(math.atan2(uy, ux)) % 360.0
     axis = round(direction / 90.0) * 90.0
@@ -326,7 +332,8 @@ def _resultant_angle(first: Arrow, sx: float, sy: float, stage: int) -> list[Sim
     start = first.angle
     end = math.degrees(math.atan2(sy, sx)) % 360.0
     sweep = (end - start + 180.0) % 360.0 - 180.0
-    if abs(sweep) < 1.0:
+    # Along the first arrow or straight against it ("5 N east, 8 N west"): no angle to mark.
+    if abs(sweep) < 1.0 or abs(sweep) > 179.0:
         return []
     low, high = (start, start + sweep) if sweep > 0 else (start + sweep, start)
     return [
