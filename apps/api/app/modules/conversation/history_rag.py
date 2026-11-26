@@ -72,11 +72,16 @@ def _pieces(settings: Settings, message: Message) -> list[str]:
     )[: settings.chat_history_rag_max_chunks_per_message]
 
 
-async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Message]) -> int:
+async def _embed_and_store(
+    settings: Settings, user_id: UUID, messages: list[Message], *, whole: bool = True
+) -> int:
     """Embed every piece of ``messages`` in one request and store them in one transaction.
 
-    Never holds a session during the embed. Raises ``HistoryEmbeddingUnavailable``
-    unless every piece got a full vector, so a message is indexed whole or not at all.
+    Never holds a session during the embed. A message is indexed whole or not at all.
+    ``whole``: raise ``HistoryEmbeddingUnavailable`` unless every piece got a full vector
+    (the turn's own lines, which the job retries); otherwise a message the provider refused
+    a piece of is left out and the rest are stored (the backfill). The provider failing
+    the request raises either way.
     """
     planned = [(message, _pieces(settings, message)) for message in messages]
     planned = [(message, pieces) for message, pieces in planned if pieces]
@@ -89,18 +94,22 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
         )
     except embedding_gateway.EmbeddingUnavailableError as exc:
         raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, provider unavailable") from exc
-    if len(vectors) != len(texts) or any(
-        vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
-    ):
+    if len(vectors) != len(texts):
         raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
     rows = []
-    offset = 0
+    offset = stored = 0
     for message, pieces in planned:
         chunk_vectors = vectors[offset : offset + len(pieces)]
         offset += len(pieces)
+        if any(vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in chunk_vectors):
+            if whole:
+                raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
+            continue
         chunks = list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True))
         rows.append((message.id, message.chat_id, message.role, chunks))
-    stored = offset
+        stored += len(pieces)
+    if not rows:
+        return 0
     async with SessionLocal() as session:
         # One delete and one insert for the turn's two messages, not two of each.
         await chunks_repo.replace_chunks_of_messages(session, user_id=user_id, messages=rows)
@@ -146,15 +155,18 @@ async def _backfill_recent(
         already = await chunks_repo.indexed_message_ids(
             session, user_id, [row.id for row in pending]
         )
-    total = 0
-    for row in pending:
-        if row.id in already:
-            continue
-        try:
-            total += await index_message(settings, user_id=user_id, message=row)
-        except Exception:
-            logger.warning("Chat-history RAG backfill failed message_id=%s", row.id, exc_info=True)
-    return total
+    todo = [row for row in pending if row.id not in already]
+    if not todo:
+        return 0
+    # One embedding request and one transaction for them all; one at a time, an outage
+    # failed each of the 40 in turn (audit, 2026-11-25).
+    try:
+        return await _embed_and_store(settings, user_id, todo, whole=False)
+    except HistoryEmbeddingUnavailable:
+        logger.warning(
+            "Chat-history RAG backfill: embedder unavailable user_id=%s", user_id, exc_info=True
+        )
+        return 0
 
 
 async def index_turn_messages(

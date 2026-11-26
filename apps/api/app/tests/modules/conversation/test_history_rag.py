@@ -73,6 +73,14 @@ def _session_cm():
     return _cm
 
 
+def _async_session_cm():
+    @asynccontextmanager
+    async def _cm(*_args, **_kwargs):
+        yield AsyncMock()
+
+    return _cm
+
+
 @pytest.mark.asyncio
 async def test_retrieve_for_prompt_degrades_on_db_error():
     settings = Settings(chat_history_rag_enabled=True, mock_llm_enabled=True)
@@ -530,7 +538,7 @@ async def _index_a_turn(*, edited_at: datetime | None = None, memory_on: bool = 
         ),
         patch(
             "app.modules.conversation.history_rag._embed_and_store",
-            AsyncMock(side_effect=lambda _settings, _user, messages: len(messages)),
+            AsyncMock(side_effect=lambda _settings, _user, messages, **_kw: len(messages)),
         ) as index_one,
         patch(
             "app.modules.conversation.history_rag.messages_repo.list_recent_for_user",
@@ -770,3 +778,83 @@ async def test_index_turn_messages_indexes_the_turns_own_line(carries_line: bool
     indexed = {row[0] for row in stored.await_args.kwargs["messages"]}
     line = rows["user"] if carries_line else newer
     assert indexed == {line.id, rows["assistant"].id}
+
+
+@pytest.mark.asyncio
+async def test_the_backfill_embeds_its_messages_in_one_request_and_one_transaction():
+    """Forty past lines are one embedding call and one write, not forty of each; a line the
+    provider refused a piece of is left out, the others stored (audit, 2026-11-25)."""
+    from app.modules.conversation import history_rag
+
+    def line(text: str) -> MagicMock:
+        row = MagicMock()
+        row.id, row.chat_id, row.role, row.content = uuid4(), uuid4(), "user", text
+        row.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+        return row
+
+    rows = [line(f"I planted {n} tomato seedlings in the garden today.") for n in range(40)]
+    vector = [0.1] * history_rag.chunks_repo.EMBEDDING_DIM
+
+    async def _embed(_settings, texts, **_kw):
+        return [None if "planted 7 " in text else vector for text in texts]
+
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _async_session_cm()),
+        patch(
+            "app.modules.conversation.history_rag.messages_repo.list_recent_for_user",
+            AsyncMock(return_value=rows),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.indexed_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.embedding_gateway.embed_many",
+            AsyncMock(side_effect=_embed),
+        ) as embed,
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
+            AsyncMock(),
+        ) as replace,
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.prune_beyond_window", AsyncMock()
+        ),
+        patch("app.modules.conversation.history_rag.presence_cache.mark_present", AsyncMock()),
+    ):
+        stored = await history_rag._backfill_recent(
+            Settings(chat_history_rag_enabled=True), uuid4(), skip_ids=set(), edited_at=None
+        )
+    assert embed.await_count == 1
+    assert replace.await_count == 1
+    assert len(replace.await_args.kwargs["messages"]) == 39
+    assert stored == 39
+
+
+@pytest.mark.asyncio
+async def test_the_backfill_stops_once_on_an_embedder_outage():
+    from app.gateways.embedding_gateway import EmbeddingUnavailableError
+    from app.modules.conversation import history_rag
+
+    row = MagicMock()
+    row.id, row.chat_id, row.role = uuid4(), uuid4(), "user"
+    row.content, row.created_at = "I live in a two-bedroom near the lake.", None
+    with (
+        patch("app.modules.conversation.history_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.modules.conversation.history_rag.messages_repo.list_recent_for_user",
+            AsyncMock(return_value=[row, row, row]),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.chunks_repo.indexed_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch(
+            "app.modules.conversation.history_rag.embedding_gateway.embed_many",
+            AsyncMock(side_effect=EmbeddingUnavailableError("down")),
+        ) as embed,
+    ):
+        stored = await history_rag._backfill_recent(
+            Settings(chat_history_rag_enabled=True), uuid4(), skip_ids=set(), edited_at=None
+        )
+    assert stored == 0
+    assert embed.await_count == 1
