@@ -151,9 +151,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and what it can't do here. The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
   and laid out (no verified card, note, sources or reminder card added), and a Stop
-  before any text shows saves nothing. Hard WS/SSE disconnect with tokens already
-  streamed also finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
-  does); leftover events are ignored for the next thread. `GET /messages` waits for
+  before any text shows saves nothing. The count only trims what saves: the turn is
+  charged what the server sent (a Stop with at most 120 characters sent is given back).
+  A dropped connection is no Stop, over the socket or SSE: the reply finishes and
+  saves whole. Over SSE the phone names each stream (`stream_id`) and says Stop for it
+  with `POST /chats/{id}/stream/stop` (`shown_chars`), then closes it once that request
+  lands (2 s at most); the stream reads that Stop once its client is gone, on any
+  machine (a Redis key per user, chat and stream, `modules/chat/sse_stop.py`). **New
+  chat / leave does not abort SSE**; leftover events are ignored for the next thread. `GET /messages` waits for
   the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress

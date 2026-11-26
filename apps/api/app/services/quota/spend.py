@@ -1,10 +1,10 @@
 """Global UTC-day spend kill-switch: what each call adds, and what the cap stops.
 
-The counter itself is ``core/spend_counter.py``. Chat turns add catalog price
-x tokens at finalize, and every other model call (memory, titles, follow-ups,
-OCR, embeddings, classifiers) is priced by the gateway that makes it
-(``gateways/llm_spend.py``). The prices below are for calls without a token
-count: images, photo lookup, scan reads, voice and live talk.
+The counter itself is ``core/spend_counter.py``. Every model call, a chat turn's
+tool rounds and reply stream included, is priced by the gateway that makes it at
+its own model's rate (``gateways/llm_spend.py``), whether or not a reply saves. The
+prices below are for calls without a token count: images, photo lookup, scan reads,
+voice and live talk.
 """
 
 import logging

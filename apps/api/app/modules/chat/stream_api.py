@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 
 from app.core import shutdown
+from app.core.background_tasks import create_background_task
 from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
@@ -23,10 +24,11 @@ from app.core.log_text import log_safe
 from app.core.redis import get_redis_client
 from app.exceptions import RateLimitedError, RedisUnavailableError
 from app.models.orm import User
-from app.models.schemas import ChatMessageRequest
+from app.models.schemas import ChatMessageRequest, StreamStopRequest
 from app.modules.chat import stream_entry
 from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_client_message
 from app.modules.chat.finalize_registry import register_inflight_stream
+from app.modules.chat.sse_stop import SseStop
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     TURN_KEEPALIVE_SECONDS,
@@ -108,6 +110,7 @@ async def _stream_tokens_sse(
     claim_message: _ClaimMessage | None = None,
     user_id: UUID | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
+    stop: SseStop | None = None,
 ) -> AsyncIterator[str]:
     """The turn's events as SSE lines, every log line inside carrying the turn's ids.
 
@@ -124,6 +127,7 @@ async def _stream_tokens_sse(
                 cancel_event=cancel_event,
                 claim_message=claim_message,
                 queue_factory=queue_factory,
+                stop=stop,
             )
         ) as lines:
             async for line in lines:
@@ -146,6 +150,29 @@ async def _claim_turn(claim_message: _ClaimMessage | None) -> ClientMessageClaim
     return _sse(build_duplicate_event()) if claim is None else claim
 
 
+async def _watch_disconnect(
+    request: Request,
+    cancel_event: asyncio.Event,
+    producer: asyncio.Task[None],
+    client_gone: Callable[[], Awaitable[None]],
+    left: asyncio.Event,
+) -> None:
+    """Run ``client_gone`` once the client has left while the reply still runs: seen by a
+    poll, or at once when the response ends with the reply still running (``left``).
+
+    It runs on its own task: a disconnected response is cancelled at every await, and
+    the user's Stop must still be read after that."""
+    try:
+        while not cancel_event.is_set() and not producer.done():
+            if left.is_set() or await request.is_disconnected():
+                await client_gone()
+                return
+            with suppress(TimeoutError):
+                await asyncio.wait_for(left.wait(), _DISCONNECT_POLL_SECONDS)
+    except asyncio.CancelledError:
+        pass
+
+
 def _queued_event(
     kind: str, text: str, detail: str | None, elapsed_ms: int | None
 ) -> dict[str, Any]:
@@ -165,6 +192,7 @@ async def _turn_sse_lines(
     cancel_event: asyncio.Event | None = None,
     claim_message: _ClaimMessage | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
+    stop: SseStop | None = None,
 ) -> AsyncGenerator[str]:
     outcome = TurnOutcome()
     event_queue = queue_factory()
@@ -218,37 +246,31 @@ async def _turn_sse_lines(
         producer_cancelled = True
         outcome.stop_when_safe(producer.cancel)
 
-    async def watch_disconnect() -> None:
-        """SSE is one-way, so a client's only way to stop generation is
-        closing the connection — without this, a closed tab left the LLM
-        call running to completion with tokens streamed to nobody, still
-        burning quota and provider cost. `cancel_event` is also passed as
-        `should_cancel` into the actual stream_entry call, so setting
-        it here stops generation at the source, not just this relay.
+    async def client_gone() -> None:
+        """The client left: a named stream stops only for its Stop (``sse_stop``), else it
+        finishes and saves; an unnamed one (``apps/web``) stops, as it always did."""
+        if stop is None:
+            stop_reply()
+        elif (asked := await stop.wait()) is not None:
+            outcome.client_shown_chars = asked.shown_chars
+            stop_reply()
+        await event_queue.put(None)
 
-        Cancel the producer task immediately — checking should_cancel only
-        between tokens leaves an idle LiteLLM wait (up to stream timeout)
-        running after disconnect.
-        """
-        try:
-            while not cancel_event.is_set():
-                if await request.is_disconnected():
-                    cancel_event.set()
-                    cancel_producer_once()
-                    await event_queue.put(None)
-                    return
-                await asyncio.sleep(_DISCONNECT_POLL_SECONDS)
-        except asyncio.CancelledError:
-            pass
-
-    def stop() -> None:
-        """A client stops by closing the stream; a server shutdown does the same."""
+    def stop_reply() -> None:
+        """The user's Stop (``client_gone``); a server shutdown runs the same one."""
         cancel_event.set()
         cancel_producer_once()
 
     producer = asyncio.create_task(produce_tokens())
-    register_inflight_stream(chat_id, producer, stop=stop)
-    disconnect_watcher = asyncio.create_task(watch_disconnect())
+    if stop is not None:
+        producer.add_done_callback(stop.clear_soon)  # a Stop said late is the stream's alone
+    register_inflight_stream(chat_id, producer, stop=stop_reply)
+    # Kept by the process, not this response: it outlives a dropped client's response.
+    left = asyncio.Event()
+    disconnect_watcher = create_background_task(
+        _watch_disconnect(request, cancel_event, producer, client_gone, left),
+        name="sse_disconnect",
+    )
 
     try:
         while True:
@@ -262,7 +284,7 @@ async def _turn_sse_lines(
             yield _sse(_queued_event(*item))
 
         if cancel_event.is_set():
-            # Disconnect already cancelled the producer. A second cancel
+            # A Stop already cancelled the producer. A second cancel
             # lands in the partial-reply save and drops the text.
             await _until_done(producer)
             if not shutdown.stopping():
@@ -290,12 +312,13 @@ async def _turn_sse_lines(
             logger.exception("SSE chat stream failed chat_id=%s", log_safe(chat_id))
         yield _sse(turn_error_payload(exc, user_message_saved=outcome.user_message_saved))
     finally:
-        # The request task is cancelled when the client drops the socket.
-        # That pending cancel would abort the partial-reply save on the
-        # next await, and a second producer.cancel() does the same.
+        # The request task is cancelled when the client drops the socket. That
+        # pending cancel would abort the reply's save on the next await. A drop
+        # never stops the producer: the reply runs on and saves, and the watcher
+        # stops it only for the user's Stop (``client_gone``).
         clear_task_cancellation()
-        cancel_event.set()
-        cancel_producer_once()
+        if not producer.done():
+            left.set()  # the response ended first: the watcher reads the user's Stop now
         # Settled off this task once the producer is done: a disconnected
         # client's response is cancelled again at every await below.
         claim.settle_after(producer, outcome)
@@ -304,16 +327,22 @@ async def _turn_sse_lines(
                 await _until_done(producer)
         # M10: if the SSE transport failed mid-stream (client disconnect,
         # proxy drop) the success-path finalize await above never ran, so
-        # the background DB commit that persists the partial assistant
-        # message would be orphaned and the user's partial reply lost.
-        # Await it here too (bounded) so partial tokens are saved even
-        # when the transport breaks. The shield inside await_finalize_commit
-        # means this never cancels the commit task on timeout.
+        # the background DB commit that persists the assistant message
+        # would be orphaned. Await it here too (bounded). The shield inside
+        # await_finalize_commit means this never cancels the commit task.
         await persist_finalize_if_pending(outcome)
-        if not disconnect_watcher.done():
+        if producer.done() and not disconnect_watcher.done():
             disconnect_watcher.cancel()
             with suppress(asyncio.CancelledError):
                 await disconnect_watcher
+
+
+def _stream_stop(
+    redis: Redis, user_id: UUID, chat_id: UUID, stream_id: UUID | None
+) -> SseStop | None:
+    """The Stop key of a stream its client named; a stream with no name stops when its
+    client leaves (``client_gone``)."""
+    return None if stream_id is None else SseStop(redis, user_id, chat_id, stream_id)
 
 
 def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
@@ -380,6 +409,7 @@ async def stream_message_sse(
             ),
             user_id=user.id,
             stream_factory=message_turn,
+            stop=_stream_stop(redis, user.id, chat_id, body.stream_id),
         )
     )
 
@@ -398,6 +428,7 @@ async def stream_regenerate_sse(
             chat_id=chat_id,
             request=request,
             user_id=user.id,
+            stop=_stream_stop(redis, user.id, chat_id, body.stream_id),
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(
                     default_deps(),
@@ -415,3 +446,16 @@ async def stream_regenerate_sse(
             ),
         )
     )
+
+
+@router.post("/{chat_id}/stream/stop", status_code=204)
+async def stop_stream_sse(
+    chat_id: UUID,
+    body: StreamStopRequest,
+    user: User = Depends(get_current_user),
+) -> None:
+    """The user's Stop for the reply streaming over SSE in their chat (``sse_stop``).
+
+    The phone says it just before it closes the stream: a stream that closes with no Stop
+    said finishes and saves its reply. Only the user's own chat's stream reads it."""
+    await SseStop(get_redis_client(), user.id, chat_id, body.stream_id).ask(body.shown_chars)

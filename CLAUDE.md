@@ -105,7 +105,7 @@ and extractors stay inside the owning module. Do not rename `core/` or
   both the eventual commit and rollback. Do not add a generic unit-of-work layer
   unless repeated concrete workflows require more than these boundaries.
 
-**Streaming:** WebSocket (`modules/chat/ws_api.py`) preferred (stop-generation); SSE fallback (`modules/chat/stream_api.py`). Both share `modules/chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task.
+**Streaming:** WebSocket (`modules/chat/ws_api.py`) preferred (stop-generation); SSE fallback (`modules/chat/stream_api.py`). Both share `modules/chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task; over SSE the Stop is `POST /chats/{id}/stream/stop` for the stream the phone named (`modules/chat/sse_stop.py`). A dropped connection on either is no Stop: the reply finishes and saves.
 
 **Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with JWT auth. Mobile uses Bearer + `expo-secure-store`. `apps/web` uses an in-memory access token plus an httpOnly refresh cookie. Keep `apps/mobile/lib/api.ts` the **barrel** over `lib/api/*.ts` (single network boundary for mobile). Rich-block rendering should stay swappable; only platform bits differ per client.
 

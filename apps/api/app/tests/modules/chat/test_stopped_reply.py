@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import ExitStack, asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -169,20 +170,23 @@ def _saved_text(finalize: AsyncMock) -> str:
 
 async def _stop_after_two_tokens(
     shown_chars: int | None,
+    tokens: tuple[str, ...] = ("Alpha 😀 ", "beta ", "gamma"),
+    deps: Any = None,
 ) -> tuple[list[str], TurnOutcome, AsyncMock, MagicMock]:
+    """Stop once all but the last of ``tokens`` went out (two of the default three)."""
     from app.modules.chat.stream_pipeline import stream_and_finalize
 
     async def fake_stream(**_kwargs: object):
-        for token in ("Alpha 😀 ", "beta ", "gamma"):
+        for token in tokens:
             yield token
             await asyncio.sleep(0)
 
     calls = {"n": 0}
 
     def should_cancel() -> bool:
-        # Checked before and after each token: true after the second one went out.
+        # Checked before and after each token: true once all but the last went out.
         calls["n"] += 1
-        return calls["n"] >= 4
+        return calls["n"] >= 2 * (len(tokens) - 1)
 
     finalize = AsyncMock()
     resources = MagicMock(refund=AsyncMock())
@@ -197,7 +201,7 @@ async def _stop_after_two_tokens(
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for token in stream_and_finalize(
-            offline_deps(),
+            deps or offline_deps(),
             redis_mock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             _stream_ctx(),
@@ -243,6 +247,59 @@ async def test_a_stop_before_the_phone_drew_anything_saves_and_charges_nothing(
     assert outcome.message_id is None
     assert outcome.completion == "user_stop"
     resources.refund.assert_awaited_once()
+
+
+_WHOLE_ANSWER = (
+    "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen. ",
+    "It happens in the chloroplasts of a plant's leaves, using chlorophyll. ",
+    "That is the whole answer.",
+    " (still in flight at the Stop)",
+)
+
+
+@pytest.mark.asyncio
+async def test_a_scripted_stop_after_the_whole_reply_is_still_charged(stream_offline_io) -> None:
+    """Exploit (security review, 2026-11-25): a client that reads the whole reply, then
+    cancels with ``shown_chars: 0``, got the turn's message and tokens back. Its count only
+    shortens what saves: nothing saves, and the turn is charged as sent."""
+    adjust = AsyncMock(return_value=500)
+    refund_message = AsyncMock()
+    add_tokens = AsyncMock()
+    deps = offline_deps(
+        quota={"adjust_usage": adjust, "refund_message": refund_message},
+        usage={"add_tokens": add_tokens},
+    )
+    yielded, outcome, finalize, resources = await _stop_after_two_tokens(
+        0, tokens=_WHOLE_ANSWER, deps=deps
+    )
+
+    assert yielded == list(_WHOLE_ANSWER[:-1])
+    finalize.assert_not_awaited()  # nothing saved: the phone drew nothing
+    assert outcome.message_id is None
+    resources.refund.assert_not_awaited()
+    resources.mark_settled.assert_called_once()
+    refund_message.assert_not_awaited()
+    add_tokens.assert_awaited_once()
+    adjust.assert_awaited_once()
+    assert adjust.await_args is not None
+    _redis, _user, reserved, actual = adjust.await_args.args
+    assert (reserved, actual > 0) == (100, True)
+
+
+@pytest.mark.asyncio
+async def test_a_charged_stop_tells_done_the_days_counts(
+    stream_offline_io, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The charged Stop took a message and tokens: ``done`` carries the day's counts after
+    it, as after a saved reply, or the phone kept showing the counts from before."""
+    from app.modules.chat import stream_pipeline
+    from app.modules.chat.turn_outcome import TurnUsage
+
+    day = TurnUsage(used_tokens=900, daily_limit=10_000, messages_used=4, daily_messages=10)
+    monkeypatch.setattr(stream_pipeline, "charge_unsent_reply", AsyncMock(return_value=day))
+    _yielded, outcome, _finalize, _resources = await _stop_after_two_tokens(0, tokens=_WHOLE_ANSWER)
+
+    assert outcome.usage == day
 
 
 @pytest.mark.parametrize(
@@ -303,3 +360,79 @@ async def test_a_stopped_reply_keeps_no_structure_name_it_never_checked(
     saved, *_ = await _finalize("So far:\n\n```smiles\nCaffeine\nCCO\n```\n", user_stopped=True)
     assert "Caffeine" not in saved
     assert "```smiles\nCCO\n```" in saved
+
+
+class _ProviderStream:
+    """A provider's stream of answer text, with no usage chunk: a Stop comes first."""
+
+    def __init__(self, pieces: tuple[str, ...]) -> None:
+        self._pieces = list(pieces)
+
+    def __aiter__(self) -> _ProviderStream:
+        return self
+
+    async def __anext__(self) -> Any:
+        if not self._pieces:
+            raise StopAsyncIteration
+        await asyncio.sleep(0)
+        delta = SimpleNamespace(
+            content=self._pieces.pop(0), reasoning_content=None, tool_calls=None
+        )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(delta=delta, finish_reason=None)], usage=None
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("shown_chars", [0, 1, 40])
+async def test_any_count_after_the_whole_reply_charges_the_whole_reply_once(
+    stream_offline_io, monkeypatch: pytest.MonkeyPatch, shown_chars: int
+) -> None:
+    """Through the real gateway, stopped after a yield. The client's count only trims what
+    saves: ``shown_chars: 1`` was charged about one token for a whole reply. And the
+    stopped stream's bill, settled as it closed, landed after the charge read ``usage``
+    and was counted again on top of a sent-text estimate (review of #2596). Every count
+    charges the sent text once."""
+    from app.gateways import litellm_gateway
+    from app.modules.chat import stream_pipeline
+    from app.modules.chat.stream_pipeline import stream_and_finalize
+
+    settings = Settings(
+        max_output_tokens=100,
+        mcp_tool_loop_enabled=False,
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+    )
+    monkeypatch.setattr(
+        litellm_gateway, "acompletion", AsyncMock(return_value=_ProviderStream(_WHOLE_ANSWER))
+    )
+    charged: list[dict[str, int]] = []
+
+    async def unsent(*_args: Any, usage: dict[str, int], **_kwargs: Any) -> None:
+        charged.append(dict(usage))
+
+    async def saved(*_args: Any, usage: dict[str, int], **_kwargs: Any) -> None:
+        charged.append(dict(usage))
+
+    monkeypatch.setattr(stream_pipeline, "charge_unsent_reply", unsent)
+    monkeypatch.setattr(stream_pipeline, "finalize_stream_turn_db", saved)
+    yielded: list[str] = []
+    outcome = TurnOutcome(client_shown_chars=shown_chars)
+    with patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)):
+        async for token in stream_and_finalize(
+            offline_deps(),
+            redis_mock(),
+            settings,
+            _stream_ctx(),
+            # Stopped while the gateway is parked at its yield, the last piece unsent.
+            should_cancel=lambda: len("".join(yielded)) >= len("".join(_WHOLE_ANSWER[:-1])),
+            outcome=outcome,
+            resources=MagicMock(refund=AsyncMock()),
+        ):
+            yielded.append(token)
+        if outcome.finalize_db_task is not None:
+            await outcome.finalize_db_task
+
+    sent = "".join(yielded)
+    assert len(sent) > 120 and sent != "".join(_WHOLE_ANSWER)  # stopped short, past a few tokens
+    assert [usage["output"] for usage in charged] == [len(sent) // 4]

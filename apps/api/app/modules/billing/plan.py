@@ -34,10 +34,13 @@ __all__ = [
     "override_pool",
     "pick_cheapest_from_pool",
     "pick_fast_from_pool",
+    "pick_for_plan",
     "pick_math_lane",
     "pick_preferred_tier",
     "pick_smart_from_pool",
     "pick_strongest_from_pool",
+    "plan_includes",
+    "saved_choices",
     "validate_enabled_models_for_update",
 ]
 
@@ -76,10 +79,60 @@ def allowed_model_ids(user: User, settings: Settings) -> set[str]:
     return set(free_pool(settings))
 
 
-def is_auto_enabled(user: User) -> bool:
-    """Auto is on, or no switch the user saved names a model the catalog still has."""
-    saved = current_choices(user.enabled_models)
+def plan_includes(plan: User | str | None, model_id: str, settings: Settings) -> bool:
+    """Whether the plan offers ``model_id`` at all: with ``all_models`` (entitlements, the
+    rule ``allowed_model_ids`` asks too) every selectable model, else those marked free.
+    Whether this server can run it now is ``allowed_model_ids``."""
+    offered = {model.id: model for model in model_catalog.selectable_models()}
+    model = offered.get(model_id)
+    if model is None:
+        return False
+    return model.plan_access == "free" or can_use(plan, "all_models", settings)
+
+
+def saved_choices(
+    plan: User | str | None, saved: list[str] | None, settings: Settings
+) -> list[str] | None:
+    """The model switches a user saved, as their plan stands today.
+
+    A model the catalog dropped, or one the plan no longer includes (Pro ended), is off;
+    with no switch left it is Auto with the plan's models (None). The saved row keeps them,
+    so a plan that comes back brings them back. With Auto off and only Pro models turned
+    on, a lapsed Pro sent a model the plan refused on every message (security review,
+    2026-11-25): the one view the app shows and the turn routes by.
+    """
+    kept = current_choices(saved)
+    if kept is None:
+        return None
+    kept = [
+        choice for choice in kept if choice == AUTO_ALIAS or plan_includes(plan, choice, settings)
+    ]
+    return kept or None
+
+
+def is_auto_enabled(user: User, settings: Settings) -> bool:
+    """Auto is on, or no switch the user saved names a model the plan still offers."""
+    saved = saved_choices(user, user.enabled_models, settings)
     return saved is None or AUTO_ALIAS in saved
+
+
+def pick_for_plan(user: User, model_alias: str | None, settings: Settings) -> str | None:
+    """A message's model as the plan stands: a named model the plan no longer includes is
+    the one Settings names instead (``saved_choices``): Auto (None), or with Auto off the
+    first model still on. A phone that still shows it gets an answer, never a refusal. A
+    model the user turned off, or one no catalog knows, stays named (and is refused)."""
+    if not is_explicit_pick(model_alias) or plan_includes(user, model_alias, settings):
+        return model_alias
+    offered = {model.id for model in model_catalog.selectable_models()}
+    if model_alias not in offered:
+        return model_alias
+    # What Settings says messages use (``UserOut.default_model``): Auto, or with Auto off
+    # the first model still on. Routed as Auto, a lapsed Pro's turn picked the cheapest of
+    # its models while Settings named another (review of #2596).
+    saved = saved_choices(user, user.enabled_models, settings)
+    if saved is None or AUTO_ALIAS in saved:
+        return None
+    return saved[0]
 
 
 def models_choosing(user: User, settings: Settings, model_id: str) -> list[str]:

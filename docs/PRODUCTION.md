@@ -754,9 +754,10 @@ phones ask, a machine probes Postgres and Redis at most once per 5s.
 **`DAILY_GLOBAL_SPEND_USD`** is a kill-switch on estimated provider dollars per
 UTC day (Redis `spend_musd:<date>`, `core/spend_counter.py`). What adds to it:
 
-- a chat turn: catalog price x its tokens, at finalize (`modules/chat/turn_settle.py`);
-- every other model call, priced from its tokens by the gateway that makes it
-  (`gateways/llm_spend.py`): memory extraction and consolidation, titles,
+- every model call, priced from its own tokens at its own model's price by the gateway
+  that makes it, whether or not a reply saves (`gateways/llm_spend.py`): a chat turn's
+  reply stream (every attempt, and a stopped one from the text it sent) and its tool
+  selection rounds, memory extraction and consolidation, titles,
   compression, follow-up questions, attachment OCR, embeddings,
   the reference resolver, maths extraction;
 - a fixed price per call for images, photo lookup, scan reads and voice input
