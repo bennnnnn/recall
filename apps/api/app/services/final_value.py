@@ -38,8 +38,10 @@ _SIZED = re.compile(r"\\(?:left|right|[bB]igg?[lr]?)[ \t]*(?=[()\[\]])")
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
 # A number, a fraction or a bracket right before a column multiplies it: working, not a value
 # (review of #2594: "0.5(-5; 2)" was carded beside the answer it reached).
+# An opening bracket may stand between them: "0.5\left(\begin{matrix}…\end{matrix}\right)".
 _TIMES_COLUMN = re.compile(
-    r"[\d})][ \t]*+(?:\\[,;: ]|\\q?quad(?![A-Za-z]))?[ \t]*+\\begin\{[pb]?matrix\}"
+    r"[\d})][ \t]*+(?:\\[,;: ]|\\q?quad(?![A-Za-z]))?[ \t]*+"
+    r"(?:(?:\\left[ \t]*+)?[(\[][ \t]*+)?\\begin\{[pb]?matrix\}"
 )
 # An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
 _EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")

@@ -130,10 +130,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23); then
 # vectors in the question's notation, a column question answered in columns, and an impulse worked
 # as momentum before, after and their change (PHYSICS_VECTORS, WORKED_COLUMN_VECTORS_NOTE, the
-# owner's ball question, 2026-11-25).
+# owner's ball question, 2026-11-25), the momentum steps beside the worked contract only and a force
+# only when one is asked (review of #2594).
 _RULES = 225
-_RULE_GRAMS = 21127
-_RULE_GRAMS_SHA = "9a5117dd6c905b62"
+_RULE_GRAMS = 21136
+_RULE_GRAMS_SHA = "b2e1e554f3d040c2"
 
 
 def _rules() -> list[str]:
@@ -145,6 +146,7 @@ def _rules() -> list[str]:
         for short in (False, True):
             rules += _strings(list(hints.presentation(short)))
         rules += _strings(hints.closing)
+        rules += _strings(hints.worked)
     return rules
 
 

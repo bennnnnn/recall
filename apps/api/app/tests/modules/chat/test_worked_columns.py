@@ -8,6 +8,8 @@ unit beside it and rounds each entry by the card's rule.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from app.core.config import Settings
@@ -79,6 +81,9 @@ answer: \vec{F} | \begin{pmatrix}-50.004\\12.3456\end{pmatrix} | N
         # A vector's symbol makes the semicolon form a column without a unit.
         "Find |\\vec{a}| for \\vec{a} = [3; 4].",
         "momentum [2; 1] kg m/s",
+        # Russian units, and SymPy's pretty print of a column (review round 2 of #2594).
+        "Скорость тела [2; 3] м/с.",
+        "⎡5⎤\n⎢ ⎥\n⎣2⎦",
     ],
 )
 def test_a_question_in_columns_is_read_as_columns(message: str) -> None:
@@ -105,6 +110,14 @@ def test_a_question_in_columns_is_read_as_columns(message: str) -> None:
         "Calcule a integral de f no intervalo [0; 2].",
         "Find the average velocity of x(t) = t^2 over [0; 5] s.",
         "The rod lies along [0; 2] m of the axis.",
+        # Review round 2 of #2594: no free unit parsing ("c" is no speed of light, a power is
+        # never evaluated), a unit vector or a vector elsewhere in the message names no
+        # interval, and a 2 by 2 matrix in tall brackets is no column.
+        "A 2 kg cart moves on [0; 5] 9^999999999 m. Find its momentum.",
+        "The particle stays in [0; 1] c for a while.",
+        r"$\vec{v} = 3\vec{i} + 2\vec{j}$ sur l'intervalle [0 ; 5] s",
+        r"\vec{i} = [1; 0] is a unit vector.",
+        "Find the determinant of\n⎡1  2⎤\n⎣3  4⎦",
     ],
 )
 def test_other_notation_is_not_read_as_columns(message: str) -> None:
@@ -148,9 +161,32 @@ def test_a_question_in_unit_vectors_gets_no_column_note() -> None:
     assert WORKED_COLUMN_VECTORS_NOTE not in contents
 
 
-def test_physics_asks_for_the_momentum_steps_in_the_questions_notation() -> None:
-    assert PHYSICS_VECTORS in physics_prompt_hints(short=False)
+def test_the_momentum_steps_are_said_only_where_nothing_checked_the_turn() -> None:
+    """A verified impulse is copied as its solver wrote it: the hint to work it in steps sits
+    beside the ```worked contract only (review round 2 of #2594)."""
+    assert PHYSICS_VECTORS not in physics_prompt_hints(short=False)
     assert PHYSICS_VECTORS not in physics_prompt_hints(short=True)
+    kwargs = {"lightweight": False, "several_requests": False}
+    layout = worked_layout(BALL, "physics", Settings(), answered=False, **kwargs)
+    assert layout is not None and PHYSICS_VECTORS in layout.subject_notes
+    assert worked_layout(BALL, "physics", Settings(), answered=True, **kwargs) is None
+    prompt = [{"role": "user", "content": BALL}]
+    with_contract = with_worked_contract(prompt, layout)
+    assert PHYSICS_VECTORS in [message["content"] for message in with_contract]
+    assert without_worked_contract(with_contract) == prompt
+    maths = worked_layout("Solve 2x + 5 = 17.", "math", Settings(), answered=False, **kwargs)
+    assert maths is not None and maths.subject_notes == ()
+
+
+def test_the_momentum_steps_ask_a_force_only_when_the_question_does() -> None:
+    assert "a force only when the question asks for one" in PHYSICS_VECTORS
+    assert "then a force from it" not in PHYSICS_VECTORS
+
+
+def test_a_written_power_is_read_at_once() -> None:
+    started = time.perf_counter()
+    assert not writes_column_vectors("A cart moves on [0; 5] 9^999999999 m. Its momentum?")
+    assert time.perf_counter() - started < 0.5
 
 
 def _laid_out(block: str) -> str:
@@ -223,6 +259,8 @@ PRODUCT_ABOVE = (
         r"\frac{1}{3}\begin{pmatrix}12\\-9\end{pmatrix}",
         r"(0.5)\begin{pmatrix}5\\2\end{pmatrix}",
         r"0.5 \, \begin{pmatrix}5\\2\end{pmatrix}",
+        r"0.5\left(\begin{matrix}-5\\2\end{matrix}\right)",
+        r"0.5(\begin{pmatrix}-5\\2\end{pmatrix})",
     ],
 )
 def test_a_number_times_a_column_is_working(line: str) -> None:

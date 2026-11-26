@@ -47,6 +47,8 @@ class WorkedLayout:
     # The question writes its vectors as columns (``turn_reading.vector_notation``): the
     # block writes them so too (``worked_turn``).
     column_vectors: bool = False
+    # The subject's own notes for a working no solver checked (``SubjectHints.worked``).
+    subject_notes: tuple[str, ...] = ()
 
 
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
