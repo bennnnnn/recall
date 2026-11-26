@@ -94,17 +94,10 @@ def _table_pulley(values: Quantities) -> Scenes:
     """A block on a level table pulled over a pulley at its edge by a hanging mass: the rig
     ``force_pictures`` draws for a request to see its forces, each body labelled with the
     mass the reader read for it."""
-    from app.modules.physics.display import GIVEN_FIGURES, plain_number
     from app.modules.physics.force_rigs import table_pulley_picture
 
-    spec = table_pulley_picture(friction=False)
-    kg = [to_si(*values[param], expected_key=param) for param in ("m1", "m2")]
-    labels = [f"{plain_number(mass, GIVEN_FIGURES)} kg" for mass in kg]
-    bodies = [
-        body.model_copy(update={"label": label})
-        for body, label in zip(spec.bodies, labels, strict=True)
-    ]
-    return [spec.model_copy(update={"bodies": bodies})]
+    block, hanging = (to_si(*values[param], expected_key=param) for param in ("m1", "m2"))
+    return [table_pulley_picture(friction=False, masses=(block, hanging))]
 
 
 _SPEED, _ANGLE, _LENGTH, _MASS = "m/s", "°", "m", "kg"

@@ -14,7 +14,7 @@ from app.modules.physics.display import (
     plain_number,
     plain_unit,
 )
-from app.modules.physics.schemas import PhysicsIntent, SimulationVector
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
 from app.modules.physics.solvers.arithmetic import latex_num
 from app.modules.physics.solvers.force_scenes import (
     _atwood_scene,
@@ -403,7 +403,16 @@ def _table_pulley(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
             QuantityResult("", a_val, "m/s^2"),
             QuantityResult("", t_val, "N"),
         ),
+        simulation_specs=[_table_pulley_scene(m1, m2)],
     )
+
+
+def _table_pulley_scene(m1: float, m2: float) -> SimulationBlockSpec:
+    """The rig: the block on the table, the rope over the wheel, the mass hanging from it
+    (``force_rigs``), each labelled with its mass."""
+    from app.modules.physics.force_rigs import table_pulley_picture
+
+    return table_pulley_picture(friction=False, masses=(m1, m2))
 
 
 def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:

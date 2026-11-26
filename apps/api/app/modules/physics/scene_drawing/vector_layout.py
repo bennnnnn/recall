@@ -35,6 +35,7 @@ _TITLES: dict[str, tuple[str, TitleKey]] = {
     "displacement": ("Displacements", "displacements"),
     "momentum": ("Momentum", "momentum"),
 }
+_BEFORE: tuple[str, TitleKey] = ("Before the Collision", "before_collision")
 _COLLIDES = re.compile(r"\b(?:collid\w*|collision|crash\w*|impact|hits?|strikes?)\b", re.I)
 _BOXES = re.compile(
     r"\b(?:car|truck|lorry|bus|van|vehicle|block|box|crate|trolley|cart|wagon|train|tram)\b",
@@ -130,11 +131,7 @@ def _bodies(arrows: Sequence[Arrow], quantity: str, question: str) -> Simulation
         )
     xs = [p for b in bodies for p in (b.path[0][0] - 0.6, b.path[0][0] + 0.6)] + [-0.5, 0.5]
     ys = [p for b in bodies for p in (b.path[0][1] - 0.6, b.path[0][1] + 0.6)] + [-0.5, 0.5]
-    title, key = (
-        ("Before the Collision", "before_collision")
-        if _COLLIDES.search(question)
-        else _TITLES[quantity]
-    )
+    title, key = _BEFORE if _COLLIDES.search(question) else _TITLES[quantity]
     compass = any(a.compass for a in arrows)
     return SimulationBlockSpec(
         type="free_body",
