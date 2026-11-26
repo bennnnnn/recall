@@ -30,7 +30,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.givens import PHYSICS_UNITS
-from app.modules.physics.graph_labels import SYMBOLS, TIME, axis_label, graph_title
+from app.modules.physics.graph_labels import SPOKEN, SYMBOLS, TIME, axis_label, graph_title
 from app.modules.physics.numbers import normalize_physics_units
 from app.modules.physics.scene_drawing.values import Stated
 from app.services.law_binding.fit import read_givens
@@ -273,6 +273,7 @@ def _graph(kind: Graph, checked: _Checked) -> GraphBlockSpec:
         title=graph_title(symbol),
         x_label=axis_label(TIME, t_unit),
         y_label=axis_label(symbol, unit),
+        quantity=SPOKEN[kind],
         trajectory_type="position_vs_time" if kind == "distance" else "velocity_vs_time",
     )
 

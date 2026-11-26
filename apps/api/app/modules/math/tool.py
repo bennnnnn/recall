@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from concurrent.futures.process import BrokenProcessPool
 from typing import Any, TypeVar
 
 from app.core.config import Settings
@@ -112,11 +111,13 @@ class SympyAdapter:
             return await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
         except math_solve.SolveServiceError:
             raise
-        except (TimeoutError, BrokenProcessPool) as exc:
-            # A worker lost to a sibling's timeout is the pool's time, not the input's fault.
+        except TimeoutError as exc:
             logger.warning("sympy MCP tool call timed out")
             raise _StepFailed(_TIMED_OUT) from exc
         except Exception as exc:
+            # A broken pool is this step's own worker dying (each slot is a pool of one,
+            # ``sympy_executor``): its input ran it out of memory or crashed it, so it is no
+            # timeout to wait out and send again.
             logger.warning("sympy MCP tool call failed", exc_info=True)
             raise _StepFailed(_NOT_COMPUTED) from exc
 

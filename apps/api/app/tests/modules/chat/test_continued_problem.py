@@ -78,7 +78,8 @@ def test_a_number_or_a_quantity_adds_to_a_problem(line: str, adds: bool) -> None
 
 
 @pytest.mark.parametrize(
-    ("line", "added"), [(".5", ".5"), ("0.5", "0.5"), ("-.5", "-.5"), ("3.", "3")]
+    ("line", "added"),
+    [(".5", ".5"), ("0.5", "0.5"), ("-.5", "-.5"), ("3.", "3"), ("...3", "3"), ("$.5", ".5")],
 )
 def test_a_number_keeps_its_leading_point(line: str, added: str) -> None:
     """A leading point is kept: ".5" completes "sides 2, 1," as one half, never a 5."""

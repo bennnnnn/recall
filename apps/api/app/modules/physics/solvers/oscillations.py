@@ -8,7 +8,7 @@ import math
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
-from app.modules.physics.graph_labels import SYMBOLS, TIME, axis_label, graph_title
+from app.modules.physics.graph_labels import SPOKEN, SYMBOLS, TIME, axis_label, graph_title
 from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationAngle,
@@ -130,6 +130,7 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
         x_label=axis_label(TIME, "s"),
         # A plot with no amplitude stated is drawn as x/A, a ratio with no unit.
         y_label=axis_label(SYMBOLS["oscillation"], "m") if amplitude else "x/A",
+        quantity=SPOKEN["oscillation"],
         trajectory_type="position_vs_time",
     )
 

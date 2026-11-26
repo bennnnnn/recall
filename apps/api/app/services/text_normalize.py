@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 
 # Where one sentence ends and the next starts: the space after its ".", "!" or "?". Every
-# reader that splits a line into sentences this way asks this one pattern.
+# reader that splits text into sentences at exactly these marks asks this one pattern;
+# readers that also stop at ";" or a line break, or keep a decimal's point, have their own.
 SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
 # The same, and every line break as well: a reply's lines are sentences of their own.
 SENTENCE_OR_LINE_BREAK = re.compile(r"(?<=[.!?])\s+|\n+")

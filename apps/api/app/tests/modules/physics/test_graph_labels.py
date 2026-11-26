@@ -34,3 +34,9 @@ def test_a_speed_graph_is_named_apart_from_a_velocity_graph() -> None:
     assert (speed.title, speed.y_label) == ("|v|–t", "|v| (m/s)")
     assert (velocity.title, velocity.y_label) == ("v–t", "v (m/s)")
     assert speed.x_label == velocity.x_label == "t (s)"
+    # A screen reader says the quantity by name on the phone, never "vertical bar v".
+    assert (speed.quantity, velocity.quantity) == ("speed", "velocity")
+
+
+def test_an_oscillation_is_spoken_as_a_displacement() -> None:
+    assert _oscillation_curve(2.0, 0.1).quantity == "displacement"

@@ -1,5 +1,7 @@
 /** Fence types and parsing for ```graph blocks; view math lives in graphBlock.ts. */
 
+import { type MotionQuantity, parseMotionQuantity } from "@/lib/math/trajectorySpeech";
+
 export type NumberLineInterval = {
   start: number | null;
   end: number | null;
@@ -55,6 +57,8 @@ type SampledGraphSpec = {
   x_label?: string;
   y_label?: string;
   trajectory_type?: TrajectoryType;
+  /** A motion graph's quantity against time, which a screen reader says by name. */
+  quantity?: MotionQuantity;
 };
 
 export type InequalityGraphSpec = Omit<SampledGraphSpec, "type"> & {
@@ -218,6 +222,7 @@ function parseTrajectoryGraph(row: Record<string, unknown>): GraphSpec | null {
     x_label: row.x_label != null ? String(row.x_label) : undefined,
     y_label: row.y_label != null ? String(row.y_label) : undefined,
     trajectory_type: parseTrajectoryType(row.trajectory_type),
+    quantity: parseMotionQuantity(row.quantity),
   };
 }
 

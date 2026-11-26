@@ -26,6 +26,16 @@ SYMBOLS: dict[Quantity, str] = {
     "oscillation": "x",
 }
 TIME = "t"
+# The name the phone says for each (``GraphBlockSpec.quantity``): an oscillator's x is its
+# displacement.
+SPOKEN: dict[Quantity, Literal["displacement", "distance", "velocity", "speed", "acceleration"]] = {
+    "displacement": "displacement",
+    "distance": "distance",
+    "velocity": "velocity",
+    "speed": "speed",
+    "acceleration": "acceleration",
+    "oscillation": "displacement",
+}
 # A graph's name as a textbook writes it, "v-t graph": the two symbols joined by an en dash.
 _AGAINST = chr(0x2013)
 

@@ -12,11 +12,12 @@ _HYDRATE_DOTS = frozenset({".", "\u00b7"})
 LEADING_GROUP = r"(?:\((?:[A-Z][a-z]?[0-9]*)+\)[0-9]+)?"
 _PHASES = frozenset({"aq", "s", "l", "g"})
 _MAX_NESTING = 12
-# A count a formula writes, at most: a protein's thousands of atoms are four digits. Past it
-# the text is no formula: a 5000-digit count raised in ``int`` and a long one gave a molar
-# mass of absurd size.
-_MAX_COUNT_DIGITS = 4
-# The atoms of one element a whole formula holds, at most, once groups multiply its counts.
+# A count a formula writes, at most: titin, the largest protein, writes H270464, six digits.
+# Past it the text is no formula: a 5000-digit count raised in ``int`` and a long one gave a
+# molar mass of absurd size.
+_MAX_COUNT_DIGITS = 6
+# The atoms of one element a whole formula holds, at most, once groups multiply its counts:
+# well above titin's 270,464 hydrogens.
 _MAX_ATOMS = 1_000_000
 
 

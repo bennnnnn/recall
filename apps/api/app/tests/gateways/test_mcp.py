@@ -429,7 +429,7 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
 
 
 @pytest.mark.asyncio
-async def test_sympy_adapter_broken_pool_degrades_like_timeout(
+async def test_sympy_adapter_a_broken_pool_could_not_compute(
     monkeypatch: pytest.MonkeyPatch,
     thread_sympy_executor: None,
 ):
@@ -443,7 +443,40 @@ async def test_sympy_adapter_broken_pool_degrades_like_timeout(
     result = await adapter.invoke(
         {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
     )
-    assert "timed out" in result.content
+    # Each slot is a pool of one: a broken pool is this input's worker dying, no timeout to
+    # wait out and send again.
+    assert result.content == "Math error: SymPy could not compute this."
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_a_step_that_raises_could_not_compute(
+    thread_sympy_executor: None,
+):
+    """A required step that raises in the pool is "could not compute", never "timed out"."""
+    adapter = SympyAdapter(Settings(stem_solve_timeout_seconds=5))
+    broken = RuntimeError("simplify bug")
+    with patch("app.modules.math.tool.math_solve.simplify_expression", side_effect=broken):
+        result = await adapter.invoke(
+            {"action": "simplify", "expr": "x + x", "variable": "x"}, tool_context()
+        )
+    assert result.content == "Math error: SymPy could not compute this."
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_an_optional_step_that_raises_keeps_the_answer(
+    thread_sympy_executor: None,
+):
+    """The number line beside an inequality's answer is a step the call can do without: when
+    it raises, the verified answer still comes back."""
+    adapter = SympyAdapter(Settings(stem_solve_timeout_seconds=5))
+    broken = RuntimeError("number line bug")
+    with patch("app.modules.math.tool.math_solve.number_line_spec_from_expr", side_effect=broken):
+        result = await adapter.invoke(
+            {"action": "inequality", "lhs": "2*x + 1", "rhs": "5", "comparator": ">"},
+            tool_context(),
+        )
+    assert "Verified result" in result.content
+    assert result.data is not None and result.data.get("canonical_answer")
 
 
 @pytest.mark.asyncio

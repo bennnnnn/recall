@@ -137,9 +137,32 @@ def shows_a_picture(text: str) -> bool:
 
 # A picture by name: a diagram, a chart, a graph, a figure, a sketch, a setup.
 _NAMES_A_PICTURE = re.compile(
-    r"\b(?:diagrams?|flow\s*charts?|charts?|graphs?|plots?|pictures?|figures?|sketch|setup)\b",
+    r"\b(?:diagrams?|flow\s*charts?|charts?|graphs?|plots?|pictures?|figures?|sketch|setup"
+    r"|structures?|molecules?)\b",
     re.IGNORECASE,
 )
+# The kind of picture each app fence draws, for the line that says one was not drawn.
+_MOLECULE_LANGS = frozenset({"smiles", "chemistry", "molecule", "molecule3d", "mol3d", "3dmol"})
+_GRAPH_LANGS = frozenset({"graph", "plot", "chart", "vega", "vega-lite"})
+
+
+def dropped_kind(raw: str, text: str) -> Kind | None:
+    """The kind of the picture the reply as written drew and the reply now shows none of: a
+    pass took it out (a check it failed, a structure no renderer draws). None when the reply
+    drew none, or still shows one."""
+    if shows_a_picture(text):
+        return None
+    lang = next(
+        (fence.lang for fence in iter_fences(raw) if fence.closed and fence.lang in APP_PICTURES),
+        None,
+    )
+    if lang is None:
+        return None
+    if lang in _MOLECULE_LANGS:
+        return "molecule"
+    return "graph" if lang in _GRAPH_LANGS else "diagram"
+
+
 # A short paragraph beside a flowchart that speaks of it ("That diagram is the simplest way
 # to see it", "Here's the setup:"): it goes with the flowchart.
 _SPEAKS_OF_IT = re.compile(
@@ -188,9 +211,12 @@ def _merged(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def held_to_the_ask(text: str, ctx: StreamContext, language: str, *, pictured: bool = False) -> str:
+def held_to_the_ask(
+    text: str, ctx: StreamContext, language: str, *, dropped: Kind | None = None
+) -> str:
     """The reply with no stand-in for the picture asked, and the line when none was drawn.
-    ``pictured``: the reply as the model wrote it drew a picture, which a pass took out."""
+    ``dropped``: the kind of picture the reply as written drew, which a pass took out
+    (``dropped_kind``)."""
     decision = answered_read(ctx.live_read)
     line = ctx.user_message_content or ""
     out = text
@@ -200,10 +226,18 @@ def held_to_the_ask(text: str, ctx: StreamContext, language: str, *, pictured: b
     # or only its own picture a subject's check took out, says the picture was not drawn:
     # never an empty reply. A photo or a painting asked for is no drawing the app owes: its
     # reply keeps its words with no line (review).
-    emptied = not out.strip() and (out != text or ctx.drawing is not None or pictured)
-    kind = owed_kind(decision, ctx) or ("diagram" if emptied else None)
-    if kind is None or shows_a_picture(out):
+    emptied = not out.strip() and (out != text or ctx.drawing is not None or dropped is not None)
+    kind = owed_kind(decision, ctx) or ((dropped or "diagram") if emptied else None)
+    if shows_a_picture(out):
         return out
+    if kind is None:
+        # A picture nobody asked for, taken out: a lead that presented it ("Here's its
+        # structure:") would point at nothing, so the line takes its place; with no such
+        # lead the reply stands as it is.
+        if dropped is None:
+            return out
+        placed = in_place_of_the_lead(out, not_drawn_line(dropped, language))
+        return placed if placed is not None else out
     # A request to see the chat's problem was answered in words what its picture shows:
     # said first, the line leads into them; after them it read as taking them back ("A
     # ball rises 20.4 m … I couldn't draw this diagram.", QA round 2026-11-22).
@@ -251,14 +285,16 @@ async def settle_owed_picture(state: FinalizeState) -> str:
     """Finalize's pass: ``held_to_the_ask`` on the reply, committed when it changed."""
     ctx = state.ctx
     # A reply cut off owes no picture: the phone says it was cut off and offers Continue,
-    # and the picture may come with the rest (a length cut is no cancel, ``cut_off``).
-    if state.cut_off:
+    # and the picture may come with the rest (a length cut is no cancel, ``cut_off``). A
+    # stopped reply saves as the user saw it. Either one left empty by a pass that took its
+    # picture out still says so: never an empty reply.
+    if (state.cut_off or state.user_stopped) and state.text.strip():
         return state.text
     locale = ctx.user.locale if ctx.user is not None else None
     language = line_language(ctx.user_message_content or "", locale)
-    # A reply that was only its own picture, which a subject's check took out, is empty here:
-    # it says the picture was not drawn, in the reply's language.
-    text = held_to_the_ask(state.text, ctx, language, pictured=shows_a_picture(state.raw))
+    # A picture of the reply's own that a pass took out is said not drawn, in the reply's
+    # language, where the reply would be empty or its lead would point at nothing.
+    text = held_to_the_ask(state.text, ctx, language, dropped=dropped_kind(state.raw, state.text))
     if text != state.text:
         # Committed, so a later pass that falls back keeps the line.
         state.committed = fallback_text(text, server_text=state.server_text)

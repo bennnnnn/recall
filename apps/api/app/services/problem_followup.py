@@ -32,6 +32,7 @@ from app.services.scaled_followup import (
     thrown_at,
     written_owner,
 )
+from app.services.text_normalize import SENTENCE_BREAK
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -168,7 +169,7 @@ def followup_line(query: str | None) -> str | None:
 
 def ask_replaced(prior: str, phrase: str) -> str:
     """The prior problem asking "Find the <phrase>." in place of its own ask sentence."""
-    parts = re.split(r"(?<=[.?!])\s+", prior.strip())
+    parts = SENTENCE_BREAK.split(prior.strip())
     replacement = f"Find the {phrase}."
     if parts and _ASK_SENTENCE.search(parts[-1]):
         parts[-1] = replacement
@@ -259,7 +260,7 @@ def remove_given(text: str, given: Given) -> str:
 def with_sentences(prior: str, *, ask: str | None, stated: tuple[str, ...]) -> str:
     """The prior problem with sentences ``stated`` before its ask, and ``ask`` in place of
     its ask sentence when given."""
-    parts = re.split(r"(?<=[.?!])\s+", prior.strip())
+    parts = SENTENCE_BREAK.split(prior.strip())
     has_ask = bool(parts) and _ASK_SENTENCE.search(parts[-1]) is not None
     setup = parts[:-1] if has_ask else parts
     question = ask if ask is not None else (parts[-1] if has_ask else "")

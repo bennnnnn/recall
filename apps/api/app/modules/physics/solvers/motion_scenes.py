@@ -276,6 +276,7 @@ def _velocity_time_graph(v0: float, g: float, t_end: float, speed: bool) -> Grap
         title=graph_title(SYMBOLS["speed" if speed else "velocity"]),
         x_label=axis_label(TIME, "s"),
         y_label=axis_label(SYMBOLS["speed" if speed else "velocity"], "m/s"),
+        quantity="speed" if speed else "velocity",
         trajectory_type="velocity_vs_time",
     )
 

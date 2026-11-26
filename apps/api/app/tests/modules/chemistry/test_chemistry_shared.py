@@ -43,24 +43,29 @@ def test_hill_formula_writes_the_conventional_order(counts: dict[str, int], writ
     "written",
     [
         "H" + "9" * 5000,  # raised in int(): past Python's 4300-digit limit
-        "C12345H2O",  # a count no formula writes
+        "C1234567H2O",  # a count no formula writes
         "((CH)9999)9999",  # groups multiplied past any compound's atoms
-        "99999H2O",  # a hydrate's count
+        "9999999H2O",  # a hydrate's count
     ],
 )
 def test_a_count_no_formula_writes_reads_as_no_formula(written: str) -> None:
     assert parse_formula(written) == {}
 
 
-def test_a_large_real_formula_still_reads() -> None:
-    # Titin-sized counts are four digits.
-    assert parse_formula("C2952H4664N812O832S8") == {
-        "C": 2952,
-        "H": 4664,
-        "N": 812,
-        "O": 832,
-        "S": 8,
-    }
+@pytest.mark.parametrize(
+    ("written", "counts"),
+    [
+        # Haemoglobin, four-digit counts.
+        ("C2952H4664N812O832S8", {"C": 2952, "H": 4664, "N": 812, "O": 832, "S": 8}),
+        # Titin, the largest protein: six-digit counts.
+        (
+            "C169723H270464N45688O52243S912",
+            {"C": 169723, "H": 270464, "N": 45688, "O": 52243, "S": 912},
+        ),
+    ],
+)
+def test_a_large_real_formula_still_reads(written: str, counts: dict[str, int]) -> None:
+    assert parse_formula(written) == counts
 
 
 def test_calorimetry_is_worked_from_the_calorimeter_constant() -> None:

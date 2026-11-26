@@ -7,6 +7,7 @@ import { useDerivedValue } from "react-native-reanimated";
 
 import { formatGraphExpr, mapGraphPoint } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
+import { trajectorySpeech } from "@/lib/math/trajectorySpeech";
 import {
   trajectoryAxisLayout,
   trajectoryAxisCaptionPosition,
@@ -126,7 +127,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
       <View
         accessible
         accessibilityRole="image"
-        accessibilityLabel={t("rich.trajectory_a11y", { title, x: xLabel, y: yLabel })}
+        accessibilityLabel={t("rich.trajectory_a11y", trajectorySpeech(spec, title, t))}
         style={{ width: chartWidth, height: TRAJECTORY_CHART_HEIGHT }}
       >
         <Canvas

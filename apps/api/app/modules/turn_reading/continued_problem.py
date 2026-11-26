@@ -46,7 +46,9 @@ def _plain(line: str) -> str:
     text = collapse_ws(line).lower()
     plain = text.strip(_EDGES + "$")
     start = len(text) - len(text.lstrip(_EDGES + "$"))
-    if start and text[start - 1] == "." and plain[:1].isdigit():
+    # A lone point only: "...3" is an ellipsis before 3, never 0.3.
+    lone = start == 1 or (start > 1 and text[start - 2] != ".")
+    if start and text[start - 1] == "." and lone and plain[:1].isdigit():
         return f".{plain}"
     return plain
 

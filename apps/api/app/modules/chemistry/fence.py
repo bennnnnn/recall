@@ -170,10 +170,11 @@ def _attach_molecule3d(body: str) -> tuple[str, bool]:
 def enrich_chemistry_fences(content: str, named: Mapping[str, str] | None = None) -> str:
     """Validate and enrich all ```smiles / ```chemistry fences.
 
-    Closed fences only (bare-backtick closer). Invalid SMILES become an
-    italic note. Every closed fence is validated first; 3D SDF is attached
-    only for the first ``_MAX_3D_FENCES`` valid molecules so one slow embed
-    cannot skip stripping later invalid fences.
+    Closed fences only (bare-backtick closer). An invalid SMILES goes with no line of its
+    own (chat's ``owed_picture`` says, in the reply's language, that it was not drawn).
+    Every closed fence is validated first; 3D SDF is attached only for the first
+    ``_MAX_3D_FENCES`` valid molecules so one slow embed cannot skip stripping later invalid
+    fences.
     """
     canonicalize = partial(_canonicalize_smiles_fence, named=named)
     # A fence past the cap is not checked, so its caption goes (``structure_captions``).

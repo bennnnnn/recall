@@ -34,6 +34,7 @@ from app.services.part.answer_cards import land_part_answer_cards, own_line_part
 from app.services.part.place import place_after_part
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_scan import scanner_camera_subject
+from app.services.text_normalize import SENTENCE_BREAK
 from app.services.workout import as_formula_heading
 
 logger = logging.getLogger(__name__)
@@ -200,9 +201,6 @@ def _part_pictures(text: str, verified: VerifiedPhysicsBlock) -> tuple[str, list
     return text, placed
 
 
-_SENTENCES = re.compile(r"(?<=[.?!])\s+")
-
-
 def read_from_their_words(verified: VerifiedPhysicsBlock, user_text: str) -> bool:
     """The card is a typed reader's (an extractor, the binder, a chain of catalog laws) of the
     student's own words: every sentence it read is in their message. A follow-up's rewritten
@@ -211,7 +209,8 @@ def read_from_their_words(verified: VerifiedPhysicsBlock, user_text: str) -> boo
     if not read or verified.physics_intent is None or scanner_camera_subject(user_text):
         return False
     said = " ".join(user_text.split())
-    return all(" ".join(sentence.split()) in said for sentence in _SENTENCES.split(read.strip()))
+    sentences = SENTENCE_BREAK.split(read.strip())
+    return all(" ".join(sentence.split()) in said for sentence in sentences)
 
 
 # "### Joke": a later request's section, after the one the solve answered.

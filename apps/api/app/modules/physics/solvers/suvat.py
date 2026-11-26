@@ -295,6 +295,7 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
             title=graph_title(path_symbol),
             x_label=axis_label(TIME, "s"),
             y_label=axis_label(path_symbol, "m"),
+            quantity="distance" if path_distance else "displacement",
             trajectory_type="position_vs_time",
         )
     else:
@@ -309,6 +310,7 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
             title=graph_title(SYMBOLS["velocity"]),
             x_label=axis_label(TIME, "s"),
             y_label=axis_label(SYMBOLS["velocity"], "m/s"),
+            quantity="velocity",
             trajectory_type="velocity_vs_time",
         )
     return [spec]
