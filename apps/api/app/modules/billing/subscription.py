@@ -157,6 +157,9 @@ async def handle_revenuecat_transfer(
         logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", log_safe(cleaned_new))
         return False
 
+    # End the caller's read (the stale check, a previous target's write) before the
+    # RevenueCat call: an open transaction held a pooled connection across it.
+    await session.commit()
     plan = await resolve_plan_from_revenuecat(settings, cleaned_new)
     if plan is None:
         logger.warning(

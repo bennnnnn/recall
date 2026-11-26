@@ -1,8 +1,9 @@
 """A constant with one home is never typed as a number anywhere else in the app.
 
 The Celsius offset is ``services.units.CELSIUS_OFFSET_K``, and 25 °C and 100 °C are written
-from it; c, e and mₑ are Pint's, read once in ``physics.constants``. A typed copy can drift
-from its source or round differently.
+from it; c, e and mₑ are Pint's, read once in ``physics.constants``. The embedding width is
+``core.vectors.EMBEDDING_DIM``: the columns, the mock vector and the length checks read it.
+A typed copy can drift from its source or round differently.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from .boundary_support import APP_ROOT
 # Each value, with the one file allowed to write it (None: only Pint does).
 _OWNED: dict[float, str | None] = {
     273.15: "services/units.py",
+    1536.0: "core/vectors.py",
     298.15: None,
     373.15: None,
     299792458.0: None,

@@ -11,6 +11,7 @@ import asyncio
 import logging
 import math
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -30,6 +31,13 @@ from app.services import quota as quota_service
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)
+
+
+def turn_day(ctx: StreamContext) -> date:
+    """The UTC day the turn's tokens were reserved on (today when it reserved none):
+    every write of its usage goes there, its ``usage_daily`` row and its Redis settle
+    alike, so a turn that crosses midnight is charged to one day, which a reseed reads."""
+    return ctx.token_day or utc_today()
 
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
@@ -211,7 +219,7 @@ async def _write_reply_rows(
     await deps.usage.add_tokens(
         session,
         ctx.user_id,
-        utc_today(),
+        turn_day(ctx),
         # Weighted so the daily aggregate matches Redis units and
         # re-seeds correctly after an eviction (see _TurnCharge).
         input_tokens=charge.weighted_input,
@@ -253,6 +261,7 @@ async def _settle_quota(
                     ctx.reserved_tokens,
                     charge.weighted_total,
                     daily_limit=daily_limit,
+                    day=turn_day(ctx),
                 )
                 break
             except Exception:
@@ -266,7 +275,7 @@ async def _settle_quota(
             exc_info=True,
         )
         try:
-            await deps.quota.mark_usage_needs_heal(redis, str(ctx.user_id))
+            await deps.quota.mark_usage_needs_heal(redis, str(ctx.user_id), day=turn_day(ctx))
         except Exception:
             logger.warning(
                 "mark_usage_needs_heal failed after adjust_usage; heal may not run",
@@ -328,7 +337,14 @@ async def finalize_stream_turn_db(
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
-            await refund_turn_quota(deps, redis, ctx.user_id, ctx.reserved_tokens, ctx.message_day)
+            await refund_turn_quota(
+                deps,
+                redis,
+                ctx.user_id,
+                ctx.reserved_tokens,
+                ctx.message_day,
+                token_day=ctx.token_day,
+            )
         except Exception:
             logger.exception("Turn quota refund failed after finalize error")
         raise
@@ -363,7 +379,7 @@ async def charge_unsent_reply(
         await deps.usage.add_tokens(
             session,
             ctx.user_id,
-            utc_today(),
+            turn_day(ctx),
             input_tokens=charge.weighted_input,
             output_tokens=charge.weighted_output,
             est_cost_usd=charge.est_cost if charge.est_cost is not None else 0.0,

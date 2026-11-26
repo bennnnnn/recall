@@ -199,8 +199,9 @@ def _id_key(entry_id: str) -> tuple[int, int]:
     return int(ms), int(seq or 0)
 
 
-def _after(entry_id: str) -> str:
-    ms, seq = _id_key(entry_id)
+def next_stream_id(entry_id: str) -> str:
+    """The smallest stream id after *entry_id* (an exclusive XRANGE start)."""
+    ms, seq = _id_key(str(entry_id))
     return f"{ms}-{seq + 1}"
 
 
@@ -217,7 +218,7 @@ async def trim_floor(redis: Redis) -> str | None:
     last_delivered = str(group.get("last-delivered-id") or "0-0")
     if last_delivered == "0-0":
         return None
-    floor = _after(last_delivered)
+    floor = next_stream_id(last_delivered)
     summary = await redis.xpending(JOBS_STREAM, JOBS_GROUP)
     oldest_pending = summary.get("min") if isinstance(summary, dict) else None
     if oldest_pending and _id_key(str(oldest_pending)) < _id_key(floor):

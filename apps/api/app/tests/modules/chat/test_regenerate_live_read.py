@@ -125,6 +125,8 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
     assert start.call_args.args[1] == _PROBLEM
     assert start.call_args.kwargs["recent"] == earlier
     assert captured["ctx"].live_read is read
+    # Its indexing job reads the line answered again, not the chat's latest line.
+    assert captured["ctx"].user_message_id == window[2].id
 
 
 @pytest.mark.asyncio

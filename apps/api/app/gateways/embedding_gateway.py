@@ -26,6 +26,7 @@ from litellm import (
 from app.core.aio import gather_or_cancel
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.core.vectors import EMBEDDING_DIM
 from app.gateways import llm_spend, mock_llm
 from app.models.model_catalog import get as get_model
 
@@ -48,9 +49,8 @@ def _mock_vector() -> list[float]:
     # search_semantic require embedding IS NOT NULL). Zero-fill keeps the
     # signal in the first 8 dims; the rest are zero so cosine similarity is
     # driven by the meaningful dims only.
-    # Keep in sync with attachment chunk vectors (pgvector 1536).
     seed = [0.1] * 8
-    return seed + [0.0] * (1536 - len(seed))
+    return seed + [0.0] * (EMBEDDING_DIM - len(seed))
 
 
 def _input_index(item: Any) -> int:
@@ -69,15 +69,16 @@ class _Failed(Enum):
     # Rate limit, a 5xx, a dropped connection: the batch is tried again after a wait.
     TRANSIENT = "transient"
     # No answer in time, no key, or a key or model the provider refuses: trying again now,
-    # or one text at a time, cannot change the answer. The job's own retry comes back later.
+    # or one text at a time, cannot change the answer. The caller decides what comes later.
     FINAL = "final"
 
 
 class EmbeddingUnavailableError(Exception):
     """The provider did not embed a batch (a timeout, an outage past its retries, a key or
-    model it refuses): the caller's job raises and the worker tries again later, instead
-    of storing what it has as if the rest were done. A refused input is no such failure:
-    that text is None in its slot."""
+    model it refuses), so nothing is stored as if the rest were done. Each caller decides
+    what follows: a document's or a chat's index job raises and the worker tries it again;
+    memory, whose text is already saved, leaves the vectors to a later pass's backfill. A
+    refused input is no such failure: that text is None in its slot."""
 
 
 # Provider errors about the request's input, not the provider's health.
@@ -184,7 +185,8 @@ async def embed_many(
 
     Results are in input order; a text the provider refused is None in its slot and the
     caller decides whether to drop it. A batch the provider did not embed raises
-    ``EmbeddingUnavailableError`` (``_embed_batch``), so the caller's job retries.
+    ``EmbeddingUnavailableError`` (``_embed_batch``); the caller decides whether its job
+    retries (``EmbeddingUnavailableError``).
     """
     semaphore = asyncio.Semaphore(max(1, concurrency))
     size = max(1, settings.embedding_batch_size)

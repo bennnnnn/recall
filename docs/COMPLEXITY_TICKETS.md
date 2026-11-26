@@ -106,6 +106,12 @@ chat: 39 messages verbatim instead of 20; prompt share a prefix cache can serve 
 
 ### DB-2. To-dos are cut by LIMIT in topic order, and done ones are never deleted — Verified by reading
 
+**Status: the cut is done in #2590, except as noted below.** A turn's reads (the prompt's
+100, a chat's edits and the reminder fence's 500, live talk's snapshot) keep the rows a
+turn needs most (`repository._needed_first`): open before done, an open one by its due
+time's distance from now (upcoming and recently overdue ahead of stale ones, undated last),
+then the most recently changed. Still open: done to-dos are never deleted.
+
 - **Where:** `modules/todos/repository.py:55-77` (`list_for_user` orders by topic,
   sort_order, checked, created_at), called with limit 100 from
   `modules/todos/prompt_context.py:298` (chat prompt), 500 from
@@ -127,7 +133,7 @@ chat: 39 messages verbatim instead of 20; prompt share a prefix cache can serve 
 | DB-4 | `modules/memory/erase.py:59-72` (`purge_fact_chunks`), from `memory/repository.py:99,245` | deleting a topic runs two DELETEs per fact, each an exact cosine scan over up to 2000 chunks plus an ILIKE, in one request | one `DELETE … USING memories m WHERE m.id = ANY(:ids) AND c.embedding <=> m.embedding <= d` and one combined ILIKE |
 | DB-5 | `modules/chat/turn_load.py:87`; `compaction.py` (`message_count`, `messages_page(offset=…)`) | `COUNT(*)` of the chat on every turn once the 20-row window is full; the compress job counts again and pages with OFFSET | keep `message_count` on `chats` (increment in finalize), or anchor by a `(created_at, id)` cursor |
 | DB-6 | `modules/conversation/chunks_repository.py:78-90` (`prune_beyond_window`) | `ORDER BY created_at DESC OFFSET 2000` on every `message_index` job; the `(user_id, created_at)` index lacks `id`, so ~2000 heap fetches | read the cutoff with `OFFSET 2000 LIMIT 1`, delete `created_at < cutoff`; or prune every Nth turn |
-| DB-7 | `modules/notifications/push.py:332`, `modules/todos/due_reminders.py:228` | one UPDATE per delivered to-do, plus a `session.get(User)` per recurring one (a fresh session, so a real SELECT); ~200 round trips per 100-message Expo chunk, on the hour | bulk UPDATE `… WHERE (id, due_at) IN (VALUES …)`; pass the timezone the page query already joined |
+| DB-7 | `modules/notifications/push.py:332`, `modules/todos/due_reminders.py:228` | one UPDATE per delivered to-do, plus a `session.get(User)` per recurring one (a fresh session, so a real SELECT); ~200 round trips per 100-message Expo chunk, on the hour | **Done:** a chunk's pushes are marked in two statements (one stamps the one-off to-dos, one moves the recurring ones) after one read of their users' zones (`todos.mark_reminders_pushed`) |
 | DB-8 | `modules/chat/finalize_registry.py:173` | waiting for the previous turn's finalize runs `EXISTS` every 50 ms for up to 10 s: up to 200 Upstash commands per wait | exponential backoff, or BLPOP on a completion key |
 
 ### DB-9..DB-15 — Read, low

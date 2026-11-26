@@ -25,38 +25,48 @@ def _matches(snapshot: TodoScheduleSnapshot) -> ColumnElement[bool]:
     )
 
 
-async def update_schedule_if_current(
-    session: AsyncSession, snapshot: TodoScheduleSnapshot, **fields: Any
-) -> bool:
+async def advance_schedules_if_current(
+    session: AsyncSession, advances: list[tuple[TodoScheduleSnapshot, datetime]]
+) -> int:
+    """Advance a fetched page in one statement without overwriting changed rows; how
+    many moved."""
+    if not advances:
+        return 0
     result = cast(
         CursorResult[Any],
         await session.execute(
             update(TodoItem)
-            .where(_matches(snapshot))
-            .values(**fields)
+            .where(or_(*(_matches(snapshot) for snapshot, _ in advances)))
+            .values(
+                due_at=case({snapshot.id: due for snapshot, due in advances}, value=TodoItem.id),
+                due_set_at=func.now(),
+                notification_sent_at=None,
+                email_sent_at=None,
+            )
             .execution_options(synchronize_session=False)
         ),
     )
-    return result.rowcount > 0
+    return result.rowcount
 
 
-async def advance_schedules_if_current(
-    session: AsyncSession, advances: list[tuple[TodoScheduleSnapshot, datetime]]
-) -> None:
-    """Advance a fetched page in one statement without overwriting changed rows."""
-    if not advances:
-        return
-    await session.execute(
-        update(TodoItem)
-        .where(or_(*(_matches(snapshot) for snapshot, _ in advances)))
-        .values(
-            due_at=case({snapshot.id: due for snapshot, due in advances}, value=TodoItem.id),
-            due_set_at=func.now(),
-            notification_sent_at=None,
-            email_sent_at=None,
-        )
-        .execution_options(synchronize_session=False)
+async def stamp_pushed_if_current(
+    session: AsyncSession, snapshots: list[TodoScheduleSnapshot], *, sent_at: datetime
+) -> int:
+    """Stamp a page of pushed reminders sent in one statement; a row changed since it was
+    read is left alone. A delivery is not a change to the to-do: ``updated_at`` stays.
+    How many were stamped."""
+    if not snapshots:
+        return 0
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            update(TodoItem)
+            .where(or_(*(_matches(snapshot) for snapshot in snapshots)))
+            .values(notification_sent_at=sent_at, updated_at=TodoItem.updated_at)
+            .execution_options(synchronize_session=False)
+        ),
     )
+    return result.rowcount
 
 
 async def move_due_day_if_current(

@@ -184,7 +184,14 @@ async def _refund_turn(
     if resources is not None:
         await resources.refund()
     else:
-        await refund_turn_quota(deps, redis, ctx.user_id, ctx.reserved_tokens, ctx.message_day)
+        await refund_turn_quota(
+            deps,
+            redis,
+            ctx.user_id,
+            ctx.reserved_tokens,
+            ctx.message_day,
+            token_day=ctx.token_day,
+        )
 
 
 def _is_terminal_image(ctx: StreamContext) -> bool:

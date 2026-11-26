@@ -34,6 +34,9 @@ def schedule_sql():
         column.type = _UTCDateTime()
     engine = create_engine("sqlite://")
     TodoItem.__table__.create(engine)
+    # A delivery reads its recurring to-dos' zones in one query; no user row is the
+    # default zone, as the stub below answers.
+    User.__table__.create(engine)
     with Session(engine, expire_on_commit=False) as sync_session:
         session = AsyncMock(spec=AsyncSession)
         session.execute.side_effect = sync_session.execute

@@ -12,16 +12,16 @@ class WorkerSettings(BaseModel):
     # Multi-call types keep their own caps (``max_running`` in background/handlers.py),
     # and the worker's database pool is set smaller than its slots in fly.toml.
     jobs_worker_concurrency: int = 32
-    # Hard ceiling on the Redis jobs stream (entries). The soft 10k trim only
-    # runs while nothing is pending; one entry left pending by a dead worker
-    # used to disable trimming entirely. Past this, the oldest jobs are
-    # dropped so Redis (quota, auth revocation, rate limits) stays healthy.
-    # Never lower than the soft cap; 0 disables the ceiling.
+    # Hard ceiling on the Redis jobs stream (entries), carried on every XADD. The
+    # worker trims entries already run and acked on its reclaim cadence
+    # (``queue.trim_jobs_stream``); this cap is for when no worker reads: past it the
+    # oldest jobs are dropped, run or not, so Redis (quota, auth revocation, rate
+    # limits) stays healthy. Never below 10,000 (``queue._MAXLEN``); 0 disables it.
     jobs_stream_max_len: int = 50_000
-    # Deadline for one attempt of one background job. A batch is awaited as a
-    # whole, so a hung handler used to stop the worker reading new jobs. An
-    # attempt that runs this long goes to the DLQ (not retried). Generous: the
-    # memory history scan reads 20 chats and resumes where it stopped.
+    # Deadline for one attempt of one background job. Each job holds one of the
+    # worker's slots (``jobs.inflight``), so a hung handler holds that slot until
+    # this ends it. An attempt that runs this long goes to the DLQ (not retried).
+    # Generous: the memory history scan reads 20 chats and resumes where it stopped.
     job_timeout_seconds: float = 900.0
     # Port of the worker's tiny /health/ready (deploy checks, uptime monitors;
     # Fly never restarts on a failing check, worker_main exits instead). 0

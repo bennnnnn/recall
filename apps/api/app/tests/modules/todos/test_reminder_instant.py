@@ -25,7 +25,7 @@ from app.modules.todos import api as todos_router
 from app.modules.todos.due_reminders import (
     is_due_now,
     mark_reminder_emailed,
-    mark_reminder_pushed,
+    mark_reminders_pushed,
     preview_instant,
     reminder_instant,
 )
@@ -220,7 +220,7 @@ async def test_a_delivery_leaves_the_instant_where_it_was(db_session) -> None:
     await db_session.flush()
     before = {todo.content: reminder_instant(todo, user) for todo in (pushed, emailed)}
 
-    assert await mark_reminder_pushed(db_session, pushed, now=now)
+    assert await mark_reminders_pushed(db_session, [pushed], now=now) == 1
     assert await mark_reminder_emailed(
         db_session, TodoEmailSnapshot.from_todo(emailed), sent_at=now
     )
