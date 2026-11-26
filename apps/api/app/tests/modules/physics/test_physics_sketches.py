@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from app.modules.physics.sketches import without_model_drawings
+from app.modules.physics.sketches import without_model_drawings, without_sketches
 
 _REPLIES = json.loads((Path(__file__).parent / "field_sketch_replies.json").read_text())["replies"]
 
@@ -55,3 +55,27 @@ def test_a_mermaid_diagram_goes_unless_the_user_asked_for_one() -> None:
     text = "Here:\n\n```mermaid\ngraph TD\nA[+] --> B[-]\n```\n\nThat is the field."
     assert "mermaid" not in without_model_drawings(text)
     assert without_model_drawings(text, "make a flowchart of it") == text
+
+
+_PIPE = (
+    "Laminar flow moves in smooth layers.\n\n"
+    "### Streamline Flow\n"
+    "```text\n"
+    "|------------------- Pipe Wall -------------------|\n"
+    "|                                                 |\n"
+    "|  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~      |\n"
+    "|  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~  ~~~~      |\n"
+    "|  Velocity profile: Parabolic (fastest in center)|\n"
+    "```\n"
+)
+
+
+def test_a_picture_boxed_in_bars_goes_with_the_heading_over_it() -> None:
+    """A textbook round (2026-11-25) drew laminar flow as rows of tildes boxed in bars, in
+    ```text blocks under their own headings: on a physics turn they go, picture or none."""
+    assert without_sketches(_PIPE) == "Laminar flow moves in smooth layers.\n"
+
+
+def test_a_text_table_with_borders_is_no_drawing() -> None:
+    table = "```text\n+-----+------+\n| m   | 2 kg |\n| v   | 3 m/s|\n+-----+------+\n```\n"
+    assert without_sketches(table) == table

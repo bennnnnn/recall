@@ -275,30 +275,11 @@ def _work_against_gravity(p: dict[str, float], value: float) -> Scenes:
     return height_scene(p["m"], p["g"], p["h"])
 
 
-def _work(p: dict[str, float], value: float) -> Scenes:
-    """The force along its line and the distance it moves the box."""
-    angle, force, distance = p.get("angle", 0.0), p["F"], p["d"]
-    return free_body_scene(
-        [
-            SimulationVector(
-                anchor=[0.0, 0.0],
-                dx=math.cos(angle),
-                dy=math.sin(angle),
-                label=f"F = {_given(force)} N",
-                role="result",
-            ),
-            SimulationVector(
-                anchor=[0.0, -0.8],
-                dx=distance,
-                dy=0.0,
-                label=f"d = {_given(distance)} m",
-                role="measure",
-            ),
-        ],
-        ground=True,
-        shape="box",
-        alt=f"A {_given(force)} N force moves an object {_given(distance)} m.",
-    )
+# W = F d cos θ has no picture of its own: the law says the angle between the force and the
+# displacement, never which way either points. Drawn as a box pushed along the ground it
+# showed a box raised 1.5 m by a rope as moving sideways, and a spanner turned through half a
+# turn as a box pushed 0.5 m (textbook round, 2026-11-25). The figure read draws what the
+# question describes instead, checked (``scene_drawing.figure_read``).
 
 
 # --- circuits, optics and waves --------------------------------------------------
@@ -391,7 +372,6 @@ _SCENES: dict[str, Callable[[dict[str, float], float], Scenes]] = {
     "push_off_speed_first": _push_off_first,
     "work_against_gravity": _work_against_gravity,
     "potential_energy": _work_against_gravity,
-    "work": _work,
     "current_from_power": _current_from_power,
     "snell_refraction_angle": _snell,
     "critical_angle_to_air": _critical_angle,

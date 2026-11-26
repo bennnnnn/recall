@@ -509,9 +509,9 @@ def test_energy_work() -> None:
         operation="solve",
     )
     result = physics_solver.solve_physics(intent)
-    # W = F*d = 10*4 = 40 J, the catalog's arithmetic; the force and the distance are drawn.
+    # W = F*d = 10*4 = 40 J, the catalog's arithmetic; the law says no direction to draw.
     assert abs(result.quantities[0].value - 40.0) < 0.01
-    assert result.simulation_specs
+    assert result.simulation_specs == []
 
 
 # ---------------------------------------------------------------------------

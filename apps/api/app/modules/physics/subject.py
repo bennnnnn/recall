@@ -207,7 +207,16 @@ class PhysicsFence:
         return text
 
     def tidy(self, text: str, user_text: str, verified: VerifiedSolveBlock | None) -> str:
-        return text
+        # A picture drawn in characters on a physics turn: the physics pack forbids it, and
+        # the phone shows it as broken rows of symbols, picture or none.
+        from app.modules.physics.sketches import without_sketches
+        from app.modules.turn_reading.turn import current_turn_reading
+
+        kept = current_turn_reading()
+        physics = isinstance(verified, VerifiedPhysicsBlock) or (
+            kept is not None and kept.text == user_text and kept.subject == "physics"
+        )
+        return without_sketches(text) if physics else text
 
 
 def _physics_block(verified: VerifiedSolveBlock | None) -> VerifiedPhysicsBlock | None:
@@ -273,34 +282,62 @@ def _read_graph_facts(text: str) -> GraphFacts:
     return read_graph_facts(text)
 
 
+# The fences the server draws a picture in: a scene or diagram, a curve, a figure.
+_PICTURE_LANGS = frozenset({"simulation", "graph", "geometry"})
+
+
+def holds_a_picture(text: str) -> bool:
+    """The reply holds one of the server's pictures."""
+    from app.services.md_fence_scan import iter_fences
+
+    return any(fence.closed and fence.lang in _PICTURE_LANGS for fence in iter_fences(text))
+
+
+def self_enabled(settings: Settings) -> bool:
+    return bool(settings.physics_enabled)
+
+
 @dataclass(frozen=True)
 class PhysicsFigure:
-    """Physics' picture a reply describes: an electric field's lines (``field_lines``).
+    """Physics' pictures: the one a question is taught from, read beside the reply
+    (``draw``), and the ones a reply describes (an electric field's lines, a setup's scene).
 
-    Its other pictures come with its solve (a scene, a circuit, rays, a wave), so it draws
-    nothing from a read of its own (``draw``), and a solve's turn already holds its picture
-    (``shown``). On a physics message that asks to see a diagram no solve drew, the reply
-    describes the field in a ```draw block (``contract``) and the server traces it
-    (``described``); the model's own sketch of it then goes (``without_drawn_substitutes``).
+    A solve that drew its picture (a scene, a circuit, rays, a wave) holds it (``shown``),
+    and a reply that holds one of the server's pictures gets no second one (``whole``). Any
+    other physics question gets the picture the figure read names and the server checks
+    (``scene_drawing.figure_read``), asked for or not, under the reply; the model's own
+    sketch of it then goes (``without_substitutes``). On a physics message that asks to see
+    a diagram, the reply may describe it in a ```draw block too (``contract``), which the
+    server checks the same way (``described``).
     """
 
     async def draw(
         self, question: str, earlier: Sequence[str], settings: Settings, *, asked: bool = True
     ) -> str | None:
-        return None
+        from app.modules.physics.scene_drawing.figure_read import draw_physics_figure
+
+        if not self_enabled(settings):
+            return None
+        return await draw_physics_figure(question, earlier, settings, asked=asked)
 
     def shown(self, verified: VerifiedSolveBlock | None) -> bool:
-        # A physics solve draws its own picture, which no other figure adds to.
-        return verified is not None
+        # A solve that drew its picture holds it, which no read adds to; a solve that drew
+        # none (a work done, a moment) leaves the read's picture to be drawn.
+        if not isinstance(verified, VerifiedPhysicsBlock):
+            return verified is not None
+        blocks = [verified, *verified.question_parts]
+        return any(b.canonical_fence or b.canonical_fences for b in blocks)
 
     def whole(self, text: str) -> bool:
-        return True
+        return holds_a_picture(text)
 
     def adds_to(self, text: str, fence: str) -> bool:
-        return False
+        return not holds_a_picture(text)
 
     def without_substitutes(self, text: str, fence: str) -> str:
-        return text
+        from app.modules.physics.sketches import without_model_drawings
+
+        return without_model_drawings(text)
 
     def contract_for(self, question: str, asked: bool, *, graph: bool = False) -> str:
         """A field's picture and a motion's graphs only when the message asks to see one; a

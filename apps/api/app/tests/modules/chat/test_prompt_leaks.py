@@ -427,3 +427,16 @@ def test_a_reply_speaks_to_the_person_not_about_them(reply: str, kept: str) -> N
 )
 def test_replies_that_speak_to_the_person_stay(reply: str) -> None:
     assert drop_prompt_leaks(reply, "teach me") == reply
+
+
+def test_a_sentence_about_the_draw_block_comes_off() -> None:
+    """ "Here is the ```draw block representing this scenario" stood in a reply (textbook
+    round, 2026-11-25): the block a picture is described in never reaches the phone."""
+    reply = (
+        "The force is largest at the start.\n\n"
+        "Here is the ```draw block representing this scenario:\n\n"
+        "The area under the line is the work."
+    )
+    assert drop_prompt_leaks(reply, "Draw a graph of force against distance.") == (
+        "The force is largest at the start.\n\nThe area under the line is the work."
+    )

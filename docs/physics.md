@@ -669,7 +669,38 @@ A solver that knows its situation draws it: `motion_scenes.py`, `force_scenes.py
 solved as arithmetic has no solver to draw it, so `solvers/catalog_scenes.py` looks the picture
 up by operation and reuses the same builders. A string's tension is the circular scene with
 its string, and a recoil is the collision scene started from rest. An operation not listed
-draws nothing.
+draws nothing. Work done (W = F d cos θ) is not listed: the law says the angle between the force
+and the displacement, never which way either points, and a box drawn pushed along the ground
+showed a box raised by a rope moving sideways (textbook round, 2026-11-25).
+
+Every other physics question gets the picture it is taught from, asked for or not (owner,
+2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
+of them because the student had not written "draw"). Beside the reply, one short structured call
+(`scene_drawing/figure_read.py`, the maths figure read's lane) says what the question's picture
+is, as one of the blocks a reply would describe: a scene, the question's arrows, the forces on
+one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
+question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`
+adds it under the reply once the reply is done, waiting at most `figure_wait_seconds`, so a
+picture never delays the first word. A solve that drew its own picture keeps it; a reply that
+holds one of the server's pictures gets no second one. With teaching figures on, a physics
+question that asks to see nothing gets no setup contract in the reply's prompt: the read draws
+its setup. Three blocks are the read's own:
+- `forces` (`scene_drawing/forces.py`): the body and the forces on it, one word each. The server
+  reads the situation itself (`force_pictures.py`) and draws its free-body diagram only when the
+  forces it reads are the ones named: a ball "held on a slope ... let go" reads as held to the
+  server and sliding to the read, and draws nothing. Forces said to act on a thing no body word
+  names (a ladder against a wall) and several diagrams asked at once draw nothing.
+- `beam` (`scene_drawing/beam.py`): a bar's marks left to right, each distance a length the
+  question states (or the letter of one it asks for), each force a stated force with the
+  direction its own clause gives it, or a hung mass (down), or an unknown's letter. Every force
+  and mass the question states is on the bar. It is drawn to scale, with dimension lines, the
+  pivot as a wedge and lettered points.
+- arrows by their components (`scene_drawing/components.py`): `{"name":"A","components":"[4
+  5]"}`, held to a vector the question writes, number for number, in a unit of the picture's
+  quantity or none; every written vector of that kind is drawn.
+A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
+reply, picture or none (`sketches.without_sketches`), and a sentence that names the ```draw block
+comes off any reply (`chat/prompt_leaks.py`).
 
 A request to see the forces on a body ("draw the forces on a box sliding down a 30°
 incline with friction", "show the forces on a hanging mass") needs no number: when nothing

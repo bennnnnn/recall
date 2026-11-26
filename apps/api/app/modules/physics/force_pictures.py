@@ -37,14 +37,22 @@ _ASKS = re.compile(
     r"|\bwhat\s+(?:are\s+the\s+)?forces\b|\bforces?\s+(?:acting|that\s+acts?|which\s+acts?)\b",
     re.IGNORECASE,
 )
-# The thing the forces act on. "The forces of the market" names none.
+# The thing the forces act on. "The forces of the market" names none, and the "body" of a
+# "free body diagram" is no body.
 _BODY = re.compile(
     r"\b(?:box|block|crate|mass|object|cart|sled|sledge|ball|book|car|brick|skier|person|"
-    r"man|woman|child|kid|load|weight|package|parcel|trolley|wagon|cylinder|body|bob|lamp|"
-    r"sign|picture|chandelier|bucket|stone|rock|apple|puck|suitcase|chair|bag|toy|truck|"
-    r"bus|bike|bicycle|cyclist|motorcycle|vehicle)\b",
+    r"man|woman|child|kid|load|weight|package|parcel|trolley|wagon|cylinder|(?<!free\s)"
+    r"(?<!free-)body|bob|lamp|sign|picture|chandelier|bucket|stone|rock|apple|puck|suitcase|"
+    r"chair|bag|toy|truck|lorry|van|bus|bike|bicycle|cyclist|motorcycle|scooter|tractor"
+    r"|vehicle)(?:e?s)?\b",
     re.IGNORECASE,
 )
+# Several free-body diagrams asked for ("at the start, during and at the end of its fall"):
+# this file draws one, which would say only part of it.
+_SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
+# What "forces ... on" names when it is no body this file draws: a ladder against a wall, a
+# beam, a bridge. A pronoun points back to the body named before it.
+_POINTS_BACK = re.compile(r"\s*(?:it|them|this|that|him|her)\b", re.IGNORECASE)
 _HANGING = re.compile(
     r"\b(?:hang(?:s|ing)?|hung|suspended|dangl(?:es|ing))\b"
     r"|\bfrom\s+(?:a|the)\s+(?:ceiling|rope|string|cable|hook|chain|thread|beam)\b",
@@ -148,9 +156,13 @@ class ForcePicture:
     shows: str
 
 
-def force_picture(text: str) -> ForcePicture | None:
-    """The free-body diagram a request to see the forces on a body asks for, or None."""
-    if len(text) > 600 or _ASKS.search(text) is None or _BODY.search(text) is None:
+def force_picture(text: str, *, asked: bool = True) -> ForcePicture | None:
+    """The free-body diagram a request to see the forces on a body asks for, or None.
+    ``asked``: the words must ask to see the forces; off, the turn's figure read has said
+    the question's picture is its forces (``scene_drawing.forces``)."""
+    if len(text) > 600 or (asked and _ASKS.search(text) is None) or _BODY.search(text) is None:
+        return None
+    if _SEVERAL.search(text) is not None or _on_something_else(text):
         return None
     friction = _FRICTION.search(text) is not None and _NO_FRICTION.search(text) is None
     rig = rig_picture(text, friction)
@@ -176,6 +188,16 @@ def force_picture(text: str) -> ForcePicture | None:
     if _SURFACE.search(text) is not None:
         return _on_surface(text, rubs)
     return None
+
+
+def _on_something_else(text: str) -> bool:
+    """ "the forces that act on the ladder": the forces are named on a thing that is no body
+    this file draws, so a box drawn for the ladder's "mass" would be another picture (a
+    ladder against a wall was drawn as a box on level ground, textbook round 2026-11-25)."""
+    asked = _FORCES_ON.search(text)
+    if asked is None or _POINTS_BACK.match(text, asked.end()) is not None:
+        return False
+    return _BODY.search(text, asked.end(), asked.end() + 40) is None
 
 
 def _subject(text: str) -> str:

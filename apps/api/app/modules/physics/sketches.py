@@ -24,8 +24,57 @@ from app.services.sketches import (
 _MODEL_DIAGRAM_LANGS = frozenset({"mermaid"})
 
 
+# A border a text table draws: bars, dashes, pluses, equals signs and colons.
+_BORDER = frozenset("|+-=: ")
+
+
+def _drawn_row(row: str) -> bool:
+    """A row of ink with no word or number in it, and a stroke no table border makes: "|
+    ~~~~  ~~~~ |" is a pipe's flow drawn in tildes."""
+    inked = row.strip()
+    return bool(inked) and not any(c.isalnum() for c in inked) and not set(inked) <= _BORDER
+
+
+def _boxed_art(rows: list[str]) -> bool:
+    """A picture boxed in bars ("|---- Pipe Wall ----|" over rows of "~~~~"): every row
+    starts and ends with a bar or a corner, and two or more are drawn, not written (a pipe in
+    text fences on a physics turn, textbook round 2026-11-25). A text table's borders are no
+    drawing."""
+    inked = [row.strip() for row in rows if row.strip()]
+    framed = all(row[0] in "|+" and row[-1] in "|+" for row in inked)
+    return len(inked) >= 3 and framed and sum(_drawn_row(row) for row in inked) >= 2
+
+
 def _sketch(rows: list[str]) -> bool:
-    return is_arrow_sketch(rows) or is_text_plot([row for row in rows if row.strip()])
+    inked = [row for row in rows if row.strip()]
+    return is_arrow_sketch(rows) or is_text_plot(inked) or _boxed_art(rows)
+
+
+def without_sketches(text: str) -> str:
+    """``text`` without its sketches in plain blocks: a physics reply's picture drawn in
+    characters, which the physics pack forbids and the phone shows as broken rows (u8-17 of
+    a textbook round drew laminar flow as rows of tildes in ```text blocks)."""
+    drawings = [
+        (fence.start, fence.end)
+        for fence in iter_fences(text)
+        if fence.closed
+        and fence.lang in PLAIN_FENCE_TAGS
+        and _sketch(text[fence.body_start : fence.body_end].split("\n"))
+    ]
+    if not drawings:
+        return text
+    for start, end in reversed(drawings):
+        # A heading over nothing but the sketch ("### Streamline Flow") goes with it.
+        heading = _HEADING_BEFORE.search(text, 0, start)
+        rest = text[end:].lstrip()
+        if heading is not None and (not rest or rest.startswith("#")):
+            start = heading.start()
+        text = text[:start] + text[end:]
+    return re.sub(r"\n{3,}", "\n\n", text).strip() + "\n"
+
+
+# A markdown heading line just before a fence, with only blank lines between them.
+_HEADING_BEFORE = re.compile(r"(?m)^#{1,6}[ \t][^\n]*\n\s*\Z")
 
 
 def without_model_drawings(text: str, user_text: str = "") -> str:

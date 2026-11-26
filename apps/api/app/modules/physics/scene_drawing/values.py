@@ -126,6 +126,10 @@ class Stated:
             return True
         return False
 
+    def restated(self, given: Given) -> bool:
+        """``given`` names again a value one of the scene's parts took ("the 8 N force")."""
+        return self._restated(given)
+
     def _restated(self, given: Given) -> bool:
         """ "the speed of the 5 kg mass": a value straight after "the", followed by the noun
         the same value's first statement names ("masses of 3 kg and 5 kg", "a 5 kg mass"),

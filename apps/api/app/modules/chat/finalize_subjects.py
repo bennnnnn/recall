@@ -376,12 +376,16 @@ def with_closing_note(text: str, note: str) -> str:
 
 
 def strip_text_plots(state: FinalizeState) -> str:
-    """A graph drawn in text characters on a graph turn: the prompt forbids it,
-    and the phone shows it as broken rows of symbols."""
+    """A graph drawn in text characters on a graph turn, and any picture drawn in characters
+    on a physics turn: the prompt forbids them, and the phone shows them as broken rows of
+    symbols."""
     ctx = state.ctx
-    return subject_adapter("math").fence.tidy(
-        state.text, ctx.user_message_content, ctx.verified_subject
-    )
+    text = state.text
+    for subject in ("math", "physics"):
+        text = subject_adapter(subject).fence.tidy(
+            text, ctx.user_message_content, ctx.verified_subject
+        )
+    return text
 
 
 def strip_solve_markers(state: FinalizeState) -> str:

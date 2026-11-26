@@ -133,7 +133,8 @@ async def test_a_maths_picture_request_is_drawn_under_the_reply(figure: _Figure)
     [
         {"subject": "maths", "picture": "photo"},
         {"subject": "maths", "picture": "molecule"},
-        {"subject": "physics", "picture": "diagram"},
+        {"subject": "physics", "picture": "photo"},
+        {"subject": "physics", "picture": "none", "work": False},
         {"subject": "everyday", "picture": "graph"},
     ],
 )
@@ -145,6 +146,30 @@ async def test_no_picture_without_a_maths_picture_read(
     text = await figure_turn.attach_figure(_state(ctx, "Reply."))
     assert text == "Reply."
     assert figure.asked == []
+
+
+@pytest.mark.parametrize(
+    ("picture", "asked"), [("diagram", True), ("graph", True), ("none", False)]
+)
+async def test_a_physics_question_gets_its_picture_asked_or_not(
+    figure: _Figure, picture: str, asked: bool
+) -> None:
+    """Textbook round, 2026-11-25: 66 of 77 physics questions that needed a picture drew
+    none, 61 of them because the read said the student asked to see nothing. A physics
+    question gets the picture it is taught from either way (owner: "Diagrams must be
+    drawn"), started beside the reply and added under it."""
+    ctx = _ctx(live_read=_read(subject="physics", picture=picture))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    text = await figure_turn.attach_figure(_state(ctx, "Reply."))
+    assert text.endswith(_FENCE + "\n") and figure.modes == [asked]
+
+
+async def test_physics_teaching_pictures_follow_the_teaching_switch(figure: _Figure) -> None:
+    ctx = _ctx(live_read=_read(subject="physics", picture="none"))
+    ctx.figure = figure_turn.start_figure(_settings(teaching_figures_enabled=False), ctx)
+    state = _state(ctx, "Reply.", _settings(teaching_figures_enabled=False))
+    assert await figure_turn.attach_figure(state) == "Reply." and figure.modes == []
 
 
 async def test_a_read_that_never_came_draws_nothing(figure: _Figure) -> None:
@@ -581,12 +606,37 @@ async def test_a_chemistry_solve_with_no_structure_still_gets_its_compound_s(
 
 @pytest.mark.parametrize(
     "verified",
-    [_chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"), VerifiedPhysicsBlock(text="")],
+    [
+        _chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
+        VerifiedPhysicsBlock(text="", canonical_fence={"type": "free_body"}),
+    ],
     ids=["chemistry-drew-the-structure", "physics-scene"],
 )
 async def test_a_solve_that_draws_its_own_picture_reads_none(verified: Any) -> None:
     ctx = _ctx(live_read=_read(subject="chemistry", picture="none"), verified_subject=verified)
     assert figure_turn.start_figure(_settings(), ctx) is None
+
+
+_SCENE = '```simulation\n{"type":"free_body"}\n```'
+
+
+async def test_a_physics_solve_that_drew_nothing_gets_the_read_s_picture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A work done or a moment solved as arithmetic draws no scene of its own: the
+    question's picture is still the figure read's, and a reply that holds a scene gets none."""
+    stand_in = _Figure(_SCENE)
+    physics = figure_turn._figure("physics")
+    assert physics is not None
+    monkeypatch.setattr(physics, "draw", stand_in.draw)
+    ctx = _ctx(live_read=_read(subject="physics", picture="none"))
+    ctx.verified_subject = VerifiedPhysicsBlock(text="W = 40 J")
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    text = await figure_turn.attach_figure(_state(ctx, "It is 40 J."))
+    assert text.endswith(_SCENE + "\n") and stand_in.modes == [False]
+    held = f"It is 40 J.\n\n{_SCENE}\n"
+    assert await figure_turn.attach_figure(_state(ctx, held)) == held
 
 
 async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:

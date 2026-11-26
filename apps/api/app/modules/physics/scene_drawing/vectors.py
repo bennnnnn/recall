@@ -43,6 +43,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_quantity
+from app.modules.physics.scene_drawing.components import component_arrow, left_out
 from app.modules.physics.scene_drawing.headings import (
     Mention,
     Relative,
@@ -80,7 +81,10 @@ class _Arrow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, max_length=40)
-    size: str = Field(max_length=40)
+    size: str = Field(default="", max_length=40)
+    # A vector the question writes by its components ("[4 5]"), in place of size and
+    # direction (``components``).
+    components: str | None = Field(default=None, max_length=40)
     direction: str | None = Field(default=None, max_length=60)
     mass: str | None = Field(default=None, max_length=40)
 
@@ -186,14 +190,24 @@ def _checked(described: _Vectors, question: str) -> list[Arrow] | None:
     # Read as the values are read, its markup off: "$90^\circ$" is 90°.
     question = read.stated.text
     free = _free_pair(described, question)
+    unit = SI_UNITS[described.quantity]
     arrows: list[Arrow] = []
+    # The written vectors ("A [4 5] N") the arrows drew, by where the question writes them.
+    written: set[int] = set()
     for index, item in enumerate(described.arrows):
-        arrow = _arrow(item, index, arrows, read, described, question, free)
+        if item.components is not None:
+            arrow = None if item.mass else component_arrow(
+                item.name, item.components, unit, question, written
+            )  # fmt: skip
+        else:
+            arrow = _arrow(item, index, arrows, read, described, question, free)
         if arrow is None:
             logger.info("described vectors not drawn: arrow %d (%s)", index + 1, described.layout)
             return None
         arrows.append(arrow)
-    if _leaves_out(read, arrows, described.layout == "bodies"):
+    if _leaves_out(read, arrows, described.layout == "bodies") or (
+        written and left_out(question, written, unit)
+    ):
         logger.info("described vectors not drawn: a stated %s left out", described.quantity)
         return None
     return arrows
