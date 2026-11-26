@@ -25,6 +25,7 @@ from app.modules.chat.worked_turn import (
 from app.modules.physics.reply_policy import PHYSICS_VECTORS, physics_prompt_hints
 from app.modules.turn_reading.vector_notation import writes_column_vectors
 from app.services.column_vector import round_column
+from app.services.final_value import is_final_value
 from app.tests.behavior.latex_check import latex_problems
 from app.tests.modules.chat.test_verified_answer_card import _cards, _finalize
 
@@ -67,6 +68,17 @@ answer: \vec{F} | \begin{pmatrix}-50.004\\12.3456\end{pmatrix} | N
         r"A force $\begin{bmatrix} 4 \\ -2 \end{bmatrix}$ N acts for 3 s.",
         "Position ( 2\n -3 ) m at t = 0.",
         "a = ⎛ 3⎞\n⎝-1⎠",
+        # A decimal comma, a bare decimal point and a fraction (review of #2594).
+        "Uma bola tem velocidade [2,5; 3] m/s e bate numa parede.",
+        "Une force [0,5; -2] N agit pendant 3 s.",
+        "Скорость тела [ 2,5\n3] м/с.",
+        "Topun hızı [2,5; -1] m/s.",
+        "A velocity [.5; 2] m/s.",
+        "A force [1/2; 3] N acts on the body.",
+        "A puck moves with velocity [ 1/2\n-3] m/s.",
+        # A vector's symbol makes the semicolon form a column without a unit.
+        "Find |\\vec{a}| for \\vec{a} = [3; 4].",
+        "momentum [2; 1] kg m/s",
     ],
 )
 def test_a_question_in_columns_is_read_as_columns(message: str) -> None:
@@ -85,6 +97,14 @@ def test_a_question_in_columns_is_read_as_columns(message: str) -> None:
         r"$\begin{vmatrix}3\\4\end{vmatrix}$",
         "See part (a)\nand part (b).",
         "What is 5 + 2?",
+        # A closed interval with a semicolon, as French, Russian and Portuguese write one, or
+        # with a time or a length after it: no vector unit, no vector symbol (review of #2594).
+        "Étudier f(x) = x² − 3x sur [0 ; 5].",
+        "Найдите наибольшее значение функции на отрезке [−1; 1].",
+        "Quelle distance parcourt le mobile sur l'intervalle de temps [0 ; 5] s ?",
+        "Calcule a integral de f no intervalo [0; 2].",
+        "Find the average velocity of x(t) = t^2 over [0; 5] s.",
+        "The rod lies along [0; 2] m of the axis.",
     ],
 )
 def test_other_notation_is_not_read_as_columns(message: str) -> None:
@@ -185,6 +205,38 @@ async def test_a_column_beside_another_answer_is_on_the_card(
     assert len(cards) == 1
     assert r"\begin{pmatrix}4\\-3\end{pmatrix}" in cards[0]
     assert r"5\,\mathrm{m/s}" in cards[0]
+
+
+# A product of a number and a column above the answer it reached (review of #2594).
+PRODUCT_ABOVE = (
+    "**Given**  \n$m = 0.5\\,\\mathrm{kg}$\n\n**Required**  \n$\\vec{p}_f$ (momentum after)\n\n"
+    "**Solution**\n\n**Momentum formula**  \n$\\vec{p} = m\\vec{v}$\n\n**Answer**\n\n"
+    "$0.5\\begin{pmatrix}-5\\\\2\\end{pmatrix}$  \n"
+    "$\\begin{pmatrix}-2.5\\\\1\\end{pmatrix}\\,\\mathrm{kg\\,m/s}$\n"
+)
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        r"0.5\begin{pmatrix}-5\\2\end{pmatrix}",
+        r"\frac{1}{3}\begin{pmatrix}12\\-9\end{pmatrix}",
+        r"(0.5)\begin{pmatrix}5\\2\end{pmatrix}",
+        r"0.5 \, \begin{pmatrix}5\\2\end{pmatrix}",
+    ],
+)
+def test_a_number_times_a_column_is_working(line: str) -> None:
+    assert not is_final_value(line)
+    assert is_final_value(r"\begin{pmatrix}-2.5\\1\end{pmatrix}\,\mathrm{kg\,m/s}")
+
+
+@pytest.mark.asyncio
+async def test_the_card_never_takes_the_product_above_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    asked = "A 500 g ball bounces back with velocity [ -5\n2] m/s. Find its momentum."
+    cards = _cards(await _finalize(monkeypatch, PRODUCT_ABOVE, prompt=asked))
+    assert len(cards) == 1
+    assert r"\begin{pmatrix}-2.5\\1\end{pmatrix}" in cards[0]
+    assert "0.5" not in cards[0]
 
 
 @pytest.mark.parametrize(

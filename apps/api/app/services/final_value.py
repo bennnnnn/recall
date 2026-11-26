@@ -36,6 +36,11 @@ _SIZED = re.compile(r"\\(?:left|right|[bB]igg?[lr]?)[ \t]*(?=[()\[\]])")
 # Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
 # after a term (a leading minus is the value's sign).
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
+# A number, a fraction or a bracket right before a column multiplies it: working, not a value
+# (review of #2594: "0.5(-5; 2)" was carded beside the answer it reached).
+_TIMES_COLUMN = re.compile(
+    r"[\d})][ \t]*+(?:\\[,;: ]|\\q?quad(?![A-Za-z]))?[ \t]*+\\begin\{[pb]?matrix\}"
+)
 # An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
 _EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")
 # A fraction on a line, "5/7": a value in its lowest terms, a division still to do otherwise
@@ -58,6 +63,8 @@ def is_final_value(value: str) -> bool:
     right = _GROUPED.sub(" 1 ", _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)))
     if _TRIG.search(right) is None:
         right = _DEGREES.sub("", right)
+    if _TIMES_COLUMN.search(right):
+        return False  # "0.5(-5; 2)", "\\frac{1}{3}(12; -9)": a product still to work out
     # A column is marked by a letter, never a digit a slash after it would read as a ratio.
     right = columns_as_values(_COMPONENTS.sub(" 1 ", _SIZED.sub("", right)), " v ").strip()
     slashed = _SLASHED.fullmatch(right)
