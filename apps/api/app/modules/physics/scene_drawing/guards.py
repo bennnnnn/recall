@@ -62,6 +62,8 @@ _MIRROR = re.compile(r"\bmirrors?\b", re.IGNORECASE)
 _RESTING = re.compile(r"\b(?:table|incline|slope|ramp|bench|surface)\b", re.IGNORECASE)
 _CIRCLE = re.compile(r"\b(?:circle|circular|conical|cone)\b", re.IGNORECASE)
 _MASSIVE_PULLEY = re.compile(r"\b(?:radius|dis[ck]|inertia|cylinder|wheel)\b", re.IGNORECASE)
+# A slope: "a horizontal plane" is the level table it does not mean.
+_SLOPED = re.compile(r"\b(?:incline[sd]?|slopes?|ramps?|hills?)\b", re.IGNORECASE)
 
 
 def _projectile(stated: Stated, held: Mapping[str, Given]) -> bool:
@@ -140,6 +142,13 @@ def _atwood(stated: Stated, held: Mapping[str, Given]) -> bool:
     return _MASSIVE_PULLEY.search(text) is not None or _RESTING.search(text) is not None
 
 
+def _table_pulley(stated: Stated, held: Mapping[str, Given]) -> bool:
+    """A block on a level table over an ideal pulley: a slope, or a pulley with a radius, a
+    disk's mass or inertia, is another machine."""
+    text = stated.text
+    return _MASSIVE_PULLEY.search(text) is not None or _SLOPED.search(text) is not None
+
+
 def _none(stated: Stated, held: Mapping[str, Given]) -> bool:
     return False
 
@@ -154,4 +163,5 @@ GUARDS: dict[str, Guard] = {
     "atwood": _atwood,
     "orbit": _none,
     "banked_curve": _none,
+    "table_pulley": _table_pulley,
 }

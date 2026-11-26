@@ -86,6 +86,11 @@ def _pulley(text: str, friction: bool) -> RigPicture | None:
     return None
 
 
+def table_pulley_picture(*, friction: bool) -> SimulationBlockSpec:
+    """The block-on-a-table rig on its own: a scene a reply describes draws it too."""
+    return _table_pulley(friction)[0]
+
+
 def _atwood() -> RigPicture:
     """Two masses on one rope over a wheel: tension up on both, each one's weight down."""
     wheel, axle, size = 0.5, 3.55, 0.36

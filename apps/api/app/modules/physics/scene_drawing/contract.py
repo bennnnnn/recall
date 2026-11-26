@@ -36,7 +36,9 @@ SCENE_DRAW_CONTRACT = (
     "- refraction (light entering a material): angle* (of incidence), index* (of the "
     "material it enters), index_from (of the material it comes from, when not air);\n"
     "- lens (one converging lens): focal_length*, object_distance*, object_height;\n"
-    "- banked_curve (a car on a banked road, seen from behind): angle* (of the bank).\n"
+    "- banked_curve (a car on a banked road, seen from behind): angle* (of the bank);\n"
+    "- table_pulley (a block on a smooth level table pulled over a pulley at its edge by a "
+    "hanging mass): mass1* (of the block on the table), mass2* (of the hanging mass).\n"
     "A circuit of resistors on one supply is its own block: "
     '{"kind":"circuit","arrangement":"series" or "parallel","supply":"<the voltage>",'
     '"resistors":["<each resistance, one entry per resistor>"]}. A plane mirror\'s image is '
@@ -48,6 +50,26 @@ SCENE_DRAW_CONTRACT = (
     "launched downward, a block pushed or sliding up, a block at rest, a pulley on a slope "
     "or with its own mass, a head-on or 2-D collision, a spring, a wave, a loop, a conical "
     "pendulum, a charge in a magnetic field) gets no scene block."
+)
+
+# Beside a physics message asking to see a picture: the question's own arrows, which the
+# server checks one by one and lays out (``vectors``).
+VECTORS_DRAW_CONTRACT = (
+    "Arrows of the question's own values, when no scene above draws its setup (two bodies "
+    "heading for one point or for each other before they collide, forces on one point, a "
+    "journey in legs, a boat or plane and the current or wind): one ```draw block, "
+    '{"kind":"vectors","layout":"bodies" (each body with its arrow, as before a collision) '
+    'or "tail" (every arrow from one point) or "chain" (head to tail, legs of a journey),'
+    '"quantity":"velocity" or "force" or "displacement" or "momentum","arrows":[{"name":'
+    '"<the body or force as the question names it>","size":"<its value with its unit, as '
+    'the question states it>","direction":"<as the question states it for that value: '
+    "north, south-west, 30° east of north, N30°E, bearing 060°, left, right, up, down, 30° "
+    "above the horizontal; or 90° to <an earlier arrow's name> for an angle the question "
+    'states between them; left out when it states none>","mass":"<the body\'s mass as '
+    'stated; bodies only>"}],"resultant":true (tail or chain, when the question asks for '
+    'the resultant),"after":"together" (bodies, when they stick together after colliding)}. '
+    "Every arrow of that quantity the question gives a direction, never a value you worked "
+    "out; the app works out and draws the rest."
 )
 
 # Beside a physics message asking to see a graph against time: the motion in stages, which
