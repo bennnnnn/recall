@@ -135,10 +135,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # WORKED_COLUMN_VECTORS_NOTE, the owner's ball question, 2026-11-25, review of #2594); then one
 # layout for every informational reply in place of the rules that forbade it (SCAN_LAYOUT: a
 # short answer, a title, numbered bold items, their members nested; 28 of 28 replies had no
-# title and no nested list, the owner, 2026-11-26).
+# title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
+# 2026-11-26).
 _RULES = 227
-_RULE_GRAMS = 21270
-_RULE_GRAMS_SHA = "c9aec152a50c0b86"
+_RULE_GRAMS = 21294
+_RULE_GRAMS_SHA = "4c7d3fccaa24d990"
 
 
 def _rules() -> list[str]:

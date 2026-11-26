@@ -1518,11 +1518,29 @@ describe("list rhythm", () => {
         content={"- Parent\n  - child a\n  - child b\n- Last"}
       />,
     );
-    // Parent (a group: the wider gap), child a, child b (nested, flush), then Last.
+    // Parent (a group: the wider gap), child a (a member: the tight gap), child b
+    // (nested, flush), then Last.
     expect(getAllByTestId("md-list-bullet").map((b) => itemGap(b))).toEqual([
       Space.md,
-      Space.xs,
+      Space.xxs,
       0,
+      0,
+    ]);
+  });
+
+  it("keeps a numbered group's members tighter than its main items", async () => {
+    const { getAllByTestId, getByText } = await render(
+      <MarkdownContent
+        content={
+          "1. **Natural** — the world\n    - **Physics**: matter\n    - **Chemistry**: substances\n2. **Formal** — logic\n3. **Applied** — use"
+        }
+      />,
+    );
+    const members = getAllByTestId("md-list-bullet").map((b) => itemGap(b));
+    expect(members).toEqual([Space.xxs, 0]);
+    expect(["1.", "2.", "3."].map((n) => itemGap(getByText(n)))).toEqual([
+      Space.md,
+      Space.xs,
       0,
     ]);
   });

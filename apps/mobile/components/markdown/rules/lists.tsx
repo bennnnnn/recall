@@ -53,6 +53,12 @@ function listDepth(parent: AstParent[]): number {
 /** The gap under a main item that holds members: a group's end, wider than a member's. */
 const GROUP_END = { marginBottom: Space.md };
 
+/**
+ * The gap under a nested member: half a main item's, so a group's members read as one block
+ * under their bold name instead of a column of loose lines (owner, 2026-11-26).
+ */
+const MEMBER_GAP = { marginBottom: Space.xxs };
+
 /** A nested member's marker: a ring in the body ink, not the main items' disc. */
 function memberRing(t: Theme): ViewStyle {
   return { backgroundColor: "transparent", borderWidth: 1.5, borderColor: t.text };
@@ -118,6 +124,7 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
       const itemStyle = [
         styles._VIEW_SAFE_list_item as object,
         depth === 1 && listItemHasNestedList(node) && GROUP_END,
+        depth > 1 && MEMBER_GAP,
         isLastListItem(parent, node.index) &&
           !listGoesOn(parent[0], parent.slice(1)) &&
           (styles.lastListItem as object),
