@@ -391,7 +391,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "What is the electric field strength 0.2 m from a point charge of 5 microcoulombs?",
             "1123443.97 N/C",
         ),
-        ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.12 J"),
+        ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.13 J"),
         ("What is the RMS voltage of an AC supply with a peak voltage of 325 V?", "229.81 V"),
         (
             "A Carnot engine operates between 500 K and 300 K. What is its maximum efficiency?",

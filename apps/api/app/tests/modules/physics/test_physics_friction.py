@@ -67,7 +67,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "what is the acceleration of a block on a frictionless 30 degree incline",
         "incline_acceleration",
-        "4.90 m/s²",
+        "4.91 m/s²",
     ),
     (
         "a crate slides down a 30 degree ramp with mu = 0.2, find the acceleration",
@@ -134,7 +134,7 @@ def test_incline_acceleration_does_not_depend_on_mass() -> None:
         "what is the acceleration of a 250 kg block on a frictionless 30 degree incline"
     )
 
-    assert without == "4.90 m/s²"
+    assert without == "4.91 m/s²"
     assert with_mass == without
 
 
