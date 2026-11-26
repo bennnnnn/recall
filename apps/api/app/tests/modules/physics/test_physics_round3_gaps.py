@@ -112,19 +112,19 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the coefficient of friction if a block slides at 30 degrees",
         "friction",
         "friction_coefficient",
-        "0.577",
+        "0.58",
     ),
     (
         "a block starts to slide on a 25 degree incline, what is the coefficient of friction",
         "friction",
         "friction_coefficient",
-        "0.466",
+        "0.47",
     ),
     (
         "find the coefficient of static friction if slipping begins at 20 degrees",
         "friction",
         "friction_coefficient",
-        "0.364",
+        "0.36",
     ),
     # --- friction: F_min = mu m g ------------------------------------
     (

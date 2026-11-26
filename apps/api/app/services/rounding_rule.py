@@ -151,7 +151,8 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
         return _figures(number, SMALL_FIGURES, True)
     if math.isclose(number, round(number), rel_tol=1e-12, abs_tol=1e-12):
         return str(round(number)), None
-    shown = format_places(number, PLACES)
+    # A float a hair under a tie is the tie: 0.0001 × 50² / 2 is 0.125, and its 5 rounds up.
+    shown = format_places(float(f"{number:.12g}"), PLACES)
     lost = not math.isclose(float(shown), number, rel_tol=1e-12)
     if lost and abs(number) < SMALL_BELOW:
         return _figures(number, SMALL_FIGURES, False)

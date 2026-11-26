@@ -74,7 +74,7 @@ def _values(text: str) -> list[tuple[float, str]]:
             "A ball rolls off a 1.2 m high table with a speed of 3 m/s. "
             "How long does it take to hit the floor?",
             "0.4 s",
-            "0.495 s",
+            "0.49 s",
         ),
         (
             # The sound goes there and back.
@@ -138,7 +138,7 @@ def test_a_wrong_answer_the_sweep_found_is_right(text: str, was: str, now: str) 
             "15 N",
         ),
         ("What is the acceleration due to gravity on Mars?", "surface_gravity_named", "3.73 m/s²"),
-        ("How long should a pendulum be to have a period of 2 s?", "pendulum_length", "0.994 m"),
+        ("How long should a pendulum be to have a period of 2 s?", "pendulum_length", "0.99 m"),
         ("A 60 W bulb runs on 120 V. What current does it draw?", "current_from_power", "0.50 A"),
         (
             "A 3 kg block of aluminium (c = 900 J/kg·K) absorbs 54 kJ. "

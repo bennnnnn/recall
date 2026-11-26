@@ -36,7 +36,7 @@ CASES: list[tuple[str, str, str]] = [
         "Find the electric potential energy of two point charges 2 uC and -3 uC "
         "separated by 0.5 m.",
         "electric_potential_energy",
-        "-0.108 J",
+        "-0.11 J",
     ),
     (
         "Find the capacitance of a parallel plate capacitor with area 0.02 m^2 "
@@ -124,7 +124,7 @@ CASES: list[tuple[str, str, str]] = [
         "Using Stokes drag, find force for viscosity 0.2 Pa*s, sphere radius "
         "0.01 m, and speed 3 m/s.",
         "stokes_drag",
-        "0.113 N",
+        "0.11 N",
     ),
     (
         "Find Reynolds number for density 1000 kg/m^3, speed 2 m/s, characteristic "

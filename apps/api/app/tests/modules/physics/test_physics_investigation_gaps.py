@@ -41,7 +41,7 @@ def _assert_answer(text: str, operation: str, value: float, unit: str) -> None:
     assert _operation(text) == operation, text
     answer = _answer(text)
     assert answer is not None, text
-    assert answer_number(answer) == pytest.approx(value, rel=5e-3), answer
+    assert answer_number(answer) == pytest.approx(value, rel=5e-3, abs=0.005), answer
     assert unit in answer, answer
 
 

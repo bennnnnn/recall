@@ -41,4 +41,7 @@ def test_a_review_question_declines_or_is_right(case: dict[str, Any]) -> None:
         return
     assert case["answer"] is not None, f"verified a question that declines: {answer}"
     value, _unit = case["answer"]
-    assert math.isclose(answer_number(answer), value, rel_tol=0.01), (case["prompt"], answer)
+    assert math.isclose(answer_number(answer), value, rel_tol=0.01, abs_tol=0.005), (
+        case["prompt"],
+        answer,
+    )

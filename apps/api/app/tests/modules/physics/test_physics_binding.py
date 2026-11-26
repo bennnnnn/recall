@@ -187,7 +187,7 @@ def _answer(text: str) -> str | None:
             "What mass of ice melts when it absorbs 67000 J? "
             "Use a latent heat of fusion of 334000 J/kg.",
             "mass_from_latent_heat",
-            "0.201 kg",
+            "0.20 kg",
         ),
         (
             "A particle has rest mass 1 kg and relativistic momentum 3e8 kg m/s. "

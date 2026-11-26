@@ -24,7 +24,7 @@ from app.services.rounding_rule import Precision, asked_precision, number_latex
         (999999999.4, "999999999.40"),
         (0.05, "0.05"),
         (0.0567, "0.0567"),  # two places would leave one figure
-        (0.4551, "0.455"),  # or two: a card is never more than 0.5% off
+        (0.4551, "0.46"),  # two places below 1 too (owner, 2026-11-25)
         (0.27, "0.27"),  # exact at two places
         (0.00123, "0.00123"),
         (-4.8333, "-4.83"),

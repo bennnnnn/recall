@@ -135,7 +135,7 @@ def _op(text: str) -> str | None:
         (
             "An Otto engine has a compression ratio of 8 and gamma 1.40. Find the efficiency.",
             "otto_efficiency",
-            "0.565",
+            "0.56",
         ),
     ],
 )

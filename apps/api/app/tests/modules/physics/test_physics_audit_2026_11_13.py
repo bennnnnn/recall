@@ -33,11 +33,11 @@ def _answer(text: str) -> str | None:
         (
             "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. "
             "What is its maximum speed?",
-            "0.314\\,\\mathrm{m/s}",
+            "0.31\\,\\mathrm{m/s}",
         ),
         (
             "A body in SHM has amplitude 0.1 m and frequency 0.5 Hz. Find its maximum speed.",
-            "0.314\\,\\mathrm{m/s}",
+            "0.31\\,\\mathrm{m/s}",
         ),
         (
             "A piston moves in SHM with an amplitude of 5 cm and a period of 0.02 s. "
@@ -52,7 +52,7 @@ def _answer(text: str) -> str | None:
         (
             "A mass on a spring oscillates with an amplitude of 0.1 m and a period of 2 s. "
             "What is its maximum acceleration?",
-            "0.987\\,\\mathrm{m/s²}",
+            "0.99\\,\\mathrm{m/s²}",
         ),
         (
             "A tsunami has a wavelength of 200 km and a period of 15 minutes. "
@@ -166,7 +166,7 @@ def test_a_follow_up_that_changes_the_motion_is_no_new_problem() -> None:
          "20\\,\\mathrm{years}"),
         # An asked share that decayed.
         ("What percentage of a sample has decayed after 2 half-lives?", "75\\,\\%"),
-        ("What fraction of a sample has decayed after 3 half-lives?", "0.875"),
+        ("What fraction of a sample has decayed after 3 half-lives?", "0.88"),
         ("How much of a 100 g sample has decayed after 2 half-lives?", "75\\,\\mathrm{g}"),
         ("A sample has a half-life of 10 years. What percentage has decayed after 20 years?",
          "75\\,\\%"),
@@ -193,7 +193,7 @@ def test_a_follow_up_that_changes_the_motion_is_no_new_problem() -> None:
         ("An object is 20 cm from a concave lens of focal length 10 cm. Find the image "
          "distance.", "6.67\\,\\mathrm{cm}\\ (\\text{virtual, on the object's side of the lens})"),
         ("An object is placed 30 cm from a concave lens of focal length 15 cm. What is the "
-         "magnification?", "0.333\\ (\\text{upright and smaller})"),
+         "magnification?", "0.33\\ (\\text{upright and smaller})"),
         ("An object is 30 cm from a convex lens of focal length 10 cm. Find the image distance.",
          "15\\,\\mathrm{cm}"),
         # Once declined for its sign, a diverging lens however worded (owner, 2026-11-13).
@@ -268,10 +268,10 @@ _VIRTUAL = "\\text{virtual, on the object's side of the lens}"
         ("A Galilean telescope eyepiece is a concave lens of focal length 5 cm. An object is 20 "
          "cm from it. Where is the image?", f"4\\,\\mathrm{{cm}}\\ ({_VIRTUAL})"),
         # A negated decay is the share left; "undecayed" too.
-        ("What fraction of the sample has not decayed after 3 half-lives?", "0.125"),
-        ("What fraction of the sample has not yet decayed after 3 half-lives?", "0.125"),
+        ("What fraction of the sample has not decayed after 3 half-lives?", "0.13"),
+        ("What fraction of the sample has not yet decayed after 3 half-lives?", "0.13"),
         ("What percentage of the nuclei are yet to decay after 2 half-lives?", "25\\,\\%"),
-        ("What fraction of the original nuclei remain undecayed after 3 half-lives?", "0.125"),
+        ("What fraction of the original nuclei remain undecayed after 3 half-lives?", "0.13"),
         # Air resistance set aside however it is said.
         ("A ball is dropped from 45 m with air resistance taken as zero. How long does it take "
          "to fall?", "3.03\\,\\mathrm{s}"),
@@ -322,7 +322,7 @@ def test_the_second_review_declines(text: str) -> None:
     [
         # Third review: a contraction or "failed to" negates the decay; a mention the ask sets
         # aside is no ask; air resistance set aside, look-alike.
-        ("What fraction of the nuclei haven't decayed after 3 half-lives?", "0.125"),
+        ("What fraction of the nuclei haven't decayed after 3 half-lives?", "0.13"),
         ("What fraction of the sample hasn\u2019t decayed after 2 half-lives?", "0.25"),
         ("A sample has a half-life of 10 years. How long until 25% hasn't decayed?",
          "20\\,\\mathrm{years}"),

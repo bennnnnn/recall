@@ -105,7 +105,7 @@ def _scene(text: str) -> SimulationBlockSpec:
             "What is the wavelength of a microwave with frequency 2.45 GHz?",
             "wave",
             "wave",
-            "0.122 m",
+            "wavelength 0.12 m",
         ),
         (
             "A guitar string 0.65 m long has a wave speed of 260 m/s. "

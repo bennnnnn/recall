@@ -66,13 +66,13 @@ def _answer(text: str) -> str | None:
         (
             "A 10 g sample has a half-life of 5 days. What mass remains after 20 days?",
             "half_life_remaining",
-            "0.625 g",
+            "0.63 g",
         ),
         (
             "A radioactive isotope has a half-life of 5 days. Find the decay constant.",
             "decay_constant",
             # ln 2 / 5 days, per the day the half-life was given in (1.6e-6 1/s).
-            "0.139 1/day",
+            "0.14 1/day",
         ),
         (
             "A sample contains 2 × 10^20 nuclei with a half-life of 5 days. Find its activity.",
@@ -133,7 +133,7 @@ def _answer(text: str) -> str | None:
             "A spaceship moving at 0.6c fires a probe forward at 0.5c relative to the ship. "
             "Find the speed of the probe relative to Earth.",
             "relativistic_velocity_addition",
-            "0.846 c",  # 1.1 / 1.3
+            "0.85 c",  # 1.1 / 1.3
         ),
         ("Find the Schwarzschild radius of the Sun.", "schwarzschild_radius", "2953.38 m"),
         (

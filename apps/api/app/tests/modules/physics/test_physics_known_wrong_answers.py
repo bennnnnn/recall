@@ -32,7 +32,7 @@ def _answer(text: str) -> str | None:
             "Two charges of 2 × 10^-6 C and 3 × 10^-6 C are 0.5 m apart. "
             "Find the electric force between them.",
             "1.294e+12 N",
-            "0.216 N",
+            "0.22 N",
         ),
         (
             "Light travels at 2 × 10^8 m/s in a medium. Find the refractive index.",
@@ -100,7 +100,7 @@ def test_cooling_releases_heat() -> None:
         # Was declined: the unlabelled 500 K was read as both reservoirs.
         ("Find the efficiency of a Carnot engine operating between 500 K and 300 K.", "0.40 (40%)"),
         ("Find the efficiency of a Carnot engine operating between 300 K and 500 K.", "0.40 (40%)"),
-        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.400 (39.99%)"),
+        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.40 (39.99%)"),
     ],
 )
 def test_carnot_reads_both_reservoirs(text: str, answer: str) -> None:

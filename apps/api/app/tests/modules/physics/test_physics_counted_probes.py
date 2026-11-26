@@ -261,7 +261,7 @@ PROBES: list[tuple[str, str | None]] = [
         "Two identical springs of spring constant 200 N/m are connected in series. Find the effective spring constant.",
         None,
     ),
-    ("Two charges of 3 µC each are placed 0.5 m apart. Find the force between them.", "0.324 N"),
+    ("Two charges of 3 µC each are placed 0.5 m apart. Find the force between them.", "0.32 N"),
     (
         "Two masses of 2 kg each are placed 1 m apart. Find the gravitational force between them.",
         "2.67 × 10⁻¹⁰ N",

@@ -196,7 +196,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ("A 60 W bulb is on for 5 hours. How much energy does it use in kWh?", "0.30 kWh"),
         (
             "What is the force between two charges of 2 microcoulombs each separated by 0.3 m?",
-            "0.399 N",
+            "0.40 N",
         ),
         ("A wave has a frequency of 50 Hz and a wavelength of 2 m. What is its speed?", "100 m/s"),
         ("What is the period of a wave with a frequency of 25 Hz?", "0.04 s"),
@@ -228,12 +228,12 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ("What is the period of a simple pendulum of length 1 m? (g = 9.8 m/s^2)", "2.01 s"),
         (
             "What is the period of a 0.5 kg mass on a spring with spring constant 200 N/m?",
-            "0.314 s",
+            "0.31 s",
         ),
         (
             "A radioactive sample has a half-life of 5 years. What fraction remains after "
             "15 years?",
-            "0.125",
+            "0.13",
         ),
         (
             "What is the energy of a photon with a frequency of 5 x 10^14 Hz?",
@@ -391,7 +391,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
             "What is the electric field strength 0.2 m from a point charge of 5 microcoulombs?",
             "1123443.97 N/C",
         ),
-        ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.125 J"),
+        ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.12 J"),
         ("What is the RMS voltage of an AC supply with a peak voltage of 325 V?", "229.81 V"),
         (
             "A Carnot engine operates between 500 K and 300 K. What is its maximum efficiency?",
@@ -400,7 +400,7 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         (
             "A sound wave has a frequency of 440 Hz and travels at 340 m/s. What is its "
             "wavelength?",
-            "0.773 m",
+            "0.77 m",
         ),
         (
             "What is the fundamental frequency of a 0.5 m string fixed at both ends with a "

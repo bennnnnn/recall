@@ -74,7 +74,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Find the sound intensity 2 m from a 10 W point source.",
         "waves",
         "sound_intensity",
-        "0.199 W/m²",
+        "0.20 W/m²",
         "Spherical-wave intensity:",
     ),
     (
@@ -161,7 +161,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the sound intensity 200 cm from a 10 W point source.",
-            "0.199 W/m²",
+            "0.20 W/m²",
         ),
         (
             "A hydraulic press has input force 100 N, piston areas 100 cm^2 "

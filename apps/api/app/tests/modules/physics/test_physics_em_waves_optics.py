@@ -336,7 +336,7 @@ def test_bragg_uses_the_stated_order_and_angle() -> None:
         "in the first order. Find the plane spacing."
     )
     assert _answer(wavelength) == "0.20 nm"
-    assert _answer(spacing) == "0.154 nm"
+    assert _answer(spacing) == "0.15 nm"
 
 
 @pytest.mark.parametrize(

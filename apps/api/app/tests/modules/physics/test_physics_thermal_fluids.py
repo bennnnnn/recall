@@ -158,7 +158,7 @@ def _answer(text: str) -> str | None:
             "Ice of density 917 kg/m^3 floats in water of density 1000 kg/m^3. "
             "What fraction of the ice is submerged?",
             "floating_fraction",
-            "0.917",
+            "0.92",
         ),
         (
             "Water with surface tension 0.072 N/m rises in a capillary tube of radius 0.5 mm. "

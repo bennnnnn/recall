@@ -146,7 +146,7 @@ def test_a_missing_g_on_the_moon_or_mars_is_that_body() -> None:
     moon_accel = float(moon.split(" and ")[0].split()[0])
     mars_tension = float(mars.split()[0])
     earth_tension = float(earth.split()[0])
-    assert moon_accel == pytest.approx((5 - 3) * 1.62 / (5 + 3), rel=5e-3)
+    assert moon_accel == pytest.approx((5 - 3) * 1.62 / (5 + 3), rel=5e-3, abs=0.005)
     assert mars_tension == pytest.approx(5 * 3.71, rel=5e-3)
     assert earth_tension == pytest.approx(5 * 9.81, rel=5e-3)
 

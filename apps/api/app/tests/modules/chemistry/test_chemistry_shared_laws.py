@@ -68,7 +68,7 @@ def _physics_answer(question: str) -> str | None:
         (
             "A 50 g piece of metal at 100 °C is dropped into 100 g of water at 20 °C. "
             "The final temperature is 25 °C. Find the specific heat of the metal.",
-            "0.558 J/(g·°C)",
+            "0.56 J/(g·°C)",
         ),
     ],
 )
@@ -129,7 +129,7 @@ def test_chemistry_keeps_no_second_copy_of_a_shared_law() -> None:
         # A row for a converted answer names its symbol, never a bare "= …".
         (
             "A radioactive isotope has a half-life of 5 days. Find the decay constant.",
-            r"\lambda = 1.60 \times 10^{-6}\,\mathrm{1/s} = 0.139\,\mathrm{1/day}",
+            r"\lambda = 1.60 \times 10^{-6}\,\mathrm{1/s} = 0.14\,\mathrm{1/day}",
         ),
     ],
 )
@@ -140,7 +140,7 @@ def test_the_working_reaches_the_unit_the_answer_is_shown_in(question: str, row:
 @pytest.mark.parametrize("spelling", ["h", "hr", "hrs", "hours"])
 def test_every_spelling_of_a_time_unit_gives_one_rate_unit(spelling: str) -> None:
     question = f"A radioactive isotope has a half-life of 5 {spelling}. Find the decay constant."
-    assert _physics_answer(question) == "0.139 1/h"
+    assert _physics_answer(question) == "0.14 1/h"
 
 
 def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> None:

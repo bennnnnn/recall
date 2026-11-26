@@ -21,7 +21,7 @@ from app.modules.physics.solvers.results import QuantityResult
     ("value", "plain", "latex"),
     [
         (39.618, "39.62", "39.62"),
-        (0.2157, "0.216", "0.216"),
+        (0.2157, "0.22", "0.22"),
         (36.7875, "36.79", "36.79"),
         (20.0, "20", "20"),
         # An answer that ends within one decimal is printed whole, as a book does.
@@ -32,7 +32,7 @@ from app.modules.physics.solvers.results import QuantityResult
         (612500, "612500", "612500"),
         # Longer ones keep three figures but every whole digit.
         (22620.47, "22620.47", "22620.47"),
-        (1 / 3, "0.333", "0.333"),
+        (1 / 3, "0.33", "0.33"),
         (12345678.0, "12345678", r"12345678"),
         (117187.5, "117187.50", "117187.50"),
         (6.4e6, "6400000", r"6400000"),
@@ -102,8 +102,8 @@ def test_a_chip_reads_the_same_in_both_spellings() -> None:
 
 def test_a_note_escapes_latex_specials() -> None:
     item = QuantityResult("", 0.39988, "", detail="39.988%")
-    assert render_chip((item,)) == "0.400 (39.99%)"
-    assert render_chip_latex((item,)) == r"0.400\ (\text{39.99\%})"
+    assert render_chip((item,)) == "0.40 (39.99%)"
+    assert render_chip_latex((item,)) == r"0.40\ (\text{39.99\%})"
 
 
 @pytest.mark.parametrize(

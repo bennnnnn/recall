@@ -132,7 +132,7 @@ def test_stokes_terminal_velocity() -> None:
     assert intent.physics_op == "stokes_terminal_velocity"
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "0.131 m/s" in (block.canonical_answer or "")
+    assert "0.13 m/s" in (block.canonical_answer or "")
 
 
 def test_stokes_force_stays_a_force() -> None:

@@ -36,12 +36,15 @@ def test_a_card_in_another_unit_than_its_working_keeps_its_own_value() -> None:
         ("x = 2 \\text{ or } x = -3.5", "x = 2 \\text{ or } x = -3.50"),
         ("20\\,\\mathrm{m/s}", "20\\,\\mathrm{m/s}"),
         ("6.022 \\times 10^{23}", "6.02 \\times 10^{23}"),
-        ("0.2727\\,\\mathrm{A}", "0.273\\,\\mathrm{A}"),  # never more than 0.5% off
+        (
+            "0.2727\\,\\mathrm{A}",
+            "0.27\\,\\mathrm{A}",
+        ),  # two places below 1 too (owner, 2026-11-25)
         ("K_{p} = 1.2 \\times 10^{-4}", "K_{p} = 1.2 \\times 10^{-4}"),  # no figure added
         ("2400\\,\\mathrm{m^{2}}", "2400\\,\\mathrm{m^{2}}"),  # a unit's power is no number
         # A negative power in a unit is no number either (review).
         ("a = 9.8123\\,\\mathrm{m\\,s^{-2}}", "a = 9.81\\,\\mathrm{m\\,s^{-2}}"),
-        ("c = 0.12345\\,\\mathrm{mol\\,L^-1}", "c = 0.123\\,\\mathrm{mol\\,L^-1}"),
+        ("c = 0.12345\\,\\mathrm{mol\\,L^-1}", "c = 0.12\\,\\mathrm{mol\\,L^-1}"),
         # An exact whole number stays whole at any size (review): 2^40, 20!.
         ("x = 1099511627776", "x = 1099511627776"),
         ("2432902008176640000", "2432902008176640000"),

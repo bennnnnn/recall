@@ -52,7 +52,7 @@ _CASES = [
     ("What is the power of a force of 10 N moving at 3 m/s?", "30 W", False),
     ("A machine does 1,200 J of work in 30 seconds. What is its power?", "40 W", False),
     (_AVERAGE_SPEED, "5 m/s", False),
-    (_ELECTRIC_FORCE, "0.216 N", False),
+    (_ELECTRIC_FORCE, "0.22 N", False),
     (
         "A car travels 180 meters in 12 seconds. What is its average speed?",
         "15 m/s",
