@@ -1,5 +1,4 @@
 import {
-  AI_CONSENT_ITEMS,
   aiConsentRedirect,
   needsAiDataConsent,
 } from "@/features/auth/model/aiConsent";
@@ -46,20 +45,14 @@ describe("aiConsentRedirect", () => {
   });
 });
 
-describe("AI_CONSENT_ITEMS", () => {
+describe("what the consent says", () => {
   const strings = en as Record<string, string>;
 
-  it("has English copy for every item", () => {
-    for (const item of AI_CONSENT_ITEMS) {
-      expect(strings[item.titleKey]).toBeTruthy();
-      expect(strings[item.bodyKey]).toBeTruthy();
-    }
-  });
-
-  it("names every outside service the privacy policy lists for chat, photos, voice and search", () => {
-    const copy = AI_CONSENT_ITEMS.map((item) => strings[item.bodyKey]).join(" ");
-    for (const name of ["OpenRouter", "OpenAI", "Mathpix", "Tavily", "public search engines"]) {
-      expect(copy).toContain(name);
+  // One sentence, no list to read through (owner, 2026-11-25); the privacy policy holds the
+  // detail. It still names who receives the data (App Store 5.1.2(i)).
+  it("names the outside AI services in the screen's one sentence", () => {
+    for (const name of ["OpenRouter", "OpenAI"]) {
+      expect(strings["onboarding.consent_intro"]).toContain(name);
     }
   });
 });

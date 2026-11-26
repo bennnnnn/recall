@@ -186,9 +186,10 @@ async def delete_account(
        failing rolls it all back: 503 ``unavailable``, still signed in, so the phone's
        retry deletes it, and the backstop finds the account and leaves it alone.
     3. Committed, the account is gone. Only then what is outside the database: every
-       session ends, the stored files go, and the sweep is queued at once. None of these
-       fails the request: each is idempotent and the sweep (``sweep_deleted_account``)
-       does it again.
+       session ends and the sweep is queued at once; the sweep (``sweep_deleted_account``)
+       deletes the stored files in the worker, under the account's prefix, so the request
+       makes no storage call. None of these fails the request: each is idempotent and the
+       sweep does it again.
 
     The sessions and files used to go first: the database failing after them left the
     account signed out everywhere with its files deleted and every other row kept, and
@@ -206,7 +207,7 @@ async def delete_account(
         await tokens_service.purge_user_sessions(redis, user_id, settings)
     except Exception:
         logger.warning("Session purge after delete failed; its sweep ends them", exc_info=True)
-    await attachments_service.delete_account_files(settings, storage_keys)
+    await attachments_service.delete_account_files(user_id, storage_keys)
     await enqueue(redis, SWEEP_JOB, sweep, dedupe_key=_sweep_dedupe_key(user_id))
     if apple_sub and apple_authorization_code:
         await apple_revoke.revoke_authorization_code(

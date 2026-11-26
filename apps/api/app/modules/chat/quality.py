@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.modules.chat.turn_prep.context import StreamContext
-from app.services.answer_fence import answer_fence_value
+from app.services.answer_fence import ANSWER_FENCE_LANGS, answer_fence_value
 from app.services.md_fence_scan import iter_fences
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,6 @@ _JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
 _WORKING_LINE = re.compile(r"[^\S\n]*\$[^$\n]+\$[^\S\n]*")
 # The heading a card sits under: "**Answer**", "**Answer (a)**".
 _ANSWER_HEADING = re.compile(r"[^\S\n]*\*\*Answer(?: \([a-h]\))?:?\*\*[^\S\n]*")
-_ANSWER_LANGS = frozenset({"answer", "result", "final"})
 _DRAFT_FENCE_LANGS = frozenset(
     {
         "email",
@@ -168,7 +167,7 @@ def _collect_format_signals(text: str) -> list[QualitySignal]:
             break
 
     for fence in fences:
-        if fence.lang not in _ANSWER_LANGS or not fence.closed:
+        if fence.lang not in ANSWER_FENCE_LANGS or not fence.closed:
             continue
         body = answer_fence_value(fence.body)
         if not body:

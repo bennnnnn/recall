@@ -234,6 +234,74 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_the_cache_keys_a_page_by_its_own_path_and_answers_each_asker_with_their_link(
+    fake_redis,
+):
+    """Only the scheme and host are any case: "/Docs/A" and "/docs/a" are two pages. One
+    page asked for in another spelling of its host is one entry, and each asker gets their
+    own link back, never the first requester's (audit, 2026-11-25)."""
+    from app.core.config import Settings
+    from app.modules.link_preview.service import fetch_link_preview_cached
+
+    settings = Settings(link_preview_cache_ttl=3600)
+    user_id = uuid4()
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock:
+        await fetch_link_preview_cached(
+            settings, fake_redis, "https://Example.com/Docs/A", user_id=user_id
+        )
+        again = await fetch_link_preview_cached(
+            settings, fake_redis, "HTTPS://example.COM/Docs/A", user_id=user_id
+        )
+        other = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/docs/a", user_id=user_id
+        )
+    assert again["url"] == "HTTPS://example.COM/Docs/A"
+    assert other["url"] == "https://example.com/docs/a"
+    assert fetch_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_two_fragments_of_one_page_are_one_entry_and_one_fetch(fake_redis):
+    """The fetch never sends a fragment: "#install" and "#usage" are one page (review of
+    #2592); each asker still gets their own link back."""
+    from app.core.config import Settings
+    from app.modules.link_preview.service import fetch_link_preview_cached
+
+    settings = Settings(link_preview_cache_ttl=3600)
+    user_id = uuid4()
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock:
+        await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/docs#install", user_id=user_id
+        )
+        usage = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/docs#usage", user_id=user_id
+        )
+    assert fetch_mock.await_count == 1
+    assert usage["url"] == "https://example.com/docs#usage"
+
+
+@pytest.mark.asyncio
+async def test_a_card_with_nothing_fetched_is_kept_minutes_not_the_hour(fake_redis):
+    """A card with nothing fetched (a page with no title, as a 403 or a timeout leaves) is kept five minutes: the site may answer a minute
+    later. A card with a title keeps the setting's hour."""
+    from app.core.config import Settings
+    from app.modules.link_preview.service import _preview_cache_key, fetch_link_preview_cached
+
+    settings = Settings(link_preview_cache_ttl=3600)
+    user_id = uuid4()
+    with _fetch_safely_patch(_mock_response(text="<html></html>")):
+        await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/blocked", user_id=user_id
+        )
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)):
+        await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/page", user_id=user_id
+        )
+    assert 0 < await fake_redis.ttl(_preview_cache_key("https://example.com/blocked")) <= 300
+    assert await fake_redis.ttl(_preview_cache_key("https://example.com/page")) > 3000
+
+
+@pytest.mark.asyncio
 async def test_fetch_link_preview_passes_an_overall_deadline():
     from app.modules.link_preview.service import fetch_link_preview
 

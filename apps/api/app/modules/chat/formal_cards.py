@@ -22,8 +22,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.chat.card_walk import answer_cards, is_card
 from app.services.answer_check import read_verified_value
-from app.services.answer_fence import ANSWER_FENCE_LANGS, UNCHECKED_ANSWER_MARKER
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
 from app.services.formal.answer import FormalValue
 from app.services.md_fence_scan import iter_fences
 from app.services.part.answer_cards import PART_ANSWER_HEADING
@@ -61,15 +62,13 @@ class ReplyCard:
 
 
 def reply_cards(text: str) -> list[ReplyCard]:
-    """Each closed card holding one plain value, with the part its heading names."""
+    """Each card holding one plain value, with the part its heading names. A card is
+    ``card_walk``'s: closed, or the last left open to the reply's end, which the closer
+    closes after this pass (a reply cut off at the length limit)."""
     cards: list[ReplyCard] = []
-    previous = 0
-    for fence in iter_fences(text):
-        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
-            continue
-        above = text[previous : fence.start]
-        previous = fence.end
-        body = text[fence.body_start : fence.body_end]
+    for card in answer_cards(text):
+        fence = card.fence
+        above, body = text[card.since_card : fence.start], card.body(text)
         read = read_verified_value(_plain_value(_one_form(body)))
         if read is None or len(read.numbers) != 1:
             continue
@@ -168,7 +167,7 @@ def written_numbers(text: str) -> list[float]:
 
     outside = text
     for fence in reversed(list(iter_fences(text))):
-        if fence.lang in ANSWER_FENCE_LANGS:
+        if is_card(fence, text):
             outside = outside[: fence.start] + "\n" + outside[fence.end :]
     numbers: list[float] = []
     # "20\,000" is one number, and "40 120" two: each spelling is read, the union kept.

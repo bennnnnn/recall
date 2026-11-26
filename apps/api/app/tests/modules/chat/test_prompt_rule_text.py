@@ -128,13 +128,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22); then a ```worked substitution
 # that may end on its rounding ("= 4.82488 s \approx 4.82 s", its unit on both sides), its
 # answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23); then
-# vectors in the question's notation, a column question answered in columns, and an impulse worked
-# as momentum before, after and their change (PHYSICS_VECTORS, WORKED_COLUMN_VECTORS_NOTE, the
-# owner's ball question, 2026-11-25), the momentum steps beside the worked contract only and a force
-# only when one is asked (review of #2594).
-_RULES = 225
-_RULE_GRAMS = 21136
-_RULE_GRAMS_SHA = "b2e1e554f3d040c2"
+# physics' contract for the question's own arrows (VECTORS_DRAW_CONTRACT) and its table-pulley
+# scene (two cars at a junction drew nothing, live, 2026-11-25); then vectors in the question's
+# notation, a column question answered in columns, and an impulse no solver checked worked as
+# momentum before, after and their change, a force only when one is asked (PHYSICS_VECTORS,
+# WORKED_COLUMN_VECTORS_NOTE, the owner's ball question, 2026-11-25, review of #2594).
+_RULES = 226
+_RULE_GRAMS = 21370
+_RULE_GRAMS_SHA = "5bc9ce78afcd90fe"
 
 
 def _rules() -> list[str]:

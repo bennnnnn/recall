@@ -17,18 +17,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { useLocationSwitch } from "@/features/account/hooks/useLocationSwitch";
 import { accountDeleteFailureKey } from "@/lib/accountDelete";
-import { api, withdrawAiDataSharing } from "@/lib/api";
+import { api } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { invalidateChatListCache } from "@/features/chat/model/chatListCache";
-import { writeCachedUser } from "@/lib/cachedUser";
-import { formatDate } from "@/lib/datetime/format";
 import { notifyDestructive } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { shareFailureKey } from "@/lib/share/unavailable";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function DataControlsScreen() {
-  const { token, user, mergeUser } = useAuth();
+  const { token, user } = useAuth();
   const { progress, exportData, cancelExport, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -90,30 +88,6 @@ export default function DataControlsScreen() {
 
   // What leaves the phone besides the chat: web searches and the device location.
   const location = useLocationSwitch();
-
-  // Withdrawing stops chat, voice and photo reads on the server at once; the
-  // root layout's consent gate then shows what is shared, to agree or sign out.
-  const consentAt = typeof user?.ai_data_consent_at === "string" ? user.ai_data_consent_at : null;
-  const withdrawConsent = () =>
-    void action.run(
-      "ai_consent",
-      async () => {
-        if (!token) return;
-        const updated = await withdrawAiDataSharing(token);
-        mergeUser(updated);
-        void writeCachedUser(updated);
-      },
-      {
-        confirm: {
-          title: t("settings.ai_consent_withdraw_title"),
-          message: t("settings.ai_consent_withdraw_body"),
-          cancelLabel: t("common.cancel"),
-          confirmLabel: t("settings.ai_consent_withdraw"),
-          destructive: true,
-        },
-        errorKey: "settings.ai_consent_withdraw_failed",
-      },
-    );
 
   const archiveAll = () =>
     void action.run(
@@ -213,18 +187,6 @@ export default function DataControlsScreen() {
       </SettingsGroup>
       <SettingsGroup label={t("settings.your_data")}>
         <SettingsLinkRow title={t("settings.export")} onPress={() => void doExport()} />
-        {consentAt ? (
-          <SettingsLinkRow
-            title={t("settings.ai_consent")}
-            value={t("settings.ai_consent_agreed", {
-              date: formatDate(new Date(consentAt), "monthDayYear"),
-            })}
-            accessibilityHint={t("settings.ai_consent_withdraw_hint")}
-            busy={action.busy === "ai_consent"}
-            disabled={action.busy !== null}
-            onPress={withdrawConsent}
-          />
-        ) : null}
       </SettingsGroup>
       <SettingsGroup label={t("settings.account")}>
         <SettingsLinkRow

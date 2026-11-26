@@ -119,7 +119,7 @@ async def load_relevant_memories(
                 query_text=query_text,
                 with_profile=with_profile,
             )
-        all_memories = await memories_repo.list_for_user(session, user.id)
+        all_memories = await memories_repo.list_for_user(session, user.id, include_muted=False)
         if lexical:
             return selection.select_memories_lexical(
                 all_memories,
@@ -350,7 +350,7 @@ async def _whole_store_block(
     from app.modules.memory import repository as memories_repo
 
     try:
-        rows = await memories_repo.list_for_user(session, user.id)
+        rows = await memories_repo.list_for_user(session, user.id, include_muted=False)
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         report.degrade("unavailable")
@@ -403,6 +403,10 @@ async def _query_block(
 
     from app.gateways import embedding_gateway
 
+    # End the reads before the embedding (a provider round trip): the whole-store read
+    # left the session's transaction open, holding its pool connection across the wait
+    # (CLAUDE.md "Transaction ownership"). Nothing here writes.
+    await session.commit()
     query_vec = await embedding_gateway.get_or_embed_query(
         settings,
         user.id,
@@ -494,7 +498,9 @@ async def _cached_block(
         from app.modules.memory import repository as memories_repo
 
         try:
-            memories = select(await memories_repo.list_for_user(session, user.id))
+            memories = select(
+                await memories_repo.list_for_user(session, user.id, include_muted=False)
+            )
         except Exception:
             logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
             report.degrade("unavailable")

@@ -101,7 +101,17 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second ** 2", "newton"),
             inputs=(frozenset({"m1", "m2"}),),
             cues=("table", "surface", "bench", "desk"),
-            excludes=("rough", "incline", "inclined", "ramp", "slope"),
+            # A table "with friction" or "not smooth" is no frictionless one: solved as one, a
+            # 5 kg block and a 2 kg mass were 2.80 m/s² with friction unknown (review, #2593).
+            excludes=(
+                "rough",
+                "incline",
+                "inclined",
+                "ramp",
+                "slope",
+                r"re:\bfriction(?!less)",
+                r"re:\bnot\s+(?:smooth|frictionless)\b",
+            ),
         ),
     ),
     formula(

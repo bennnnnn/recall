@@ -16,6 +16,15 @@ describe("chatErrorMessage", () => {
       kind: "model_unavailable",
       message: "chat.model_unavailable",
     });
+    // The server's English named an internal alias ("Unknown or unavailable model: glm-5.2").
+    expect(
+      resolveChatError({
+        message: "Unknown or unavailable model: glm-5.2",
+        code: "unknown_model",
+        isPaid: false,
+        t,
+      }),
+    ).toEqual({ kind: "model_unavailable", message: "chat.unknown_model" });
   });
 
   it("distinguishes an unsaved send from an active reply's busy notice", () => {

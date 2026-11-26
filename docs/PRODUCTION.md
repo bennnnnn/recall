@@ -154,8 +154,10 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
   - `R2_BUCKET`
 - [ ] Smoke-test: upload image in app → confirm object in R2 → download in chat
 - [ ] Bucket lifecycle: abort incomplete multipart after 7 days. Account delete
-  purges known keys then enqueues a `storage_sweep` job that `list`+`delete`s
-  leftover objects under `{user_id}/` (covers Redis reaper never running). Do
+  makes no storage call in the request: it enqueues a `storage_sweep` job (and
+  schedules an `account_sweep_backstop` before its rows commit) whose worker
+  `list`+`delete`s every object under `{user_id}/`, thumbnails included, retried
+  until done; a key outside that prefix goes to the reaper's retry queue. Do
   not weaken `reap_orphan_attachments`. Unconfirmed original uploads are reaped
   after `attachment_pending_orphan_hours` (default 1h). Hidden clones stay until
   `attachment_orphan_grace_hours` (default 24h) — that billed window is
@@ -638,7 +640,7 @@ background, and runs the new code from the next launch.
       the sign-in: the sign-in page's line under its buttons (`login.agree_line`, "By
       continuing, you agree to the Terms and Privacy Policy.", the user's wording) with the
       Terms and Privacy links, and every sign-in sends `ai_data_consent: true`. An account
-      without it (from before, withdrawn in Data controls, or a client that sends no flag:
+      without it (from before, or a client that sends no flag:
       an older phone, web slice 1) is asked on the consent screen (phone `/consent`, the web's own) and agrees
       with `PATCH /auth/me`. Change that line, the consent screen and the policy together.
       The server refuses chat, speech and scan reads until then (`consent_required`)
@@ -774,7 +776,9 @@ Once the day's total reaches the cap, until 00:00 UTC:
   "… temporarily unavailable";
 - background model jobs, the tool loop and follow-up questions are skipped.
 
-A Redis error counts as over the cap (fail closed). Known gap: the tool rounds
+A Redis error counts as over the cap (fail closed). A turn's checks made together
+(its admission and the reads it starts beside the reply) share one read for a second
+(`TURN_SPEND_SHARED_SECONDS`); its tool loop, follow-ups and jobs read again. Known gap: the tool rounds
 of a turn that ends in a generated image are not charged (the image is).
 
 **Daily tokens.** A turn reserves its estimate (the message plus

@@ -55,48 +55,42 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
 
 
 @pytest.mark.asyncio
-async def test_delete_objects_of_deleted_rows_queues_only_the_failed_ones():
-    """Account delete's files go after its rows commit: one R2 failure is queued for the
-    reaper's retry and never stops the others."""
-    deleted_keys: list[str] = []
-
-    async def delete_bytes(key: str) -> None:
-        if key == "user/bad":
-            raise RuntimeError("r2 down")
-        deleted_keys.append(key)
-
-    gateway = MagicMock()
-    gateway.delete_bytes = delete_bytes
-    gateway.delete_prefix = AsyncMock(return_value=0)
-    with (
-        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
-        ) as queued,
-    ):
-        await attachment_lifecycle.delete_objects_of_deleted_rows(
-            Settings(), ["user/ok", "user/bad"]
-        )
-
-    assert deleted_keys == ["user/ok"]
-    queued.assert_awaited_once_with(["user/bad"])
-
-
-@pytest.mark.asyncio
-async def test_delete_objects_of_deleted_rows_never_raises():
-    """No gateway at all (misconfigured storage): every key is queued, nothing raises."""
+async def test_an_account_delete_leaves_its_files_to_the_sweep_and_makes_no_storage_call():
+    """The request deleted each object and listed each one's thumbnails, eight at a time,
+    inside the delete (audit, 2026-11-25). The account's prefix holds every file and
+    thumbnail, and its ``storage_sweep`` deletes it in the worker; a key outside the
+    prefix is queued for the reaper, so no object is left."""
+    user_id = uuid4()
     with (
         patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
-            side_effect=RuntimeError("no storage"),
+            side_effect=AssertionError("no storage call in the request"),
         ),
         patch(
             "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
         ) as queued,
     ):
-        await attachment_lifecycle.delete_objects_of_deleted_rows(Settings(), ["user/a"])
+        await attachment_lifecycle.leave_to_account_sweep(
+            user_id, [f"{user_id}/a", f"{user_id}/b", "legacy/c"]
+        )
 
-    queued.assert_awaited_once_with(["user/a"])
+    queued.assert_awaited_once_with(["legacy/c"])
+
+
+@pytest.mark.asyncio
+async def test_the_account_sweep_deletes_every_file_and_thumbnail_under_the_prefix(tmp_path):
+    from app.gateways.storage_gateway import LocalStorageGateway
+
+    user_id = uuid4()
+    gateway = LocalStorageGateway(tmp_path)
+    for key in (f"{user_id}/a", f"{user_id}/a.thumbs/w256", f"{user_id}/b"):
+        path = gateway.local_path(key)
+        path.write_bytes(b"x")
+    with patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway):
+        deleted = await attachment_lifecycle.sweep_user_storage(Settings(), user_id)
+
+    assert deleted == 3
+    assert not (tmp_path / str(user_id)).exists()
 
 
 @pytest.mark.asyncio

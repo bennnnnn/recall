@@ -710,7 +710,38 @@ values through the kind's own solver or the builder it draws with (`scene_drawin
 projectile, incline with friction, Atwood machine, 1-D collision, pendulum, orbit, refraction,
 lens and banked curve. A spring and a standing wave are not drawn: no reader says whether a
 spring hangs or lies flat, or tells a string from a pipe. A solve's own scene wins; a question
-gets one picture of its setup.
+gets one picture of its setup. A block on a level table pulled over a pulley by a hanging mass
+(`table_pulley`) is drawn from the reader's two masses with the rig `force_rigs.py` draws.
+
+A picture made only of the question's own arrows has no scene: two cars meeting at a junction,
+two balls about to collide head-on, forces on one point, a walk in legs, a boat and the current
+(live, 2026-11-25: "Car A ... 20 m/s due North. Car B ... due West at 16 m/s ... First draw a
+diagram of the cars before collision" got "I couldn't draw this diagram"). On a message that asks
+to see a picture, the reply may describe them in a ```draw block (`scene_drawing/contract.py`,
+`VECTORS_DRAW_CONTRACT`): `{"kind":"vectors","layout":"bodies"|"tail"|"chain","quantity":
+"velocity"|"force"|"displacement"|"momentum","arrows":[{"name","size","direction","mass"}],
+"resultant":true,"after":"together"}`. The server holds each arrow to the question
+(`scene_drawing/vectors.py`): its size a quantity the question states, of the quantity's kind;
+its direction one the question gives that very value (`scene_drawing/headings.py` reads "due
+North", "to the left", "moving left", "30° east of north", "N30°E", "a bearing of 060°", "30°
+above the horizontal" as the angle the arrow points, a wind or a current named for where it
+comes from, so "a wind from the west", "a west wind" and "a westerly" point east; it gives each
+to the nearest value in its clause, else its sentence, and pairs "respectively" in order, so
+"swims due north at 1.5 m/s across a river flowing due east at 2 m/s" cannot be drawn swapped;
+of equal values, the one whose direction agrees), or an angle to an earlier arrow the question
+states ("at right angles"); the mass the question gives that body (tied the same way, or one
+stated for "each"); the name the question writes for that body, else none. A picture of bodies
+is of them before they collide: a velocity stated after the collision is no arrow of it. Every
+other value of the kind the question gives a direction is drawn, and one arrow that does not
+check draws nothing: a picture missing an arrow says something else. The server lays it out (`scene_drawing/vector_layout.py`): `bodies` puts
+each body behind the point it heads for with its velocity riding on it (a compass picture on N
+and E axes, a line of left and right on a ground line); `tail` and `chain` draw the arrows at
+their true relative lengths, in stages, from one point or head to tail; `resultant` adds their
+sum and its angle, and `after: "together"` adds the bodies moving off as one at the velocity
+momentum gives them (in the unit the question states; none when the momenta cancel), both worked out here and written as a card writes numbers; an after the
+question does not say (they stick, lock, hold on) is left out. `tests/behavior/physics_diagram_corpus.json`
+holds 29 questions that ask for a diagram and 7 look-alikes; `physics_diagram_eval.py` sends
+them to a running API.
 
 Where one formula covers different apparatus, a hidden variable that only the picture reads
 says which one it is:

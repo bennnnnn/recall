@@ -40,6 +40,7 @@ from app.modules.physics.scene_drawing.contract import (
     DESCRIBED_PICTURE_SPEECH,
     MOTION_DRAW_CONTRACT,
     SCENE_DRAW_CONTRACT,
+    VECTORS_DRAW_CONTRACT,
 )
 from app.modules.physics.scene_drawing.values import states_quantities
 from app.modules.turn_reading.see_request import asks_to_see
@@ -79,6 +80,7 @@ _HINTS = SubjectHints(
     beside_visuals=(
         FIELD_DRAW_CONTRACT,
         SCENE_DRAW_CONTRACT,
+        VECTORS_DRAW_CONTRACT,
         MOTION_DRAW_CONTRACT,
         DESCRIBED_PICTURE_SPEECH,
     ),
@@ -313,7 +315,7 @@ class PhysicsFigure:
         if asked or kept_reading(states_quantities, question):
             parts.append(SCENE_DRAW_CONTRACT)
         if asked:
-            parts += [FIELD_DRAW_CONTRACT, MOTION_DRAW_CONTRACT]
+            parts += [VECTORS_DRAW_CONTRACT, FIELD_DRAW_CONTRACT, MOTION_DRAW_CONTRACT]
         if parts:
             parts.append(DESCRIBED_PICTURE_SPEECH)
         return "\n".join(parts)

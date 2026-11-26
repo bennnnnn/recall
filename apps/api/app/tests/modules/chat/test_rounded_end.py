@@ -198,3 +198,34 @@ def test_rounding_twice_changes_nothing() -> None:
     reply = r"$t = 4.82488\ \text{s}$" + "\n\n" + _card(r"t = 4.82\ \text{s}")
     once = rounded_ends(reply)
     assert rounded_ends(once) == once != reply
+
+
+_SMALL = "$t = 4.82488 \\times 10^{-3}\\,\\mathrm{s}$"
+
+
+@pytest.mark.parametrize(
+    ("card", "ended"),
+    [
+        (
+            r"t = 4.82 \times 10^{-3}\,\mathrm{s}",
+            "$t = 4.82488 \\times 10^{-3}\\,\\mathrm{s} \\approx 4.82 \\times 10^{-3}\\,\\mathrm{s}$",
+        ),
+        # TeX's spacing around the times sign is the card number's own (review of #2592).
+        (
+            r"t = 4.82\,\times\,10^{-3}\,\mathrm{s}",
+            "$t = 4.82488 \\times 10^{-3}\\,\\mathrm{s} \\approx 4.82\\,\\times\\,10^{-3}\\,\\mathrm{s}$",
+        ),
+        # Prose's spellings are no line of maths: the line is left as it is (card_numbers,
+        # before this pass, writes every card in TeX).
+        (r"t = 4.82 × 10^-3\,\mathrm{s}", None),
+        (r"t = 4.82 x 10^-3\,\mathrm{s}", None),
+        (r"t = 4.82*10^-3\,\mathrm{s}", None),
+        (r"t = 4.82 × 10⁻³\,\mathrm{s}", None),
+        (r"t = 4.82e-3\,\mathrm{s}", None),
+        # Another power: no rounding of the line.
+        (r"t = 4.82 \times 10^{13}\,\mathrm{s}", None),
+    ],
+)
+def test_a_card_in_powers_of_ten_ends_the_line_only_in_tex(card: str, ended: str | None) -> None:
+    reply = f"{_SMALL}\n\n{_card(card)}\n"
+    assert rounded_ends(reply) == (reply if ended is None else reply.replace(_SMALL, ended))

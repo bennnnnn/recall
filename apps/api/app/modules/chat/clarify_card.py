@@ -24,6 +24,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.services.answer_fence import ANSWER_FENCE_LANGS
 from app.services.md_fence_scan import Fence, iter_fences, line_fences
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ _MAX_SUBMIT = 40
 # Words of prose outside an invalid card above which the reply already answers.
 _ANSWER_WORDS = 40
 # A reply holding one of these may never ask: a solved answer, a reminder, a photo.
-NEVER_WITH_CARD = frozenset({"answer", "result", "final", "reminder", "reminder_proposal", "photo"})
+NEVER_WITH_CARD = frozenset({*ANSWER_FENCE_LANGS, "reminder", "reminder_proposal", "photo"})
 # What an option may start with before its words: an emoji, a flag, a joiner, a skin tone.
 _LEADING_MARKS = frozenset({"So", "Sk", "Mn", "Me", "Cf"})
 # A keycap emoji ("1️⃣"): a digit, # or * with the keycap mark.
