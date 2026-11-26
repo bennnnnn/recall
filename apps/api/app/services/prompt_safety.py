@@ -93,6 +93,21 @@ _PASTED_TEXT_FRAME = (
 )
 _FILE_REF_LINE = re.compile(r"^\[File: /attachments/[0-9a-fA-F-]+/file\]$")
 
+
+def without_pasted_header(text: str) -> str:
+    """``text`` with no ``PASTED_TEXT_HEADER`` left in it, however it was nested.
+
+    Only the server writes the header, for an upload it recorded as a paste
+    (``attachments.content``). A file's text that spells it, or spells it around another
+    copy of itself (``[File (text/plain; [File (text/plain; pasted)]pasted)]``), would
+    otherwise pass that file off as the user's own words: one removal rebuilds the
+    header from the halves, so this removes until none is left.
+    """
+    while PASTED_TEXT_HEADER in text:
+        text = text.replace(PASTED_TEXT_HEADER, "")
+    return text
+
+
 # Neutralize forged fence closers inside untrusted payloads.
 _UNTRUSTED_FENCE_LINE = re.compile(
     r"^\s*\[(?:BEGIN|END) UNTRUSTED CONTENT[^\]]*\]\s*$",
@@ -265,14 +280,19 @@ def frame_photo_reading(content: str) -> str:
     The row keeps the reading as the scanner protocol writes it (the bubble shows it so);
     only the prompt frames it, here, where a stored row's attachment excerpts are framed.
     """
+    return _with_photo_reading_framed(content)[0]
+
+
+def _with_photo_reading_framed(content: str) -> tuple[str, int]:
+    """``frame_photo_reading``'s text, and where its frame ends (0 with no reading)."""
     from app.services.subject_scan import photo_reading, photo_reading_span
 
     span, reading = photo_reading_span(content), photo_reading(content)
     if span is None or reading is None:
-        return content
+        return content, 0
     start, end = span
     framed = wrap_untrusted(_PHOTO_READING, reading, preamble=_PHOTO_READING_PREAMBLE)
-    return f"{content[:start]}{framed}{content[end:]}"
+    return f"{content[:start]}{framed}{content[end:]}", start + len(framed)
 
 
 def said_by_user(content: str) -> str:
@@ -295,8 +315,11 @@ def wrap_persisted_attachment_excerpts(content: str) -> str:
     """
     if not content:
         return content
-    content = frame_photo_reading(content)
-    indexes = [content.find(marker) for marker in _ATTACHMENT_MARKERS if marker in content]
+    # A marker the photo shows is the photo's text: the attachments start after its frame.
+    content, frame_end = _with_photo_reading_framed(content)
+    indexes = [
+        found for marker in _ATTACHMENT_MARKERS if (found := content.find(marker, frame_end)) >= 0
+    ]
     if not indexes:
         return content
     start = min(indexes)
@@ -314,8 +337,10 @@ def _lift_pasted_text(excerpt: str) -> tuple[list[str], str]:
 
     A pasted block is ``PASTED_TEXT_HEADER`` on the line right after its file's own link
     (``format_attachment_lines`` writes the two together), and runs to the next attachment
-    marker. Another document's excerpt cannot hold that header: it is rewritten there
-    (``attachments.content``), so a file cannot pass itself off as the user's words.
+    marker. Another document's excerpt cannot hold that header: it is removed there
+    (``without_pasted_header``), so a file cannot pass itself off as the user's words, and
+    a scanner photo's reading is framed before the attachment lines start, so what a photo
+    shows never reaches here.
     """
     lines = excerpt.split("\n")
     pasted: list[str] = []

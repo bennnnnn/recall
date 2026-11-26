@@ -94,6 +94,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
 
 /** Read only by the sign-in session that wrote it (checked against `getSessionGeneration()` or keyed by it). */
 const SCOPED_TO_SESSION = [
+  "features/memory/model/instructInFlight.ts#unanswered",
   "features/account/screens/NotificationsSettingsScreen.tsx#pending",
   "features/attachments/model/attachmentIndexStatus.ts#generation",
   "features/attachments/model/attachmentIndexStatus.ts#pollers",
@@ -198,6 +199,8 @@ const NO_ACCOUNT_DATA = [
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
   "lib/accentPrefs.ts#accentPref",
   "lib/accentRuntime.ts#accent",
+  // This build's version and native build: the same for every account.
+  "lib/api/appVersionHeader.ts#tag",
   "lib/api/client.ts#onTokenRefresh",
   "lib/api/client.ts#onUnauthorized",
   "lib/api/consentRefusal.ts#onConsentRequired",

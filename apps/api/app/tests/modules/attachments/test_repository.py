@@ -63,6 +63,7 @@ async def test_insert_verified_clone_hides_from_library(fake_session):
     src.size_bytes = 12
     src.source = "generated"
     src.original_filename = "cat.png"
+    src.pasted = True
     src.verified_at = datetime(2026, 8, 1, tzinfo=UTC)
     new_id = uuid4()
 
@@ -80,6 +81,8 @@ async def test_insert_verified_clone_hides_from_library(fake_session):
     assert row.library_visible is False
     assert row.message_id is None
     assert row.storage_key == "user/clone"
+    # A Library paste sent again is still the user's words, never a document.
+    assert row.pasted is True
 
 
 @pytest.mark.asyncio

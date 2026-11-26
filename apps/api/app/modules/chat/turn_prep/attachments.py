@@ -386,7 +386,7 @@ async def _read_turn_attachments(
                 size_bytes=row.size_bytes,
                 settings=settings,
                 data=data,
-                filename=row.original_filename,
+                pasted=row.pasted,
             )
             if is_image and data:
                 image_bytes[row.storage_key] = data

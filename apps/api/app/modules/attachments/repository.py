@@ -66,6 +66,7 @@ async def create_pending(
     source: str = "upload",
     original_filename: str | None = None,
     library_visible: bool = True,
+    pasted: bool = False,
     commit: bool = True,
 ) -> Attachment:
     row = Attachment(
@@ -77,6 +78,7 @@ async def create_pending(
         source=source,
         original_filename=original_filename,
         library_visible=library_visible,
+        pasted=pasted,
     )
     session.add(row)
     if commit:
@@ -140,6 +142,7 @@ async def insert_verified_clone(
         size_bytes=src.size_bytes,
         source=src.source,
         original_filename=src.original_filename,
+        pasted=src.pasted,
         verified_at=src.verified_at or datetime.now(UTC),
         library_visible=False,
         message_id=message_id,

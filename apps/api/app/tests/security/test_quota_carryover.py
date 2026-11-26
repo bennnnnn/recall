@@ -131,7 +131,9 @@ async def _daily_counts(redis: Any, user_id: UUID, day: Any = None) -> dict[str,
 async def _delete_and_sweep(world: World, user_id: UUID, headers: dict[str, str]) -> None:
     from app.background.handlers import _handle_storage_sweep
 
-    response = await world.client.delete("/auth/me", headers=headers)
+    response = await world.client.request(
+        "DELETE", "/auth/me", json={"confirm": "delete"}, headers=headers
+    )
     assert response.status_code == 204
     await _handle_storage_sweep(world.settings, {"user_id": str(user_id)})
 
@@ -340,7 +342,9 @@ async def test_quota_carryover_unsaved_refuses_delete_and_keeps_the_account(
     await _use_quota(redis, a.id)
 
     with _carry_down(redis, step):
-        refused = await world.client.delete("/auth/me", headers=a.headers)
+        refused = await world.client.request(
+            "DELETE", "/auth/me", json={"confirm": "delete"}, headers=a.headers
+        )
 
     assert refused.status_code == 503
     assert refused.json() == {

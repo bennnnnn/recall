@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
@@ -33,6 +34,7 @@ async def apply_memory_facts(
     manual_edit: bool = False,
     applied: list[str] | None = None,
     new_wins: bool = True,
+    embed_timeout_seconds: float | None = None,
 ) -> None:
     """Persist fact ops, (re)embed stale rows, then invalidate caches.
 
@@ -45,6 +47,9 @@ async def apply_memory_facts(
     in the same transaction so the history scan cannot bring the old facts back,
     and a removed fact's past-chat snippets go with it. A background delete or
     mute (extraction housekeeping, consolidation) keeps chat history.
+
+    ``embed_timeout_seconds`` bounds the embedding step for a caller someone waits on: past
+    it the facts keep their text and a later pass embeds them.
     """
     if not writes:
         return
@@ -89,7 +94,9 @@ async def apply_memory_facts(
         await _invalidate_memory_caches(user_id)
         return
 
-    vectors = await _vectors(settings, user_id, [text for _, text in embed_needed])
+    vectors = await _vectors(
+        settings, user_id, [text for _, text in embed_needed], timeout_seconds=embed_timeout_seconds
+    )
     if vectors is None:
         await _invalidate_memory_caches(user_id)
         return
@@ -145,7 +152,7 @@ async def _retire_said_again(
 
 
 async def _vectors(
-    settings: Settings, user_id: UUID, texts: list[str]
+    settings: Settings, user_id: UUID, texts: list[str], *, timeout_seconds: float | None = None
 ) -> list[list[float] | None] | None:
     """The facts' vectors; None while the provider is unavailable. Their text is committed
     first, and a fact with no vector is embedded by a later pass's backfill
@@ -153,10 +160,11 @@ async def _vectors(
     from app.gateways import embedding_gateway
 
     try:
-        return await embedding_gateway.embed_many(
-            settings, texts, concurrency=settings.embedding_concurrency
-        )
-    except embedding_gateway.EmbeddingUnavailableError:
+        async with asyncio.timeout(timeout_seconds):
+            return await embedding_gateway.embed_many(
+                settings, texts, concurrency=settings.embedding_concurrency
+            )
+    except (embedding_gateway.EmbeddingUnavailableError, TimeoutError):
         logger.warning("Memory embeddings left for a later pass user_id=%s", user_id)
         return None
 

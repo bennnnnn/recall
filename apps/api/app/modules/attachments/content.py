@@ -42,7 +42,7 @@ from app.modules.attachments.text_extract import (
 from app.modules.attachments.text_extract import PDF_INDEX_MAX_PAGES as PDF_INDEX_MAX_PAGES
 from app.modules.attachments.text_extract import ExtractedText as ExtractedText
 from app.modules.attachments.text_extract import extract_text_details as extract_text_details
-from app.services.prompt_safety import PASTED_TEXT_HEADER
+from app.services.prompt_safety import PASTED_TEXT_HEADER, without_pasted_header
 
 logger = logging.getLogger(__name__)
 
@@ -301,14 +301,14 @@ async def format_attachment_lines(
     size_bytes: int,
     settings: Settings,
     data: bytes | None = None,
-    filename: str | None = None,
+    pasted: bool = False,
 ) -> tuple[list[str], bool]:
     """Return prompt lines and whether the attachment is an image.
 
     When *data* is provided (e.g. bytes already loaded by turn-prep verify),
     skip a second storage download for text extraction. Text pasted as a file
-    (*filename*, ``pasted_text.py``) is read inline up to a message's length, and
-    one longer than a paste may be refuses the turn.
+    (*pasted*: the row the composer's paste upload recorded, ``pasted_text.py``) is read
+    inline up to a message's length, and one longer than a paste may be refuses the turn.
     """
     if is_image_content_type(content_type):
         # API path the mobile app can fetch with auth (stored in message content).
@@ -317,7 +317,7 @@ async def format_attachment_lines(
     if data is None:
         data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
-    pasted = is_pasted_text(content_type, filename)
+    pasted = is_pasted_text(content_type, recorded_paste=pasted)
     if pasted and data and pasted_text_too_long(data):
         raise AttachmentValidationError(PASTE_TOO_LONG_MESSAGE)
     max_chars = PASTED_TEXT_INLINE_CHARS if pasted else MAX_EXTRACT_CHARS
@@ -341,7 +341,7 @@ async def format_attachment_lines(
                 max_chars=max_chars,
             )
             # Only a paste is the user's own words; a file's text never claims to be one.
-            text = excerpt.text if pasted else excerpt.text.replace(PASTED_TEXT_HEADER, "")
+            text = excerpt.text if pasted else without_pasted_header(excerpt.text)
             body = f"{note}\n{text}" if note else text
             header = PASTED_TEXT_HEADER if pasted else f"[File ({content_type})]"
             return [file_ref, f"{header}\n{body}"], False

@@ -30,6 +30,7 @@ from app.models.orm import PushToken, TodoItem
 from app.modules.notifications.send_backoff import SendBackoff, occurrence_key
 from app.modules.todos import (
     PUSH_REMINDERS,
+    AccountShare,
     aged_out_unsent,
     due_reminder_page,
     is_due_now,
@@ -357,6 +358,21 @@ def push_backoff(redis: Redis, settings: Settings) -> SendBackoff:
 
 def _todo_key(todo: TodoItem) -> str:
     return occurrence_key(todo.id, todo.due_at)
+
+
+def within_share(share: AccountShare, outbound: list[OutboundPush]) -> list[OutboundPush]:
+    """The messages whose reminder is within its account's share of the cycle. Asked after
+    ``without_held``: only a send that will be tried counts. A reminder's every device goes
+    with it, and counts once."""
+    kept: list[OutboundPush] = []
+    taken: set[UUID] = set()
+    for item in outbound:
+        todos = [todo for todo in item.todos if todo.id not in taken]
+        if todos and not all(share.take(todo.user_id) for todo in todos):
+            continue
+        taken.update(todo.id for todo in todos)
+        kept.append(item)
+    return kept
 
 
 async def without_held(backoff: SendBackoff, outbound: list[OutboundPush]) -> list[OutboundPush]:

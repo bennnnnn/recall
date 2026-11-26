@@ -34,6 +34,7 @@ from app.models.schemas import (
     UserOut,
     UserUpdate,
 )
+from app.models.schemas.auth import ACCOUNT_DELETE_CONFIRMATION
 from app.modules.account import export as export_service
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.account import profile as profile_service
@@ -442,8 +443,15 @@ async def delete_me(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
-    # Older apps send no body; an Apple-linked account then keeps its Apple grant.
-    apple_code = body.apple_authorization_code if body is not None else None
+    # Deleting is for good: the request must say it means it, not only carry a token
+    # (security review, 2026-11-25). The phone's confirm dialog sends it.
+    if body is None or body.confirm != ACCOUNT_DELETE_CONFIRMATION:
+        raise DomainError(
+            "Confirm the deletion to delete the account.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="confirm_required",
+        )
+    apple_code = body.apple_authorization_code
     # Complete, or refused whole with the shared 503 ``unavailable`` (core/unavailable.py)
     # when Redis or the database fails before the rows commit: still signed in, so the
     # phone's retry deletes it (``account.lifecycle.delete_account``).

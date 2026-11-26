@@ -1,6 +1,8 @@
 import { act, renderHook } from "@testing-library/react-native";
 
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 import { applySavedRows, useReminderProposal } from "@/features/todos/hooks/useReminderProposal";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { api, type Todo } from "@/lib/api";
 import { notifyDestructive, notifyError, notifySuccess, tap } from "@/lib/haptics";
 
@@ -161,4 +163,14 @@ it("says a failed save with a haptic and no success", async () => {
   expect(result.current.error).toBe("expired");
   expect(notifyError).toHaveBeenCalledTimes(1);
   expect(notifySuccess).not.toHaveBeenCalled();
+});
+
+it("says the account's open to-do cap, not that the reminder changed", async () => {
+  const { status, detail } = fixture.todo_limit;
+  jest.mocked(api.confirmReminderProposal).mockRejectedValue(
+    new ApiRequestError(status, JSON.stringify({ detail })),
+  );
+  const { result } = await renderHook(() => useReminderProposal(proposal));
+  await act(async () => { await result.current.confirm(); });
+  expect(result.current.error).toBe("limit");
 });

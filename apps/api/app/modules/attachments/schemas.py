@@ -8,7 +8,7 @@ from app.core.attachment_limits import MAX_ATTACHMENT_SIZE
 from app.models.schemas.text import UserText
 from app.modules.attachments.models import ORIGINAL_FILENAME_MAX_CHARS
 
-UploadPurpose = Literal["chat", "avatar", "reference"]
+UploadPurpose = Literal["chat", "paste", "avatar", "reference"]
 
 
 class AttachmentPresignIn(BaseModel):
@@ -17,7 +17,9 @@ class AttachmentPresignIn(BaseModel):
     filename: UserText | None = Field(default=None, max_length=ORIGINAL_FILENAME_MAX_CHARS)
     # What the file is for. A chat upload goes out with a message, so on a plan whose
     # uploads follow messages it needs one left; a profile photo or an AI picture's
-    # reference photo never does (``upload.create_presigned_upload``).
+    # reference photo never does (``upload.create_presigned_upload``). A paste is a chat
+    # file holding text the user pasted into the composer: the one upload read as their
+    # own words (``pasted_text.py``).
     purpose: UploadPurpose = "chat"
 
 
@@ -57,3 +59,5 @@ class AttachmentListItemOut(BaseModel):
     message_id: UUID | None = None
     original_filename: str | None = None
     chat_title: str | None = None
+    # Text the user pasted (``pasted_text.py``): a resend from Library is a paste again.
+    pasted: bool = False
