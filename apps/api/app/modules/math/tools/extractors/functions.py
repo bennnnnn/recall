@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.function_names import FUNCTION_DEFINITION
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.expr_rewrite import _normalize_latex_expr, math_expr_or_none
 from app.modules.math.tools.function_def import peel_function_definition
 from app.modules.math.tools.request_text import strip_trailing_filler
 
-_FUNC_DEF_START = re.compile(r"\b([A-Za-z])\s*\(\s*([A-Za-z])\s*\)\s*=", re.IGNORECASE)
 _TRAILING_JOINER = re.compile(r"(?:\sand|[,;])\s*$", re.IGNORECASE)
 _FUNCTION_ANALYSIS_CUE_RE = re.compile(
     r"\b(?:domain|range|inverse(?:\s+function)?)\b",
@@ -33,7 +33,7 @@ def function_analysis_constraint_would_be_dropped(text: str) -> bool:
 
 def _function_definitions(text: str) -> list[tuple[str, str, str]]:
     """Return explicit ``(name, variable, expression)`` definitions in order."""
-    matches = list(_FUNC_DEF_START.finditer(text))
+    matches = list(FUNCTION_DEFINITION.finditer(text))
     out: list[tuple[str, str, str]] = []
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)

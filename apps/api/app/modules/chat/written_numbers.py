@@ -36,9 +36,10 @@ _POWER = (
 # A number the card writes, its power of ten with it (also a calculator's "1.77e-10": its
 # 10 read as a number of its own was rewritten "1.77e-1.77 \times 10^{-10}", 2026-11-21);
 # never a script's (m^{2}, s^{-2}) or a fraction's part (\frac{1}{2}), nor a digit inside
-# a word.
+# a word. Its digits may go on in three dots ("0.357142857..."), which end it (review, #2591).
 WRITTEN_NUMBER = re.compile(
-    rf"(?<![\^_{{\w.,])(?<!\^[-−])(?<!\^\{{[-−])(?P<number>{NUMBER_BODY}){_POWER}?(?![\w.])"
+    rf"(?<![\^_{{\w.,])(?<!\^[-−])(?<!\^\{{[-−])(?P<number>{NUMBER_BODY}){_POWER}?"
+    r"(?:(?![\w.])|(?=\.\.\.(?!\.)))"
 )
 # Every number a text writes, each whole with its power of ten.
 _ANY_NUMBER = re.compile(rf"(?P<number>{NUMBER_BODY}){_POWER}?")

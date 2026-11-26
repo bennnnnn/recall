@@ -40,7 +40,7 @@ def _verified_answer(text: str) -> str | None:
             "to a 5 V supply. What is the current from the supply?",
             "1 A",
         ),
-        ("Two 10-ohm resistors are connected in series across 12 V. Find the current.", "0.6 A"),
+        ("Two 10-ohm resistors are connected in series across 12 V. Find the current.", "0.60 A"),
         ("Two 10 Ω resistors are connected in parallel across 5 V. Find the total current.", "1 A"),
         (
             "Three identical resistors of 6 Ω are connected in series. What is the total "
@@ -111,7 +111,7 @@ def test_a_counted_part_a_reader_cannot_account_for_declines(text: str) -> None:
         (
             "A 10 Ω resistor is connected across 5 V. What is the current through each of the "
             "two wires?",
-            "0.5 A",
+            "0.50 A",
         ),
         # Counted parts with no value of their own: the values are the circuit's.
         (

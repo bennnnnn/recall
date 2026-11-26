@@ -8,7 +8,10 @@ from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     labeled_value,
 )
-from app.modules.physics.extractors.unit_patterns import NUMBER
+from app.modules.physics.extractors.unit_patterns import (
+    MASS_UNITS,
+    NUMBER,
+)
 from app.modules.physics.schemas import PhysicsIntent
 
 _INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
@@ -78,7 +81,7 @@ def _inertia_value(text: str) -> float | None:
 
 
 _MASS_NOT_INERTIA_RE = re.compile(
-    rf"({NUMBER})\s*(kg|g|mg)\b(?!\s*[*·]?\s*m(?:\s*\^?\s*2|\s+squared)\b)",
+    rf"({NUMBER})\s*({MASS_UNITS})\b(?!\s*[*·]?\s*m(?:\s*\^?\s*2|\s+squared)\b)",
     re.IGNORECASE,
 )
 

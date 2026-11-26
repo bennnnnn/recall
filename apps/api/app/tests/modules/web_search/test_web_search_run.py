@@ -38,7 +38,10 @@ async def test_search_web_with_a_key_searches_for_real_in_mock_mode():
     client.post.assert_awaited_once()
     assert hits == [
         WebSearchHit(
-            title="Freddie Mac PMMS", url="https://www.freddiemac.com/pmms", snippet="6.27%"
+            title="Freddie Mac PMMS",
+            url="https://www.freddiemac.com/pmms",
+            snippet="6.27%",
+            provider="tavily",
         )
     ]
 

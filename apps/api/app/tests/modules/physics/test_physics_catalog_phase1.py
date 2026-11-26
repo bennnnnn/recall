@@ -24,7 +24,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Two point masses, 2 kg at 0 m and 3 kg at 4 m, have what center of mass?",
         "momentum",
         "center_of_mass",
-        "2.4 m",
+        "2.40 m",
         "Center-of-mass equation:",
     ),
     (
@@ -38,7 +38,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "A machine outputs 80 J from 100 J input. Find its mechanical efficiency.",
         "energy",
         "mechanical_efficiency",
-        "0.8 (80%)",
+        "0.80 (80%)",
         "Mechanical-efficiency formula:",
     ),
     (
@@ -74,7 +74,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Find the sound intensity 2 m from a 10 W point source.",
         "waves",
         "sound_intensity",
-        "0.199 W/m²",
+        "0.20 W/m²",
         "Spherical-wave intensity:",
     ),
     (
@@ -98,14 +98,14 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "by 50 K. Find its linear expansion.",
         "thermal",
         "linear_expansion",
-        "0.0012 m",
+        "0.00120 m",
         "Linear thermal-expansion law:",
     ),
     (
         "Find the latent heat energy for 2 kg with latent heat 334000 J/kg.",
         "thermal",
         "latent_heat",
-        "6.68 × 10⁵ J",
+        "668000 J",
         "Latent-heat equation:",
     ),
     (
@@ -153,7 +153,7 @@ def test_new_catalog_problem_is_verified_and_explained(
     [
         (
             "Two point masses, 2000 g at 0 cm and 3 kg at 400 cm, have what center of mass?",
-            "2.4 m",
+            "2.40 m",
         ),
         (
             "Find the speed of a wave on a string with tension 100 N and linear density 10 g/m.",
@@ -161,7 +161,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the sound intensity 200 cm from a 10 W point source.",
-            "0.199 W/m²",
+            "0.20 W/m²",
         ),
         (
             "A hydraulic press has input force 100 N, piston areas 100 cm^2 "
@@ -170,7 +170,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the latent heat energy for 2 kg with latent heat 334 kJ/kg.",
-            "6.68 × 10⁵ J",
+            "668000 J",
         ),
         (
             "Using the first law of thermodynamics, heat added is 0.5 kJ and "

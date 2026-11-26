@@ -70,7 +70,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the wavelength of a 50 Hz wave travelling at 340 m/s",
         "waves",
         "wavelength",
-        "6.8 m",
+        "6.80 m",
     ),
     (
         "what is the speed of a wave of wavelength 2 m and frequency 5 Hz",
@@ -98,25 +98,25 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "50 Hz",
     ),
     ("what is the period of a 50 Hz wave", "waves", "wave_period", "0.02 s"),
-    ("what is the period of a 200 Hz wave", "waves", "wave_period", "0.005 s"),
+    ("what is the period of a 200 Hz wave", "waves", "wave_period", "0.00500 s"),
     # --- waves: Doppler, both directions --------------------------------
     (
         "what is the observed frequency if a 400 Hz siren approaches at 30 m/s",
         "waves",
         "doppler_frequency",
-        "438 Hz (approaching, sound at 343 m/s)",
+        "438.34 Hz (approaching, sound at 343 m/s)",
     ),
     (
         "a 400 Hz siren moves away from you at 30 m/s, what frequency do you hear",
         "waves",
         "doppler_frequency",
-        "368 Hz (receding, sound at 343 m/s)",
+        "367.83 Hz (receding, sound at 343 m/s)",
     ),
     (
         "an ambulance horn at 500 Hz is approaching at 20 m/s, what is the doppler frequency",
         "waves",
         "doppler_frequency",
-        "531 Hz (approaching, sound at 343 m/s)",
+        "530.96 Hz (approaching, sound at 343 m/s)",
     ),
     # --- optics ----------------------------------------------------------
     (
@@ -130,13 +130,13 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "a converging lens has focal length 5 cm and the object is 15 cm away, where is the image",
         "optics",
         "image_distance",
-        "7.5 cm",
+        "7.50 cm",
     ),
     (
         "what is the critical angle for a medium of refractive index 1.5",
         "optics",
         "critical_angle",
-        "41.8°",
+        "41.81°",
     ),
     (
         "find the critical angle for a refractive index of 2",
@@ -174,13 +174,13 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the pressure of 2 moles of ideal gas at 300 K in 0.05 m^3",
         "thermal",
         "ideal_gas_pressure",
-        "99774 Pa",
+        "99773.55 Pa",
     ),
     (
         "what is the efficiency of an engine doing 300 J of work from 1000 J",
         "thermal",
         "thermal_efficiency",
-        "0.3 (30%)",
+        "0.30 (30%)",
     ),
     (
         "an engine supplied with 2000 J does 500 J of work, what is its efficiency",
@@ -327,7 +327,7 @@ def test_a_temperature_rise_may_omit_its_scale() -> None:
 
 def test_labeled_heat_sets_efficiency_and_an_unlabeled_pair_does_not() -> None:
     absorbed = "What is the thermal efficiency of an engine that absorbs 1000 J and rejects 600 J?"
-    assert _verified_answer(absorbed) == "0.4 (40%)"
+    assert _verified_answer(absorbed) == "0.40 (40%)"
     unlabeled = "what is the efficiency of a heat engine with 300 J and 1000 J"
     assert extract_physics_intent(unlabeled) is None
 
@@ -348,7 +348,7 @@ def test_a_mole_count_beside_a_temperature_is_its_own_signature() -> None:
     """ "the pressure of 2 moles of gas at 300 K" names no thermal word."""
     assert needs_physics("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3")
     assert _verified_answer("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3") == (
-        "99774 Pa"
+        "99773.55 Pa"
     )
 
 

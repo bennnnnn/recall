@@ -282,9 +282,9 @@ def test_1d_collisions_are_untouched_by_the_guards() -> None:
 
 
 REAL_PROJECTILES = [
-    ("a ball is thrown at 20 m/s at 30 degrees, what is the range", "35.3 m"),
-    ("projectile launched at 20 m/s at 30 degrees find the range", "35.3 m"),
-    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "5.1 m"),
+    ("a ball is thrown at 20 m/s at 30 degrees, what is the range", "35.31 m"),
+    ("projectile launched at 20 m/s at 30 degrees find the range", "35.31 m"),
+    ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "5.10 m"),
 ]
 
 
@@ -297,7 +297,7 @@ def test_real_projectiles_still_answer(text: str, answer: str) -> None:
 COLLISION_WORD_ELSEWHERE = [
     (
         "a stone is dropped and falls for 3 s before it hits the ground, how fast is it going",
-        "29.4 m/s",
+        "29.43 m/s",
     ),
     ("a hammer strikes a nail with 20 N of force over 0.1 s, what is the impulse", "2 N·s"),
     ("what is the momentum of a 2 kg ball that hits a wall at 3 m/s", "6 kg·m/s"),

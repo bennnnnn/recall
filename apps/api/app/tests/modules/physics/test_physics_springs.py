@@ -70,16 +70,16 @@ VERIFIED: list[tuple[str, str, str]] = [
         "spring_energy",
         "1 J",
     ),
-    ("period of a 0.5 kg mass on a spring with k = 200 N/m", "shm_period", "0.314 s"),
+    ("period of a 0.5 kg mass on a spring with k = 200 N/m", "shm_period", "0.31 s"),
     (
         "what is the period of simple harmonic motion for a 0.5 kg mass and k = 200 N/m",
         "shm_period",
-        "0.314 s",
+        "0.31 s",
     ),
     (
         "find the oscillation period of a 0.5 kg mass on a 200 N/m spring",
         "shm_period",
-        "0.314 s",
+        "0.31 s",
     ),
 ]
 
@@ -119,7 +119,7 @@ def test_an_shm_period_emits_an_animatable_trajectory() -> None:
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
-    assert result.answer_value == "0.314 s"
+    assert result.answer_value == "0.31 s"
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.trajectory_type == "position_vs_time"
@@ -236,7 +236,7 @@ def test_a_season_does_not_engage_the_math_path() -> None:
     "text,answer",
     [
         ("kinetic energy of a 2 kg object moving at 3 m/s", "9 J"),
-        ("potential energy of a 2 kg mass at 5 m", "98.1 J"),
+        ("potential energy of a 2 kg mass at 5 m", "98.10 J"),
     ],
 )
 def test_ordinary_energy_questions_are_untouched(text: str, answer: str) -> None:
@@ -344,7 +344,7 @@ def test_the_spring_period_is_untouched() -> None:
     intent = extract_physics_intent("the period of a 200 N/m spring with a 2 kg mass")
 
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "shm_period"
-    assert _verified_answer("the period of a 200 N/m spring with a 2 kg mass") == "0.628 s"
+    assert _verified_answer("the period of a 200 N/m spring with a 2 kg mass") == "0.63 s"
 
 
 @pytest.mark.parametrize(

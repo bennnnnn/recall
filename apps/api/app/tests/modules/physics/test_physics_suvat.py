@@ -84,7 +84,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "how far does a car go in 5 s accelerating from rest at 3 m/s^2",
         "suvat_distance",
-        "37.5 m",
+        "37.50 m",
     ),
     # v² = u² + 2as
     (
@@ -453,7 +453,7 @@ def test_a_reversal_reports_the_whole_path() -> None:
     text = "a car reaches 15 m/s after accelerating at 2 m/s^2 for 10 s, how far does it travel"
     intent = extract_physics_intent(text)
     assert intent is not None and intent.physics_op == "suvat_distance"
-    assert _verified_answer(text) == "62.5 m"
+    assert _verified_answer(text) == "62.50 m"
 
 
 @pytest.mark.parametrize(

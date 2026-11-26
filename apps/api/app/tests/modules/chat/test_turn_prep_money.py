@@ -231,9 +231,12 @@ async def test_a_physics_problem_with_a_car_and_a_percent_gets_no_money_turn(
 async def test_the_money_cards_rate_lookup_is_the_turns_search(
     fake_redis: Redis, monkeypatch: Any
 ) -> None:
-    """A mortgage turn's rate lookup searches on the turn's one budget (its one search on
-    Free), never a fresh budget of its own beside the read's and the reply's."""
+    """A mortgage turn's rate lookup searches on the turn's reservation (its message on
+    Free, its one slot on Pro), never a fresh budget of its own; but beside the turn's one
+    search, not on it, so neither the lookup nor the reply's search is refused (audit,
+    2026-11-25)."""
     from app.modules.money import service as money_service
+    from app.modules.web_search import SideSearchBudget
 
     budget = object()
     seen: list[object] = []
@@ -247,4 +250,74 @@ async def test_the_money_cards_rate_lookup_is_the_turns_search(
     await money_prep.money_turn(
         request, _identity(), Settings(), fake_redis, single_plan(request.content)
     )
-    assert seen and all(passed is budget for passed in seen)
+    assert seen
+    assert all(isinstance(passed, SideSearchBudget) and passed.turn is budget for passed in seen)
+
+
+async def test_a_regenerate_reads_its_money_request_in_the_pool_once(
+    fake_redis: Redis, thread_sympy_executor: None, monkeypatch: Any
+) -> None:
+    """The pool keyed the money readings by one list of earlier lines and the money turn asked
+    by another: on a regenerate (its window ends on the reply it replaces) the turn's own line
+    counted as an earlier one, so the turn read again in a second pool trip (review, #2591).
+    Both take ``earlier_user_lines`` now: the turn reads nothing again."""
+    from app.modules.money import reading as money_reading
+
+    user = lambda text: SimpleNamespace(role="user", content=text)  # noqa: E731
+    reply = SimpleNamespace(role="assistant", content="About $218 a month.")
+    window = [user(_CAR), reply, user(_WHAT_IF), reply]
+    settings = Settings()
+    begin_turn()
+    await read_turn_message(_WHAT_IF, window, settings)
+
+    def never(*_args: Any) -> None:
+        raise AssertionError("read again")
+
+    monkeypatch.setattr(money_reading, "follow_up_request", never)
+    monkeypatch.setattr(money_reading, "read_money_request", never)
+    monkeypatch.setattr(money_reading, "purchase_request", never)
+    request: Any = SimpleNamespace(
+        content=_WHAT_IF, has_image_attachment=False, recent_messages=window, search_budget=None
+    )
+    turn = await money_prep.money_turn(
+        request, _identity(), settings, fake_redis, single_plan(_WHAT_IF)
+    )
+    assert turn is not None and turn.request.values["months"] == 36
+    if turn.lookup is not None:
+        turn.lookup.cancel()
+
+
+async def test_turn_load_and_prep_read_one_window_of_earlier_lines(
+    fake_redis: Redis, thread_sympy_executor: None, monkeypatch: Any
+) -> None:
+    """Turn load reads the history; prep's window also holds the pending row. In a chat of
+    eight messages or more the two windows ended on different lines, so the money turn read
+    again in a second pool trip (review, #2591)."""
+    from app.modules.money import reading as money_reading
+
+    user = lambda text: SimpleNamespace(role="user", content=text)  # noqa: E731
+    reply = SimpleNamespace(role="assistant", content="ok")
+    history = [user("hi"), reply, user("how are you"), reply, user("thanks"), reply]
+    history += [user(_CAR), reply]
+    settings = Settings()
+    begin_turn()
+    await read_turn_message(_WHAT_IF, history, settings)
+
+    def never(*_args: Any) -> None:
+        raise AssertionError("read again")
+
+    monkeypatch.setattr(money_reading, "follow_up_request", never)
+    monkeypatch.setattr(money_reading, "read_money_request", never)
+    monkeypatch.setattr(money_reading, "purchase_request", never)
+    request: Any = SimpleNamespace(
+        content=_WHAT_IF,
+        has_image_attachment=False,
+        recent_messages=[*history, user(_WHAT_IF)],
+        search_budget=None,
+    )
+    turn = await money_prep.money_turn(
+        request, _identity(), settings, fake_redis, single_plan(_WHAT_IF)
+    )
+    assert turn is not None and turn.request.values["months"] == 36
+    if turn.lookup is not None:
+        turn.lookup.cancel()

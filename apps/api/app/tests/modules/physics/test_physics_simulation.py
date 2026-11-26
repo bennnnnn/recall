@@ -82,7 +82,7 @@ def test_a_projectile_answer_carries_one_labelled_scene() -> None:
     assert result.graph_specs == []
     (scene,) = result.simulation_specs
     labels = [vector.label for vector in scene.vectors]
-    assert labels == ["R = 35.3 m", "H = 5.1 m"]
+    assert labels == ["R = 35.31 m", "H = 5.10 m"]
     assert [angle.label for angle in scene.angles] == ["30°"]
     assert scene.title_key == "projectile" and scene.alt
 
@@ -516,7 +516,7 @@ def test_a_flat_surface_gets_a_floor_diagram_not_an_incline() -> None:
     assert scene.bodies[0].shape == "box"
     weight, normal = scene.vectors
     assert weight.dy < 0 and normal.dy > 0
-    assert normal.role == "result" and normal.label == "N = 49.1 N"
+    assert normal.role == "result" and normal.label == "N = 49.05 N"
 
 
 def test_a_floor_friction_question_draws_friction_against_the_push() -> None:
@@ -529,7 +529,7 @@ def test_a_floor_friction_question_draws_friction_against_the_push() -> None:
     (scene,) = solve_physics(intent).simulation_specs
     friction, push = scene.vectors[2:]
     assert friction.dx < 0 < push.dx
-    assert push.role == "result" and push.label == "F = 196.2 N"
+    assert push.role == "result" and push.label == "F = 196.20 N"
 
 
 def test_the_angle_ships_without_floating_point_noise() -> None:
@@ -697,8 +697,8 @@ def test_tension_is_drawn_against_the_weight_it_carries() -> None:
 
     assert rope.dy > 0 and weight.dy < 0
     assert rope.role == "result"
-    assert "59.1 N" in (rope.label or "")
-    assert "49.1 N" in (weight.label or "")
+    assert "59.05 N" in (rope.label or "")
+    assert "49.05 N" in (weight.label or "")
 
 
 def test_the_labels_carry_the_numbers_the_answer_carries() -> None:
@@ -829,7 +829,7 @@ def test_potential_energy_shows_the_height_it_multiplies() -> None:
     weight, height = scene.vectors
 
     assert scene.ground is True
-    assert weight.dy < 0 and "19.6 N" in (weight.label or "")
+    assert weight.dy < 0 and "19.62 N" in (weight.label or "")
     assert height.role == "measure"
     assert height.dy == pytest.approx(5.0)
     assert "5 m" in (height.label or "")
@@ -911,7 +911,7 @@ def test_upthrust_is_the_highlighted_answer_and_no_weight_is_invented() -> None:
 
     (upthrust,) = scene.vectors
     assert upthrust.role == "result" and upthrust.dy > 0
-    assert upthrust.label == "F = 19.6 N"
+    assert upthrust.label == "F = 19.62 N"
     assert scene.bodies[0].label is None
 
 

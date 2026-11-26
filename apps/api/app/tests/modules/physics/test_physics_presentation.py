@@ -26,7 +26,7 @@ def _verified(text: str) -> VerifiedPhysicsBlock:
         ("A 2 kW heater runs for 3 hours. How much energy does it use in kWh?", "6 kWh"),
         (
             "A ball is dropped from 80 m. What is its speed just before it hits the ground in km/h?",
-            "143 km/h",
+            "142.63 km/h",
         ),
         (
             "A 12 V battery drives a current through a 4 ohm resistor. Find the current in mA.",
@@ -37,7 +37,7 @@ def _verified(text: str) -> VerifiedPhysicsBlock:
         # A note that says something else stays.
         (
             "How much heat is released when 3 kg of water cools from 90 °C to 40 °C? Give it in kJ.",
-            "-627.9 kJ (released)",
+            "-627.90 kJ (released)",
         ),
     ],
 )

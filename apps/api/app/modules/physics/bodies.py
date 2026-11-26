@@ -15,6 +15,8 @@ from app.modules.physics.constants import (
     PROTON_MASS,
 )
 from app.services.text_match import word_index
+from app.services.unit_text import MASS_UNITS as MASS_UNIT_TABLE
+from app.services.unit_text import alternation
 
 if TYPE_CHECKING:
     from app.services.law_binding.spec import FormulaSpec
@@ -167,7 +169,12 @@ ORBITING_BODY_WORDS: tuple[str, ...] = (
     "apple",
 )
 _ORBITING = "|".join(re.escape(word) for word in ORBITING_BODY_WORDS)
-_MASS_VALUE = r"(?<![\d.])\d[\d.]*(?:e[-+]?\d+)?\s*(?:kg|kilograms?|tonnes?|tons?|t)\b"
+# A mass in any unit the mass readers take (``unit_text.MASS_UNITS``, the gravitation
+# extractor's own), and the tonne's short spellings: what is set aside as the orbiting body's
+# must be read in every unit the central mass is, or "a 2000 lb satellite" became M (review,
+# #2591).
+_MASS_UNIT = rf"(?:{alternation(MASS_UNIT_TABLE)}|tons?|t)"
+_MASS_VALUE = rf"(?<![\d.])\d[\d.]*(?:e[-+]?\d+)?\s*{_MASS_UNIT}\b"
 # "a 500 kg satellite", "a satellite of mass 500 kg", "an astronaut weighing 70 kg".
 _ORBITING_MASS = re.compile(
     rf"{_MASS_VALUE}\s+(?:[a-z-]+\s+)?(?:{_ORBITING})\b"
@@ -177,7 +184,7 @@ _ORBITING_MASS = re.compile(
 )
 
 
-_A_MASS = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[-+]?\d+)?)\s*(?:kg|kilograms?|tonnes?|tons?)\b")
+_A_MASS = re.compile(rf"(?<![\d.])(\d+(?:\.\d+)?(?:e[-+]?\d+)?)\s*{_MASS_UNIT}\b")
 
 
 def orbiting_body_masses(text: str) -> list[tuple[int, int]]:

@@ -49,6 +49,7 @@ from app.core.aio import settled_result
 from app.core.config import Settings
 from app.core.readings import keep_for_turn, kept_for_turn, read_aside
 from app.modules.chat.referent_read import ask_read, chat_before
+from app.services.latex_markup import without_markup
 from app.services.number_text import fold_scientific
 from app.services.problem_followup import stated_numbers
 from app.services.question_parts import named_label, with_only_part
@@ -77,9 +78,6 @@ _PART_CHARS = 40
 _REPLY_CHARS = 600
 # Markdown a stated problem may carry: "A car travels **120 meters**"; a subscript stays.
 _EMPHASIS = re.compile(r"\*+|`+|(?<!\w)_+|_+(?!\w)")
-# LaTeX a line's value may come in: "$T_C = 200\\,\\mathrm{K}$" is "T_C = 200 K".
-_LATEX_WORD = re.compile(r"\\(?:mathrm|text|operatorname)\s*\{([^{}]*)\}")
-_LATEX_SPACE = re.compile(r"\\[,;: !]|\$")
 
 
 _SYSTEM = (
@@ -182,7 +180,8 @@ def _unlatexed(text: str) -> str:
     # The micro sign and the Greek mu are one prefix: a read may copy "2.0 μC" as "2.0 µC";
     # scientific notation is one spelling, so "2e-6 C" is the line's "2 x 10^-6 C".
     folded = fold_scientific(text)
-    plain = _LATEX_SPACE.sub(" ", _LATEX_WORD.sub(r"\1", folded)).replace("\u00b5", "\u03bc")
+    # LaTeX a line's value may come in: "$T_C = 200\\,\\mathrm{K}$" is "T_C = 200 K".
+    plain = without_markup(folded).replace("$", " ").replace("\u00b5", "\u03bc")
     return collapse_ws(plain).casefold()
 
 

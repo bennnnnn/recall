@@ -14,6 +14,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any
 
+from app.modules.math.function_names import FUNCTION_DEFINITION
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import request_body
@@ -21,7 +22,6 @@ from app.modules.turn_reading.derivative_notation import CONSTANT_POINT, point_v
 from app.services.workout import math_line
 
 _MAX = 300
-_DEFINITION = re.compile(r"(?<![A-Za-z])(?P<name>[a-z])\s*\(\s*(?P<var>[a-z])\s*\)\s*=\s*")
 _ASK = r"(?:find|what\s+is|what's|whats|evaluate|calculate|compute|determine|work\s+out)"
 _CALL_START = re.compile(rf"\b{_ASK}\s+(?:the\s+value\s+of\s+)?(?P<name>[a-z])\s*\(", re.I)
 # A definition's body runs to the next clause.
@@ -106,7 +106,7 @@ def extract_function_value_intent(text: str) -> MathIntent | None:
     body = request_body(text)
     definitions: list[tuple[str, str]] = []
     used: list[tuple[int, int]] = []
-    for match in _DEFINITION.finditer(body):
+    for match in FUNCTION_DEFINITION.finditer(body):
         end = _CLAUSE_END.search(body, match.end())
         stop = end.start() if end is not None else len(body)
         expression = body[match.end() : stop].strip()

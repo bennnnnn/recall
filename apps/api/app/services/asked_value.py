@@ -31,6 +31,7 @@ from app.services.answer_check import (
 )
 from app.services.answer_fence import answer_header_and_value
 from app.services.glyphs import SUBSCRIPT_DIGITS
+from app.services.latex_markup import without_markup
 
 # Each geometry quantity's symbol and the words a reply names it by.
 QUANTITY_NAMES: dict[str, tuple[str, ...]] = {
@@ -48,16 +49,15 @@ _RELATION = re.compile(r"=|\u2248")
 # A symbol and what it is set to: "A ≈", "h_{\max} =", "M_{\text{CO}_2} =", "M(CO2) =".
 _SYMBOL = re.compile(
     r"(?<![A-Za-z0-9_\\])(?P<symbol>\\?[A-Za-z]+"
-    r"(?:_\{(?:[^{}]|\{[^{}]*\})*\}|_[A-Za-z0-9]+|\([^()=]*\))?)\s*(?:=|\u2248)"
+    r"(?:_\{(?:[^{}]|\{[^{}]*\})*\}|(?:_[A-Za-z0-9]+)+|\([^()=]*\))?)\s*(?:=|\u2248)"
 )
-_WRAPPER = re.compile(r"\\(?:text|mathrm|operatorname|rm)\s*\{([^{}]*)\}")
 # A clause ends at a stop, a semicolon, a bracket, a line's end or a comma before words.
 _CLAUSE_END = re.compile(r"[.!?;](?=\s|$)|,\s+(?=[A-Za-z])|\(|\n")
 
 
 def _plain(symbol: str) -> str:
     """``M_{\\text{CO}_2}``, ``M(CO₂)`` and ``MCO2`` are one symbol; ``A_{circle}`` is not A."""
-    text = _WRAPPER.sub(r"\1", symbol).translate(SUBSCRIPT_DIGITS)
+    text = without_markup(symbol).translate(SUBSCRIPT_DIGITS)
     return re.sub(r"[\\{}_()\s]", "", text)
 
 

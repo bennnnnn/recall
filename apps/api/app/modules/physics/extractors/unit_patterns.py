@@ -9,6 +9,8 @@ from functools import lru_cache
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.law_binding.units import SI_PREFIXES
 from app.services.number_text import TEXT_DECIMAL, TEXT_NUMBER
+from app.services.unit_text import MASS_UNITS as MASS_UNIT_TABLE
+from app.services.unit_text import alternation
 
 
 @lru_cache(maxsize=256)
@@ -92,4 +94,7 @@ OHM_PATTERN = r"ohms?|\u03a9"
 TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 
 
-MASS_UNITS = r"kg|mg|g|lb|lbs|oz"
+# Every spelling of a mass, from the one table (``unit_text.MASS_UNITS``): ten readers kept
+# their own lists, and a tension question in grams or a gravitation one in pounds was read
+# as no mass (audit, 2026-11-25).
+MASS_UNITS = alternation(MASS_UNIT_TABLE)

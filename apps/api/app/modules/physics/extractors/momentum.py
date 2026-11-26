@@ -32,21 +32,21 @@ _MOMENTUM_CUES = (
 _MOMENTUM_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(
         r"\A(?=.*\b(?:momentum|impulse|collisions?|collid(?:e|es|ed|ing)|recoil(?:s|ed)?)\b)"
-        r"(?=.*\d\s*(?:kg|g|grams?|m/s|km/h|mph|cm/s|N|newtons?|N\s*[·*]?\s*s)(?![A-Za-z0-9/]))",
+        rf"(?=.*\d\s*(?:{MASS_UNITS}|{VELOCITY_UNIT_PATTERN}|N|newtons?|N\s*[·*]?\s*s)(?![A-Za-z0-9/]))",
         re.IGNORECASE | re.DOTALL,
     ),
     # A bullet that embeds, a car that rear-ends another: a collision only
     # beside a speed. "Someone rear-ended my 1500 kg car" is an insurance claim.
     re.compile(
         r"\A(?=.*\b(?:embed(?:s|ded)?|lodge[sd]?|rear[- ]ends?|lock(?:s|ed)?\s+bumpers)\b)"
-        r"(?=.*\d\s*(?:m/s|km/h|mph|cm/s)(?![A-Za-z0-9/]))",
+        rf"(?=.*\d\s*(?:{VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/]))",
         re.IGNORECASE | re.DOTALL,
     ),
     # A body at rest that bursts into pieces of stated mass.
     re.compile(
         r"\A(?=.*\b(?:explodes?|exploded|breaks?\s+apart|splits?\s+into|blows?\s+apart)\b)"
         r"(?=.*\b(?:at\s+rest|stationary|from\s+rest)\b)"
-        r"(?=.*\d\s*(?:kg|g|grams?)(?![A-Za-z0-9/]))(?=.*\d\s*(?:m/s|km/h)(?![A-Za-z0-9/]))",
+        rf"(?=.*\d\s*(?:{MASS_UNITS})(?![A-Za-z0-9/]))(?=.*\d\s*(?:{VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/]))",
         re.IGNORECASE | re.DOTALL,
     ),
 )

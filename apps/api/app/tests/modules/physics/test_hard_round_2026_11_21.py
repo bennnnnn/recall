@@ -112,7 +112,7 @@ def test_a_stated_top_is_checked_against_the_launch(question: str, conflict: boo
 def test_p59_has_no_answer_as_written_and_no_card() -> None:
     outcome, block, no_answer = solve_or_say_why(P59, _SETTINGS, None)
     assert block is None and no_answer is not None and no_answer.stated
-    assert "5.1 m" in no_answer.note and "20 m" in no_answer.note
+    assert "5.10 m" in no_answer.note and "20 m" in no_answer.note
     assert "no answer" in no_answer.note
     assert outcome == "failed"
 
@@ -213,11 +213,11 @@ def test_a_row_past_reading_closes_on_the_unrounded_value() -> None:
             r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
             r"4.04\,\mathrm{s};\quad 60.58\,\mathrm{m}",
         ),
-        # A value no line reached keeps the rule's own reading of it.
+        # A value no line reached keeps its figures: never a padded zero (owner, 2026-11-25).
         (
             "$t = 4.03855\\,\\mathrm{s}$",
             r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
-            r"4.04\,\mathrm{s};\quad 60.60\,\mathrm{m}",
+            r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
         ),
     ],
 )
@@ -272,7 +272,7 @@ def test_a_stated_top_is_measured_once_from_the_ground_or_the_start() -> None:
         "height of 45.1 m. How long does it take to hit the ground?"
     )
     reason = stated_peak_conflict(question)
-    assert reason is not None and "25.1 m" in reason
+    assert reason is not None and "25.10 m" in reason
     agreeing = question.replace("45.1 m", "25.1 m")
     assert stated_peak_conflict(agreeing) is None
 

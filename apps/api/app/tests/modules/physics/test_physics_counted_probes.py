@@ -100,7 +100,7 @@ PROBES: list[tuple[str, str | None]] = [
     ),
     (
         "Two resistors, R1 = 10 Ω and R2 = 20 Ω, each rated 2 W, are connected in series across 12 V. Find the current.",
-        "0.4 A",
+        "0.40 A",
     ),
     (
         "Two resistors of 10 Ω each cost $3 and are connected in parallel across 5 V. Find the total current.",
@@ -183,16 +183,19 @@ PROBES: list[tuple[str, str | None]] = [
     ("Two 100 W bulbs are used for 3 hours. Find the energy used in kWh.", None),
     (
         "A 100 W bulb is used for 3 hours each day. Find the energy used in 2 days.",
-        "2.16 × 10⁶ J (0.6 kWh)",
+        "2160000 J (0.60 kWh)",
     ),
     ("A 60 W bulb and two 40 W bulbs are on for 5 hours. Find the energy used.", None),
     ("Two 1.5 V cells in series are connected to a 3 Ω resistor. What is the current?", None),
-    ("A 10 Ω resistor is connected across 5 V. What is the current?", "0.5 A"),
+    ("A 10 Ω resistor is connected across 5 V. What is the current?", "0.50 A"),
     ("Two resistors of 4 Ω and 6 Ω are connected in series across 10 V. Find the current.", "1 A"),
     ("Seven resistors of 3 Ω each are connected in series. Find the total resistance.", None),
     ("Eleven 11 Ω resistors are connected in parallel. Find the equivalent resistance.", None),
     ("two 4.7 kΩ resistors are connected in parallel. Find the equivalent resistance.", "2350 Ω"),
-    ("Two resistors, each 2 kΩ, are connected in series across 8 V. Find the current.", "0.002 A"),
+    (
+        "Two resistors, each 2 kΩ, are connected in series across 8 V. Find the current.",
+        "0.00200 A",
+    ),
     (
         "Two 10 Ω resistors in parallel and a 20 Ω resistor in parallel with them across 10 V. Find the total current.",
         None,
@@ -206,12 +209,12 @@ PROBES: list[tuple[str, str | None]] = [
         "1000 Ω",
     ),
     ("Three 1 kΩ resistors are connected in series. Find the total resistance.", "3000 Ω"),
-    ("Two 1 MΩ resistors are connected in series. Find the total resistance.", "2 × 10⁶ Ω"),
+    ("Two 1 MΩ resistors are connected in series. Find the total resistance.", "2000000 Ω"),
     (
         "Two resistors of 2 kΩ each are connected in series across 8 V. Find the total current.",
-        "0.002 A",
+        "0.00200 A",
     ),
-    ("Two 2 kΩ resistors are connected in series across 8 V. Find the current.", "0.002 A"),
+    ("Two 2 kΩ resistors are connected in series across 8 V. Find the current.", "0.00200 A"),
     ("Two 500 mΩ resistors are connected in series. Find the total resistance.", "1 Ω"),
     (
         "Three resistors, each 3 kΩ, are connected in parallel. Find the equivalent resistance.",
@@ -258,7 +261,7 @@ PROBES: list[tuple[str, str | None]] = [
         "Two identical springs of spring constant 200 N/m are connected in series. Find the effective spring constant.",
         None,
     ),
-    ("Two charges of 3 µC each are placed 0.5 m apart. Find the force between them.", "0.324 N"),
+    ("Two charges of 3 µC each are placed 0.5 m apart. Find the force between them.", "0.32 N"),
     (
         "Two masses of 2 kg each are placed 1 m apart. Find the gravitational force between them.",
         "2.67 × 10⁻¹⁰ N",

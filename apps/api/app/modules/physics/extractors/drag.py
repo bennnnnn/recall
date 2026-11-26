@@ -11,7 +11,12 @@ import re
 from app.modules.physics.bodies import WATER_DENSITY
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import detect_gravity
-from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, MASS_UNITS, NUMBER
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+    VELOCITY_UNIT_PATTERN,
+)
 from app.modules.physics.extractors.written_unit import written_unit
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -68,7 +73,7 @@ _TIME = re.compile(
     re.IGNORECASE,
 )
 _SPEED = re.compile(
-    rf"({NUMBER})\s*(m/s|km/h|mph)(?![A-Za-z0-9/^])",
+    rf"({NUMBER})\s*({VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
 _DENSITY_UNIT = r"kg/m\^?3|g/cm\^?3"

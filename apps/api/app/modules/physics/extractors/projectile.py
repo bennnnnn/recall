@@ -42,14 +42,14 @@ _PROJECTILE_CUES = (
 )
 
 _PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(rf"\d\s*(?:m/s|km/h|mph)\b.{{0,80}}?\d\s*{DEGREE_WORD}"),
-    re.compile(rf"\d\s*{DEGREE_WORD}.{{0,80}}?\d\s*(?:m/s|km/h|mph)\b"),
+    re.compile(rf"\d\s*(?:{VELOCITY_UNIT_PATTERN})\b.{{0,80}}?\d\s*{DEGREE_WORD}"),
+    re.compile(rf"\d\s*{DEGREE_WORD}.{{0,80}}?\d\s*(?:{VELOCITY_UNIT_PATTERN})\b"),
     # The launch-angle question has no angle to co-occur with — the angle is
     # what it is asking for — so the signature above cannot see it. A speed
     # beside an explicit ask for an angle is the signature instead.
     re.compile(
-        r"\b(?:what|which)\s+(?:launch\s+)?angle\b.{0,80}?\d\s*(?:m/s|km/h|mph)\b"
-        r"|\d\s*(?:m/s|km/h|mph)\b.{0,80}?\b(?:what|which)\s+(?:launch\s+)?angle\b",
+        rf"\b(?:what|which)\s+(?:launch\s+)?angle\b.{{0,80}}?\d\s*(?:{VELOCITY_UNIT_PATTERN})\b"
+        rf"|\d\s*(?:{VELOCITY_UNIT_PATTERN})\b.{{0,80}}?\b(?:what|which)\s+(?:launch\s+)?angle\b",
         re.IGNORECASE,
     ),
 )

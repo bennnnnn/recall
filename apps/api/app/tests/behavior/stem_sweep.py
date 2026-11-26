@@ -74,8 +74,18 @@ _UNITS.define("diopter = 1 / meter = D")
 _UNITS.define("kWh = kilowatt * hour")
 # "5 rev/s": Pint spells a revolution out in full.
 _UNITS.define("rev = revolution")
-# Results shown to the inputs' significant figures: 0.2 mol for 0.204 is right.
-ROUNDED = {"chemistry"}
+# Results shown rounded, right within half their last place: to the inputs' significant figures
+# (chemistry: 0.2 mol for 0.204), or by the card rule's places (physics: 0.31 m/s for 0.3142).
+# The rule writes a physics number whole only when it is whole, so a whole physics card has
+# no allowance: "10 m/s" for 14 is wrong (review, #2591).
+ROUNDED = {"chemistry", "physics"}
+
+
+def _rounded_shown(subject: str, shown: str) -> str | None:
+    """The card's digits when the subject rounds them, else None (judged within 1%)."""
+    if subject not in ROUNDED or (subject == "physics" and "." not in shown):
+        return None
+    return shown
 
 
 @dataclass(frozen=True)
@@ -377,7 +387,7 @@ def check_answer(
                 same_quantity(
                     (value, unit),
                     want,
-                    shown=shown if subject in ROUNDED else None,
+                    shown=_rounded_shown(subject, shown),
                     abs_tol=entry.abs_tol,
                     chemistry=subject == "chemistry",
                     signed=entry.signed,

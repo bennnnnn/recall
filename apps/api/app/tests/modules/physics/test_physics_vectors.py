@@ -58,29 +58,29 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a 3 N force east and a 4 N force north, what is the resultant",
         "resultant_force",
-        "5 N at 53.1°",
+        "5 N at 53.13°",
     ),
     (
         "what is the resultant of a 3 N and a 4 N force at right angles",
         "resultant_force",
-        "5 N at 53.1°",
+        "5 N at 53.13°",
     ),
     (
         "find the resultant of a 3 N horizontal force and a 4 N vertical force",
         "resultant_force",
-        "5 N at 53.1°",
+        "5 N at 53.13°",
     ),
     (
         "Two forces act on an object: 3 N east and 4 N north. "
         "Find the resultant magnitude and direction.",
         "resultant_force",
-        "5 N at 53.1°",
+        "5 N at 53.13°",
     ),
     # Not perpendicular: the general parallelogram law.
     (
         "what is the resultant of a 3 N and a 4 N force at 60 degrees to each other",
         "resultant_force",
-        "6.08 N at 34.7°",
+        "6.08 N at 34.72°",
     ),
     (
         "resolve a 10 N force at 30 degrees into components",
@@ -101,13 +101,13 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Resolve 45 m/s at an angle of 80° from the horizontal into two components.",
         "resolve_vector",
-        "7.81 m/s horizontally and 44.3 m/s vertically",
+        "7.81 m/s horizontally and 44.32 m/s vertically",
     ),
     # Measured from the vertical: the sine is across, the cosine up.
     (
         "Resolve 1900 km at an angle of 40° from the vertical into two components.",
         "resolve_vector",
-        "1221 km horizontally and 1455 km vertically",
+        "1221.30 km horizontally and 1455.48 km vertically",
     ),
     # A bearing: west of north is from the vertical, and west is the negative side.
     (
@@ -124,13 +124,13 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "A plane flies at 250 km/h, 30° north of east. Find the components of its velocity.",
         "resolve_vector",
-        "217 km/h east and 125 km/h north",
+        "216.51 km/h east and 125 km/h north",
     ),
     (
         "Find the horizontal and vertical components of a momentum of 12 kg m/s at 60° to "
         "the horizontal.",
         "resolve_vector",
-        "6 kg·m/s horizontally and 10.4 kg·m/s vertically",
+        "6 kg·m/s horizontally and 10.39 kg·m/s vertically",
     ),
     # "the vertical component" names what is asked, and alone: the angle is still from the
     # horizontal, and the card holds that one component.
@@ -144,24 +144,24 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "A plane flies 300 km/h on a bearing of 40°. Find the north and east components.",
         "resolve_vector",
-        "193 km/h east and 230 km/h north",
+        "192.84 km/h east and 229.81 km/h north",
     ),
     (
         "A ship sails 25 km on a bearing of 120°. Find the east and north components.",
         "resolve_vector",
-        "21.7 km east and 12.5 km south",
+        "21.65 km east and 12.50 km south",
     ),
     (
         "Resolve 25 m/s at 120° from the positive x-axis into components.",
         "resolve_vector",
-        "-12.5 m/s horizontally and 21.7 m/s vertically",
+        "-12.50 m/s horizontally and 21.65 m/s vertically",
     ),
     # The vertical named right after the angle, with "angle" or "axis" around it.
     (
         "Find the horizontal and vertical components of a 60 N force making a 30° angle with "
         "the vertical.",
         "resolve_vector",
-        "30 N horizontally and 52 N vertically",
+        "30 N horizontally and 51.96 N vertically",
     ),
     (
         "Resolve a 10 m/s velocity directed at 30° to the vertical axis into components.",
@@ -173,24 +173,24 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Resolve a velocity of 15 m/s at 20° below horizontal into horizontal and vertical "
         "components.",
         "resolve_vector",
-        "14.1 m/s horizontally and -5.13 m/s vertically",
+        "14.10 m/s horizontally and -5.13 m/s vertically",
     ),
     # A bearing past 180°: west and south.
     (
         "A ship sails 25 km on a bearing of 240°. Find the east and north components.",
         "resolve_vector",
-        "21.7 km west and 12.5 km south",
+        "21.65 km west and 12.50 km south",
     ),
     # A list marker or a word after a number is no second value (Claude review).
     (
         "1. Resolve a 60 N force at 30° above the horizontal into components.",
         "resolve_vector",
-        "52 N horizontally and 30 N vertically",
+        "51.96 N horizontally and 30 N vertically",
     ),
     (
         "Resolve a 60 N force at 30° above the horizontal into components. Give 2 decimal places.",
         "resolve_vector",
-        "52 N horizontally and 30 N vertically",
+        "51.96 N horizontally and 30 N vertically",
     ),
     # "on a bearing of 30° north of east" is a quadrant bearing, not 030° (Gemini review).
     (
@@ -203,13 +203,13 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Resolve 25 m/s at 30° from the positive y-axis into components.",
         "resolve_vector",
-        "12.5 m/s horizontally and 21.7 m/s vertically",
+        "12.50 m/s horizontally and 21.65 m/s vertically",
     ),
     (
         "Resolve a velocity of 15 m/s at 20° from vertical into horizontal and vertical "
         "components.",
         "resolve_vector",
-        "5.13 m/s horizontally and 14.1 m/s vertically",
+        "5.13 m/s horizontally and 14.10 m/s vertically",
     ),
     # A westward component asked alone is that component, by its side (Gemini review).
     (
@@ -220,7 +220,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Resolve a 60 N force at 30° above the horizontal into components in 2 steps.",
         "resolve_vector",
-        "52 N horizontally and 30 N vertically",
+        "51.96 N horizontally and 30 N vertically",
     ),
     # "m/s2" as students write it (Codex review).
     (
@@ -326,7 +326,7 @@ def test_perpendicular_is_the_general_law_at_ninety_degrees() -> None:
         "what is the resultant of a 3 N and a 4 N force at 90 degrees to each other"
     )
 
-    assert perpendicular == stated == "5 N at 53.1°"
+    assert perpendicular == stated == "5 N at 53.13°"
 
 
 def test_the_components_rebuild_the_force_they_came_from() -> None:
@@ -467,7 +467,7 @@ def test_a_bearing_is_worked_as_sizes_along_its_directions() -> None:
         r"s_{W} = 25\sin(60^\circ)",
         r"s_{S} = 25\cos(60^\circ)",
     )
-    assert block.canonical_answer == "21.7 km west and 12.5 km south"
+    assert block.canonical_answer == "21.65 km west and 12.50 km south"
     assert "-" not in (block.physics_working or "").split("Verified substitution:")[-1].replace(
         "240^\\circ - 180", ""
     )
@@ -555,7 +555,7 @@ def test_a_compass_working_uses_the_stated_angle_and_its_reference(
         (
             "A plane flies at 250 km/h, 30° north of east. Find the westward component of its "
             "velocity.",
-            "-217 km/h west",
+            "-216.51 km/h west",
         ),
         (
             "A plane flies at 250 km/h, 30° north of east. Find the southward component of its "
@@ -564,7 +564,7 @@ def test_a_compass_working_uses_the_stated_angle_and_its_reference(
         ),
         (
             "A ship sails 25 km on a bearing of 240°. Find the northward component.",
-            "-12.5 km north",
+            "-12.50 km north",
         ),
         (
             "A hiker walks 5 km 40° west of north. Find the eastward component of the "
@@ -575,9 +575,12 @@ def test_a_compass_working_uses_the_stated_angle_and_its_reference(
         (
             "A plane flies at 250 km/h, 30° north of east. Find the eastward component of its "
             "velocity.",
-            "217 km/h east",
+            "216.51 km/h east",
         ),
-        ("A ship sails 25 km on a bearing of 240°. Find the southward component.", "12.5 km south"),
+        (
+            "A ship sails 25 km on a bearing of 240°. Find the southward component.",
+            "12.50 km south",
+        ),
     ],
 )
 def test_a_component_asked_against_its_side_keeps_its_sign(text: str, answer: str) -> None:

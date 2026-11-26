@@ -145,7 +145,7 @@ def test_working_rounds_on_the_way_and_ends_on_the_value_unrounded() -> None:
     substitution = _section(reply, "Substitution")
     assert "0.9397" in substitution and "0.939693" not in substitution
     assert substitution.endswith(r"$R = 31.0357\,\mathrm{m}$")
-    assert "```answer\n31\\,\\mathrm{m}\n```" in reply
+    assert "```answer\n31.04\\,\\mathrm{m}\n```" in reply
 
 
 @pytest.mark.parametrize(
@@ -156,7 +156,7 @@ def test_working_rounds_on_the_way_and_ends_on_the_value_unrounded() -> None:
             "A ball is dropped from a height of 20 m. How fast is it moving when it hits the "
             "ground?",
             r"$v_{impact} = 19.8091\,\mathrm{m/s}$",
-            r"19.8\,\mathrm{m/s}",
+            r"19.81\,\mathrm{m/s}",
         ),
         (
             "What is the period of a simple pendulum 1 m long?",

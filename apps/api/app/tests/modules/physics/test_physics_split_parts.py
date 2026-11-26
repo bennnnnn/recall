@@ -22,21 +22,21 @@ _SETTINGS = Settings(math_tools_enabled=True)
             "A certain car has an acceleration of 2.4 m/s^2. Assume that its acceleration "
             "remains constant. Starting from rest, how long does the car require to reach a "
             "velocity of 90 km/h? How far does it travel while reaching that velocity?",
-            [("Time", r"10.4\,\mathrm{s}"), ("Distance", r"130\,\mathrm{m}")],
+            [("Time", r"10.42\,\mathrm{s}"), ("Distance", r"130.21\,\mathrm{m}")],
         ),
         (
             "A crane lifts a 450 kg concrete to the top of a 50 m building in 5 s. Assuming "
             "g = 10 m/s^2, calculate: a) The potential energy of the concrete. b) The power "
             "developed by the crane",
             [
-                ("Potential energy", r"2.25 \times 10^{5}\,\mathrm{J}"),
+                ("Potential energy", r"225000\,\mathrm{J}"),
                 ("Power", r"45000\,\mathrm{W}"),
             ],
         ),
         (
             "A ball is dropped from 45 m. (a) How long does it take to hit the ground? "
             "(b) How fast is it going when it lands?",
-            [("Time", r"3.03\,\mathrm{s}"), ("Speed", r"29.7\,\mathrm{m/s}")],
+            [("Time", r"3.03\,\mathrm{s}"), ("Speed", r"29.71\,\mathrm{m/s}")],
         ),
     ],
 )
@@ -105,10 +105,10 @@ def test_a_closing_answer_after_the_verified_part_is_never_carded() -> None:
 
 def test_the_parts_the_server_did_not_solve_get_a_card_marked_not_checked() -> None:
     _, block = solve_physics_request(_BLOCK, _SETTINGS, None)
-    assert block is not None and block.display_answer == r"12.3\,\mathrm{N}"
+    assert block is not None and block.display_answer == r"12.26\,\mathrm{N}"
     landed = validate_physics_fences(_REPLY, verified=block, user_text=_BLOCK)
     assert "**Answer (a)**\n\n```answer\nverified: false\nN = 49.05\\ \\text{N}\n```" in landed
-    assert "**Answer (b)**\n\n```answer\nverified: true\n12.3\\,\\mathrm{N}\n```" in landed
+    assert "**Answer (b)**\n\n```answer\nverified: true\n12.26\\,\\mathrm{N}\n```" in landed
 
 
 def test_a_card_no_part_states_is_not_placed() -> None:
@@ -197,9 +197,9 @@ def test_a_stem_with_no_values_reads_each_lettered_vector_alone() -> None:
     outcome, block = solve_physics_request(question, _SETTINGS, None)
     assert outcome == "verified" and block is not None
     assert [part.display_answer.split(r"\,")[0] for part in block.physics_parts] == [
-        "52",
+        "51.96",
         "7.81",
-        "1221",
+        "1221.30",
     ]
     scenes = [spec for spec in block.canonical_fences if spec.get("type") == "vector_sum"]
     # A diagram for every part, each drawn vector first, then across, then up.

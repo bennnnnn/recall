@@ -82,16 +82,16 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the orbital velocity at 400 km above the earth",
         "gravitation",
         "orbital_velocity",
-        "7673 m/s",
+        "7672.62 m/s",
     ),
     (
         "what is the orbital velocity of a satellite 300 km above the earth",
         "gravitation",
         "orbital_velocity",
-        "7730 m/s",
+        "7729.91 m/s",
     ),
-    ("what is the escape velocity from earth", "gravitation", "escape_velocity", "11186 m/s"),
-    ("what is the escape velocity from the moon", "gravitation", "escape_velocity", "2375 m/s"),
+    ("what is the escape velocity from earth", "gravitation", "escape_velocity", "11186.17 m/s"),
+    ("what is the escape velocity from the moon", "gravitation", "escape_velocity", "2375.06 m/s"),
     (
         "what is g on a planet of mass 6e24 kg and radius 6.4e6 m",
         "gravitation",
@@ -122,7 +122,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the upthrust on a 0.002 m^3 object fully submerged in water",
         "fluids",
         "upthrust",
-        "19.6 N",
+        "19.62 N",
     ),
     (
         "what is the velocity in a pipe narrowing from 0.04 m^2 to 0.01 m^2 at 2 m/s",
@@ -208,13 +208,13 @@ def test_an_altitude_is_converted_before_it_is_added_to_a_radius() -> None:
     high = _verified_answer("what is the orbital velocity at 400 km above the earth")
     assert surface is not None and high is not None
     assert float(high.split()[0]) < float(surface.split()[0])
-    assert high == "7673 m/s"
+    assert high == "7672.62 m/s"
 
 
 def test_a_question_with_no_digits_still_reaches_the_solver() -> None:
     """The numbers are the body's own, so the pre-filter's digit rule missed it."""
     assert needs_physics("what is the escape velocity from earth")
-    assert _verified_answer("what is the escape velocity from earth") == "11186 m/s"
+    assert _verified_answer("what is the escape velocity from earth") == "11186.17 m/s"
 
 
 # ---------------------------------------------------------------------------
