@@ -76,24 +76,57 @@ describe("an informational reply's nested members", () => {
   it.each([
     [
       "a numbered step with no list open",
-      ["Divide both sides:", "```math", "4x = 4", "```", "", "    2. **Simplify:**"],
-      "**Simplify:**",
+      ["Divide both sides:", "```math", "4x = 4", "```", "", "    2. **Simplify:**", "    3. **Check:**"],
+      ["**Simplify:**", "**Check:**"],
     ],
     [
       "a bullet after a margin fence ended the list",
-      ["- **Subtract 3**", "```math", "2x=8", "```", "", "    - **Divide by 2:**"],
-      "**Divide by 2:**",
+      ["- **Subtract 3**", "```math", "2x=8", "```", "", "    - **Divide by 2:**", "    - **Check:**"],
+      ["**Divide by 2:**", "**Check:**"],
     ],
     [
       "a bullet after a fence the list lift moves to the margin",
-      ["- **Subtract 3**", "   ```math", "   2x=8", "   ```", "", "    - **Divide by 2:**"],
-      "**Divide by 2:**",
+      ["- **Subtract 3**", "   ```math", "   2x=8", "   ```", "", "    - **Divide by 2:**", "    - **Check:**"],
+      ["**Divide by 2:**", "**Check:**"],
     ],
-  ])("lifts a misindented step after a maths fence: %s", (_name, lines, step) => {
+  ])("lifts misindented steps after a maths fence, all of them: %s", (_name, lines, steps) => {
     const out = preprocessMarkdown(lines.join("\n"));
     const tokens = markdownItInstance.parse(out, {});
     expect(tokens.some((t) => t.type === "code_block")).toBe(false);
-    expect(out).toContain(step);
+    // Siblings at the margin: none nested under the one lifted before it.
+    const list = items(lines.join("\n"));
+    expect(main(list).filter((text) => steps.includes(text.trim()))).toEqual(steps);
+    expect(members(list)).toEqual([]);
+  });
+
+  it.each(["### Natural sciences", "Its main branches:", "```text\nnot a list\n```"])(
+    "lifts every indented bold bullet under %s, not only the first",
+    (above) => {
+      const reply = [above, "", "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "    - **Biology**: life"].join("\n");
+      const list = items(reply);
+      expect(main(list)).toEqual([
+        "**Physics**: matter and energy",
+        "**Chemistry**: substances",
+        "**Biology**: life",
+      ]);
+      expect(members(list)).toEqual([]);
+    },
+  );
+
+  it("keeps three numbered levels where they are, and the main numbering whole", () => {
+    const reply = [
+      "1. **Natural**",
+      "    1. **Physics**",
+      "        1. Mechanics",
+      "        2. Optics",
+      "    2. **Chemistry**",
+      "2. **Social**",
+    ].join("\n");
+    const out = preprocessMarkdown(reply);
+    expect(out).toContain("    2. **Chemistry**");
+    const list = items(reply);
+    expect(main(list)).toEqual(["**Natural**", "**Social**"]);
+    expect(members(list)).toEqual(["**Physics**", "**Chemistry**"]);
   });
 
   it("still lifts a misindented next step to the margin", () => {

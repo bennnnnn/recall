@@ -136,10 +136,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # layout for every informational reply in place of the rules that forbade it (SCAN_LAYOUT: a
 # short answer, a title, numbered bold items, their members nested; 28 of 28 replies had no
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
-# 2026-11-26).
+# 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
+# title, a multi-part reply's headings as its titles, and a one-line fact kept one line
+# (review of #2601).
 _RULES = 227
-_RULE_GRAMS = 21294
-_RULE_GRAMS_SHA = "4c7d3fccaa24d990"
+_RULE_GRAMS = 21389
+_RULE_GRAMS_SHA = "179ee587e604a028"
 
 
 def _rules() -> list[str]:

@@ -211,8 +211,26 @@ export function liftMathFencesOutOfLists(content: string): string {
   return out.join("\n");
 }
 
-const DEEP_INDENT = /^(?:[ \t]{4,}|\t+)/;
 const LIST_ITEM = /^(\s*)(?:[-*+]|(\d+)[.)])\s/;
+
+/** The list a step line may sit in, as `dedentMisindentedMarkdownSteps` has read it so far. */
+type StepListState = {
+  /** A list item is open above the line. */
+  inList: boolean;
+  /** The last number at each indent column of that list (0: the main list). */
+  numbers: Map<number, number>;
+  /** The indent of a run of deep items being lifted to the margin, while it lasts. */
+  liftedIndent: number | null;
+};
+
+function emptyStepList(): StepListState {
+  return { inList: false, numbers: new Map(), liftedIndent: null };
+}
+
+/** Leading whitespace width, a tab as four spaces. */
+function indentOf(line: string): number {
+  return (/^[ \t]*/.exec(line)?.[0] ?? "").replace(/\t/g, "    ").length;
+}
 
 /**
  * CommonMark treats 4+ space (or tab) indented lines as a code block.
@@ -224,60 +242,58 @@ const LIST_ITEM = /^(\s*)(?:[-*+]|(\d+)[.)])\s/;
  * look (2026-11-26: "1. **Natural science**" with "    - **Chemistry**" or
  * "    1. Chemistry" under it lost its members to the margin and renumbered
  * the main list): a numbered line comes back only when its number continues
- * the main list and not a nested one, a bullet only when no list holds it,
- * and a heading always (none belongs inside a list item).
+ * the main list and not the list at its own indent, a bullet only when no
+ * list holds it, and a heading always (none belongs inside a list item).
+ * Deep items with no list above them (under a heading) are one run: once the
+ * first is lifted, every item after it at that indent is lifted too.
+ *
+ * What it reads is held across blank lines, so a stream is never cut before an
+ * indented line while a list is open (`streamSegments.ts`).
  */
 export function dedentMisindentedMarkdownSteps(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
   let open: OpenFence | null = null;
-  let inList = false;
-  let topNumber: number | null = null;
-  let nestedNumber: number | null = null;
+  let list = emptyStepList();
   for (const line of lines) {
     const before = open;
     open = fenceAfterLine(open, line, true);
-    if (!before && open && fenceEndsList(line)) {
-      // A fence at the margin ends the list; so does one liftMathFencesOutOfLists will
-      // move there: the step after it is lifted, never kept as the list's member.
-      inList = false;
-      topNumber = null;
-      nestedNumber = null;
-    }
+    // A fence at the margin ends the list; so does one liftMathFencesOutOfLists will
+    // move there: the step after it is lifted, never kept as the list's member.
+    if (!before && open && fenceEndsList(line)) list = emptyStepList();
     if (before || open) {
       out.push(line);
       continue;
     }
-    const item = LIST_ITEM.exec(line);
-    const deep = DEEP_INDENT.test(line);
-    if (
-      deep &&
-      isMathFenceInterruptLine(line) &&
-      misplacedStep(line, item, inList, topNumber, nestedNumber)
-    ) {
-      out.push(line.trimStart());
-      if (item?.[2]) topNumber = Number(item[2]);
-      nestedNumber = null;
-      inList = Boolean(item);
-      continue;
-    }
-    if (item) {
-      inList = true;
-      const number = item[2] ? Number(item[2]) : null;
-      if (!deep) {
-        topNumber = number ?? topNumber;
-        nestedNumber = null;
-      } else if (number !== null) {
-        nestedNumber = number;
-      }
-    } else if (line.trim() && !/^\s/.test(line)) {
-      inList = false;
-      topNumber = null;
-      nestedNumber = null;
-    }
-    out.push(line);
+    out.push(readStepLine(list, line));
   }
   return out.join("\n");
+}
+
+/** `line` as it is drawn (lifted to the margin or kept), with `list` moved past it. */
+function readStepLine(list: StepListState, line: string): string {
+  if (!line.trim()) return line;
+  const item = LIST_ITEM.exec(line);
+  const indent = indentOf(line);
+  if (list.liftedIndent !== null && indent < list.liftedIndent) list.liftedIndent = null;
+  const inRun = item !== null && indent === list.liftedIndent;
+  const misplaced = isMathFenceInterruptLine(line) && misplacedStep(line, item, indent, list);
+  if (indent >= 4 && (inRun || misplaced)) {
+    // At the margin now, it reads as a main item (or, a heading, as the end of the list).
+    list.numbers = new Map(item?.[2] ? [[0, Number(item[2])]] : []);
+    list.inList = Boolean(item);
+    list.liftedIndent = item ? indent : null;
+    return line.trimStart();
+  }
+  if (item) {
+    list.inList = true;
+    for (const column of list.numbers.keys()) if (column > indent) list.numbers.delete(column);
+    if (item[2]) list.numbers.set(indent, Number(item[2]));
+    else list.numbers.delete(indent);
+  } else if (indent === 0) {
+    Object.assign(list, emptyStepList());
+  }
+  return line;
 }
 
 /** A fence opener that ends the list above it: at the margin, or one lifted out of lists. */
@@ -291,15 +307,15 @@ function fenceEndsList(line: string): boolean {
 function misplacedStep(
   line: string,
   item: RegExpExecArray | null,
-  inList: boolean,
-  topNumber: number | null,
-  nestedNumber: number | null,
+  indent: number,
+  list: StepListState,
 ): boolean {
-  if (!item) return /^\s*#{1,6}\s/.test(line) || !inList;
-  if (!item[2] || !inList) return !inList;
+  if (!item) return /^\s*#{1,6}\s/.test(line) || !list.inList;
+  if (!item[2] || !list.inList) return !list.inList;
   const number = Number(item[2]);
-  const continuesNested = nestedNumber !== null && number === nestedNumber + 1;
-  return topNumber !== null && number === topNumber + 1 && !continuesNested;
+  const top = list.numbers.get(0);
+  const own = list.numbers.get(indent);
+  return top !== undefined && number === top + 1 && own !== number - 1;
 }
 
 const INLINE_MATH_FENCE_INFO = /^(math|latex|tex)?$/i;

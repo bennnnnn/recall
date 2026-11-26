@@ -2,7 +2,8 @@
 
 COMPARISON_FORMAT_HINT = (
     "This turn is X vs Y. Layout (do not write a wall of prose):\n"
-    "1. Lead with a GFM pipe table. Use their option names as columns. "
+    "1. After a one- or two-sentence answer and its title, a GFM pipe table. Use their "
+    "option names as columns. "
     "Cells are one short phrase. NEVER put source code, ``` fences, <br>, or HTML in a cell.\n"
     "| Area | First option | Second option |\n"
     "| --- | --- | --- |\n"
@@ -33,16 +34,16 @@ HOWTO_FORMAT_HINT = (
     "honor that request and keep it to 2-3 columns.\n"
     "Use ## headings per week or phase. Under each: a one-line goal, then "
     "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
-    "columns. One task (make bread from scratch) is not a plan: one numbered list of "
-    "steps, no headings."
+    "columns. One task (make bread from scratch) is not a plan: under its short answer and "
+    "title, one numbered list of steps, no other headings."
 )
 
 
 # "If I ask how to do something, I need to see a flow with arrows" (the owner, 2026-11-14):
 # the phone draws a ```steps card as boxes joined by arrows (``StepFlow.tsx``).
 STEPS_FORMAT_HINT = (
-    "This is a how-to task. Put what is needed (ingredients, tools, documents) first as a "
-    "short list when there is any. Then the steps, in the order they are done, in one "
+    "This is a how-to task. Under the short answer and its title, put what is needed "
+    "(ingredients, tools, documents) first as a short list when there is any. Then the steps, in the order they are done, in one "
     "```steps card, which the app draws as boxes joined by arrows: one numbered line per step "
     "with its action in bold, and a plain line or two under it for how, for example:\n"
     "```steps\n1. **Boil the water**\nBring fresh water to a rolling boil.\n2. **Steep the "
@@ -50,7 +51,7 @@ STEPS_FORMAT_HINT = (
     "A warning or a must-do-first (back up, switch off the power) is a line in the box of the "
     "step it applies to, never a step after it. A method from school or work (balancing an "
     "equation, long division) gets one short worked example after the card. Add a one-line "
-    "tip at the end only if it helps. No headings for a short task. A goal reached in several "
+    "tip at the end only if it helps. No `###` subtitles for a short task. A goal reached in several "
     "independent ways rather than one sequence (save money, sleep better, learn a language "
     "fast) takes the ways layout instead, never the card: numbered items, each opening with a "
     "bold label."
@@ -106,8 +107,10 @@ SCAN_LAYOUT = (
     "A question with a one-line answer (a name, a date, a number, a yes or no) gets that "
     "line, its key part bold, and at most one more line: no title, list or section. "
     "A maths, physics or chemistry working keeps its worked layout and answer card. "
-    "A card or shape this turn's own rules ask for (the user's requested format, a steps "
-    "card, a comparison table, code, a draft) takes the place of the list."
+    "A card or table this turn's own rules ask for (a steps card, a comparison table, code) "
+    "takes the place of the list, under the short answer and the title. A format the user "
+    "asked for (one paragraph, a draft, a poem) replaces this layout, and a message with "
+    "several requests takes the headings its own rules give."
 )
 
 READER_NOTE = (

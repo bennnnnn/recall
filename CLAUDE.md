@@ -283,8 +283,11 @@ sends the same prompts to the running API and writes the replies to `tmp/battery
 **Reply layout:** every informational reply, on every plan and model, has one layout
 (`SCAN_LAYOUT` in `modules/chat/prompt_constants/format.py`, said beside the message): a short
 answer first, a `##` title, numbered items with **bold** names, each item's members as a nested
-list, `###` subtitles for distinct parts. A one-line fact stays a line or two; a conversation
-stays plain lines; a maths, physics or chemistry working keeps its worked layout.
+list, `###` subtitles for distinct parts. A steps card or a comparison table takes the list's
+place under the answer and the title; a message with several requests puts each under its own
+`###` heading (`prompt_constants/multi_part.py`); a lesson lays out its own sections. A one-line
+fact stays a line or two; a conversation stays plain lines; a maths, physics or chemistry
+working keeps its worked layout.
 `apps/api/app/tests/behavior/format_corpus.json` holds 42 chat questions by kind and
 `format_shape.py` judges a reply's layout; `python3 scripts/format_eval.py` sends them to the
 running API (Free and Pro) and reports each kind (`--rescore tmp/format/run.json` re-judges).

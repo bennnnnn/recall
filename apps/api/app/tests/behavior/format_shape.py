@@ -83,9 +83,11 @@ def misses(kind: str, shape: Shape) -> list[str]:
     found: list[str] = []
     if kind in STRUCTURED and (shape.steps_card or (kind == "compare" and shape.table)):
         # The app's step card is its own laid-out list, and a comparison's table its own
-        # grid: each takes the list's place (SCAN_LAYOUT).
+        # grid: each takes the list's place, under the short answer and the title (SCAN_LAYOUT).
         if not shape.intro:
             found.append("no intro")
+        if not shape.title:
+            found.append("no title")
     elif kind in STRUCTURED:
         if not shape.intro:
             found.append("no intro")

@@ -56,14 +56,27 @@ def test_today_s_reply_lacks_a_title_and_nested_members() -> None:
         ("casual", "Congrats!\n\n- Celebrate\n- Rest", ["list in conversation"]),
         ("maths", "**Given**\n\n```answer\nx = 4\n```", []),
         ("maths", "x is 4.", ["no answer card"]),
-        ("howto", "You need beans and water.\n\n```steps\n1. **Grind**\nFine.\n```", []),
         (
-            "compare",
-            "Both are good; **pick by ecosystem**.\n\n| | iPhone | Android |\n|---|---|---|\n"
-            "| Price | High | Any |",
+            "howto",
+            "You need beans and water.\n\n## Making Coffee\n\n```steps\n1. **Grind**\nFine.\n```",
             [],
         ),
-        ("compare", "| | iPhone | Android |\n|---|---|---|\n| Price | High | Any |", ["no intro"]),
+        (
+            "howto",
+            "You need beans and water.\n\n```steps\n1. **Grind**\nFine.\n```",
+            ["no title"],
+        ),
+        (
+            "compare",
+            "Both are good; **pick by ecosystem**.\n\n## iPhone vs Android\n\n"
+            "| | iPhone | Android |\n|---|---|---|\n| Price | High | Any |",
+            [],
+        ),
+        (
+            "compare",
+            "| | iPhone | Android |\n|---|---|---|\n| Price | High | Any |",
+            ["no intro", "no title"],
+        ),
     ],
 )
 def test_each_kind_is_held_to_its_own_shape(kind: str, reply: str, lacks: list[str]) -> None:

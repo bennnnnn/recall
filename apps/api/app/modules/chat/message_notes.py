@@ -11,7 +11,6 @@ answered now), so the "say it again" note stays out of them.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.clarify_turn import clarify_reply_hint
@@ -29,20 +28,21 @@ from app.modules.turn_reading.lesson_flow import active_lesson_step, outline_awa
 from app.modules.turn_reading.turn import teaching_of
 
 
-def _own_way(query: str, exchange: list[Any], pairs: Sequence[tuple[str, str]]) -> bool:
-    """A lesson, an outline awaiting a pick, or the turn after a clarify card."""
-    if active_lesson_step(exchange) or outline_awaits_pick(exchange):
-        return True
-    return clarify_reply_hint(query, pairs) is not None
+def _in_lesson(exchange: list[Any]) -> bool:
+    """A lesson's step or an outline awaiting a pick: it lays out its own sections."""
+    return bool(active_lesson_step(exchange) or outline_awaits_pick(exchange))
 
 
 def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str = "") -> list[str]:
     """The notes that apply to this message, in order; its language last, nearest it."""
     pairs = exchange_pairs(exchange)
-    own_way = _own_way(query, exchange, pairs)
+    lesson = _in_lesson(exchange)
+    # A lesson, an outline awaiting a pick, or the turn after a clarify card.
+    own_way = lesson or clarify_reply_hint(query, pairs) is not None
     missed = None if own_way else reply_missed_hint(query, pairs) or reply_how_hint(query, pairs)
     # A lesson (its first one too), outline or clarify card places its own emoji.
-    lesson_like = own_way or teaching_of(query)
+    teaching = teaching_of(query)
+    lesson_like = own_way or teaching
     emoji = None if lesson_like else emoji_note(user.emoji_use, memory_block)
     language = reply_language_hint(query, pairs, user.locale, user.custom_instructions)
     # A lesson teaches its own way; a school exercise asked in it is still the lesson's.
@@ -54,8 +54,9 @@ def message_notes(query: str, exchange: list[Any], user: Any, memory_block: str 
     owned = OWN_MISTAKE_HINT if after_reply else None
     # A lesson walks its own steps and recaps on purpose.
     recap = NO_RECAP_NOTE if after_reply and not lesson_like else None
-    # A lesson lays out its own sections; every other reply is written to be scanned.
-    reader = None if lesson_like else READER_NOTE
+    # A lesson lays out its own sections; every other reply is written to be scanned, the
+    # answer after a clarify card too ("best laptop for me?", then the picks).
+    reader = None if lesson or teaching else READER_NOTE
     notes = (
         shared_numbers_hint(query),
         missed,

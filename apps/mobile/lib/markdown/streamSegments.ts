@@ -21,6 +21,9 @@
  *   label only this scan's looser pattern reads);
  * - an Answer heading looks ahead for its card (`attachAnswerHeadingToFence`),
  *   and a check section runs until a heading (`layoutCheckVerificationLines`);
+ * - the step repair (`dedentMisindentedMarkdownSteps`) reads the open list across
+ *   blank lines to tell a misplaced step from the list's own member: no cut before
+ *   an indented line while a list item is open (a line at the margin starts afresh);
  * - `<details>`, bare Vega JSON and molecule pairs are read across the whole
  *   reply: a reply with any of them is not cut at all.
  *
@@ -74,6 +77,8 @@ export type SegmentScanState = {
   prevBoldLabel: boolean;
   /** The last line was a list item or an indented line of one. */
   prevListLine: boolean;
+  /** A list item is open: no line at the margin but a list item since the last one. */
+  listOpen: boolean;
   prevBlank: boolean;
   lastNonBlank: string;
 };
@@ -92,6 +97,8 @@ const BOLD_LABEL_RE = /^\s*\*\*[^*\n]+\*\*\s*(?:`[^`\n]*`\s*)?$/;
 /** A top-level list item: the passes read it apart from the item above it. */
 const LIST_ITEM_RE = /^(?:[-*+]|\d{1,9}[.)])[ \t]/;
 const INDENTED_RE = /^[ \t]+\S/;
+/** A list item at any indent. */
+const ANY_LIST_ITEM_RE = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/;
 /** Fences whose languages tables, prose and maths passes may unwrap or inline. */
 const UNWRAPPED_CODE_LANGS = new Set(["markdown", "md", "table", "json"]);
 
@@ -113,6 +120,7 @@ export function emptySegmentScan(): SegmentScanState {
     answerLookahead: 0,
     prevBoldLabel: false,
     prevListLine: false,
+    listOpen: false,
     prevBlank: true,
     lastNonBlank: "",
   };
@@ -166,6 +174,7 @@ function guardsAllowCut(state: SegmentScanState, line: string): boolean {
     !state.poisoned &&
     state.fence === null &&
     (state.prevBlank || (state.prevListLine && LIST_ITEM_RE.test(line))) &&
+    !(state.listOpen && INDENTED_RE.test(line)) &&
     !state.regionWorked &&
     !state.inCheck &&
     !state.unpairedTicks &&
@@ -245,8 +254,10 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
   if (fenceLine) state.answerLookahead = 0;
   else if (!state.fence && (ANSWER_OPENING_RE.test(line) || ANSWER_HEADING_IN_LINE_RE.test(line))) state.answerLookahead = ANSWER_LOOKAHEAD_LINES;
   else if (!blank) state.answerLookahead = Math.max(0, state.answerLookahead - 1);
-  state.prevListLine =
-    !blank && !fenceLine && !state.fence && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));
+  const prose = !blank && !fenceLine && !state.fence;
+  state.prevListLine = prose && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));
+  if (prose && ANY_LIST_ITEM_RE.test(line)) state.listOpen = true;
+  else if (prose && !INDENTED_RE.test(line)) state.listOpen = false;
   if (!blank) {
     state.prevBoldLabel = !state.fence && !fenceLine && BOLD_LABEL_RE.test(line);
     // Only labels before the first Given: a part after it is preprocessed as worked already.

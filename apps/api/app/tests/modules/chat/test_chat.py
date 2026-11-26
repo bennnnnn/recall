@@ -531,11 +531,12 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     raw URLs; the layout itself is the scan layout said beside the message (2026-11-26:
     "no intro paragraph", "headings only for real sections" and "the simplest structure"
     left 28 of 28 informational replies with no title and no nested list)."""
+    from app.modules.chat.message_notes import message_notes
     from app.modules.chat.prompt_constants import (
         STYLE_HINTS,
         UNIVERSAL_FORMAT_BASELINE,
     )
-    from app.modules.chat.prompt_constants.format import READER_NOTE, SCAN_LAYOUT
+    from app.modules.chat.prompt_constants.format import READER_NOTE
 
     assert "Never use decorative headings" in UNIVERSAL_FORMAT_BASELINE
     assert "Introduction, Background, Overview, Conclusion" in UNIVERSAL_FORMAT_BASELINE
@@ -547,7 +548,8 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     for banned in ("No intro paragraph", "simplest structure", "just to look structured"):
         assert banned not in UNIVERSAL_FORMAT_BASELINE
     assert "layout note" in STYLE_HINTS["balanced"]
-    assert SCAN_LAYOUT in READER_NOTE
+    user = SimpleNamespace(emoji_use="some", locale="en", custom_instructions=None)
+    assert READER_NOTE in message_notes("what are the types of science", [], user)
 
 
 def test_format_contract_is_markdown_not_ui_fences():

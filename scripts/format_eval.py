@@ -64,6 +64,9 @@ def main() -> None:
         battery.login(pro)
         for entry in entries:
             battery._reset_quota(pro)
+            # As Battery.run: a fact an earlier entry saved ("I got a new job today!") would
+            # reshape the replies after it, so each entry starts with no memory.
+            battery._clear_memory(pro)
             battery._set_location(pro, None)
             created = battery.client.post("/chats", headers=battery._headers(pro), json={})
             created.raise_for_status()

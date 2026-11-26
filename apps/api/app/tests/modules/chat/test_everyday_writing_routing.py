@@ -237,9 +237,13 @@ def test_ways_and_tips_answers_are_bold_led_numbered_lists() -> None:
     assert NON_DRAFT_TURN_HINT in parts
     # Numbered items with bold names, a long list grouped under ### subtitles ("list ways of
     # becoming smart" got 10 flat items): the one layout, said beside the message.
-    from app.modules.chat.prompt_constants.format import READER_NOTE, SCAN_LAYOUT
+    from types import SimpleNamespace
 
-    assert SCAN_LAYOUT in READER_NOTE
+    from app.modules.chat.message_notes import message_notes
+    from app.modules.chat.prompt_constants.format import READER_NOTE
+
+    user = SimpleNamespace(emoji_use="some", locale="en", custom_instructions=None)
+    assert READER_NOTE in message_notes("ways to become rich", [], user)
     assert "`###` subtitles" in FORMAT_CONTRACT
 
 
