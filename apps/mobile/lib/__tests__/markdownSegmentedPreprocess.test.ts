@@ -56,12 +56,34 @@ const INDENTED_FENCES: Reply[] = [
   // A code fence in a list item inside a worked reply: the parts still preprocess as the whole.
   ["indented-durable-then-given", ["**Speed**", "$v = d / t$", "", "- Code:", "", `  ${F}python`, "  v = d / t", `  ${F}`, "",
     "A paragraph.", "", "**Given**", "$d = 10$", "", "Done."].join("\n")],
+  // The owner's layout (2026-11-26): an item's members, indented under it past a blank line,
+  // stay its members while the reply streams, as in the whole reply.
+  ["scan-members-after-blank", ["Science splits into groups.", "", "## Types of Science", "",
+    "1. **Natural science** — the physical world.", "", "    Its main branches:",
+    "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "",
+    "2. **Social science** — people.", "    - **History**", "    - **Economics**", "", "Each has its own methods."].join("\n")],
+  ["scan-deep-bullets-after-heading", ["### Natural sciences", "    - **Physics**: matter", "    - **Chemistry**: substances",
+    "    - **Biology**: life", "", "That is the list."].join("\n")],
   ["indented-durable-between-givens", ["**Given**", "$d = 10$", "", "**Speed**", "$v = d / t$", "", "- Code:", "",
     `  ${F}python`, "  v = d / t", `  ${F}`, "", "A paragraph.", "", "**Required**", "$v$", "", "**Law of speed**", "$v = 5$", "", "Done."].join("\n")],
 ];
 
+/** An informational reply's nested members (SCAN_LAYOUT): the step repair reads the list
+ * open above them across blank lines, so no cut may fall between (review, #2601). */
+const SCAN_LAYOUT_LISTS: Reply[] = [
+  ["members-after-blank", ["1. **Natural science** — the physical world.", "", "    Its main branches:",
+    "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "",
+    "2. **Social science** — people.", "", "    - **History**", "    - **Economics**", ""].join("\n")],
+  ["members-under-heading", ["## Types of Science", "", "### Natural sciences", "",
+    "    - **Physics**: matter", "", "    - **Chemistry**: substances", "", "### Formal sciences", "",
+    "    - **Logic**", ""].join("\n")],
+  ["three-levels", ["1. **Natural**", "", "    1. **Physics**", "", "        1. Mechanics", "        2. Optics", "",
+    "    2. **Chemistry**", "", "2. **Social**", ""].join("\n")],
+];
+
 const replies: Reply[] = [
   ...INDENTED_FENCES,
+  ...SCAN_LAYOUT_LISTS,
   ...Object.entries(STREAMING_REPLIES),
   ...Object.entries(physics.replies).map(([name, entry]): Reply => [name, entry.reply]),
   ...Object.entries(chemistry.replies).map(([name, entry]): Reply => [name, entry.reply]),
@@ -205,6 +227,16 @@ describe("preprocessing a stream in parts", () => {
     expect(whole.match(/\*\*Projectile motion formula\*\* {2}\n\$/g)).toHaveLength(3);
     expect(firstDifference(reply)).toBeNull();
     expect(partsOf(reply)).toBeGreaterThanOrEqual(8);
+  });
+
+  it("draws a list's members the same streamed a line at a time as settled", () => {
+    const reply = SCAN_LAYOUT_LISTS[0]![1];
+    expect(firstDifference(reply)).toBeNull();
+    const whole = preprocessMarkdown(reply, formatAssistantMathExpr);
+    expect(preprocessSettledMarkdown(reply, streamedCache(reply), formatAssistantMathExpr)).toBe(whole);
+    // Both members stay under item 1: neither is lifted to the margin.
+    expect(whole).toContain("    - **Physics**");
+    expect(whole).toContain("    - **Chemistry**");
   });
 
   it("cuts long replies into many parts", () => {

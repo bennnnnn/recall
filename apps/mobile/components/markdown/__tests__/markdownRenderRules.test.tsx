@@ -1,4 +1,4 @@
-import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -279,7 +279,7 @@ describe("markdown render rules", () => {
     expect(queryByText("3.")).toBeNull();
   });
 
-  it("does not put a disc on a parent topic that already has sub-bullets", async () => {
+  it("gives a parent topic its disc and its sub-bullets rings", async () => {
     const md = `- **Strengths**
   - Personalized
   - Task-focused
@@ -290,9 +290,11 @@ describe("markdown render rules", () => {
     expect(getByText("Strengths")).toBeOnTheScreen();
     expect(getByText(/Personalized/)).toBeOnTheScreen();
     expect(getByText(/Pricing/)).toBeOnTheScreen();
-    expect(getAllByTestId("md-list-bullet")).toHaveLength(3);
-    // The parent keeps the disc's column, so its sub-bullets indent under it.
-    expect(getAllByTestId("md-list-bullet-spacer")).toHaveLength(1);
+    // A member's marker is a ring, so the two levels never look alike (2026-11-26).
+    const markers = getAllByTestId("md-list-bullet").map(
+      (marker) => StyleSheet.flatten((marker.props as { style?: StyleProp<ViewStyle> }).style) ?? {},
+    );
+    expect(markers.map((style) => style.borderWidth ?? 0)).toEqual([0, 1.5, 1.5, 0]);
   });
 
   it("renders a facebook fence as a post draft, not highlighted code", async () => {
@@ -1510,18 +1512,36 @@ describe("list rhythm", () => {
     ]);
   });
 
-  it("ends a nested list flush so its parent item's gap separates it", async () => {
-    const { getAllByTestId, getByTestId } = await render(
+  it("ends a nested list flush and its group with the wider group gap", async () => {
+    const { getAllByTestId } = await render(
       <MarkdownContent
         content={"- Parent\n  - child a\n  - child b\n- Last"}
       />,
     );
-    // child a, child b (nested), then Last.
+    // Parent (a group: the wider gap), child a (a member: the tight gap), child b
+    // (nested, flush), then Last.
     expect(getAllByTestId("md-list-bullet").map((b) => itemGap(b))).toEqual([
-      Space.xs,
+      Space.md,
+      Space.xxs,
       0,
       0,
     ]);
-    expect(itemGap(getByTestId("md-list-bullet-spacer"))).toBe(Space.xs);
+  });
+
+  it("keeps a numbered group's members tighter than its main items", async () => {
+    const { getAllByTestId, getByText } = await render(
+      <MarkdownContent
+        content={
+          "1. **Natural** — the world\n    - **Physics**: matter\n    - **Chemistry**: substances\n2. **Formal** — logic\n3. **Applied** — use"
+        }
+      />,
+    );
+    const members = getAllByTestId("md-list-bullet").map((b) => itemGap(b));
+    expect(members).toEqual([Space.xxs, 0]);
+    expect(["1.", "2.", "3."].map((n) => itemGap(getByText(n)))).toEqual([
+      Space.md,
+      Space.xs,
+      0,
+    ]);
   });
 });

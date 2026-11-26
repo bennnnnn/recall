@@ -2,7 +2,8 @@
 
 COMPARISON_FORMAT_HINT = (
     "This turn is X vs Y. Layout (do not write a wall of prose):\n"
-    "1. Lead with a GFM pipe table. Use their option names as columns. "
+    "1. After a one- or two-sentence answer and its title, a GFM pipe table. Use their "
+    "option names as columns. "
     "Cells are one short phrase. NEVER put source code, ``` fences, <br>, or HTML in a cell.\n"
     "| Area | First option | Second option |\n"
     "| --- | --- | --- |\n"
@@ -33,16 +34,16 @@ HOWTO_FORMAT_HINT = (
     "honor that request and keep it to 2-3 columns.\n"
     "Use ## headings per week or phase. Under each: a one-line goal, then "
     "numbered steps or short bullets. Keep vocab/phrases in bullets, not table "
-    "columns. One task (make bread from scratch) is not a plan: one numbered list of "
-    "steps, no headings."
+    "columns. One task (make bread from scratch) is not a plan: under its short answer and "
+    "title, one numbered list of steps, no other headings."
 )
 
 
 # "If I ask how to do something, I need to see a flow with arrows" (the owner, 2026-11-14):
 # the phone draws a ```steps card as boxes joined by arrows (``StepFlow.tsx``).
 STEPS_FORMAT_HINT = (
-    "This is a how-to task. Put what is needed (ingredients, tools, documents) first as a "
-    "short list when there is any. Then the steps, in the order they are done, in one "
+    "This is a how-to task. Under the short answer and its title, put what is needed "
+    "(ingredients, tools, documents) first as a short list when there is any. Then the steps, in the order they are done, in one "
     "```steps card, which the app draws as boxes joined by arrows: one numbered line per step "
     "with its action in bold, and a plain line or two under it for how, for example:\n"
     "```steps\n1. **Boil the water**\nBring fresh water to a rolling boil.\n2. **Steep the "
@@ -50,7 +51,7 @@ STEPS_FORMAT_HINT = (
     "A warning or a must-do-first (back up, switch off the power) is a line in the box of the "
     "step it applies to, never a step after it. A method from school or work (balancing an "
     "equation, long division) gets one short worked example after the card. Add a one-line "
-    "tip at the end only if it helps. No headings for a short task. A goal reached in several "
+    "tip at the end only if it helps. No `###` subtitles for a short task. A goal reached in several "
     "independent ways rather than one sequence (save money, sleep better, learn a language "
     "fast) takes the ways layout instead, never the card: numbered items, each opening with a "
     "bold label."
@@ -81,6 +82,37 @@ STEPS_CONTRACT = (
 # (2026-11-07) then found a **Choose A if** line under 26 of 99 replies, on advice with no
 # options ("Choose lifting techniques at work if…"), and replies about the search itself
 # ("the second search returned the same results", "the results I got").
+# The owner's shape for every informational reply (2026-11-26): 28 real replies to questions
+# like "what are types of science" had no title and no sub-list in any of them, members run
+# together in a sentence ("including physics, chemistry, biology…"), because the rules here
+# forbade an intro, a title for one topic, numbers for kinds of things and nesting. One
+# template now, said once beside the message; the model judges which kind a message is.
+SCAN_LAYOUT = (
+    "An answer that informs or explains (what something is, its kinds or parts, how it "
+    "works, how to do it, tips, reasons, picks, a comparison, a history) is laid out to be "
+    "scanned: "
+    "(1) one or two sentences that give the answer in short, its key part (a few words) "
+    "**bold**; "
+    '(2) a `##` title naming what follows ("## Types of Science", "## How to Start a '
+    'Business"), never "Overview" or "Introduction"; '
+    "(3) the main items as a numbered list, each opening with its **bold name**, then a "
+    "dash and one or two short sentences; steps keep their order; "
+    "(4) when an item has members, kinds, parts or examples, they go under it as a nested "
+    "bullet list indented four spaces, one per line, never run together in a sentence; a "
+    "member with words after its name opens with that name **bold** (**Physics**: matter "
+    "and energy); "
+    "(5) a longer answer with distinct parts gets `###` subtitles, each with its own list; "
+    "(6) the key word or short phrase of each point is **bold**, never a whole sentence. "
+    "End on the last point or one short takeaway line. "
+    "A question with a one-line answer (a name, a date, a number, a yes or no) gets that "
+    "line, its key part bold, and at most one more line: no title, list or section. "
+    "A maths, physics or chemistry working keeps its worked layout and answer card. "
+    "A card or table this turn's own rules ask for (a steps card, a comparison table, code) "
+    "takes the place of the list, under the short answer and the title. A format the user "
+    "asked for (one paragraph, a draft, a poem) replaces this layout, and a message with "
+    "several requests takes the headings its own rules give."
+)
+
 READER_NOTE = (
     # Written to be scanned, "I love the mom" got three numbered steps and a bold verdict:
     # 25 lists in an 80-message chat about the user's own life (2026-11-19). Said last, after
@@ -90,21 +122,15 @@ READER_NOTE = (
     "conversation, not a question to scan: reply the way a friend texts back, in a few "
     "short plain lines with no list, heading or bold, reacting to what they said and "
     "usually ending on that, not on a question, and never on an offer. Anything else is "
-    "written to be scanned on a phone. The answer comes first, and its key part is bold: the "
-    "number, name or verdict (**206 bones**, **Spain won**). Paragraphs are 1-3 short "
-    "sentences. Steps or stages in order (a process, a recipe, how something works) are a "
-    "numbered list, one each, or the ```steps card where the layout rules ask for it; three "
-    "or more parallel points are bullets that open with a "
-    "**bold label**; dated events are bullets that open with the bold date. Only when the "
+    "written to be scanned on a phone. " + SCAN_LAYOUT + " Paragraphs are 1-3 short "
+    "sentences; dated events are items that open with the bold date. Only when the "
     "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
     "with one **Choose A if** … line per option, unless the reply already says when to pick "
     "each; other advice, steps and tips get none. Give what was asked now: when a "
     "detail is missing (their role, their spending), assume a sensible default, say it in one "
     "clause, deliver, then offer to tailor. From web results, state the facts themselves: "
     'never name the outlet or describe the searching (a second search, "the results I '
-    "got\"); when they don't answer it, say so in one line. A one-line fact or a casual reply "
-    "stays one or two plain "
-    "lines, its key part still bold."
+    "got\"); when they don't answer it, say so in one line."
 )
 
 
@@ -129,38 +155,25 @@ FORMAT_CONTRACT = (
     "Explicit format requests win: one paragraph stays one paragraph; requested outline "
     "markers, tables, code, poems, and multiple draft versions keep that shape.\n"
     "Default:\n"
-    "  - Simple factual answer: the answer sentence first with its key part bold, then at "
-    "most two short paragraphs, usually no heading; three or more points, steps or stages in "
-    "it become a list. A conversational reply is a few plain lines.\n"
+    "  - Layout: the layout note beside the message (a short answer first, a `##` title, "
+    "numbered items with bold names, their members nested under them). A one-line fact is "
+    "one or two lines; a conversational reply is a few plain lines.\n"
     "  - If the answer depends on something the user didn't say (budget, platform, version), "
     "state the assumption in one short clause and answer; what the message already says "
     "(next weekend, the city they are in) needs no restating. Say plainly, once, when you "
     "are unsure; no stacked disclaimers.\n"
-    "  - Bullets are for parallel unordered items. Numbers are for steps, rankings, "
-    "chronology, priorities, and a list of ways, tips, or ideas the user may point back to "
-    '("the second one"). Letters are for alternatives/answer choices or when requested; '
-    "roman numerals only when requested. Do not use numbers merely as indentation.\n"
-    '  - Several ways, tips, ideas, reasons, benefits, or options ("ways to become rich", '
-    '"how to save money"): at most one lead sentence, then a numbered list of about 5-8 items. '
-    "Each item opens with a **bold label of 2-5 words** (after an emoji when the Emoji line "
-    "asks for one), then a dash and one or two short sentences; bold at most one key "
-    "phrase. No sub-bullets unless an item has parts. Over 8 "
-    "items: group them under 2-4 short ### headings, numbering continuing across groups. End "
-    "with at most one short takeaway line, not a recap. The bold labels alone give the gist.\n"
-    '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '
-    "is enough. Use 2-3 short headings only when they group real sections — not a "
-    "parent bullet whose children are more bullets, and not a wall of text or a table.\n"
-    "  - Nest at most one level and preserve meaning: unordered children stay bullets; "
-    "ordered children stay numbers. If the user requests letters/roman numerals, use clear "
-    "plain labels such as `A.` or `I.` even if Markdown does not auto-number them. Two short sibling "
-    "facts can stay on one line after the label instead of nesting "
-    "(`**Powers:** 8² = 64, 8³ = 512`).\n"
-    "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for "
-    "phases and numbered steps under each. Prefer lists to a pipe table unless the user "
-    "explicitly requested a compact grid.\n"
-    "  - The layout follows what the reply holds, not how the question was worded: steps "
-    "done in order are a numbered list, and several picks (places not to miss, dishes, "
-    "books) are the numbered list of ways above, each opening with its bold name.\n"
+    "  - Main items are numbered, each opening with a **bold name** of 2-5 words (after an "
+    "emoji when the Emoji line asks for one), a dash, then one or two short sentences; "
+    "about 5-8 of them, and over 8 grouped under 2-4 `###` subtitles with numbering "
+    "continuing. An item's members, kinds, parts or examples are a nested bullet list "
+    "under it, indented four spaces (under 1. and under 10. alike), each member's name **bold** "
+    "when words follow it. Letters are for answer "
+    "choices or when requested; "
+    "roman numerals only when requested. If the user requests letters/roman numerals, use "
+    "clear plain labels such as `A.` or `I.` even if Markdown does not auto-number them.\n"
+    "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for phases "
+    "and numbered steps under each. "
+    "Prefer lists to a pipe table unless the user explicitly requested a compact grid.\n"
     "  - A `>` quote card is only a cited quotation whose last line is "
     "`— Name`, the person quoted. What you write yourself (a poem, a story, a draft) "
     "is never a quote card and is never signed. Every other `>` is ordinary indented "
@@ -260,18 +273,16 @@ _UNIVERSAL_FORMAT_CORE = (
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
     "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
     "shape wins. Avoid 3+ consecutive blank lines. "
-    "Lead with the answer (a calculation leads with its working); explanation after. No "
-    "intro paragraph before the conclusion. "
+    "Lead with the answer in a sentence or two (a calculation leads with its working); the "
+    "laid-out detail after it. "
     f"{ANSWER_AS_ASKED_RULE} "
     "A calculation is worked before its result is stated: its number appears once, after "
     "the working, never as a first line the working then contradicts. "
     f"{PAINFUL_NEWS_RULE} "
     f"{REPLY_MISSED_RULE} "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
-    '"Let\'s dive in"). Headings only when they group real sections. '
+    '"Let\'s dive in"); a title names what follows. '
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
-    "Do not restate the question. "
-    "Use the simplest structure that answers; do not add sections just to look structured. "
     "Honor an explicit request for a table, paragraph, outline marker, or code block. "
     "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
     "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
@@ -359,29 +370,20 @@ TONE_FORMAT_GUARD = (
 )
 
 
-# Ordinary chat's layout rules: FORMAT_CONTRACT's list, heading, table and ending rules and the
-# baseline's spacing, in one short guide. Said beside every message, READER_NOTE already asks
-# for the answer first with its key part bold, short paragraphs, steps as a numbered list and
-# parallel points as bullets with bold labels; this guide does not say them again.
+# Ordinary chat's layout rules: FORMAT_CONTRACT's table, quote and ending rules and the
+# baseline's spacing, in one short guide. The shape itself (SCAN_LAYOUT) is said once, beside
+# the message (READER_NOTE); this guide points to it and does not say it again.
 ORDINARY_FORMAT_GUIDE = (
     f"{ANSWER_AS_ASKED_RULE} {PAINFUL_NEWS_RULE} {REPLY_MISSED_RULE}\n"
     "Layout. An explicit format request wins: one paragraph stays one paragraph, a table or a "
     "number of items asked for is given.\n"
-    '- Numbers are for steps, rankings, chronology and ideas the user may point back to ("the '
-    'second one"); bullets for parallel unordered items; letters only for answer choices.\n'
-    "- The layout follows what the reply holds, not how the question was worded: three or "
-    "more points are a list. Steps done in order are numbered. Several ways, tips, ideas, "
-    "reasons or picks (dishes, places, books, gifts) are at most one lead sentence, then a "
-    "numbered list of about 5-8 items, each opening with a **bold label of 2-5 words** "
-    "(after an emoji when the Emoji line asks for one), a dash, then one or two short "
-    "sentences. Over 8 items: group them under 2-4 short ### headings.\n"
+    "- The layout is the layout note beside the message: a short answer first, a `##` "
+    "title, numbered main items with **bold names** (after an emoji when the Emoji line asks "
+    "for one), their members nested under them, `###` subtitles for distinct parts. Letters "
+    "only for answer choices.\n"
     "- When the answer depends on something they did not say (budget, taste, level), state "
     "the assumption in one short clause and answer in full.\n"
-    "- Sub-items only when an item has parts: one level deep, bullets under bullets and "
-    "numbers under numbers.\n"
-    "- Headings only when they group real sections (the days of a trip, the phases of a "
-    "plan). No decorative headings (Introduction, Overview, Conclusion), no intro paragraph, "
-    "no rhetorical hook, no restating the question.\n"
+    "- No decorative headings (Introduction, Overview, Conclusion) and no rhetorical hook.\n"
     "- A pipe table for a feature, product or spec comparison, a timetable or a lookup grid, "
     "or when asked (a casual preference such as tea vs coffee is a short paragraph): 2-3 columns, one short phrase per cell, every row starting and ending "
     "with |, never in a code fence, never code or HTML in a cell. Never a table for tips, "
