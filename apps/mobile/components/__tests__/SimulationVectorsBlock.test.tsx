@@ -7,7 +7,8 @@
 import { render } from "@testing-library/react-native";
 
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
-import { parseSimulationSpec } from "@/lib/physics/simulation";
+import fr from "@/lib/i18n/fr.json";
+import { parseSimulationSpec, sceneTitle } from "@/lib/physics/simulation";
 
 const HIDDEN = { includeHiddenElements: true };
 
@@ -82,10 +83,18 @@ const WALK = JSON.stringify({
 });
 
 describe("SimulationBlock: arrows a reply describes", () => {
-  it("reads every picture with its translatable title", () => {
-    expect(parseSimulationSpec(JUNCTION)?.titleKey).toBe("before_collision");
-    expect(parseSimulationSpec(AFTER)?.titleKey).toBe("after_collision");
-    expect(parseSimulationSpec(WALK)?.titleKey).toBe("displacements");
+  it("titles every picture by its key, in the reader's language", () => {
+    // French, so the title cannot be the English one the fixture also carries.
+    const words = fr as Record<string, string>;
+    const t = (key: string) => words[key] ?? key;
+    const title = (content: string) => {
+      const spec = parseSimulationSpec(content);
+      if (!spec) throw new Error("fixture did not parse");
+      return sceneTitle(spec, t);
+    };
+    expect(title(JUNCTION)).toBe("Avant la collision");
+    expect(title(AFTER)).toBe("Après la collision");
+    expect(title(WALK)).toBe("Déplacements");
   });
 
   it("draws two cars at a junction, each with its velocity riding on it", async () => {
@@ -105,11 +114,15 @@ describe("SimulationBlock: arrows a reply describes", () => {
   });
 
   it("draws the cars moving off as one, with the angle off the west axis", async () => {
-    const { getAllByTestId, getByTestId } = await render(<SimulationBlock content={AFTER} />);
+    const { getAllByTestId, getByTestId, getByLabelText } = await render(
+      <SimulationBlock content={AFTER} />,
+    );
 
     expect(getAllByTestId("simulation-body", HIDDEN)).toHaveLength(1);
     expect(getAllByTestId("simulation-vector-motion", HIDDEN)).toHaveLength(1);
     expect(getByTestId("simulation-angle-result", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-angle-label", HIDDEN)).toBeTruthy();
+    expect(getByLabelText(/12\.55 m\/s/)).toBeTruthy();
   });
 
   it("builds a walk leg by leg, its resultant last", async () => {
@@ -118,5 +131,9 @@ describe("SimulationBlock: arrows a reply describes", () => {
     expect(getAllByTestId("simulation-vector-force", HIDDEN)).toHaveLength(2);
     expect(getAllByTestId("simulation-vector-result", HIDDEN)).toHaveLength(1);
     expect(getByLabelText(/3 km north; 4 km east/)).toBeTruthy();
+    // One leg a stage, the resultant last.
+    for (const turn of [0, 1, 2]) {
+      expect(getAllByTestId(`simulation-vector-turn-${turn}`, HIDDEN)).toHaveLength(1);
+    }
   });
 });

@@ -131,8 +131,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # physics' contract for the question's own arrows (VECTORS_DRAW_CONTRACT) and its table-pulley
 # scene (two cars at a junction drew nothing, live, 2026-11-25).
 _RULES = 224
-_RULE_GRAMS = 21133
-_RULE_GRAMS_SHA = "a78ffa499cf181d4"
+_RULE_GRAMS = 21146
+_RULE_GRAMS_SHA = "3f5b35177b967e72"
 
 
 def _rules() -> list[str]:

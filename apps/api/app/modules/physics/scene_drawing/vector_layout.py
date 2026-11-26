@@ -28,7 +28,9 @@ from app.modules.physics.schemas.scene_titles import TitleKey
 from app.services.law_binding.givens import Given
 from app.services.rounding_rule import number_parts
 
-_SI_UNITS = {"velocity": "m/s", "force": "N", "displacement": "m", "momentum": "kg m/s"}
+# The SI unit of each quantity a picture draws: the unit its values are compared in, and the
+# one a worked-out size is written in when the question states its values in several.
+SI_UNITS = {"velocity": "m/s", "force": "N", "displacement": "m", "momentum": "kg m/s"}
 _TITLES: dict[str, tuple[str, TitleKey]] = {
     "velocity": ("Velocities", "velocities"),
     "force": ("Forces", "forces"),
@@ -45,6 +47,9 @@ _RADIUS = 0.16
 _REACH = 1.0
 _QUEUE = 0.9
 _MOST_STAGE = 5
+_AXIS_INSET = 0.04
+# Momenta that cancel to this share of their sizes leave the bodies at rest.
+_AT_REST = 1e-9
 
 
 @dataclass(frozen=True)
@@ -96,7 +101,8 @@ def laid_out(
     collide), or the arrows from one point or head to tail."""
     if layout == "bodies":
         scenes = [_bodies(arrows, quantity, question)]
-        return [*scenes, _after(arrows)] if after else scenes
+        moving_off = _after(arrows) if after else None
+        return [*scenes, moving_off] if moving_off is not None else scenes
     return [_summed(arrows, layout == "chain", quantity, resultant)]
 
 
@@ -160,30 +166,35 @@ def _body_label(arrow: Arrow) -> str | None:
 
 def _axes(x0: float, x1: float, y0: float, y1: float, compass: bool) -> SimulationAxes:
     """Axes through the meeting point, inside the frame: N and E for a compass picture."""
-    inset = 0.08
+    # In from the frame's edge by a share of its size: a picture of 0.2 N or of centimetres
+    # is as wide as a fixed inset (review, #2593).
+    across, up = (x1 - x0) * _AXIS_INSET, (y1 - y0) * _AXIS_INSET
     return SimulationAxes(
         origin=[0.0, 0.0],
-        x=[x0 + inset, x1 - inset],
-        y=[y0 + inset, y1 - inset],
+        x=[min(x0 + across, 0.0), max(x1 - across, 0.0)],
+        y=[min(y0 + up, 0.0), max(y1 - up, 0.0)],
         x_label="E" if compass else "x",
         y_label="N" if compass else "y",
     )
 
 
-def _after(arrows: Sequence[Arrow]) -> SimulationBlockSpec:
+def _after(arrows: Sequence[Arrow]) -> SimulationBlockSpec | None:
     """The bodies as one after they stick: momentum shared, so their velocity is the sum of
-    m·v over the sum of the masses, worked out here from the stated values."""
-    total = sum(a.mass.si if a.mass and a.mass.si is not None else 0.0 for a in arrows)
-    px = sum((a.mass.si or 0.0) * a.si * a.unit[0] for a in arrows if a.mass)
-    py = sum((a.mass.si or 0.0) * a.si * a.unit[1] for a in arrows if a.mass)
+    m·v over the sum of the masses, worked out here from the stated values; None when the
+    momenta cancel (2 kg at 3 m/s against 3 kg at 2 m/s): at rest, there is no arrow to draw,
+    and a float's 1e-16 m/s is no velocity."""
+    momenta = [(_kg(a) * a.si * a.unit[0], _kg(a) * a.si * a.unit[1]) for a in arrows]
+    px, py = sum(p[0] for p in momenta), sum(p[1] for p in momenta)
+    total = sum(_kg(a) for a in arrows)
+    scale = sum(math.hypot(*p) for p in momenta)
+    if total <= 0.0 or math.hypot(px, py) <= _AT_REST * scale:
+        return None
     vx, vy = px / total, py / total
     speed = math.hypot(vx, vy)
-    if speed == 0.0:
-        raise ValueError("the bodies stop: no velocity to draw")
     compass = any(a.compass for a in arrows)
     named = [a.name for a in arrows if a.name]
     names = " and ".join(named) or "The bodies"
-    label = f"{_card(speed)} m/s"
+    label = in_stated_unit(speed, arrows, "velocity")
     together = " + ".join(named) if len(named) == len(arrows) else ""
     body = SimulationBody(
         path=[[0.0, 0.0], [0.0, 0.0]], radius=_RADIUS * 1.3, label=together[:32] or None
@@ -213,6 +224,13 @@ def _after(arrows: Sequence[Arrow]) -> SimulationBlockSpec:
         axes=_axes(-1.2, 1.2, -1.2, 1.2, compass),
         alt=f"{names} move off together at {label}"[:300],
     )
+
+
+def _kg(arrow: Arrow) -> float:
+    mass = arrow.mass
+    if mass is None:
+        return 0.0
+    return mass.si if mass.si is not None else mass.value
 
 
 def _off_axis(ux: float, uy: float, compass: bool) -> list[SimulationAngle]:
@@ -259,7 +277,7 @@ def _summed(
     sy = sum(v.dy for v in vectors)
     angles: list[SimulationAngle] = []
     if resultant and math.hypot(sx, sy) > 1e-9 * max(a.si for a in arrows):
-        size = _in_stated_unit(math.hypot(sx, sy), arrows, quantity)
+        size = in_stated_unit(math.hypot(sx, sy), arrows, quantity)
         vectors.append(
             SimulationVector(
                 anchor=[0.0, 0.0],
@@ -294,13 +312,13 @@ def _summed(
     )
 
 
-def _in_stated_unit(si: float, arrows: Sequence[Arrow], quantity: str) -> str:
+def in_stated_unit(si: float, arrows: Sequence[Arrow], quantity: str) -> str:
     """A worked-out size in the unit the question states its values in, when it uses one."""
     units = {arrow.given.unit for arrow in arrows}
     first = arrows[0]
     if len(units) == 1 and first.given.unit and first.si:
         return f"{_card(si * first.given.value / first.si)} {first.given.unit}"
-    return f"{_card(si)} {_SI_UNITS[quantity]}"
+    return f"{_card(si)} {SI_UNITS[quantity]}"
 
 
 def _resultant_angle(first: Arrow, sx: float, sy: float, stage: int) -> list[SimulationAngle]:

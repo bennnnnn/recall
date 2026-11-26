@@ -68,19 +68,23 @@ class Stated:
     def take(self, written: str, sample: str) -> Given | None:
         """The stated quantity ``written`` names ("20 m/s", "0.25"), of the kind ``sample``'s
         unit is ("m/s"; "" for a pure number), taken so no other part uses it."""
+        for given in self.equal_to(written, sample):
+            self.left.remove(given)
+            self.taken.append(given)
+            return given
+        return None
+
+    def equal_to(self, written: str, sample: str) -> list[Given]:
+        """Every stated quantity not yet taken that ``written`` names, of ``sample``'s kind, in
+        the question's order: "20 m/s" twice when two cars travel at 20 m/s."""
         read = list(read_givens(_plain(written), PHYSICS_UNITS))
         if len(read) != 1:
-            return None
+            return []
         (value,) = read
         kind = dimension_of(sample)
         if value.dimension != kind:
-            return None
-        for given in self.left:
-            if given.dimension == kind and _same(given, value):
-                self.left.remove(given)
-                self.taken.append(given)
-                return given
-        return None
+            return []
+        return [given for given in self.left if given.dimension == kind and _same(given, value)]
 
     def take_air(self) -> Given | None:
         """A stated index of 1.00, air's, which a refraction from air need not name."""

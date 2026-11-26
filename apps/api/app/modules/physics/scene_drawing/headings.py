@@ -1,16 +1,20 @@
 """The directions a question states, each read as an angle and tied to the value it goes with.
 
 A vector picture's arrows point where the question says: "20 m/s due North", "16 m/s to the
-left", "12 m/s on a heading 30° east of north", "a force of 20 N at 30° above the
-horizontal", "a bearing of 060°". Each direction the question writes is read as an angle
-(degrees counter-clockwise from east, which is also "to the right"; north is up) and given
-to the stated quantity it describes: the nearest one in its own clause ("Car B travels due
-West along the other road at 16 m/s"), else in its sentence ("swims due north at 1.5 m/s
-across a river flowing due east at 2 m/s" gives north to 1.5 m/s and east to 2 m/s). A
-direction a description names for an arrow is drawn only when it is one the question gives
-that arrow's value (``vectors``). A description's own direction is read by the same grammar
-(``read_heading``), and may also name an angle to an earlier arrow ("90° to F1"), which the
-question must state ("at right angles", "perpendicular", "90°").
+left", "moving left at 3 m/s", "12 m/s on a heading 30° east of north", "a force of 20 N at
+30° above the horizontal", "a bearing of 060°". Each direction the question writes is read
+as the angle the arrow points (degrees counter-clockwise from east, which is also "to the
+right"; north is up). A wind or a current is named for where it comes from: "a wind from
+the west", "a west wind", "a westerly" all point east (review, #2593). Each direction is
+given to the stated quantity it describes (``owner``): the nearest one in its own clause
+("Car B travels due West along the other road at 16 m/s"), else in its sentence ("swims due
+north at 1.5 m/s across a river flowing due east at 2 m/s" gives north to 1.5 m/s and east
+to 2 m/s); "20 m/s and 16 m/s due north and due west respectively" pairs them in order. The
+same tie holds a body's mass and name to its own value (``vectors``). A direction a
+description names for an arrow is drawn only when it is one the question gives that arrow's
+value. A description's own direction is read by the same grammar (``read_heading``), and may
+also name an angle to an earlier arrow ("90° to F1"), which the question must state ("at
+right angles", "perpendicular", "90°").
 """
 
 from __future__ import annotations
@@ -27,6 +31,9 @@ _LETTERS = {"e": "east", "n": "north", "w": "west", "s": "south"}
 # A number starts where its digits start, never inside a run of them: a long run is read once.
 _NUMBER = r"(?<![\d.])(\d+(?:\.\d+)?)\s*(?:°|º|˚|deg(?:rees?)?\b)"
 _POINT = r"(north|south|east|west)"
+# What may lead a compass point and still name where the arrow points: "due north", "to the
+# north", "towards the east", "heading north" (a description copies the question's words).
+_LEAD = r"(?:(?:to|towards?)\s+(?:the\s+)?|heading\s+(?:due\s+)?|due\s+)?"
 # "30° north of east": from east, turned 30° toward north.
 _OF = re.compile(rf"{_NUMBER}\s*(?:to\s+the\s+)?{_POINT}\s+of\s+(?:due\s+)?{_POINT}", re.I)
 # "N 30° E", "S45°W": from north, turned 30° toward east.
@@ -38,19 +45,30 @@ _HORIZONTAL = re.compile(
     rf"{_NUMBER}\s*(above|below)\s+the\s+horizontal(\s+(?:to\s+the\s+|towards?\s+the\s+)?left)?",
     re.I,
 )
-# "north-east", "northwest": halfway between two points.
-_BETWEEN = re.compile(r"\b(north|south)[\s-]?(east|west)(?:wards?|ern|erly)?\b", re.I)
+# "north-east", "northwest": halfway between two points. "-erly" is where a wind comes from.
+_BETWEEN = re.compile(rf"\b{_LEAD}(north|south)[\s-]?(east|west)(?:wards?|ern|(erly))?\b", re.I)
 _HALFWAY = {
     ("north", "east"): 45.0,
     ("north", "west"): 135.0,
     ("south", "west"): 225.0,
     ("south", "east"): 315.0,
 }
-# "due North", "northward", "to the north", "west".
-_COMPASS = re.compile(r"\b(?:due\s+)?(north|south|east|west)(?:wards?|bound)?\b", re.I)
+# "due North", "northward", "to the north", "west"; "northerly" is where a wind comes from.
+_COMPASS = re.compile(rf"\b{_LEAD}(north|south|east|west)(?:wards?|bound|(erly))?\b", re.I)
+# A wind or a current named for where it comes from: "from the west", "a north wind".
+_FROM = re.compile(r"\bfrom\s+(?:the\s+)?(?:due\s+)?$", re.I)
+_WIND = re.compile(r"\s*(?:winds?|breezes?|gales?)\b", re.I)
 _SCREEN = re.compile(
     r"\b(?:to(?:wards)?\s+the\s+(right|left)|(right|left)wards?|(up|down)wards?"
     r"|(?:vertically|straight)\s+(up|down)(?:wards?)?)\b",
+    re.I,
+)
+# A bare side after a verb of motion: "a ball moving left at 3 m/s", "rolls right".
+_MOVES_SIDE = re.compile(
+    r"\b(?:mov(?:e|es|ed|ing)|travel(?:s|led|ling|ed|ing)?|roll(?:s|ed|ing)?|go(?:es|ing)?"
+    r"|head(?:s|ed|ing)?|slid(?:e|es|ing)|run(?:s|ning)?|drift(?:s|ed|ing)?|fl(?:y|ies|ying)"
+    r"|swim(?:s|ming)?|walk(?:s|ed|ing)?|driv(?:e|es|ing)|push(?:es|ed)?|pull(?:s|ed)?)"
+    r"\s+(left|right)(?:wards?)?\b",
     re.I,
 )
 _SCREEN_ANGLES = {"right": 0.0, "up": 90.0, "left": 180.0, "down": 270.0}
@@ -62,13 +80,16 @@ _RELATIVE = re.compile(
 )
 # Where a clause ends inside a sentence: a comma, a semicolon, a joining word.
 _CLAUSE = re.compile(r"[,;:]|\b(?:and|while|whilst|whereas|but|then)\b", re.I)
-_SENTENCE = re.compile(r"[.?!](?!\d)|\n")
+# Where a sentence ends: a stop not inside a number, or a blank line. A single line break is
+# a pasted question's hard wrap, inside its sentence.
+_SENTENCE = re.compile(r"[.?!](?!\d)|\n\s*\n")
+_RESPECTIVELY = re.compile(r"\brespectively\b", re.I)
 
 
 @dataclass(frozen=True)
 class Mention:
-    """One direction the question writes: its angle, where it is, and whether it names a
-    compass point (north is up) or a side of the page (right, up)."""
+    """One direction the question writes: the angle it points, where it is, and whether it
+    names a compass point (north is up) or a side of the page (right, up)."""
 
     angle: float
     start: int
@@ -92,18 +113,35 @@ def _turned(base: str, toward: str, by: float) -> float | None:
     return (start + math.copysign(by, step)) % 360.0
 
 
+def _comes_from(text: str, match: re.Match[str], erly: str | None) -> bool:
+    """The direction names where a wind or a current comes from, so it points the other way:
+    "from the west", "a west wind", "a north-easterly"."""
+    before = text[max(0, match.start() - 16) : match.start()]
+    return (
+        bool(erly) or _FROM.search(before) is not None or _WIND.match(text, match.end()) is not None
+    )
+
+
 def _found(text: str) -> list[Mention]:
     """Every direction ``text`` writes, a longer form before the words inside it."""
     found: list[Mention] = []
     taken: list[tuple[int, int]] = []
 
-    def add(angle: float | None, match: re.Match[str], compass: bool) -> None:
+    def add(
+        angle: float | None, match: re.Match[str], compass: bool, erly: str | None = None
+    ) -> None:
         if angle is None or any(
             match.start() < end and start < match.end() for start, end in taken
         ):
             return
-        taken.append((match.start(), match.end()))
-        found.append(Mention(angle % 360.0, match.start(), match.end(), compass))
+        if _comes_from(text, match, erly):
+            angle += 180.0
+        # "a north wind of 3 m/s": the wind's words are the mention's, so its value is the
+        # one after them, not the boat's before.
+        wind = _WIND.match(text, match.end())
+        end = wind.end() if wind is not None else match.end()
+        taken.append((match.start(), end))
+        found.append(Mention(angle % 360.0, match.start(), end, compass))
 
     for m in _OF.finditer(text):
         add(_turned(m.group(3), m.group(2), float(m.group(1))), m, True)
@@ -119,13 +157,20 @@ def _found(text: str) -> list[Mention]:
         up = float(m.group(1)) if m.group(2).lower() == "above" else -float(m.group(1))
         add(180.0 - up if m.group(3) else up, m, False)
     for m in _BETWEEN.finditer(text):
-        add(_HALFWAY[(m.group(1).lower(), m.group(2).lower())], m, True)
+        add(_HALFWAY[(m.group(1).lower(), m.group(2).lower())], m, True, m.group(3))
     for m in _COMPASS.finditer(text):
-        add(_POINTS[m.group(1).lower()], m, True)
+        add(_POINTS[m.group(1).lower()], m, True, m.group(2))
     for m in _SCREEN.finditer(text):
         side = next(group for group in m.groups() if group)
         add(_SCREEN_ANGLES[side.lower()], m, False)
+    for m in _MOVES_SIDE.finditer(text):
+        add(_SCREEN_ANGLES[m.group(1).lower()], m, False)
     return sorted(found, key=lambda mention: mention.start)
+
+
+def writes_a_direction(text: str) -> bool:
+    """``text`` writes any direction this grammar reads."""
+    return bool(_found(text))
 
 
 def _bounds(text: str, at: int, pattern: re.Pattern[str]) -> tuple[int, int]:
@@ -134,30 +179,61 @@ def _bounds(text: str, at: int, pattern: re.Pattern[str]) -> tuple[int, int]:
     return start, after.start() if after is not None else len(text)
 
 
-def _gap(mention: Mention, given: Given, text_end: int) -> int:
-    if given.start >= mention.end:
-        return given.start - mention.end
-    return max(0, mention.start - text_end)
+def sentence_at(text: str, at: int) -> tuple[int, int]:
+    """Where the sentence holding ``at`` starts and ends."""
+    return _bounds(text, at, _SENTENCE)
+
+
+def _gap(start: int, end: int, given: Given, given_end: int) -> int:
+    if given.start >= end:
+        return given.start - end
+    return max(0, start - given_end)
+
+
+def owner(
+    text: str, start: int, end: int, givens: Sequence[Given], ends: Sequence[int]
+) -> Given | None:
+    """The given that the words at ``start:end`` (a direction, a mass, a name) describe: the
+    nearest in their clause, else in their sentence; None when their sentence has none."""
+    sentence = _bounds(text, start, _SENTENCE)
+    clause = _bounds(text, start, _CLAUSE)
+    clause = (max(clause[0], sentence[0]), min(clause[1], sentence[1]))
+    spans = list(zip(givens, ends, strict=True))
+    for low, high in (clause, sentence):
+        near = [(g, e) for g, e in spans if low <= g.start and e <= high]
+        if near:
+            return min(near, key=lambda pair: _gap(start, end, pair[0], pair[1]))[0]
+    return None
+
+
+def _respective(text: str, mentions: list[Mention], givens: Sequence[Given]) -> dict[int, Given]:
+    """In a sentence that says "respectively", its directions paired with its values in
+    order ("20 m/s and 16 m/s due north and due west respectively"), when they are as many:
+    each direction's start to its value."""
+    paired: dict[int, Given] = {}
+    for found in _RESPECTIVELY.finditer(text):
+        low, high = _bounds(text, found.start(), _SENTENCE)
+        here = [m for m in mentions if low <= m.start < high]
+        values = sorted((g for g in givens if low <= g.start < high), key=lambda g: g.start)
+        if len(here) == len(values) > 1:
+            paired.update({m.start: g for m, g in zip(here, values, strict=True)})
+    return paired
 
 
 def stated_headings(
     text: str, givens: Sequence[Given], ends: Sequence[int]
 ) -> dict[int, list[Mention]]:
-    """The directions ``text`` gives each of ``givens`` (keyed by its start), each the
-    nearest value in the direction's clause, else in its sentence. ``ends`` is where each
-    given's unit ends."""
+    """The directions ``text`` gives each of ``givens`` (keyed by its start). ``ends`` is
+    where each given's unit ends."""
     heads: dict[int, list[Mention]] = {}
-    spans = list(zip(givens, ends, strict=True))
-    for mention in _found(text):
-        sentence = _bounds(text, mention.start, _SENTENCE)
-        clause = _bounds(text, mention.start, _CLAUSE)
-        clause = (max(clause[0], sentence[0]), min(clause[1], sentence[1]))
-        for low, high in (clause, sentence):
-            near = [(g, end) for g, end in spans if low <= g.start and end <= high]
-            if near:
-                given, _end = min(near, key=lambda pair: _gap(mention, pair[0], pair[1]))
-                heads.setdefault(given.start, []).append(mention)
-                break
+    mentions = _found(text)
+    respective = _respective(text, mentions, givens)
+    for mention in mentions:
+        given = respective.get(mention.start) or owner(
+            text, mention.start, mention.end, givens, ends
+        )
+        if given is not None:
+            heads.setdefault(given.start, []).append(mention)
     return heads
 
 
@@ -173,8 +249,12 @@ def read_heading(written: str) -> Mention | Relative | None:
     if side is not None:  # "left", "up": a side of the page, as a description writes it
         return Mention(side, 0, len(words), compass=False)
     found = _found(words)
-    # The whole of it one direction: "due north", "30° east of north", never "north, then".
-    if len(found) != 1 or found[0].end - found[0].start < len(words) - 1:
+    # The whole of it one direction: "due north", "30° east of north", "from the west",
+    # never "north, then east".
+    if len(found) != 1:
+        return None
+    spare = words[: found[0].start] + words[found[0].end :]
+    if re.sub(r"\b(?:from|the|winds?|breezes?)\b", "", spare, flags=re.I).strip(" ,"):
         return None
     return found[0]
 

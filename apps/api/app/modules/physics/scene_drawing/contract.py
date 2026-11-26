@@ -64,12 +64,14 @@ VECTORS_DRAW_CONTRACT = (
     '"<the body or force as the question names it>","size":"<its value with its unit, as '
     'the question states it>","direction":"<as the question states it for that value: '
     "north, south-west, 30° east of north, N30°E, bearing 060°, left, right, up, down, 30° "
-    "above the horizontal; or 90° to <an earlier arrow's name> for an angle the question "
+    "above the horizontal, a wind from the west; or 90° to <an earlier arrow's name> for an "
+    "angle the question "
     'states between them; left out when it states none>","mass":"<the body\'s mass as '
     'stated; bodies only>"}],"resultant":true (tail or chain, when the question asks for '
     'the resultant),"after":"together" (bodies, when they stick together after colliding)}. '
     "Every arrow of that quantity the question gives a direction, never a value you worked "
-    "out; the app works out and draws the rest."
+    "out, and for bodies only their velocities before they collide; the app works out and "
+    "draws the rest."
 )
 
 # Beside a physics message asking to see a graph against time: the motion in stages, which
