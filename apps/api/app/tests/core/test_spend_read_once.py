@@ -95,3 +95,38 @@ async def test_work_nobody_waits_on_skips_at_the_cap_or_in_an_outage(
     check: AsyncMock, reason: str | None
 ) -> None:
     assert await spend_pause_reason(check, AsyncMock(), _CAPPED) == reason
+
+
+@pytest.mark.asyncio
+async def test_a_cap_crossed_mid_turn_stops_the_turn_s_later_extras(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The turn's checks share one read only for ``TURN_SPEND_SHARED_SECONDS``: its tool loop
+    and follow-ups, later, see a cap this turn or another crossed meanwhile, and a Redis
+    error then counts as over the cap (docs/PRODUCTION.md; review of #2592)."""
+    from app.core import spend_counter
+
+    clock = [100.0]
+    monkeypatch.setattr(spend_counter, "_monotonic", lambda: clock[0])
+    redis = _CountingRedis(0)
+
+    async def turn() -> list[str | None]:
+        readings.begin_turn()
+        admitted = await spend_pause_reason(global_spend_exceeded, redis, _CAPPED)  # type: ignore[arg-type]
+        redis.spent = 2_000_000  # the cap is crossed while the reply streams
+        alongside = await spend_pause_reason(global_spend_exceeded, redis, _CAPPED)  # type: ignore[arg-type]
+        clock[0] += 5.0  # the follow-ups, after the reply
+        later = await spend_pause_reason(global_spend_exceeded, redis, _CAPPED)  # type: ignore[arg-type]
+        redis.down = True
+        clock[0] += 5.0
+        outage = await spend_pause_reason(global_spend_exceeded, redis, _CAPPED)  # type: ignore[arg-type]
+        return [admitted, alongside, later, outage]
+
+    answers = await contextvars.copy_context().run(asyncio.ensure_future, turn())
+    assert answers == [
+        None,
+        None,  # read together with the admission: the same read
+        "global spend cap",
+        "global spend unreadable (Redis down)",
+    ]
+    assert redis.gets == 3

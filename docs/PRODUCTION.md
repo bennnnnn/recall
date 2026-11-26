@@ -776,7 +776,9 @@ Once the day's total reaches the cap, until 00:00 UTC:
   "… temporarily unavailable";
 - background model jobs, the tool loop and follow-up questions are skipped.
 
-A Redis error counts as over the cap (fail closed). Known gap: the tool rounds
+A Redis error counts as over the cap (fail closed). A turn's checks made together
+(its admission and the reads it starts beside the reply) share one read for a second
+(`TURN_SPEND_SHARED_SECONDS`); its tool loop, follow-ups and jobs read again. Known gap: the tool rounds
 of a turn that ends in a generated image are not charged (the image is).
 
 **Daily tokens.** A turn reserves its estimate (the message plus

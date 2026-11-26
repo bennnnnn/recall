@@ -14,6 +14,7 @@ Redis errors fail closed, so nothing spends while the meter is blind, and say so
 import asyncio
 import logging
 import math
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
 
@@ -82,20 +83,30 @@ async def global_spend_exceeded(redis: Redis, settings: Settings) -> bool:
 
 # The turn's one read of today's spend (``core.readings.keep_for_turn``).
 _TURN_SPEND_READ = "global_spend_read"
+# How long a turn's checks share one read: the reads a turn starts together (its admission,
+# live read, figure, chart and formal reads) share it; a later check (the tool loop after
+# the prompt is built, the follow-ups and jobs after the reply) reads again, so a cap
+# crossed mid-turn, or Redis failing, stops the turn's extras as docs/PRODUCTION.md says
+# (review of #2592).
+TURN_SPEND_SHARED_SECONDS = 1.0
+
+
+def _monotonic() -> float:
+    return time.monotonic()
 
 
 async def _spend_this_turn(redis: Redis) -> int:
-    """Today's spend, read once per chat turn: its admission, its live read, its figure,
-    chart and formal reads, its tool loop, its follow-ups and its post-turn jobs each read
-    the same key, about six GETs a turn (audit, 2026-11-25). The turn's reads share the
-    first one, a reply's own cost landing in the next turn's read; outside a turn (a job,
-    an HTTP request) each check reads it."""
-    read = kept_for_turn(_TURN_SPEND_READ)
-    if read is None:
-        read = asyncio.ensure_future(get_global_spend_micro_usd(redis))
-        keep_for_turn(_TURN_SPEND_READ, read)
+    """Today's spend, one read for the checks a chat turn makes together: its admission and
+    the reads it starts beside the reply each read the same key, about six GETs a turn
+    (audit, 2026-11-25). A check more than ``TURN_SPEND_SHARED_SECONDS`` after the turn's
+    read reads again; outside a turn (a job, an HTTP request) each check reads it."""
+    kept = kept_for_turn(_TURN_SPEND_READ)
+    now = _monotonic()
+    if kept is None or now - kept[0] > TURN_SPEND_SHARED_SECONDS:
+        kept = (now, asyncio.ensure_future(get_global_spend_micro_usd(redis)))
+        keep_for_turn(_TURN_SPEND_READ, kept)
     # Shielded: a caller that is stopped never cancels the read the others wait on.
-    spent: int = await asyncio.shield(read)
+    spent: int = await asyncio.shield(kept[1])
     return spent
 
 
