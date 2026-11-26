@@ -17,6 +17,7 @@ from app.modules.billing.plan import (
     model_pool,
     override_pool,
     pick_cheapest_from_pool,
+    pick_for_plan,
 )
 from app.modules.chat.model_routing.route import resolve_alias_in_pool
 from app.modules.chat.model_routing.thinking import escalation_model, thinks_on_escalate
@@ -42,7 +43,7 @@ def resolve_user_model(
     one is left in the pool.
     """
     pool = model_pool(user, settings)
-    if is_auto_enabled(user):
+    if is_auto_enabled(user, settings):
         routed = resolve_alias_in_pool(
             AUTO_ALIAS,
             content,
@@ -106,8 +107,10 @@ def resolve_user_model_override(
     A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
     only if it's a concrete alias the user has enabled (and their plan allows).
     ``auto`` and ``None`` route within the Settings pool. A concrete alias
-    that is not in that pool raises rather than silently switching models.
+    that is not in that pool raises rather than silently switching models, unless the plan
+    no longer includes it (``pick_for_plan``): then the turn routes as Auto.
     """
+    model_alias = pick_for_plan(user, model_alias, settings)
     if is_explicit_pick(model_alias):
         if model_alias not in override_pool(user, settings):
             raise UnknownModelOverrideError(model_alias)
@@ -146,6 +149,7 @@ def resolve_regenerate_model(
     or failing). Pro's stronger everyday model thinks there itself and keeps the turn.
     """
     pool = override_pool(user, settings)
+    model_alias = pick_for_plan(user, model_alias, settings)
     if is_explicit_pick(model_alias):
         if model_alias not in pool:
             raise UnknownModelOverrideError(model_alias)
@@ -159,12 +163,12 @@ def resolve_regenerate_model(
         note_route("regenerate_same")
         # "Try again" on Pro after a cheap everyday reply (an older chat, or a fallback)
         # gets Pro's everyday model.
-        if not is_auto_enabled(user):
+        if not is_auto_enabled(user, settings):
             return prior_assistant_model
         model = _everyday_for_plan(user, settings, prior_assistant_model, list(pool), unhealthy)
     else:
         model = resolve_user_model(user, content, settings, unhealthy=unhealthy)
-        if not is_auto_enabled(user):
+        if not is_auto_enabled(user, settings):
             return model
     thinking = escalation_model(
         model, math_lane_for(user, settings), model_pool(user, settings), unhealthy

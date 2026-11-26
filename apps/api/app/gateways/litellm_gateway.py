@@ -29,7 +29,7 @@ from app.gateways.stream_thinking import (
     as_attempt,
 )
 from app.gateways.stream_tool_calls import StreamedToolCalls, ToolOffer
-from app.gateways.stream_usage import apply_usage, merge_attempt_usage
+from app.gateways.stream_usage import apply_usage
 
 # The completion kinds split out of this module are its public surface too. They call
 # the provider through this module (``acompletion``, ``resolve_route``, ``_litellm_kwargs``),
@@ -210,7 +210,7 @@ async def stream_chat_completion(
                     continue
                 yield token
             if started or attempt_calls:
-                _keep(attempt, usage, attempt_usage, tool_calls, attempt_calls, stream_meta)
+                _keep(attempt, tool_calls, attempt_calls, stream_meta)
                 return
             raise _answered_nothing(alias, aliases[index + 1] if has_next else None, attempt, think)
         except ModelUnavailableError as exc:
@@ -218,7 +218,6 @@ async def stream_chat_completion(
             attempt.end(failed=True, cause=exc.cause)
             # Text already shown: a fallback would join two replies into one saved reply.
             if started:
-                merge_attempt_usage(usage, attempt_usage)
                 raise
             if exc.cause == THOUGHT_OUT and plan.drop(aliases, route, last=not has_next):
                 continue
@@ -231,9 +230,9 @@ async def stream_chat_completion(
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
             raise ModelUnavailableError.for_alias(failed, cause=exc.cause) from exc
-        finally:
-            if not started and not attempt_calls:  # started: finalize charges it
-                llm_spend.meter_discarded_attempt(alias, attempt_usage, shape.chars, attempt.cause)
+        finally:  # billed, kept or not: global spend, and the reply's usage when it kept it
+            kept = usage if started or attempt_calls else None
+            llm_spend.settle_stream_attempt(alias, attempt_usage, shape.chars, attempt, kept)
 
     if last_error is not None:
         raise last_error
@@ -241,15 +240,13 @@ async def stream_chat_completion(
 
 def _keep(
     attempt: StreamAttempt,
-    usage: dict[str, int] | None,
-    attempt_usage: dict[str, int],
     tool_calls: list[dict[str, Any]] | None,
     attempt_calls: list[dict[str, Any]],
     stream_meta: dict[str, str] | None,
 ) -> None:
-    """The attempt answered: its usage and calls are the reply's, and its model named."""
+    """The attempt answered: its calls are the reply's, and its model named. Its usage
+    joins the reply's as the attempt settles (``llm_spend.settle_stream_attempt``)."""
     attempt.end(failed=False)
-    merge_attempt_usage(usage, attempt_usage)
     if tool_calls is not None:
         tool_calls.extend(attempt_calls)
     if stream_meta is not None:
@@ -486,7 +483,7 @@ async def _stream_chat_once(
                 text_calls=text_calls,
             )
             if attempt is not None:
-                attempt.saw(delta=read.delta, finish=read.finish)
+                attempt.saw(delta=read.delta, finish=read.finish, text=read.text)
             clock.reasoned(read.reasoned)
             watch.shown_text = watch.shown_text or read.called  # a call begins the reply
             if watch.saw(text=read.text, thinking=read.thinking) and on_thinking is not None:

@@ -67,7 +67,7 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
         reserve=AsyncMock(),
         reserved_tokens=100,
         search_budget=lambda *_: None,
-        message_left=AsyncMock(return_value=True),
+        turn_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager
@@ -140,7 +140,7 @@ async def test_a_regenerate_an_intercept_answers_stops_the_read() -> None:
         reserve=AsyncMock(),
         reserved_tokens=100,
         search_budget=lambda *_: None,
-        message_left=AsyncMock(return_value=True),
+        turn_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager

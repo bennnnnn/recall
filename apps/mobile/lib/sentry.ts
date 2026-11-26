@@ -354,6 +354,8 @@ export type FailureArea =
   | "chat_title"
   /** A thumb up or down on a reply (`useMessageFeedback`). */
   | "message_feedback"
+  /** The user's Stop over SSE could not reach the server: the stream closes as a drop. */
+  | "chat_stop"
   | "attachment_upload"
   /** A long paste could not be written as its file; it stays text in the composer. */
   | "paste_attachment"

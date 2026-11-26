@@ -94,6 +94,8 @@ class _Chat:
     token: str
     user_id: UUID
     chat_id: UUID = field(default_factory=uuid4)
+    # The name the phone gives its SSE stream, which its Stop names.
+    stream_id: UUID = field(default_factory=uuid4)
 
     async def open(self) -> None:
         created = await self.client.post(
@@ -123,7 +125,13 @@ class _Chat:
 
     async def sse(self, content: str, *, leave: asyncio.Event) -> list[dict[str, Any]]:
         """Send over SSE at uvicorn's ASGI spec; the client leaves once ``leave`` is set."""
-        body = json.dumps({"content": content, "client_message_id": str(uuid4())}).encode()
+        body = json.dumps(
+            {
+                "content": content,
+                "client_message_id": str(uuid4()),
+                "stream_id": str(self.stream_id),
+            }
+        ).encode()
         events: list[dict[str, Any]] = []
         pending = b""
         asked = False
@@ -292,12 +300,18 @@ async def test_ws_stop_before_the_message_saves_keeps_the_message(
 async def test_sse_client_gone_before_the_message_saves_keeps_the_message(
     chat: _Chat, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Over SSE the client stops by leaving: its message stays as on the socket."""
+    """Over SSE the phone says Stop, then leaves: its message stays as on the socket. A
+    client that leaves without saying Stop is a dropped connection, whose reply finishes
+    (``sse_stop``)."""
+    from app.modules.chat.sse_stop import SseStop
+
     reached, release = _held_load(monkeypatch)
     leave = asyncio.Event()
 
     async def stop_then_release() -> None:
         await reached.wait()
+        stop = SseStop(core_redis.get_redis_client(), chat.user_id, chat.chat_id, chat.stream_id)
+        await stop.ask(0)
         leave.set()
         await asyncio.sleep(0.05)
         release.set()
