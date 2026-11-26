@@ -344,8 +344,12 @@ def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
 
 
-# A card's name for its value before it: "\\vec{a} = ", "v_{3} = ".
-_LABEL = re.compile(r"^[^=\d]*(?:_\{?\w+\}?[^=\d]*)?=\s*")
+# A card's name for its value before it: "\\vec{a} = ", "v_{3} = ". A name is short: its
+# runs are bounded, so a run of underscores is no cubic backtrack (CI's slow-regex check).
+_LABEL_RUN = 80
+_LABEL = re.compile(
+    rf"^[^=\d]{{0,{_LABEL_RUN}}}(?:_\{{?\w{{1,{_LABEL_RUN}}}\}}?[^=\d]{{0,{_LABEL_RUN}}})?=\s*"
+)
 
 
 def _without_label(value: str) -> str:
