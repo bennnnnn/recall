@@ -125,8 +125,7 @@ async def _waited(state: FinalizeState) -> FormalAnswer | None:
     if task is None:
         return None
     started = time.monotonic()
-    # Waited on, never awaited: a stopped or failed task is no answer.
-    await asyncio.wait([task], timeout=state.settings.formal_wait_seconds)
+    await state.wait_beside(task, state.settings.formal_wait_seconds)
     if not task.done():
         stop_formal(state.ctx)
         logger.info(
