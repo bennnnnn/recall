@@ -33,7 +33,7 @@ from app.modules.todos import (
     aged_out_unsent,
     due_reminder_page,
     is_due_now,
-    mark_reminder_pushed,
+    mark_reminders_pushed,
     reminder_page_key,
 )
 from app.repositories import push_tokens as push_repo
@@ -320,19 +320,12 @@ async def _finalize_push_deliveries(
     *,
     now: datetime,
 ) -> None:
-    todos_marked: set[UUID] = set()
-
+    # One to-do may have gone to several devices: it is marked once.
+    pushed: dict[UUID, TodoItem] = {}
     for item, ok in zip(outbound, delivered, strict=False):
-        if not ok:
-            continue
-        for todo in item.todos:
-            todo_id = getattr(todo, "id", None)
-            if todo_id is None or todo_id in todos_marked:
-                continue
-            if await mark_reminder_pushed(session, todo, now=now):
-                todos_marked.add(todo_id)
-
-    if todos_marked:
+        if ok:
+            pushed.update((todo.id, todo) for todo in item.todos if todo.id is not None)
+    if pushed and await mark_reminders_pushed(session, list(pushed.values()), now=now):
         await session.commit()
 
 

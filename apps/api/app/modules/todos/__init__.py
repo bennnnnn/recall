@@ -62,6 +62,9 @@ if TYPE_CHECKING:
         mark_reminder_pushed as mark_reminder_pushed,
     )
     from app.modules.todos.due_reminders import (
+        mark_reminders_pushed as mark_reminders_pushed,
+    )
+    from app.modules.todos.due_reminders import (
         reminder_page_key as reminder_page_key,
     )
     from app.modules.todos.occurrences import (
@@ -135,6 +138,7 @@ _EXPORTS = {
     "is_due_now": ("due_reminders", "is_due_now"),
     "mark_reminder_emailed": ("due_reminders", "mark_reminder_emailed"),
     "mark_reminder_pushed": ("due_reminders", "mark_reminder_pushed"),
+    "mark_reminders_pushed": ("due_reminders", "mark_reminders_pushed"),
     "reminder_page_key": ("due_reminders", "reminder_page_key"),
 }
 

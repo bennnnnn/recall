@@ -170,6 +170,37 @@ async def test_access_granting_events_sync_the_plan(event_type):
     assert apply_plan.await_args.kwargs["plan"] == "pro"
 
 
+async def test_the_stale_check_read_ends_before_revenuecat_is_asked():
+    """The stale check's read left a transaction open, holding a pooled connection,
+    across the RevenueCat request."""
+    steps: list[str] = []
+    session = AsyncMock()
+    session.commit = AsyncMock(side_effect=lambda: steps.append("commit"))
+
+    async def resolve(*_args: object) -> str:
+        steps.append("revenuecat")
+        return "pro"
+
+    async def stale(*_args: object) -> bool:
+        steps.append("read")
+        return False
+
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    payload = _payload(
+        "INITIAL_PURCHASE", app_user_id=str(uuid4()), event_timestamp_ms=1_700_000_000_000
+    )
+    with (
+        patch(f"{_SUB}.resolve_plan_from_revenuecat", resolve),
+        patch(f"{_SUB}.apply_plan_for_app_user_id", AsyncMock(return_value=False)),
+        patch(f"{_SUB}.is_stale_rc_event", stale),
+        patch(f"{_SUB}.advance_rc_event_watermark", AsyncMock()),
+    ):
+        await revenuecat.process_event(
+            session, redis, _settings(), payload, receipt_enqueuer=AsyncMock()
+        )
+    assert steps == ["read", "commit", "revenuecat"]
+
+
 @pytest.mark.parametrize(
     "payload",
     [

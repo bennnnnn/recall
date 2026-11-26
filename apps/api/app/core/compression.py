@@ -47,9 +47,9 @@ class _TextGZipResponder(GZipResponder):
 
     Starlette compresses every type but ``text/event-stream``; this widens that
     exclusion to every type not listed, and to a small body that arrives in parts
-    (``RestRateLimitMiddleware`` re-streams every reply, so Starlette's own size
-    check, which reads only a whole body, never ran). ``test_compression.py``
-    holds both.
+    with its length declared (Starlette's own size check reads only a body sent in
+    one message; the rate limiter re-streamed every reply in parts before it was pure
+    ASGI). ``test_compression.py`` holds both.
     """
 
     async def send_with_compression(self, message: Message) -> None:

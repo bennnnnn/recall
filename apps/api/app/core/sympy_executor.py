@@ -114,7 +114,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         per_user: bool = True,
         recycle_after_jobs: int = DEFAULT_SYMPY_RECYCLE_AFTER_JOBS,
         reserved_for_readings: int = 0,
+        label: str = "sympy",
     ) -> None:
+        # What its log lines call the pool: the document pool is this class too, and its
+        # timeouts read as SymPy's.
+        self._label = label
         self._max_workers = _clamp_workers(max_workers)
         # Slots solves cannot fill, so slow solves never starve readings (core/sympy_slots).
         self._reserved_for_readings = reserved_for_readings
@@ -181,11 +185,12 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         # not occupy the only worker the next equation needs.
         self._thread_pool = ThreadPoolExecutor(
             max_workers=max(self._max_workers, 8),
-            thread_name_prefix="sympy-fallback",
+            thread_name_prefix=f"{self._label}-fallback",
         )
         logger.warning(
-            "sympy process pool cannot start (posix semaphore limit); "
-            "verified math will run in-process until restart"
+            "%s process pool cannot start (posix semaphore limit); "
+            "its jobs will run in-process until restart",
+            self._label,
         )
 
     def _ensure_slot(self, slot: int) -> ProcessPoolExecutor:
@@ -216,7 +221,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             async with asyncio.timeout(_SPAWN_WAIT_SECONDS):
                 await asyncio.wrap_future(future)
         except TimeoutError as exc:
-            logger.warning("sympy worker failed to warm after %.3fs", _SPAWN_WAIT_SECONDS)
+            logger.warning("%s worker failed to warm after %.3fs", self._label, _SPAWN_WAIT_SECONDS)
             future.cancel()
             await self._kill_slot_async(slot)
             raise TimeoutError("SymPy worker failed to start") from exc
@@ -253,11 +258,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 await self._kill_slot_async(slot)
                 await self._warm_slot(slot, self._ensure_slot(slot))
             except Exception:  # the next job starts it cold
-                logger.warning("sympy worker recycle failed", exc_info=True)
+                logger.warning("%s worker recycle failed", self._label, exc_info=True)
             finally:
                 self._free_queue().put_nowait(slot)
 
-        task = asyncio.get_running_loop().create_task(replace(), name="sympy_recycle")
+        task = asyncio.get_running_loop().create_task(replace(), name=f"{self._label}_recycle")
         self._draining.add(task)
         task.add_done_callback(self._draining.discard)
 
@@ -294,7 +299,8 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 slot = await asyncio.wait_for(self._free_queue().get(lane), timeout=remaining_wait)
             except TimeoutError as exc:
                 logger.warning(
-                    "sympy queued %.3fs without a free worker slot",
+                    "%s queued %.3fs without a free worker slot",
+                    self._label,
                     time.monotonic() - t_submit,
                 )
                 raise WorkerBusyError("SymPy worker slot wait timed out") from exc
@@ -317,7 +323,9 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 # How long it ran, measured here rather than echoing the caller's ``timeout``,
                 # which CodeQL traces to a request (py/log-injection).
                 ran = time.monotonic() - t_start
-                logger.warning("sympy worker timed out after %.3fs (queued %.3fs)", ran, queue_s)
+                logger.warning(
+                    "%s worker timed out after %.3fs (queued %.3fs)", self._label, ran, queue_s
+                )
                 future.cancel()
                 await self._kill_slot_async(slot)
                 raise
@@ -332,7 +340,8 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             self._cold[slot] = False
             if queue_s >= 0.05:
                 logger.info(
-                    "sympy queued=%.3fs ran=%.3fs",
+                    "%s queued=%.3fs ran=%.3fs",
+                    self._label,
                     queue_s,
                     time.monotonic() - t_start,
                 )
@@ -357,7 +366,9 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 await self._warm_slot(slot, pool)
             future = pool.submit(sympy_worker, fn, *args)
             if not await wait_until_started(future, _SPAWN_WAIT_SECONDS):
-                logger.warning("sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS)
+                logger.warning(
+                    "%s worker failed to start after %.3fs", self._label, _SPAWN_WAIT_SECONDS
+                )
                 future.cancel()
                 await self._kill_slot_async(slot)
                 raise TimeoutError("SymPy worker failed to start")
@@ -385,12 +396,12 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 future.cancel()
                 await self._kill_slot_async(slot)
             except BaseException:  # the result, or the job's error, has no caller left
-                logger.debug("sympy job finished after its caller left", exc_info=True)
+                logger.debug("%s job finished after its caller left", self._label, exc_info=True)
             finally:
                 self._release_slot(slot)
                 self._owners.release(owner)
 
-        task = asyncio.get_running_loop().create_task(finish(), name="sympy_finish")
+        task = asyncio.get_running_loop().create_task(finish(), name=f"{self._label}_finish")
         self._draining.add(task)
         task.add_done_callback(self._draining.discard)
 

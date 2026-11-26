@@ -218,9 +218,20 @@ async def adjust_usage(
     actual: int,
     *,
     daily_limit: int | None = None,
+    day: date | None = None,
 ) -> int:
+    """Settle a reservation taken on *day* (today when not given) to the turn's actual
+    usage; today's total after it.
+
+    The difference goes to the day the tokens were taken from: a turn reserved before
+    UTC midnight and settled after it gave its unused reserve to the new day, which then
+    started below what was spent, while the old day kept the whole reserve.
+    """
+    today = utc_today()
     delta = actual - reserved
-    if delta == 0:
+    if delta == 0 or day not in (None, today):
+        if delta:
+            await record_usage(redis, user_id, delta, daily_limit=daily_limit, day=day)
         return await get_daily_usage(redis, user_id)
     return await record_usage(redis, user_id, delta, daily_limit=daily_limit)
 
@@ -231,8 +242,9 @@ async def record_usage(
     tokens: int,
     *,
     daily_limit: int | None = None,
+    day: date | None = None,
 ) -> int:
-    key = _usage_key(user_id, utc_today())
+    key = _usage_key(user_id, day or utc_today())
     new_total = await incr_with_ttl(redis, key, tokens, DAILY_TTL)
     if new_total < 0:
         await floor_counter(redis, key)

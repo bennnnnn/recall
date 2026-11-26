@@ -8,6 +8,7 @@ from uuid import uuid4
 from redis.asyncio import Redis
 
 from app.core.jobs.queue import JOBS_GROUP, JOBS_STREAM
+from app.core.redis_lock import refresh_lock
 
 logger = logging.getLogger("app.core.jobs")
 
@@ -96,14 +97,17 @@ async def _extend_dedupe(redis: Redis, dedupe_key: str | None, ttl_seconds: int)
 
 
 async def _refresh_running_claim(redis: Redis, dedupe_key: str | None) -> None:
-    """Keep an in-flight claim alive across a slow handler."""
+    """Keep an in-flight claim alive across a slow handler.
+
+    Compare-and-expire in one step (``redis_lock.refresh_lock``): a GET then an EXPIRE
+    let a handler that finished in between have its done marker cut to the running TTL.
+    """
     if not dedupe_key:
         return
-    key = job_done_key(dedupe_key)
     try:
-        current = await redis.get(key)
-        if current == _DEDUPE_RUNNING:
-            await redis.expire(key, _JOB_DONE_CLAIM_TTL_SECONDS)
+        await refresh_lock(
+            redis, job_done_key(dedupe_key), _DEDUPE_RUNNING, _JOB_DONE_CLAIM_TTL_SECONDS
+        )
     except Exception:
         logger.debug("job dedupe refresh failed key=%s", dedupe_key, exc_info=True)
 

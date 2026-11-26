@@ -8,9 +8,9 @@ does not drag every background module (and its transitive service imports)
 into the graph — and adding or deleting a job touches one file that no other
 job's feature branch is also editing.
 
-Import this module once at startup, before the worker starts consuming
-(`app/main.py` and `app/worker_main.py` do). Registration is an explicit
-list, not import-time discovery, so the set of live job types stays greppable.
+`register_all` runs once when the worker starts, before it consumes
+(`process_bootstrap.start_worker_runtime`); enqueueing needs no handler. Registration is an
+explicit list, not import-time discovery, so the set of live job types stays greppable.
 """
 
 import functools

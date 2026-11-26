@@ -54,14 +54,20 @@ async def list_due_soon(
 
 def _needed_first(user_id: UUID, limit: int) -> Any:
     """The ids of the ``limit`` to-dos a turn needs most: open before done, an open one
-    by its due time (overdue first, undated last), then the most recently changed."""
-    open_due = case((TodoItem.checked.is_(False), TodoItem.due_at))
+    by how far its due time is from now (undated last), then the most recently changed.
+
+    By distance, not by due time: a fired one-off reminder stays open until it is ticked,
+    and a hundred such stale ones, first by due time, pushed tomorrow's dentist and every
+    undated to-do out of the prompt's read.
+    """
+    from_now = func.abs(func.extract("epoch", TodoItem.due_at - func.now()))
+    open_distance = case((TodoItem.checked.is_(False), from_now))
     return (
         select(TodoItem.id)
         .where(TodoItem.user_id == user_id)
         .order_by(
             TodoItem.checked.asc(),
-            open_due.asc().nulls_last(),
+            open_distance.asc().nulls_last(),
             TodoItem.updated_at.desc(),
             TodoItem.id.asc(),
         )

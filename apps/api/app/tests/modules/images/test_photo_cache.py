@@ -316,3 +316,53 @@ def test_a_users_key_is_never_read_as_a_shared_copy():
     users = json.dumps({**record, "storage_key": f"{uuid4()}/{uuid4()}"})
     assert photo_cache._parsed(shared, max_age=60, now=NOW) is not None
     assert photo_cache._parsed(users, max_age=60, now=NOW) is None
+
+
+async def _aged_copies(gateway, redis, count: int) -> float:
+    """``count`` listed shared copies; a time by which every one has aged out."""
+    for index in range(count):
+        name = f"aged-{index}"
+        await gateway.write_bytes(f"{photo_cache.SHARED_PREFIX}{name}", PNG_BYTES)
+        await redis.zadd("answer_photo_cache:stored", {name: NOW + index})
+    return NOW + 31 * 24 * 60 * 60 + count
+
+
+async def test_one_sweep_takes_every_aged_copy_not_one_batch(gateway, fake_redis):
+    """One batch of 500 an hour fell behind as soon as more new lookups were kept."""
+    month_on = await _aged_copies(gateway, fake_redis, 5)
+    keep_going = AsyncMock(return_value=True)
+    with patch.object(photo_cache, "_SWEEP_BATCH", 2):
+        swept = await photo_cache.sweep_expired(
+            SETTINGS, gateway, fake_redis, now=month_on, keep_going=keep_going
+        )
+    assert swept == 5
+    assert await fake_redis.zcard("answer_photo_cache:stored") == 0
+    # The cycle's lock is refreshed before each batch after the first.
+    assert keep_going.await_count == 2
+
+
+async def test_a_sweep_reads_past_the_copies_it_could_not_delete(gateway, fake_redis):
+    """A failed delete stays listed: the next batch starts after it, never on it again."""
+    month_on = await _aged_copies(gateway, fake_redis, 5)
+    deletes: list[str] = []
+
+    class FirstFails:
+        async def delete_bytes(self, key: str) -> None:
+            deletes.append(key)
+            if key.endswith("aged-0"):
+                raise OSError("storage blip")
+            await gateway.delete_bytes(key)
+
+    with patch.object(photo_cache, "_SWEEP_BATCH", 2):
+        swept = await photo_cache.sweep_expired(SETTINGS, FirstFails(), fake_redis, now=month_on)
+    assert swept == 4
+    assert len(deletes) == 5
+    assert await fake_redis.zrange("answer_photo_cache:stored", 0, -1) == ["aged-0"]
+
+
+async def test_a_sweep_stops_when_storage_deletes_nothing(gateway, fake_redis):
+    month_on = await _aged_copies(gateway, fake_redis, 5)
+    failing = MagicMock(delete_bytes=AsyncMock(side_effect=OSError("storage down")))
+    with patch.object(photo_cache, "_SWEEP_BATCH", 2):
+        assert await photo_cache.sweep_expired(SETTINGS, failing, fake_redis, now=month_on) == 0
+    assert failing.delete_bytes.await_count == 2  # one batch, then the next cycle

@@ -2,6 +2,7 @@ import logging
 
 from redis.asyncio import Redis
 
+from app.core.redis_counters import incr_with_ttl
 from app.exceptions import RedisUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -16,18 +17,15 @@ async def allow_request(redis: Redis, key: str, *, limit: int, window_seconds: i
     reach twice ``limit`` across a window edge: read each limit as a flood
     bound, not an exact rate.
 
-    INCR and EXPIRE run in one pipeline so a crash between them cannot leave a
-    counter key with no TTL (permanent rate-limit for that bucket).
+    The count and its expiry are one transaction (``redis_counters.incr_with_ttl``),
+    so a crash between them cannot leave a counter key with no TTL (permanent
+    rate-limit for that bucket).
 
     Requires Redis ≥ 7 for ``EXPIRE … NX`` (set TTL only when missing). Upstash
     and current Fly Redis satisfy this; without NX every hit would refresh the
     window and weaken the limit.
     """
-    async with redis.pipeline(transaction=True) as pipe:
-        pipe.incr(key)
-        pipe.expire(key, window_seconds, nx=True)
-        count, _ = await pipe.execute()
-    return int(count) <= limit
+    return await incr_with_ttl(redis, key, 1, window_seconds) <= limit
 
 
 async def allow_request_unless_down(

@@ -7,6 +7,7 @@ thousand tokens all passed it.
 
 import asyncio
 from contextlib import nullcontext
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -451,3 +452,51 @@ async def test_a_stop_while_redis_answers_leaks_no_reserved_tokens(
     await drain_background_tasks()
 
     assert await _used(fake_redis, user) == 0
+
+
+async def _day_used(fake_redis, user, day) -> int:
+    return int(await fake_redis.get(quota_tokens._usage_key(str(user.id), day)) or 0)
+
+
+@pytest.mark.parametrize("ends", ["settled", "refunded"])
+async def test_a_turn_past_utc_midnight_settles_the_day_it_reserved(
+    fake_redis, quota_clock, ends: str
+) -> None:
+    """The settle and the refund keyed on the day they ran: a turn reserved before UTC
+    midnight gave its unused tokens to the new day, and the old day kept them all."""
+    from types import SimpleNamespace
+
+    from app.modules.chat import turn_settle
+
+    user = _user()
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+    )
+    reserved_on = quota_clock.day
+    async with turn_resources.turn_resources(
+        deps, fake_redis, user_id=user.id, chat_id=uuid4()
+    ) as res:
+        await res.reserve(
+            user=user,
+            content="hi",
+            model="free-chat",
+            settings=_SETTINGS,
+            daily_limit=_LIMIT,
+            max_output=_SETTINGS.max_output_tokens,
+        )
+        ctx = _ctx(user, res.reserved_tokens)
+        await turn_resources.top_up_reserve_for_prompt(
+            res, settings=_SETTINGS, ctx=ctx, daily_limit=_LIMIT
+        )
+        quota_clock.day = quota_clock.next_day
+        if ends == "settled":
+            res.mark_settled()
+            charge: Any = SimpleNamespace(weighted_total=300, est_cost=0.0)
+            await turn_settle._settle_quota(deps, fake_redis, ctx, _SETTINGS, charge)
+        else:
+            await res.refund()
+
+    assert ctx.token_day == reserved_on
+    assert await _day_used(fake_redis, user, reserved_on) == (300 if ends == "settled" else 0)
+    assert await _day_used(fake_redis, user, quota_clock.next_day) == 0

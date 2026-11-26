@@ -1,6 +1,7 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -113,7 +114,8 @@ async def test_process_todo_reminder_emails_isolates_one_todo_failure(email_writ
         good_todo_1.id,
         good_todo_2.id,
     ]
-    assert session.rollback.await_count == 2
+    # Once after the page's read; a failed send wrote nothing to roll back.
+    assert session.rollback.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -202,9 +204,44 @@ async def test_a_cycle_that_lost_its_lock_stops_sending(email_write):
         "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
         AsyncMock(return_value=SENT),
     ) as send:
+        # One send a batch, so the lock is checked before each send.
         count = await reminder_emails.process_todo_reminder_emails(
-            session, _settings(), now=now, keep_lock=keep_lock
+            session, _settings(email_reminder_sends_per_second=1), now=now, keep_lock=keep_lock
         )
 
     assert count == 1
     send.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reminder_emails_go_out_side_by_side(email_write):
+    """One at a time, every send waited on the one before it: a batch's sends overlap
+    now, and each one sent is marked after."""
+    now = datetime.now(UTC)
+    rows = []
+    for _ in range(2):
+        user = _user()
+        rows.append((_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user))
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = rows
+    session.execute = AsyncMock(return_value=result)
+    both = asyncio.Event()
+    started: list[UUID] = []
+
+    async def send(_settings, user, **_kwargs):
+        started.append(user.id)
+        if len(started) == len(rows):
+            both.set()
+        # One at a time, the first send would wait here for a second that never starts.
+        await asyncio.wait_for(both.wait(), timeout=2)
+        return SENT
+
+    with patch(
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
+        AsyncMock(side_effect=send),
+    ):
+        count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
+
+    assert count == 2
+    assert email_write.await_count == 2

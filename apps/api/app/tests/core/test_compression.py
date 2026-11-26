@@ -170,8 +170,8 @@ async def test_compression_streams_sse_through_the_real_stack_token_by_token() -
 
 
 async def test_compression_gzips_json_through_the_real_stack() -> None:
-    """The BaseHTTPMiddleware rate limiter re-streams every reply; a big JSON one is
-    still gzipped and a small one is not."""
+    """Through every middleware of the app, a big JSON reply is gzipped and a small one
+    is not."""
     app = create_app()
 
     @app.get("/test-big")

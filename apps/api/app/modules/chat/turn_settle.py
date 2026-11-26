@@ -253,6 +253,7 @@ async def _settle_quota(
                     ctx.reserved_tokens,
                     charge.weighted_total,
                     daily_limit=daily_limit,
+                    day=ctx.token_day,
                 )
                 break
             except Exception:
@@ -331,7 +332,14 @@ async def finalize_stream_turn_db(
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         try:
-            await refund_turn_quota(deps, redis, ctx.user_id, ctx.reserved_tokens, ctx.message_day)
+            await refund_turn_quota(
+                deps,
+                redis,
+                ctx.user_id,
+                ctx.reserved_tokens,
+                ctx.message_day,
+                token_day=ctx.token_day,
+            )
         except Exception:
             logger.exception("Turn quota refund failed after finalize error")
         raise

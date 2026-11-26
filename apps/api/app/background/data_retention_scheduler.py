@@ -80,17 +80,21 @@ async def run_retention(settings: Settings, keep_going: Callable[[], Awaitable[b
 
 async def _retention_cycle(settings: Settings, lock: CycleLock) -> None:
     await run_retention(settings, lock.refresh)
-    await sweep_shared_photos(settings)
+    await sweep_shared_photos(settings, lock.refresh)
 
 
-async def sweep_shared_photos(settings: Settings) -> int:
+async def sweep_shared_photos(
+    settings: Settings, keep_going: Callable[[], Awaitable[bool]] | None = None
+) -> int:
     """Delete the shared answer-photo copies that aged out; a failure waits for the next
-    cycle."""
+    cycle. ``keep_going`` refreshes the cycle's lock between batches."""
     gateway = get_storage_gateway(settings)
     if isinstance(gateway, UnconfiguredStorageGateway):
         return 0
     try:
-        return await photo_cache.sweep_expired(settings, gateway, get_redis_client())
+        return await photo_cache.sweep_expired(
+            settings, gateway, get_redis_client(), keep_going=keep_going
+        )
     except Exception:
         logger.warning("Answer photo cache sweep failed", exc_info=True)
         return 0

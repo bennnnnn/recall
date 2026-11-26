@@ -130,15 +130,10 @@ def may_paint(
 ) -> bool:
     """Whether a new message's words could ask this user for a painted picture, the one
     answer that takes no chat message: the intercept's own candidate (``_gen_request``),
-    read without the shown pictures' labels, and any short line after a generated picture
-    (whose prompt only those labels may hold)."""
-    if (
-        revisions
-        and last_reply_is_generated_image(recent)
-        and settings.image_generation_enabled
-        and deps.plan.can_use(user, "image_generation", settings)
-    ):
-        return True
+    read without the shown pictures' labels. The labels write only a revision's prompt,
+    never whether there is one (``images.intent.image_gen_request``): a shortcut that let
+    every line after a generated picture through started paid reads for a turn at the cap
+    that the intercept would not paint (a maths line, a long one)."""
     return (
         _gen_request(
             deps,

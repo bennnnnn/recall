@@ -96,7 +96,7 @@ def test_middleware_fails_closed_with_503_when_redis_check_fails(error: Exceptio
     # It was 429 "Rate limit unavailable", which the phone reads as a limit.
     broken = redis_mock()
     # The limiter counts in a pipeline: its INCR is what fails.
-    broken.incr.side_effect = error
+    broken.incrby.side_effect = error
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=broken):
         client = TestClient(create_app())
         response = client.get("/openapi.json")
@@ -113,7 +113,7 @@ def test_middleware_fails_closed_with_503_when_redis_check_fails(error: Exceptio
 def test_middleware_still_answers_429_over_the_limit_with_redis_up() -> None:
     """A real limit hit stays a 429: only an outage is a 503."""
     redis = redis_mock()
-    redis.incr.return_value = 1_000_000  # this minute's count, past any limit
+    redis.incrby.return_value = 1_000_000  # this minute's count, past any limit
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=redis):
         response = TestClient(create_app()).get("/openapi.json")
     assert response.status_code == 429
@@ -146,3 +146,35 @@ async def test_allow_request_is_a_fixed_window_that_restarts_when_its_key_expire
     await fake_redis.delete("rl:t")  # the window's end
     again = [await allow_request(fake_redis, "rl:t", limit=3, window_seconds=60) for _ in range(4)]
     assert again == [True, True, True, False]
+
+
+@pytest.mark.parametrize(
+    ("kind", "path"), [("http", "/chats"), ("http", "/health"), ("websocket", "/ws/chat")]
+)
+async def test_the_limiter_hands_a_request_through_untouched(kind: str, path: str) -> None:
+    """Pure ASGI: an allowed request reaches the route with its own receive and send.
+    ``BaseHTTPMiddleware`` wrapped both and re-streamed every reply's body."""
+    from app.core.rest_rate_limit import RestRateLimitMiddleware
+
+    seen: dict[str, object] = {}
+
+    async def route(_scope: object, receive: object, send: object) -> None:
+        seen.update(receive=receive, send=send)
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request"}
+
+    async def send(_message: object) -> None:
+        return None
+
+    scope = {
+        "type": kind,
+        "method": "GET",
+        "path": path,
+        "headers": [],
+        "query_string": b"",
+        "client": ("10.0.0.5", 1234),
+    }
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        await RestRateLimitMiddleware(route)(scope, receive, send)
+    assert seen == {"receive": receive, "send": send}

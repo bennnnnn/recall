@@ -110,10 +110,18 @@ class Quota(Protocol):
     ) -> bool: ...
 
     async def reserve_usage_up_to(
-        self, redis: Redis, user_id: str, wanted: int, *, daily_limit: int
+        self,
+        redis: Redis,
+        user_id: str,
+        wanted: int,
+        *,
+        daily_limit: int,
+        day: date | None = ...,
     ) -> int: ...
 
-    async def refund_usage(self, redis: Redis, user_id: str, amount: int) -> None: ...
+    async def refund_usage(
+        self, redis: Redis, user_id: str, amount: int, *, day: date | None = ...
+    ) -> None: ...
 
     async def reserve_message(
         self, redis: Redis, user: User, settings: Settings
@@ -135,6 +143,7 @@ class Quota(Protocol):
         actual: int,
         *,
         daily_limit: int | None = ...,
+        day: date | None = ...,
     ) -> int: ...
 
     async def mark_usage_needs_heal(

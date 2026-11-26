@@ -149,7 +149,7 @@ CEILINGS: dict[str, Ceiling] = {
         _FIRST,
     ),
     "photo lookup": Ceiling(
-        # Redis 30: the lookup is the turn, so it takes the turn's chat message (one INCR).
+        # The lookup is the turn: its Redis count holds the turn's chat message (one INCR).
         Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2, searches=1),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,

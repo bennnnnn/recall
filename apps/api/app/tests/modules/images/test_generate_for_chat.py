@@ -137,7 +137,13 @@ class Turn:
             return len(turn.earlier)
 
         async def finish(_redis: Any, _settings: Any, **kw: Any) -> None:
-            turn.step("finish", kw["prior_count"], kw["assistant"].id, kw["user_message"])
+            turn.step(
+                "finish",
+                kw["prior_count"],
+                kw["assistant"].id,
+                kw["user_message"],
+                kw.get("user_message_id"),
+            )
 
         async def add_image(_s: Any, *, images: list[Any], message_id: UUID, **kw: Any) -> None:
             turn.step("add_image", [image.attachment_id for image in images], message_id, kw)
@@ -509,11 +515,13 @@ async def test_generate_for_chat_success_commits_one_turn_then_records_spend(tur
     ]
     # Each row moves the chat up the drawer, in the turn's one commit (audit ARCH-08).
     assert all(e[-1] is False for e in turn.events if e[0].startswith(("create_", "touch")))
-    # Then a typed turn's jobs: its title, memory and indexing.
+    # Then a typed turn's jobs: its title, memory and indexing, which reads this turn's
+    # own line (the chat's latest may be a newer turn's by the time it runs).
     assert next(e for e in turn.events if e[0] == "finish")[1:] == (
         0,
         assistant_message.id,
         "Generate image: a cat",
+        user_message.id,
     )
     added = next(e for e in turn.events if e[0] == "add_image")
     assert added[1:] == (

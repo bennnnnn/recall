@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import ColumnElement, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.vectors import EMBEDDING_DIM, stored_vector
 from app.models.orm import Attachment, AttachmentChunk, Chat, Message
+from app.repositories.vector_window import nearest_in_window
 
-EMBEDDING_DIM = 1536
+__all__ = ["EMBEDDING_DIM"]
 
 
 async def has_chunks_for_chat(
@@ -99,7 +101,7 @@ async def replace_chunks(
             chat_id=chat_id,
             chunk_index=index,
             text=text,
-            embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
+            embedding=stored_vector(vec),
         )
         session.add(row)
     await session.flush()
@@ -117,26 +119,16 @@ async def search_semantic(
     max_distance: float | None = None,
 ) -> list[AttachmentChunk]:
     """The ``limit`` chunks nearest ``query_embedding`` among the newest ``window`` of the
-    chat's (or the user's) documents, ranked exactly.
-
-    A global vector index filters by user and chat only after its scan, so it found
-    nothing in most chats; the window bounds the exact scan instead.
-    """
-    if len(query_embedding) != EMBEDDING_DIM:
-        return []
-    filters = [AttachmentChunk.user_id == user_id, AttachmentChunk.embedding.isnot(None)]
+    chat's (or the user's) documents, ranked exactly (``repositories.vector_window``)."""
+    filters: list[ColumnElement[bool]] = [AttachmentChunk.user_id == user_id]
     if chat_id is not None:
         filters.append(AttachmentChunk.chat_id == chat_id)
-    newest = (
-        select(AttachmentChunk.id, AttachmentChunk.embedding)
-        .where(*filters)
-        .order_by(AttachmentChunk.created_at.desc())
-        .limit(window)
-        .subquery("newest")
+    return await nearest_in_window(
+        session,
+        AttachmentChunk,
+        query_embedding,
+        filters=filters,
+        window=window,
+        limit=limit,
+        max_distance=max_distance,
     )
-    distance = newest.c.embedding.cosine_distance(query_embedding)
-    stmt = select(AttachmentChunk).join(newest, newest.c.id == AttachmentChunk.id)
-    if max_distance is not None:
-        stmt = stmt.where(distance <= max_distance)
-    result = await session.execute(stmt.order_by(distance).limit(limit))
-    return list(result.scalars().all())

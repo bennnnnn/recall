@@ -134,6 +134,7 @@ async def test_queue_metrics_count_a_real_pending_backlog(fake_redis: Any) -> No
     )
     with patch("sentry_sdk.add_breadcrumb"), patch("sentry_sdk.capture_message") as capture:
         metrics = await jobs.report_queue_metrics(fake_redis)
+    assert metrics is not None  # this worker holds the report's lock
     assert metrics["pending_entries"] == admin._PENDING_ALERT_THRESHOLD
     assert metrics["backlog"] == 0
     assert metrics["metrics_error"] is None
@@ -153,6 +154,7 @@ async def test_queue_metrics_redis_error_alerts_instead_of_reporting_zero(
         caplog.at_level("WARNING", logger=admin.logger.name),
     ):
         metrics = await jobs.report_queue_metrics(fake_redis)
+    assert metrics is not None
     assert metrics["pending_entries"] is None
     assert metrics["dlq_depth"] == (0 if failing == "xpending" else None)
     assert metrics["metrics_error"] == "ConnectionError"

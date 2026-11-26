@@ -537,6 +537,26 @@ raise SystemExit(3)
 """
 
 
+async def test_the_document_pool_names_itself_in_its_logs(caplog):
+    """The document pool is this class too: a parse's wait or timeout read as SymPy's."""
+    from app.core.document_executor import get_document_executor, set_document_executor
+    from app.core.sympy_executor import WorkerBusyError
+
+    set_document_executor(None)
+    executor = get_document_executor()
+    try:
+        assert isinstance(executor, ProcessPoolSympyExecutor)
+        executor._queue_wait_seconds = 0.01
+        for _ in range(executor.max_workers):  # every slot busy
+            await executor._free_queue().get("solve")
+        with caplog.at_level("WARNING"), pytest.raises(WorkerBusyError):
+            await executor.run(_divide, 1, 2, timeout=1.0)
+    finally:
+        set_document_executor(None)
+    assert "document queued" in caplog.text
+    assert "sympy" not in caplog.text
+
+
 @pytest.mark.wall_clock
 def test_worker_exits_when_its_parent_pid_changes_even_if_the_pipe_stays_open():
     """Backstop for the parent pipe: a re-parented worker exits within ~1 s."""

@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
+from app.core.vectors import EMBEDDING_DIM
 
 # The original_filename column's width: the upload schema and every writer cut to it.
 ORIGINAL_FILENAME_MAX_CHARS = 255
@@ -105,6 +106,6 @@ class AttachmentChunk(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     # Not loaded with the row (search ranks in SQL).
     embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
+        Vector(EMBEDDING_DIM), nullable=True, deferred=True, deferred_raiseload=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

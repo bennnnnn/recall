@@ -18,6 +18,7 @@ from app.core.jobs.queue import (
     JOBS_STREAM,
     append_entry,
     hard_maxlen,
+    next_stream_id,
 )
 
 logger = logging.getLogger("app.core.jobs")
@@ -46,6 +47,8 @@ _AUTO_REPLAY_TYPES = frozenset(
     {"storage_sweep", "account_sweep_backstop", "attachment_index", "transactional_email"}
 )
 _AUTO_REPLAY_BATCH = 50
+# Dead letters read per page while looking for them.
+_AUTO_REPLAY_PAGE = 200
 _MAX_AUTO_REPLAYS = 3
 _AUTO_REPLAY_MIN_AGE_S = 3_600
 _AUTO_REPLAY_LOCK_KEY = "recall:jobs:dlq:replay_lock"
@@ -183,16 +186,17 @@ def _alerts(metrics: QueueMetrics, dlq_growth: int) -> list[str]:
     return alerts
 
 
-async def report_queue_metrics(redis: Redis) -> QueueMetrics:
+async def report_queue_metrics(redis: Redis) -> QueueMetrics | None:
     """Report queue metrics to Sentry when it is installed: a breadcrumb every call, and a
     warning when a count crosses its threshold or could not be read at all.
 
-    One worker reports per interval (a lock), and the DLQ alerts on growth, not depth.
-    Old dead letters are trimmed by age here.
+    One worker reports per interval (a lock); the rest read nothing and return None (they
+    ran every count's five Redis calls only to drop them). The DLQ alerts on growth, not
+    depth. Old dead letters are trimmed by age here.
     """
     try:
         if not await redis.set(_METRICS_LOCK_KEY, "1", ex=_METRICS_INTERVAL_S - 5, nx=True):
-            return await collect_queue_metrics(redis)
+            return None
     except Exception:
         logger.debug("jobs metrics lock unavailable; reporting anyway", exc_info=True)
     metrics = await collect_queue_metrics(redis)
@@ -261,12 +265,6 @@ def _payload_user_id(fields: dict[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
-def _after(entry_id: str) -> str:
-    """The smallest stream id after *entry_id* (an exclusive XRANGE start)."""
-    ms, _, seq = str(entry_id).partition("-")
-    return f"{ms}-{int(seq or 0) + 1}"
-
-
 async def purge_user_jobs(
     redis: Redis,
     user_id: UUID | str,
@@ -276,8 +274,9 @@ async def purge_user_jobs(
 ) -> int:
     """Remove every waiting, jobs-stream and DLQ entry whose payload names *user_id*.
 
-    Acked and failed entries stay in both streams until the length cap trims
-    them, and their payloads carry chat text; a job waiting for its retry
+    Acked entries stay in the jobs stream until the worker's trim passes them
+    (``queue.trim_jobs_stream``, on its reclaim cadence) and dead letters stay a week
+    (``_DLQ_MAX_AGE_S``), and their payloads carry chat text; a job waiting for its retry
     (``delayed``) carries the same text and would run again after the delete,
     then fail into the DLQ. Walks each stream in bounded
     XRANGE pages and deletes only entries whose payload ``user_id`` equals
@@ -305,7 +304,7 @@ async def purge_user_jobs(
                 removed += int(await redis.xdel(stream, *doomed) or 0)
             if len(entries) < page:
                 break
-            start = _after(entries[-1][0])
+            start = next_stream_id(entries[-1][0])
     if removed:
         logger.info("Jobs purge user_id=%s removed=%s", needle, removed)
     return removed
@@ -372,32 +371,51 @@ async def replay_safe_dlq_entries(redis: Redis, *, now: float | None = None) -> 
         return 0
     cutoff_ms = int(((now if now is not None else time.time()) - _AUTO_REPLAY_MIN_AGE_S) * 1000)
     replayed = 0
-    for entry in reversed(await list_dlq(redis, count=_DLQ_MAXLEN)):
-        if replayed >= _AUTO_REPLAY_BATCH:
+    # Oldest first, a page at a time, and only entries past the hour: it read the whole
+    # DLQ (up to 5,000 entries) to replay at most 50.
+    start = "-"
+    while replayed < _AUTO_REPLAY_BATCH:
+        page = cast(
+            list[tuple[str, dict[str, Any]]],
+            await redis.xrange(
+                JOBS_DLQ_STREAM, min=start, max=str(cutoff_ms), count=_AUTO_REPLAY_PAGE
+            ),
+        )
+        for entry_id, fields in page:
+            if replayed >= _AUTO_REPLAY_BATCH:
+                break
+            if await _auto_replay(redis, entry_id, fields):
+                replayed += 1
+        if len(page) < _AUTO_REPLAY_PAGE:
             break
-        if entry.get("type") not in _AUTO_REPLAY_TYPES:
-            continue
-        if int(str(entry["id"]).partition("-")[0] or 0) > cutoff_ms:
-            continue
-        try:
-            replays = int(entry.get("replays") or 0)
-        except (TypeError, ValueError):
-            replays = 0
-        if replays >= _MAX_AUTO_REPLAYS:
-            continue
-        fields: dict[str, str] = {
-            "type": str(entry["type"]),
-            "payload": str(entry.get("payload", "{}")),
-            "replays": str(replays + 1),
-        }
-        if entry.get("dedupe_key"):
-            fields["dedupe_key"] = str(entry["dedupe_key"])
-        try:
-            await append_entry(redis, fields)
-            await redis.xdel(JOBS_DLQ_STREAM, entry["id"])
-            replayed += 1
-        except Exception:
-            logger.warning("DLQ auto-replay failed id=%s", entry.get("id"), exc_info=True)
+        start = next_stream_id(page[-1][0])
     if replayed:
         logger.info("DLQ auto-replay re-enqueued count=%s", replayed)
     return replayed
+
+
+async def _auto_replay(redis: Redis, entry_id: str, entry: dict[str, Any]) -> bool:
+    """Re-enqueue one dead letter when its type is safe to run again and it has replays
+    left; whether it went back."""
+    if entry.get("type") not in _AUTO_REPLAY_TYPES:
+        return False
+    try:
+        replays = int(entry.get("replays") or 0)
+    except (TypeError, ValueError):
+        replays = 0
+    if replays >= _MAX_AUTO_REPLAYS:
+        return False
+    fields: dict[str, str] = {
+        "type": str(entry["type"]),
+        "payload": str(entry.get("payload", "{}")),
+        "replays": str(replays + 1),
+    }
+    if entry.get("dedupe_key"):
+        fields["dedupe_key"] = str(entry["dedupe_key"])
+    try:
+        await append_entry(redis, fields)
+        await redis.xdel(JOBS_DLQ_STREAM, entry_id)
+    except Exception:
+        logger.warning("DLQ auto-replay failed id=%s", entry_id, exc_info=True)
+        return False
+    return True
