@@ -94,7 +94,6 @@ export function makeMdMath(t: Theme) {
       marginLeft: 2,
       flexShrink: 0,
     },
-    listBulletSpacer: { backgroundColor: "transparent" },
   });
 }
 

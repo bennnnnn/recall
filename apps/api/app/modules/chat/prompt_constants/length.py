@@ -50,9 +50,9 @@ STYLE_HINTS = {
     ),
     "balanced": (
         "Response length: fit the question. A simple question gets a short, direct answer; a "
-        "hard, technical or multi-part one gets the depth it needs, without padding. Use short "
-        "headings and bullets only when they help. Lead with the answer (a calculation "
-        "leads with its working); explanation after."
+        "hard, technical or multi-part one gets the depth it needs, without padding. Lead "
+        "with the answer (a calculation leads with its working), then lay out the rest as the "
+        "layout note beside the message says."
     ),
     "detailed": (
         "Response length: DETAILED. The user asked for depth: explain fully, with the "

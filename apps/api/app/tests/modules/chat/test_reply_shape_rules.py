@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.format import FORMAT_CONTRACT, READER_NOTE, TONE_FORMAT_GUARD
+from app.modules.chat.prompt_constants.format import (
+    FORMAT_CONTRACT,
+    READER_NOTE,
+    SCAN_LAYOUT,
+    TONE_FORMAT_GUARD,
+)
 from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
 
 
@@ -24,7 +29,7 @@ def test_a_message_about_their_own_life_is_answered_as_a_conversation() -> None:
     # "its key part still bold", the own-life sentence lost (20 of 80 replies bolded a
     # verdict): it opens the note, before the scanned layout is asked for.
     assert READER_NOTE.startswith("A message about their own life")
-    assert READER_NOTE.index("no list, heading or bold") < READER_NOTE.index("key part is bold")
+    assert READER_NOTE.index("no list, heading or bold") < READER_NOTE.index(SCAN_LAYOUT)
 
 
 def test_headings_rule_does_not_contradict_the_short_how_to() -> None:
