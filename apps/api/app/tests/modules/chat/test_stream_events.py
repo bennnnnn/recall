@@ -174,7 +174,7 @@ def test_turn_error_payload_says_whether_the_user_message_saved(saved: bool):
     ("commit", "expected"),
     [
         ("committed", {"type": "done", "message_id": "m1", "final_content": "hi"}),
-        ("timeout", {"type": "done", "final_content": "hi", "persisting": True}),
+        ("timeout", {"type": "done", "final_content": "hi"}),
         (
             "failed",
             {

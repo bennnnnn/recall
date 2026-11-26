@@ -222,7 +222,7 @@ def test_speed_without_a_height_draws_the_velocity_line() -> None:
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.trajectory_type == "velocity_vs_time"
-    assert spec.y_label == "Speed (m/s)"
+    assert spec.y_label == "|v| (m/s)"
     # Starts at rest and reaches the answer at the asked time.
     assert spec.points[0][1] == 0.0
     assert abs(spec.points[-1][1] - 9.81 * spec.points[-1][0]) < 0.01

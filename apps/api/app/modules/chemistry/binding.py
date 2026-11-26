@@ -47,6 +47,7 @@ from app.modules.chemistry.species_facts import (
     element_symbol,
     ion_charge,
     is_formula,
+    longest_first,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 from app.modules.chemistry.temperature import stated_temperature
@@ -192,7 +193,7 @@ def prepare(text: str) -> Prepared:
             species.append(formula)
         return f" {role(formula)} "
 
-    names = "|".join(re.escape(name) for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
+    names = longest_first(NAMED_COMPOUNDS)
     prepared = re.sub(
         rf"\b({names})\b",
         lambda match: substance(NAMED_COMPOUNDS[match.group(1).lower()]),

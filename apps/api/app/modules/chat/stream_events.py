@@ -201,7 +201,7 @@ class DoneEvent(BaseModel):
     """The turn's last event: the saved reply and what the client shows with it."""
 
     type: Literal["done"] = "done"
-    # None while the commit is still running (``persisting``).
+    # None while the commit is still running: the client keeps its bubble and refetches.
     message_id: str | None = None
     recalled: int = 0
     memory_hints: list[str] = []
@@ -214,8 +214,6 @@ class DoneEvent(BaseModel):
     resolved_model: str | None = None
     fallback_used: bool = False
     completion: Completion | None = None
-    # The commit outlived the wait: the client keeps its bubble and refetches.
-    persisting: bool = False
     # A ``title`` event follows on this socket: the phone asks for the chat's title no more.
     title_pending: bool = False
     # An ``answer_photo`` event follows: the reply's photo was still on its way.
@@ -225,6 +223,9 @@ class DoneEvent(BaseModel):
     def from_outcome(
         cls, outcome: TurnOutcome, *, persisting: bool = False, title_follows: bool = False
     ) -> DoneEvent:
+        """``persisting``: the commit outlived the wait. The event then carries no message
+        id, which is all a client reads of it (it was also sent as ``persisting: true``,
+        which no client read), and promises no title or photo after it."""
         return cls(
             message_id=None if persisting else outcome.message_id,
             recalled=outcome.recalled,
@@ -237,7 +238,6 @@ class DoneEvent(BaseModel):
             resolved_model=outcome.resolved_model,
             fallback_used=outcome.fallback_used,
             completion=outcome.completion,
-            persisting=persisting,
             title_pending=title_follows and outcome.title_wait is not None and not persisting,
             photo_pending=outcome.photo_task is not None and not persisting,
         )
@@ -277,8 +277,6 @@ class DoneEvent(BaseModel):
             event["fallback_used"] = "1"
         if self.completion:
             event["completion"] = self.completion
-        if self.persisting:
-            event["persisting"] = True
         if self.title_pending:
             event["title_pending"] = "1"
         if self.photo_pending:
@@ -303,7 +301,7 @@ async def await_finalize_commit(
       - ``"committed"`` when the commit landed (or there was no task).
       - ``"timeout"`` when the wait timed out while the commit is still
         running under ``asyncio.shield``. The caller should send ``done``
-        WITHOUT ``message_id`` (and with ``persisting: true``) so the client
+        WITHOUT ``message_id`` so the client
         keeps the local bubble and refetches instead of trusting a row that
         may never persist.
       - ``"failed"`` when the finalize task actually raised, so the caller
@@ -336,7 +334,7 @@ def settled_turn_event(
 ) -> dict[str, Any]:
     """The event after ``stream_end``, once the commit wait ends.
 
-    ``done`` when the reply committed; ``done`` without its id (``persisting``)
+    ``done`` when the reply committed; ``done`` without its id
     while the commit still runs; an error when it failed, so no client is handed
     the id of a row that never saved. Follow-up questions go out only after a
     committed ``done``.

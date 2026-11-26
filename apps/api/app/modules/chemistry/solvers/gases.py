@@ -12,14 +12,13 @@ from app.modules.chemistry.solvers.constants import water_vapor_mmhg
 from app.modules.chemistry.solvers.display import carried, inp, num, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.services.glyphs import TO_SUBSCRIPT
 from app.services.solving import SolveServiceError
-
-_SUBSCRIPT = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
 
 
 def _partial(name: str) -> str:
     """P(N2) for a named gas; P₁, P₂ for gases a question only numbers by their order."""
-    return f"P{name.translate(_SUBSCRIPT)}" if name.isdigit() else f"P({name})"
+    return f"P{name.translate(TO_SUBSCRIPT)}" if name.isdigit() else f"P({name})"
 
 
 def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:

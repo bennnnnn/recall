@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -259,6 +259,19 @@ def _optional_instant(value: object) -> datetime | None:
     return instant if instant.tzinfo is not None else instant.replace(tzinfo=UTC)
 
 
+def _listed_sessions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """At most ``MAX_SESSIONS_PER_ACCOUNT`` sessions, most recently seen first, this device's
+    own always among them. An account from before the cap may hold more until it signs in."""
+    cap = tokens_service.MAX_SESSIONS_PER_ACCOUNT
+    if len(rows) <= cap:
+        return rows
+    kept = rows[:cap]
+    if not any(row.get("current") for row in kept):
+        current = [row for row in rows[cap:] if row.get("current")]
+        kept = kept[: cap - len(current)] + current
+    return kept
+
+
 @router.get("/sessions", response_model=AuthSessionListOut)
 async def list_sessions(
     request: Request,
@@ -273,6 +286,7 @@ async def list_sessions(
         else None
     )
     rows = await tokens_service.list_sessions(redis, user.id, current_session_id=current_id)
+    rows = _listed_sessions(rows)
     sessions = [
         AuthSessionOut(
             id=str(row["id"]),
@@ -387,11 +401,32 @@ async def dev_upgrade_pro(
     return UserOut.model_validate(updated)
 
 
+# Plan syncs one account may ask for: each is a RevenueCat REST call. The phone asks after
+# a purchase or restore and when the store reports a change, a few times around a purchase;
+# a client in a loop stops here instead of spending the server's RevenueCat budget.
+_SUBSCRIPTION_SYNCS_PER_MINUTE = 10
+_SUBSCRIPTION_SYNCS_PER_HOUR = 60
+
+
+async def _require_sync_allowance(redis: Redis, user: User) -> None:
+    """Count this sync against the account's minute and hour; 429 past either."""
+    limits = (
+        (f"rate:billing_sync:min:{user.id}", _SUBSCRIPTION_SYNCS_PER_MINUTE, 60),
+        (f"rate:billing_sync:hour:{user.id}", _SUBSCRIPTION_SYNCS_PER_HOUR, 3600),
+    )
+    for key, limit, window in limits:
+        if not await allow_request_unless_down(redis, key, limit=limit, window_seconds=window):
+            raise RateLimitedError(
+                "Too many plan checks. Try again shortly.", retry_after_seconds=window
+            )
+
+
 @router.post("/me/sync-subscription", response_model=UserOut)
 async def sync_subscription(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
 ) -> UserOut:
     """Refresh plan from RevenueCat after a purchase or restore."""
     if not settings.revenuecat_secret_key.strip():
@@ -399,6 +434,7 @@ async def sync_subscription(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Subscriptions are not configured on this server",
         )
+    await _require_sync_allowance(redis, user)
     updated = await subscription_service.sync_user_plan_from_revenuecat(session, user, settings)
     return UserOut.model_validate(updated)
 

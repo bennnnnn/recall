@@ -19,7 +19,10 @@ STRUCTURE_LANGS = ("smiles", "chemistry")
 _SMILES_LINE = re.compile(r"[A-Za-z0-9@+\-\[\]()=#$/:\\.>%!~,*]+")
 _SMILES_LABEL = re.compile(r"^smiles:\s*", re.IGNORECASE)
 _MAX_SMILES_CHARS = 500
-_UNDRAWN = "*Could not render that structure.*\n"
+# A structure that cannot be drawn goes with no line of its own: an English "Could not
+# render that structure" stood under a reply in any language. A structure the message asked
+# to see is said not drawn, in the reply's language, by chat's ``owed_picture`` pass.
+UNDRAWN = ""
 
 
 def _lines(body: str) -> list[str]:
@@ -43,7 +46,7 @@ def drawn_line(body: str) -> str | None:
 def uncaptioned_fence(lang: str, body: str) -> str:
     """A closed ``lang`` fence as its structure alone, its closer's line break included."""
     line = drawn_line(body)
-    return f"```{lang}\n{line}\n```\n" if line is not None else _UNDRAWN
+    return f"```{lang}\n{line}\n```\n" if line is not None else UNDRAWN
 
 
 def without_structure_captions(text: str) -> str:

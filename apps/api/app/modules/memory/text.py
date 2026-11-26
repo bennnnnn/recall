@@ -11,6 +11,7 @@ import re
 from app.modules.memory.commands import is_explicit_memory_command, is_memory_correction
 from app.modules.memory.ops import normalize_memory_text
 from app.services.prompt_safety import said_by_user
+from app.services.text_normalize import SENTENCE_BREAK
 
 _AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
 
@@ -288,7 +289,7 @@ def embedding_text_hash(text: str) -> str:
 
 
 def _split_sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    parts = SENTENCE_BREAK.split(text.strip())
     return [part.strip() for part in parts if part.strip()]
 
 

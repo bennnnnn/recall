@@ -16,7 +16,7 @@ from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.memory.switch import memory_switch_on
 from app.services.md_fence_scan import iter_fences, line_fences
-from app.services.text_normalize import straighten_apostrophes
+from app.services.text_normalize import SENTENCE_BREAK, straighten_apostrophes
 
 _PROPOSAL_FENCE_LANG = "reminder_proposal"
 _ADDED_TO_TODOS = re.compile(
@@ -30,7 +30,6 @@ _ADDED_TO_TODOS = re.compile(
     r"|\bit(?:'s|\s+is)\s+(?:now\s+)?(?:in|on)\s+your\s+(?:to-?do(?:\s+list)?|to-?dos|list)\b",
     re.IGNORECASE,
 )
-_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
 _WORD = re.compile(r"[^\W_]")
 REMEMBERED = "Got it, I'll remember that."
 NOTED = "Got it."
@@ -38,7 +37,7 @@ MEMORY_OFF = "Memory is off, so I didn't save that. You can turn it on in Settin
 
 
 def _without_todo_claims(line: str) -> str | None:
-    sentences = _SENTENCE_BREAK.split(line)
+    sentences = SENTENCE_BREAK.split(line)
     kept = [part for part in sentences if not _ADDED_TO_TODOS.search(straighten_apostrophes(part))]
     if kept == sentences:
         return line

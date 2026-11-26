@@ -135,20 +135,27 @@ async def _retire_said_again(
 ) -> None:
     """An older fact a new or rewritten one says again in other words leaves active memory.
 
+    A fact whose vector a later pass backfilled (its own pass ran out of time embedding,
+    ``memory_instruct_embed_seconds``) is compared then: it was skipped, having no vector
+    when it was written. Which of such a pair stays is decided by age (``by_age``).
+
     Mock vectors are all the same, so they never stand for meaning here.
     """
     from app.gateways import mock_llm
 
-    fresh = [memory_id for memory_id, *_ in written if memory_id in touched]
-    if not fresh or mock_llm.should_mock_llm(settings):
+    if mock_llm.should_mock_llm(settings):
         return
-    await memories.retire_near_duplicates(
-        session,
-        user_id,
-        fresh,
-        min_similarity=settings.memory_near_duplicate_similarity,
-        new_wins=new_wins,
-    )
+    fresh = [memory_id for memory_id, *_ in written if memory_id in touched]
+    backfilled = [memory_id for memory_id, *_ in written if memory_id not in touched]
+    similarity = settings.memory_near_duplicate_similarity
+    if fresh:
+        await memories.retire_near_duplicates(
+            session, user_id, fresh, min_similarity=similarity, new_wins=new_wins
+        )
+    if backfilled:
+        await memories.retire_near_duplicates(
+            session, user_id, backfilled, min_similarity=similarity, by_age=True
+        )
 
 
 async def _vectors(

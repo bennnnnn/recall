@@ -908,10 +908,10 @@ def test_ws_done_sends_error_when_finalize_fails():
             assert REPLY_SAVE_FAILED_MESSAGE in msg["message"]
 
 
-def test_ws_done_sends_persisting_when_finalize_times_out():
-    """H2: on finalize TIMEOUT, send `done` without message_id + persisting: true
-    so the client keeps the local bubble and refetches instead of trusting a
-    row that may never persist if the shielded task later fails."""
+def test_ws_done_has_no_message_id_when_finalize_times_out():
+    """H2: on finalize TIMEOUT, send `done` without message_id so the client keeps
+    the local bubble and refetches instead of trusting a row that may never
+    persist if the shielded task later fails."""
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
@@ -946,7 +946,7 @@ def test_ws_done_sends_persisting_when_finalize_times_out():
             msg = ws.receive_json()
             assert msg["type"] == "done"
             assert "message_id" not in msg
-            assert msg.get("persisting") is True
+            assert "persisting" not in msg
             gate.set()
 
 

@@ -319,7 +319,7 @@ def _ai_data_consent_given():
     """Test users have agreed to what goes to outside AI services.
 
     The consent gate (``app/core/consent.py``) refuses a chat turn,
-    speech and a scan read for an account that has not; most tests build users
+    speech, a picture and a memory edit for an account that has not; most tests build users
     without that column. A test that checks the refusal takes ``consent_enforced``.
     """
     given = patch("app.core.consent.has_ai_data_consent", return_value=True)

@@ -460,6 +460,16 @@ def _todo_at_cap() -> Any:
         return client.post("/todos", headers=_AUTH, json={"content": "One more"})
 
 
+def _todo_duplicate() -> Any:
+    """PATCH /todos/{id} that would give an open to-do the title and time of another
+    (``uq_todo_open_content_due``): the refusal ``todos.crud`` raises for it."""
+    from app.modules.todos import crud as todos_crud
+
+    duplicate = todos_crud._duplicate(has_time=True)
+    with patch("app.modules.todos.api.todos_crud.update_todo", AsyncMock(side_effect=duplicate)):
+        return _client(_user()).patch(f"/todos/{uuid4()}", headers=_AUTH, json={"content": "Gym"})
+
+
 def _account_delete_unconfirmed() -> Any:
     """DELETE /auth/me with a bearer token and no confirmation."""
     return _client(_user()).delete("/auth/me", headers=_AUTH)
@@ -492,6 +502,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "account_exists": _refusal(exists),
         "account_delete_unconfirmed": _refusal(_account_delete_unconfirmed()),
         "todo_limit": _refusal(_todo_at_cap()),
+        "todo_duplicate": _refusal(_todo_duplicate()),
         "presign_unsupported_type": _refusal(_presign("application/x-msdownload", 100)),
         # The schema caps the size: FastAPI's own 422, which the phone reads as too large.
         "presign_too_large": {

@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from app.services.md_fence_scan import (
@@ -36,6 +39,44 @@ def test_replace_first_closed_fence_body_keeps_surrounding_prose() -> None:
     assert "Shorter" in next_text
     assert "Hello" not in next_text
     assert next_text.endswith("```\nOutro\n")
+
+
+@pytest.mark.parametrize(
+    "draft, run",
+    [
+        ("Run this:\n```\nnpm test\n```\nThanks", 4),
+        ("Run this:\n```bash\nnpm test\n```", 4),
+        ("Quoted:\n> ````\n> x\n> ````", 5),
+        ("No fence here, only `inline` code", 3),
+    ],
+)
+def test_a_body_holding_fence_lines_gets_a_longer_fence(draft: str, run: int) -> None:
+    """An email draft that quotes code closed its own ```email fence at the first ``` line,
+    and the rest spilled into the reply as markdown. The fence grows past every run."""
+    text = "Intro\n```email\nTo: a@b.com\n\nHello\n```\nOutro\n"
+    rewritten = replace_first_closed_fence_body(text, "email", f"To: a@b.com\n\n{draft}")
+    assert rewritten is not None
+    fences = [fence for fence in iter_fences(rewritten) if fence.lang == "email"]
+    assert len(fences) == 1 and fences[0].closed
+    assert fences[0].opener.length == run
+    assert rewritten[fences[0].body_start : fences[0].body_end] == f"To: a@b.com\n\n{draft}\n"
+    assert rewritten.startswith("Intro\n" + "`" * run + "email\n")
+    assert rewritten.endswith("`" * run + "\nOutro\n")
+
+
+_REWRITES = json.loads(
+    (Path(__file__).resolve().parents[5] / "docs/fixtures/fence_body_rewrites.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", _REWRITES, ids=[case["name"] for case in _REWRITES])
+def test_the_rewrite_is_the_one_the_phone_reads_back(case: dict[str, str]) -> None:
+    """The phone's twin and its card reading hold to the same file
+    (apps/mobile lib/__tests__/fenceBodyRewrites.test.ts)."""
+    assert (
+        replace_first_closed_fence_body(case["text"], case["lang"], case["body"])
+        == case["expected"]
+    )
 
 
 def test_replace_first_closed_fence_body_returns_none_without_fence() -> None:

@@ -17,6 +17,7 @@ from __future__ import annotations
 import math
 import re
 
+from app.services.glyphs import TO_SUPERSCRIPT
 from app.services.rounding_rule import number_parts
 from app.services.school_rounding import round_figures, trim_zeros
 from app.services.unit_text import LENGTH_UNITS, MASS_UNITS, TIME_UNITS
@@ -30,8 +31,6 @@ GIVEN_FIGURES = 6
 WORKING_FIGURES = 4
 _SCIENTIFIC_BELOW = 1e-3
 _SCIENTIFIC_FROM = 1e5
-
-_SUPERSCRIPT = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
 
 
 def _parts(value: float, figures: int | None) -> tuple[str, int | None]:
@@ -61,7 +60,7 @@ def plain_number(value: float, figures: int | None = None) -> str:
     mantissa, exponent = _parts(value, figures)
     if exponent is None:
         return mantissa
-    return f"{mantissa} × 10{str(exponent).translate(_SUPERSCRIPT)}"
+    return f"{mantissa} × 10{str(exponent).translate(TO_SUPERSCRIPT)}"
 
 
 def latex_given(value: float) -> str:
@@ -196,7 +195,7 @@ def plain_unit(unit: str) -> str:
     if words is not None:
         return words
     spelled = _grouped_denominator(_explicit_powers(unit)).replace("*", "·").replace(" ", "·")
-    return _POWER.sub(lambda match: match.group(1).translate(_SUPERSCRIPT), spelled)
+    return _POWER.sub(lambda match: match.group(1).translate(TO_SUPERSCRIPT), spelled)
 
 
 def latex_unit(unit: str) -> str:

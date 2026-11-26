@@ -226,3 +226,26 @@ async def test_the_rest_rate_limit_never_answers_for_it(deps: _Deps, limiter: st
             assert (await client.get("/memories")).status_code == limited
     assert response.status_code == 503
     assert allow.await_count == 1  # /memories only
+
+
+async def test_ready_probes_the_database_at_most_once_a_window(deps: _Deps) -> None:
+    """/health/ready is public: a database probe per call let any client hold a pooled
+    connection per request. Inside the window it answers from the last probe; the outage
+    still shows past it. /health never probes."""
+    check = DependencyCheck(
+        health.database_answers, ttl_seconds=health.READY_CHECK_TTL_SECONDS, clock=deps.clock
+    )
+    with patch.object(health, "READY_CHECK", check):
+        async with _client() as client:
+            answers = [await client.get("/health/ready") for _ in range(20)]
+            assert [r.status_code for r in answers] == [200] * 20
+            assert deps.database_probes == 1
+
+            deps.database_up = False
+            deps.clock.now += health.READY_CHECK_TTL_SECONDS - 0.1
+            assert (await client.get("/health/ready")).status_code == 200
+            deps.clock.now += 0.2
+            assert (await client.get("/health/ready")).status_code == 503
+            assert deps.database_probes == 2
+            assert (await client.get("/health")).status_code == 200
+    assert deps.database_probes == 2

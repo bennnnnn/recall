@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tex_numbers import short_number as _number
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.text_match import word_index
 
@@ -82,10 +83,6 @@ def _extract_vector_intent(cleaned: str) -> MathIntent | None:
 def _angle_vectors(text: str) -> list[list[float]]:
     """``<3, 4>``, or ``(3, 4)`` when no angle-bracket vector is written."""
     return literal_math_tuples(text, "<", ">") or literal_math_tuples(text, "(", ")") or []
-
-
-def _number(value: float) -> str:
-    return f"{value:g}"
 
 
 def _component(value: float) -> str:

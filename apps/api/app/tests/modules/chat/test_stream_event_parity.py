@@ -105,14 +105,15 @@ def test_done_is_the_shape_installed_phones_read() -> None:
     )
 
 
-def test_done_while_the_commit_runs_has_no_id_and_says_persisting() -> None:
+def test_done_while_the_commit_runs_has_no_id() -> None:
+    """No message id is how a client knows the reply is still saving; a ``persisting``
+    field no client read is not sent."""
     outcome = TurnOutcome(message_id="m1", resolved_model="free-chat", todos_changed=True)
     payload = DoneEvent.from_outcome(outcome, persisting=True).model_dump()
     assert payload == {
         "type": "done",
         "todos_sync": "1",
         "resolved_model": "free-chat",
-        "persisting": True,
     }
 
 

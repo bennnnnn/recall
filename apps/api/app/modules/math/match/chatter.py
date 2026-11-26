@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import re
 
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+from app.services.text_normalize import SENTENCE_BREAK
+
 _CHAT_LEAD = re.compile(
     r"^(?:(?:lol|lmao|haha|ha|ok(?:ay)?|cool|nice|so|and|also|anyway|btw|by\s+the\s+way|hey|"
     r"hmm|oh|wait|alright|random(?:\s+question)?|quick\s+question|unrelated|"
@@ -35,7 +36,7 @@ _CHANCE_SETUP = re.compile(
 def question_after_chat(text: str) -> str | None:
     """The question after the chat before it, or None when nothing was chat."""
     cleaned = " ".join(text.split())
-    sentences = [part for part in _SENTENCE_END.split(cleaned) if part]
+    sentences = [part for part in SENTENCE_BREAK.split(cleaned) if part]
     if not sentences:
         return None
     *before, last = sentences

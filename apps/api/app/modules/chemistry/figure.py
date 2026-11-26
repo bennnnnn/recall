@@ -13,7 +13,6 @@ mixture, a lone atom, no read, or no record: nothing is drawn, and the reply sta
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from collections.abc import Sequence
@@ -22,6 +21,9 @@ from pydantic import BaseModel, Field
 
 from app.core.config import Settings
 from app.models.routing_lanes import ROUTING
+
+# The structure PubChem gives a name; a miss or an outage draws nothing.
+from app.modules.chemistry.compound_lookup import structure_by_name as pubchem_structure
 from app.services.solving import VerifiedSolveBlock
 from app.services.text_normalize import collapse_ws
 
@@ -169,25 +171,6 @@ def structure_fence(smiles: str, name: str, asked: bool = False) -> str | None:
             # As PubChem writes it: RDKit's own spelling of chlorate is Cl2+ with three O-.
             shown.append(piece)
     return f"```smiles\n{name}\n{'.'.join(shown)}\n```"
-
-
-async def pubchem_structure(name: str) -> str | None:
-    from app.core.redis import get_redis_client
-    from app.gateways import pubchem_gateway
-    from app.modules.chemistry.context import PUBCHEM_BUDGET_SECONDS
-
-    try:
-        lookup = await asyncio.wait_for(
-            pubchem_gateway.lookup_by_name(name, redis=get_redis_client()),
-            PUBCHEM_BUDGET_SECONDS,
-        )
-    except Exception as exc:  # A timeout or an outage draws nothing.
-        logger.info("compound not looked up: %s", type(exc).__name__)
-        return None
-    compound = lookup.compound
-    if compound is None or lookup.error is not None:
-        return None
-    return compound.isomeric_smiles or compound.smiles
 
 
 def salt_name(written: str) -> str | None:

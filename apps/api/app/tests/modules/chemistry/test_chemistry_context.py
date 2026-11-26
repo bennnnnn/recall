@@ -141,6 +141,22 @@ async def test_build_chemistry_augmentation_pubchem_not_found() -> None:
     assert block == chemistry_context.unverified_chemistry_note()
 
 
+async def test_build_chemistry_augmentation_pubchem_outage_declines() -> None:
+    """An outage is a miss, as a timeout is: the one lookup every caller shares
+    (``compound_lookup``) declines it, where the context's own copy let it raise."""
+    with patch.object(
+        chemistry_context.pubchem_gateway,
+        "lookup_by_name",
+        new_callable=AsyncMock,
+        side_effect=ConnectionError("pubchem down"),
+    ):
+        block, _verified, declined, _ = await chemistry_context.build_chemistry_augmentation(
+            "structure of caffeine", _SETTINGS
+        )
+    assert declined is True
+    assert block == chemistry_context.unverified_chemistry_note()
+
+
 async def test_build_chemistry_augmentation_non_chemistry() -> None:
     """Non-chemistry questions return None."""
     block, _verified, _declined, _ = await chemistry_context.build_chemistry_augmentation(

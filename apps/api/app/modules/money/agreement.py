@@ -28,6 +28,7 @@ from app.modules.money.periods import ADJECTIVE, FREQUENCIES, NOUN, rate_words, 
 from app.modules.money.phrases import percent_value
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
+from app.services.text_normalize import SENTENCE_OR_LINE_BREAK
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,6 @@ _TERM = re.compile(r"\b(\d{1,3})[\s-]?(years?|yrs?|months?)\b", re.IGNORECASE)
 _MONEY = re.compile(
     r"(?<![\d.,])[$€£¥₹₦]\s?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?)(?:\s?([km])\b)?", re.I
 )
-_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 # Any sum in any written form: "340,000", "$340k", "340 thousand", "2,038.47".
 _ANY_SUM = re.compile(
     r"(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(\s?(?:k|m|thousand)\b)?",
@@ -108,7 +108,7 @@ def card_figures(text: str, request: MoneyRequest, worked: Worked) -> CardFigure
         return None
     # A payment is read in the loan's own period: "$X a quarter" for one paid quarterly.
     per_year = int(worked.settings.get("payments", 12))
-    sentences = _SENTENCE.split(text or "")
+    sentences = SENTENCE_OR_LINE_BREAK.split(text or "")
     if not _states_card(text, worked.values["amount"], payment):
         misread: list[float] = []
         for sentence in sentences:

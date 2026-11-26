@@ -15,6 +15,7 @@ import math
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.display import given_number as _given
 from app.modules.physics.display import plain_number
+from app.modules.physics.graph_labels import SYMBOLS, TIME, axis_label, graph_title
 from app.modules.physics.schemas import (
     SimulationAngle,
     SimulationBlockSpec,
@@ -272,9 +273,10 @@ def _velocity_time_graph(v0: float, g: float, t_end: float, speed: bool) -> Grap
         x_min=0.0,
         x_max=t_max,
         points=v_points,
-        title="Speed vs. Time" if speed else "Velocity vs. Time",
-        x_label="Time (s)",
-        y_label="Speed (m/s)" if speed else "Velocity (m/s)",
+        title=graph_title(SYMBOLS["speed" if speed else "velocity"]),
+        x_label=axis_label(TIME, "s"),
+        y_label=axis_label(SYMBOLS["speed" if speed else "velocity"], "m/s"),
+        quantity="speed" if speed else "velocity",
         trajectory_type="velocity_vs_time",
     )
 

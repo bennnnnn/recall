@@ -328,7 +328,7 @@ _OPERATION_SYMBOL = {"add": "+", "subtract": "-", "multiply": r"\times", "divide
 _WRITTEN_FRACTION = re.compile(r"(?:(?P<whole>\d+) )?(?P<top>\d+)/(?P<bottom>\d+)")
 
 
-def fraction_tex(value: str) -> str | None:
+def written_fraction_tex(value: str) -> str | None:
     """``5/2`` -> ``\\frac{5}{2}``; the mixed number ``2 1/2`` -> ``2\\frac{1}{2}``."""
     match = _WRITTEN_FRACTION.fullmatch(value.strip())
     if match is None:
@@ -375,7 +375,7 @@ def fraction_working(work: FractionWorkSpec, written: tuple[str, str] | None = N
     (a, b), (c, d) = parts[0], parts[1]
     chain = [f"{_latex_fraction(a, b)} {symbol} {_latex_fraction(c, d)}"]
     if written is not None:
-        shown = [fraction_tex(operand) for operand in written]
+        shown = [written_fraction_tex(operand) for operand in written]
         if shown[0] is None or shown[1] is None:
             return None
         chain.insert(0, f"{shown[0]} {symbol} {shown[1]}")

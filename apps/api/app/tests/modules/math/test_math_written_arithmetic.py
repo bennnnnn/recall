@@ -327,14 +327,15 @@ def test_unverified_written_work_is_stripped_without_showing_raw_json() -> None:
     assert cleaned == ""
 
 
-def test_mismatched_written_work_uses_the_specific_failure_note() -> None:
+def test_mismatched_written_work_goes_with_no_english_note() -> None:
     question = "Show steps: 478 + 356"
     _intent, block, _spec = _work(question)
     block = replace(block, response_intent=classify_math_response_intent(question))
 
     cleaned = validate_math_fences('```arithmetic\n{"type":"not-arithmetic"}\n```', verified=block)
 
-    assert "Could not render that written working" in cleaned
+    assert "not-arithmetic" not in cleaned
+    assert "Could not render" not in cleaned
 
 
 def test_answer_only_strips_written_working() -> None:

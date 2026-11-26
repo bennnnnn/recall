@@ -73,8 +73,10 @@ _CHART_ALIAS_LANGS = ("chart", "vega", "vega-lite", "plot")
 # A model's own diagram that no solver drew goes without a word: a note saying the app
 # "could not render" it read as the app unable to draw, and stood above the verified
 # picture the same reply carried (the textbook run's y = 2x + 1, 2026-11-13).
+# A diagram or a written working that cannot be checked goes with no line of its own: an
+# English "Could not render …" stood under a reply in any language. One the message asked to
+# see is said not drawn, in the reply's language, by chat's ``owed_picture`` pass.
 _DIAGRAM_DROPPED = "\n"
-_WORKING_FAIL_NOTE = "\n*Could not render that written working.*\n"
 
 
 def _graph_fence_body(spec: GraphBlockSpec) -> str:
@@ -175,7 +177,7 @@ def _replace_fence(
     family = label if label in {"geometry", "graph"} else None
     corrected = canonical_replacement(raw, canonical_fence, canonical_fences, family)
     if corrected is None:
-        return _WORKING_FAIL_NOTE if label == "arithmetic" else _DIAGRAM_DROPPED
+        return _DIAGRAM_DROPPED
     if label != "graph":
         return f"```{label}\n{corrected}\n```"
     # Densify only the verified canonical curve — never an unverified
@@ -439,7 +441,7 @@ def validate_math_fences(
             )
         ),
         max_count=_MAX_ARITHMETIC_FENCES,
-        leftover=lambda _body: _WORKING_FAIL_NOTE,
+        leftover=lambda _body: _DIAGRAM_DROPPED,
     )
     content = map_closed_fences(
         content,

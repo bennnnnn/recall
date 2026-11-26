@@ -16,6 +16,7 @@ import re
 
 from app.services.answer_fence import ANSWER_FENCE_LANGS
 from app.services.md_fence_scan import Fence, block_end, iter_fences
+from app.services.number_text import DECIMAL
 
 # A part's letter or number as a reply writes it: "b", "(b)", "Part b", "2".
 _KEY = re.compile(r"^(?:part\s*)?\(?([a-h]|[1-8])\)?$", re.IGNORECASE)
@@ -134,7 +135,7 @@ def pictures_under_cards(text: str, placed: list[tuple[str, str]]) -> str:
 # A molecule's numbers are its atoms' coordinates and counts, no value a part states: its
 # picture stays where chemistry put it (review, #2521).
 _PICTURE_LANGS = frozenset({"geometry", "graph", "simulation", "chart"})
-_NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+_NUMBER = re.compile(rf"-?{DECIMAL}")
 # A sampled path (a trajectory's points, a curve's samples) is no value the question states.
 _SAMPLES = 4
 

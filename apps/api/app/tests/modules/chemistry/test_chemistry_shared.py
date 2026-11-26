@@ -14,6 +14,7 @@ from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import positive, require, require_all
 from app.modules.chemistry.solvers.relation import solve_paired
+from app.modules.chemistry.species_facts import longest_first
 from app.services.solving import SolveServiceError
 
 _SOLVER_DIR = Path(__file__).parents[3] / "modules" / "chemistry" / "solvers"
@@ -36,6 +37,51 @@ _SOLVER_DIR = Path(__file__).parents[3] / "modules" / "chemistry" / "solvers"
 def test_hill_formula_writes_the_conventional_order(counts: dict[str, int], written: str) -> None:
     assert hill_formula(counts) == written
     assert parse_formula(written) == counts
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        "H" + "9" * 5000,  # raised in int(): past Python's 4300-digit limit
+        "C1234567H2O",  # a count no formula writes
+        "((CH)9999)9999",  # groups multiplied past any compound's atoms
+        "9999999H2O",  # a hydrate's count
+    ],
+)
+def test_a_count_no_formula_writes_reads_as_no_formula(written: str) -> None:
+    assert parse_formula(written) == {}
+
+
+@pytest.mark.parametrize(
+    ("written", "counts"),
+    [
+        # Haemoglobin, four-digit counts.
+        ("C2952H4664N812O832S8", {"C": 2952, "H": 4664, "N": 812, "O": 832, "S": 8}),
+        # Titin, the largest protein: six-digit counts.
+        (
+            "C169723H270464N45688O52243S912",
+            {"C": 169723, "H": 270464, "N": 45688, "O": 52243, "S": 912},
+        ),
+    ],
+)
+def test_a_large_real_formula_still_reads(written: str, counts: dict[str, int]) -> None:
+    assert parse_formula(written) == counts
+
+
+def test_calorimetry_is_worked_from_the_calorimeter_constant() -> None:
+    intent = ChemistryIntent(
+        kind="thermochemistry", chemistry_op="calorimetry", params={"c_cal": 200.0, "delta_t": 2.0}
+    )
+    assert solve_chemistry(intent).answer == "q_rxn = -400 J"
+    # The extractor reads nothing else: a mass and a specific heat are physics' Q = mcΔT.
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(
+            ChemistryIntent(
+                kind="thermochemistry",
+                chemistry_op="calorimetry",
+                params={"mass": 50.0, "specific_heat": 4.18, "delta_t": 2.0},
+            )
+        )
 
 
 def test_the_empirical_formula_does_not_keep_the_order_the_percentages_were_typed_in() -> None:
@@ -104,3 +150,11 @@ def test_no_chemistry_module_types_a_physical_constant(literal: str) -> None:
         if re.search(literal, path.read_text(encoding="utf-8"))
     ]
     assert typed == []
+
+
+def test_compound_names_match_longest_first() -> None:
+    pattern = re.compile(rf"\b(?:{longest_first(['sodium', 'sodium chloride'])})\b")
+    found = pattern.search("dissolve sodium chloride")
+    assert found is not None and found.group() == "sodium chloride"
+    # Escaped: a name's own marks are no regex.
+    assert longest_first(["Na+"]) == r"Na\+"

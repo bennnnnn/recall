@@ -20,7 +20,6 @@ from app.main import app
 _NOT_PAGED = {
     "/admin/dlq": "an operator's look at failed jobs, newest first up to `count`",
     "/auth/sessions": "the user's signed-in devices",
-    "/billing/plans": "the plan catalog",
     "/chats": "the drawer's groups by recency; `next_cursor` pages the dated chats",
     "/chats/{chat_id}/messages": "a window around one message, read older and newer by id",
     "/memories": "the user's facts on one screen; at most 150 are active",
