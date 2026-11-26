@@ -21,9 +21,17 @@ follows the rule.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
+from fractions import Fraction
 from typing import TYPE_CHECKING
 
-from app.services.answer_check import Number, VerifiedValue, read_verified_value
+from app.modules.chat.card_lists import listed_values
+from app.services.answer_check import (
+    TRAILING_DOTS,
+    Number,
+    VerifiedValue,
+    read_verified_value,
+)
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
@@ -214,7 +222,7 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
     plain = plain_numbers(body)
     if plain is None:
-        return None
+        return _listed_shown(body, precision)
     headers, value, read = plain
     numbers = list(read.numbers)
     written = list(WRITTEN_NUMBER.finditer(value))
@@ -224,7 +232,37 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
         own = precision if worked is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
         pieces += [value[at : match.start()], _number_shown(match, worked or number, own)]
-        at = match.end()
+        at = _past_dots(value, match.end())
+    shown = "".join([*pieces, value[at:]])
+    return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+def _past_dots(value: str, at: int) -> int:
+    """Past an ellipsis after a number's digits ("0.357142857\\ldots"): once the number is
+    rounded it no longer goes on."""
+    dots = TRAILING_DOTS.match(value, at)
+    return dots.end() if dots is not None else at
+
+
+def _listed_shown(body: str, precision: Precision) -> str | None:
+    """A card of several values no single reading takes, each a number standing as a value: a
+    vector's components ("(-9.0434 î + 8.6956 ĵ) m/s"), a magnitude, an angle and its
+    direction. Each decimal number is written by the rule; a whole number, a script, a
+    fraction's part, money and an expression are left as written (``listed_values``)."""
+    headers, value = answer_header_and_value(body)
+    if not value or "\n" in value or CHEMISTRY_NOTATION_LINE in headers or _KEPT.search(value):
+        return None
+    if not listed_values(value):
+        return None
+    pieces, at = [], 0
+    for match in WRITTEN_NUMBER.finditer(value):
+        number = match.group("number")
+        if "." not in number or match.group("braced", "bare", "calculator") != (None,) * 3:
+            continue
+        read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
+        own = _no_new_figures(match, read, precision)
+        pieces += [value[at : match.start()], _number_shown(match, read, own)]
+        at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
 

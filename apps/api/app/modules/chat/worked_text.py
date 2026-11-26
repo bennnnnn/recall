@@ -34,6 +34,7 @@ from app.modules.chat.worked_units import (
     units_upright,
 )
 from app.services.latex_groups import group_end, map_groups
+from app.services.rounding_rule import working_figures
 from app.services.times_sign import with_times
 from app.services.workout import formula_heading
 
@@ -181,7 +182,8 @@ def tidy_tex(tex: str) -> str:
     tex = word_scripts(_BOLD.sub(r"\1", typed_signs(tex)))
     tex = greek_as_commands(currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))))
     # Braced, "v_Ai_mag" is two subscripts on v: one base takes one (``tex_form``).
-    return well_formed(tex)
+    # A calculator's digits are written to the working's figures (``working_figures``).
+    return well_formed(working_figures(tex))
 
 
 def tidy_symbol(symbol: str) -> str:

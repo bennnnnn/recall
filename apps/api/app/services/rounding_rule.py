@@ -3,9 +3,11 @@
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
 
-- Two decimal places, zeros kept: 2.453 is 2.45, 2.4 is 2.40, 19394.567 is 19394.57. A whole
-  result stays whole (1500). A value two places would round to fewer than three figures keeps
-  three significant figures (0.455, 0.0567, 0.00123): a card is never more than 0.5% off.
+- Two decimal places, zeros kept: 2.453 is 2.45, 2.4 is 2.40, 19394.567 is 19394.57, and
+  below 1 too: 0.577 is 0.58, 0.4551 is 0.46 (owner, 2026-11-25, replacing 2026-11-19's
+  three figures under 1). A whole result stays whole (1500). Only a value below 0.1
+  (``SMALL_BELOW``), which two places would show as next to nothing, keeps three
+  significant figures (0.0649, 0.00123).
 - Written in full below 10⁹; a power of ten only from 10⁹, or below 0.001, to three
   significant figures (6.02 × 10²³, 1.60 × 10⁻¹⁹).
 - No thousands separators: the card reads like the working above it.
@@ -35,6 +37,9 @@ from app.services.school_rounding import (
 
 PLACES = 2
 SMALL_FIGURES = 3
+# Below this a value keeps SMALL_FIGURES significant figures instead of PLACES places: the
+# one line that says what a "small" value is.
+SMALL_BELOW = 0.1
 POWER_FROM = 1e9
 POWER_BELOW = 1e-3
 
@@ -148,7 +153,7 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
         return str(round(number)), None
     shown = format_places(number, PLACES)
     lost = not math.isclose(float(shown), number, rel_tol=1e-12)
-    if lost and len(shown.lstrip("-").replace(".", "").lstrip("0")) < SMALL_FIGURES:
+    if lost and abs(number) < SMALL_BELOW:
         return _figures(number, SMALL_FIGURES, False)
     return shown, None
 
@@ -174,3 +179,28 @@ def number_latex(value: float | Fraction, precision: Precision = RULE) -> str:
     """``2.45``, ``6.02 \\times 10^{23}``."""
     mantissa, exponent = number_parts(value, precision)
     return mantissa if exponent is None else rf"{mantissa} \times 10^{{{exponent}}}"
+
+
+# The most significant figures a line of working writes: the working ends on its value
+# unrounded, as a person writes it, never a calculator's sixteen digits ("-9.043478260869565"
+# is -9.04348), the figures physics' own working keeps (``display.GIVEN_FIGURES``).
+WORKING_FIGURES = 6
+# A decimal in working, with an ellipsis after it saying its digits go on.
+_LONG_DECIMAL = re.compile(
+    r"(?<![\w.^_{])(?P<digits>\d+\.\d+)(?P<dots>[ \t]*(?:…|\\[lc]?dots(?![A-Za-z])))?"
+)
+
+
+def working_figures(tex: str) -> str:
+    """``tex`` with each decimal of more than ``WORKING_FIGURES`` significant figures written
+    to them, its ellipsis dropped (``0.357142857\\ldots`` is 0.357143); a shorter one, a whole
+    number, a script and an exponent stay as written (owner, 2026-11-25)."""
+
+    def shorter(match: re.Match[str]) -> str:
+        digits = match["digits"]
+        if len(digits.replace(".", "").lstrip("0")) <= WORKING_FIGURES:
+            return match[0]
+        mantissa, exponent = round_figures(float(digits), WORKING_FIGURES)
+        return trim_zeros(format(mantissa.scaleb(exponent), "f"))
+
+    return _LONG_DECIMAL.sub(shorter, tex)

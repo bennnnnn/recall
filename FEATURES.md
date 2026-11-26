@@ -455,8 +455,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   daily proration so the counting assumption is never hidden.
 - ✅ **Physics** — server-side extractors and pure solvers (see
   [docs/physics.md](./docs/physics.md)). Verified operations are the
-  formula catalog, one entry per `physics_op`. Answers have
-  three significant figures and upright units, in the unit the question asks for
+  formula catalog, one entry per `physics_op`. Answers follow the card rule (two decimal places,
+  three significant figures below 0.1, `services/rounding_rule.py`) with upright units, in the unit the question asks for
   ("in kWh", "in psi"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
   a stated value of a kind it uses, leaves out a stated force, speed, length or angle, or
   answers a different quantity than the one asked, is declined. A student's own result

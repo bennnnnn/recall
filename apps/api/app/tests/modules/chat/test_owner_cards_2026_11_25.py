@@ -1,0 +1,120 @@
+"""Three physics answers the owner asked on the dev account (2026-11-25): "it supposed to be
+just 2!". The cards showed 0.577, 0.357142857… and a vector of sixteen-digit components, and
+the working the same digits. Each reply below is the one saved then, before finalize's card
+pass ran on it again.
+"""
+
+from __future__ import annotations
+
+import re
+
+import pytest
+
+from app.modules.chat.card_lists import listed_values
+from app.modules.chat.card_numbers import card_numbers
+from app.modules.chat.worked_text import tidy_tex
+from app.services.answer_check import read_verified_value
+from app.services.rounding_rule import RULE, number_latex, working_figures
+
+_FRICTION_RAMP = (
+    "**Substitution**  \n$\\mu = \\frac{60\\sin 30^\\circ}{60\\cos 30^\\circ}$  \n"
+    "$\\mu = \\frac{30}{30\\sqrt{3}}$  \n$\\mu = \\frac{1}{\\sqrt{3}}$  \n$\\mu \\approx 0.577$\n\n"
+    "**Answer**\n\n```answer\nverified: false\n0.577\n```"
+)
+_FRICTION_TABLE = (
+    "**Substitution**  \n$N = 2 \\times 9.8$  \n$N = 19.6\\,\\mathrm{N}$  \n"
+    "Solve for $\\mu_k$  \n$\\mu_k = \\frac{F_k}{N}$  \n$\\mu_k = \\frac{7}{19.6}$  \n"
+    "$\\mu_k = 0.357142857\\ldots$  \n$0.357142857\\ldots \\times 19.6 = 7\\,\\mathrm{N}$\n\n"
+    "**Answer**\n\n```answer\nverified: false\n0.357142857\\ldots\n```"
+)
+_COLLISION = (
+    "**Substitution**  \n$v_{fx} = \\frac{-(1300)(16)}{1000 + 1300}$  \n"
+    "$v_{fx} = -9.043478260869565\\,\\mathrm{m/s}$  \n"
+    "$v_{fy} = 8.695652173913043\\,\\mathrm{m/s}$  \n$\\theta = 43.9^\\circ$\n\n"
+    "**Answer (b)**\n\n```answer\nverified: false\n"
+    "$(-9.043478260869565\\hat{i} + 8.695652173913043\\hat{j})\\,\\mathrm{m/s}$, "
+    "$12.546951\\ldots\\,\\mathrm{m/s}$, 43.9° north of west\n```"
+)
+
+
+def _card(reply: str) -> str:
+    return re.findall(r"```answer\nverified: false\n(.*?)\n```", card_numbers(reply, RULE))[0]
+
+
+@pytest.mark.parametrize(
+    ("reply", "card"),
+    [
+        (_FRICTION_RAMP, "0.58"),
+        (_FRICTION_TABLE, "0.36"),
+        (
+            _COLLISION,
+            "$(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m/s}$, $12.55\\,\\mathrm{m/s}$, "
+            "43.90° north of west",
+        ),
+    ],
+    ids=["ramp", "table", "collision"],
+)
+def test_the_owners_cards_show_two_places(reply: str, card: str) -> None:
+    assert _card(reply) == card
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [
+        (0.5773502692, "0.58"),
+        (0.357142857, "0.36"),
+        (0.4551, "0.46"),
+        (0.0649, "0.0649"),
+        (0.0456, "0.0456"),
+        (0.00123, "0.00123"),
+        (0.05, "0.05"),
+        (0.000456, r"4.56 \times 10^{-4}"),
+        (2.453, "2.45"),
+        (-9.043478260869565, "-9.04"),
+    ],
+)
+def test_two_places_below_one_and_three_figures_below_a_tenth(value: float, shown: str) -> None:
+    assert number_latex(value) == shown
+
+
+@pytest.mark.parametrize("value", ["0.357142857\\ldots", "0.357142857…", "0.357142857\\dots"])
+def test_a_value_whose_digits_go_on_is_read(value: str) -> None:
+    read = read_verified_value(value)
+    assert read is not None and float(read.numbers[0].value) == pytest.approx(0.357142857)
+
+
+@pytest.mark.parametrize(
+    ("value", "listed"),
+    [
+        ("$(-9.04\\hat{i} + 8.7\\hat{j})\\,\\mathrm{m/s}$", True),
+        ("12.5 m/s, 43.9° north of west", True),
+        ("2x + 3.5", False),
+        ("x^2 + 0.25", False),
+        ("x = 0.5, y = 0.25", False),
+        ("12.5 m/s", False),
+    ],
+)
+def test_a_list_of_values_is_told_from_maths(value: str, listed: bool) -> None:
+    assert listed_values(value) is listed
+
+
+def test_an_expression_card_is_left_as_written() -> None:
+    reply = "**Answer**\n\n```answer\nverified: false\ny = 0.333x + 2.5\n```"
+    assert card_numbers(reply, RULE) == reply
+
+
+@pytest.mark.parametrize(
+    ("tex", "shown"),
+    [
+        ("v_{fx} = -9.043478260869565\\,\\mathrm{m/s}", "v_{fx} = -9.04348\\,\\mathrm{m/s}"),
+        ("\\mu_k = 0.357142857\\ldots", "\\mu_k = 0.357143"),
+        ("t = 4.82488\\,\\mathrm{s}", "t = 4.82488\\,\\mathrm{s}"),
+        ("m^{2.5}", "m^{2.5}"),
+        ("123456789", "123456789"),
+    ],
+)
+def test_working_keeps_six_figures_never_a_calculators_sixteen(tex: str, shown: str) -> None:
+    assert working_figures(tex) == shown
+    assert "9.043478260869565" not in tidy_tex(
+        "\\sqrt{(-9.043478260869565)^2 + (8.695652173913043)^2}"
+    )

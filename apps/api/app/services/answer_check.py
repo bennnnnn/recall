@@ -57,6 +57,8 @@ class VerifiedValue:
 _SUPERSCRIPTS = SUPERSCRIPT_SIGNED
 _SUBSCRIPTS = SUBSCRIPT_DIGITS
 _SUPERSCRIPT_RUN = re.compile(r"[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+")
+# An ellipsis right after a number's digits, as plain text or LaTeX writes it.
+TRAILING_DOTS = re.compile(r"(?<=\d)[ \t]*(?:…|\.\.\.|\\[lc]?dots(?![A-Za-z]))")
 
 
 def _clean(text: str) -> str:
@@ -68,6 +70,8 @@ def _clean(text: str) -> str:
     out = text.replace("\r\n", "\n").replace("\u2212", "-").replace("\u2009", " ")
     out = out.replace("\u00a0", " ").replace("\u202f", " ")
     out = "\n".join(without_markup(line) for line in out.split("\n"))
+    # "0.357142857…": the digits shown are the value; the dots only say it goes on.
+    out = TRAILING_DOTS.sub("", out)
     out = _SUPERSCRIPT_RUN.sub(lambda match: "^" + match.group(0).translate(_SUPERSCRIPTS), out)
     out = out.translate(_SUBSCRIPTS)
     # Math delimiters and emphasis are presentation only.
@@ -274,6 +278,11 @@ def _asks(sentence: str) -> bool:
     text = sentence.rstrip(" \t\n*_~`$")
     # "Required: x = ?" names the unknown; it asks the reader nothing.
     return text.endswith("?") and re.search(r"=\s*\?$", text) is None
+
+
+def plain_text(text: str) -> str:
+    """``text`` (a card's value, a line of working) as plain text a number scanner reads."""
+    return _clean(text)
 
 
 def statement_text(prose: str) -> str:
