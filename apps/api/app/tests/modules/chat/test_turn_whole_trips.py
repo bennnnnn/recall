@@ -37,7 +37,7 @@ from redis.exceptions import ResponseError
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import access_tokens, user_cache
+from app.core import access_tokens, spend_counter, user_cache
 from app.core import redis as core_redis
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import get_settings
@@ -472,6 +472,11 @@ async def harness(
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
     # Production runs with the global spend cap on; a turn and each job read it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
+    # A turn's spend checks share one read for TURN_SPEND_SHARED_SECONDS; a check after it
+    # reads again. Held open here, so the count is the design's (one read a turn), never the
+    # machine's speed: CI's slower run outlasted the window and read again. The re-read after
+    # the window is its own test (core/test_spend_read_once.py).
+    monkeypatch.setattr(spend_counter, "TURN_SPEND_SHARED_SECONDS", float("inf"))
     # Every kind of turn runs for one free user: more than a free day's messages.
     monkeypatch.setenv("DAILY_MESSAGE_LIMIT", "100")
     # The memory read's wait for its query embedding (0.75 s in production): past it the
