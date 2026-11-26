@@ -19,7 +19,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from html.parser import HTMLParser
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 from uuid import UUID
 
 import httpx
@@ -140,8 +140,19 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
     }
 
 
+# A card with nothing fetched (a timeout, a 403, a page that would not parse) is kept this
+# long, not the hour a card with a title is: the site may answer a minute later.
+_EMPTY_CARD_TTL_SECONDS = 300
+
+
 def _preview_cache_key(url: str) -> str:
-    digest = hashlib.sha256(url.strip().lower().encode()).hexdigest()[:32]
+    """One entry per page: the scheme and host are any case, the path and query are the
+    page's own ("/Docs/A" and "/docs/a" are two pages on most servers)."""
+    parts = urlsplit(url.strip())
+    page = urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), parts.path, parts.query, parts.fragment)
+    )
+    digest = hashlib.sha256(page.encode()).hexdigest()[:32]
     return f"linkpreview:{digest}"
 
 
@@ -187,8 +198,9 @@ async def fetch_link_preview_cached(
         if cached:
             payload = json.loads(cached)
             if isinstance(payload, dict):
+                # The card is the asker's link: the cached entry may be another spelling.
                 return {
-                    "url": str(payload.get("url") or url),
+                    "url": url,
                     "title": payload.get("title"),
                     "description": payload.get("description"),
                     "domain": str(payload.get("domain") or urlparse(url).netloc or url),
@@ -198,12 +210,10 @@ async def fetch_link_preview_cached(
 
     async with _in_flight_slot(redis, user_id):
         result = await fetch_link_preview(url)
+    found = bool(result.get("title") or result.get("description"))
+    ttl = max(60, settings.link_preview_cache_ttl) if found else _EMPTY_CARD_TTL_SECONDS
     try:
-        await redis.set(
-            cache_key,
-            json.dumps(result),
-            ex=max(60, settings.link_preview_cache_ttl),
-        )
+        await redis.set(cache_key, json.dumps(result), ex=ttl)
     except Exception:
         logger.debug("Link preview cache write failed", exc_info=True)
     return result
