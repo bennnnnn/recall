@@ -14,7 +14,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { BrandAccent } from "@/lib/accentRuntime";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";

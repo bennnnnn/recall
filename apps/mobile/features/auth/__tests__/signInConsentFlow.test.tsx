@@ -207,7 +207,7 @@ it("a new sign-in opens the chat with no consent screen, and the server records 
   expect(mockSent.map((r) => `${r.method} ${r.path}`)).toEqual(["POST /auth/google"]);
 });
 
-it("an account without the agreement (from before, or withdrawn) is still asked, and agreeing opens the chat", async () => {
+it("an account without the agreement (from before, or a client that sends no flag) is still asked, and agreeing opens the chat", async () => {
   mockStoredToken = "access-a";
   const view = await render(<AuthProvider><App /></AuthProvider>);
   await settle();
