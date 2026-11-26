@@ -83,7 +83,6 @@ async def test_retrieve_for_prompt_includes_filename_and_page():
             "app.modules.attachments.rag.attachments_repo.get_by_ids",
             AsyncMock(return_value=[file_row]),
         ),
-        patch("app.modules.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -115,7 +114,6 @@ async def test_retrieve_for_prompt_miss_is_not_not_in_file():
             "app.modules.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(return_value=[]),
         ),
-        patch("app.modules.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -153,7 +151,6 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
             "app.modules.attachments.rag.chunks_repo.search_semantic",
             AsyncMock(side_effect=RuntimeError("db exploded")),
         ),
-        patch("app.modules.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,
@@ -657,7 +654,6 @@ async def test_retrieve_for_prompt_uses_stored_ocr_coverage():
             "app.modules.attachments.rag.attachments_repo.get_by_ids",
             AsyncMock(return_value=[file_row]),
         ),
-        patch("app.modules.attachments.rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings=settings,

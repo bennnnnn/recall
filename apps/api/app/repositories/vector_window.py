@@ -2,8 +2,9 @@
 
 A global vector index filters by user (and chat) only after its scan, so it found nothing
 for most users. Both chunk tables are ranked exactly instead, over a bounded window of the
-newest rows, read through their ``(user_id, created_at)`` index; the LIMIT keeps the
-planner from flattening the window into the outer query.
+newest rows. ``message_chunks`` reads that window through its ``(user_id, created_at)``
+index; ``attachment_chunks`` finds a chat's rows by ``(user_id, chat_id)`` and sorts them.
+The LIMIT keeps the planner from flattening the window into the outer query.
 """
 
 from __future__ import annotations

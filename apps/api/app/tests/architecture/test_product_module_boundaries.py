@@ -325,7 +325,7 @@ def test_package_import_cannot_pull_a_private_name() -> None:
 
     public = ast.parse(
         "from app.modules.attachments import service\n"
-        "from app.modules.todos import mark_reminder_pushed\n"
+        "from app.modules.todos import mark_reminders_pushed\n"
         "from app.modules.billing import plan\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")

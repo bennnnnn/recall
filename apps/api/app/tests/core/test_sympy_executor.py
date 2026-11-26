@@ -538,7 +538,8 @@ raise SystemExit(3)
 
 
 async def test_the_document_pool_names_itself_in_its_logs(caplog):
-    """The document pool is this class too: a parse's wait or timeout read as SymPy's."""
+    """The document pool is this class too: a parse's wait or timeout read as SymPy's,
+    in its log lines and its errors."""
     from app.core.document_executor import get_document_executor, set_document_executor
     from app.core.sympy_executor import WorkerBusyError
 
@@ -549,7 +550,8 @@ async def test_the_document_pool_names_itself_in_its_logs(caplog):
         executor._queue_wait_seconds = 0.01
         for _ in range(executor.max_workers):  # every slot busy
             await executor._free_queue().get("solve")
-        with caplog.at_level("WARNING"), pytest.raises(WorkerBusyError):
+        # The error a job, its dead letter and Sentry carry names the pool too.
+        with caplog.at_level("WARNING"), pytest.raises(WorkerBusyError, match=r"^document worker"):
             await executor.run(_divide, 1, 2, timeout=1.0)
     finally:
         set_document_executor(None)

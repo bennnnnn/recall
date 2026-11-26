@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.core.config import Settings
+from app.core.vectors import EMBEDDING_DIM
 from app.modules.conversation.history_rag import (
     HistoryEmbeddingUnavailable,
     _embed_and_store,
@@ -98,7 +99,6 @@ async def test_retrieve_for_prompt_degrades_on_db_error():
             "app.modules.conversation.history_rag.chunks_repo.search_semantic",
             AsyncMock(side_effect=RuntimeError("db exploded")),
         ),
-        patch("app.modules.conversation.history_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
             settings,
@@ -791,7 +791,7 @@ async def test_the_backfill_embeds_its_messages_in_one_request_and_one_transacti
         return row
 
     rows = [line(f"I planted {n} tomato seedlings in the garden today.") for n in range(40)]
-    vector = [0.1] * history_rag.chunks_repo.EMBEDDING_DIM
+    vector = [0.1] * EMBEDDING_DIM
 
     async def _embed(_settings, texts, **_kw):
         return [None if "planted 7 " in text else vector for text in texts]
@@ -874,7 +874,7 @@ async def test_a_backfill_write_that_fails_loses_only_its_own_message():
 
     rows = [line(f"I planted {n} tomato seedlings in the garden today.") for n in range(5)]
     gone = rows[2].id
-    vector = [0.1] * history_rag.chunks_repo.EMBEDDING_DIM
+    vector = [0.1] * EMBEDDING_DIM
     written: list = []
 
     async def _replace(_session, *, user_id, messages):

@@ -116,8 +116,8 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         reserved_for_readings: int = 0,
         label: str = "sympy",
     ) -> None:
-        # What its log lines call the pool: the document pool is this class too, and its
-        # timeouts read as SymPy's.
+        # What its log lines and errors call the pool: the document pool is this class too,
+        # and its timeouts read as SymPy's (a job's error, its dead letter, Sentry).
         self._label = label
         self._max_workers = _clamp_workers(max_workers)
         # Slots solves cannot fill, so slow solves never starve readings (core/sympy_slots).
@@ -224,7 +224,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             logger.warning("%s worker failed to warm after %.3fs", self._label, _SPAWN_WAIT_SECONDS)
             future.cancel()
             await self._kill_slot_async(slot)
-            raise TimeoutError("SymPy worker failed to start") from exc
+            raise TimeoutError(f"{self._label} worker failed to start") from exc
         self._cold[slot] = False
 
     def _kill_slot(self, slot: int) -> None:
@@ -303,7 +303,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                     self._label,
                     time.monotonic() - t_submit,
                 )
-                raise WorkerBusyError("SymPy worker slot wait timed out") from exc
+                raise WorkerBusyError(f"{self._label} worker slot wait timed out") from exc
 
             queue_s = time.monotonic() - t_submit
             if self._in_process:
@@ -371,7 +371,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 )
                 future.cancel()
                 await self._kill_slot_async(slot)
-                raise TimeoutError("SymPy worker failed to start")
+                raise TimeoutError(f"{self._label} worker failed to start")
             return future
         except asyncio.CancelledError:
             if future is not None:
@@ -413,11 +413,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
     ) -> _T:
         pool = self._thread_pool
         if pool is None:
-            raise RuntimeError("sympy in-process fallback was not armed")
+            raise RuntimeError(f"{self._label} in-process fallback was not armed")
         future = pool.submit(fn, *args)
         if not await wait_until_started(future, _SPAWN_WAIT_SECONDS):
             future.cancel()
-            raise TimeoutError("SymPy worker failed to start")
+            raise TimeoutError(f"{self._label} worker failed to start")
         afut = asyncio.wrap_future(future)
         async with asyncio.timeout(timeout):
             return await afut

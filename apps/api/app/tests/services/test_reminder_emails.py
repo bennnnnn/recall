@@ -244,3 +244,59 @@ async def test_reminder_emails_go_out_side_by_side(email_write):
 
     assert count == 2
     assert email_write.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_a_cycle_past_its_budget_sends_no_further_batch(email_write):
+    """The budget was checked only between pages, and a page takes about 100 s at two
+    a second: a cycle ran past its minute."""
+    now = datetime.now(UTC)
+    user = _user()
+    result = MagicMock()
+    result.all.return_value = [(_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user)]
+    session = fake_session(execute=AsyncMock(return_value=result))
+    with patch(
+        "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
+        AsyncMock(return_value=SENT),
+    ) as send:
+        count = await reminder_emails.process_todo_reminder_emails(
+            session, _settings(reminder_cycle_budget_seconds=0), now=now
+        )
+    assert count == 0
+    send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_the_send_pace_holds_across_pages(email_write):
+    """The pace restarted with every page: a page's first batch went out with no wait,
+    past the provider's rate."""
+    now = datetime.now(UTC)
+    pages = []
+    for _ in range(2):
+        user = _user()
+        page = MagicMock()
+        page.all.return_value = [(_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user)]
+        pages.append(page)
+    last = MagicMock()
+    last.all.return_value = []
+    session = fake_session(execute=AsyncMock(side_effect=[*pages, last]))
+    waits: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    with (
+        patch.object(reminder_emails, "EMAIL_PAGE_ROWS", 1),
+        patch("asyncio.sleep", sleep),
+        patch(
+            "app.modules.notifications.reminder_email.tx_email.send_todo_reminder",
+            AsyncMock(return_value=SENT),
+        ),
+    ):
+        count = await reminder_emails.process_todo_reminder_emails(
+            session, _settings(email_reminder_sends_per_second=1), now=now
+        )
+    assert count == 2
+    # The second page's batch waits out the first one's second.
+    assert waits[0] == 0.0
+    assert waits[1] > 0.5

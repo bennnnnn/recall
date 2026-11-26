@@ -318,9 +318,10 @@ async def test_an_account_refusal_holds_the_reminder_instead_of_losing_it(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("budget", "sent"), [(60, 12), (0, 1)])
+@pytest.mark.parametrize(("budget", "sent"), [(60, 12), (0, 0)])
 async def test_the_cycle_reads_pages_while_its_budget_lasts(email_sql, budget, sent):
-    """It used to stop at 10 pages, whatever the backlog; now at its time budget."""
+    """It used to stop at 10 pages, whatever the backlog; now at its time budget, which
+    each batch checks before it sends."""
     sync_session, session = email_sql
     _rows(sync_session, count=12)
     send = AsyncMock(return_value=SENT)
@@ -330,6 +331,9 @@ async def test_the_cycle_reads_pages_while_its_budget_lasts(email_sql, budget, s
         patch.object(reminder_email.tx_email, "send_todo_reminder", send),
     ):
         count = await reminder_email.process_todo_reminder_emails(
-            session, Settings(reminder_cycle_budget_seconds=budget), now=NOW
+            session,
+            # Paced at 100 a second, the twelve one-row pages take about 0.12 s.
+            Settings(reminder_cycle_budget_seconds=budget, email_reminder_sends_per_second=100),
+            now=NOW,
         )
     assert count == sent

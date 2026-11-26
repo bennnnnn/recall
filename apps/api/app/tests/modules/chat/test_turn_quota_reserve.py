@@ -398,13 +398,16 @@ def _slow_before(call):
     return slow
 
 
+@pytest.mark.parametrize("midnight", [False, True], ids=["same-day", "past-midnight"])
 @pytest.mark.parametrize("stopped_in", ["reserve", "top_up", "refund"])
 async def test_a_stop_while_redis_answers_leaks_no_reserved_tokens(
-    fake_redis, stopped_in: str
+    fake_redis, quota_clock, stopped_in: str, midnight: bool
 ) -> None:
     """Regression: a Stop that cancelled the turn while Redis granted its tokens left
-    the grant in the day's total with no turn holding it; nothing refunded it."""
+    the grant in the day's total with no turn holding it; nothing refunded it. Past UTC
+    midnight, the top-up and the give-back both use the day the turn reserved on."""
     user = _user()
+    reserved_on = quota_clock.day
     quota: dict[str, object] = {}
     if stopped_in in ("reserve", "top_up"):
         quota["reserve_usage_up_to"] = _slow_after(quota_service.reserve_usage_up_to)
@@ -431,6 +434,8 @@ async def test_a_stop_while_redis_answers_leaks_no_reserved_tokens(
                 daily_limit=_LIMIT,
                 max_output=_SETTINGS.max_output_tokens,
             )
+            if midnight:
+                quota_clock.day = quota_clock.next_day
             if stopped_in == "top_up":
                 waiting.set()
                 with patch.object(
@@ -451,7 +456,40 @@ async def test_a_stop_while_redis_answers_leaks_no_reserved_tokens(
         await running
     await drain_background_tasks()
 
-    assert await _used(fake_redis, user) == 0
+    assert await _day_used(fake_redis, user, reserved_on) == 0
+    assert await _day_used(fake_redis, user, quota_clock.next_day) == 0
+
+
+async def test_a_top_up_past_utc_midnight_takes_from_the_day_it_reserved(
+    fake_redis, quota_clock
+) -> None:
+    """The prompt's top-up grows the reservation on the day it was taken from, so the
+    settle and any refund find it there."""
+    user = _user()
+    deps = turn_deps(
+        session_factory=FakeSessionCM,
+        locks={"acquire_lock": AsyncMock(return_value="tok"), "release_lock": AsyncMock()},
+    )
+    reserved_on = quota_clock.day
+    async with turn_resources.turn_resources(
+        deps, fake_redis, user_id=user.id, chat_id=uuid4()
+    ) as res:
+        await res.reserve(
+            user=user,
+            content="hi",
+            model="free-chat",
+            settings=_SETTINGS,
+            daily_limit=_LIMIT,
+            max_output=_SETTINGS.max_output_tokens,
+        )
+        quota_clock.day = quota_clock.next_day
+        with patch.object(turn_resources, "prompt_weighted_reserve_tokens", return_value=5_000):
+            await turn_resources.top_up_reserve_for_prompt(
+                res, settings=_SETTINGS, ctx=_ctx(user, 0), daily_limit=_LIMIT
+            )
+        res.mark_settled()
+    assert await _day_used(fake_redis, user, reserved_on) == 5_000
+    assert await _day_used(fake_redis, user, quota_clock.next_day) == 0
 
 
 async def _day_used(fake_redis, user, day) -> int:

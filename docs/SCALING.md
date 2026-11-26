@@ -127,7 +127,10 @@ plugs in.
     `ATTACHMENT_ORPHAN_REAP_BATCHES_PER_CYCLE` (20), so 2,000 rows an hour. Seam:
     `core/settings/attachments.py`.
 11. **Shard the push and email scans** once a minute's due reminders pass one cycle's pages
-    (push about 10,000 a minute, email about 2,000). A cycle now runs once per interval
+    (push about 10,000 a minute; email about 100, the sending rate
+    `EMAIL_REMINDER_SENDS_PER_SECOND`, 2, times the 50 s `REMINDER_CYCLE_BUDGET_SECONDS`).
+    Email's ceiling is the provider's rate limit, not the scan: raise Resend's account
+    limit and that setting together. A cycle now runs once per interval
     however many workers there are, so adding workers no longer adds throughput by
     accident: split the scan by user-id hash across workers, or page on while a backlog
     remains. Seams: `modules/notifications/push.py`, `modules/notifications/reminder_email.py`.

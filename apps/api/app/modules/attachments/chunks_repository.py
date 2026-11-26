@@ -7,11 +7,9 @@ from uuid import UUID
 from sqlalchemy import ColumnElement, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.vectors import EMBEDDING_DIM, stored_vector
+from app.core.vectors import stored_vector
 from app.models.orm import Attachment, AttachmentChunk, Chat, Message
 from app.repositories.vector_window import nearest_in_window
-
-__all__ = ["EMBEDDING_DIM"]
 
 
 async def has_chunks_for_chat(

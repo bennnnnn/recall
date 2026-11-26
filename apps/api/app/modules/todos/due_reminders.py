@@ -7,7 +7,7 @@ what "due" means had to be made twice. The candidates come in pages ordered by
 cycle reads only rows in the reminder window and stops at its bound; the rest
 come next cycle.
 
-What a send changes is here too (``mark_reminder_pushed``, ``mark_reminder_emailed``):
+What a send changes is here too (``mark_reminders_pushed``, ``mark_reminder_emailed``):
 notifications delivers and never writes a to-do row itself (code-health audit ARCH-05).
 """
 
@@ -218,12 +218,6 @@ async def aged_out_unsent(
         )
     )
     return raw if isinstance(raw, int) else 0
-
-
-async def mark_reminder_pushed(session: AsyncSession, todo: TodoItem, *, now: datetime) -> bool:
-    """After a push for ``todo`` went out; no commit. Whether the to-do changed
-    (``mark_reminders_pushed``)."""
-    return await mark_reminders_pushed(session, [todo], now=now) > 0
 
 
 # To-dos marked per statement: each adds its snapshot's seven bind parameters.

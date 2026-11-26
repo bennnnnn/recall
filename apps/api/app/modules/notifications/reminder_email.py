@@ -102,6 +102,8 @@ async def process_todo_reminder_emails(
     after: tuple[datetime, UUID] | None = None
     # One account's backlog never fills the cycle ahead of everyone else's reminders.
     share = AccountShare()
+    # The pace holds across pages: a page's first batch waits on the last one's second.
+    next_batch_at = 0.0
     while True:
         deliveries, after = await _page_deliveries(session, now=now, after=after)
         # This worker owns its session. Release the read transaction before provider IO;
@@ -117,14 +119,18 @@ async def process_todo_reminder_emails(
         # A few at once, at most that many a second (the provider's rate limit): one at a
         # time, a cycle's sends waited on each other's round trip.
         rate = max(1, settings.email_reminder_sends_per_second)
-        next_batch_at = 0.0
         for start in range(0, len(due), rate):
             await asyncio.sleep(max(0.0, next_batch_at - time.monotonic()))
+            # The budget is checked per batch: a page takes about 100 s at 2 a second.
+            if time.monotonic() >= stop_at:
+                logger.info("Email reminder cycle used its time budget; the rest go next cycle")
+                return sent
             if keep_lock is not None and not await keep_lock():
                 logger.warning("Email reminder cycle lost its lock; stopping")
                 return sent
-            next_batch_at = time.monotonic() + 1.0
-            sent += await _send_batch(session, settings, due[start : start + rate], now, backoff)
+            batch = due[start : start + rate]
+            next_batch_at = time.monotonic() + len(batch) / rate
+            sent += await _send_batch(session, settings, batch, now, backoff)
         if after is None:
             break
         if time.monotonic() >= stop_at:

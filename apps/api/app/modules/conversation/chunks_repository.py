@@ -10,11 +10,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.core.vectors import EMBEDDING_DIM, stored_vector
+from app.core.vectors import stored_vector
 from app.models.orm import MessageChunk
 from app.repositories.vector_window import nearest_in_window
-
-__all__ = ["EMBEDDING_DIM"]
 
 
 async def has_chunks_for_user(session: AsyncSession, user_id: UUID) -> bool:
@@ -54,7 +52,7 @@ async def replace_chunks_of_messages(
     however many messages (a turn indexes two).
 
     ``messages``: (message id, chat id, role, its chunks) each; a chunk is (index, text,
-    vector), and a vector that is not ``EMBEDDING_DIM`` long is stored as none
+    vector), and a vector that is not ``core.vectors.EMBEDDING_DIM`` long is stored as none
     (``core.vectors.stored_vector``).
     """
     if not messages:
