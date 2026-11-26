@@ -569,6 +569,15 @@ The binder reads these laws, beside the extractors' own:
 - **Symbols say what they are, across topics.** A lens or mirror's distances are d_o and d_i
   (1/f = 1/d_o + 1/d_i), never u and v, which a student reads as speeds; an energy density
   is u_E or u_B. A symbol is the same in Given, Formula, Substitution and the picture.
+- **Vectors keep the question's notation.** A question that writes its vectors as columns
+  (`\begin{pmatrix}5\\2\end{pmatrix}`, or as the phone and a scan flatten one: "[ 5⏎2]",
+  "[5; 2]", "(5, 2)^T") is answered in columns, in its working and on its cards; one in î
+  and ĵ stays in î and ĵ, one by size and angle stays so (`turn_reading.vector_notation`
+  reads the question; `WORKED_COLUMN_VECTORS_NOTE` and `reply_policy.PHYSICS_VECTORS` tell
+  the model). A column's unit is written after it and each entry on its card is rounded by
+  the card's rule (`services/column_vector.py`). An impulse is worked as a textbook works
+  it: the momentum before and after, each on its line, then their change, final minus
+  initial, then a force from it (the owner's ball question, 2026-11-25).
 - **A unit named in words** is its symbol before any extractor reads it (`numbers.
   unit_names_as_symbols`): "30 Newtons" is 30 N, "100 grams" 100 g, "a 12 volt battery"
   12 V, each the unit table's own reading. An extractor reads the symbols its pattern lists,
