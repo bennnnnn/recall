@@ -23,6 +23,9 @@ class SubjectHints:
     shared_math_ink: bool = True
     # A turn that only continues the subject's last problem ("how?", "what about 2 moles?").
     followup: tuple[str, ...] = ()
+    # Beside the ```worked contract, on a calculation no solver checked: how the subject's
+    # working is set out where the model works it (physics' momentum steps and notation).
+    worked: tuple[str, ...] = ()
     # Fixed copy the leak pass reads as rules beside chat's visuals rules: chemistry's
     # presentation and structure-fence hints, as its reply-policy module holds them.
     beside_visuals: tuple[str, ...] = ()

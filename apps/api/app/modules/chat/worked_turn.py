@@ -26,15 +26,18 @@ from app.core.config import Settings
 from app.modules.chat.prompt_constants.worked import (
     RESULT_CHECK_CONTRACT,
     WORKED_BLOCK_CONTRACT,
+    WORKED_COLUMN_VECTORS_NOTE,
     WORKED_PARTS_NOTE,
     worked_parts_note,
 )
 from app.modules.chat.prompt_inject import inject_before_last_user
+from app.modules.chat.prompt_subjects import SUBJECT_HINTS
 from app.modules.chat.turn_trace import note_prompt_rule
 from app.modules.chat.worked_render import WorkedLayout
 from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.school_question import is_school_exercise
 from app.modules.turn_reading.turn import current_turn_reading, teaching_of
+from app.modules.turn_reading.vector_notation import writes_column_vectors
 from app.services.question_parts import labelled_part_texts
 from app.services.school_rounding import asked_rounding
 from app.services.solving import SubjectName
@@ -69,8 +72,22 @@ def worked_layout(
     figures, places, _ = asked_rounding(content)
     _stem, parts = labelled_part_texts(content)
     return WorkedLayout(
-        law_heading=subject == "physics", asked=(figures, places), question_parts=parts
+        law_heading=subject == "physics",
+        asked=(figures, places),
+        question_parts=parts,
+        column_vectors=writes_column_vectors(content),
+        subject_notes=_subject_notes(subject),
     )
+
+
+def _subject_notes(subject: str | None) -> tuple[str, ...]:
+    """The subject's notes for a working nothing checked (physics' momentum steps)."""
+    hints = SUBJECT_HINTS.get(subject or "")
+    return hints.worked if hints is not None else ()
+
+
+def _all_subject_notes() -> frozenset[str]:
+    return frozenset(note for hints in SUBJECT_HINTS.values() for note in hints.worked)
 
 
 def checks_stated_results(
@@ -118,12 +135,19 @@ def states_a_quantity(content: str) -> bool:
 def with_worked_contract(
     messages: list[dict[str, str]], layout: WorkedLayout | None = None
 ) -> list[dict[str, str]]:
-    """The prompt with the block's contract beside the user's message, and, for a question
-    in lettered parts, the note naming them (``WORKED_PARTS_NOTE``)."""
+    """The prompt with the block's contract beside the user's message; for a question in
+    lettered parts, the note naming them (``WORKED_PARTS_NOTE``), for one written in column
+    vectors, the note keeping them (``WORKED_COLUMN_VECTORS_NOTE``), and the subject's own notes
+    (``SubjectHints.worked``)."""
     note_prompt_rule("subject.worked")
     messages = inject_before_last_user(messages, WORKED_BLOCK_CONTRACT)
     if layout is not None and layout.question_parts:
         messages = inject_before_last_user(messages, worked_parts_note(layout.question_parts))
+    if layout is not None and layout.column_vectors:
+        note_prompt_rule("subject.worked_columns")
+        messages = inject_before_last_user(messages, WORKED_COLUMN_VECTORS_NOTE)
+    for note in layout.subject_notes if layout is not None else ():
+        messages = inject_before_last_user(messages, note)
     return messages
 
 
@@ -134,11 +158,12 @@ def with_result_check_contract(messages: list[dict[str, str]]) -> list[dict[str,
 
 
 def without_worked_contract(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The prompt without it (and its parts note): a tool verified the turn after it was
+    """The prompt without it (and its notes): a tool verified the turn after it was
     built."""
+    notes = {WORKED_BLOCK_CONTRACT, WORKED_COLUMN_VECTORS_NOTE, *_all_subject_notes()}
     return [
         message
         for message in messages
-        if message.get("content") != WORKED_BLOCK_CONTRACT
+        if message.get("content") not in notes
         and not str(message.get("content") or "").startswith(WORKED_PARTS_NOTE)
     ]

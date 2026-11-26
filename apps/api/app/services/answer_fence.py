@@ -525,6 +525,7 @@ def land_answer_card(
         card = verified_answer_fence(verified_body)
     else:
         parts = [v for _, v in values[shown:]] or [""]
+        maths = False
         if len(parts) == 1:
             value, said = split_tail(named_value(answer_header_and_value(parts[0])[1]))
         else:
@@ -533,14 +534,17 @@ def land_answer_card(
             # that are all maths are one formula, set apart by a space: "$r = 7$, $R = 32.5$"
             # was drawn as a sentence of maths pieces (hard geometry round, 2026-11-21).
             wholes = [whole_maths(part) for part in parts]
-            if all(wholes):
+            # Values each all maths are maths, named or not: a column and its size ("(4; -3)
+            # m/s" over "5 m/s") lost their card for want of an "=" (vector corpus, 2026-11-25).
+            maths = all(wholes)
+            if maths:
                 value = ",\\quad ".join(" ".join(str(tex).split()) for tex in wholes)
             else:
                 value = ", ".join(" ".join(part.split()) for part in parts)
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.
-        if ("$" not in value and "=" not in _relations(value)) or wordy(value):
+        if not maths and (("$" not in value and "=" not in _relations(value)) or wordy(value)):
             return text
         card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card_maths(value)}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []

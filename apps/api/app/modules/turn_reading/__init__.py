@@ -40,6 +40,7 @@ _MODULE_EXPORTS = (
     "stuck",
     "teaching",
     "turn",
+    "vector_notation",
     "visuals",
     "walkthrough",
     "writing",

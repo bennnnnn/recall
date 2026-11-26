@@ -77,6 +77,24 @@ PHYSICS_PARTIAL_POLICY = (
 )
 
 
+# The owner's ball question (2026-11-25) went straight to I = m(v_f - v_i) and, from the
+# column 5 over 2, answered in \hat{i} and \hat{j}; once it wrote -10\hat{i} for 0.5 times -10.
+# A textbook works a momentum change in steps a student can check, in the question's
+# notation. Said beside the ```worked contract only (``SubjectHints.worked``): a turn a solver
+# checked copies the solver's working, which a hint to work it otherwise would contradict.
+PHYSICS_VECTORS = (
+    "An impulse or a change in momentum is worked in the textbook's steps, never straight "
+    "from $\\vec{I} = m(\\vec{v}_f - \\vec{v}_i)$: first the momentum before "
+    "($\\vec{p}_i = m\\vec{v}_i$) and the momentum after ($\\vec{p}_f = m\\vec{v}_f$), each "
+    "worked out on its own line, then the impulse as their change, final minus initial "
+    "($\\vec{I} = \\Delta\\vec{p} = \\vec{p}_f - \\vec{p}_i$); a force only when the "
+    "question asks for one, from the impulse and the time it gives ($\\vec{F} = "
+    "\\frac{\\vec{I}}{\\Delta t}$), the force on the body whose momentum changed. Write a "
+    "vector in the "
+    "question's notation: as a column when it writes columns, in $\\hat{i}$ and $\\hat{j}$ "
+    "when it writes those, by its size and direction when it gives those."
+)
+
 # The symbols the server's own working shows (``notation`` and the catalog), so a reply the
 # model writes reads the same as one the server writes: one letter for one quantity in an
 # answer.
