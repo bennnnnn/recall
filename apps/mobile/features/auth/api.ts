@@ -118,15 +118,10 @@ export function loginWithDev(
   });
 }
 
-/** Record that an account without the agreement (one from before sign-in recorded it, or
- * one that withdrew) agreed on the consent screen; the server stamps the time. */
+/** Record that an account without the agreement (one from before sign-in recorded it)
+ * agreed on the consent screen; the server stamps the time. */
 export function agreeToAiDataSharing(token: string): Promise<User> {
   return setAiDataSharing(token, true);
-}
-
-/** Withdraw that agreement: chat, voice and photo reads stop until the user agrees again. */
-export function withdrawAiDataSharing(token: string): Promise<User> {
-  return setAiDataSharing(token, false);
 }
 
 function setAiDataSharing(token: string, agreed: boolean): Promise<User> {

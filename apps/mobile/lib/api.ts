@@ -19,7 +19,6 @@ export {
   loginWithApple,
   loginWithDev,
   loginWithGoogle,
-  withdrawAiDataSharing,
 } from "@/features/auth/api";
 export { transcribeSpeech } from "@/features/speech/api";
 export { chatWebSocketUrl } from "@/lib/api/connectivity";

@@ -2,7 +2,6 @@ import { act } from "react";
 import { fireEvent, render } from "@testing-library/react-native";
 
 import AiConsentScreen from "@/features/auth/screens/AiConsentScreen";
-import { AI_CONSENT_ITEMS } from "@/features/auth/model/aiConsent";
 
 const mockAgree = jest.fn();
 const mockMergeUser = jest.fn();
@@ -66,12 +65,11 @@ describe("AiConsentScreen", () => {
   });
 
   it("lists what goes to which outside service, with the privacy policy link", async () => {
-    const { getByText } = await render(<AiConsentScreen />);
+    const { getByText, queryByText } = await render(<AiConsentScreen />);
     expect(getByText("onboarding.consent_title")).toBeOnTheScreen();
-    for (const item of AI_CONSENT_ITEMS) {
-      expect(getByText(item.titleKey)).toBeOnTheScreen();
-      expect(getByText(item.bodyKey)).toBeOnTheScreen();
-    }
+    // One sentence and the privacy policy: no list of items to read through.
+    expect(getByText("onboarding.consent_intro")).toBeOnTheScreen();
+    expect(queryByText(/onboarding\.consent_.*_(title|body)/)).toBeNull();
     fireEvent.press(getByText("onboarding.consent_privacy_link"));
     expect(mockOpenAllowedUrl).toHaveBeenCalledWith("https://api.test/legal/privacy");
   });
