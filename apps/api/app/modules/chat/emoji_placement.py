@@ -15,8 +15,8 @@ none at any setting: the prompt says so, and at "Lots" its headings still got th
 does any reply to a school question, explanations included: "No emoji in homework" (owner,
 2026-11-26, after a Grade 11 physics round answered "what type of error is this?" with ⚡
 📉 🛠️). A school question is what the turn's own readers say it is (``school_turn``): a
-textbook exercise's shape, homework a subject's reader claims, a subject solve or a worked
-layout, or the read's subject (maths, physics, chemistry); never a shape everyday chat shares
+textbook exercise's shape, homework a subject's reader claims, a science question, a subject
+solve or a worked layout, or the read's subject (maths, physics, chemistry); never a shape everyday chat shares
 ("Estimate how long a road trip takes"). Only when the whole message is that question and
 the user wrote no emoji: "Calculate the tip on $80 at 20% 🍕" or a maths part beside other
 requests keeps the user's setting, as everyday chat does.
@@ -36,6 +36,7 @@ from app.modules.chat.emoji_repeat import LESSON_HEADING
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.modules.chat.turn_prep.reading import plan_of
+from app.modules.turn_reading.question_kinds import is_science_question
 from app.modules.turn_reading.routing import EMOJI
 from app.modules.turn_reading.school_question import in_textbook_form
 from app.modules.turn_reading.turn import is_homework
@@ -277,9 +278,9 @@ _SCHOOL_SUBJECTS = frozenset({"maths", "physics", "chemistry"})
 def school_turn(ctx: object, asked: str) -> bool:
     """The turn is a school question, by the readers the turn already ran: the exercise's
     shape (``in_textbook_form``), homework a subject's reader claims (``is_homework``), a
-    subject's solve, checked or declined, or a worked layout, else the read's subject. No
-    word of the message decides it here."""
-    if in_textbook_form(asked) or is_homework(asked):
+    science question ("What is heat?", ``is_science_question``), a subject's solve, checked
+    or declined, or a worked layout, else the read's subject."""
+    if in_textbook_form(asked) or is_homework(asked) or is_science_question(asked):
         return True
     if getattr(ctx, "verified_subject", None) is not None:
         return True

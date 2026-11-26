@@ -281,6 +281,12 @@ def test_everyday_chat_at_more_keeps_its_emoji(subject: str) -> None:
     assert place_reply_emoji(state) == reply
 
 
-def test_with_no_read_and_no_reader_the_setting_holds() -> None:
+def test_a_science_question_needs_no_read_to_be_homework() -> None:
     state = _state(_HEAT_REPLY, "more", said=_HEAT)
-    assert place_reply_emoji(state) == _HEAT_REPLY
+    assert "🔥" not in place_reply_emoji(state)
+
+
+def test_with_no_read_and_no_reader_the_setting_holds() -> None:
+    reply = "🍝 **Carbonara** needs eggs, cheese and pepper ✨"
+    state = _state(reply, "more", said="what should I cook tonight?")
+    assert place_reply_emoji(state) == reply
