@@ -31,7 +31,8 @@ export type ChatTurnEffects = {
   onTodosSync?: () => void;
   onUsage?: (usage: TurnUsage) => void;
   dropSocket: () => void;
-  abortSse: () => void;
+  /** Close the SSE stream; `stop`: the user's Stop, said to the server first. */
+  abortSse: (stop?: { shownChars?: number }) => void;
   cancelSocket: (streamedChars?: number) => void;
   followDroppedTurn: (follow: DroppedTurnFollow, polls?: number, pollMs?: (poll: number) => number) => void;
 };
@@ -93,6 +94,9 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       return;
     case "abort_sse":
       effects.abortSse();
+      return;
+    case "stop_sse":
+      effects.abortSse({ shownChars: command.streamedChars });
       return;
     case "cancel_socket":
       effects.cancelSocket(command.streamedChars);

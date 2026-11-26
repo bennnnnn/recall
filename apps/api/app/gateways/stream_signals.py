@@ -181,6 +181,9 @@ class StreamAttempt:
     elapsed_ms: int | None = None
     # The provider's finish_reason ("stop", "length", …), once one came.
     finish_reason: str | None = None
+    # The answer's text it streamed, in characters: its output when the provider reported
+    # no usage (a Stop or a cut ends the stream before the usage chunk, ``llm_spend``).
+    text_chars: int = 0
     _started: float = field(default_factory=time.monotonic, init=False, repr=False)
 
     def _ms(self) -> int:
@@ -197,8 +200,10 @@ class StreamAttempt:
         if self.first_delta_ms is None:
             self.first_delta_ms = self._ms()
 
-    def saw(self, *, delta: bool, finish: str | None) -> None:
-        """One chunk: whether it carried reasoning or text, and any finish_reason."""
+    def saw(self, *, delta: bool, finish: str | None, text: str = "") -> None:
+        """One chunk: whether it carried reasoning or text, the answer text it gave, and any
+        finish_reason."""
+        self.text_chars += len(text)
         if delta:
             self.delta()
         if finish:

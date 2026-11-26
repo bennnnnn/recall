@@ -31,15 +31,16 @@ def _held_resources() -> SimpleNamespace:
     return SimpleNamespace(
         reserved_tokens=0,
         refund=AsyncMock(),
-        message_left=AsyncMock(return_value=True),
+        turn_left=AsyncMock(return_value=True),
         lock_key="lock",
         lock_token="token",
     )
 
 
 @contextmanager
-def _photo_turn(resources: SimpleNamespace) -> Iterator[None]:
-    """The lock is held, the previous turn is saved, and a photo answers the turn."""
+def _photo_turn(resources: SimpleNamespace, *, answered: bool = True) -> Iterator[None]:
+    """The lock is held, the previous turn is saved, and a photo answers the turn (or,
+    ``answered=False``, nothing intercepts it)."""
 
     @asynccontextmanager
     async def turn_resources(*_args, **_kwargs):
@@ -49,7 +50,7 @@ def _photo_turn(resources: SimpleNamespace) -> Iterator[None]:
         patch("app.modules.chat.stream_entry.turn_resources", turn_resources),
         patch("app.modules.chat.turn_load.seed_usage_from_db", AsyncMock()),
         patch("app.modules.chat.turn_load.wait_for_pending_finalize", AsyncMock()),
-        patch("app.modules.chat.stream_entry.intercept_new_turn", AsyncMock(return_value=True)),
+        patch("app.modules.chat.stream_entry.intercept_new_turn", AsyncMock(return_value=answered)),
     ):
         yield
 
@@ -193,3 +194,74 @@ async def test_every_turn_loads_the_recent_window(
 
     assert tokens == []
     assert list_recent.await_count == 1
+
+
+class _Prepared(Exception):
+    """Raised by the stub prepare: the turn got as far as its prompt."""
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("plan", "kept"), [("free", None), ("pro", "smart-chat")])
+async def test_a_model_the_plan_dropped_reaches_the_prep_as_auto(
+    monkeypatch: pytest.MonkeyPatch, plan: str, kept: str | None
+) -> None:
+    """A lapsed Pro's phone still names a Pro model: the whole turn runs as Auto (its
+    routing, ``auto_routed`` and the photo lane), not only the model pick (review of #2596)."""
+    from app.modules.chat import stream_entry
+
+    user = MagicMock(id=uuid4(), plan=plan, timezone="UTC", memory_enabled=True)
+    user.enabled_models = None
+    chat = MagicMock(id=uuid4())
+    seen: dict[str, object] = {}
+
+    async def prepare(**kwargs: object) -> None:
+        seen.update(kwargs)
+        raise _Prepared
+
+    monkeypatch.setattr(stream_entry, "prepare_chat_turn", prepare)
+    monkeypatch.setattr(stream_entry, "_reserve_new_turn", AsyncMock(return_value=None))
+    deps = _deps(
+        load_user=AsyncMock(return_value=user),
+        load_chat=AsyncMock(return_value=chat),
+        list_recent=AsyncMock(return_value=[]),
+    )
+    resources = _held_resources()
+    resources.search_budget = lambda *_args: None
+    with _photo_turn(resources, answered=False), pytest.raises(_Prepared):
+        async for _token in stream_chat_response(
+            deps,
+            redis_mock(),
+            Settings(),
+            user_id=user.id,
+            chat_id=chat.id,
+            content="hello",
+            model_alias="smart-chat",
+        ):
+            pass
+
+    assert seen["model_alias"] == kept
+
+
+@pytest.mark.parametrize(("plan", "explicit"), [("free", False), ("pro", True)])
+def test_a_regenerated_photo_with_a_dropped_model_takes_autos_photo_lane(
+    monkeypatch: pytest.MonkeyPatch, plan: str, explicit: bool
+) -> None:
+    from app.modules.billing import plan as plan_service
+    from app.modules.chat import stream_entry
+
+    seen: dict[str, object] = {}
+
+    def image_turn_model(_user: object, _settings: object, routed: str, **kwargs: object) -> str:
+        seen.update(kwargs)
+        return routed
+
+    monkeypatch.setattr(plan_service, "image_turn_model", image_turn_model)
+    turn = SimpleNamespace(
+        content=f"What is this?\n[Image: /attachments/{uuid4()}/file]",
+        model="free-chat",
+        user=SimpleNamespace(plan=plan, enabled_models=None),
+    )
+
+    stream_entry._regenerate_images(turn, Settings(attachments_enabled=True), "smart-chat")  # type: ignore[arg-type]
+
+    assert seen["explicit"] is explicit

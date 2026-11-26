@@ -106,8 +106,9 @@ function onStop(s: ChatTurnState, out: Out, now: number): void {
   s.regenerating = false;
   out.push({ type: "clear_ttft", turnId: s.ttftTurnId });
   s.ttftTurnId = null;
-  out.push({ type: "abort_sse" });
-  out.push({ type: "cancel_socket", streamedChars: s.draft ? s.retracted.length + s.draft.content.length : undefined });
+  const streamedChars = s.draft ? s.retracted.length + s.draft.content.length : undefined;
+  out.push({ type: "stop_sse", streamedChars });
+  out.push({ type: "cancel_socket", streamedChars });
   s.phase = "idle";
   s.sendingMessageId = null;
   const draft = s.draft;

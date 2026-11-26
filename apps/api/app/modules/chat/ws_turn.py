@@ -26,6 +26,7 @@ from app.exceptions import (
     QuotaExceededError,
 )
 from app.gateways.litellm_gateway import ModelUnavailableError
+from app.models.schemas.chats import SHOWN_CHARS_MAX
 from app.modules.chat.client_message import UNNAMED, ClientMessageClaim
 from app.modules.chat.finalize_registry import register_inflight_stream
 from app.modules.chat.stream_events import (
@@ -55,8 +56,6 @@ from app.modules.chat.ws_limits import (
 
 logger = logging.getLogger(__name__)
 
-# A reply is far shorter; a larger count is not a length the client drew.
-_MAX_SHOWN_CHARS = 1_000_000
 # Frames that start a turn.
 TURN_FRAME_TYPES = frozenset({"message", "regenerate"})
 # What a turn leaves the socket: the next turn's frame, sent during its save, or the
@@ -69,7 +68,7 @@ def client_shown_chars(cancel: dict[str, Any]) -> int | None:
     shown = cancel.get("shown_chars")
     if isinstance(shown, bool) or not isinstance(shown, int):
         return None
-    return shown if 0 <= shown <= _MAX_SHOWN_CHARS else None
+    return shown if 0 <= shown <= SHOWN_CHARS_MAX else None
 
 
 async def _run_stream(
