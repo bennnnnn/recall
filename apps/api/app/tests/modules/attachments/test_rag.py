@@ -13,7 +13,7 @@ from app.services.chunking import chunk_text
 def _session_cm():
     @asynccontextmanager
     async def _cm(*_args, **_kwargs):
-        yield MagicMock()
+        yield AsyncMock()
 
     return _cm
 
@@ -246,7 +246,7 @@ async def test_index_attachment_uses_short_lived_sessions():
         live += 1
         max_live = max(max_live, live)
         try:
-            yield MagicMock()
+            yield AsyncMock()
         finally:
             live -= 1
 
@@ -722,3 +722,56 @@ async def test_a_batch_the_provider_keeps_failing_retries_the_index_job(monkeypa
     stored.assert_not_awaited()
     # The failing batches were retried whole, never sent one text at a time.
     assert set(batches) == {2}
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_commits_chunks_and_coverage_once():
+    """The chunks and their coverage are one transaction: the repository commits neither,
+    the indexer commits once after both (the chunks committed alone, under released locks,
+    before #audit-2026-11-25)."""
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id, row.user_id = uuid4(), uuid4()
+    row.storage_key, row.content_type = "user/doc", "text/plain"
+    session = AsyncMock()
+    order: list[str] = []
+    session.commit.side_effect = lambda: order.append("commit")
+
+    @asynccontextmanager
+    async def _cm(*_args, **_kwargs):
+        yield session
+
+    async def _replace(*_args, **_kwargs):
+        order.append("chunks")
+        return True
+
+    async def _coverage(*_args, commit=True, **_kwargs):
+        order.append(f"coverage commit={commit}")
+
+    with (
+        patch("app.modules.attachments.rag.SessionLocal", _cm),
+        patch(
+            "app.modules.attachments.rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"hello from the attachment"),
+        ),
+        patch(
+            "app.modules.attachments.rag.attachment_content_service.extract_text_details_async",
+            AsyncMock(return_value=ExtractedText(text="hello from the attachment")),
+        ),
+        patch(
+            "app.modules.attachments.rag.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1] * 8),
+        ),
+        patch("app.modules.attachments.rag.chunks_repo.replace_chunks", _replace),
+        patch("app.modules.attachments.rag.attachments_repo.set_index_coverage", _coverage),
+    ):
+        count = await index_attachment(
+            settings, user_id=row.user_id, attachment_id=row.id, chat_id=uuid4()
+        )
+
+    assert count == 1
+    assert order[-3:] == ["chunks", "coverage commit=False", "commit"]

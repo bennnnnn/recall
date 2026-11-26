@@ -72,4 +72,6 @@ async def test_current_index_locks_parent_before_attachment_and_replaces_once():
     assert "FOR UPDATE" in statements[1]
     assert "attachments.user_id" in statements[1]
     session.add.assert_called_once()
-    session.commit.assert_awaited_once()
+    # The caller commits once, with the index coverage (CLAUDE.md "Transaction ownership").
+    session.commit.assert_not_awaited()
+    session.flush.assert_awaited_once()
