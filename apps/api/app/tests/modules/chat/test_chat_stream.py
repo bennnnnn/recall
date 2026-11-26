@@ -79,15 +79,60 @@ def test_sse_payload_format():
     assert _sse({"type": "start"}) == 'data: {"type":"start"}\n\n'
 
 
+def _stop_said(shown_chars: int | None = None):
+    """A ``stop_check`` that finds the user's Stop (``sse_stop.wait_for_stop``)."""
+    from app.modules.chat.sse_stop import StopAsked
+
+    return AsyncMock(return_value=StopAsked(shown_chars))
+
+
 @pytest.mark.asyncio
-async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
-    """Closing the SSE connection must stop token production, not just this
-    relay — otherwise a closed tab leaves the LLM call running to completion,
-    still burning provider cost, with tokens streamed to nobody."""
+async def test_a_dropped_sse_stream_finishes_and_saves_its_reply(monkeypatch):
+    """A connection that drops with no Stop said (a tunnel, the app in the background) is
+    no Stop: the reply runs on and saves whole, as the socket's does. It used to save cut
+    short as the user's Stop, with no checked cards and no Continue (security review,
+    2026-11-25)."""
     import app.modules.chat.stream_api as chat_stream
 
     monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+    cancel_event = asyncio.Event()
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(side_effect=[False, False, *([True] * 100)])
+    no_stop = AsyncMock(return_value=None)
+    produced: list[str] = []
+    finished = asyncio.Event()
 
+    async def stream_factory(_result, _on_status, _on_reasoning, should_cancel):
+        for i in range(30):
+            if should_cancel():
+                return
+            produced.append(str(i))
+            yield str(i)
+            await asyncio.sleep(0.005)
+        finished.set()
+
+    async for _chunk in chat_stream._stream_tokens_sse(
+        chat_id=uuid4(),
+        stream_factory=stream_factory,
+        request=request,
+        cancel_event=cancel_event,
+        stop_check=no_stop,
+    ):
+        pass
+    await asyncio.wait_for(finished.wait(), timeout=2.0)
+
+    assert len(produced) == 30
+    assert not cancel_event.is_set()
+    no_stop.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_the_users_stop_said_over_sse_stops_the_reply(monkeypatch):
+    """The Stop the phone says on its own request stops the reply once its stream closes,
+    with how much the phone drew."""
+    import app.modules.chat.stream_api as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
     cancel_event = asyncio.Event()
     request = AsyncMock()
     poll_count = {"n": 0}
@@ -97,10 +142,11 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
         return poll_count["n"] > 2
 
     request.is_disconnected = is_disconnected
-
     produced: list[str] = []
+    outcomes: list[object] = []
 
-    async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
+    async def stream_factory(outcome, _on_status, _on_reasoning, _should_cancel):
+        outcomes.append(outcome)
         for i in range(1000):
             produced.append(str(i))
             yield str(i)
@@ -113,12 +159,14 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
             stream_factory=stream_factory,
             request=request,
             cancel_event=cancel_event,
+            stop_check=_stop_said(7),
         )
     ]
 
     assert cancel_event.is_set()
     assert len(produced) < 1000
     assert any('"type":"start"' in c for c in chunks)
+    assert outcomes[0].client_shown_chars == 7
 
 
 @pytest.mark.asyncio
@@ -157,9 +205,9 @@ async def test_stream_tokens_sse_registers_inflight_producer(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch):
-    """Disconnect must cancel the producer while it is blocked waiting on the
-    first LiteLLM chunk — not only between yielded tokens."""
+async def test_the_users_stop_cancels_a_producer_waiting_on_the_model(monkeypatch):
+    """A Stop must cancel the producer while it is blocked waiting on the first LiteLLM
+    chunk, not only between yielded tokens."""
     import app.modules.chat.stream_api as chat_stream
 
     monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
@@ -189,6 +237,7 @@ async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch
                 stream_factory=stream_factory,
                 request=request,
                 cancel_event=cancel_event,
+                stop_check=_stop_said(),
             )
         ]
 
@@ -200,22 +249,21 @@ async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_stream_tokens_sse_saves_partial_when_the_client_task_is_cancelled(monkeypatch):
-    """Dropping the socket cancels this generator. The tokens already sent must still be saved."""
+async def test_a_cancelled_sse_response_leaves_the_reply_running_to_its_save(monkeypatch):
+    """Dropping the socket cancels this generator; the reply is not stopped by it and still
+    finishes (the producer saves it)."""
     import app.modules.chat.stream_api as chat_stream
 
     monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
     request = AsyncMock()
     request.is_disconnected = AsyncMock(return_value=False)
-    result: dict[str, object] = {}
+    finished = asyncio.Event()
 
     async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
         yield "hello "
-        try:
-            await asyncio.sleep(30)
-        except asyncio.CancelledError:
-            result["saved"] = "hello"
-            raise
+        await asyncio.sleep(0.05)
+        yield "world"
+        finished.set()
 
     seen = asyncio.Event()
 
@@ -235,19 +283,23 @@ async def test_stream_tokens_sse_saves_partial_when_the_client_task_is_cancelled
     with suppress(asyncio.CancelledError):
         await task
 
-    assert result["saved"] == "hello"
+    await asyncio.wait_for(finished.wait(), timeout=2.0)
 
 
 @pytest.mark.asyncio
-async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
-    """Cancel between tokens parks the generator at yield. Resume it so the reply is saved."""
+async def test_a_stop_resumes_the_generator_parked_at_yield(monkeypatch):
+    """A Stop between tokens parks the generator at yield. Resume it so the reply is saved."""
     import app.modules.chat.stream_api as chat_stream
 
     monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
-    request = AsyncMock()
-    request.is_disconnected = AsyncMock(return_value=False)
-    result: dict[str, object] = {}
     parked = asyncio.Event()
+
+    async def is_disconnected() -> bool:
+        return parked.is_set()
+
+    request = AsyncMock()
+    request.is_disconnected = is_disconnected
+    result: dict[str, object] = {}
 
     class _HoldTokenQueue(asyncio.Queue):
         async def put(self, item: object) -> None:
@@ -270,16 +322,53 @@ async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
             request=request,
             cancel_event=asyncio.Event(),
             queue_factory=_HoldTokenQueue,
+            stop_check=_stop_said(),
         ):
             pass
 
-    task = asyncio.create_task(consume())
-    await asyncio.wait_for(parked.wait(), timeout=2.0)
-    task.cancel()
-    with suppress(asyncio.CancelledError):
-        await task
+    await asyncio.wait_for(consume(), timeout=2.0)
 
     assert result["saved"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_a_stop_is_said_for_the_users_own_chat_and_read_once(fake_redis):
+    from app.modules.chat.sse_stop import StopAsked, ask_stop, wait_for_stop
+
+    user_id, chat_id = uuid4(), uuid4()
+    await ask_stop(fake_redis, user_id, chat_id, 12)
+
+    assert await wait_for_stop(fake_redis, uuid4(), chat_id, grace=0) is None  # another user
+    assert await wait_for_stop(fake_redis, user_id, chat_id, grace=0) == StopAsked(12)
+    assert await wait_for_stop(fake_redis, user_id, chat_id, grace=0) is None  # read once
+
+
+def test_the_stop_route_says_stop_for_the_signed_in_user(monkeypatch):
+    import app.modules.chat.stream_api as chat_stream
+
+    user = api_user()
+    app = app_with_user(user)
+    chat_id = uuid4()
+    ask = AsyncMock()
+    monkeypatch.setattr(chat_stream, "ask_stop", ask)
+    monkeypatch.setattr(chat_stream, "get_redis_client", lambda: None)
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        response = client.post(
+            f"/chats/{chat_id}/stream/stop",
+            headers={"Authorization": "Bearer tok"},
+            json={"shown_chars": 42},
+        )
+        refused = client.post(
+            f"/chats/{chat_id}/stream/stop",
+            headers={"Authorization": "Bearer tok"},
+            json={"shown_chars": -1},
+        )
+
+    assert response.status_code == 204
+    _redis, user_id, stopped_chat, shown = ask.await_args.args
+    assert (user_id, stopped_chat, shown) == (user.id, chat_id, 42)
+    assert refused.status_code == 422
 
 
 @pytest.mark.asyncio

@@ -177,7 +177,7 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         lock_key="lock",
         lock_token="token",
         search_budget=lambda *_: None,
-        message_left=AsyncMock(return_value=True),
+        turn_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager
@@ -264,3 +264,18 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
         assert ctx.prompt_messages[-1]["content"] == caption
         lookup.assert_not_awaited()
         gateway.read_bytes.assert_not_awaited()
+
+
+def test_a_regenerate_reads_no_more_photos_than_a_send_may_carry() -> None:
+    """A message's text is the user's: it can name hundreds of their own photos in typed
+    markers (~600 in 32k characters), and a regenerate downloaded and decoded each, where a
+    send carries 10 (security review, 2026-11-25)."""
+    from app.models.schemas.chats import MESSAGE_MAX_ATTACHMENTS
+
+    ids = [uuid4() for _ in range(600)]
+    content = "Look\n" + "\n".join(f"[Image: /attachments/{uid}/file]" for uid in ids)
+    turn = SimpleNamespace(content=content, model="vision-chat", user=SimpleNamespace(plan="free"))
+
+    image_ids, _model = stream_entry._regenerate_images(turn, _SETTINGS, None)  # type: ignore[arg-type]
+
+    assert image_ids == ids[:MESSAGE_MAX_ATTACHMENTS]

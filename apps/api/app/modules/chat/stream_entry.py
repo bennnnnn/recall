@@ -136,11 +136,12 @@ async def _refuse_a_spent_day(
     content: str,
     attachment_ids: list[UUID] | None,
 ) -> None:
-    """At the day's message cap only a painted picture can answer a turn (it takes no chat
-    message); any other is refused here, before the turn's paid reads start. They used to
-    start first, so an at-cap send waited on them and the server paid for a turn it then
-    refused (audit, 2026-11-25). A picture's own words leave it to the intercept, as before."""
-    if await res.message_left(turn.user, settings):
+    """At the day's message cap, or with the day's tokens spent, only a painted picture can
+    answer a turn (it takes neither); any other is refused here, before the turn's paid
+    reads start. They used to start first, so an at-cap send waited on them and the server
+    paid for a turn it then refused (audit and security review, 2026-11-25). A picture's own
+    words leave it to the intercept, as before."""
+    if await res.turn_left(turn.user, settings, turn.daily_limit):
         return
     if not attachment_ids and may_paint(
         deps,
@@ -159,7 +160,9 @@ async def _refuse_a_spent_regenerate(
 ) -> None:
     """A regenerate at the cap, as a new turn (``_refuse_a_spent_day``): only a painted
     picture, the reply redone or the line's words, may still answer it."""
-    if await res.message_left(turn.user, settings):
+    if await res.turn_left(
+        turn.user, settings, deps.quota.daily_limit_for_user(turn.user, settings)
+    ):
         return
     if regenerate_may_paint(
         deps,
@@ -233,7 +236,8 @@ def _regenerate_images(
     image_ids = image_attachment_ids_from_text(turn.content) if settings.attachments_enabled else []
     if not image_ids:
         return image_ids, turn.model
-    explicit = plan_service.is_explicit_pick(model_alias)
+    # A model the plan no longer includes is Auto, as the turn routed it.
+    explicit = plan_service.is_explicit_pick(plan_service.pick_for_plan(turn.user, model_alias))
     return image_ids, plan_service.image_turn_model(
         turn.user, settings, turn.model, explicit=explicit
     )
@@ -330,7 +334,7 @@ async def stream_chat_response(
                 user_id=user_id,
                 chat_id=chat_id,
                 content=content,
-                model_alias=model_alias,
+                model_alias=plan_service.pick_for_plan(turn.user, model_alias),
                 settings=settings,
                 redis=redis,
                 reserved_tokens=res.reserved_tokens,

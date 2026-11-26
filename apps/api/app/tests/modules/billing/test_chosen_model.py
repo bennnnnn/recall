@@ -38,6 +38,7 @@ def test_user_out_derives_default_model_from_enabled_models() -> None:
         email="a@b.c",
         name=None,
         avatar_url=None,
+        plan="pro",
         enabled_models=["qwen-3.8-flash", "free-chat"],
         memory_enabled=True,
         created_at=datetime.now(UTC),
@@ -95,3 +96,59 @@ async def test_an_older_apps_default_model_patch_chooses_through_the_same_rule(
     )
     assert written["enabled_models"] == ["qwen-3.8-flash", "free-chat"]
     assert "default_model" not in written  # the repository writes the copy
+
+
+# ── a plan that ends (security review, 2026-11-25) ────────────────────────────
+
+
+def _user_out(plan_id: str, enabled: list[str] | None) -> UserOut:
+    return UserOut(
+        id=uuid4(),
+        email="a@b.c",
+        name=None,
+        avatar_url=None,
+        plan=plan_id,
+        enabled_models=enabled,
+        memory_enabled=True,
+        created_at=datetime.now(UTC),
+    )
+
+
+@pytest.mark.parametrize(
+    ("plan_id", "saved", "shown", "chosen"),
+    [
+        # Auto off with only a Pro model on: after Pro ends, Auto with Free's models.
+        ("free", ["smart-chat"], None, "auto"),
+        ("free", ["smart-chat", "free-chat"], ["free-chat"], "free-chat"),
+        ("free", ["auto", "smart-chat"], ["auto"], "auto"),
+        # Pro keeps them; the saved row is untouched, so Pro coming back brings them back.
+        ("pro", ["smart-chat"], ["smart-chat"], "smart-chat"),
+    ],
+)
+def test_settings_show_the_models_the_plan_still_includes(
+    plan_id: str, saved: list[str], shown: list[str] | None, chosen: str
+) -> None:
+    """A lapsed Pro with Auto off and a Pro model picked sent that model with every
+    message and was refused each time: Settings and the phone now see what really answers."""
+    out = _user_out(plan_id, saved)
+    assert (out.enabled_models, out.default_model) == (shown, chosen)
+    user: Any = SimpleNamespace(plan=plan_id, enabled_models=saved)
+    assert plan.is_auto_enabled(user) is (chosen == "auto")
+
+
+@pytest.mark.parametrize(
+    ("plan_id", "named", "kept"),
+    [
+        ("free", "smart-chat", None),  # Pro's: the turn routes as Auto
+        ("free", "free-chat", "free-chat"),
+        ("pro", "smart-chat", "smart-chat"),
+        ("free", "title-model", "title-model"),  # no chat model: still refused downstream
+        ("free", "auto", "auto"),
+        ("free", None, None),
+    ],
+)
+def test_a_named_model_the_plan_dropped_is_auto(
+    plan_id: str, named: str | None, kept: str | None
+) -> None:
+    user: Any = SimpleNamespace(plan=plan_id, enabled_models=None)
+    assert plan.pick_for_plan(user, named) == kept

@@ -169,20 +169,23 @@ def _saved_text(finalize: AsyncMock) -> str:
 
 async def _stop_after_two_tokens(
     shown_chars: int | None,
+    tokens: tuple[str, ...] = ("Alpha 😀 ", "beta ", "gamma"),
+    deps: Any = None,
 ) -> tuple[list[str], TurnOutcome, AsyncMock, MagicMock]:
+    """Stop once all but the last of ``tokens`` went out (two of the default three)."""
     from app.modules.chat.stream_pipeline import stream_and_finalize
 
     async def fake_stream(**_kwargs: object):
-        for token in ("Alpha 😀 ", "beta ", "gamma"):
+        for token in tokens:
             yield token
             await asyncio.sleep(0)
 
     calls = {"n": 0}
 
     def should_cancel() -> bool:
-        # Checked before and after each token: true after the second one went out.
+        # Checked before and after each token: true once all but the last went out.
         calls["n"] += 1
-        return calls["n"] >= 4
+        return calls["n"] >= 2 * (len(tokens) - 1)
 
     finalize = AsyncMock()
     resources = MagicMock(refund=AsyncMock())
@@ -197,7 +200,7 @@ async def _stop_after_two_tokens(
         )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for token in stream_and_finalize(
-            offline_deps(),
+            deps or offline_deps(),
             redis_mock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             _stream_ctx(),
@@ -243,6 +246,43 @@ async def test_a_stop_before_the_phone_drew_anything_saves_and_charges_nothing(
     assert outcome.message_id is None
     assert outcome.completion == "user_stop"
     resources.refund.assert_awaited_once()
+
+
+_WHOLE_ANSWER = (
+    "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen. ",
+    "It happens in the chloroplasts of a plant's leaves, using chlorophyll. ",
+    "That is the whole answer.",
+    " (still in flight at the Stop)",
+)
+
+
+@pytest.mark.asyncio
+async def test_a_scripted_stop_after_the_whole_reply_is_still_charged(stream_offline_io) -> None:
+    """Exploit (security review, 2026-11-25): a client that reads the whole reply, then
+    cancels with ``shown_chars: 0``, got the turn's message and tokens back. Its count only
+    shortens what saves: nothing saves, and the turn is charged as sent."""
+    adjust = AsyncMock(return_value=500)
+    refund_message = AsyncMock()
+    add_tokens = AsyncMock()
+    deps = offline_deps(
+        quota={"adjust_usage": adjust, "refund_message": refund_message},
+        usage={"add_tokens": add_tokens},
+    )
+    yielded, outcome, finalize, resources = await _stop_after_two_tokens(
+        0, tokens=_WHOLE_ANSWER, deps=deps
+    )
+
+    assert yielded == list(_WHOLE_ANSWER[:-1])
+    finalize.assert_not_awaited()  # nothing saved: the phone drew nothing
+    assert outcome.message_id is None
+    resources.refund.assert_not_awaited()
+    resources.mark_settled.assert_called_once()
+    refund_message.assert_not_awaited()
+    add_tokens.assert_awaited_once()
+    adjust.assert_awaited_once()
+    assert adjust.await_args is not None
+    _redis, _user, reserved, actual = adjust.await_args.args
+    assert (reserved, actual > 0) == (100, True)
 
 
 @pytest.mark.parametrize(

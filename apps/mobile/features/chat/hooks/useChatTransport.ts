@@ -9,7 +9,8 @@ import { accessTokenNeedsRefresh, freshAccessToken } from "@/lib/api/client";
 import type { ClientGeo } from "@/features/chat/model/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isNetworkPathChange } from "@/lib/networkStatus";
-import { shouldAbortPriorSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
+import { streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/features/chat/model/sse";
+import { useSseStream } from "@/features/chat/hooks/useSseStream";
 import { createWsBackoff, type WsBackoff } from "@/features/chat/model/wsBackoff";
 import { ChatWsTransport, type ChatWsFallbackSignal } from "@/features/chat/model/wsTransport";
 import { useLatestRef } from "@/lib/latestRef";
@@ -147,8 +148,7 @@ export function useChatTransport({
   // A view's sockets share it, so a socket rebuilt after Stop or a token
   // refresh keeps the wait; opening a chat starts with none (`detach`).
   const backoffRef = useRef(createWsBackoff());
-  const sseAbortRef = useRef<AbortController | null>(null);
-  const sseAbortChatIdRef = useRef<string | null>(null);
+  const sse = useSseStream(chatId, getToken);
   const inView = useSocketLeaves({ wsTransportRef, backoffRef });
   const isCurrentViewRef = useLatestRef(isCurrentView);
   const ttftTurnIdRef = useLatestRef(ttftTurnId);
@@ -156,16 +156,6 @@ export function useChatTransport({
   const onFallbackRef = useLatestRef(onFallback);
   const onSendFailureRef = useLatestRef(onSendFailure);
   const onRegenerateFailureRef = useLatestRef(onRegenerateFailure);
-
-  const beginSseStream = useCallback(() => {
-    if (shouldAbortPriorSse(sseAbortChatIdRef.current, chatId)) {
-      sseAbortRef.current?.abort();
-    }
-    const controller = new AbortController();
-    sseAbortRef.current = controller;
-    sseAbortChatIdRef.current = chatId;
-    return controller.signal;
-  }, [chatId]);
 
   const openSocket = useCallback((): Promise<void> => {
     const token = getToken();
@@ -210,7 +200,7 @@ export function useChatTransport({
     async (content: string, options?: SendSseOptions) => {
       const token = getToken();
       if (!token || !chatId) return;
-      const signal = beginSseStream();
+      const signal = sse.begin();
       const turnId = options?.ttftTurnId ?? null;
       try {
         await streamChatMessageSse({
@@ -224,26 +214,23 @@ export function useChatTransport({
           clientMessageId: options?.clientMessageId,
           signal,
           onEvent: (payload) => {
-            if (!signal.aborted && sseAbortRef.current?.signal === signal) {
-              onPayloadRef.current(chatId, payload, turnId);
-            }
+            if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload, turnId);
           },
         });
+        sse.end(signal);
       } catch (err) {
-        if (!isCurrentViewRef.current() || signal.aborted || sseAbortRef.current?.signal !== signal) return;
-        sseAbortRef.current = null;
-        sseAbortChatIdRef.current = null;
+        if (!isCurrentViewRef.current() || signal.aborted || !sse.end(signal)) return;
         onSendFailureRef.current(err, turnId);
       }
     },
-    [getToken, chatId, beginSseStream, isCurrentViewRef, onPayloadRef, onSendFailureRef],
+    [getToken, chatId, sse, isCurrentViewRef, onPayloadRef, onSendFailureRef],
   );
 
   const regenerateViaSse = useCallback(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       const token = getToken();
       if (!token || !chatId) return;
-      const signal = beginSseStream();
+      const signal = sse.begin();
       try {
         await streamChatRegenerateSse({
           token,
@@ -252,19 +239,16 @@ export function useChatTransport({
           clientGeo,
           signal,
           onEvent: (payload) => {
-            if (!signal.aborted && sseAbortRef.current?.signal === signal) {
-              onPayloadRef.current(chatId, payload);
-            }
+            if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload);
           },
         });
+        sse.end(signal);
       } catch (err) {
-        if (!isCurrentViewRef.current() || signal.aborted || sseAbortRef.current?.signal !== signal) return;
-        sseAbortRef.current = null;
-        sseAbortChatIdRef.current = null;
+        if (!isCurrentViewRef.current() || signal.aborted || !sse.end(signal)) return;
         onRegenerateFailureRef.current(err);
       }
     },
-    [getToken, chatId, beginSseStream, isCurrentViewRef, onPayloadRef, onRegenerateFailureRef],
+    [getToken, chatId, sse, isCurrentViewRef, onPayloadRef, onRegenerateFailureRef],
   );
 
   const currentSocket = useCallback(() => wsTransportRef.current, []);
@@ -281,14 +265,8 @@ export function useChatTransport({
   const detach = useCallback(() => {
     dropSocket();
     backoffRef.current = createWsBackoff();
-    sseAbortRef.current = null;
-    sseAbortChatIdRef.current = null;
-  }, [dropSocket]);
-
-  const abortSse = useCallback(() => {
-    sseAbortRef.current?.abort();
-    sseAbortRef.current = null;
-  }, []);
+    sse.forget();
+  }, [dropSocket, sse]);
 
   /** `shownChars`: how much of the reply the phone kept on screen (see ChatWsTransport.cancel). */
   const cancelSocket = useCallback((shownChars?: number) => {
@@ -302,7 +280,7 @@ export function useChatTransport({
     currentSocket,
     dropSocket,
     detach,
-    abortSse,
+    abortSse: sse.abort,
     cancelSocket,
   };
 }

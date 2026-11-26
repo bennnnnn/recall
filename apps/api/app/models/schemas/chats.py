@@ -31,6 +31,9 @@ BULK_CHAT_LIMIT = 200
 # The longest message a turn takes, in characters. Text pasted as a file is read up to the
 # same length (modules/attachments/pasted_text.py), so it reads as the same text typed would.
 MESSAGE_MAX_CHARS = 32_000
+# The files one message may carry: a send's ids, and the photos a stored message's markers
+# name when it is read again (``attachments.markers``).
+MESSAGE_MAX_ATTACHMENTS = 10
 
 
 class ChatBulkAction(BaseModel):
@@ -129,6 +132,19 @@ class _StreamClientContext(BaseModel):
     client_longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
+# A reply is far shorter; a larger count of what a client drew is not one it drew.
+SHOWN_CHARS_MAX = 1_000_000
+
+
+class StreamStopRequest(BaseModel):
+    """The user's Stop for a reply streaming over SSE (``POST /chats/{id}/stream/stop``).
+
+    ``shown_chars``: how much of the reply the client drew, as the socket's cancel frame
+    says it (a UTF-16 length); the saved reply is cut to it, never what the turn costs."""
+
+    shown_chars: int | None = Field(default=None, ge=0, le=SHOWN_CHARS_MAX)
+
+
 class ChatMessageRequest(_StreamClientContext):
     # Cap the body — without it a client can push a multi-MB prompt that
     # bloats the DB row and memory-extraction job. 32k chars is well beyond
@@ -136,7 +152,7 @@ class ChatMessageRequest(_StreamClientContext):
     # user-row insert only after the reply streamed, so the turn went unbilled.
     content: UserText = Field(default="", max_length=MESSAGE_MAX_CHARS)
     # Cap per turn — unbounded lists let a client force huge DB/RAG work.
-    attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
+    attachment_ids: list[UUID] = Field(default_factory=list, max_length=MESSAGE_MAX_ATTACHMENTS)
     # The phone's name for this message, the same on every send of it (a resend
     # after a dead socket, the SSE fallback, Retry): the server runs one turn per
     # name (``modules/chat/client_message.py``). Regenerate ignores it.

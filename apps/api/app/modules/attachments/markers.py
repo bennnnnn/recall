@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from app.models.schemas.chats import MESSAGE_MAX_ATTACHMENTS
+
 _ATTACH_ID_PREFIX = "/attachments/"
 _ATTACH_ID_SUFFIX = "/file"
 VISION_REHYDRATE_LIMIT = 2
@@ -34,7 +36,12 @@ def _is_file_ref_line(line: str) -> bool:
 
 
 def image_attachment_ids_from_text(content: str) -> list[UUID]:
-    """Parse ``[Image: /attachments/{uuid}/file]`` markers with a linear scan."""
+    """Parse ``[Image: /attachments/{uuid}/file]`` markers with a linear scan: at most the
+    photos one send may carry (``MESSAGE_MAX_ATTACHMENTS``), the first ones written.
+
+    A message's text is the user's, so it can name any number of their own photos: a
+    regenerate read up to ~600 from 32k characters, downloading and decoding each (security
+    review, 2026-11-25). No send carries more than its cap, so no real message loses one."""
     found: list[UUID] = []
     seen: set[UUID] = set()
     for line in content.splitlines():
@@ -58,6 +65,8 @@ def image_attachment_ids_from_text(content: str) -> list[UUID]:
             continue
         seen.add(uid)
         found.append(uid)
+        if len(found) >= MESSAGE_MAX_ATTACHMENTS:
+            break
     return found
 
 

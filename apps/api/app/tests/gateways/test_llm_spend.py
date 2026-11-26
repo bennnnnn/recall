@@ -1,13 +1,15 @@
-"""Every non-chat model call adds its cost to the global spend counter.
+"""Every model call adds its cost to the global spend counter, at its own model's price.
 
 Embeddings, OCR, memory, titles, suggestions, compression and follow-ups used
 to spend without counting, so ``DAILY_GLOBAL_SPEND_USD`` saw a fraction of the
-day. The chat turn's own calls are charged at finalize and must not count twice.
+day. A chat turn's tool rounds and its reply's stream were left to finalize, which
+priced them all at the reply model's rate and never ran for a turn that saved no
+reply (security review, 2026-11-25): the gateway meters them too.
 """
 
-import asyncio
+from collections.abc import AsyncGenerator
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -137,8 +139,10 @@ async def test_embeddings_are_metered(model_spend_redis) -> None:
     assert await _metered(model_spend_redis) == _cost("embedding-model", 40_000, 0)
 
 
-async def test_a_chat_turns_tool_round_is_left_to_finalize(model_spend_redis) -> None:
-    """Tool rounds go into the turn's usage, which finalize charges once."""
+async def test_a_chat_turns_tool_round_is_metered_at_the_selectors_price(model_spend_redis) -> None:
+    """A selection round counts toward global spend as it runs, at the selector's own price
+    (not the reply model's), whether or not the turn then saves a reply. The turn's usage
+    still gets its tokens: the user's quota is finalize's."""
     call = {
         "id": "c1",
         "type": "function",
@@ -161,11 +165,10 @@ async def test_a_chat_turns_tool_round_is_left_to_finalize(model_spend_redis) ->
         )
 
     assert usage == {"input": 3_000, "output": 40}
-    await asyncio.sleep(0)
-    assert await _metered(model_spend_redis) == 0
+    assert await _metered(model_spend_redis) == _cost("free-chat", 3_000, 40)
 
 
-# ── stream attempts no reply kept ─────────────────────────────────────────────
+# ── stream attempts ───────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
@@ -177,16 +180,17 @@ async def test_a_chat_turns_tool_round_is_left_to_finalize(model_spend_redis) ->
         ({}, 4_000, "empty", (1_000, 0)),
         ({}, 4_000, "timeout", (1_000, 0)),
         ({}, 4_000, None, (1_000, 0)),  # stopped before its text
+        ({"input": 2_000, "output": 30}, 400, None, (2_000, 30)),  # a reply kept, reported
         ({}, 4_000, "request", None),  # refused: nothing ran
         ({}, 4_000, "rate_limit", None),
         ({}, 4_000, "connection", None),
         ({}, 4_000, "server", None),
     ],
 )
-def test_discarded_attempt_cost(
+def test_stream_attempt_cost(
     usage: dict[str, int], prompt_chars: int, cause: str | None, tokens: tuple[int, int] | None
 ) -> None:
-    cost = llm_spend.discarded_attempt_cost_usd("free-chat", usage, prompt_chars, cause)
+    cost = llm_spend.stream_attempt_cost_usd("free-chat", usage, prompt_chars, cause)
     if tokens is None:
         assert cost == 0.0
     else:
@@ -232,9 +236,9 @@ async def _stream_reply(providers: list[Any], usage: dict[str, int]) -> str:
     return "".join(tokens)
 
 
-async def test_a_discarded_stream_attempt_counts_toward_global_spend(model_spend_redis) -> None:
+async def test_every_stream_attempt_counts_toward_global_spend(model_spend_redis) -> None:
     """The first model answered only whitespace (with usage), the backup answered: the
-    user is charged the backup alone, global spend gets the discarded attempt too."""
+    user is charged the backup alone, global spend gets both, each at its own price."""
     empty = _Stream([_delta_chunk("  "), _delta_chunk(None, _usage(5_000, 7))])
     answered = _Stream([_delta_chunk("Hello."), _delta_chunk(None, _usage(4_000, 3))])
     usage: dict[str, int] = {}
@@ -242,29 +246,32 @@ async def test_a_discarded_stream_attempt_counts_toward_global_spend(model_spend
     assert await _stream_reply([empty, answered], usage) == "Hello."
 
     assert usage == {"input": 4_000, "output": 3}  # the user's quota: the kept attempt
-    # Finalize charges the kept one; the meter adds only the discarded one.
-    assert await _metered(model_spend_redis) == _cost("smart-chat", 5_000, 7)
+    assert await _metered(model_spend_redis) == _cost("smart-chat", 5_000, 7) + _cost(
+        "free-chat", 4_000, 3
+    )
 
 
-async def test_a_discarded_attempt_without_usage_counts_its_prompt(model_spend_redis) -> None:
+async def test_an_attempt_without_usage_counts_its_prompt_and_text(model_spend_redis) -> None:
     empty = _Stream([_delta_chunk("   ")])  # ran, ended with no text and no usage
-    answered = _Stream([_delta_chunk("Hello.")])
+    answered = _Stream([_delta_chunk("Hello, world")])  # 12 characters: 3 tokens
 
-    assert await _stream_reply([empty, answered], {}) == "Hello."
+    assert await _stream_reply([empty, answered], {}) == "Hello, world"
 
-    assert await _metered(model_spend_redis) == _cost("smart-chat", 1_000, 0)
+    # Each call rounds up to a micro-dollar on its own.
+    expected = _cost("smart-chat", 1_000, 0) + _cost("free-chat", 1_000, 3)
+    assert await _metered(model_spend_redis) == pytest.approx(expected, abs=1)
 
 
 async def test_a_refused_attempt_adds_nothing(model_spend_redis) -> None:
     refused = type("BadRequest", (Exception,), {"status_code": 400})("bad request")
-    answered = _Stream([_delta_chunk("Hello.")])
+    answered = _Stream([_delta_chunk("Hello."), _delta_chunk(None, _usage(4_000, 3))])
 
     assert await _stream_reply([refused, answered], {}) == "Hello."
 
-    assert await _metered(model_spend_redis) == 0
+    assert await _metered(model_spend_redis) == _cost("free-chat", 4_000, 3)
 
 
-async def test_a_reply_cut_off_after_its_text_is_left_to_finalize(model_spend_redis) -> None:
+async def test_a_reply_cut_off_after_its_text_is_metered(model_spend_redis) -> None:
     text = "The answer is 4. " * 40  # past any think hold: the reply has started
     broken = _Stream([_delta_chunk(text, _usage(5_000, 2))], error=RuntimeError("reset"))
     usage: dict[str, int] = {}
@@ -272,8 +279,31 @@ async def test_a_reply_cut_off_after_its_text_is_left_to_finalize(model_spend_re
     with pytest.raises(litellm_gateway.ModelUnavailableError):
         await _stream_reply([broken], usage)
 
-    assert usage == {"input": 5_000, "output": 2}  # finalize charges the partial reply
-    assert await _metered(model_spend_redis) == 0
+    assert usage == {"input": 5_000, "output": 2}  # the user's quota: finalize's
+    assert await _metered(model_spend_redis) == _cost("smart-chat", 5_000, 2)
+
+
+async def test_a_reply_stopped_mid_stream_is_metered_from_its_text(model_spend_redis) -> None:
+    """A Stop ends the stream before the provider's usage chunk: the prompt and the text it
+    streamed are what it billed, whatever the turn then saves (none, after a scripted
+    ``shown_chars: 0``)."""
+    stream = _Stream([_delta_chunk("x" * 400), _delta_chunk("y" * 400)])
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=stream)):
+        tokens = cast(
+            AsyncGenerator[str],
+            litellm_gateway.stream_chat_completion(
+                settings=_SETTINGS,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "x" * 4_000}],
+                max_tokens=50,
+            ),
+        )
+        assert (await anext(tokens)).startswith("x")
+        await tokens.aclose()  # the Stop
+
+    # The prompt, and the text the client was sent (a few characters may be held back).
+    metered = await _metered(model_spend_redis)
+    assert _cost("smart-chat", 1_000, 90) <= metered <= _cost("smart-chat", 1_000, 100)
 
 
 async def test_stream_calls_disable_litellm_and_sdk_retries() -> None:

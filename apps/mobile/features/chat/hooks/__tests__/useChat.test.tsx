@@ -53,10 +53,15 @@ afterEach(() => { jest.mocked(Math.random).mockRestore(); });
 
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
-  api: { listMessages: jest.fn(), generateImage: jest.fn() },
+  api: {
+    listMessages: jest.fn(),
+    generateImage: jest.fn(),
+    stopChatStream: jest.fn(() => Promise.resolve()),
+  },
 }));
 const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
 const generateImage = jest.requireMock("@/lib/api").api.generateImage as jest.Mock;
+const stopChatStream = jest.requireMock("@/lib/api").api.stopChatStream as jest.Mock;
 /** The phone's zone now: it moves on a flight, or in Settings, while a chat is open. */
 let mockZone = "UTC";
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => mockZone }));
@@ -223,6 +228,9 @@ describe("useChat transport lifecycle", () => {
     const options = (stream as jest.Mock).mock.calls[0][0];
     await act(async () => { current.stopGeneration(); await sending; });
     expect(options.signal.aborted).toBe(true);
+    // Said to the server first: a stream that only closes is a drop, which it saves whole.
+    expect(stopChatStream).toHaveBeenCalledTimes(1);
+    expect(stopChatStream.mock.calls[0].slice(0, 2)).toEqual(["token", "a"]);
     expect(current.streaming).toBe(false);
     expect(current.rejectedSend).toBeNull();
     expect(onError).not.toHaveBeenCalled();

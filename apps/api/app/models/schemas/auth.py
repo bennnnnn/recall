@@ -90,9 +90,13 @@ class UserOut(BaseModel):
 
     @field_validator("enabled_models")
     @classmethod
-    def drop_removed_models(cls, value: list[str] | None) -> list[str] | None:
-        """A model the catalog dropped since it was saved is off; with none left, Auto."""
-        return current_choices(value)
+    def drop_removed_models(cls, value: list[str] | None, info: ValidationInfo) -> list[str] | None:
+        """A model the catalog dropped since it was saved, or one the plan no longer
+        includes, is off; with none left, Auto (``plan.saved_choices``): Settings shows the
+        models messages really use."""
+        from app.modules.billing.plan import saved_choices
+
+        return saved_choices(info.data.get("plan"), value)
 
     @field_validator("location_enabled")
     @classmethod

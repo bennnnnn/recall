@@ -266,7 +266,30 @@ async def test_message_left_agrees_with_the_reserve(fake_redis, plan, settings, 
     for _ in range(used):
         await quota_service.reserve_message(fake_redis, user, Settings(daily_message_limit=10**6))
     res = _resources(fake_redis, user)
-    assert await res.message_left(user, settings) is left
+    limit = quota_service.daily_limit_for_user(user, settings)
+    assert await res.turn_left(user, settings, limit) is left
+    if not left:
+        with pytest.raises(QuotaExceededError):
+            await res.reserve(user=user, content="hi", model="free-chat", settings=settings)
+
+
+@pytest.mark.parametrize(
+    ("plan", "spent", "left"),
+    [("pro", 0, True), ("pro", 1, False), ("free", 1, False), ("free", 0, True)],
+)
+async def test_a_spent_token_budget_is_refused_before_the_reads(fake_redis, plan, spent, left):
+    """Pro has no message cap: its 15M-token budget is its daily stop. A Pro user past it
+    passed the at-cap check, started the turn's paid reads, and was refused only at the
+    reserve (security review, 2026-11-25). The check reads the tokens too, in the same
+    round trip as the messages."""
+    user = _user(plan)
+    settings = Settings()
+    limit = quota_service.daily_limit_for_user(user, settings)
+    if spent:
+        await quota_service.reserve_usage_up_to(fake_redis, str(user.id), limit, daily_limit=limit)
+    res = _resources(fake_redis, user)
+
+    assert await res.turn_left(user, settings, limit) is left
     if not left:
         with pytest.raises(QuotaExceededError):
             await res.reserve(user=user, content="hi", model="free-chat", settings=settings)

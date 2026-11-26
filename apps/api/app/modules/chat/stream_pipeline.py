@@ -18,7 +18,6 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
-from app.models import model_catalog
 from app.modules.chat.asks_turn import write_the_rest
 from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
@@ -44,10 +43,9 @@ from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext, await_user_message_persist
 from app.modules.chat.turn_resources import TurnResources, refund_turn_quota
-from app.modules.chat.turn_settle import finalize_stream_turn_db
+from app.modules.chat.turn_settle import charge_unsent_reply, finalize_stream_turn_db
 from app.modules.chat.turn_trace import emit_turn_trace
 from app.modules.images.answer_photo import AnswerPhoto
-from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
 
@@ -147,29 +145,12 @@ async def register_and_enqueue_finalize(
         outcome.finalize_db_task = finalize_db_task
 
 
-async def _record_tool_round_spend(redis: Redis, ctx: StreamContext, usage: dict[str, int]) -> None:
-    """The tool rounds that led to a generated picture count toward the global
-    spend cap; the turn's quota is refunded and the picture is the image service's."""
-    cost = model_catalog.estimate_cost_usd(
-        ctx.model,
-        input_tokens=usage.get("input", 0),
-        output_tokens=usage.get("output", 0),
-    )
-    if not cost:
-        return
-    try:
-        await quota_service.record_global_spend(redis, cost)
-    except Exception:
-        logger.exception("record_global_spend failed for terminal-image tool rounds")
-
-
 async def finalize_terminal_image_turn(
     deps: ChatTurnDeps,
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     outcome: TurnOutcome | None,
-    usage: dict[str, int],
 ) -> None:
     try:
         ctx.assistant_message_id = UUID(ctx.terminal_image_message_id)
@@ -181,12 +162,12 @@ async def finalize_terminal_image_turn(
     assistant_text = ctx.terminal_image_content or ""
 
     async def slim_finalize() -> None:
-        # The picture's row moved the chat up when it was saved (``turn_record``).
+        # The picture's row moved the chat up when it was saved (``turn_record``). Its tool
+        # rounds counted toward global spend as they ran (``gateways/llm_spend``).
         try:
             await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
             logger.exception("Slim finalize for terminal image failed")
-        await _record_tool_round_spend(redis, ctx, usage)
 
     task = create_background_task(slim_finalize(), name="finalize_terminal_image")
     task.add_done_callback(
@@ -289,7 +270,6 @@ async def _finish_terminal_image_turn(
     settings: Settings,
     ctx: StreamContext,
     *,
-    usage: dict[str, int],
     outcome: TurnOutcome | None,
     resources: TurnResources | None,
 ) -> None:
@@ -300,7 +280,7 @@ async def _finish_terminal_image_turn(
         outcome.resolved_model = ctx.terminal_image_model or "image-gen-model"
     await _refund_turn(deps, redis, ctx, resources)
     await await_user_message_persist(ctx)
-    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome, usage)
+    await finalize_terminal_image_turn(deps, redis, settings, ctx, outcome)
 
 
 def _describes_its_picture(ctx: StreamContext, accum: StreamAccum) -> bool:
@@ -309,6 +289,38 @@ def _describes_its_picture(ctx: StreamContext, accum: StreamAccum) -> bool:
     graph" answered with a block alone ended in "That model isn't responding" (Grade 8
     round, t15)."""
     return ctx.drawing is not None and bool(accum.drawings)
+
+
+# Text a Stop can find still in flight to a phone that drew none of it: about 150 ms of a
+# fast model's reply. Up to this much sent, a stop saves and charges nothing.
+UNCHARGED_STOP_CHARS = 120
+
+
+async def _settle_unsaved_stop(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    accum: StreamAccum,
+    usage: dict[str, int],
+    resources: TurnResources | None,
+) -> None:
+    """A Stop whose client says it drew none of the reply. The client's count only cuts
+    what saves: what the server itself sent decides the charge. Up to a few tokens in
+    flight the turn is given back; past that it is charged as sent, though nothing saves.
+    A scripted ``shown_chars: 0`` after a whole reply got the answer and gave back the
+    message and its tokens (security review, 2026-11-25)."""
+    sent = accum.reply_text()
+    if len(sent) <= UNCHARGED_STOP_CHARS:
+        await _refund_turn(deps, redis, ctx, resources)
+        return
+
+    async def charge() -> None:
+        await charge_unsent_reply(deps, redis, settings, ctx, sent_text=sent, usage=usage)
+        if resources is not None:
+            resources.mark_settled()
+
+    await await_ignoring_cancel(charge())
 
 
 async def _settle_reply(
@@ -326,20 +338,19 @@ async def _settle_reply(
 ) -> None:
     """Save the streamed reply: finalize its text, then commit it and queue its jobs.
 
-    A reply the user stopped before the client drew any of it saves and charges
-    nothing; a turn that produced no text at all is the model's failure.
+    A reply the user stopped before the client drew any of it saves nothing; a turn that
+    produced no text at all is the model's failure.
     """
     if accum.was_cancelled and shutdown.stopping():
         accum.mark_server_stop()
     user_stopped = accum.completion == "user_stop"
     assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
     if not assistant_text and user_stopped:
-        # Stopped before the client drew any of it: nothing is saved or charged,
-        # and a regenerate keeps the answer it was replacing (as a stop before
-        # the first token does).
+        # Stopped before the client drew any of it: nothing is saved, and a regenerate
+        # keeps the answer it was replacing (as a stop before the first token does).
         if outcome is not None:
             outcome.completion = accum.completion
-        await _refund_turn(deps, redis, ctx, resources)
+        await _settle_unsaved_stop(deps, redis, settings, ctx, accum, usage, resources)
         return
     if not assistant_text and not _describes_its_picture(ctx, accum):
         raise ModelUnavailableError.for_alias(ctx.model)
@@ -479,7 +490,7 @@ async def stream_and_finalize(
             )
         if _is_terminal_image(ctx):
             await _finish_terminal_image_turn(
-                deps, redis, settings, ctx, usage=usage, outcome=outcome, resources=resources
+                deps, redis, settings, ctx, outcome=outcome, resources=resources
             )
             return
         await _settle_reply(

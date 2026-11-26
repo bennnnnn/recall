@@ -15,7 +15,6 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.exceptions import UnknownModelOverrideError
 from app.models import model_catalog, model_removal
 from app.models.model_removal import REMOVED_ALIASES, current_choices, requested_choice
 from app.models.schemas.auth import UserOut, UserUpdate
@@ -189,9 +188,9 @@ def test_a_message_naming_the_removed_model_gets_an_answer(removed: str) -> None
     assert resolve_user_model_override(beside, request.model, "hi", settings) == "free-chat"
 
 
-def test_a_model_outside_the_plan_is_still_refused(removed: str) -> None:
+def test_a_model_outside_the_plan_answers_with_the_users_model(removed: str) -> None:
+    """A Pro model named after Pro ended is no dead end: the user's own choice answers."""
     settings = isolated_settings(mock_llm_enabled=True)
     free = api_user(plan="free", enabled_models=[removed, "free-chat"])
     request = ChatMessageRequest.model_validate({"content": "hi", "model": "smart-chat"})
-    with pytest.raises(UnknownModelOverrideError):
-        resolve_user_model_override(free, request.model, "hi", settings)
+    assert resolve_user_model_override(free, request.model, "hi", settings) == "free-chat"

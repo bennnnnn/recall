@@ -231,9 +231,8 @@ async def stream_chat_completion(
             if stream_meta is not None:
                 stream_meta["model_alias"] = failed
             raise ModelUnavailableError.for_alias(failed, cause=exc.cause) from exc
-        finally:
-            if not started and not attempt_calls:  # started: finalize charges it
-                llm_spend.meter_discarded_attempt(alias, attempt_usage, shape.chars, attempt.cause)
+        finally:  # kept or not, the provider billed it: global spend, at this model's price
+            llm_spend.meter_stream_attempt(alias, attempt_usage, shape.chars, attempt)
 
     if last_error is not None:
         raise last_error
@@ -486,7 +485,7 @@ async def _stream_chat_once(
                 text_calls=text_calls,
             )
             if attempt is not None:
-                attempt.saw(delta=read.delta, finish=read.finish)
+                attempt.saw(delta=read.delta, finish=read.finish, text=read.text)
             clock.reasoned(read.reasoned)
             watch.shown_text = watch.shown_text or read.called  # a call begins the reply
             if watch.saw(text=read.text, thinking=read.thinking) and on_thinking is not None:
