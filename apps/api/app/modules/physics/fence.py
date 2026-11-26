@@ -39,17 +39,12 @@ from app.services.workout import as_formula_heading
 logger = logging.getLogger(__name__)
 
 _PICTURE_FENCE_LANGS = ("graph", "simulation", "geometry")
-_DIAGRAM_FAILED = "*Could not render that diagram.*"
 # "The diagram is drawn under this reply": where the app puts the picture, not the
 # lesson's words (2026-10-30). The picture is simply below.
 _DRAWN_UNDER_REPLY = re.compile(
     r"\b(is|are)\s+drawn\s+(?:under|below|beneath)\s+(?:this|the|my)\s+(?:reply|answer|message)",
     re.IGNORECASE,
 )
-
-
-def _has_picture_fence(content: str) -> bool:
-    return any(fence.lang in _PICTURE_FENCE_LANGS for fence in iter_fences(content))
 
 
 def _without_model_result_fences(content: str) -> str:
@@ -127,13 +122,12 @@ def validate_physics_fences(
     different final value; the server never corrects its own (instant) text.
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
-    had_visual_fence = _has_picture_fence(content)
     # The model's card goes, and the sentence it closed on would be read as the answer: kept.
     summary = closing_summary(content)
     cleaned = own_line_part_answers(_without_model_result_fences(content))
     if verified is None:
-        if had_visual_fence and not cleaned:
-            return _DIAGRAM_FAILED
+        # A reply that was only a picture of the model's own is left empty: chat's
+        # ``owed_picture`` says, in the reply's language, that no picture was drawn.
         return cleaned
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
     # A question in parts: each part's card under its own Answer heading. A reply whose
@@ -269,4 +263,4 @@ def replace_unclosed_physics_fences_safe(
     except Exception:
         logger.warning("physics fence finalization failed; keeping prose only", exc_info=True)
         cleaned = _without_model_result_fences(closed)
-        return cleaned or (_DIAGRAM_FAILED if _has_picture_fence(closed) else "")
+        return cleaned

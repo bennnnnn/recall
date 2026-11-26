@@ -17,7 +17,7 @@ from typing import Literal
 
 from app.core.readings import reading
 from app.modules.math.tools.prompt import needs_symbolic_math
-from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.modules.physics import extract_physics_intent, needs_physics
 from app.services.subjects.guard import first_failure
 from app.services.subjects.registry import SubjectName
 

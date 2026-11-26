@@ -122,9 +122,9 @@ def test_demoting_keeps_the_value_and_drops_the_header() -> None:
 
 def test_a_model_simulation_is_dropped() -> None:
     assert strip_model_drawn_fences("Here.\n\n```simulation\n{}\n```") == "Here."
-    assert strip_model_drawn_fences("```simulation\n{}\n```") == (
-        "*Could not render that diagram.*"
-    )
+    # Nothing is left, and no English line stands in (owed_picture says it in the reply's
+    # language).
+    assert strip_model_drawn_fences("```simulation\n{}\n```") == ""
 
 
 def test_claims_inside_code_are_untouched() -> None:

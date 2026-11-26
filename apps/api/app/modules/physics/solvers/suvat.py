@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 
 from app.modules.math.schemas import GraphBlockSpec
+from app.modules.physics.graph_labels import SYMBOLS, TIME, axis_label, graph_title
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.arithmetic import latex_num, quadratic_roots
 from app.modules.physics.solvers.results import PhysicsResult, QuantityResult
@@ -281,6 +282,7 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
             return abs(displacement) if path_distance else displacement
 
         points = [[i * dt, position(i * dt)] for i in range(n_points)]
+        path_symbol = SYMBOLS["distance" if path_distance else "displacement"]
         spec = GraphBlockSpec(
             type="trajectory",
             expr=f"s(t) = integral(abs({u:g}+{a:g}*t),t)"
@@ -290,9 +292,9 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
             x_min=0.0,
             x_max=t_end,
             points=points,
-            title="Distance vs. Time" if path_distance else "Displacement vs. Time",
-            x_label="Time (s)",
-            y_label="Distance (m)" if path_distance else "Displacement (m)",
+            title=graph_title(path_symbol),
+            x_label=axis_label(TIME, "s"),
+            y_label=axis_label(path_symbol, "m"),
             trajectory_type="position_vs_time",
         )
     else:
@@ -304,9 +306,9 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
             x_min=0.0,
             x_max=t_end,
             points=points,
-            title="Velocity vs. Time",
-            x_label="Time (s)",
-            y_label="Velocity (m/s)",
+            title=graph_title(SYMBOLS["velocity"]),
+            x_label=axis_label(TIME, "s"),
+            y_label=axis_label(SYMBOLS["velocity"], "m/s"),
             trajectory_type="velocity_vs_time",
         )
     return [spec]

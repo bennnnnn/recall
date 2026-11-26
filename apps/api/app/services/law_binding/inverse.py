@@ -45,7 +45,7 @@ from app.services.law_binding.spec import (
     result_variable,
 )
 from app.services.law_binding.units import UnitTable, dimension_of
-from app.services.law_binding.words import words_after, words_before
+from app.services.law_binding.words import LABEL_LINK, LABEL_WORD, words_after, words_before
 
 
 def solved_input(spec: FormulaSpec, params: Mapping[str, float]) -> VariableSpec | None:
@@ -167,8 +167,8 @@ def _labels(phrase: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
     """The phrase as a label written before a value, and as one written after it."""
     words = re.escape(phrase)
     before = re.compile(
-        rf"(?<![\w]){words}(?:\s+[^\s\d.,;:?!=]+){{0,6}}?\s*"
-        r"(?:of|is|was|are|were|equals?|equal\s+to|=|:|≈)\s*"
+        rf"(?<![\w]){words}(?:{LABEL_WORD}){{0,6}}?\s*"
+        rf"(?:of|are|were|{LABEL_LINK})\s*"
         r"(?:about\s+|approximately\s+|roughly\s+)?$"
     )
     after = re.compile(rf"\s*(?:of\s+)?(?:the\s+)?{words}(?![\w])")

@@ -1,9 +1,9 @@
 # ruff: noqa: RUF002 -- Beer-Lambert is spelled with an en dash below.
 """Solve ``product(left) = product(right)`` for the one unknown, and show the working.
 
-The ideal gas law (PV = nRT), Boyle's, Charles's and the combined gas law, and Beer–Lambert
-(A = εbc) are all the same shape: every variable appears once and the equation is a product on
-each side. One table-free routine replaces four hand-written "if the unknown is X" ladders.
+Beer–Lambert (A = εbc) is this shape: every variable appears once and the equation is a
+product on each side, so one table-free routine solves it for any unknown. The gas laws have
+the same shape but are physics' (its catalog owns them, the STEM corpus ``shared`` field).
 """
 
 from __future__ import annotations

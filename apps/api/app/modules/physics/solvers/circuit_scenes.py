@@ -18,9 +18,7 @@ from app.modules.physics.schemas import (
     SimulationBlockSpec,
 )
 from app.modules.physics.solvers.resistor_network import RESISTOR_KEY_RE
-
-_SUBSCRIPTS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-
+from app.services.glyphs import TO_SUBSCRIPT
 
 # The prefixes a schematic writes each unit with: 10 kΩ and 100 µF, not 10000 Ω
 # and 1e-4 F.
@@ -180,7 +178,8 @@ def _network(op: str, p: dict[str, float], answer: float) -> list[SimulationBloc
 
 
 def _resistor(key: str, value: float) -> CircuitNode:
-    return CircuitNode(part="resistor", label=f"R{key[1:].translate(_SUBSCRIPTS)} = {_ohms(value)}")
+    name = f"R{key[1:].translate(TO_SUBSCRIPT)}"
+    return CircuitNode(part="resistor", label=f"{name} = {_ohms(value)}")
 
 
 def _series_parallel(op: str, p: dict[str, float], answer: float) -> list[SimulationBlockSpec]:

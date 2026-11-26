@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
+# Where one sentence ends and the next starts: the space after its ".", "!" or "?". Every
+# reader that splits a line into sentences this way asks this one pattern.
+SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
+# The same, and every line break as well: a reply's lines are sentences of their own.
+SENTENCE_OR_LINE_BREAK = re.compile(r"(?<=[.!?])\s+|\n+")
+
 _HEAD_TAIL_SEP = "\n…\n"
 # Zero-width / BOM — iOS sometimes leaves these on a two-letter greeting.
 _FORMAT_CHARS = frozenset("\u200b\u200c\u200d\ufeff\u2060")

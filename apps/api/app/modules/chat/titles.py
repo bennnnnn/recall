@@ -29,7 +29,7 @@ from app.modules.turn_reading.readable import (
     has_other_language_word,
     in_other_script,
 )
-from app.services.glyphs import SUPERSCRIPT_DIGIT_GLYPHS
+from app.services.glyphs import TO_SUPERSCRIPT
 from app.services.subject_scan import words_after_scanner_caption
 from app.services.symbolic_text import fold_braced_powers, fold_latex_marks
 from app.services.text_normalize import collapse_ws
@@ -113,7 +113,6 @@ _CARET_POWER = re.compile(r"\^(?:\{(-?\d+)\}|(-?\d+))(?!\d|[.,]\d)")
 # The head a title reads, before its padding and paths go: a long paste is not folded whole.
 TITLE_SOURCE_CHARS = 4000
 _NO_WORDS = "(a photo or file, sent with no words)"
-_TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
 
 
 def _own_words(user_message: str) -> str:
@@ -236,7 +235,7 @@ def title_messages(
 def _superscript_powers(title: str) -> str:
     """Powers as a book prints them, in the drawer: "3x^2 - 2x = 8" → "3x² - 2x = 8"."""
     return _CARET_POWER.sub(
-        lambda power: (power.group(1) or power.group(2)).translate(_TO_SUPERSCRIPT), title
+        lambda power: (power.group(1) or power.group(2)).translate(TO_SUPERSCRIPT), title
     )
 
 

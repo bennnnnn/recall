@@ -188,17 +188,19 @@ def _merged(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def held_to_the_ask(text: str, ctx: StreamContext, language: str) -> str:
-    """The reply with no stand-in for the picture asked, and the line when none was drawn."""
+def held_to_the_ask(text: str, ctx: StreamContext, language: str, *, pictured: bool = False) -> str:
+    """The reply with no stand-in for the picture asked, and the line when none was drawn.
+    ``pictured``: the reply as the model wrote it drew a picture, which a pass took out."""
     decision = answered_read(ctx.live_read)
     line = ctx.user_message_content or ""
     out = text
     if mermaid_stands_in(decision, line) and (dropped := without_flowcharts(out)) != out:
         out = dropped.strip()
-    # A reply that was only a flowchart taken out, or only its picture's description,
-    # dropped, says the picture was not drawn: never an empty reply. A photo or a painting
-    # asked for is no drawing the app owes: its reply keeps its words with no line (review).
-    emptied = not out.strip() and (out != text or ctx.drawing is not None)
+    # A reply that was only a flowchart taken out, only its picture's description dropped,
+    # or only its own picture a subject's check took out, says the picture was not drawn:
+    # never an empty reply. A photo or a painting asked for is no drawing the app owes: its
+    # reply keeps its words with no line (review).
+    emptied = not out.strip() and (out != text or ctx.drawing is not None or pictured)
     kind = owed_kind(decision, ctx) or ("diagram" if emptied else None)
     if kind is None or shows_a_picture(out):
         return out
@@ -253,7 +255,10 @@ async def settle_owed_picture(state: FinalizeState) -> str:
     if state.cut_off:
         return state.text
     locale = ctx.user.locale if ctx.user is not None else None
-    text = held_to_the_ask(state.text, ctx, line_language(ctx.user_message_content or "", locale))
+    language = line_language(ctx.user_message_content or "", locale)
+    # A reply that was only its own picture, which a subject's check took out, is empty here:
+    # it says the picture was not drawn, in the reply's language.
+    text = held_to_the_ask(state.text, ctx, language, pictured=shows_a_picture(state.raw))
     if text != state.text:
         # Committed, so a later pass that falls back keeps the line.
         state.committed = fallback_text(text, server_text=state.server_text)

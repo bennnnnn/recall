@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
+from concurrent.futures.process import BrokenProcessPool
 from typing import Any, TypeVar
 
 from app.core.config import Settings
@@ -30,6 +31,17 @@ from app.modules.math.tools.calculus_outcome import infinite_integral_note, unde
 logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+
+# What a call that could not finish tells the model, by what happened: a pool timeout, a
+# step that failed on its input, or a step that found nothing.
+_TIMED_OUT = "timed out"
+_NOT_COMPUTED = "SymPy could not compute this"
+_NO_RESULT = "SymPy found no result for this input"
+
+
+class _StepFailed(Exception):
+    """A step the call needs gave nothing; its message is what the call answers."""
+
 
 _ActionHandler = Callable[["SympyAdapter", dict[str, Any]], Awaitable[ToolResult]]
 
@@ -90,20 +102,34 @@ class SympyAdapter:
         this worker's event loop. A decline (``SolveServiceError``) is raised with its reason.
 
         The function and args must be picklable (top-level functions + plain data) so they
-        can cross the subprocess boundary.
+        can cross the subprocess boundary. None when the step fails: for a step the call can
+        do without (a restatement check, a number line beside the answer).
         """
+        try:
+            return await self._required(fn, *args)
+        except _StepFailed:
+            return None
+
+    async def _required(self, fn: Callable[..., _T | None], *args: Any) -> _T:
+        """``_run_off_loop`` for a step the call cannot do without: what went wrong is the
+        call's answer (``_StepFailed``), said as it was. Every failure was "timed out", so a
+        model told a call that failed on its input to wait and send it again."""
         from app.core.sympy_executor import run_sympy
 
         try:
-            return await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
+            result = await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
         except math_solve.SolveServiceError:
             raise
-        except TimeoutError:
+        except (TimeoutError, BrokenProcessPool) as exc:
+            # A worker lost to a sibling's timeout is the pool's time, not the input's fault.
             logger.warning("sympy MCP tool call timed out")
-            return None
-        except Exception:
+            raise _StepFailed(_TIMED_OUT) from exc
+        except Exception as exc:
             logger.warning("sympy MCP tool call failed", exc_info=True)
-            return None
+            raise _StepFailed(_NOT_COMPUTED) from exc
+        if result is None:
+            raise _StepFailed(_NO_RESULT)
+        return result
 
     async def _action_solve(self, args: dict[str, Any]) -> ToolResult:
         data = EquationInput(
@@ -111,9 +137,7 @@ class SympyAdapter:
             rhs=str(args.get("rhs") or ""),
             variables=list(args.get("variables") or ["x"]),
         )
-        result = await self._run_off_loop(math_solve.solve_equation, data)
-        if result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        result = await self._required(math_solve.solve_equation, data)
         # Parity with heuristic solve: attach ```answer for post-stream rewrite.
         answer = math_tools._format_equation_answer(
             result.canonical_solutions_latex or result.solutions_latex,
@@ -140,20 +164,18 @@ class SympyAdapter:
                 )
             if lower and upper:
                 indefinite = False
-                expr_result = await self._run_off_loop(
+                # A failed definite integral is not an indefinite-integral request: it is
+                # the call's answer, never a different problem solved in its place.
+                expr_result = await self._required(
                     math_solve.integrate_definite, expr, variable, lower, upper
                 )
-                if expr_result is None:
-                    # A failed definite integral is not an indefinite-integral
-                    # request. Do not silently solve a different problem.
-                    return ToolResult(name=self.name, content="Math error: timed out.")
         if expr_result is None:
             if action == "diff":
                 try:
                     order_n = int(args.get("order") or 1)
                 except (TypeError, ValueError):
                     order_n = 1
-                expr_result = await self._run_off_loop(
+                expr_result = await self._required(
                     math_solve.differentiate_expression, expr, variable, order_n
                 )
             else:
@@ -163,9 +185,7 @@ class SympyAdapter:
                     "factor": math_solve.factor_expression,
                     "expand": math_solve.expand_expression,
                 }[action]
-                expr_result = await self._run_off_loop(fn, expr, variable)
-        if expr_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+                expr_result = await self._required(fn, expr, variable)
         integral_note = None
         if action == "integrate":
             undefined_note = undefined_integral_note(expr_result.result)
@@ -218,15 +238,13 @@ class SympyAdapter:
             )
         variables = list(args.get("variables") or ["x"])
         variable = str(args.get("variable") or (variables[0] if variables else "x"))
-        result = await self._run_off_loop(
+        result = await self._required(
             math_solve.solve_inequality,
             str(args.get("lhs") or ""),
             str(args.get("rhs") or ""),
             variable,
             comparator,
         )
-        if result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
         answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
         content = _verified_content("\n".join(result.steps) + f"\nVerified result: {answer}")
         data = _fence_data(math_tools._answer_canonical(answer), canonical_answer=answer)
@@ -255,9 +273,7 @@ class SympyAdapter:
             equations=equations,
             variables=list(args.get("variables") or ["x", "y"]),
         )
-        system_result = await self._run_off_loop(math_solve.solve_system, system_input)
-        if system_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        system_result = await self._required(math_solve.solve_system, system_input)
         answer = math_tools._format_system_answer(
             system_result.solutions, system_result.solution_kind
         )
@@ -273,11 +289,9 @@ class SympyAdapter:
         variable = str(args.get("variable") or "x")
         point = str(args.get("point") or "0")
         direction = str(args.get("direction") or "+-")
-        limit_result = await self._run_off_loop(
+        limit_result = await self._required(
             math_solve.compute_limit, expr, variable, point, direction
         )
-        if limit_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
         if limit_result.result == "zoo":
             return ToolResult(
                 name=self.name,
@@ -308,11 +322,9 @@ class SympyAdapter:
         variable = str(args.get("variable") or "x")
         start = str(args.get("start") or "1")
         end = str(args.get("end") or "oo")
-        series_result = await self._run_off_loop(
+        series_result = await self._required(
             math_solve.evaluate_series_sum, expr, variable, start, end
         )
-        if series_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
         # Parity with _verified_block_series: attach a canonical ```answer
         # fence (the verified sum value) so validate_math_fences corrects
         # the model's final answer; flag divergence to infinity explicitly.
@@ -351,9 +363,7 @@ class SympyAdapter:
             variable=str(args.get("variable") or "x"),
             initial_guess=float(args.get("guess") or 1.0),
         )
-        newton_result = await self._run_off_loop(math_solve.newton_method, newton_input)
-        if newton_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        newton_result = await self._required(math_solve.newton_method, newton_input)
         if not newton_result.converged or newton_result.root is None:
             return ToolResult(
                 name=self.name,
@@ -381,9 +391,7 @@ class SympyAdapter:
             height=float(args["height"]),
             unit=str(args.get("unit") or "cm"),
         )
-        rect_result = await self._run_off_loop(math_solve.rectangle_geometry, rect_input)
-        if rect_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        rect_result = await self._required(math_solve.rectangle_geometry, rect_input)
         spec = GeometryBlockSpec(
             type="rectangle",
             width=rect_result.width,
@@ -420,9 +428,7 @@ class SympyAdapter:
             side=float(side),
             unit=str(args.get("unit") or "cm"),
         )
-        square_result = await self._run_off_loop(math_solve.square_geometry, square_input)
-        if square_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        square_result = await self._required(math_solve.square_geometry, square_input)
         spec = GeometryBlockSpec(
             type="square",
             side=square_result.side,
@@ -457,9 +463,7 @@ class SympyAdapter:
             radius=float(args["radius"]),
             unit=str(args.get("unit") or "cm"),
         )
-        circle_result = await self._run_off_loop(math_solve.circle_geometry, circle_input)
-        if circle_result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        circle_result = await self._required(math_solve.circle_geometry, circle_input)
         spec = CircleGeometryBlockSpec(
             type="circle",
             radius=circle_result.radius,
@@ -484,16 +488,18 @@ class SympyAdapter:
             data=_fence_data(fence),
         )
 
-    def _graph_shape(self, sampled: GraphCall | None) -> ToolResult | None:
+    def _failed(self, reason: str) -> ToolResult:
+        return ToolResult(name=self.name, content=f"Math error: {reason}.")
+
+    def _graph_shape(self, sampled: GraphCall) -> ToolResult | None:
         """The call's result when it is no curve: an error, an ellipse or a number line.
         A pool worker logs nowhere, so what failed in it is logged here, as it was."""
-        if sampled is not None:
-            for failure in sampled.failures:
-                logger.warning("sympy MCP tool call failed\n%s", failure)
-            if sampled.invalid is not None:
-                return ToolResult(name=self.name, content=f"Math error: {sampled.invalid}")
-        if sampled is None or sampled.failed:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        for failure in sampled.failures:
+            logger.warning("sympy MCP tool call failed\n%s", failure)
+        if sampled.invalid is not None:
+            return ToolResult(name=self.name, content=f"Math error: {sampled.invalid}")
+        if sampled.failed:
+            return self._failed(_NOT_COMPUTED)
         if sampled.ellipse is not None:
             ellipse_spec = sampled.ellipse
             return ToolResult(
@@ -514,7 +520,7 @@ class SympyAdapter:
                 data=_fence_data(line_spec.model_dump()),
             )
         if sampled.curve is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+            return self._failed(_NO_RESULT)
         return None
 
     async def _action_graph(self, args: dict[str, Any]) -> ToolResult:
@@ -531,7 +537,7 @@ class SympyAdapter:
         # chat-path SymPy call runs, so a pathological relation can't block the event loop.
         # A second curve is never an ellipse or a number line.
         expr2_raw = str(args.get("expr2") or "").strip()
-        sampled = await self._run_off_loop(
+        sampled = await self._required(
             sample_graph_call,
             expr,
             variable,
@@ -542,8 +548,8 @@ class SympyAdapter:
             str(args.get("variable2") or variable),
         )
         shape = self._graph_shape(sampled)
-        if shape is not None or sampled is None or sampled.curve is None:
-            return shape or ToolResult(name=self.name, content="Math error: timed out.")
+        if shape is not None or sampled.curve is None:
+            return shape or self._failed(_NO_RESULT)
         graph_result = sampled.curve
         has_discontinuity = len(graph_result.segments) > 1
 
@@ -556,7 +562,7 @@ class SympyAdapter:
         if expr2:
             sample2 = sampled.curve2
             if sample2 is None:
-                return ToolResult(name=self.name, content="Math error: timed out.")
+                return self._failed(_NO_RESULT)
             expr2 = sample2.expr
             variable2 = sample2.variable
             points2 = sample2.points
@@ -600,9 +606,7 @@ class SympyAdapter:
 
         expr = str(args.get("expr") or args.get("text") or "")
         variable = str(args.get("variable") or "x")
-        result = await self._run_off_loop(solve_ode, expr, variable)
-        if result is None:
-            return ToolResult(name=self.name, content="Math error: timed out.")
+        result = await self._required(solve_ode, expr, variable)
         return ToolResult(
             name=self.name,
             content=_verified_content(f"ODE: {result.latex}"),
@@ -633,6 +637,8 @@ class SympyAdapter:
                         ),
                     )
             return ToolResult(name=self.name, content="No math result.")
+        except _StepFailed as failed:
+            return self._failed(str(failed))
         except Exception as exc:
             return ToolResult(name=self.name, content=f"Math error: {exc}")
 

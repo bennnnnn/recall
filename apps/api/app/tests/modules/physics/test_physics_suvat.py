@@ -244,11 +244,11 @@ def test_the_graph_plots_the_quantity_that_was_asked_for() -> None:
     distance = _graph("how far does a car go in 5 s accelerating from rest at 3 m/s^2")
     velocity = _graph("a car accelerates from rest at 3 m/s^2 for 5 s, what is its final velocity")
 
-    assert distance.title == "Distance vs. Time"
+    assert distance.title == "d\u2013t"
     assert distance.trajectory_type == "position_vs_time"
     assert distance.points[-1][1] == pytest.approx(37.5)
 
-    assert velocity.title == "Velocity vs. Time"
+    assert velocity.title == "v\u2013t"
     assert velocity.trajectory_type == "velocity_vs_time"
     assert velocity.points[-1][1] == pytest.approx(15.0)
 
@@ -272,7 +272,7 @@ def test_solving_for_a_time_plots_whichever_target_the_givens_carry() -> None:
     makes it a distance one."""
     to_speed = _graph("a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s")
 
-    assert to_speed.title == "Velocity vs. Time"
+    assert to_speed.title == "v\u2013t"
     assert to_speed.points[-1][1] == pytest.approx(15.0)
 
 
@@ -459,9 +459,9 @@ def test_a_reversal_reports_the_whole_path() -> None:
 @pytest.mark.parametrize(
     "ask,expected,title",
     [
-        ("find the distance travelled, not the displacement", "34 m", "Distance vs. Time"),
-        ("find the displacement, not the distance travelled", "16 m", "Displacement vs. Time"),
-        ("how far does it travel, rather than its displacement", "34 m", "Distance vs. Time"),
+        ("find the distance travelled, not the displacement", "34 m", "d\u2013t"),
+        ("find the displacement, not the distance travelled", "16 m", "s\u2013t"),
+        ("how far does it travel, rather than its displacement", "34 m", "d\u2013t"),
     ],
 )
 def test_distance_and_displacement_follow_the_requested_quantity(ask, expected, title) -> None:

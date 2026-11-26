@@ -14,11 +14,11 @@ from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, Element
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.display import verified
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.services.glyphs import TO_SUPERSCRIPT_CHARGE
 from app.services.solving import ImpossibleProblemError, SolveServiceError
 
 _SHELLS = (2, 8, 8, 2)
 _SCHOOL_SHELL_LIMIT = 20
-_SUPERSCRIPT = str.maketrans("0123456789+-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻")
 
 
 def _shells(electrons: int) -> list[int]:
@@ -45,7 +45,7 @@ def _ion_name(symbol: str, name: str, charge: int) -> str:
     size = "" if abs(charge) == 1 else str(abs(charge))
     sign = "+" if charge > 0 else "-"
     kind = "cation" if charge > 0 else "anion"
-    return f"{name} {kind} ({symbol}{(size + sign).translate(_SUPERSCRIPT)})"
+    return f"{name} {kind} ({symbol}{(size + sign).translate(TO_SUPERSCRIPT_CHARGE)})"
 
 
 @dataclass

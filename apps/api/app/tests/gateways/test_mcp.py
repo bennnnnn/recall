@@ -463,6 +463,19 @@ async def test_sympy_adapter_reports_a_declined_value_as_its_reason(
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_says_a_step_that_found_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+):
+    """A step that returned nothing is said as that, never as a timeout."""
+    monkeypatch.setattr("app.modules.math.ode.solve_ode", lambda *_args: None)
+    result = await SympyAdapter(Settings(stem_solve_timeout_seconds=5)).invoke(
+        {"action": "dsolve", "expr": "y' = y"}, tool_context()
+    )
+    assert result.content == "Math error: SymPy found no result for this input."
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_solve_times_out_instead_of_blocking(
     monkeypatch: pytest.MonkeyPatch,
     thread_sympy_executor: None,
@@ -736,7 +749,8 @@ async def test_sympy_graph_failure_is_logged_as_a_warning(monkeypatch, caplog):
         result = await SympyAdapter(Settings()).invoke(
             {"action": "graph", "expr": "x**2"}, tool_context()
         )
-    assert result.content == "Math error: timed out."
+    # A step that raised is no timeout: told "timed out", the model sends it again.
+    assert result.content == "Math error: SymPy could not compute this."
     warned = [r for r in caplog.records if r.levelno >= logging.WARNING]
     assert any("RuntimeError: sampler bug" in r.getMessage() for r in warned)
 

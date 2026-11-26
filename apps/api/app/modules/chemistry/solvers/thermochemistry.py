@@ -59,33 +59,15 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
-    delta_t = intent.params.get("delta_t")
-    if delta_t is None:
-        raise SolveServiceError("calorimetry needs ΔT")
-    calorimeter = intent.params.get("c_cal")
-    given: tuple[str, ...]
-    law_name, base_formula = stated("calorimetry")
-    formula = base_formula
-    working: str
-    if calorimeter is not None:
-        if calorimeter <= 0:
-            raise SolveServiceError("calorimeter constant must be positive")
-        heat = -calorimeter * delta_t
-        given = (f"Ccal = {inp(calorimeter)} J/°C", f"ΔT = {inp(delta_t)} °C")
-        working = f"q_rxn = −({inp(calorimeter)})({inp(delta_t)})"
-    else:
-        mass = intent.params.get("mass")
-        specific = intent.params.get("specific_heat")
-        if mass is None or specific is None or mass <= 0 or specific <= 0:
-            raise SolveServiceError("calorimetry needs Ccal or mass and specific heat")
-        heat = -mass * specific * delta_t
-        given = (
-            f"m = {inp(mass)} g",
-            f"c = {inp(specific)} J/(g·°C)",
-            f"ΔT = {inp(delta_t)} °C",
-        )
-        formula = "q_rxn = −mcΔT"
-        working = f"q_rxn = −({inp(mass)})({inp(specific)})({inp(delta_t)})"
+    """q_rxn = -Ccal ΔT, from a calorimeter's constant: the one calorimetry the extractor
+    reads. A heat from a mass and a specific heat (Q = mcΔT) is physics' law."""
+    calorimeter, delta_t = require_all(intent, "c_cal", "delta_t")
+    if calorimeter <= 0:
+        raise SolveServiceError("calorimeter constant must be positive")
+    law_name, formula = stated("calorimetry")
+    heat = -calorimeter * delta_t
+    given = (f"Ccal = {inp(calorimeter)} J/°C", f"ΔT = {inp(delta_t)} °C")
+    working = f"q_rxn = −({inp(calorimeter)})({inp(delta_t)})"
     shown = f"q_rxn = {num(heat)} J"
     return verified(
         "Verified calorimetry",

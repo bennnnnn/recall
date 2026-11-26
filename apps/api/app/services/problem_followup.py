@@ -21,7 +21,7 @@ from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
-from app.services.number_text import fold_scientific
+from app.services.number_text import DECIMAL, fold_scientific
 from app.services.scaled_followup import (
     Scaling,
     counted,
@@ -304,19 +304,25 @@ def item_number(text: str, start: int, end: int) -> bool:
     return _ITEM.search(text, max(0, start - 24), start) is not None
 
 
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# The shared grammar: ".5" is one half, never a 5 after a stray full stop.
+_NUMBER = re.compile(DECIMAL)
 
 
 def stated_numbers(text: str) -> Counter[str]:
     """The numbers ``text`` writes, each as often as it writes it, without its markup and
-    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice."""
+    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice, and ".5" writes 0.5."""
     plain = without_markup(fold_scientific(text))
     return Counter(
-        match.group()
+        _leading_zero(match.group())
         for match in _NUMBER.finditer(plain)
         if not item_number(plain, match.start(), match.end())
         and not _EXPONENT.search(plain, max(0, match.start() - 3), match.start())
     )
+
+
+def _leading_zero(number: str) -> str:
+    """ ".5" as "0.5": one number however its whole part is written."""
+    return f"0{number}" if number.startswith(".") else number
 
 
 # A power of ten's exponent, once scientific notation is folded ("1e-12"): its value's, not a

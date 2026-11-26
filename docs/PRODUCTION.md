@@ -645,7 +645,7 @@ background, and runs the new code from the next launch.
       without it (from before, or a client that sends no flag:
       an older phone, web slice 1) is asked on the consent screen (phone `/consent`, the web's own) and agrees
       with `PATCH /auth/me`. Change that line, the consent screen and the policy together.
-      The server refuses chat, speech and scan reads until then (`consent_required`)
+      The server refuses chat (a scanned photo is a chat turn), speech, pictures and memory edits until then (`consent_required`)
 
 ---
 

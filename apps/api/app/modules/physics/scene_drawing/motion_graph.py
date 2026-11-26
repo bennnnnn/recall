@@ -30,6 +30,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.givens import PHYSICS_UNITS
+from app.modules.physics.graph_labels import SYMBOLS, TIME, axis_label, graph_title
 from app.modules.physics.numbers import normalize_physics_units
 from app.modules.physics.scene_drawing.values import Stated
 from app.services.law_binding.fit import read_givens
@@ -259,13 +260,8 @@ def _graph(kind: Graph, checked: _Checked) -> GraphBlockSpec:
             points.append([round((start + at) / t_scale, 6), round(y, 6)])
         travelled += _path(v0, accel, dt)
         start += dt
-    names = {
-        "velocity": ("Velocity", v_unit),
-        "speed": ("Speed", v_unit),
-        "acceleration": ("Acceleration", "m/s²"),
-        "distance": ("Distance", "m"),
-    }
-    name, unit = names[kind]
+    unit = {"velocity": v_unit, "speed": v_unit, "acceleration": "m/s²", "distance": "m"}[kind]
+    symbol = SYMBOLS[kind]
     return GraphBlockSpec(
         type="trajectory",
         # The textbook letters: v for speed and velocity, a, and d for a distance.
@@ -274,9 +270,9 @@ def _graph(kind: Graph, checked: _Checked) -> GraphBlockSpec:
         x_min=0.0,
         x_max=round(start / t_scale, 6),
         points=points,
-        title=f"{name} vs. Time",
-        x_label=f"Time ({t_unit})",
-        y_label=f"{name} ({unit})",
+        title=graph_title(symbol),
+        x_label=axis_label(TIME, t_unit),
+        y_label=axis_label(symbol, unit),
         trajectory_type="position_vs_time" if kind == "distance" else "velocity_vs_time",
     )
 

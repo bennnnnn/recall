@@ -41,7 +41,7 @@ from app.services.md_fence_scan import (
     map_closed_fences,
     strip_closed_fences,
 )
-from app.services.structure_captions import uncaptioned_fence
+from app.services.structure_captions import UNDRAWN, uncaptioned_fence
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +94,6 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
     return last, caption
 
 
-_UNRENDERABLE = "*Could not render that structure.*\n"
-
-
 def _smiles_fence(smiles: str, caption: str = "") -> str:
     """One ```smiles fence: an optional caption line, then the SMILES the phone draws."""
     drawn = drawing_smiles(smiles)
@@ -130,7 +127,7 @@ def _canonicalize_smiles_fence(body: str, named: Mapping[str, str] | None = None
         return f"```smiles\n{body}```\n"  # nothing to validate: leave the fence as written
     props, written = _read_fence(body)
     if props is None:
-        return _UNRENDERABLE
+        return UNDRAWN
     # The caption is the structure's own formula and mass, and the written name only when the
     # app's data gives that name this structure: a model's "Caffeine" over ethanol's SMILES
     # was drawn, captioned, as caffeine, with a 3D ethanol under it (audit CHEM-04, 2026-11-13).

@@ -71,7 +71,9 @@ def test_enrich_refuses_a_structure_past_the_phones_limit() -> None:
     # The phone refuses a SMILES longer than 500 characters; left as written it reached it.
     result = chemistry_fence.enrich_chemistry_fences("```smiles\n" + "C" * 600 + "\n```")
     assert "```smiles" not in result
-    assert "Could not render that structure." in result
+    # No English line stands in for it: a structure asked for is said not drawn, in the
+    # reply's language, by chat's owed_picture pass.
+    assert result.strip() == ""
 
 
 def test_enrich_invalid_smiles_stripped() -> None:

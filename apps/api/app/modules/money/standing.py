@@ -24,6 +24,7 @@ from dataclasses import dataclass
 
 from app.modules.money.catalog import Product
 from app.modules.money.solve import Worked, output_value
+from app.services.text_normalize import SENTENCE_OR_LINE_BREAK
 
 # The terms a reply about a loan most often compares, by product; the rest are the card's.
 COMMON_TERMS: dict[str, tuple[float, ...]] = {
@@ -68,7 +69,6 @@ _OFFER_ABOUT = re.compile(
     r"|\d{1,3}[\s-](?:year|month)|(?:other|another|different|shorter|longer)\s+terms?)\b",
     re.IGNORECASE,
 )
-_SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
 @dataclass(frozen=True)
@@ -90,7 +90,7 @@ def about_the_loan(text: str, last_reply: str) -> bool:
 
 
 def _offers_about_the_loan(reply: str) -> bool:
-    sentences = [part.strip() for part in _SENTENCES.split(reply or "") if part.strip()]
+    sentences = [part.strip() for part in SENTENCE_OR_LINE_BREAK.split(reply or "") if part.strip()]
     if not sentences:
         return False
     last = sentences[-1]

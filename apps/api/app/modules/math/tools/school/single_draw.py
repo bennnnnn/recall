@@ -12,6 +12,7 @@ from dataclasses import replace
 from fractions import Fraction
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tex_numbers import fraction_tex
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school.single_draw_events import (
     DrawEvent,
@@ -78,12 +79,6 @@ def probability_answer(probability: Fraction) -> str:
     if denominator == 1:
         return f"{exact} = {decimal:g}"
     return rf"{exact} \approx {decimal:.4g}"
-
-
-def fraction_tex(value: Fraction) -> str:
-    if value.denominator == 1:
-        return str(value.numerator)
-    return rf"\frac{{{value.numerator}}}{{{value.denominator}}}"
 
 
 def _dice_pairs(target: int) -> str:

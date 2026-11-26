@@ -131,8 +131,9 @@ _WORD = re.compile(r"[A-Za-z]{3,}")
 _NEXT_SENTENCE = re.compile(r"[.!?][\"'\u201d\u2019)\]]*\s+(\S)")
 
 
-def _relations(text: str) -> str:
-    """``≈`` and ``\\approx`` read as ``=``: an approximate value is still a value."""
+def approx_as_equals(text: str) -> str:
+    """``≈`` and ``\\approx`` read as ``=``: an approximate value is still a value, and an
+    approximate answer still the answer (the card reader and the answer fence alike)."""
     return text.replace("\\approx", "=").replace("\u2248", "=")
 
 
@@ -141,7 +142,7 @@ def wordy(value: str) -> bool:
     no equation), or a sentence its maths only illustrates (``sentence_answer``)."""
     if len(value) > 2000:
         return True
-    prose = _relations(_MATH.sub(" ", value))  # 2000 characters at most: read once
+    prose = approx_as_equals(_MATH.sub(" ", value))  # 2000 characters at most: read once
     if "=" not in prose and len(_WORD.findall(prose)) > 20:
         return True
     return sentence_answer(value)

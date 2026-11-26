@@ -109,8 +109,8 @@ def test_a_ride_in_stages_is_drawn_in_the_question_s_units() -> None:
     ]
     velocity, distance = described_motion(_motion(["velocity", "distance"], stages), [_RIDE])
     assert (velocity.x_label, velocity.y_label, velocity.x_max) == (
-        "Time (min)",
-        "Velocity (km/h)",
+        "t (min)",
+        "v (km/h)",
         13.0,
     )
     assert velocity.points[0] == [0.0, 6.0] and velocity.points[-1] == [13.0, 0.0]
@@ -124,7 +124,7 @@ def test_a_turn_back_is_drawn_through_zero_with_its_one_acceleration() -> None:
 
     stages = [{"from": "60 km/h", "to": "-80 m/s", "time": "20 s"}]
     speed, acceleration = described_motion(_motion(["speed", "acceleration"], stages), [_TURN_BACK])
-    assert speed.y_label == "Speed (m/s)" and min(p[1] for p in speed.points) == 0.0
+    assert speed.y_label == "|v| (m/s)" and min(p[1] for p in speed.points) == 0.0
     assert speed.points[-1] == [20.0, 80.0]
     assert {round(p[1], 3) for p in acceleration.points} == {-4.833}
 

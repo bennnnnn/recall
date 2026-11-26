@@ -12,6 +12,12 @@ _HYDRATE_DOTS = frozenset({".", "\u00b7"})
 LEADING_GROUP = r"(?:\((?:[A-Z][a-z]?[0-9]*)+\)[0-9]+)?"
 _PHASES = frozenset({"aq", "s", "l", "g"})
 _MAX_NESTING = 12
+# A count a formula writes, at most: a protein's thousands of atoms are four digits. Past it
+# the text is no formula: a 5000-digit count raised in ``int`` and a long one gave a molar
+# mass of absurd size.
+_MAX_COUNT_DIGITS = 4
+# The atoms of one element a whole formula holds, at most, once groups multiply its counts.
+_MAX_ATOMS = 1_000_000
 
 
 def _hydrate_fragments(formula: str) -> list[str]:
@@ -38,6 +44,8 @@ def _leading_multiplier(fragment: str) -> tuple[int, str]:
         i += 1
     if i == 0 or i == n:
         return 1, fragment
+    if i > _MAX_COUNT_DIGITS:
+        return 0, fragment[i:]
     return int(fragment[:i]), fragment[i:]
 
 
@@ -72,6 +80,8 @@ def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int], nesting:
             while k < n and s[k].isdigit():
                 num_str += s[k]
                 k += 1
+            if len(num_str) > _MAX_COUNT_DIGITS:
+                return False
             inner_mult = int(num_str) if num_str else 1
             if num_str and inner_mult < 1:
                 return False
@@ -95,10 +105,14 @@ def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int], nesting:
             while j < n and s[j].isdigit():
                 num_str += s[j]
                 j += 1
+            if len(num_str) > _MAX_COUNT_DIGITS:
+                return False
             count = int(num_str) if num_str else 1
             if count < 1:
                 return False
             atoms[elem] = atoms.get(elem, 0) + count * multiplier
+            if atoms[elem] > _MAX_ATOMS:
+                return False
             i = j
             continue
         return False

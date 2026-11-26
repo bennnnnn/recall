@@ -1,4 +1,4 @@
-"""Speech, scan reads, pictures and memory edits wait for consent to outside AI services.
+"""Speech, pictures and memory edits wait for consent to outside AI services.
 
 Each answers 403 ``{"detail": {"code": "consent_required", …}}`` before it reads
 the request, so nothing reaches a provider; the phone opens its consent screen.

@@ -15,9 +15,10 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
+from app.services.number_text import DECIMAL
 from app.services.text_normalize import collapse_ws
 
-_NUMBER = re.compile(r"[-+\u2212]?\d+(?:\.\d+)?")
+_NUMBER = re.compile(rf"[-+\u2212]?{DECIMAL}")
 # A setup left open on a list of numbers: "sides 5, 4,", "sides 5, 4 and", "3 by".
 _OPEN_LIST = re.compile(r"\d\s*(?:,|&|\band|\bby)\s*$", re.IGNORECASE)
 _WORD = re.compile(r"[a-z]+(?:'[a-z]+)?")
@@ -40,7 +41,14 @@ _MEASURE_ASK = re.compile(
 
 
 def _plain(line: str) -> str:
-    return collapse_ws(line).lower().strip(_EDGES + "$")
+    """The line without its edges' punctuation, but a number's leading point kept: ".5" is
+    one half, never a 5."""
+    text = collapse_ws(line).lower()
+    plain = text.strip(_EDGES + "$")
+    start = len(text) - len(text.lstrip(_EDGES + "$"))
+    if start and text[start - 1] == "." and plain[:1].isdigit():
+        return f".{plain}"
+    return plain
 
 
 def _asks_a_measure(plain: str) -> bool:

@@ -75,3 +75,13 @@ def test_a_line_is_added_to_a_problem_by_its_shape(
 )
 def test_a_number_or_a_quantity_adds_to_a_problem(line: str, adds: bool) -> None:
     assert adds_to_problem(line) is adds
+
+
+@pytest.mark.parametrize(
+    ("line", "added"), [(".5", ".5"), ("0.5", "0.5"), ("-.5", "-.5"), ("3.", "3")]
+)
+def test_a_number_keeps_its_leading_point(line: str, added: str) -> None:
+    """A leading point is kept: ".5" completes "sides 2, 1," as one half, never a 5."""
+    joined = continue_problem(Problem("Triangle with sides 2, 1,"), line)
+    assert joined is not None
+    assert joined.setup == f"Triangle with sides 2, 1, {added}"

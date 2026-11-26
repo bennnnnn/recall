@@ -174,6 +174,16 @@ def test_punctuation_between_a_label_and_its_value_stays_linear(run: str) -> Non
     assert time.perf_counter() - start < _PATTERN_BUDGET_SECONDS
 
 
+@pytest.mark.wall_clock
+def test_many_labelled_values_read_in_linear_time() -> None:
+    """Each value asked of every other whether it sat between it and its label: cubic in
+    the values, 2 s for 600 labelled lengths."""
+    text = " ".join(f"distance of {i} m, length {i + 1} m and" for i in range(300))
+    start = time.perf_counter()
+    assert find_value_with_specific_unit(text, "m", ("distance", "length")) == (1.0, "m")
+    assert time.perf_counter() - start < _PATTERN_BUDGET_SECONDS
+
+
 def test_a_long_resistor_list_still_declines() -> None:
     assert resistor_values("three resistors of 2, 3 and 6 ohms in parallel") == [2.0, 3.0, 6.0]
     # More than the network limit: enough values come back to refuse it.
