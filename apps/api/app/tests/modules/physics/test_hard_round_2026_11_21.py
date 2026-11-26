@@ -213,11 +213,11 @@ def test_a_row_past_reading_closes_on_the_unrounded_value() -> None:
             r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
             r"4.04\,\mathrm{s};\quad 60.58\,\mathrm{m}",
         ),
-        # A value no line reached keeps the rule's own reading of it.
+        # A value no line reached keeps its figures: never a padded zero (owner, 2026-11-25).
         (
             "$t = 4.03855\\,\\mathrm{s}$",
             r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
-            r"4.04\,\mathrm{s};\quad 60.60\,\mathrm{m}",
+            r"4.04\,\mathrm{s};\quad 60.6\,\mathrm{m}",
         ),
     ],
 )

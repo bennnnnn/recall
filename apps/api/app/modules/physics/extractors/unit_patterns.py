@@ -58,18 +58,6 @@ def in_base_unit(value: float, unit: str, unit_pattern: str) -> tuple[float, str
     return float(Decimal(repr(value)).scaleb(power * exponent)), base
 
 
-def in_si(value: float, unit: str, default: str) -> float | None:
-    """A stated value in its SI unit: the unit read with it ("1.3e25 lb"), else ``default``.
-    A reader that hands a value on under an SI unit converts it here, never assuming the
-    unit it read was that one; None when the unit does not convert."""
-    from app.modules.physics.solvers.si import to_si
-
-    try:
-        return to_si(value, unit or default)
-    except Exception:
-        return None
-
-
 # The power on the first unit of a spelling: "m^2", "m²", "m3", or none ("m/s").
 _FIRST_POWER = re.compile(r"[A-Za-zµμΩÅ°]+(?P<power>\^-?\d+|\d+|⁻?[¹²³])?")
 _SUPERSCRIPTS = str.maketrans("⁻¹²³", "-123")
