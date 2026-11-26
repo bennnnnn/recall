@@ -18,6 +18,7 @@ from app.models.orm import TodoItem
 from app.modules.todos import api as todos_router
 from app.modules.todos import crud
 from app.tests.api_support import api_user, app_with_user
+from app.tests.fakes import fake_session
 
 
 class _UTCDateTime(TypeDecorator):
@@ -412,9 +413,7 @@ def test_create_todo_past_the_cap_is_refused_with_its_code():
     app = app_with_user(api_user())
     full = AsyncMock(return_value=OPEN_TODOS_MAX)
     with patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=0)):
-        session = AsyncMock()
-        session.scalar = full
-        session.add = MagicMock()
+        session = fake_session(scalar=full)
         app.dependency_overrides[get_db] = lambda: session
         r = TestClient(app).post(
             "/todos", headers={"Authorization": "Bearer tok"}, json={"content": "One more"}

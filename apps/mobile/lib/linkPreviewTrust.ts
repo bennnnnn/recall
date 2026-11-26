@@ -55,7 +55,7 @@ export const SCAN_READING_PREFIX = "I read this as:";
  * first marker line, as the API's `text_before_attachment_markers` does) and not what a
  * scanner photo was read as (its reading runs to the first blank line).
  */
-export function typedByUser(content: string): string {
+function typedByUser(content: string): string {
   const lines = content.split("\n");
   const first = lines.findIndex((line) => ATTACHMENT_MARKERS.some((marker) => line.trimStart().startsWith(marker)));
   const typed = (first < 0 ? lines : lines.slice(0, first)).join("\n");

@@ -54,6 +54,23 @@ def sanitize_original_filename(name: str | None) -> str | None:
     return base[:ORIGINAL_FILENAME_MAX_CHARS]
 
 
+def _check_paste(purpose: UploadPurpose, content_type: str, size_bytes: int) -> bool:
+    """Whether the upload is the composer's paste, refused when it cannot be one.
+
+    Only the purpose makes a paste (``pasted_text.py``): plain text, at most one paste long.
+    """
+    if purpose != "paste":
+        return False
+    if not is_pasted_text(content_type, recorded_paste=True):
+        # A paste is plain text; anything else sent as one is refused, never read as words.
+        raise AttachmentUploadError(
+            "Unsupported content type", status_code=400, code="unsupported_type"
+        )
+    if size_bytes > PASTED_TEXT_MAX_BYTES:
+        raise AttachmentUploadError(PASTE_TOO_LONG_MESSAGE, status_code=400, code="paste_too_long")
+    return True
+
+
 async def create_presigned_upload(
     session: AsyncSession,
     settings: Settings,
@@ -77,14 +94,7 @@ async def create_presigned_upload(
     if size_bytes <= 0 or size_bytes > MAX_ATTACHMENT_SIZE:
         raise AttachmentUploadError("Invalid file size", status_code=400, code="invalid_size")
     original_filename = sanitize_original_filename(filename)
-    pasted = purpose == "paste"
-    if pasted and not is_pasted_text(content_type, recorded_paste=True):
-        # A paste is plain text; anything else sent as one is refused, never read as words.
-        raise AttachmentUploadError(
-            "Unsupported content type", status_code=400, code="unsupported_type"
-        )
-    if pasted and size_bytes > PASTED_TEXT_MAX_BYTES:
-        raise AttachmentUploadError(PASTE_TOO_LONG_MESSAGE, status_code=400, code="paste_too_long")
+    pasted = _check_paste(purpose, content_type, size_bytes)
 
     normalized = normalize_content_type(content_type)
     redis = get_redis_client()

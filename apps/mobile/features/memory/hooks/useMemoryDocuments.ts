@@ -7,18 +7,13 @@ import {
   fetchMemoryDocuments,
   getCachedMemoryDocuments,
   memoryDocumentsReadAt,
-  setMemoryDocuments,
   subscribeMemoryDocuments,
   updateMemoryDocuments,
 } from "@/features/memory/model/memoryDocumentsCache";
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
-import { memoryFailure, type MemoryChange, type MemoryFailure } from "@/features/memory/model/memoryFailure";
-import { instructFailure } from "@/features/memory/model/instructInFlight";
+import { memoryFailure, type MemoryChange } from "@/features/memory/model/memoryFailure";
+import { useMemoryInstruct } from "@/features/memory/hooks/useMemoryInstruct";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
-
-type InstructOutcome =
-  | { ok: true; reply: string; applied: number; dropped: number }
-  | { ok: false; failure: MemoryFailure };
 
 const NOT_SIGNED_IN = { ok: false, failure: "failed" } as const;
 
@@ -80,8 +75,6 @@ export function useMemoryDocuments(token: string | null) {
   const [loaded, setLoaded] = useState(Boolean(data));
   const [error, setError] = useState(false);
   const mounted = useRef(true);
-  // When a typed edit from here last went unanswered (instructInFlight.ts), or null.
-  const unansweredAt = useRef<number | null>(null);
   const reportFailure = useReadFailureReport();
 
   useEffect(() => {
@@ -101,26 +94,7 @@ export function useMemoryDocuments(token: string | null) {
     if (result.error && !getCachedMemoryDocuments()) setError(true);
   }, [token, reportFailure]);
 
-  const instruct = useCallback(async (
-    instruction: string,
-    topic?: string,
-  ): Promise<InstructOutcome> => {
-    if (!token) return NOT_SIGNED_IN;
-    const session = getSessionGeneration();
-    try {
-      const result = await api.instructMemory(token, instruction, topic);
-      unansweredAt.current = null;
-      const scanning = getCachedMemoryDocuments()?.scanning ?? false;
-      setMemoryDocuments({ documents: result.documents, scanning }, session);
-      invalidateMemoriesCache();
-      return { ok: true, reply: result.reply, applied: result.applied, dropped: result.dropped ?? 0 };
-    } catch (error) {
-      const failure = instructFailure(memoryFailure(error), unansweredAt.current);
-      // No answer: the server may still be saving it, under the memory lock.
-      if (failure === "unreachable") unansweredAt.current = Date.now();
-      return { ok: false, failure };
-    }
-  }, [token]);
+  const instruct = useMemoryInstruct(token);
 
   const removeOptimistically = useCallback(async (
     remove: (documents: MemoryDocument[]) => MemoryDocument[],

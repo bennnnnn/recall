@@ -178,6 +178,7 @@ async def test_busy_memory_raises_without_calling_the_model():
     release.assert_not_awaited()
 
 
+@pytest.mark.wall_clock
 @pytest.mark.asyncio
 async def test_the_instruction_model_has_one_deadline_its_fallback_included() -> None:
     """The model and its fallback held the memory lock for two background timeouts while
