@@ -35,8 +35,8 @@ function isListNodeType(type: string | undefined): boolean {
   return type === "bullet_list" || type === "ordered_list" || type === "list";
 }
 
-/** Parent topics with sub-items should not also wear a disc — that reads as two
- *  layers of the same marker (Strengths •, then • Personalized). */
+/** A list item that holds a nested list: a group (a main item and its members), which
+ *  ends with the wider group gap. Its members wear a ring, not its disc. */
 export function listItemHasNestedList(node: AstNode): boolean {
   for (const child of node.children ?? []) {
     if (isListNodeType(child.type)) return true;

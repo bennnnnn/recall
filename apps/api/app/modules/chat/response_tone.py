@@ -53,6 +53,10 @@ EMOJI_FITS = (
     "Each emoji fits the line it is on; never the same one reply after reply as a sign-off."
 )
 
+# A nested member is a short name under its item (SCAN_LAYOUT): an emoji on each of them
+# would bury the main items' emoji, which are what the reader scans (2026-11-26).
+EMOJI_MAIN_ITEMS_ONLY = "never on a nested member's line"
+
 # A saved "prefers replies without emojis" outranked "more" (2026-10-24): the setting decides.
 _EMOJI_SETTING = "This is the user's Emoji setting; a saved memory never changes it."
 EMOJI_HINTS: dict[str, str] = {
@@ -66,8 +70,10 @@ EMOJI_HINTS: dict[str, str] = {
     ),
     "more": (
         "Emoji: plenty, the user likes them. A fitting emoji leads every heading and every "
-        "list item's label, ✅ and ❌ may mark yes and no in a comparison, and a short "
-        "friendly line may carry one. " + EMOJI_FITS + " " + _EMOJI_NEVER + " " + _EMOJI_SETTING
+        "main item's bold name, "
+        + EMOJI_MAIN_ITEMS_ONLY
+        + ", ✅ and ❌ may mark yes and no in a comparison, and a short friendly line may carry "
+        "one. " + EMOJI_FITS + " " + _EMOJI_NEVER + " " + _EMOJI_SETTING
     ),
 }
 
@@ -108,7 +114,9 @@ def emoji_note(level: str | None, memory_block: str) -> str | None:
     if level == "more":
         note = (
             "Emoji in this reply: plenty, as the user's Emoji setting says. A fitting emoji "
-            "leads every heading and every list item's label (1. 💧 **Drink water** — …). "
+            "leads every heading and every main item's bold name (1. 💧 **Drink water** — …), "
+            + EMOJI_MAIN_ITEMS_ONLY
+            + ". "
             + EMOJI_FITS
             + " "
             + _EMOJI_NEVER

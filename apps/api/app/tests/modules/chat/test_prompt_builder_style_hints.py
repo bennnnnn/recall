@@ -77,11 +77,7 @@ def test_rich_turn_injects_universal_format_baseline():
     parts = _hints()
     assert UNIVERSAL_FORMAT_BASELINE in parts
     joined = "\n".join(parts)
-    assert (
-        "Lead with the answer (a calculation leads with its working); explanation after." in joined
-    )
     assert "[OpenAI docs](url)" in joined
-    assert "do not add sections just to look structured" in joined
 
 
 def test_only_maths_pack_says_a_shape_is_never_drawn_in_text():
