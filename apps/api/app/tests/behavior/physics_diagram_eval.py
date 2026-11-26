@@ -5,8 +5,11 @@ running API (``./scripts/dev.sh api``, a provider key in its environment) as a P
 account, each in a fresh chat, and reads the reply's pictures. A question that asks for a
 diagram counts as drawn when its reply carries a ```simulation fence of the kind its entry
 names that validates, and, for arrows the entry lists, every stated arrow drawn with its
-size and direction. A look-alike asks to see nothing: it counts as wrong when its reply
-says it could not draw a picture. The replies land in ``--out`` for reading.
+size and direction (and each body its own mass, for the masses the entry lists). A question
+the server must refuse to draw wrongly (``refuse``) counts as right when its reply draws none
+of the wrong arrows, no after-collision picture it marks ``no_after``, and no frictionless rig
+it marks ``no_rig``: drawing nothing is right. A look-alike asks to see nothing: it counts as
+wrong when its reply says it could not draw a picture. The replies land in ``--out``.
 
     python -m app.tests.behavior.physics_diagram_eval --api http://127.0.0.1:8000
 """
@@ -47,12 +50,14 @@ _HEADINGS = {
     "north": (0.0, 1.0),
     "south": (0.0, -1.0),
     "N30E": (math.sin(math.radians(30)), math.cos(math.radians(30))),
+    "NE": (math.sqrt(0.5), math.sqrt(0.5)),
+    "left30up": (math.cos(math.radians(150)), math.sin(math.radians(150))),
 }
 
 
 def load(path: Path = CORPUS) -> dict[str, list[dict[str, Any]]]:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    return {"draw": raw["draw"], "look_alikes": raw["look_alikes"]}
+    return {"draw": raw["draw"], "refuse": raw["refuse"], "look_alikes": raw["look_alikes"]}
 
 
 def pictures(reply: str) -> list[dict[str, Any]]:
@@ -104,7 +109,43 @@ def judged(entry: dict[str, Any], reply: str) -> tuple[bool, str]:
     ]
     if missing:
         return False, f"{types} missing arrows {missing}"
+    mislabelled = [
+        f"{mass} {way}" for mass, way in entry.get("masses", []) if not _owns(specs, mass, way)
+    ]
+    if mislabelled:
+        return False, f"{types} masses on the wrong body {mislabelled}"
     return True, ",".join(types)
+
+
+def _owns(specs: list[dict[str, Any]], mass: str, heading: str) -> bool:
+    """The body whose arrow points along ``heading`` is labelled with ``mass``."""
+    hx, hy = _HEADINGS[heading]
+    for spec in specs:
+        for vector in spec.get("vectors") or []:
+            body = vector.get("body")
+            length = math.hypot(vector["dx"], vector["dy"])
+            if body is None or (vector["dx"] * hx + vector["dy"] * hy) / length <= 0.99:
+                continue
+            label = spec["bodies"][body].get("label") or ""
+            if _number(mass) in {_number(part) for part in label.split(",")}:
+                return True
+    return False
+
+
+def refused_rightly(entry: dict[str, Any], reply: str) -> tuple[bool, str]:
+    """A question the server must not draw wrongly: none of its wrong arrows, no after
+    picture it says the question denies, no frictionless rig."""
+    specs = pictures(reply)
+    drawn = [
+        f"{size} {way}" for size, way in entry.get("wrong", []) if arrow_drawn(specs, size, way)
+    ]
+    if drawn:
+        return False, f"drew {drawn}"
+    if entry.get("no_after") and any(spec.get("title_key") == "after_collision" for spec in specs):
+        return False, "drew an after picture"
+    if entry.get("no_rig") and any(spec.get("pulley") for spec in specs):
+        return False, "drew a frictionless rig"
+    return True, "drawn right" if specs else "refused"
 
 
 class Client:
@@ -156,8 +197,8 @@ def main() -> int:
     only = {name for name in args.only.split(",") if name}
     client = Client(args.api)
     results: list[dict[str, Any]] = []
-    drawn = wrong = 0
-    for group in ("draw", "look_alikes"):
+    drawn = wrong = refused = 0
+    for group in ("draw", "refuse", "look_alikes"):
         for entry in corpus[group]:
             if only and entry["id"] not in only:
                 continue
@@ -166,6 +207,9 @@ def main() -> int:
             if group == "draw":
                 ok, why = judged(entry, reply)
                 drawn += ok
+            elif group == "refuse":
+                ok, why = refused_rightly(entry, reply)
+                refused += ok
             else:
                 ok = _NOT_DRAWN not in reply
                 why = "no note" if ok else "said it could not draw"
@@ -177,7 +221,11 @@ def main() -> int:
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(results, indent=1, ensure_ascii=False), encoding="utf-8")
     asked = sum(1 for r in results if r["group"] == "draw")
-    print(f"drawn {drawn}/{asked}; look-alikes saying 'could not draw': {wrong}")
+    guarded = sum(1 for r in results if r["group"] == "refuse")
+    print(
+        f"drawn {drawn}/{asked}; never drawn wrong {refused}/{guarded}; "
+        f"look-alikes saying 'could not draw': {wrong}"
+    )
     return 0
 
 
