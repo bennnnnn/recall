@@ -181,3 +181,30 @@ def test_a_card_value_in_its_own_maths_is_read() -> None:
     reply = _reply("$D = 2^2 - 4(3)(1)$  \n$D = 4 - 12$", "D = $-7$")
     text, note = held_cards(reply)
     assert note is None and "D = $-8$" in text
+
+
+def test_the_note_never_lands_inside_a_card_left_open() -> None:
+    """A card cut off at the length limit has no closer: the note went inside it, and the
+    closer then shut the card after the note (review of #2592)."""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.chat.finalize_passes import FinalizeState
+    from app.modules.chat.finalize_subjects import check_working
+    from app.services.md_fence_scan import iter_fences
+
+    working = "**Solution**\n\n$\\text{part} = 32$  \n$\\text{total} = 5 + 20$"
+    reply = f"{working}\n\n**Answer**\n\n```answer\nverified: false\ntotal = 37\n"
+    state = SimpleNamespace(
+        text=reply,
+        server_text=False,
+        was_cancelled=False,
+        ctx=SimpleNamespace(
+            verified_subject=None, solver_unverified=True, user_message_content="", worked=None
+        ),
+    )
+    text = check_working(cast(FinalizeState, state))
+    [card] = [fence for fence in iter_fences(text) if fence.lang == "answer"]
+    assert card.closed
+    assert "Check the answer" not in text[card.body_start : card.body_end]
+    assert text.rstrip().endswith("not $37$.")

@@ -224,6 +224,8 @@ describe("errors", () => {
     [{ message: "Failed to save the response. Please retry." }, true, null],
     [{ code: "quota_exceeded", message: "Out of quota" }, false, null],
     [{ code: "model_unavailable", message: "Down" }, false, null],
+    // A model the plan does not offer: choosing another is the way out, not Retry.
+    [{ code: "unknown_model", message: "That model isn't available." }, false, null],
   ])("error %o with user_message_saved=%s queues a resend: %s", (payload, saved, reason) => {
     const run = play(streaming({ pending: pending() }), [frame({ type: "error", user_message_saved: saved, ...payload })], [bubble]);
     expect(headRejectedSend(run.state)?.reason ?? null).toBe(reason);

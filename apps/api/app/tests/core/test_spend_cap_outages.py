@@ -201,7 +201,9 @@ def test_every_spend_gate_is_listed() -> None:
         str(path.relative_to(app_dir))
         for path in app_dir.rglob("*.py")
         if "tests" not in path.parts
-        and "global_spend_exceeded(" in path.read_text()
+        and any(
+            read in path.read_text() for read in ("global_spend_exceeded(", "spend_pause_reason(")
+        )
         and path.parent.name != "quota"
         and path.name not in {"spend_counter.py", "turn_deps.py"}
     )

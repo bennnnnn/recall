@@ -20,7 +20,7 @@ from redis.asyncio import Redis
 from app.core.aio import settled_result
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
-from app.exceptions import RedisUnavailableError
+from app.core.spend_counter import spend_pause_reason
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
@@ -165,16 +165,12 @@ async def _tool_spend_blocked(
 ) -> bool:
     """At the day's cap, or with the spend unreadable (Redis down), the turn answers without
     tools: it was admitted, so an outage here is no reason to fail it."""
-    try:
-        capped = await deps.quota.global_spend_exceeded(redis, settings)
-        reason = "global spend cap"
-    except RedisUnavailableError:
-        capped, reason = True, "global spend unreadable (Redis down)"
-    if capped:
+    reason = await spend_pause_reason(deps.quota.global_spend_exceeded, redis, settings)
+    if reason is not None:
         logger.warning(
             "skipping MCP tool loop: %s user_id=%s chat_id=%s", reason, ctx.user_id, ctx.chat_id
         )
-    return capped
+    return reason is not None
 
 
 async def run_tool_loop_path(

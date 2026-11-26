@@ -32,12 +32,10 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chat.card_walk import answer_cards, cards_text
+from app.modules.chat.written_numbers import any_numbers
 from app.modules.turn_reading.question_kinds import asks_reasoning
-from app.services.answer_fence import (
-    ANSWER_FENCE_LANGS,
-    UNCHECKED_ANSWER_MARKER,
-    answer_fence_value,
-)
+from app.services.answer_fence import UNCHECKED_ANSWER_MARKER, answer_fence_value
 from app.services.closing_summary import is_one_line_summary
 from app.services.law_binding.units import dimension_of
 from app.services.md_fence_scan import iter_fences, line_fences
@@ -64,7 +62,6 @@ _KEEP = re.compile(
     r"|(?:\*\*)?(?:note|warning|tip|remember|caution|assume|assumption)s?\b)",
     re.I,
 )
-_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 # "4 : 5", "4/5", "\frac{4}{5}": a ratio is its pair, not two numbers any working holds.
 _RATIO = re.compile(r"(\d+)\s*[:/]\s*(\d+)|\\[dt]?frac\{(\d+)\}\{(\d+)\}")
 # "(15 milliseconds)": the same value in another unit, which the working need not reach.
@@ -83,14 +80,13 @@ def _paragraphs(lead: str) -> list[tuple[int, int]]:
     return [(begin, end) for begin, end in spans if lead[begin:end].strip()]
 
 
-def _numbers(text: str) -> set[str]:
+def _numbers(text: str, comma: bool = False) -> set[str]:
     """The numbers ``text`` states, each ratio as one ("4:5")."""
     ratios = {
         f"{match.group(1) or match.group(3)}:{match.group(2) or match.group(4)}"
         for match in _RATIO.finditer(text)
     }
-    plain = {number.replace(",", "") for number in _NUMBER.findall(_RATIO.sub(" ", text))}
-    return ratios | plain
+    return ratios | any_numbers(_RATIO.sub(" ", text), decimal_comma=comma)
 
 
 # A card's value as a lead would write it, flattened: no LaTeX wrappers, spacing commands
@@ -116,17 +112,15 @@ def _card_statements(text: str) -> set[str]:
     """What the cards say, flattened: each "x=3" whole, and a value with its unit ("25m").
     A bare number is not a statement: the question may hold it too."""
     said: set[str] = set()
-    for fence in iter_fences(text):
-        if fence.lang not in ANSWER_FENCE_LANGS:
-            continue
-        for line in answer_fence_value(text[fence.body_start : fence.body_end]).splitlines():
+    for card in answer_cards(text):
+        for line in answer_fence_value(card.body(text)).splitlines():
             flat = _flat(line)
             if not flat or _CARD_META.match(line.strip()):
                 continue
             if "=" in flat:
                 said.add(flat)
             value = flat.rsplit("=", 1)[-1]
-            if _NUMBER.search(value) and _UNIT_LETTER.search(value):
+            if any_numbers(value) and _UNIT_LETTER.search(value):
                 said.add(value)
     return said
 
@@ -168,6 +162,7 @@ def _states_a_result(
     fenced: list[tuple[int, int]],
     worked: set[str],
     said: set[str],
+    comma: bool,
 ) -> bool:
     """Prose stating a number the working never reaches ("**5 : 7**" over working that
     found 4 : 5) or what a card says ("**x = 3**" over a card of x = 3). A heading, a photo,
@@ -179,36 +174,32 @@ def _states_a_result(
     stripped = lead[begin:end].strip()
     if _a_heading(stripped) or _KEEP.match(stripped):
         return False
-    if bool(_numbers(_ASIDE.sub(" ", stripped)) - worked):
+    if bool(_numbers(_ASIDE.sub(" ", stripped), comma) - worked):
         return True
     flat = _flat(stripped)
     return any(_says_whole(flat, statement) for statement in said)
 
 
 def _states_a_card(
-    paragraph: str, fenced: list[tuple[int, int]], span: tuple[int, int], rest: str
+    paragraph: str, fenced: list[tuple[int, int]], span: tuple[int, int], rest: str, comma: bool
 ) -> bool:
     """A lead paragraph, a list of the parts' results included, whose numbers are all the
     reply's below it and one of them a card's: the results said before they are worked."""
     if any(span[0] < end and start < span[1] for start, end in fenced):
         return False
-    numbers = _plain_numbers(paragraph)
+    numbers = _plain_numbers(paragraph, comma)
     return (
         bool(numbers)
-        and numbers <= _plain_numbers(rest)
-        and bool(numbers & _plain_numbers(_cards_text(rest)))
+        and numbers <= _plain_numbers(rest, comma)
+        and bool(numbers & _plain_numbers(_cards_text(rest), comma))
     )
 
 
 def _cards_text(text: str) -> str:
-    return "\n".join(
-        text[fence.body_start : fence.body_end].replace(UNCHECKED_ANSWER_MARKER, "")
-        for fence in iter_fences(text)
-        if fence.lang in ANSWER_FENCE_LANGS
-    )
+    return cards_text(text).replace(UNCHECKED_ANSWER_MARKER, "")
 
 
-def drop_guessed_lead(text: str, *, laid_out: bool = False) -> str:
+def drop_guessed_lead(text: str, *, laid_out: bool = False, decimal_comma: bool = False) -> str:
     """``text`` without a short lead above its working that states a result: a number the
     working and its card never reach, or one a card shows. ``laid_out``: the turn asked for
     a ```worked block, whose contract allows no sentence before it, so a lead of any length
@@ -217,9 +208,7 @@ def drop_guessed_lead(text: str, *, laid_out: bool = False) -> str:
     given = _GIVEN.search(text)
     if given is None:
         return text
-    if not any(
-        fence.lang == "answer" and fence.start > given.start() for fence in iter_fences(text)
-    ):
+    if not any(card.fence.start > given.start() for card in answer_cards(text)):
         return text
     # A Given inside a fence (an example in code) is not the reply's.
     if line_fences(text)[text.count("\n", 0, given.start())] is not None:
@@ -230,11 +219,12 @@ def drop_guessed_lead(text: str, *, laid_out: bool = False) -> str:
     fenced = [(fence.start, fence.end) for fence in iter_fences(lead)]
     spans = _paragraphs(lead)
     rest = text[given.start() :]
-    worked = _numbers(rest) | {number.replace(",", "") for number in _NUMBER.findall(rest)}
+    comma = decimal_comma
+    worked = _numbers(rest, comma) | any_numbers(rest, decimal_comma=comma)
     said = _card_statements(rest)
     dropped = [
-        _states_a_result(lead, span, fenced, worked, said)
-        or (laid_out and _states_a_card(lead[span[0] : span[1]], fenced, span, rest))
+        _states_a_result(lead, span, fenced, worked, said, comma)
+        or (laid_out and _states_a_card(lead[span[0] : span[1]], fenced, span, rest, comma))
         for span in spans
     ]
     # A line that introduced what went ("… legs of 5 cm:") goes with it.
@@ -270,17 +260,15 @@ def _words(text: str) -> set[str]:
     return {word.lower() for word in _LETTERS.findall(_TEX_COMMAND.sub(" ", text))}
 
 
-def _card_numbers(text: str) -> set[str]:
+def _card_numbers(text: str, comma: bool) -> set[str]:
     """The numbers the answer cards show."""
     found: set[str] = set()
-    for fence in iter_fences(text):
-        if fence.lang in ANSWER_FENCE_LANGS:
-            body = text[fence.body_start : fence.body_end].replace(UNCHECKED_ANSWER_MARKER, "")
-            found |= _numbers(body)
+    for card in answer_cards(text):
+        found |= _numbers(card.body(text).replace(UNCHECKED_ANSWER_MARKER, ""), comma)
     return found
 
 
-def _restates(paragraph: str, shown: set[str], known: set[str]) -> bool:
+def _restates(paragraph: str, shown: set[str], known: set[str], comma: bool) -> bool:
     """A short sentence or few stating only numbers the cards show (``shown``), in words
     the reply or the question already holds (``known``)."""
     text = paragraph.strip()
@@ -290,7 +278,7 @@ def _restates(paragraph: str, shown: set[str], known: set[str]) -> bool:
         _TAIL_MOST_SENTENCES
     ):
         return False
-    numbers = _numbers(text)
+    numbers = _numbers(text, comma)
     return bool(numbers) and numbers <= shown and _words(text) - _GLUE <= known
 
 
@@ -309,21 +297,21 @@ def _tail_pieces(tail: str) -> list[tuple[str, bool]]:
     return pieces
 
 
-def drop_restated_tail(text: str, question: str = "") -> str:
+def drop_restated_tail(text: str, question: str = "", *, decimal_comma: bool = False) -> str:
     """``text`` without a short paragraph after its last answer card that only says again
     what the cards show (module docstring). ``question``: the user's message, whose words
     (the car, due East) a restatement may use."""
-    cards = [fence for fence in iter_fences(text) if fence.lang in ANSWER_FENCE_LANGS]
-    if not cards or not cards[-1].closed:
+    cards = list(answer_cards(text))
+    if not cards:
         return text
-    head, tail = text[: cards[-1].end].rstrip(), text[cards[-1].end :]
-    shown = _card_numbers(head)
+    head, tail = text[: cards[-1].fence.end].rstrip(), text[cards[-1].fence.end :]
+    shown = _card_numbers(head, decimal_comma)
     known = _words(head) | _words(question)
     pieces = _tail_pieces(tail)
     # A one-line summary closing the reply stays, whatever it repeats (owner, 2026-11-22).
     last_prose = next((at for at in range(len(pieces) - 1, -1, -1) if pieces[at][1]), None)
     keep = [
-        not (prose and _restates(piece, shown, known))
+        not (prose and _restates(piece, shown, known, decimal_comma))
         or (at == last_prose and is_one_line_summary(piece))
         for at, (piece, prose) in enumerate(pieces)
     ]
@@ -352,12 +340,12 @@ def _kept(pieces: list[tuple[str, bool]], keep: list[bool]) -> list[str]:
     return out
 
 
-def _plain_numbers(text: str) -> set[str]:
+def _plain_numbers(text: str, comma: bool = False) -> set[str]:
     """Every number ``text`` writes, each on its own (a fraction's two as two)."""
-    return {number.replace(",", "") for number in _NUMBER.findall(text)}
+    return any_numbers(text, decimal_comma=comma)
 
 
-def drop_recap_tail(text: str, question: str = "") -> str:
+def drop_recap_tail(text: str, question: str = "", *, decimal_comma: bool = False) -> str:
     """``text`` without the working said again after its last card: asked to write nothing
     after its ```worked block, a model still worked every part again below the cards ("**a)
     BD and DC** … $$BD = 6.5$$ …", the parts' values as labelled lines, the derivation of n
@@ -366,16 +354,17 @@ def drop_recap_tail(text: str, question: str = "") -> str:
     save a closing sentence that sums it up in one line, which the owner wants
     (2026-11-12); a picture stays. A question asking for a proof or an explanation keeps
     what follows (``asks_reasoning``): it may be what was asked."""
-    cards = [fence for fence in iter_fences(text) if fence.lang in ANSWER_FENCE_LANGS]
-    if not cards or not cards[-1].closed or asks_reasoning(question):
+    cards = list(answer_cards(text))
+    if not cards or asks_reasoning(question):
         return text
-    head, tail = text[: cards[-1].end].rstrip(), text[cards[-1].end :]
+    head, tail = text[: cards[-1].fence.end].rstrip(), text[cards[-1].fence.end :]
     pieces = _tail_pieces(tail)
     prose = [piece for piece, is_prose in pieces if is_prose]
     if not prose or (len(prose) == 1 and is_one_line_summary(prose[0])):
         return text
-    said = set().union(*(_plain_numbers(piece) for piece in prose))
-    if said - (_plain_numbers(head) | _plain_numbers(question)):
+    comma = decimal_comma
+    said = set().union(*(_plain_numbers(piece, comma) for piece in prose))
+    if said - (_plain_numbers(head, comma) | _plain_numbers(question, comma)):
         return text
     summary = prose[-1] if is_one_line_summary(prose[-1]) else None
     keep = [not is_prose or piece is summary for piece, is_prose in pieces]

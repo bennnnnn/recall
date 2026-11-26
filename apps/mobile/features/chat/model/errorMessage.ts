@@ -67,6 +67,11 @@ export function resolveChatError(options: {
   if (options.code === "model_unavailable") {
     return { kind: "model_unavailable", message: options.t("chat.model_unavailable") };
   }
+  // A model the user's plan does not offer (modules/chat/model_routing/choice.py): its
+  // English named an internal alias in every language. The same way out: choose another.
+  if (options.code === "unknown_model") {
+    return { kind: "model_unavailable", message: options.t("chat.unknown_model") };
+  }
   // Recall's database or Redis is down (the socket's frame, a 503's body): its own words,
   // translated, where the server's English showed.
   if (options.code === UNAVAILABLE_CODE) {

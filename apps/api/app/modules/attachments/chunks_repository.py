@@ -55,7 +55,9 @@ async def replace_chunks(
     chat_id: UUID | None,
     chunks: list[tuple[int, str, list[float] | None]],
 ) -> bool:
-    """Replace chunks only while the attachment still belongs to the queued chat.
+    """Replace chunks only while the attachment still belongs to the queued chat; no
+    commit: the caller commits once its other writes (the index coverage) are in, so the
+    chunks and the coverage land together under these locks.
 
     Embedding runs outside the transaction, so deletion or Library reuse can
     change this association before the worker returns. Lock the parent chat
@@ -100,7 +102,7 @@ async def replace_chunks(
             embedding=vec if vec is not None and len(vec) == EMBEDDING_DIM else None,
         )
         session.add(row)
-    await session.commit()
+    await session.flush()
     return True
 
 

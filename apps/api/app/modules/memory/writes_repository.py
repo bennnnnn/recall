@@ -90,7 +90,13 @@ async def apply_fact_ops(
     """
     if not writes:
         return []
-    result = await session.execute(select(Memory).where(Memory.user_id == user_id))
+    # Every rule below reads active facts, and an add's exact match a muted one too; a
+    # superseded row is history no write reads (each one was loaded, every write, forever).
+    result = await session.execute(
+        select(Memory).where(
+            Memory.user_id == user_id, Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS))
+        )
+    )
     facts = list(result.scalars().all())
     touched: list[UUID] = []
 

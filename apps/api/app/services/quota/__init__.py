@@ -64,6 +64,7 @@ from app.services.quota.spend import (
     global_spend_exceeded,
     record_global_spend,
     record_voice_spend,
+    spend_pause_reason,
 )
 from app.services.quota.tokens import (
     adjust_usage,
@@ -137,6 +138,7 @@ __all__ = [
     "reset_messages",
     "seed_usage_if_missing",
     "settle_live_talk_session",
+    "spend_pause_reason",
     "take_live_talk_save",
     "unlimited_messages",
     "usage_needs_heal",
