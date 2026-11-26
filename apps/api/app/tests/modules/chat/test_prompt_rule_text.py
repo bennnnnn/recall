@@ -132,10 +132,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # scene (two cars at a junction drew nothing, live, 2026-11-25); then vectors in the question's
 # notation, a column question answered in columns, and an impulse no solver checked worked as
 # momentum before, after and their change, a force only when one is asked (PHYSICS_VECTORS,
-# WORKED_COLUMN_VECTORS_NOTE, the owner's ball question, 2026-11-25, review of #2594).
+# WORKED_COLUMN_VECTORS_NOTE, the owner's ball question, 2026-11-25, review of #2594); then the
+# worked contract's check done in the model's head, the reply only the finished working
+# (Grade 11 physics round, 2026-11-26).
 _RULES = 226
-_RULE_GRAMS = 21370
-_RULE_GRAMS_SHA = "5bc9ce78afcd90fe"
+_RULE_GRAMS = 21412
+_RULE_GRAMS_SHA = "e38738b392773e7e"
 
 
 def _rules() -> list[str]:
