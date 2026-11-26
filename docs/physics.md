@@ -676,7 +676,7 @@ showed a box raised by a rope moving sideways (textbook round, 2026-11-25).
 Every other physics question gets the picture it is taught from, asked for or not (owner,
 2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
 of them because the student had not written "draw"). Beside the reply, one short structured call
-(`scene_drawing/figure_read.py`, the maths figure read's lane) says what the question's picture
+(`scene_drawing/figure_read.py`, on the formal reader's lane, `physics_setup`) says what the question's picture
 is, as one of the blocks a reply would describe: a scene, the question's arrows, the forces on
 one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
 question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`

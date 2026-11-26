@@ -124,6 +124,17 @@ def test_the_forces_on_a_body_are_drawn_when_the_server_reads_the_same_ones() ->
     assert {v.label for v in spec.vectors} == {"mg", "N", "T", "f"}
 
 
+def test_a_read_that_names_only_the_forces_along_the_motion_still_agrees() -> None:
+    """A lorry's driving force and friction: its weight and the road's push are the server's
+    to add, and friction is drawn in one arrow with air resistance."""
+    question = (
+        "A driving force of 20 kN acts forwards on a lorry and a friction force of 8 kN "
+        "acts backwards. What happens to the lorry?"
+    )
+    (spec,) = _forces(question, "push", "friction", body="lorry")
+    assert {v.label for v in spec.vectors} == {"mg", "N", "F", "f"}
+
+
 @pytest.mark.parametrize(
     ("question", "forces", "body"),
     [
@@ -136,13 +147,49 @@ def test_the_forces_on_a_body_are_drawn_when_the_server_reads_the_same_ones() ->
             ("weight",),
             "ball",
         ),
+        (
+            "A string wound round a cylinder on a rough table comes off its top and is "
+            "pulled with 6 N. Find the friction.",
+            ("weight", "normal", "tension", "friction"),
+            "cylinder",
+        ),
     ],
-    ids=["other-forces", "other-body", "ladder", "several-diagrams"],
+    ids=["other-forces", "other-body", "ladder", "several-diagrams", "rolls"],
 )
 def test_forces_that_do_not_agree_draw_nothing(
     question: str, forces: tuple[str, ...], body: str
 ) -> None:
     assert _forces(question, *forces, body=body) == []
+
+
+def test_one_body_slowing_down_is_not_drawn_as_two_bodies() -> None:
+    question = "A car travelling at 15 m/s due East brakes and slows to 3 m/s due East."
+    arrows = [
+        {"size": "15 m/s", "direction": "due East"},
+        {"size": "3 m/s", "direction": "due East"},
+    ]
+    block = {"kind": "vectors", "layout": "bodies", "quantity": "velocity", "arrows": arrows}
+    assert described_vectors(json.dumps(block), [question]) == []
+
+
+def test_a_relative_velocity_gets_no_resultant_of_the_sum() -> None:
+    question = (
+        "A runs east at 6 km/h while B runs north at 8 km/h. What is the velocity of A "
+        "relative to B?"
+    )
+    arrows = [
+        {"name": "A", "size": "6 km/h", "direction": "east"},
+        {"name": "B", "size": "8 km/h", "direction": "north"},
+    ]
+    block = {
+        "kind": "vectors",
+        "layout": "tail",
+        "quantity": "velocity",
+        "arrows": arrows,
+        "resultant": True,
+    }
+    (spec,) = described_vectors(json.dumps(block), [question])
+    assert len(spec.vectors) == 2 and all(v.role != "result" for v in spec.vectors)
 
 
 def _components(*arrows: dict[str, str], layout: str = "chain") -> list[Any]:
@@ -213,6 +260,32 @@ async def test_the_figure_read_s_block_is_drawn_only_when_it_holds(
     off = _settings(teaching_figures_enabled=False)
     assert await figure_read.draw_physics_figure(_BAR, [], off, asked=False) is None
     assert modes == [False, False, True]
+
+
+def test_the_read_s_scene_is_put_in_the_reply_s_form_and_still_checked() -> None:
+    assert figure_read.normalized({"kind": "banked_curve", "angle": "10°"}) == {
+        "kind": "scene",
+        "scene": "banked_curve",
+        "values": {"angle": "10°"},
+    }
+    flagged = {
+        "kind": "scene",
+        "scene": "projectile",
+        "values": {"speed": "9 m/s", "horizontal": True},
+    }
+    assert figure_read.normalized(flagged)["horizontal"] is True
+    assert figure_read.normalized({"kind": "beam", "marks": []}) == {"kind": "beam", "marks": []}
+
+
+@pytest.mark.usefixtures("thread_sympy_executor")
+def test_a_value_the_question_asks_to_show_is_no_given_the_scene_must_use() -> None:
+    question = (
+        "A stone is thrown at 20 m/s at 30° above the horizontal. a) Show that the vertical "
+        "component of its velocity is 10 m/s. b) How long is it in the air?"
+    )
+    block = {"kind": "scene", "scene": "projectile", "values": {"speed": "20 m/s", "angle": "30°"}}
+    fences = physics_fences([json.dumps(block)], [question], None)
+    assert len(fences) == 1 and "projectile" in fences[0]
 
 
 def test_a_follow_up_with_no_number_is_held_to_the_problem_before_it() -> None:

@@ -482,7 +482,6 @@ async def attach_drawing(state: FinalizeState) -> str:
     if drawing is None or figure is None or state.was_cancelled:
         return text
     descriptions = list(dict.fromkeys([*drawing.descriptions, *written]))
-    logger.info("TMPDEBUG draw blocks: %s", json.dumps(descriptions)[:3000])
     if not descriptions or not _still_wanted(ctx, drawing, state.settings):
         return text
     line = ctx.user_message_content or ""

@@ -45,7 +45,7 @@ _PROMPT_LABEL = re.compile(
     r"|\bverified block (?:is|was) (?:present|given|shown|provided|attached)\b"
     # The block a reply describes its picture in, which never reaches the phone: "Here is
     # the ```draw block representing this scenario" (textbook round, 2026-11-25).
-    r"|`{3}draw\b|\bdraw blocks?\b",
+    r"|\bdraw blocks?\b",
     re.IGNORECASE,
 )
 # An instruction copied from the prompt's rules: "Do not describe the work as math,

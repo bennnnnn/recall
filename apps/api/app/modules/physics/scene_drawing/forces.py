@@ -87,7 +87,23 @@ def described_forces(body: str, texts: Sequence[str]) -> list[SimulationBlockSpe
     if picture is None:
         logger.info("described forces not drawn: no situation the server draws")
         return []
-    if _shown(picture.shows) != set(described.forces):
+    if not _agree(_shown(picture.shows), set(described.forces), picture.shows):
         logger.info("described forces not drawn: the server reads other forces")
         return []
     return [picture.spec]
+
+
+# Forces every body on a surface has, which a read that names only the ones along the motion
+# ("a driving force of 25 kN and friction of 10 kN" on a lorry) leaves unsaid.
+_ALWAYS = frozenset({"weight", "normal"})
+
+
+def _agree(server: set[Force], read: set[Force], shows: str) -> bool:
+    """Every force the read names is one the server draws, and every one the server adds is
+    a weight or a normal force, or air resistance drawn in one arrow with friction ("friction
+    and air resistance f backward"). A force only the server reads (friction on a ball "held"
+    on a slope, then let go) is a disagreement, and draws nothing."""
+    extra = server - read
+    if "friction and air resistance" in shows and "friction" in read:
+        extra -= {"drag"}
+    return read <= server and extra <= _ALWAYS

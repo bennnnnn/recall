@@ -129,7 +129,9 @@ async def read_physics_picture(
             return None
         read = await complete_structured(
             settings=settings,
-            model_alias=ROUTING.math_extract,
+            # The lane that reads a physics question beside the reply (the formal reader's):
+            # the maths figure read's model left the forces on a box on a ramp undrawn.
+            model_alias=ROUTING.physics_setup,
             messages=[
                 {"role": "system", "content": _prompt(asked)},
                 {"role": "user", "content": _message(question, earlier)},
@@ -144,6 +146,29 @@ async def read_physics_picture(
         logger.info("physics figure read failed (%s)", type(exc).__name__)
         return None
     return read.draw if read is not None else None
+
+
+# A scene's flags, which the read now and then writes among its values.
+_FLAGS = ("sticks", "elastic", "horizontal")
+
+
+def normalized(block: dict[str, Any]) -> dict[str, Any]:
+    """The read's block in the form a reply writes it: a scene named as its kind
+    ({"kind": "banked_curve", "angle": "10°"}) is that scene with those values, and a flag
+    written among the values ("horizontal": true) is the scene's own. Only the form changes:
+    every value is still held to the question."""
+    from app.modules.physics.scene_drawing.kinds import SCENES
+
+    kind = block.get("kind")
+    if isinstance(kind, str) and kind in SCENES:
+        rest = {key: value for key, value in block.items() if key != "kind"}
+        block = {"kind": "scene", "scene": kind, "values": rest}
+    values = block.get("values")
+    if block.get("kind") != "scene" or not isinstance(values, dict):
+        return block
+    flags = {key: values[key] for key in _FLAGS if isinstance(values.get(key), bool)}
+    kept = {key: value for key, value in values.items() if key not in flags}
+    return {**block, **flags, "values": kept}
 
 
 def problem_text(question: str, earlier: Sequence[str]) -> str:
@@ -166,14 +191,13 @@ async def draw_physics_figure(
     if not asked and not settings.teaching_figures_enabled:
         return None
     block = await read_physics_picture(settings, question, earlier, asked=asked)
-    logger.info("TMPDEBUG physics figure block: %s", json.dumps(block)[:2000])
     if not block or block.get("kind") in (None, "none"):
         return None
     texts = [problem_text(question, earlier), question]
     try:
         fences = await sympy_executor.run_sympy(
             physics_fences,
-            [json.dumps(block)],
+            [json.dumps(normalized(block))],
             texts,
             None,
             True,

@@ -47,6 +47,8 @@ _BODY = re.compile(
     r"|vehicle)(?:e?s)?\b",
     re.IGNORECASE,
 )
+# A body that rolls on a surface rather than slides.
+_ROLLS = re.compile(r"\b(?:cylinder|ball|wheel|sphere|disc|disk|hoop|roller|marble)", re.I)
 # Several free-body diagrams asked for ("at the start, during and at the end of its fall"):
 # this file draws one, which would say only part of it.
 _SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
@@ -186,6 +188,10 @@ def force_picture(text: str, *, asked: bool = True) -> ForcePicture | None:
     if _FALLING.search(text) is not None:
         return _in_the_air(text)
     if _SURFACE.search(text) is not None:
+        # A body that rolls (a cylinder pulled by a string off its top, a wheel) is no box
+        # sliding: its friction and the point the pull acts at are another picture.
+        if _ROLLS.search(_subject(text)) is not None:
+            return None
         return _on_surface(text, rubs)
     return None
 

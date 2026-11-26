@@ -31,6 +31,10 @@ _SENTENCE_END = re.compile(r"[.;?!](?!\d)")
 _RESTATED = re.compile(r"\bthe[ \t]+$", re.IGNORECASE)
 _NOUN = re.compile(r"[ \t]*([a-z]{3,})", re.IGNORECASE)
 _WORD = re.compile(r"[a-z]{3,}", re.IGNORECASE)
+# A sentence that states a result for the student to reach ("Show that the vertical component
+# is 12.5 m/s", "Explain why the horizontal component is 21.7 m/s"): its value is the
+# answer to a part, never a given of the setup a scene must use.
+_CLAIMED = re.compile(r"\b(?:show|verify|prove)\s+that\b|\bexplain\s+why\b", re.IGNORECASE)
 # The values a stated g takes: Earth's, as a school question rounds it.
 _GRAVITY = (9.8, 9.81, 9.807, 9.80665, 10.0)
 
@@ -116,7 +120,7 @@ class Stated:
         spare = [dimension_of(sample) for sample in tolerated]
         time = dimension_of("s")
         for given in self.left:
-            if self._restated(given):
+            if self._restated(given) or _CLAIMED.search(self.sentence(given)):
                 continue
             if given.dimension == time and self._asks(given):
                 continue
