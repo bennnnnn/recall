@@ -1,7 +1,9 @@
 import { Linking } from "react-native";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { parseReminderProposals } from "@/features/todos/model/reminderProposal";
 import { api } from "@/lib/api";
 
@@ -120,6 +122,15 @@ describe("ReminderProposalCard", () => {
     await waitFor(() => expect(view.getByText(message)).toBeTruthy());
     expect(view.getByText("todos.proposal_add")).toBeTruthy();
     expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it("says the account's open to-do cap, as the API refuses it, not that it changed", async () => {
+    const { status, detail } = fixture.todo_limit;
+    confirm.mockRejectedValue(new ApiRequestError(status, JSON.stringify({ detail })));
+    const view = await render(<ReminderProposalCard proposal={add("err-limit")} />);
+    await fireEvent.press(view.getByText("todos.proposal_add"));
+    await waitFor(() => expect(view.getByText("todos.error_limit")).toBeTruthy());
+    expect(view.queryByText("todos.proposal_error_changed")).toBeNull();
   });
 
   it("says where a move goes and labels a mix of changes as one save", async () => {

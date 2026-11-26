@@ -1110,7 +1110,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   have accepted (a read timeout, an unreadable answer) is held 15 min, not resent next minute;
   a 429 waits its Retry-After and a 5xx backs off; a request Expo refuses as a whole (a 400) is
   split in halves so one bad token holds back only itself. Push and email cycles send while due
-  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap); receipts are polled
+  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap), but each account
+  gets at most `REMINDERS_PER_ACCOUNT_PER_CYCLE` (20) per channel per cycle, counted only for
+  sends tried (a held reminder takes no share); the rest go next cycle, so one account's
+  backlog never delays everyone else's (`modules/todos/limits.py`). An account keeps at most
+  `OPEN_TODOS_MAX` (1,000) open to-dos: one more, or reopening a done one, is refused 409
+  `todo_limit`, and the phone says so in the user's language; receipts are polled
   in batches for `push_receipt_poll_budget_seconds`. An account keeps at most
   `push_tokens_max_per_user` (10) device tokens, newest first; registration is one
   `INSERT … ON CONFLICT`, so two registrations at once no longer fail one.

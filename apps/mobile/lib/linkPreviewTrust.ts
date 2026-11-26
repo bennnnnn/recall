@@ -51,18 +51,18 @@ const ATTACHMENT_MARKERS = ["[File:", "[Image:", "[File attached:", "[File ("];
 export const SCAN_READING_PREFIX = "I read this as:";
 
 /**
- * The words the user typed in a stored message: not its attachments' text (cut at the
- * first marker line, as the API's `text_before_attachment_markers` does) and not what a
- * scanner photo was read as (its reading runs to the first blank line).
+ * The words the user typed in a message: not its attachments' text (cut at the first marker
+ * line, as the API's `text_before_attachment_markers` does) and not what a scanner photo was
+ * read as. The reading opens the message, under the scan's caption or, in the bubble (whose
+ * caption `stripScannerProtocolCaption` has already taken off), on its own, and runs to the
+ * first blank line; the one rule reads both, so the bubble and the reply under it agree.
  */
 function typedByUser(content: string): string {
   const lines = content.split("\n");
   const first = lines.findIndex((line) => ATTACHMENT_MARKERS.some((marker) => line.trimStart().startsWith(marker)));
-  const typed = (first < 0 ? lines : lines.slice(0, first)).join("\n");
-  const lead = typed.trimStart();
-  const prompt = Object.values(SCANNER_CAMERA_PROMPTS).find((caption) => lead.startsWith(caption));
-  if (!prompt) return typed;
-  const after = lead.slice(prompt.length).trimStart();
+  const typed = (first < 0 ? lines : lines.slice(0, first)).join("\n").trimStart();
+  const prompt = Object.values(SCANNER_CAMERA_PROMPTS).find((caption) => typed.startsWith(caption)) ?? "";
+  const after = typed.slice(prompt.length).trimStart();
   if (!after.startsWith(SCAN_READING_PREFIX)) return typed;
   const blank = after.search(/\n[ \t]*\n/);
   return blank < 0 ? prompt : `${prompt}${after.slice(blank)}`;

@@ -164,5 +164,10 @@ describe("chatSendLogic", () => {
     expect(buildOptimisticUserMessage({ text: "", attached: picked, optimisticId: "o3", createdAt: "now" }).content).toBe(
       "notes.txt",
     );
+    // A picked file named as a paste is a document: it asks what a file asks.
+    const named = { ...pasted, pasted: undefined };
+    expect(buildOptimisticUserMessage({ text: "", attached: named, optimisticId: "o4", createdAt: "now" }).content).toBe(
+      "pasted-text.txt",
+    );
   });
 });

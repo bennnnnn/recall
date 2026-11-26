@@ -74,4 +74,31 @@ def test_every_log_line_of_the_request_names_the_build(caplog: pytest.LogCapture
     finally:
         logging.getLogger("t").removeHandler(keep)
     assert any("app_version=1.0.0+42" in line for line in lines)
-    assert app_version_context.get() is None  # nothing leaks past the request
+
+
+@pytest.mark.asyncio
+async def test_nothing_of_a_request_outlives_it_on_its_task() -> None:
+    """Driven on this task (``TestClient`` runs the app on its own), a request's build is
+    gone once it ends, and the next request with none names none."""
+    seen: list[str | None] = []
+
+    async def app(_scope: object, _receive: object, send: object) -> None:
+        seen.append(app_version_context.get())
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request"}
+
+    async def send(_message: object) -> None:
+        return None
+
+    middleware = RequestIdMiddleware(app)
+    named = {
+        "type": "http",
+        "method": "GET",
+        "path": "/v",
+        "headers": [(b"x-app-version", b"1.0.0+42")],
+    }
+    await middleware(named, receive, send)
+    assert app_version_context.get() is None
+    await middleware({**named, "headers": []}, receive, send)
+    assert seen == ["1.0.0+42", None]

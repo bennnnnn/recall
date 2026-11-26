@@ -5,7 +5,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { getCachedMemoryDocuments, setMemoryDocuments } from "@/features/memory/model/memoryDocumentsCache";
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
 import { memoryFailure, type MemoryFailure } from "@/features/memory/model/memoryFailure";
-import { instructFailure } from "@/features/memory/model/instructInFlight";
+import { instructFailure, mayStillBeSaving } from "@/features/memory/model/instructInFlight";
 
 type InstructOutcome =
   | { ok: true; reply: string; applied: number; dropped: number }
@@ -31,8 +31,8 @@ export function useMemoryInstruct(token: string | null) {
       return { ok: true, reply: result.reply, applied: result.applied, dropped: result.dropped ?? 0 };
     } catch (error) {
       const failure = instructFailure(memoryFailure(error), unansweredAt.current);
-      // No answer: the server may still be saving it, under the memory lock.
-      if (failure === "unreachable") unansweredAt.current = Date.now();
+      // Sent and not answered in time: the server may still be saving it, under the lock.
+      if (mayStillBeSaving(error)) unansweredAt.current = Date.now();
       return { ok: false, failure };
     }
   }, [token]);

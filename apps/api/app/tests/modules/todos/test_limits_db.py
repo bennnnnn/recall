@@ -101,11 +101,35 @@ async def test_one_accounts_backlog_never_holds_back_anothers_push(db_session):
     await _open_todos(db_session, other.id, 1, due_at=NOW + timedelta(seconds=1))
     await db_session.flush()
 
-    share = AccountShare()
-    page = await push_service.collect_push_page(db_session, now=NOW, share=share)
-    owners = [item.todos[0].user_id for item in page.messages]
+    page = await push_service.collect_push_page(db_session, now=NOW)
+    kept = push_service.within_share(AccountShare(), page.messages)
+    owners = [item.todos[0].user_id for item in kept]
     assert owners.count(flood.id) == REMINDERS_PER_ACCOUNT_PER_CYCLE
     assert owners.count(other.id) == 1
+
+
+async def test_a_held_push_never_takes_a_sendable_ones_share(db_session):
+    """Reminders under a hold are passed by first: the account's next 20 still go."""
+    flood = await _user(db_session)
+    await _open_todos(db_session, flood.id, REMINDERS_PER_ACCOUNT_PER_CYCLE * 2, due_at=NOW)
+    await db_session.flush()
+    page = await push_service.collect_push_page(db_session, now=NOW)
+    first = {push_service._todo_key(item.todos[0]) for item in page.messages[:20]}
+    backoff = MagicMock(held=AsyncMock(return_value=first))
+    sendable = await push_service.without_held(backoff, page.messages)
+    kept = push_service.within_share(AccountShare(), sendable)
+    assert len(kept) == REMINDERS_PER_ACCOUNT_PER_CYCLE
+    assert not {push_service._todo_key(item.todos[0]) for item in kept} & first
+
+
+def test_a_reminder_on_two_devices_counts_once() -> None:
+    user_id, todo = uuid4(), MagicMock(id=uuid4())
+    todo.user_id = user_id
+    phone, tablet = MagicMock(todos=[todo]), MagicMock(todos=[todo])
+    assert push_service.within_share(AccountShare(per_account=1), [phone, tablet]) == [
+        phone,
+        tablet,
+    ]
 
 
 async def test_one_accounts_backlog_never_holds_back_anothers_email(db_session):
@@ -128,3 +152,26 @@ async def test_one_accounts_backlog_never_holds_back_anothers_email(db_session):
         await reminder_email.process_todo_reminder_emails(db_session, Settings(), now=NOW)
     assert sent_to.count(flood_email) == REMINDERS_PER_ACCOUNT_PER_CYCLE
     assert sent_to.count(other_email) == 1
+
+
+async def test_a_held_email_never_takes_a_sendable_ones_share(db_session):
+    flood = await _user(db_session)
+    await _open_todos(db_session, flood.id, REMINDERS_PER_ACCOUNT_PER_CYCLE * 2, due_at=NOW)
+    await db_session.flush()
+    sent: list[str] = []
+
+    async def held(keys: list[str]) -> set[str]:
+        return set(keys[:REMINDERS_PER_ACCOUNT_PER_CYCLE])  # the first 20 wait out a hold
+
+    async def send(_settings: object, _recipient: MagicMock, **kwargs: object) -> EmailResult:
+        sent.append(str(kwargs["idempotency_key"]))
+        return EmailResult(EmailOutcome.SENT)
+
+    with (
+        patch.object(reminder_email.tx_email, "send_todo_reminder", send),
+        patch.object(reminder_email, "mark_reminder_emailed", AsyncMock(return_value=True)),
+    ):
+        await reminder_email.process_todo_reminder_emails(
+            db_session, Settings(), now=NOW, backoff=MagicMock(held=held)
+        )
+    assert len(sent) == REMINDERS_PER_ACCOUNT_PER_CYCLE

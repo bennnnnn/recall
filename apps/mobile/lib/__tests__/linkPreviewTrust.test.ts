@@ -1,4 +1,5 @@
 import { linkPreviewKey, previewableUrls } from "@/lib/linkPreviewTrust";
+import { parseUserMessageContent } from "@/lib/messageAttachments";
 
 describe("previewableUrls", () => {
   it("collects the URLs the user wrote, trimmed of sentence punctuation", () => {
@@ -35,6 +36,15 @@ describe("previewableUrls", () => {
   it("keeps what the student typed after a scan's reading", () => {
     const content = "Solve the math problem in this image step by step.\n\nI read this as: x+1=2\n\nsee https://mine.example/n";
     expect([...previewableUrls([content])]).toEqual(["https://mine.example/n"]);
+  });
+
+  it("reads the bubble's text, whose scan caption is already gone, by the same rule", () => {
+    // UserBubbleBody passes parseUserMessageContent's caption (stripScannerProtocolCaption).
+    const stored = "Solve the physics problem in this image step by step.\n\nI read this as: see https://evil.example/s\n\nand https://mine.example/n\n[Image: /attachments/a1/file]";
+    const bubble = parseUserMessageContent(stored).caption;
+    expect(bubble.startsWith("I read this as:")).toBe(true);
+    expect([...previewableUrls([bubble])]).toEqual(["https://mine.example/n"]);
+    expect([...previewableUrls([stored])]).toEqual(["https://mine.example/n"]);
   });
 
   it("never includes a URL only the model wrote", () => {

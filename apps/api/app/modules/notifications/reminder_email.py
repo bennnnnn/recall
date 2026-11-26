@@ -54,7 +54,6 @@ async def _page_deliveries(
     *,
     now: datetime,
     after: tuple[datetime, UUID] | None,
-    share: AccountShare | None = None,
 ) -> tuple[list[_TodoEmailDelivery], tuple[datetime, UUID] | None]:
     rows = await due_reminder_page(
         session, EMAIL_REMINDERS, now=now, after=after, limit=EMAIL_PAGE_ROWS
@@ -64,8 +63,6 @@ async def _page_deliveries(
         try:
             if todo.due_at is None or not is_due_now(todo, user, now=now):
                 continue
-            if share is not None and not share.take(todo.user_id):
-                continue  # past the account's share this cycle: the next cycle sends it
             deliveries.append(
                 _TodoEmailDelivery(
                     occurrence=TodoEmailSnapshot.from_todo(todo),
@@ -103,13 +100,16 @@ async def process_todo_reminder_emails(
     # One account's backlog never fills the cycle ahead of everyone else's reminders.
     share = AccountShare()
     while True:
-        deliveries, after = await _page_deliveries(session, now=now, after=after, share=share)
+        deliveries, after = await _page_deliveries(session, now=now, after=after)
         # This worker owns its session. Release the read transaction before provider IO;
         # every delivery is copied first because rollback expires ORM rows.
         await session.rollback()
         held = await backoff.held([_key(d) for d in deliveries]) if backoff else set()
         for delivery in deliveries:
             if _key(delivery) in held:
+                continue
+            # Only a send that will be tried takes from the share; the rest go next cycle.
+            if not share.take(delivery.occurrence.user_id):
                 continue
             if keep_lock is not None and not await keep_lock():
                 logger.warning("Email reminder cycle lost its lock; stopping")

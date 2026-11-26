@@ -271,10 +271,8 @@ async def collect_push_page(
     after: tuple[datetime, UUID] | None = None,
     limit: int = PUSH_PAGE_ROWS,
     ttl_seconds: int | None = None,
-    share: AccountShare | None = None,
 ) -> PushPage:
-    """Push messages for one page of due to-dos (``todos.due_reminder_page``). With the
-    cycle's ``share``, an account past its share this cycle waits for the next one."""
+    """Push messages for one page of due to-dos (``todos.due_reminder_page``)."""
     rows = await due_reminder_page(session, PUSH_REMINDERS, now=now, after=after, limit=limit)
     if not rows:
         return PushPage(messages=[], next_after=None)
@@ -294,8 +292,6 @@ async def collect_push_page(
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
-                continue
-            if share is not None and not share.take(todo.user_id):
                 continue
             title = reminder_title(is_overdue=todo.due_at < now, locale=user.locale)
             _append_outbound(
@@ -362,6 +358,21 @@ def push_backoff(redis: Redis, settings: Settings) -> SendBackoff:
 
 def _todo_key(todo: TodoItem) -> str:
     return occurrence_key(todo.id, todo.due_at)
+
+
+def within_share(share: AccountShare, outbound: list[OutboundPush]) -> list[OutboundPush]:
+    """The messages whose reminder is within its account's share of the cycle. Asked after
+    ``without_held``: only a send that will be tried counts. A reminder's every device goes
+    with it, and counts once."""
+    kept: list[OutboundPush] = []
+    taken: set[UUID] = set()
+    for item in outbound:
+        todos = [todo for todo in item.todos if todo.id not in taken]
+        if todos and not all(share.take(todo.user_id) for todo in todos):
+            continue
+        taken.update(todo.id for todo in todos)
+        kept.append(item)
+    return kept
 
 
 async def without_held(backoff: SendBackoff, outbound: list[OutboundPush]) -> list[OutboundPush]:

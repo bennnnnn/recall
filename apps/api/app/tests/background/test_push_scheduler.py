@@ -48,7 +48,6 @@ async def _cycle(
         now: datetime,
         after: object,
         ttl_seconds: int | None,
-        share: object = None,
     ) -> PushPage:
         order.append(f"collect after={after}")
         return next(page_iter)
@@ -196,3 +195,19 @@ async def test_a_push_expo_may_have_accepted_is_not_resent_next_minute():
     held = [key async for key in redis.scan_iter("recall:push:hold:*")]
     assert len(held) == 1
     assert await redis.ttl(held[0]) > 14 * 60  # push_ambiguous_hold_seconds
+
+
+@pytest.mark.asyncio
+async def test_the_cycle_sends_one_account_its_share_only() -> None:
+    """The cycle hands its messages through the account's share before it sends."""
+    from app.modules.todos.limits import REMINDERS_PER_ACCOUNT_PER_CYCLE
+
+    user_id = uuid4()
+    flood = []
+    for _ in range(REMINDERS_PER_ACCOUNT_PER_CYCLE + 5):
+        todo = MagicMock(id=uuid4(), user_id=user_id, due_at=datetime.now(UTC))
+        flood.append(OutboundPush(message={"to": "t"}, todos=[todo]))
+    order = await _cycle([PushPage(messages=flood, next_after=None)], _lock(True, True))
+    assert [step for step in order if step.startswith("dispatch")] == [
+        f"dispatch {REMINDERS_PER_ACCOUNT_PER_CYCLE}"
+    ]

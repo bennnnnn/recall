@@ -5,9 +5,19 @@
  * after an unanswered edit the phone says "still saving" (security review, 2026-11-25).
  */
 import type { MemoryFailure } from "@/features/memory/model/memoryFailure";
+import { isAbortError } from "@/lib/api/abort";
 
 /** How long after an unanswered edit a busy memory is that edit still saving. */
 export const STILL_SAVING_MS = 90_000;
+
+/**
+ * Whether an edit that failed may still be saving: it was sent and its wait ran out (the
+ * request's own deadline aborts it). A send that never connected (offline, a refused
+ * connection) reached nothing, so a busy memory after it is some other write.
+ */
+export function mayStillBeSaving(error: unknown): boolean {
+  return isAbortError(error);
+}
 
 /**
  * What an edit's failure means, given when an earlier edit from here went unanswered

@@ -65,7 +65,13 @@ if TYPE_CHECKING:
         reminder_page_key as reminder_page_key,
     )
     from app.modules.todos.limits import (
+        TODO_LIST_FULL_REPLY as TODO_LIST_FULL_REPLY,
+    )
+    from app.modules.todos.limits import (
         AccountShare as AccountShare,
+    )
+    from app.modules.todos.limits import (
+        TodoLimitError as TodoLimitError,
     )
     from app.modules.todos.occurrences import (
         TodoEmailSnapshot as TodoEmailSnapshot,
@@ -131,6 +137,8 @@ _EXPORTS = {
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "TodoEmailSnapshot": ("occurrences", "TodoEmailSnapshot"),
     "AccountShare": ("limits", "AccountShare"),
+    "TODO_LIST_FULL_REPLY": ("limits", "TODO_LIST_FULL_REPLY"),
+    "TodoLimitError": ("limits", "TodoLimitError"),
     "EMAIL_REMINDERS": ("due_reminders", "EMAIL_REMINDERS"),
     "PUSH_REMINDERS": ("due_reminders", "PUSH_REMINDERS"),
     "advance_recurring_without_device": ("due_reminders", "advance_recurring_without_device"),

@@ -448,6 +448,23 @@ def _export_busy() -> Any:
         return _client(_user()).get("/auth/me/export", headers=_AUTH)
 
 
+def _todo_at_cap() -> Any:
+    """POST /todos with the account's open to-dos at the cap (``todos/limits.py``)."""
+    from app.modules.todos.limits import OPEN_TODOS_MAX
+    from app.tests.fakes import fake_session
+
+    session = fake_session(scalar=AsyncMock(return_value=OPEN_TODOS_MAX))
+    client = _client(_user())
+    client.app.dependency_overrides[get_db] = lambda: session  # type: ignore[attr-defined]
+    with patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=0)):
+        return client.post("/todos", headers=_AUTH, json={"content": "One more"})
+
+
+def _account_delete_unconfirmed() -> Any:
+    """DELETE /auth/me with a bearer token and no confirmation."""
+    return _client(_user()).delete("/auth/me", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     with (
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -473,6 +490,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "link_preview_busy": _refusal(_link_preview(busy=True)),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
+        "account_delete_unconfirmed": _refusal(_account_delete_unconfirmed()),
+        "todo_limit": _refusal(_todo_at_cap()),
         "presign_unsupported_type": _refusal(_presign("application/x-msdownload", 100)),
         # The schema caps the size: FastAPI's own 422, which the phone reads as too large.
         "presign_too_large": {

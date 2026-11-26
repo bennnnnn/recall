@@ -345,7 +345,7 @@ export async function uploadChatAttachment(
     size_bytes: sizeBytes,
     filename: pending.fileName,
     // Only the composer's own paste is sent as one; a picked file is a document whatever its name.
-    purpose: pending.pasted ? "paste" : purpose,
+    purpose: isPastedText(pending) ? "paste" : purpose,
   }).catch((error: unknown) => {
     throw presignFailure(error);
   });

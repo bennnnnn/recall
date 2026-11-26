@@ -24,9 +24,13 @@ export const PASTE_MAX_PAGES = PASTE_MAX_CHARS / CHARS_PER_PAGE;
 /** The chip's first words: enough to fill one line, whitespace run together. */
 const PREVIEW_SOURCE_CHARS = 200;
 
-/** A composer attachment (attachments.ts PendingAttachment), by its name and type. */
-export function isPastedText(attachment: { fileName: string; contentType: string }): boolean {
-  return attachment.fileName === PASTED_TEXT_FILE_NAME && attachment.contentType === PASTED_TEXT_CONTENT_TYPE;
+/**
+ * A composer attachment (attachments.ts PendingAttachment) the composer made from a paste:
+ * only `pastedTextAttachment` sets `pasted`. A picked file is never one, whatever its name,
+ * as the API reads it (the upload's purpose, never the name).
+ */
+export function isPastedText(attachment: { fileName: string; pasted?: unknown }): boolean {
+  return attachment.pasted != null;
 }
 
 /** A file's name as the person reads it: a paste is "Pasted text", in their language. */

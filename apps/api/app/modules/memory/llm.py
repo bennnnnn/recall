@@ -438,7 +438,7 @@ async def instruct_memory(
                 timeout_seconds=budget,
             )
     except TimeoutError:
-        logger.warning("Memory instruction model ran out of its %s s", budget)
+        logger.warning("Memory instruction model ran out of its time")
         return None
 
 

@@ -2,7 +2,9 @@ import React from "react";
 import { Alert, Linking, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 
+import fixture from "../../../../../../docs/fixtures/error_codes.json";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import type { TodoDue } from "@/features/todos/model/dueDate";
 import { api, type Todo } from "@/lib/api";
 
@@ -151,12 +153,26 @@ describe("useTodosActions reminders", () => {
   });
 
   it("says the account's open to-do cap, not a failed save, when the API refuses for it", async () => {
-    (api.createTodo as jest.Mock).mockRejectedValue(Object.assign(new Error("limit"), { status: 409, code: "todo_limit" }));
+    const { status, detail } = fixture.todo_limit;
+    (api.createTodo as jest.Mock).mockRejectedValue(new ApiRequestError(status, JSON.stringify({ detail })));
     await act(async () => {
       render(<Probe todos={[]} />);
     });
     await act(async () => {
       await actions.handleCreateTodo("One more", null, jest.fn());
+    });
+    expect(JSON.stringify(jest.mocked(Alert.alert).mock.calls)).toContain("todos.error_limit");
+  });
+
+  it("says the cap when reopening a done to-do is refused for it", async () => {
+    const { status, detail } = fixture.todo_limit;
+    (api.updateTodo as jest.Mock).mockRejectedValue(new ApiRequestError(status, JSON.stringify({ detail })));
+    const done = todo({ id: "done-1", content: "Done one", checked: true });
+    await act(async () => {
+      render(<Probe todos={[done]} />);
+    });
+    await act(async () => {
+      await actions.handleToggle(done);
     });
     expect(JSON.stringify(jest.mocked(Alert.alert).mock.calls)).toContain("todos.error_limit");
   });

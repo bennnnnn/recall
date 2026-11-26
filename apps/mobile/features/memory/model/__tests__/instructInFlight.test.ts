@@ -1,5 +1,6 @@
 import { INSTRUCT_TIMEOUT_MS, memoriesApi } from "@/features/memory/api";
-import { instructFailure, STILL_SAVING_MS } from "@/features/memory/model/instructInFlight";
+import { instructFailure, mayStillBeSaving, STILL_SAVING_MS } from "@/features/memory/model/instructInFlight";
+import { abortError, serverUnreachableError } from "@/lib/api/deadline";
 import { memoryFailureKey } from "@/features/memory/model/memoryFailure";
 import { request } from "@/lib/api/client";
 
@@ -16,6 +17,13 @@ describe("a typed memory edit", () => {
     const now = 1_000_000;
     expect(instructFailure("busy", now - 10_000, now)).toBe("saving");
     expect(memoryFailureKey("saving", "memory.instruct_failed")).toBe("memory.still_saving");
+  });
+
+  it("may still be saving only when it was sent and its wait ran out", () => {
+    expect(mayStillBeSaving(abortError())).toBe(true);
+    // Offline before anything went out: nothing of this edit is saving.
+    expect(mayStillBeSaving(new TypeError("Network request failed"))).toBe(false);
+    expect(mayStillBeSaving(serverUnreachableError())).toBe(false);
   });
 
   it.each([

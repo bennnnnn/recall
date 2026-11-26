@@ -63,9 +63,9 @@ async def _push_cycle(settings: Settings, lock: CycleLock) -> None:
                 now=now,
                 after=after,
                 ttl_seconds=settings.push_reminder_ttl_seconds,
-                share=share,
             )
-        messages = await push_notifications.without_held(backoff, page.messages)
+        sendable = await push_notifications.without_held(backoff, page.messages)
+        messages = push_notifications.within_share(share, sendable)
         for start in range(0, len(messages), MAX_MESSAGES_PER_REQUEST):
             if not await lock.refresh():
                 logger.warning("Push cycle lost its lock; stopping before the next send")

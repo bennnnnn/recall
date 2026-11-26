@@ -26,6 +26,14 @@ OPEN_TODOS_MAX = 1000
 REMINDERS_PER_ACCOUNT_PER_CYCLE = 20
 
 
+# What live talk says when a reminder the user spoke meets the cap (English: other
+# languages never write to-dos there).
+TODO_LIST_FULL_REPLY = (
+    f"I couldn't save that reminder: your to-do list has {OPEN_TODOS_MAX} open to-dos, the "
+    "most Recall keeps. Complete or delete some, then ask again."
+)
+
+
 class TodoLimitError(DomainError):
     """The account has as many open to-dos as Recall keeps."""
 
@@ -49,7 +57,9 @@ async def ensure_room_for_open(session: AsyncSession, user_id: UUID) -> None:
 
 class AccountShare:
     """Each account's share of one reminder cycle: at most ``per_account`` sends each, so
-    one account's backlog never holds back the reminders of everyone due after it."""
+    one account's backlog never holds back the reminders of everyone due after it. Only a
+    send that will be tried takes from it: the channel asks after its held reminders are
+    passed by, so a held one never stands in for a sendable one."""
 
     def __init__(self, per_account: int = REMINDERS_PER_ACCOUNT_PER_CYCLE) -> None:
         self._per_account = per_account
