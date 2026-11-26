@@ -80,8 +80,13 @@ _CHOICE_NOTE = (
 )
 FACTUAL_QUESTION_NOTE = (
     "This is a factual question. Give the standard answer a good textbook gives, first, "
-    "in plain words at the level the question is asked, then a short reason or a few "
-    "examples. " + WORK_FIRST + " " + MATCHED_DEPTH + " Take the question as written: "
+    "in plain words at the level the question is asked. An answer of a line (a name, a "
+    "date, a number) stays that line and at most one more; a fuller one adds its reasons, "
+    "kinds or examples laid out as the layout note beside the message says. "
+    + WORK_FIRST
+    + " "
+    + MATCHED_DEPTH
+    + " Take the question as written: "
     "never open by disputing it, correcting its wording or calling it a trick, and keep to "
     "what it asks. End when the answer is complete, with no offer of more."
 )

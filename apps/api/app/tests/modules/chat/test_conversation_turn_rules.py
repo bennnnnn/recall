@@ -24,7 +24,12 @@ from app.modules.chat.prompt_constants.conversation import (
 )
 from app.modules.chat.prompt_constants.format import FORMAT_CONTRACT, READER_NOTE
 from app.modules.chat.prompt_constants.unclear import UNCLEAR_MESSAGE_HINT
-from app.modules.chat.response_tone import EMOJI_FITS, EMOJI_HINTS, emoji_note
+from app.modules.chat.response_tone import (
+    EMOJI_FITS,
+    EMOJI_HINTS,
+    EMOJI_MAIN_ITEMS_ONLY,
+    emoji_note,
+)
 from app.services.time_context import KNOWN_DAY_RULE, format_now_awareness
 
 _USER = SimpleNamespace(emoji_use="more", locale="en", custom_instructions=None)
@@ -94,3 +99,11 @@ def test_lots_of_emoji_still_fit_their_line() -> None:
     assert note is not None and EMOJI_FITS in note
     # "A few" already allows none in a sentence; its line is unchanged.
     assert EMOJI_FITS not in EMOJI_HINTS["some"]
+
+
+def test_lots_of_emoji_lead_main_items_not_their_members() -> None:
+    # One on every nested member ("    - 🔬 **Physics**") buries the main items' emoji.
+    note = emoji_note("more", "")
+    assert note is not None and EMOJI_MAIN_ITEMS_ONLY in note
+    assert EMOJI_MAIN_ITEMS_ONLY in EMOJI_HINTS["more"]
+    assert EMOJI_MAIN_ITEMS_ONLY not in EMOJI_HINTS["some"]

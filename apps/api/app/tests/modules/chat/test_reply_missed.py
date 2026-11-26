@@ -156,6 +156,17 @@ def test_a_lesson_or_a_card_reads_what_its_own_way(reply: str) -> None:
     assert not any(note.startswith(REPLY_MISSED_HINT) for note in notes)
 
 
+def test_the_answer_after_a_card_is_laid_out_and_a_lesson_is_not() -> None:
+    # "best laptop for me?", then the picks: that answer is scanned like any other; a lesson
+    # lays out its own sections.
+    card = 'Which kind?\n\n```clarify\n{"question": "Which kind?", "options": ["a", "b"]}\n```'
+    lesson = "### Lesson 2: Loops\n\nA loop repeats code.\n\n```quiz\n{}\n```"
+    picks = message_notes("a", _exchange(("user", "best laptop for me?"), ("assistant", card)), _EN)
+    taught = message_notes("ok", _exchange(("user", "teach me"), ("assistant", lesson)), _EN)
+    assert READER_NOTE in picks
+    assert READER_NOTE not in taught
+
+
 def test_the_unclear_rule_gives_no_reply_to_copy() -> None:
     """Its examples were whole replies a small model sent as they were."""
     assert "Gd:" not in UNCLEAR_MESSAGE_HINT
