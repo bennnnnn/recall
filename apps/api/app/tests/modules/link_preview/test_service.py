@@ -261,6 +261,26 @@ async def test_the_cache_keys_a_page_by_its_own_path_and_answers_each_asker_with
 
 
 @pytest.mark.asyncio
+async def test_two_fragments_of_one_page_are_one_entry_and_one_fetch(fake_redis):
+    """The fetch never sends a fragment: "#install" and "#usage" are one page (review of
+    #2592); each asker still gets their own link back."""
+    from app.core.config import Settings
+    from app.modules.link_preview.service import fetch_link_preview_cached
+
+    settings = Settings(link_preview_cache_ttl=3600)
+    user_id = uuid4()
+    with _fetch_safely_patch(_mock_response(text=_OG_HTML)) as fetch_mock:
+        await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/docs#install", user_id=user_id
+        )
+        usage = await fetch_link_preview_cached(
+            settings, fake_redis, "https://example.com/docs#usage", user_id=user_id
+        )
+    assert fetch_mock.await_count == 1
+    assert usage["url"] == "https://example.com/docs#usage"
+
+
+@pytest.mark.asyncio
 async def test_a_card_with_nothing_fetched_is_kept_minutes_not_the_hour(fake_redis):
     """A card with nothing fetched (a page with no title, as a 403 or a timeout leaves) is kept five minutes: the site may answer a minute
     later. A card with a title keeps the setting's hour."""

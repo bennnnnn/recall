@@ -147,11 +147,10 @@ _EMPTY_CARD_TTL_SECONDS = 300
 
 def _preview_cache_key(url: str) -> str:
     """One entry per page: the scheme and host are any case, the path and query are the
-    page's own ("/Docs/A" and "/docs/a" are two pages on most servers)."""
+    page's own ("/Docs/A" and "/docs/a" are two pages on most servers), and a fragment is no
+    part of it ("#install" and "#usage" are one page; the fetch never sends a fragment)."""
     parts = urlsplit(url.strip())
-    page = urlunsplit(
-        (parts.scheme.lower(), parts.netloc.lower(), parts.path, parts.query, parts.fragment)
-    )
+    page = urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path, parts.query, ""))
     digest = hashlib.sha256(page.encode()).hexdigest()[:32]
     return f"linkpreview:{digest}"
 
