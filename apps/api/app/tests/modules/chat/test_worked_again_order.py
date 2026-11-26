@@ -36,7 +36,10 @@ def _passes_in_order(text: str, accum: StreamAccum, names: set[str]) -> str:
 def test_a_recaps_own_answer_label_never_takes_the_blocks_heading() -> None:
     # The recap ends on its own "**Answer:**": the label pass keeps only the last label, so
     # run first it dropped the block's heading and the card had none to land under.
-    recap = f"{RECAP}\n\n**Answer:** $\\omega_0 = \\frac{{2\\pi}}{{8}} \\approx 0.785$"
+    recap = (
+        "Working it again:\n\n$$\\omega_0 = \\frac{2\\pi}{8}$$\n$$v = 4 \\times 0.785$$\n"
+        "$$t = \\frac{0 - 0.785}{-0.1}$$\n\n**Answer:** $\\omega_0 = \\frac{2\\pi}{8} \\approx 0.785$"
+    )
     text, accum = _streamed(f"{BLOCK}\n\n{recap}")
     kept = _passes_in_order(text, accum, {"worked_again", "answer_labels"})
     assert "**Answer**\n\n$0.79\\,\\mathrm{rad/s}$" in kept
