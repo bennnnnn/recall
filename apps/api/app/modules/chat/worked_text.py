@@ -84,7 +84,10 @@ _GREEK_NAMES = (
     "alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|rho|sigma|tau|upsilon"
     "|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Sigma|Upsilon|Phi|Psi|Omega"
 )
-_TYPED_GREEK = re.compile(rf"(?<![A-Za-z\\])({_GREEK_NAMES})(\d*)(?![A-Za-z])")
+# Never after a number and a space: "32.1 psi" is pounds per square inch (review of #2602).
+_TYPED_GREEK = re.compile(
+    rf"(?<![A-Za-z\\])(?<!\d )(?<!\d\\,)(?<!\d~)({_GREEK_NAMES})(\d*)(?![A-Za-z])"
+)
 _RUN_ON_GREEK = re.compile(rf"\\({_GREEK_NAMES})(?=[A-Za-z])")
 
 
@@ -235,8 +238,10 @@ def names_nothing(symbol: str) -> bool:
 
 # One word set as a symbol ("graph", "equilibrium", "precision"), or an option's numeral
 # ("iii"): drawn in maths it read as italic letters, and "(a) $iii$" gave the answer away
-# (textbook round, 2026-11-26). Five letters or more, so "vmax" and "emf" stay symbols.
-_WORD_SYMBOL = re.compile(r"[a-z]{5,}|(?:ii|iii|iv|vi|vii|viii|ix)")
+# (textbook round, 2026-11-26). Five letters or more, so "vmax" and "emf" stay symbols, and
+# only ii and iii of the numerals: "vi", "iv" and "ix" are also an initial velocity's
+# symbols (review of #2602).
+_WORD_SYMBOL = re.compile(r"[a-z]{5,}|iii?")
 
 
 def is_word_symbol(symbol: str) -> bool:

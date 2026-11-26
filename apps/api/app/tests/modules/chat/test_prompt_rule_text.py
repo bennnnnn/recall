@@ -138,11 +138,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
 # 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
 # title, a multi-part reply's headings as its titles, and a one-line fact kept one line
-# (review of #2601); then the worked contract's check done in the model's head, the reply
-# only the finished working (Grade 11 physics round, 2026-11-26).
+# (review of #2601); then the worked contract's working shown once, with no second try, the reply
+# only the finished working, its one-line Check kept, and no emoji in a reply to a school
+# question (Grade 11 physics round and the owner, 2026-11-26).
 _RULES = 227
-_RULE_GRAMS = 21431
-_RULE_GRAMS_SHA = "772287e92e590911"
+_RULE_GRAMS = 21450
+_RULE_GRAMS_SHA = "9677b04f9f7f93d5"
 
 
 def _rules() -> list[str]:

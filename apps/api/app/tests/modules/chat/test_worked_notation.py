@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import pytest
 
+from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
 from app.modules.chat.worked_answers import answer_lines
+from app.modules.chat.worked_asks import fitted
 from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import Answer, Given, assemble, read_record
 from app.modules.chat.worked_text import is_word_symbol, tidy_symbol, tidy_tex
@@ -39,6 +41,12 @@ def _laid_out(block: str) -> str:
         ("\\varepsilon_0", "\\varepsilon_0"),
         ("\\phantom{x}", "\\phantom{x}"),
         ("thetas", "thetas"),
+        # A unit after a number: pounds per square inch, never psi the letter (review of #2602).
+        (
+            "P_2 = 30 \\times \\frac{310}{290} = 32.1 psi",
+            "P_2 = 30 \\times \\frac{310}{290} = 32.1 psi",
+        ),
+        ("p = 32.1\\,psi", "p = 32.1\\,psi"),
     ],
 )
 def test_a_greek_name_in_maths_is_its_letter(tex: str, shown: str) -> None:
@@ -60,6 +68,10 @@ def test_a_greek_symbol_reads_as_its_letter_in_every_line() -> None:
         ("graph", True),
         ("equilibrium", True),
         ("iii", True),
+        # Also an initial velocity's symbols (review of #2602).
+        ("vi", False),
+        ("iv", False),
+        ("ix", False),
         ("theta", False),
         ("vmax", False),
         ("v", False),
@@ -83,10 +95,21 @@ def test_part_letters_given_as_symbols_are_no_symbols() -> None:
     text = _laid_out(
         "required: a | graph description\nrequired: b | time of greatest acceleration\n"
         "part: a | graph\nsay: The graph rises.\npart: b | greatest acceleration\n"
-        "formula: Acceleration | a = \\frac{\\Delta v}{t}\nanswer: a | 1.2 | m/s^2"
+        "formula: Acceleration | a_3 = \\frac{\\Delta v}{t}\nanswer: | Between 80 s and 95 s | |"
     )
     assert "(a) graph description" in text
     assert "(b) time of greatest acceleration" in text
+
+
+def test_letters_the_working_sets_are_the_unknowns() -> None:
+    # "Find a and b if 2a + b = 7 and a - b = 2": a and b are the answers, never part letters
+    # (review of #2602).
+    text = _laid_out(
+        "required: a | first number\nrequired: b | second number\n"
+        "step: 3a = 9 | add the equations\nstep: a = 3 | divide by 3\n"
+        "step: b = 7 - 2a = 1 | substitute\nanswer: a | 3 |\nanswer: b | 1 |"
+    )
+    assert "$a$ (first number)" in text and "$b$ (second number)" in text
 
 
 def test_the_contracts_placeholder_is_no_title() -> None:
@@ -134,3 +157,49 @@ def test_a_sentence_written_in_a_maths_field_reads_as_one() -> None:
     )
     assert "Substitute $I = \\frac{1}{2}mR^2$ and $\\alpha = \\frac{a}{R}$:" in text
     assert "$Area = l w$" in text
+
+
+def test_a_greek_unknown_owns_its_lines_in_an_unlabelled_block() -> None:
+    # The ask is keyed \theta: its line "theta = …" must be keyed alike, or the block in two
+    # asks came out as one part holding both answers (review of #2602).
+    block = (
+        "given: m | 2 | kg | mass\nrequired: F | tension\nrequired: theta | angle\n"
+        "formula: Tension | F = m g\nsubstitution: F = 2 \\times 9.8\nsubstitution: F = 19.6\n"
+        "substitution: theta = \\tan^{-1}(0.75)\nsubstitution: theta = 36.87\n"
+        "answer: F | 19.6 | N\nanswer: theta | 36.87 | °"
+    )
+    records = [read_record(line) for line in block.split("\n")]
+    solution = fitted([record for record in records if record is not None])
+    assert [[answer.symbol for answer in part.answers] for part in solution.parts] == [
+        ["F"],
+        ["theta"],
+    ]
+
+
+def test_one_word_ask_over_two_parts_reads_its_meaning() -> None:
+    # One record "speed | average speed" over two untitled parts: each row says the meaning
+    # in words, never "$speed$" in maths (review of #2602).
+    text = _laid_out(
+        "required: speed | average speed\n"
+        "part: a |\nformula: Average speed | speed = \\frac{d}{t}\n"
+        "substitution: speed = \\frac{100}{2}\nanswer: speed | 50 | km/h\n"
+        "part: b |\nformula: Average speed | speed = \\frac{d}{t}\n"
+        "substitution: speed = \\frac{300}{5}\nanswer: speed | 60 | km/h"
+    )
+    assert "$speed$" not in text
+    assert "(a) average speed" in text and "(b) average speed" in text
+
+
+def test_an_answer_of_only_a_placeholder_leaves_no_answer_heading() -> None:
+    text = _laid_out(
+        "required: f | friction\nformula: Friction | f = N_w\nanswer: f | ? | N | found below"
+    )
+    assert "**Answer**" not in text
+    assert "?" not in text
+
+
+def test_the_worked_contract_keeps_the_one_line_check() -> None:
+    # The unverified answer's rule asks for a one-line **Check**; the contract's silent
+    # working must not forbid it (review of #2602).
+    assert "never the check itself" not in WORKED_BLOCK_CONTRACT
+    assert "a one-line **Check** after the answer" in WORKED_BLOCK_CONTRACT

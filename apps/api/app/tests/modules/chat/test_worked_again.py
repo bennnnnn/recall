@@ -93,12 +93,37 @@ def test_a_derivation_above_the_block_goes() -> None:
     assert text.startswith("**Given**")
 
 
-def test_a_sentence_with_one_sum_after_the_block_stays() -> None:
+def test_sentences_with_a_sum_each_after_the_block_stay() -> None:
+    # Each note works one sum: two of them are no working (three would be). Review of #2602:
+    # with no sum in either, this held whatever the rule did.
     note = (
-        "Note: with $\\mu_s = 0.4$ the friction needed exceeds the most available, "
-        "$f = 1.96\\,\\mathrm{N}$, so the cylinder would slip."
+        "Note: the friction needed exceeds the most available, "
+        "$f = 0.4 \\times 0.5 \\times 9.8 = 1.96\\,\\mathrm{N}$, so the cylinder would slip."
     )
+    other = "The pull at the top adds torque: $\\tau = 10 \\times 0.1 = 1\\,\\mathrm{N\\,m}$."
+    assert relations_in(note) == relations_in(other) == 1
+    for reply in (f"{BLOCK}\n\n{note}", f"{BLOCK}\n\n{note}\n\n{other}"):
+        text, _accum = _streamed(reply)
+        assert _finalized(reply) == text
+    third = "Then $a = 20 \\div 0.75 = 26.67$."
+    assert "Then" not in _finalized(f"{BLOCK}\n\n{note}\n\n{other}\n\n{third}")
+
+
+def test_stated_values_with_units_and_powers_of_ten_are_no_sums() -> None:
+    note = (
+        "We took $g = 9.8\\,\\mathrm{m/s}^2$, $c = 3 \\times 10^8\\,\\mathrm{m/s}$ and "
+        "$h = 6.63 \\times 10^{-34}$."
+    )
+    assert relations_in(note) == 0
     reply = f"{BLOCK}\n\n{note}"
+    text, _accum = _streamed(reply)
+    assert _finalized(reply) == text
+
+
+def test_a_one_line_check_after_the_card_stays() -> None:
+    # The unverified answer's **Check** line (SELF_CHECK_PROMPT_RULE) is no second try.
+    check = "**Check**\n\n$0.785 \\times 8 = 6.28$"
+    reply = f"{BLOCK}\n\n{check}"
     text, _accum = _streamed(reply)
     assert _finalized(reply) == text
 

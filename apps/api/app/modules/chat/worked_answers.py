@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from app.modules.chat.worked_figures import card_answer
 from app.modules.chat.worked_lines import split_line
 from app.modules.chat.worked_prose import prose_maths
-from app.modules.chat.worked_solution import Answer
+from app.modules.chat.worked_solution import Answer, Part
 from app.modules.chat.worked_text import is_prose, names_nothing, tidy_symbol, tidy_tex
 from app.modules.chat.worked_units import quantity_tex, unit_tex
 from app.modules.chat.worked_values import a_sum, one_value_each, writes_its_unit
@@ -185,9 +185,19 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
 _NO_VALUE = re.compile(r"[\s?.\u2026\u2014\u2013\-]*")
 
 
+def without_placeholders(part: Part) -> Part:
+    """``part`` without answers that hold no value, its stages' too: a placeholder for a
+    value found later is no answer, so a part left with none has no Answer heading."""
+    answers = tuple(answer for answer in part.answers if not _NO_VALUE.fullmatch(answer.value))
+    then = tuple(without_placeholders(stage) for stage in part.then)
+    if answers == part.answers and then == part.then:
+        return part
+    return part.model_copy(update={"answers": answers, "then": then})
+
+
 def answer_lines(answers: Sequence[Answer], layout: WorkedLayout) -> str:
     """The answers' lines, values on one line each and a sentence answer as its own card;
-    a placeholder for a value found later is none."""
+    a value that holds none ("343, ?") is left out."""
     answers = [
         one
         for answer in answers

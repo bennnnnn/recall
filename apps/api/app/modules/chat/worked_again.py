@@ -40,11 +40,16 @@ _RELATION = re.compile(r"(?<![<>!\\])=|\\approx\b")
 _DIGIT = re.compile(r"\d")
 # A sum worked in it: an operation beside the relation. "$u = 0$" (an assumption) states a
 # value and works nothing.
-# A unit's letters ("m/s^2") and a minus sign before a number ("a = -1.2") are no operation.
+# A minus sign before a number ("a = -1.2") is no operation.
 _OPERATION = re.compile(
     r"[+\u00d7\u00f7*/^]|(?<=[\w)}])\s*[-\u2212]|\\(?:times|cdot|frac|dfrac|sqrt|div)\b"
 )
-_UNIT_GROUP = re.compile(r"\\(?:mathrm|text|textrm|operatorname)\s*\{[^{}]*\}")
+# A unit, its power after it too ("\mathrm{m/s}^2"), and a number's power of ten
+# ("3 \times 10^8"): both are how a value is written, never a sum (review of #2602).
+_UNIT_GROUP = re.compile(
+    r"\\(?:mathrm|text|textrm|operatorname)\s*\{[^{}]*\}(?:\^\s*(?:\{[^{}]*\}|-?\d))?"
+    r"|(?:\\times|\\cdot|\u00d7)\s*10\s*\^\s*(?:\{[^{}]*\}|-?\d+)"
+)
 # Three equations set as maths are a working; one or two are a sentence's sum.
 _WORKING_RELATIONS = 3
 _PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
@@ -119,27 +124,38 @@ def _without_working(text: str, *, closing: bool) -> str | None:
 _MOST_MOVED = 300
 
 
-def _block_span(text: str, layout: str) -> tuple[int, int] | None:
-    """Where the laid-out block stands in ``text``: from its first line to its last, the
-    occurrence of the last nearest where the block as laid out would end (the working said
-    again may repeat that line). None when it cannot be found."""
-    lines = [line.strip() for line in straighten_apostrophes(layout).split("\n") if line.strip()]
-    plain = straighten_apostrophes(text)
-    if not lines or len(plain) != len(text):
-        return None
-    start = plain.find(lines[0])
-    if start < 0:
-        return None
-    expected = start + len(layout.strip())
-    ends: list[int] = []
-    at = plain.find(lines[-1], start)
+def _occurrences(text: str, line: str, start: int = 0) -> list[int]:
+    found: list[int] = []
+    at = text.find(line, start)
     while at >= 0:
-        ends.append(at + len(lines[-1]))
-        at = plain.find(lines[-1], at + 1)
-    end = min(ends, key=lambda end: abs(end - expected), default=None)
-    if end is None or abs(end - expected) > _MOST_MOVED:
+        found.append(at)
+        at = text.find(line, at + 1)
+    return found
+
+
+def _block_span(text: str, layout: str) -> tuple[int, int] | None:
+    """Where the laid-out block stands in ``text``. As laid out, its last copy: a reply that
+    wrote the block twice is laid out twice, and ``layout`` is the last. When a pass changed
+    a line of it, the span from a copy of its first line to a copy of its last whose length
+    is nearest the block's (the working said again may repeat either line). None when it
+    cannot be found. Straightening an apostrophe keeps every offset: one character for one."""
+    block = straighten_apostrophes(layout).strip()
+    plain = straighten_apostrophes(text)
+    exact = plain.rfind(block) if block else -1
+    if exact >= 0:
+        return exact, exact + len(block)
+    lines = [line.strip() for line in block.split("\n") if line.strip()]
+    if not lines:
         return None
-    return start, end
+    spans = [
+        (start, end + len(lines[-1]))
+        for start in _occurrences(plain, lines[0])
+        for end in _occurrences(plain, lines[-1], start)
+    ]
+    best = min(spans, key=lambda span: abs(span[1] - span[0] - len(block)), default=None)
+    if best is None or abs(best[1] - best[0] - len(block)) > _MOST_MOVED:
+        return None
+    return best
 
 
 def drop_working_again(text: str, layout: str, question: str = "") -> str:

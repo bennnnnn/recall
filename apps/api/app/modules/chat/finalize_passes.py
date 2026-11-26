@@ -244,6 +244,16 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         before=CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
     ),
+    # Working the model wrote again outside its laid-out ```worked block, while the block
+    # reads exactly as it was laid out: before a recap's own "**Answer:**" can take the
+    # place of the block's Answer heading (review of #2602), and before its answer is a card.
+    FinalizePass(
+        "worked_again",
+        drop_working_again_pass,
+        kind=TEXT,
+        after=frozenset({"prepare_model_reply"}),
+        before=frozenset({"answer_labels", "working_check"}),
+    ),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass(
         "answer_labels",
@@ -331,11 +341,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
-    # Working the model wrote again outside its laid-out ```worked block, while the block
-    # still reads as it was laid out (before its answer becomes a card).
-    FinalizePass(
-        "worked_again", drop_working_again_pass, kind=TEXT, before=frozenset({"working_check"})
-    ),
     FinalizePass("unverified_notes", tidy_and_drop_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
     # Once the working's own Answer has become its card: a lead above the working that

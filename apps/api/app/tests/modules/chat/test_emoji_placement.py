@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from typing import Any, cast
 import pytest
 
 from app.modules.chat.emoji_placement import join_split_emoji, place_emoji, place_reply_emoji
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.turn_reading.routing import EMOJI
 
 # "What are the benefits of drinking water" at "A few", as the model wrote it.
@@ -237,3 +239,48 @@ def test_answer_and_check_out_labels_are_no_worked_solution() -> None:
 )
 def test_clock_and_media_emoji_are_emoji_and_brackets_are_not(text: str, emoji: bool) -> None:
     assert bool(EMOJI.search(text)) is emoji
+
+
+# "No emoji in homework" (owner, 2026-11-26): any reply to a school question, explanations
+# included, has none; the turn's own readers say which turns are school questions.
+_HEAT = "What is heat?"
+_HEAT_REPLY = "🔥 **Heat** is energy moving from a hotter body to a colder one ⚡."
+
+
+def _read(subject: str) -> Any:
+    """A settled read of the message naming ``subject``."""
+    loop = asyncio.new_event_loop()
+    try:
+        task: asyncio.Future[TurnDecision] = loop.create_future()
+        task.set_result(TurnDecision(live=False, subject=cast(Any, subject)))
+    finally:
+        loop.close()
+    return task
+
+
+@pytest.mark.parametrize("subject", ["physics", "maths", "chemistry"])
+def test_a_school_question_the_read_names_has_no_emoji(subject: str) -> None:
+    state = _state(_HEAT_REPLY, "more", said=_HEAT)
+    state.ctx.live_read = _read(subject)
+    kept = place_reply_emoji(state)
+    assert kept == "**Heat** is energy moving from a hotter body to a colder one."
+
+
+def test_a_subjects_solve_or_a_worked_layout_is_homework() -> None:
+    for field, value in (("unverified_subject", "physics"), ("worked", object())):
+        state = _state(_HEAT_REPLY, "more", said=_HEAT)
+        setattr(state.ctx, field, value)
+        assert "🔥" not in place_reply_emoji(state)
+
+
+@pytest.mark.parametrize("subject", ["everyday", "code", "money"])
+def test_everyday_chat_at_more_keeps_its_emoji(subject: str) -> None:
+    reply = "🌍 **Book early** for Rome ✨"
+    state = _state(reply, "more", said="any tips for my trip to Rome?")
+    state.ctx.live_read = _read(subject)
+    assert place_reply_emoji(state) == reply
+
+
+def test_with_no_read_and_no_reader_the_setting_holds() -> None:
+    state = _state(_HEAT_REPLY, "more", said=_HEAT)
+    assert place_reply_emoji(state) == _HEAT_REPLY

@@ -12,11 +12,14 @@ here:
 
 A worked maths, physics or chemistry solution (Given, Required, Substitution, Answer…) has
 none at any setting: the prompt says so, and at "Lots" its headings still got them. Nor
-does the answer to a school exercise in a textbook's own shape: at "Lots" a book's answers
-ended "**D. Milk** … 💧" (2026-10-31). Only when the whole message is that exercise and
-the user wrote no emoji: "Calculate the tip on $80 at 20% 🍕" or a maths part beside
-other requests keeps the user's setting, and a solver that only read a message decides
-nothing.
+does any reply to a school question, explanations included: "No emoji in homework" (owner,
+2026-11-26, after a Grade 11 physics round answered "what type of error is this?" with ⚡
+📉 🛠️). A school question is what the turn's own readers say it is (``school_turn``): a
+textbook exercise's shape, homework a subject's reader claims, a subject solve or a worked
+layout, or the read's subject (maths, physics, chemistry); never a shape everyday chat shares
+("Estimate how long a road trip takes"). Only when the whole message is that question and
+the user wrote no emoji: "Calculate the tip on $80 at 20% 🍕" or a maths part beside other
+requests keeps the user's setting, as everyday chat does.
 
 Fences (code, cards, the clarify card's options), inline code and table rows are never
 touched, nor is a lesson (its 🐍 and 🎉 are the lesson's own) or server text.
@@ -28,12 +31,14 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from app.core.aio import settled_result
 from app.modules.chat.emoji_repeat import LESSON_HEADING
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 from app.modules.chat.response_tone import DEFAULT_EMOJI_USE
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.turn_reading.routing import EMOJI
 from app.modules.turn_reading.school_question import in_textbook_form
+from app.modules.turn_reading.turn import is_homework
 from app.services.md_fence_scan import line_fences
 from app.services.workout import REQUIRED_PATTERN
 
@@ -257,9 +262,28 @@ def place_reply_emoji(state: FinalizeState) -> str:
     user_wrote_emoji = EMOJI.search(asked) is not None
     homework = (
         not user_wrote_emoji
-        and in_textbook_form(asked)
         and not plan_of(asked, state.settings).multi
+        and school_turn(state.ctx, asked)
     )
     return place_emoji(
         text, state.ctx.user.emoji_use, user_wrote_emoji=user_wrote_emoji, homework=homework
     )
+
+
+# The read's subjects that are school subjects (``turn_decision.Subject``).
+_SCHOOL_SUBJECTS = frozenset({"maths", "physics", "chemistry"})
+
+
+def school_turn(ctx: object, asked: str) -> bool:
+    """The turn is a school question, by the readers the turn already ran: the exercise's
+    shape (``in_textbook_form``), homework a subject's reader claims (``is_homework``), a
+    subject's solve, checked or declined, or a worked layout, else the read's subject. No
+    word of the message decides it here."""
+    if in_textbook_form(asked) or is_homework(asked):
+        return True
+    if getattr(ctx, "verified_subject", None) is not None:
+        return True
+    if getattr(ctx, "unverified_subject", None) or getattr(ctx, "worked", None) is not None:
+        return True
+    decision = settled_result(getattr(ctx, "live_read", None))
+    return decision is not None and decision.subject in _SCHOOL_SUBJECTS
