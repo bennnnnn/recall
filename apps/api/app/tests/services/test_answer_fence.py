@@ -501,3 +501,33 @@ def test_a_closing_boxed_value_is_the_replys_answer_card(reply: str) -> None:
 )
 def test_a_boxed_value_that_is_not_the_closing_answer_is_left(reply: str) -> None:
     assert not boxes_its_answer(reply)
+
+
+@pytest.mark.parametrize(
+    ("answer", "card"),
+    [
+        # Textbook round, 2026-11-26: a capillary rise worked to 2.03 mm had no card.
+        (
+            "**Answer:**\nThe height of the column is approximately **2.03 mm**.",
+            "2.03\\,\\mathrm{mm}",
+        ),
+        ("**Answer:** The rate of heat flow is **0.24 W**.", "0.24\\,\\mathrm{W}"),
+        ("**Answer**\n\nThe uncertainty doubles to **4.62%**.", "4.62\\%"),
+    ],
+)
+def test_a_sentence_that_bolds_its_one_value_is_carded(answer: str, card: str) -> None:
+    landed = land_answer_card(f"$h = 2 \\times 3$\n\n{answer}", None)
+    assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
+    assert landed.rstrip().endswith("**.")  # the sentence stays under the card
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "**Answer:** It moves at **13.45 km/h** at **42° south of east**.",
+        "**Answer:** The capital is **Paris**.",
+    ],
+)
+def test_a_sentence_that_bolds_no_one_value_stays(answer: str) -> None:
+    reply = f"$h = 2 \\times 3$\n\n{answer}"
+    assert land_answer_card(reply, None) == reply

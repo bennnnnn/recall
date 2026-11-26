@@ -560,3 +560,36 @@ def test_a_last_card_left_open_is_held_to_the_server_s_value() -> None:
     assert "32.4" not in after
     closed = close_unclosed_fences(held)
     assert closed.rstrip().endswith("```")
+
+
+@pytest.mark.parametrize(
+    ("server", "working", "card"),
+    [
+        # Thrust less weight over mass: the formal reading's 10 N / 0.2 kg = 50 m/s² left
+        # the weight out (textbook round, 2026-11-26).
+        (
+            _value(50.0, "m/s^2", uses=(10.0, 200.0)),
+            "$F = 10\\,\\mathrm{N}$, $m = 200\\,\\mathrm{g}$\n\n"
+            "$a = \\frac{10 - 0.2 \\times 9.8}{0.2}$\n\n$a = 40.2\\,\\mathrm{m/s^2}$",
+            "40.2\\,\\mathrm{m/s^2}",
+        ),
+        # A couple is F times the distance between its forces: 2 x 20 N x 0.1 m.
+        (
+            _value(2.0, "N*m", uses=(20.0, 10.0)),
+            "$F = 20\\,\\mathrm{N}$, $r = 10\\,\\mathrm{cm}$\n\n"
+            "$\\tau = 2 \\times 20 \\times 0.1$\n\n$\\tau = 4\\,\\mathrm{N{\\cdot}m}$",
+            "4\\,\\mathrm{N\\cdot m}",
+        ),
+    ],
+    ids=["rocket-weight", "couple-arm"],
+)
+def test_a_card_its_own_working_reaches_stands_against_the_server(
+    server: FormalValue, working: str, card: str
+) -> None:
+    """The owner's rule: the server never stamps its value over a worked answer it
+    contradicts. A card the working above it works out stands; only a card no working
+    reaches (a value stated alone, above) gets the server's."""
+    from app.modules.chat.formal_cards import held_to_server
+
+    reply = f"{working}\n\n**Answer**\n\n{_card(card)}"
+    assert held_to_server(reply, (server,), "Worked out again:") == reply

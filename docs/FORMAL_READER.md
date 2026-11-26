@@ -125,7 +125,11 @@ answer disagreed with the server's: that is why finalize requires them to agree.
     within its own rounding (and 0.5% of drift from a working that rounded on the way), for
     any standard value of a constant it uses (g as 9.8, 9.81 or 10: the book's g = 10 gave
     250 Pa, which the old check stamped 245); a card worked from numbers the reply never
-    wrote read the question another way and stands too. Any other card gets the server's
+    wrote read the question another way and stands too, and so does a card the reply's own
+    working works out (a line of arithmetic above it, ending on the card's value): the
+    server never stamps its value over a worked answer it contradicts (owner's rule; the
+    reading left a rocket's weight out and carded 50 m/s² over a working's right 40.2,
+    textbook round 2026-11-26). Any other card, one no working reaches, gets the server's
     value, with "Worked out again from the values in the question:" above it, marked
     `verified: false`.
   - A card is never added. The old check added the server's card under a reply whose value

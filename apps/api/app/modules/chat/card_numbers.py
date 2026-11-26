@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002, RUF003 -- the module reads × and − as a card writes them.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
 """Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
 wrote the card: a subject's solver, the worked layout, the formal check or the model; a
 chemistry solver's checked card is the exception (below).
@@ -54,7 +54,7 @@ from app.services.rounding_rule import (
     number_latex,
     number_parts,
 )
-from app.services.school_rounding import round_places
+from app.services.school_rounding import round_places, trim_zeros
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -169,7 +169,7 @@ def _known_to(body: str, above: str, precision: Precision) -> bool:
 
 def _exactly_whole(card: Number, above: str) -> bool:
     """A whole card the working above it reached as the same whole number."""
-    worked = _worked(above)
+    worked = worked_value(above)
     return (
         card.places == 0
         and worked is not None
@@ -209,6 +209,9 @@ def plain_numbers(body: str) -> tuple[list[str], str, VerifiedValue] | None:
 
 def _shown(body: str, above: str, precision: Precision) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
+    decimals = measured_fractions(body, precision)
+    if decimals != body:
+        return _shown(decimals, above, precision) or decimals
     plain = plain_numbers(body)
     if plain is None:
         return _listed_shown(body, above, precision)
@@ -217,13 +220,54 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
+    unchecked = UNCHECKED_ANSWER_MARKER in headers
     for match, number, worked in zip(written, numbers, each, strict=True):
-        known = worked or _known(match, value, above)
-        own = precision if known is not None else _no_new_figures(match, number, precision)
+        known = worked or _known(match, value, above, unchecked=unchecked)
+        own = (
+            precision
+            if known is not None
+            else _no_new_figures(match, number, precision, unchecked=unchecked, above=above)
+        )
         # The sign stays where the card wrote it, before the match.
         pieces += [value[at : match.start()], _number_shown(match, known or number, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
+    return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+# A fraction of whole numbers a card writes: "7/9", "-23/9", "\frac{30}{7}". Never inside a
+# unit's group ("m/s"), whose parts are letters.
+_FRACTION = re.compile(
+    r"(?:(?P<sign>[-−])\s*)?(?:\\d?frac\s*\{\s*(?P<top>\d+)\s*\}\s*\{\s*(?P<bottom>\d+)\s*\}"
+    r"|(?<![\w./{])(?P<num>\d+)\s*/\s*(?P<den>\d+)(?![\w./]))"
+    # A fraction that multiplies a symbol ("\frac{9}{2}\pi") is an exact expression.
+    r"(?!\s*(?:\\(?:pi|sqrt|cdot|times)\b|[A-Za-z(]))"
+)
+_UNIT_RUN = re.compile(r"\\(?:mathrm|text|textrm)\s*\{([^{}]*)\}")
+
+
+def measured_fractions(body: str, precision: Precision = RULE) -> str:
+    """A card of a measured quantity with its numbers as fractions ("(7/9, −23/9) m/s") has
+    each written as a decimal by the rule, which knows them exactly: a velocity is read to
+    two places, never as ninths (textbook round, 2026-11-26). Only the model's own card: the
+    server's exact form beside its decimal ("\\frac{110}{3} \\approx 36.67 cm") stays, and so
+    does any card that already gives the decimal, a pure number (x = 1/3 is maths' exact
+    answer) and money."""
+    headers, value = answer_header_and_value(body)
+    if UNCHECKED_ANSWER_MARKER not in headers or ROUNDED_TO.search(value):
+        return body
+    units = [group for group in _UNIT_RUN.findall(value) if _measured(group.replace("·", "*"))]
+    if not value or not units or _KEPT.search(value) or _FRACTION.search(value) is None:
+        return body
+
+    def decimal(match: re.Match[str]) -> str:
+        top, bottom = match["top"] or match["num"], match["bottom"] or match["den"]
+        if int(bottom) in (0, 1):
+            return match[0]
+        sign = "-" if match["sign"] else ""
+        return sign + number_latex(Fraction(int(top), int(bottom)), precision)
+
+    shown = _FRACTION.sub(decimal, value)
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
 
 
@@ -234,10 +278,34 @@ def _past_dots(value: str, at: int) -> int:
     return dots.end() if dots is not None else at
 
 
-def _known(match: re.Match[str], value: str, above: str) -> Number | None:
+# A decimal the working above a card writes.
+_WORKED_DECIMAL = re.compile(r"(?<![\w.])\d+\.\d+")
+
+
+def _written_digits(match: re.Match[str], *, unchecked: bool, above: str = "") -> str:
+    """The card's number as known: a model's zeros after its last figure are no figures
+    it knows, unless the working above wrote the value to more places ("8.6957" under a
+    card of 8.70). "20.10 m/s" under a working of "v = 20.1 m/s" claimed a digit nothing
+    worked out, and 21.65 m/s carded "21.70" (textbook round, 2026-11-26): such a card is
+    read as 20.1, worked out again when the working can, never padded (#2591)."""
+    written = match.group("number").replace(",", "")
+    trimmed = trim_zeros(written) if "." in written else written
+    if not unchecked or trimmed == written or power_of(match) is not None:
+        return written
+    places = len(written.partition(".")[2])
+    shown = round_places(written, places)
+    for worked in _WORKED_DECIMAL.findall(above):
+        if len(worked.partition(".")[2]) > places and round_places(worked, places) == shown:
+            return written
+    return trimmed
+
+
+def _known(
+    match: re.Match[str], value: str, above: str, *, unchecked: bool = False
+) -> Number | None:
     """The value a card's number rounds, as the working above it works it out
     (``card_lists.known_value``), when the card shows fewer places than the rule."""
-    written = match.group("number").replace(",", "")
+    written = _written_digits(match, unchecked=unchecked, above=above)
     places = len(written.partition(".")[2])
     # A whole number ("120 N/m") claims no places to fill: working through rounded steps
     # (1/0.008333 is 120.0048) would pad it to 120.00 from a value no step knows exactly.
@@ -255,20 +323,35 @@ def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
     headers, value = answer_header_and_value(body)
     if not value or "\n" in value or CHEMISTRY_NOTATION_LINE in headers or _KEPT.search(value):
         return None
-    if not listed_values(value):
+    if not listed_values(_without_label(value)):
         return None
+    unchecked = UNCHECKED_ANSWER_MARKER in headers
     pieces, at = [], 0
     for match in WRITTEN_NUMBER.finditer(value):
         number = match.group("number")
         if "." not in number or power_of(match) is not None:
             continue
         read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
-        known = _known(match, value, above)
-        own = precision if known is not None else _no_new_figures(match, read, precision)
+        known = _known(match, value, above, unchecked=unchecked)
+        own = (
+            precision
+            if known is not None
+            else _no_new_figures(match, read, precision, unchecked=unchecked, above=above)
+        )
         pieces += [value[at : match.start()], _number_shown(match, known or read, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+# A card's name for its value before it: "\\vec{a} = ", "v_{3} = ".
+_LABEL = re.compile(r"^[^=\d]*(?:_\{?\w+\}?[^=\d]*)?=\s*")
+
+
+def _without_label(value: str) -> str:
+    """The card's value without the name it gives it: "\\vec{a} = 0.298\\hat{i} m/s²" lists
+    one vector, as its value alone does."""
+    return _LABEL.sub("", value, count=1)
 
 
 def _number_shown(match: re.Match[str], number: Number, precision: Precision) -> str:
@@ -283,7 +366,14 @@ def _figures(text: str) -> int:
     return len(text.replace(",", "").replace(".", "").lstrip("0")) or 1
 
 
-def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) -> Precision:
+def _no_new_figures(
+    match: re.Match[str],
+    number: Number,
+    precision: Precision,
+    *,
+    unchecked: bool = False,
+    above: str = "",
+) -> Precision:
     """The card's own value, with no working to take it from: the rule shows no more figures
     than the card wrote, never a padded zero. A Kp of 1.2 x 10^-4 (two figures, from
     1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had, and a θ of 43.9° (from
@@ -292,7 +382,7 @@ def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) 
     if precision != RULE:
         return precision
     mantissa, exponent = number_parts(abs(number.value), precision)
-    digits = match.group("number").replace(",", "")
+    digits = _written_digits(match, unchecked=unchecked, above=above)
     written = _figures(digits)
     if _figures(mantissa) <= written:
         return precision
@@ -317,7 +407,7 @@ def _money(unit: str) -> bool:
     return bool(unit) and MONEY.names_currency(unit)
 
 
-def _worked(above: str) -> Number | None:
+def worked_value(above: str) -> Number | None:
     """The one value the working above a card ends on: its last line of maths, the side
     after its last "="."""
     lines = _INLINE_MATHS.findall(above)
@@ -366,7 +456,7 @@ def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
 def _unrounded(card: Number, above: str) -> Number | None:
     """The value the working above the card reached, when the card's value is a rounding
     of it in the same unit."""
-    worked = _worked(above)
+    worked = worked_value(above)
     if worked is None or not rounding_of(card, worked):
         return None
     return _signed_as(card, worked)

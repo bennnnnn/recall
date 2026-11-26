@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- a card's minus is read as either sign a reply writes.
+# ruff: noqa: RUF001, RUF002 -- a card's minus is read as either sign a reply writes.
 """An unchecked answer card held to the working's last line above it.
 
 A model that ends its working on an expression it never works out ("$\\text{total} = 5 +
@@ -260,3 +260,88 @@ def _said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: boo
         elif not dropped:
             lines.append(wrong.sub(said, line))
     return "\n".join(lines)
+
+
+# A vector's component as working writes one: "-9.0435\hat{i}", "8.6957 \hat{j}".
+_COMPONENT = re.compile(r"(?P<sign>[-+−]?)\s*(?P<number>\d+(?:\.\d+)?)\s*\\hat\s*\{?\s*[ijk]\b")
+# A number on a card, and whether an angle's mark follows it.
+_CARD_NUMBER = re.compile(
+    r"(?<![\w.^_{])(?P<number>\d+(?:\.\d+)?)(?P<angle>\s*(?:\^\s*\{?\s*\\circ|°))?"
+)
+
+
+def _last_vector(above: str) -> list[float] | None:
+    """The components the working's last line of vector maths reaches, unrounded."""
+    for line in reversed(INLINE_MATH.findall(above)):
+        side = RELATION.split(line)[-1]
+        found = [
+            float(match["number"]) * (-1 if match["sign"] in ("-", "−") else 1)
+            for match in _COMPONENT.finditer(side)
+        ]
+        if len(found) >= 2:
+            return found
+    return None
+
+
+def _rounds_to(value: float, written: str) -> bool:
+    places = len(written.partition(".")[2])
+    return abs(abs(value) - float(written)) <= 0.5 * 10.0**-places * (1 + 1e-9) + 1e-12
+
+
+# A moment's unit on a card: N·m, N m, Nm, N\cdot m, N·cm.
+_MOMENT_UNIT = re.compile(r"\bN\s*(?:·|⋅|\\cdot|\{\\cdot\}|\\,|\\ |\s)?\s*c?m\b")
+# The sense a card says a moment turns in, with the brackets or words around it:
+# "(clockwise)", "\text{ anticlockwise}", "counter-clockwise".
+_SENSE = re.compile(
+    r"\s*(?:\\text\{\s*)?\(?\s*(?:anti-?|counter-?)?clockwise\s*\)?(?:\s*\})?", re.IGNORECASE
+)
+
+
+def without_unbacked_senses(text: str) -> str:
+    """Each unchecked moment card without the sense of turning it claims. No solver read
+    the picture, so whether it turns clockwise is the model's guess, and it guessed wrong
+    in three of four (textbook round, 2026-11-26: two downward forces left of Q, carded
+    "2.05 N·m (clockwise)"). The working above says why it turns as it does; the card
+    claims only the size the arithmetic gives."""
+    for answer in reversed(list(answer_cards(text))):
+        body = answer.body(text)
+        headers, value = answer_header_and_value(body)
+        if VERIFIED_ANSWER_MARKER in headers or not _MOMENT_UNIT.search(value):
+            continue
+        bare = _SENSE.sub("", value).rstrip()
+        if bare != value and any(character.isdigit() for character in bare):
+            at = answer.fence.body_start + body.rfind(value)
+            text = f"{text[:at]}{bare}{text[at + len(value) :]}"
+    return text
+
+
+def held_vector_sizes(text: str) -> str:
+    """Each unchecked card that lists a vector's components, as the working reached them,
+    then its size, with the size the components give: "−9.04 m/s, 8.70 m/s, 12.30 m/s"
+    under a working of −9.0435 î + 8.6957 ĵ is 12.55 m/s (textbook round, 2026-11-26: no
+    working line wrote the size, so no check read it). The size said again after the card
+    follows it."""
+    for answer in reversed(list(answer_cards(text))):
+        body = answer.body(text)
+        headers, value = answer_header_and_value(body)
+        components = _last_vector(text[answer.since_card : answer.fence.start])
+        if VERIFIED_ANSWER_MARKER in headers or not value or components is None:
+            continue
+        numbers = [match for match in _CARD_NUMBER.finditer(value) if not match["angle"]]
+        count = len(components)
+        listed = zip(components, numbers, strict=False)
+        if len(numbers) != count + 1 or not all(_rounds_to(c, m["number"]) for c, m in listed):
+            continue
+        size = math.sqrt(sum(component**2 for component in components))
+        shown = numbers[count]["number"]
+        if _rounds_to(size, shown) or math.isclose(float(shown), size, rel_tol=0.005):
+            continue
+        at = answer.fence.body_start + body.rfind(value) + numbers[count].start()
+        if text[at : at + len(shown)] != shown:
+            continue
+        said = shown_like(size, shown)
+        closing = _closing_end(text, answer.fence.body_end)
+        wrong = _repeats({shown, shown.rstrip("0").rstrip(".") if "." in shown else shown})
+        tail = _said_again(text[answer.fence.body_end : closing], wrong, said, dropped=False)
+        text = f"{text[:at]}{said}{text[at + len(shown) : answer.fence.body_end]}{tail}{text[closing:]}"
+    return text

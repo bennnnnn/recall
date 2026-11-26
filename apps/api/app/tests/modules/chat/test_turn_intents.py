@@ -399,6 +399,22 @@ def test_a_multi_part_turn_is_never_offered_a_turn_ending_photo_tool() -> None:
     assert multi == []
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        # Textbook round, 2026-11-26: two parts, the first carded 300 ft/min.
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Give your answer "
+        "in metres per second.",
+        "A ball falls 20 m. How long does it take? Round it to 1 dp.",
+        "A car goes 100 m in 5 s. Find its speed. Show your working.",
+        "What is 3/4 + 1/8? Give your answer as a fraction.",
+        "Why do ice cubes float? Explain your answer.",
+    ],
+)
+def test_an_order_about_the_answer_is_the_question_s_own(message: str) -> None:
+    assert len(plan_turn(message).parts) == 1
+
+
 def test_plan_type_is_plain_data() -> None:
     plan = TurnPlan((TurnPart("a"), TurnPart("b", "solve")), context="c")
     assert plan.multi and plan.of_kind("solve") == (TurnPart("b", "solve"),)

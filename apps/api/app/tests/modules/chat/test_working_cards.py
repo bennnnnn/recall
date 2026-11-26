@@ -208,3 +208,43 @@ def test_the_note_never_lands_inside_a_card_left_open() -> None:
     assert card.closed
     assert "Check the answer" not in text[card.body_start : card.body_end]
     assert text.rstrip().endswith("not $37$.")
+
+
+_JUNCTION = (
+    "$\\vec{v}_f = -9.0435\\hat{i} + 8.6957\\hat{j}\\,\\mathrm{m/s}$\n\n**Answer (b)**\n\n"
+    "```answer\nverified: false\n$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, "
+    "$12.30\\,\\mathrm{m/s}$ ($43.9^\\circ$ north of west)\n```\n\n"
+    "They move at **12.3 m/s**."
+)
+
+
+def test_a_vector_s_size_is_the_size_its_components_give() -> None:
+    """Textbook round, 2026-11-26: the junction's cars carded 12.30 m/s for 12.55."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = held_vector_sizes(_JUNCTION)
+    assert "$12.55\\,\\mathrm{m/s}$ ($43.9^\\circ$" in text
+    assert text.endswith("They move at **12.55 m/s**.")
+
+
+def test_a_right_vector_size_stands() -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    right = _JUNCTION.replace("12.30", "12.55").replace("12.3 ", "12.55 ")
+    assert held_vector_sizes(right) == right
+
+
+@pytest.mark.parametrize(
+    ("card", "kept"),
+    [
+        ("$2.05\\,\\mathrm{N·m}$ (clockwise)", "$2.05\\,\\mathrm{N·m}$"),
+        ("0.36\\,\\mathrm{N\\,m} \\text{ anticlockwise}", "0.36\\,\\mathrm{N\\,m}"),
+        # Not a moment: a direction it has is the card's to keep.
+        ("$5\\,\\mathrm{m/s}$ (clockwise)", "$5\\,\\mathrm{m/s}$ (clockwise)"),
+    ],
+)
+def test_an_unchecked_moment_card_claims_no_sense(card: str, kept: str) -> None:
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert without_unbacked_senses(text) == f"**Answer**\n\n```answer\nverified: false\n{kept}\n```"

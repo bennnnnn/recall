@@ -227,7 +227,7 @@ def unit_names_as_symbols(text: str) -> str:
 @lru_cache(maxsize=512)
 def _symbol_of_name(spelling: str) -> str | None:
     """The symbol the unit table reads as the unit this one word names, or None."""
-    from app.modules.physics.givens import PHYSICS_UNITS
+    from app.modules.physics.givens import PHYSICS_UNITS, unit_symbol
 
     if not spelling.isalpha() or len(spelling) < 4:
         return None
@@ -240,14 +240,7 @@ def _symbol_of_name(spelling: str) -> str | None:
         or expression in _TEMPERATURE_SCALES
     ):
         return None
-    symbols = [
-        written
-        for table in (PHYSICS_UNITS.symbols, PHYSICS_UNITS.words)
-        for written, read in table.items()
-        if read == expression and _is_symbol(written)
-    ]
-    # The shortest, and of two as short the one a keyboard types: "uC" before "µC".
-    return min(symbols, key=lambda written: (len(written), not written.isascii()), default=None)
+    return unit_symbol(expression)
 
 
 # Kinds every reader already reads in words, which stay as written: a length, a time and
@@ -255,14 +248,6 @@ def _symbol_of_name(spelling: str) -> str | None:
 # A temperature scale keeps its name too: "20 °c" is no spelling a reader expects.
 _READ_AS_WORDS = frozenset({"[length]^1", "[time]^1", ANGLE, "dimensionless"})
 _TEMPERATURE_SCALES = frozenset({"degC", "degF"})
-
-
-def _is_symbol(written: str) -> bool:
-    """A unit symbol: "N", "kg", "Hz", "Ω", "µF". A word, however short, is not one: "mol"
-    is read as written by the readers that know it."""
-    if not written.isascii():
-        return True
-    return len(written) <= 2 or not (written.isalpha() and written.islower())
 
 
 # "only 1/16 of a sample": a fraction of something, whose denominator has only

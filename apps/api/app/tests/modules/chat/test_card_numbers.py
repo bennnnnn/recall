@@ -301,3 +301,52 @@ def test_a_card_of_a_multi_digit_power_keeps_it_whole() -> None:
     """10^23 is ten to the 23rd: read as 10^2 and a 3, the card was two numbers."""
     reply = _card("N = 6.02 × 10^23")
     assert card_numbers(reply, Precision()) == _card("N = 6.02 \\times 10^{23}")
+
+
+@pytest.mark.parametrize(
+    ("working", "card", "shown"),
+    [
+        # A model's zero past its last figure is no figure: 20.1 under "v = 20.1 m/s".
+        ("$v = 20.1\\,\\mathrm{m/s}$", "20.10\\,\\mathrm{m/s}", "20.1\\,\\mathrm{m/s}"),
+        # Worked out again where the working can: I = 5/2 is 2.50 A, known to its zeros.
+        ("$I = \\frac{5}{2}$", "2.50\\,\\mathrm{A}", "2.50\\,\\mathrm{A}"),
+        # The working wrote it to more places: 8.6957 is 8.70, its zero known.
+        (
+            "$\\vec{v} = 8.6957\\hat{j}$",
+            "8.70\\hat{j}\\,\\mathrm{m/s}",
+            "8.70\\hat{j}\\,\\mathrm{m/s}",
+        ),
+    ],
+    ids=["padded", "known-zeros", "worked-places"],
+)
+def test_a_model_s_padded_zero_is_no_figure_it_knows(working: str, card: str, shown: str) -> None:
+    """Textbook round, 2026-11-26: 21.65 m/s carded 21.70, 20.106 m/s carded 20.10."""
+    reply = f"{working}\n\n**Answer**\n\n{_card(card)}"
+    assert card_numbers(reply, Precision()).endswith(_card(shown))
+
+
+def test_a_server_card_keeps_its_zeros() -> None:
+    assert card_numbers(_card("2.50\\,\\mathrm{A}", "true"), Precision()) == _card(
+        "2.50\\,\\mathrm{A}", "true"
+    )
+
+
+@pytest.mark.parametrize(
+    ("card", "shown"),
+    [
+        (
+            "\\begin{pmatrix}7/9\\\\-23/9\\end{pmatrix}\\,\\mathrm{m/s}",
+            "\\begin{pmatrix}0.78\\\\-2.56\\end{pmatrix}\\,\\mathrm{m/s}",
+        ),
+        ("v = \\frac{30}{7}\\,\\mathrm{m/s}", "v = 4.29\\,\\mathrm{m/s}"),
+        ("x = 1/3", "x = 1/3"),  # a pure number keeps maths' exact fraction
+    ],
+)
+def test_a_measured_card_s_fractions_are_decimals(card: str, shown: str) -> None:
+    """A velocity of (7/9, -23/9) m/s is read to two places, never in ninths."""
+    assert card_numbers(_card(card), Precision()) == _card(shown)
+
+
+def test_a_named_vector_card_follows_the_rule() -> None:
+    reply = _card("\\vec{a} = 0.298\\hat{i}\\ \\text{m/s}^2")
+    assert card_numbers(reply, Precision()) == _card("\\vec{a} = 0.30\\hat{i}\\ \\text{m/s}^2")

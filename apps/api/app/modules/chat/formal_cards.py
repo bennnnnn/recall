@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001, RUF003 -- the module reads × and − as replies write them.
 """The reply's own answer cards held to the server's values, card to card.
 
 Each ```answer card the reply ends a part on is read as a quantity (its number and unit,
@@ -8,9 +9,14 @@ value. Cards of one kind with no names are never paired by order, so never corre
 unit and size, is within the card's rounding of it, anywhere in the range the standard
 constants allow (g as 9.8 or 10: the book's g is an assumption, not an error), and when
 the reply never wrote one of the question's numbers the server's value is worked from, it
-read the question another way and is not held to that reading. Any other card is the
-server's: its value replaces the card's, with one line saying where it comes from. No card
-is ever added: a part the reply did not card keeps what it wrote.
+read the question another way and is not held to that reading. A card its own working
+reaches (the working above it ends on the card's value) stands too: the reply worked the
+question out its own way, and the server never stamps its value over a worked answer it
+contradicts (owner's rule; a rocket's 40.2 m/s², thrust less weight over mass, was carded
+the formal reading's 10 N / 0.2 kg = 50 m/s², textbook round 2026-11-26). Any other card,
+one no working reaches, is the server's: its value replaces the card's, with one line
+saying where it comes from. No card is ever added: a part the reply did not card keeps
+what it wrote.
 """
 
 from __future__ import annotations
@@ -19,9 +25,10 @@ import logging
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
+from app.modules.chat.card_numbers import worked_value
 from app.modules.chat.card_walk import answer_cards, is_card
 from app.services.answer_check import read_verified_value
 from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
@@ -59,6 +66,8 @@ class ReplyCard:
     places: int | None
     # The card's own name for its value ("T2" from "T_2 = 30 N"), "" for none.
     label: str = ""
+    # The working above the card ends on the card's value: the reply worked it out.
+    worked: bool = False
 
 
 def reply_cards(text: str) -> list[ReplyCard]:
@@ -73,18 +82,39 @@ def reply_cards(text: str) -> list[ReplyCard]:
         if read is None or len(read.numbers) != 1:
             continue
         number = read.numbers[0]
-        cards.append(
-            ReplyCard(
-                letter=_letter(above),
-                body_start=fence.body_start,
-                body_end=fence.body_end,
-                value=float(number.value),
-                unit=number.unit,
-                places=number.places,
-                label=read.label or "",
-            )
+        card_read = ReplyCard(
+            letter=_letter(above),
+            body_start=fence.body_start,
+            body_end=fence.body_end,
+            value=float(number.value),
+            unit=number.unit,
+            places=number.places,
+            label=read.label or "",
         )
+        cards.append(replace(card_read, worked=_worked_to(card_read, above)))
     return cards
+
+
+# A line of working that works something out: numbers joined by an operation ("2 × 20 ×
+# 0.1", "\frac{8.04}{0.2}", "10 - 1.96"). A value stated alone ("R = 32.4 m") works nothing.
+_ARITHMETIC = re.compile(
+    r"\d\s*(?:\\times|\\cdot|\\div|[×·*/+\-−^÷])\s*[\d(\\{]|\\(?:frac|sqrt|dfrac)\b"
+)
+_INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
+
+
+def _worked_to(card: ReplyCard, above: str) -> bool:
+    """The working above the card works its value out: it ends on the card's value, within
+    the card's rounding and in a unit of the card's kind, below a line of arithmetic."""
+    worked = worked_value(above)
+    if worked is None or not any(_ARITHMETIC.search(line) for line in _INLINE_MATHS.findall(above)):
+        return False
+    kinds = [_kind(unit) for unit in (worked.unit, card.unit) if unit]
+    if len(kinds) == 2 and None not in kinds and kinds[0] != kinds[1]:
+        return False
+    reached = abs(float(worked.value))
+    slack = max(_rounding(card), _ROUNDING * reached)
+    return abs(reached - abs(card.value)) <= slack
 
 
 # A value's other form in brackets after it, opened after a space: "0.840 (84.0 percent)".
@@ -397,6 +427,9 @@ def held_to_server(
     for card, value in _pairs(reply_cards(text), values):
         if not _read_it_so(value, numbers):
             logger.info("formal answer: the reply read a part another way")
+            continue
+        if card.worked:
+            logger.info("formal answer: the reply's working reaches its card, which stands")
             continue
         verdict = agrees(card, value, asked)
         logger.info("formal answer: a card agrees=%s", verdict is True)

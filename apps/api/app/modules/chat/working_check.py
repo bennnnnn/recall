@@ -615,8 +615,10 @@ def _restates(earlier: str, later: str) -> bool:
 # A worked solution: its equalities are claims, not a quiz ("is 3 * 4 = 13?"). The
 # indent is ``[^\S\n]*``, not ``\s*``: from each line start ``\s*`` ran over every blank
 # line below it, quadratic in a run of them, and found no heading the next start misses.
+# "**Answer:**" with its colon inside the bold is the same heading (textbook round,
+# 2026-11-26: a capillary rise worked to 2.03 mm under it had no card).
 _WORKOUT_HEADING = re.compile(
-    r"^[^\S\n]*\*\*(?:Substitution|Steps|Answer|Working|\d+\.[^*\n]+)\*\*", re.MULTILINE
+    r"^[^\S\n]*\*\*(?:Substitution|Steps|Answer|Working|\d+\.[^*\n]+):?\*\*", re.MULTILINE
 )
 
 

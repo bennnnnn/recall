@@ -20,7 +20,11 @@ from app.modules.chat.simulation_fences import drop_open_fences, strip_model_dra
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_recap_tail, drop_restated_tail
 from app.modules.chat.working_approximations import corrected_approximations
-from app.modules.chat.working_cards import held_cards
+from app.modules.chat.working_cards import (
+    held_cards,
+    held_vector_sizes,
+    without_unbacked_senses,
+)
 from app.modules.chat.working_check import (
     is_worked_solution,
     working_note,
@@ -349,6 +353,7 @@ def check_working(state: FinalizeState) -> str:
         # The card is the working's last step: an expression left unworked and a card that
         # is not its value (``working_cards``).
         text, card_note = held_cards(text, ctx.user_message_content or "")
+        text = without_unbacked_senses(held_vector_sizes(text))
         note = note or card_note
         comma = reply_writes_decimal_comma(ctx)
         text = drop_restated_tail(text, ctx.user_message_content or "", decimal_comma=comma)

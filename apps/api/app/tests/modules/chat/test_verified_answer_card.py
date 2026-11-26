@@ -278,7 +278,8 @@ async def test_a_sympy_timeout_still_demotes_the_models_answer_fence(
         ("Roots: $x = 2$ or $x = 3$ (verified).", "Roots: $x = 2$ or $x = 3$."),
         ("**Answer**  \n$F = 15000\\ \\text{N}$ (verified)", "F = 15000\\ \\text{N}"),
         ("The force is 15000 N. This was verified by the solver.", "The force is 15000 N."),
-        ("**Verified answer:** $x = 7$", "**Answer:** $x = 7$"),
+        # "**Answer:**" is a worked solution's Answer heading: its value is carded.
+        ("**Verified answer:** $x = 7$", "x = 7"),
         ("x = 7 ✓ Checked with SymPy", "x = 7"),
     ],
 )

@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002, RUF003 -- the point of this module is × and superscripts.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the point of this module is × and superscripts.
 """How an answer card shows its number, for every subject: the one rule (owner, 2026-11-18).
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
@@ -95,12 +95,46 @@ _WORD = re.compile(r"[a-z']+", re.IGNORECASE)
 _ALONE_WORDS = 8
 
 
+# "to the correct number of significant figures", "an appropriate number of sig figs": the
+# precision of the question's own data, which a school class grades.
+_DATA_FIGURES = re.compile(
+    r"\b(?:correct|appropriate|right|proper|suitable|sensible|same)\s+number\s+of\s+"
+    r"(?:significant\s+(?:figures?|digits?)|sig(?:nificant)?\.?\s*figs?|s\.\s?f\.?)",
+    re.IGNORECASE,
+)
+# A power of ten after a mantissa, whose digits are no measurement: "× 10^{5}", "x 10⁻³".
+_POWER_OF_TEN = re.compile(
+    r"\s*(?:×|x|\*|\\times|\\cdot)\s*10\s*"
+    r"(?:\^\s*\{?\s*[-−+]?\d+\s*\}?|[⁻⁺]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
+)
+_STATED_NUMBER = re.compile(r"(?<![\w.^_{])(\d+(?:\.\d+)?)(?![\w])(?!\.\d)")
+
+
+def data_figures(text: str) -> int:
+    """The fewest significant figures a value ``text`` states is written to, 0 for none: "a
+    distance of 4.345 m in 1.2 s" is 2. A whole number ending in zeros (3000 feet, 10
+    minutes) says no precision, its zeros maybe only holding places, and limits nothing."""
+    counts = []
+    for match in _STATED_NUMBER.finditer(_POWER_OF_TEN.sub(" ", text)):
+        digits = match.group(1)
+        if "." not in digits and digits != digits.rstrip("0"):
+            continue
+        counts.append(len(digits.replace(".", "").lstrip("0")) or 1)
+    return min(counts, default=0)
+
+
 def asked_precision(text: str) -> Precision:
-    """The precision ``text`` asks for (``school_rounding.asked_rounding``, no rounding, or a
-    precision said on its own, ``precision_only``)."""
+    """The precision ``text`` asks for (``school_rounding.asked_rounding``, no rounding, the
+    data's own significant figures, or a precision said on its own, ``precision_only``).
+
+    "Give the answer to the correct number of significant figures" asks the precision of the
+    data: a trolley going 4.345 m in 1.2 s is 3.6 m/s, and its card read 3.62 m/s, verified
+    (textbook round, 2026-11-26)."""
     if _UNROUNDED.search(text):
         return Precision(unrounded=True)
     figures, places, _span = asked_rounding(text)
+    if figures == 0 and places < 0 and _DATA_FIGURES.search(text):
+        figures = min(data_figures(_DATA_FIGURES.sub(" ", text)), MOST_DIGITS)
     if figures == 0 and places < 0:
         return precision_only(text) or RULE
     return Precision(figures=min(figures, MOST_DIGITS), places=min(places, MOST_DIGITS))

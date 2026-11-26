@@ -1,0 +1,11 @@
+[
+  {"id": "tb26-001", "area": "textbook_2026_11_26", "prompt": "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Give your answer in metres per second.", "expect": "answer", "answer": [1.524, "m/s"]},
+  {"id": "tb26-002", "area": "textbook_2026_11_26", "prompt": "A trolley travels a distance of 4.345 m in a time of 1.2 s. What is its average speed? Give the answer to the correct number of significant figures.", "expect": "answer", "answer": [3.62083, "m/s"]},
+  {"id": "tb26-003", "area": "textbook_2026_11_26", "prompt": "A box is attached to a rope, which runs over a pulley above the box. The man pulls the rope with a force of 75 N at an angle of 50° to the horizontal. The man raises the box 1.5 m. Use the scalar product to find the work done on the box.", "expect": "decline"},
+  {"id": "tb26-004", "area": "textbook_2026_11_26", "prompt": "A mechanic tightens a nut and turns it through half a turn. A force of 270 N is used at a perpendicular distance of 50 cm. How much work is done by the mechanic?", "expect": "decline"},
+  {"id": "tb26-005", "area": "textbook_2026_11_26", "prompt": "A mechanic applies a torque of 100 N m over a half turn and takes 2 seconds. What is the power?", "expect": "decline"},
+  {"id": "tb26-006", "area": "textbook_2026_11_26", "prompt": "A box is pulled along the floor by a rope at 30° to the horizontal with a force of 50 N for 10 m. How much work is done?", "expect": "answer", "answer": [433.013, "J"]},
+  {"id": "tb26-007", "area": "textbook_2026_11_26", "prompt": "A motor pulls with a force of 50 N at 2 m/s while its wheel turns at 3 revolutions per second. What is the power?", "expect": "answer", "answer": [100.0, "W"]},
+  {"id": "tb26-008", "area": "textbook_2026_11_26", "prompt": "A car travels 150 km in 2 hours. What is its average speed in km per hour?", "expect": "answer", "answer": [75.0, "km/h"]},
+  {"id": "tb26-009", "area": "textbook_2026_11_26", "prompt": "Two forces of 20 N act as a couple. The forces act at a distance of 10 cm from the centre of rotation. What is the torque produced by the couple?", "expect": "decline"}
+]

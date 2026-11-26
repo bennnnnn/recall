@@ -100,3 +100,21 @@ def test_a_message_that_asks_more_than_a_precision(said: str) -> None:
     from app.services.rounding_rule import precision_only
 
     assert precision_only(said) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "figures"),
+    [
+        # 4.345 m in 1.2 s: the time's two figures (textbook round, 2026-11-26: 3.62 m/s).
+        (
+            "A trolley travels a distance of 4.345 m in a time of 1.2 s. What is its average "
+            "speed? Give the answer to the correct number of significant figures.",
+            2,
+        ),
+        ("2.0 × 10^{5} Pa and 0.0500 m: give it to an appropriate number of sig figs", 2),
+        # A whole number ending in zeros says no precision: nothing limits the answer.
+        ("3000 feet in 10 minutes, to the correct number of significant figures", 0),
+    ],
+)
+def test_the_data_s_precision_is_asked(question: str, figures: int) -> None:
+    assert asked_precision(question) == Precision(figures=figures)

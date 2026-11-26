@@ -87,6 +87,9 @@ class CountedItems:
     count: int | None
     # The values stated once for every item, as the givens scanner reads them.
     each: tuple[Given, ...]
+    # A value "of" the items, right after their noun ("two forces of 20 N"): each one's or
+    # all of theirs, the words do not say (``_said_of``).
+    said_of: tuple[Given, ...] = ()
 
 
 def _count(word: str) -> int:
@@ -96,6 +99,33 @@ def _count(word: str) -> int:
     if lower.endswith("dozen"):
         return 6 if lower.startswith("half") else 12
     return int(lower) if lower.isdigit() else number_word_value(lower) or 0
+
+
+# "Two forces of 20 N", "two lamps of 6 Ω": a value "of" the items counted.
+_OF_EACH = re.compile(r"\s+of\s+")
+# "each" right after the value: "of 2 µC each" is each one's.
+_EACH_SAID = re.compile(r"\s*each\b", re.IGNORECASE)
+# Another value listed after it: "two resistors of 10 Ω and 20 Ω" give one value each.
+_ANOTHER_LISTED = re.compile(r"\s*(?:,|and|or)\s*\d")
+
+
+def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
+    """The one value "of" says of the counted items right after their noun. Whether it is
+    each item's or all of theirs is unsaid ("two lamps of 6 Ω"), so a solve that reads it
+    once is refused: a couple's "two forces of 20 N" was one force, carded τ = 2 N·m,
+    verified, for 4 N·m (textbook round, 2026-11-26). A list of values after it ("of 10 Ω
+    and 20 Ω", "of 4 and 6 ohms") gives each item its own, and "each" after it ("of 2 µC
+    each") says it is each one's."""
+    joined = _OF_EACH.match(text, end)
+    given = next((g for g in givens if joined and g.start == joined.end()), None)
+    if given is None:
+        return ()
+    after = _unit_end(text, given)
+    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or _EACH_SAID.match(
+        text, after
+    ):
+        return ()
+    return (given,)
 
 
 def _unit_end(text: str, given: Given) -> int:
@@ -155,6 +185,7 @@ def counted_items(text: str) -> list[CountedItems]:
                 own.append(after)
         count = _count(found.group("count"))
         counts.append((found.start(), named.end(), named.group("noun").lower(), count, own))
+    said_of = {end: _said_of(text, end, givens) for _, end, _, _, own in counts if not own}
     plural = {noun for _, _, noun, _, _ in counts}
     # "Two resistors ... Each resistor is 3 Ω": the noun said once more, singular.
     nouns = frozenset(plural | {re.sub(r"(?:es|s)$", "", noun) for noun in plural})
@@ -168,14 +199,17 @@ def counted_items(text: str) -> list[CountedItems]:
     for start, end, noun, count, own in counts:
         sentence = _sentence(text, start)
         mine = [g for g in each if sentence[0] <= g.start < sentence[1] and g.start >= end]
-        found_items.append(CountedItems(noun, count, tuple(dict.fromkeys([*own, *mine]))))
+        values = tuple(dict.fromkeys([*own, *mine]))
+        found_items.append(
+            CountedItems(noun, count, values, () if values else said_of.get(end, ()))
+        )
     claimed = {given for item in found_items for given in item.each}
     loose = tuple(given for given in each if given not in claimed)
     if loose and len(found_items) == 1:
         # "Two resistors ... Each is 3 Ω", "Each resistor is 10 Ω. Two of them ...": the one
         # count names the items "each" is said of.
         only = found_items[0]
-        found_items = [CountedItems(only.noun, only.count, (*only.each, *loose))]
+        found_items = [CountedItems(only.noun, only.count, (*only.each, *loose), only.said_of)]
     elif loose:
         found_items.append(CountedItems("", None, loose))
     return found_items
