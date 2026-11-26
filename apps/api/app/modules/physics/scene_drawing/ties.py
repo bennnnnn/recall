@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from itertools import pairwise
 
 from app.modules.physics.scene_drawing.headings import clause_at, sentence_at
 from app.services.law_binding.givens import Given
@@ -105,7 +106,7 @@ def _alternating(start: int, values: Sequence[Given], rivals: Sequence[Given]) -
     marks = sorted([(start, "mass"), *((r.start, "mass") for r in rivals)])
     items = sorted([*marks, *((v.start, "value") for v in values)])
     kinds = [kind for _at, kind in items]
-    if len(kinds) % 2 or any(a == b for a, b in zip(kinds, kinds[1:], strict=False)):
+    if len(kinds) % 2 or any(a == b for a, b in pairwise(kinds)):
         return None
     at = [position for position, _kind in items].index(start)
     partner = at + 1 if kinds[0] == "mass" else at - 1

@@ -123,7 +123,7 @@ def test_an_asked_after_velocity_leaves_the_stated_ones_before(question: str) ->
 def test_a_mass_ties_to_its_body_by_letter_or_in_order(question: str) -> None:
     cars = [_arrow("20 m/s", "north", mass="1000 kg"), _arrow("16 m/s", "west", mass="1300 kg")]
     (spec,) = _drawn(question, "bodies", "velocity", cars)
-    assert [b.label for b in spec.bodies][0].endswith("1000 kg")
+    assert (spec.bodies[0].label or "").endswith("1000 kg")
     swapped = [{**cars[0], "mass": "1300 kg"}, {**cars[1], "mass": "1000 kg"}]
     assert _drawn(question, "bodies", "velocity", swapped) == []
 
