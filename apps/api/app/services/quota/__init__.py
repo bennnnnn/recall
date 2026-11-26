@@ -16,7 +16,6 @@ from app.services.quota.carryover import (
 )
 from app.services.quota.chat_messages import (
     daily_message_limit,
-    has_message_left,
     messages_used,
     refund_message,
     reserve_message,
@@ -72,6 +71,7 @@ from app.services.quota.tokens import (
     daily_limit_for_user,
     get_daily_usage,
     has_daily_usage_key,
+    has_turn_left,
     heal_usage_drift,
     mark_usage_needs_heal,
     refund_usage,
@@ -113,7 +113,7 @@ __all__ = [
     "get_global_spend_micro_usd",
     "global_spend_exceeded",
     "has_daily_usage_key",
-    "has_message_left",
+    "has_turn_left",
     "heal_usage_drift",
     "live_talk_allowance_seconds",
     "live_talk_seconds_left",

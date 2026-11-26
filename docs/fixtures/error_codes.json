@@ -56,6 +56,20 @@
    "sign_in_with": "apple"
   }
  },
+ "account_delete_unconfirmed": {
+  "status": 400,
+  "detail": {
+   "code": "confirm_required",
+   "message": "Confirm the deletion to delete the account."
+  }
+ },
+ "todo_limit": {
+  "status": 409,
+  "detail": {
+   "code": "todo_limit",
+   "message": "You have 1000 open to-dos, the most Recall keeps. Complete or delete some to add more."
+  }
+ },
  "presign_unsupported_type": {
   "status": 400,
   "detail": {

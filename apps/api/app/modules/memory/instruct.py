@@ -124,6 +124,8 @@ async def apply_memory_instruction(
                 expected_facts=snapshot.existing_facts,
                 manual_edit=True,
                 applied=applied,
+                # The user waits on this: a slow provider leaves the vectors to a later pass.
+                embed_timeout_seconds=settings.memory_instruct_embed_seconds,
             )
         # An op that did not validate was still proposed: "Added it" must not stand.
         proposed = len(result.ops) + result.dropped

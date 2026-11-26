@@ -10,6 +10,7 @@ import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
+import { todoErrorKey } from "@/features/todos/model/todoLimit";
 import { alertDialog, confirmDialog, offerSettings } from "@/ui/overlay/dialogs";
 import { useLatestRef } from "@/lib/latestRef";
 
@@ -101,9 +102,9 @@ export function useTodosActions({ token, userId, todos, getTodos,
       const updated = await request(snapshot);
       applyTodos((rows) => updated ? replaceTodoById(rows, id, updated) : removeTodoById(rows, id));
       return true;
-    } catch {
+    } catch (error) {
       applyTodos((rows) => replaceTodoById(rows, id, snapshot));
-      reportError(errorKey);
+      reportError(todoErrorKey(error, errorKey));
       reconcile();
       return false;
     } finally {
@@ -152,9 +153,9 @@ export function useTodosActions({ token, userId, todos, getTodos,
       if (canAct()) {
         onCreated(created);
       }
-    } catch {
+    } catch (error) {
       applyTodos((rows) => removeTodoById(rows, optimistic.id));
-      reportError("todos.error_create");
+      reportError(todoErrorKey(error, "todos.error_create"));
       reconcile();
     } finally {
       release();

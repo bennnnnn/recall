@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 import re
 
+from app.services.column_vector import columns_as_values
+
 # The name a final value is set to: a symbol (``x_1``, ``f_{max}``), a word (``type``) or a
 # command (``\gcd``, ``\operatorname{lcm}``).
 _VALUE_NAME = re.compile(r"[A-Za-z]+(?:_\{?\w+\}?)?|\\[A-Za-z]+(?:\{[A-Za-z]+\})?")
@@ -34,6 +36,13 @@ _SIZED = re.compile(r"\\(?:left|right|[bB]igg?[lr]?)[ \t]*(?=[()\[\]])")
 # Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
 # after a term (a leading minus is the value's sign).
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
+# A number, a fraction or a bracket right before a column multiplies it: working, not a value
+# (review of #2594: "0.5(-5; 2)" was carded beside the answer it reached).
+# An opening bracket may stand between them: "0.5\left(\begin{matrix}…\end{matrix}\right)".
+_TIMES_COLUMN = re.compile(
+    r"[\d})][ \t]*+(?:\\[,;: ]|\\q?quad(?![A-Za-z]))?[ \t]*+"
+    r"(?:(?:\\left[ \t]*+)?[(\[][ \t]*+)?\\begin\{[pb]?matrix\}"
+)
 # An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
 _EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")
 # A fraction on a line, "5/7": a value in its lowest terms, a division still to do otherwise
@@ -46,8 +55,9 @@ def is_final_value(value: str) -> bool:
     a value, named or not, with no arithmetic left, unlike the working line ``v = 9.8 \\times
     2`` or ``2x = 4``. A part asking several values (a maximum and a minimum, a centre and a
     radius) carded the last alone, the others left above it as working (g12 S2, 2026-11-13).
-    A vector by its components, ``v_A = (0\\hat{i} + 20\\hat{j})``, is one value too, and a
-    degree sign (``45^\\circ``) is a unit, no power."""
+    A vector by its components, ``v_A = (0\\hat{i} + 20\\hat{j})`` or a column of numbers
+    (``\\begin{pmatrix}4\\\\-3\\end{pmatrix}``), is one value too, and a degree sign
+    (``45^\\circ``) is a unit, no power."""
     text = _VALUE_NOTE.sub("", value.replace("$", "").strip())
     left, equals, right = text.partition("=")
     if not equals:
@@ -55,7 +65,10 @@ def is_final_value(value: str) -> bool:
     right = _GROUPED.sub(" 1 ", _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)))
     if _TRIG.search(right) is None:
         right = _DEGREES.sub("", right)
-    right = _COMPONENTS.sub(" 1 ", _SIZED.sub("", right)).strip()
+    if _TIMES_COLUMN.search(right):
+        return False  # "0.5(-5; 2)", "\\frac{1}{3}(12; -9)": a product still to work out
+    # A column is marked by a letter, never a digit a slash after it would read as a ratio.
+    right = columns_as_values(_COMPONENTS.sub(" 1 ", _SIZED.sub("", right)), " v ").strip()
     slashed = _SLASHED.fullmatch(right)
     if slashed is not None:
         top, bottom = abs(int(slashed.group(1))), int(slashed.group(2))

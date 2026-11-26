@@ -273,11 +273,8 @@ async def _settle_quota(
                 "mark_usage_needs_heal failed after adjust_usage; heal may not run",
                 exc_info=True,
             )
-    if charge.est_cost:
-        try:
-            await deps.quota.record_global_spend(redis, charge.est_cost)
-        except Exception:
-            logger.exception("record_global_spend failed after successful finalize")
+    # Global spend is not added here: the gateway metered every call of the turn at its own
+    # model's price as it ran (``gateways/llm_spend``).
     if used is None or daily_limit is None or ctx.user is None:
         return None
     try:
@@ -349,3 +346,42 @@ async def finalize_stream_turn_db(
             # The replaced reply's rows are gone: a failed delete only the queue retries.
             failed = await deps.attachments.delete_storage_keys(settings, pending_storage_keys)
             await deps.attachments.enqueue_failed_storage_deletes(failed)
+
+
+async def charge_unsent_reply(
+    deps: ChatTurnDeps,
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    sent_text: str,
+    usage: dict[str, int],
+) -> TurnUsage | None:
+    """Charge a reply the server sent but saves none of (its client says it drew none).
+
+    A client's count can only shorten the reply that saves, never what the turn costs: the
+    text went out, so its message stays taken and its tokens settle to what it used, in the
+    day's row too (a reseed keeps them). A failed row write still settles Redis. Returns
+    the day's usage after it (None when the settle failed).
+    """
+    charge = _turn_charge(ctx, sent_text, usage)
+    _log_turn_cost(ctx, charge)
+
+    async def record(session: AsyncSession) -> None:
+        await deps.usage.add_tokens(
+            session,
+            ctx.user_id,
+            utc_today(),
+            input_tokens=charge.weighted_input,
+            output_tokens=charge.weighted_output,
+            est_cost_usd=charge.est_cost if charge.est_cost is not None else 0.0,
+            commit=False,
+        )
+        await session.commit()
+
+    try:
+        await pool_liveness.run_unit(deps.session_factory, record)
+    except Exception:
+        logger.exception("Usage row for an unsaved reply failed user_id=%s", ctx.user_id)
+    # The day's counts after it, which ``done`` carries, as after a saved reply.
+    return await _settle_quota(deps, redis, ctx, settings, charge)

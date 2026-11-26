@@ -103,11 +103,14 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 # "ambient" scope: the store's whole-store block, cached under the memory generation (two
 # Redis reads), and on a cold cache one SELECT of the facts ("what job do I do again" named
 # no word the rules know, live QA 2026-11-22, ``prompt_builder._context_plan``).
-# A Free turn, a regenerate too, reads the day's message count before its paid reads start
-# (one GET, ``TurnResources.message_left``): at the cap it is refused before any model call
-# (audit, 2026-11-25). A plan with no cap reads nothing.
+# A turn, a regenerate too, reads the day's message count and tokens before its paid reads
+# start (one MGET, ``TurnResources.turn_left``): at the cap, or with the tokens spent, it is
+# refused before any model call (audit and security review, 2026-11-25).
 # Every check of the day's spend in a turn shares one read of it (``spend_counter``,
 # audit 2026-11-25): each request's Redis count fell by one to five, and its ceiling with it.
+# Every model call adds its own cost to global spend as it runs (one INCRBY each,
+# ``gateways/llm_spend``); finalize adds none. A reply written in two calls (the search's,
+# then the answer's) counts two where finalize counted one (security review, 2026-11-25).
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
         Counts(sql=5, checkouts=3, transactions=3, redis=20, models=1),
@@ -139,7 +142,7 @@ CEILINGS: dict[str, Ceiling] = {
     # and answers from its results in another. A searched reply also gets one claim check (a
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=33, models=4, searches=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=34, models=4, searches=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),

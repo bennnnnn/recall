@@ -16,6 +16,7 @@ import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/con
 import { UNAVAILABLE_CODE } from "@/lib/api/errorBody";
 import { getSessionGeneration } from "@/lib/auth";
 import { newRequestId, withRequestId } from "@/lib/api/requestId";
+import { withAppVersion } from "@/lib/api/appVersionHeader";
 import { noteApiFailure } from "@/lib/sentry";
 import {
   followUpsAfterDone,
@@ -136,7 +137,7 @@ export class ChatWsTransport {
   private openNamedSocket(): { socket: WebSocket; requestId: string } {
     const requestId = newRequestId();
     const create = this.options.createSocket ?? ((url: string) => new WebSocket(url));
-    return { socket: create(withRequestId(this.options.url, requestId)), requestId };
+    return { socket: create(withAppVersion(withRequestId(this.options.url, requestId))), requestId };
   }
 
   connect(): Promise<void> {

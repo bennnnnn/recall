@@ -35,7 +35,7 @@ from app.gateways.openai_speech_gateway import RealtimeClientSecretResult
 from app.main import create_app
 from app.models.orm import User
 from app.modules.account.email_authority import AccountExistsError
-from app.modules.attachments.pasted_text import PASTED_TEXT_FILENAME, PASTED_TEXT_MAX_BYTES
+from app.modules.attachments.pasted_text import PASTED_TEXT_MAX_BYTES
 from app.modules.speech.live_talk import LiveTalkSessionContext
 from app.services.quota import IMAGE_GENERATION_SPEND_CAP_MESSAGE, counters
 
@@ -78,7 +78,7 @@ def _presign(
     messages_used: bool = False,
     library_full: bool = False,
     busy: bool = False,
-    filename: str | None = None,
+    purpose: str = "chat",
 ) -> Any:
     """POST /attachments/presign: Pro at its day's documents, or Free (whose uploads
     follow its messages) with none of the day's messages left."""
@@ -107,7 +107,7 @@ def _presign(
         return _client(user).post(
             "/attachments/presign",
             headers=_AUTH,
-            json={"content_type": content_type, "size_bytes": size_bytes, "filename": filename},
+            json={"content_type": content_type, "size_bytes": size_bytes, "purpose": purpose},
         )
 
 
@@ -448,6 +448,23 @@ def _export_busy() -> Any:
         return _client(_user()).get("/auth/me/export", headers=_AUTH)
 
 
+def _todo_at_cap() -> Any:
+    """POST /todos with the account's open to-dos at the cap (``todos/limits.py``)."""
+    from app.modules.todos.limits import OPEN_TODOS_MAX
+    from app.tests.fakes import fake_session
+
+    session = fake_session(scalar=AsyncMock(return_value=OPEN_TODOS_MAX))
+    client = _client(_user())
+    client.app.dependency_overrides[get_db] = lambda: session  # type: ignore[attr-defined]
+    with patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=0)):
+        return client.post("/todos", headers=_AUTH, json={"content": "One more"})
+
+
+def _account_delete_unconfirmed() -> Any:
+    """DELETE /auth/me with a bearer token and no confirmation."""
+    return _client(_user()).delete("/auth/me", headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     with (
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -473,6 +490,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "link_preview_busy": _refusal(_link_preview(busy=True)),
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
+        "account_delete_unconfirmed": _refusal(_account_delete_unconfirmed()),
+        "todo_limit": _refusal(_todo_at_cap()),
         "presign_unsupported_type": _refusal(_presign("application/x-msdownload", 100)),
         # The schema caps the size: FastAPI's own 422, which the phone reads as too large.
         "presign_too_large": {
@@ -484,7 +503,7 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "presign_busy": _refusal(_presign("image/png", 128, busy=True)),
         "presign_storage_full": _refusal(_presign("image/png", 128, library_full=True)),
         "presign_paste_too_long": _refusal(
-            _presign("text/plain", PASTED_TEXT_MAX_BYTES + 1, filename=PASTED_TEXT_FILENAME)
+            _presign("text/plain", PASTED_TEXT_MAX_BYTES + 1, purpose="paste")
         ),
         "dictation_daily_limit": _refusal(_transcribe(at_daily_cap=True)),
         "dictation_rate_limited": _refusal(_transcribe(allowed=False)),

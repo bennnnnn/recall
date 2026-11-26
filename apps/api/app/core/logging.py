@@ -19,6 +19,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
+from app.core.client_version import app_version_context
 from app.core.log_context import current_log_ids
 from app.core.request_id import request_id_context
 
@@ -93,6 +94,9 @@ def _context_ids() -> dict[str, str]:
     rid = request_id_context.get()
     if rid:
         ids["request_id"] = rid
+    version = app_version_context.get()
+    if version:
+        ids["app_version"] = version
     ids.update(current_log_ids())
     return ids
 

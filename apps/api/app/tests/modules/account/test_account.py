@@ -100,7 +100,12 @@ def test_delete_account_returns_204():
         patch(f"{lifecycle}.enqueue", step("sweep")) as enqueue_mock,
     ):
         client = TestClient(app)
-        r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
+        r = client.request(
+            "DELETE",
+            "/auth/me",
+            json={"confirm": "delete"},
+            headers={"Authorization": "Bearer tok"},
+        )
     assert r.status_code == 204
     # The usage counters are carried first, while a refusal undoes nothing; the backstop
     # sweep is scheduled before the rows go. Sessions end and files go only once the rows
@@ -147,7 +152,12 @@ def test_delete_account_with_redis_failing_is_refused_503_unavailable(step: str)
         patch("app.modules.account.lifecycle.tokens_service.purge_user_sessions", purge),
         patch("app.modules.account.lifecycle.users_repo.delete_user", AsyncMock()) as delete_user,
     ):
-        response = TestClient(app).delete("/auth/me", headers={"Authorization": "Bearer tok"})
+        response = TestClient(app).request(
+            "DELETE",
+            "/auth/me",
+            json={"confirm": "delete"},
+            headers={"Authorization": "Bearer tok"},
+        )
 
     assert response.status_code == 503
     assert response.json() == _UNAVAILABLE
@@ -183,7 +193,12 @@ def test_delete_account_makes_no_storage_call_and_leaves_the_files_to_the_sweep(
         patch(f"{lifecycle}.enqueue", AsyncMock()) as sweep,
     ):
         client = TestClient(app)
-        r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
+        r = client.request(
+            "DELETE",
+            "/auth/me",
+            json={"confirm": "delete"},
+            headers={"Authorization": "Bearer tok"},
+        )
 
     assert r.status_code == 204
     delete_user.assert_awaited_once()

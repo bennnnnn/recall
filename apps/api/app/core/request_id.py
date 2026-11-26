@@ -22,6 +22,8 @@ from uuid import uuid4
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.client_version import app_version_context, client_app_version
+
 REQUEST_ID_HEADER = "X-Request-ID"
 
 # Strict allowlist for client-supplied request IDs: alphanumerics, underscore,
@@ -81,6 +83,8 @@ class RequestIdMiddleware:
         request_id = _normalize_request_id(client_request_id(scope))
         scope.setdefault("state", {})["request_id"] = request_id
         token = request_id_context.set(request_id)
+        # Which app build asked (``client_version``): its logs say, and its turn can read it.
+        version_token = app_version_context.set(client_app_version(scope))
         started = time.perf_counter()
         status_code = 500
 
@@ -104,4 +108,5 @@ class RequestIdMiddleware:
                     status=status_code,
                     duration_ms=round((time.perf_counter() - started) * 1000, 1),
                 )
+            app_version_context.reset(version_token)
             request_id_context.reset(token)

@@ -90,9 +90,14 @@ class UserOut(BaseModel):
 
     @field_validator("enabled_models")
     @classmethod
-    def drop_removed_models(cls, value: list[str] | None) -> list[str] | None:
-        """A model the catalog dropped since it was saved is off; with none left, Auto."""
-        return current_choices(value)
+    def drop_removed_models(cls, value: list[str] | None, info: ValidationInfo) -> list[str] | None:
+        """A model the catalog dropped since it was saved, or one the plan no longer
+        includes, is off; with none left, Auto (``plan.saved_choices``): Settings shows the
+        models messages really use."""
+        from app.core.config import get_settings
+        from app.modules.billing.plan import saved_choices
+
+        return saved_choices(info.data.get("plan"), value, get_settings())
 
     @field_validator("location_enabled")
     @classmethod
@@ -380,7 +385,14 @@ class LogoutRequest(BaseModel):
     expo_push_token: str | None = Field(default=None, min_length=8, max_length=512)
 
 
+# What a delete request says to mean it (``DELETE /auth/me``): the phone's confirm dialog
+# sends it, so a bearer token alone, replayed or sent by mistake, deletes nothing.
+ACCOUNT_DELETE_CONFIRMATION = "delete"
+
+
 class AccountDeleteRequest(BaseModel):
+    # ``ACCOUNT_DELETE_CONFIRMATION``, or the request is refused 400 ``confirm_required``.
+    confirm: str | None = Field(default=None, max_length=32)
     # A fresh Sign in with Apple code (Apple-linked accounts on iOS); the
     # server trades it for the user's Apple token and revokes that.
     apple_authorization_code: str | None = Field(default=None, max_length=2048)

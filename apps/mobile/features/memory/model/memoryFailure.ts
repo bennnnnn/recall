@@ -3,6 +3,8 @@ import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
 /** Why a memory change did not happen, in the terms the person who asked needs. */
 export type MemoryFailure =
   | "busy"
+  // A typed edit from this phone that went unanswered is still landing (instructInFlight.ts).
+  | "saving"
   | "off"
   | "gone"
   | "limited"
@@ -35,6 +37,7 @@ export function memoryFailure(error: unknown): MemoryFailure {
 
 const FAILURE_KEYS: Record<Exclude<MemoryFailure, "failed">, string> = {
   busy: "memory.busy",
+  saving: "memory.still_saving",
   off: "memory.off",
   gone: "memory.document_gone",
   limited: "memory.limited",

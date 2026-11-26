@@ -151,9 +151,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and what it can't do here. The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
   and laid out (no verified card, note, sources or reminder card added), and a Stop
-  before any text shows saves nothing. Hard WS/SSE disconnect with tokens already
-  streamed also finalizes (same as soft stop). **New chat / leave does not abort SSE** (Stop still
-  does); leftover events are ignored for the next thread. `GET /messages` waits for
+  before any text shows saves nothing. The count only trims what saves: the turn is
+  charged what the server sent (a Stop with at most 120 characters sent is given back).
+  A dropped connection is no Stop, over the socket or SSE: the reply finishes and
+  saves whole. Over SSE the phone names each stream (`stream_id`) and says Stop for it
+  with `POST /chats/{id}/stream/stop` (`shown_chars`), then closes it once that request
+  lands (2 s at most); the stream reads that Stop once its client is gone, on any
+  machine (a Redis key per user, chat and stream, `modules/chat/sse_stop.py`). **New
+  chat / leave does not abort SSE**; leftover events are ignored for the next thread. `GET /messages` waits for
   the in-flight SSE producer the same way it waits on WS.
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
@@ -1079,8 +1084,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and memory area, todos, attachments, daily usage, push devices (no token) and
   product events as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
   screen while the archive builds.
-- ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
-  then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
+- ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`
+  with `{"confirm": "delete"}`, which the confirm dialog sends; a bearer token alone is refused
+  400 `confirm_required`), then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
   stored files (every object under the account's prefix) and every Redis key that names
   the user.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English).
@@ -1109,7 +1115,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   have accepted (a read timeout, an unreadable answer) is held 15 min, not resent next minute;
   a 429 waits its Retry-After and a 5xx backs off; a request Expo refuses as a whole (a 400) is
   split in halves so one bad token holds back only itself. Push and email cycles send while due
-  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap); receipts are polled
+  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap), but each account
+  gets at most `REMINDERS_PER_ACCOUNT_PER_CYCLE` (20) per channel per cycle, counted only for
+  sends tried (a held reminder takes no share); the rest go next cycle, so one account's
+  backlog never delays everyone else's (`modules/todos/limits.py`). An account keeps at most
+  `OPEN_TODOS_MAX` (1,000) open to-dos: one more, or reopening a done one, is refused 409
+  `todo_limit`, and the phone says so in the user's language; receipts are polled
   in batches for `push_receipt_poll_budget_seconds`. An account keeps at most
   `push_tokens_max_per_user` (10) device tokens, newest first; registration is one
   `INSERT … ON CONFLICT`, so two registrations at once no longer fail one.

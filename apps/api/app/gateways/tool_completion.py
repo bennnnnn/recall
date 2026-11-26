@@ -16,7 +16,7 @@ from contextlib import suppress
 from typing import Any
 
 from app.core.config import Settings
-from app.gateways import mock_llm
+from app.gateways import llm_spend, mock_llm
 from app.gateways.stream_usage import apply_usage
 
 logger = logging.getLogger(__name__)
@@ -199,6 +199,8 @@ async def complete_with_tools(
                 # Apply once, including a completed but rejected/truncated
                 # decision. No early abort means no lost usage-only trailer.
                 apply_usage(usage, response)
+                # Global spend at the selector's own price, whatever the turn does next.
+                llm_spend.meter_model_call(model_alias, response)
                 return _tool_selection_result(response, tools=tools, model_alias=model_alias)
     except TimeoutError as exc:
         raise gateway.ModelUnavailableError.for_alias(model_alias) from exc

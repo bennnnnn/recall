@@ -129,10 +129,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # that may end on its rounding ("= 4.82488 s \approx 4.82 s", its unit on both sides), its
 # answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23); then
 # physics' contract for the question's own arrows (VECTORS_DRAW_CONTRACT) and its table-pulley
-# scene (two cars at a junction drew nothing, live, 2026-11-25).
-_RULES = 224
-_RULE_GRAMS = 21146
-_RULE_GRAMS_SHA = "3f5b35177b967e72"
+# scene (two cars at a junction drew nothing, live, 2026-11-25); then vectors in the question's
+# notation, a column question answered in columns, and an impulse no solver checked worked as
+# momentum before, after and their change, a force only when one is asked (PHYSICS_VECTORS,
+# WORKED_COLUMN_VECTORS_NOTE, the owner's ball question, 2026-11-25, review of #2594).
+_RULES = 226
+_RULE_GRAMS = 21370
+_RULE_GRAMS_SHA = "5bc9ce78afcd90fe"
 
 
 def _rules() -> list[str]:
@@ -144,6 +147,7 @@ def _rules() -> list[str]:
         for short in (False, True):
             rules += _strings(list(hints.presentation(short)))
         rules += _strings(hints.closing)
+        rules += _strings(hints.worked)
     return rules
 
 

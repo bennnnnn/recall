@@ -3,6 +3,7 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import { SSE_STOP_SAY_MS } from "@/features/chat/hooks/useSseStream";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
   DROPPED_TURN_POLL_MS,
@@ -53,10 +54,15 @@ afterEach(() => { jest.mocked(Math.random).mockRestore(); });
 
 jest.mock("@/lib/api", () => ({
   chatWebSocketUrl: (id: string) => `wss://test/${id}`,
-  api: { listMessages: jest.fn(), generateImage: jest.fn() },
+  api: {
+    listMessages: jest.fn(),
+    generateImage: jest.fn(),
+    stopChatStream: jest.fn(() => Promise.resolve()),
+  },
 }));
 const listMessages = jest.requireMock("@/lib/api").api.listMessages as jest.Mock;
 const generateImage = jest.requireMock("@/lib/api").api.generateImage as jest.Mock;
+const stopChatStream = jest.requireMock("@/lib/api").api.stopChatStream as jest.Mock;
 /** The phone's zone now: it moves on a flight, or in Settings, while a chat is open. */
 let mockZone = "UTC";
 jest.mock("@/lib/deviceTimezone", () => ({ getDeviceTimezone: () => mockZone }));
@@ -223,9 +229,76 @@ describe("useChat transport lifecycle", () => {
     const options = (stream as jest.Mock).mock.calls[0][0];
     await act(async () => { current.stopGeneration(); await sending; });
     expect(options.signal.aborted).toBe(true);
+    // Said to the server first: a stream that only closes is a drop, which it saves whole.
+    expect(stopChatStream).toHaveBeenCalledTimes(1);
+    // The Stop names this stream, so one said late never stops another turn.
+    expect(options.streamId).toEqual(expect.any(String));
+    expect(stopChatStream.mock.calls[0]).toEqual(["token", "a", options.streamId, 0]);
     expect(current.streaming).toBe(false);
     expect(current.rejectedSend).toBeNull();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("lets a done that beat the Stop over SSE name the saved reply", async () => {
+    // Stopped near the end: the reply finished while the Stop was on its way, and the
+    // server saved it whole. Its done must reach the chat, as the socket's late done does.
+    let heard!: () => void;
+    stopChatStream.mockImplementationOnce(() => new Promise<void>((resolve) => { heard = resolve; }));
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
+    }));
+    await render(<Probe chatId="a" />);
+    let sending!: Promise<unknown>;
+    await act(async () => {
+      sending = current.sendMessage("question");
+      FakeSocket.instances[0].onerror();
+    });
+    const options = (streamChatMessageSse as jest.Mock).mock.calls[0][0];
+    await act(async () => {
+      options.onEvent({ type: "start" });
+      options.onEvent({ type: "token", content: "The whole" });
+      jest.advanceTimersByTime(50);
+    });
+    await act(async () => { current.stopGeneration(); });
+    await act(async () => {
+      options.onEvent({ type: "token", content: " answer" });
+      options.onEvent({ type: "stream_end" });
+      options.onEvent({ type: "done", message_id: SERVER_REPLY_ID, final_content: "The whole answer", completion: "complete" });
+      heard();
+      await sending;
+    });
+
+    expect(current.messages.at(-1)).toMatchObject({ id: SERVER_REPLY_ID });
+  });
+
+  it("closes a stopped SSE stream only once the server heard the Stop, or 2 s on", async () => {
+    // On a slow network the Stop must reach the server before the stream closes, or the
+    // close reads as a dropped connection and the reply saves whole (review of #2596).
+    let heard!: () => void;
+    stopChatStream.mockImplementationOnce(() => new Promise<void>((resolve) => { heard = resolve; }));
+    stopChatStream.mockImplementationOnce(() => new Promise<void>(() => {}));
+    for (const slow of [false, true]) {
+      (streamChatMessageSse as jest.Mock).mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
+      }));
+      await render(<Probe chatId={slow ? "b" : "a"} />);
+      let sending!: Promise<unknown>;
+      await act(async () => {
+        sending = current.sendMessage("question");
+        FakeSocket.instances[FakeSocket.instances.length - 1].onerror();
+      });
+      const options = (streamChatMessageSse as jest.Mock).mock.calls.at(-1)![0];
+      await act(async () => { current.stopGeneration(); });
+      expect(options.signal.aborted).toBe(false);
+      expect(current.streaming).toBe(false);
+      await act(async () => {
+        if (slow) await jest.advanceTimersByTimeAsync(SSE_STOP_SAY_MS);
+        else heard();
+        await sending;
+      });
+      expect(options.signal.aborted).toBe(true);
+      await cleanup();
+    }
   });
 
   it("bounds an OPEN silent socket without replaying or deleting an uncertain send", async () => {

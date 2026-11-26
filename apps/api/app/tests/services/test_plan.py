@@ -82,7 +82,7 @@ def test_manual_mode_uses_fixed_model():
 
 def test_is_auto_enabled_defaults_true():
     user = FakeUser()
-    assert plan_service.is_auto_enabled(user) is True
+    assert plan_service.is_auto_enabled(user, Settings()) is True
 
 
 def test_free_user_can_customize_enabled_models():
@@ -122,11 +122,14 @@ def test_override_falls_back_when_alias_is_auto():
     assert resolved in plan_service.model_pool(user, settings)
 
 
-def test_override_rejects_pro_model_on_free_plan():
+def test_a_pro_model_named_on_the_free_plan_routes_as_auto():
+    """After Pro ends, a phone that still names a Pro model gets an answer from the plan's
+    models, never ``unknown_model`` on every message (security review, 2026-11-25)."""
     user = FakeUser()  # free plan
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    with pytest.raises(UnknownModelOverrideError, match="smart-chat"):
-        model_choice.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    resolved = model_choice.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    assert resolved == model_choice.resolve_user_model(user, "hi", settings)
+    assert resolved in plan_service.free_pool(settings)
 
 
 def test_override_none_falls_back_to_resolve_user_model():
@@ -183,11 +186,13 @@ def test_regenerate_explicit_override_beats_prior_model():
     assert resolved == "free-chat"
 
 
-def test_regenerate_rejects_disallowed_override():
+def test_regenerate_routes_a_model_the_plan_dropped_as_auto():
     user = FakeUser()  # free plan
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    with pytest.raises(UnknownModelOverrideError, match="smart-chat"):
-        model_choice.resolve_regenerate_model(user, "smart-chat", "hi", "free-chat", settings)
+    resolved = model_choice.resolve_regenerate_model(
+        user, "smart-chat", "hi", "free-chat", settings
+    )
+    assert resolved in plan_service.free_pool(settings)
 
 
 def test_regenerate_auto_falls_back_when_prior_model_unavailable():

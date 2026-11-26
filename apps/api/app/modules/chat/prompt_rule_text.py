@@ -74,4 +74,5 @@ def prompt_rule_text() -> str:
         for short in (False, True):
             rules += _strings(list(hints.presentation(short)))
         rules += _strings(hints.closing)
+        rules += _strings(hints.worked)
     return "\n".join(rules)

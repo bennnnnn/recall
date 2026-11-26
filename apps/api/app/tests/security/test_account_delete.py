@@ -79,7 +79,7 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     await jobs.enqueue(redis, "memory", b_job)
     await admin._move_to_dlq(redis, "1-0", {"type": "memory", "payload": json.dumps(a_job)}, "x")
 
-    response = await c.delete("/auth/me", headers=a.headers)
+    response = await c.request("DELETE", "/auth/me", json={"confirm": "delete"}, headers=a.headers)
     assert response.status_code == 204
 
     # The worker runs the queued account sweep: it names the replies whose cached

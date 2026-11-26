@@ -142,9 +142,9 @@ export function UserMessageContent({ message, actionsHint }: Props) {
               </View>
             ) : null}
             {showCaption ? (
-              <UserBubbleBody key={messageListKey(message)} content={parsed.caption} />
+              <UserBubbleBody key={messageListKey(message)} content={parsed.caption} stored={message.content} />
             ) : plainText ? (
-              <UserBubbleBody key={messageListKey(message)} content={plainText} />
+              <UserBubbleBody key={messageListKey(message)} content={plainText} stored={message.content} />
             ) : null}
           </View>
         </CollapsibleMessageBody>
@@ -154,16 +154,19 @@ export function UserMessageContent({ message, actionsHint }: Props) {
 }
 
 /** Keyed by its message: a list row reused for another message draws it afresh. */
-function UserBubbleBody({ content }: { content: string }) {
+function UserBubbleBody({ content, stored }: { content: string; stored: string }) {
   // Scripts the student typed in braces or on an operator (`lim_{x→9}`, `∑_{k=1}^{10}`) are
   // drawn as maths; a bare `x^2` is the markdown's own implicit maths.
   const inline = sentScriptsAsMath(displayMathToInline(content));
   if (sentMessageShowsMathPreview(inline)) {
     return <MathDraftPreview input={inline} showCaret={false} sent />;
   }
-  // The user's own links may show a preview card; their line breaks stay as typed.
+  // The user's own links may show a preview card; their line breaks stay as typed. Which
+  // links are theirs is read off the stored message (linkPreviewTrust.ts), where the
+  // server's first marker ends what they typed: the drawn caption has lost the markers, so
+  // a document's text holding a marker line of its own would pass as typed.
   return (
-    <LinkPreviewTrust userText={content}>
+    <LinkPreviewTrust userText={stored}>
       <MarkdownContent content={withTypedLineBreaks(inline)} compact />
     </LinkPreviewTrust>
   );
