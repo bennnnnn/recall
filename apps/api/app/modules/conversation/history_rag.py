@@ -18,6 +18,7 @@ from app.core import presence_cache
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.timezone import resolve_timezone
+from app.core.vectors import EMBEDDING_DIM
 from app.gateways import embedding_gateway
 from app.models.orm import Message, MessageChunk, User
 from app.modules.conversation import chunks_repository as chunks_repo
@@ -102,7 +103,7 @@ async def _embed_and_store(
     for message, pieces in planned:
         chunk_vectors = vectors[offset : offset + len(pieces)]
         offset += len(pieces)
-        if any(vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in chunk_vectors):
+        if any(vec is None or len(vec) != EMBEDDING_DIM for vec in chunk_vectors):
             if whole:
                 raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
             continue

@@ -309,3 +309,42 @@ async def test_an_at_cap_regenerate_starts_no_paid_read(
             refused = True
     assert refused is not reads_start
     assert reads.start.called is reads_start
+
+
+_LONG_LINE = (
+    "Can you tell me more about how cats see colours at night and whether they really "
+    "can see in the dark better than people can, and why?"
+)
+
+
+@pytest.mark.parametrize(
+    ("line", "paints"),
+    [("make it blue", True), ("solve 2x+3=7", False), (_LONG_LINE, False)],
+)
+def test_after_a_generated_picture_only_a_line_the_intercept_paints_passes_the_cap(
+    line: str, paints: bool
+) -> None:
+    """Every line after a generated picture passed the at-cap check, and its paid reads
+    started, though the intercept paints neither a maths line nor a long one."""
+    from types import SimpleNamespace
+
+    from app.modules.chat.turn_intercepts import may_paint
+
+    recent = [
+        SimpleNamespace(role="user", content="draw a cat", model=None),
+        SimpleNamespace(
+            role="assistant", content=f"[Image: /attachments/{uuid4()}/file]", model="image-gen"
+        ),
+    ]
+    deps = turn_deps(plan={"can_use": MagicMock(return_value=True)})
+    assert (
+        may_paint(
+            deps,
+            Settings(image_generation_enabled=True),
+            user=make_user(plan="free"),
+            content=line,
+            recent=recent,
+            revisions=True,
+        )
+        is paints
+    )

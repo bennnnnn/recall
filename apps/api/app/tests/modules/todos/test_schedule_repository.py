@@ -10,7 +10,7 @@ from app.models.orm import TodoItem
 from app.modules.todos.occurrences import TodoScheduleSnapshot
 from app.modules.todos.schedule_repository import (
     advance_schedules_if_current,
-    update_schedule_if_current,
+    stamp_pushed_if_current,
 )
 from app.repositories import users as users_repo
 
@@ -59,12 +59,8 @@ async def test_delayed_delivery_only_updates_owned_unchanged_occurrence(db_sessi
         snapshot = replace(snapshot, user_id=uuid4())
     await db_session.flush()
     next_due = snapshot.due_at + timedelta(days=1)
-    assert await update_schedule_if_current(
-        db_session,
-        snapshot,
-        due_at=next_due,
-        notification_sent_at=None,
-    ) is (change == "current")
+    moved = await advance_schedules_if_current(db_session, [(snapshot, next_due)])
+    assert moved == (1 if change == "current" else 0)
     if change == "delete":
         assert await db_session.get(TodoItem, snapshot.id) is None
         return
@@ -96,3 +92,20 @@ async def test_batch_catchup_advances_only_unchanged_snapshots(db_session):
     assert current.due_at == snapshots[0].due_at + timedelta(days=1)
     assert edited.due_at == manual_due
     assert await db_session.get(TodoItem, snapshots[2].id) is None
+
+
+@pytest.mark.asyncio
+async def test_one_statement_stamps_a_page_and_skips_a_row_changed_since(db_session):
+    """A chunk's pushes are stamped together; one edited after the read is left alone."""
+    kept, edited = await _new_todo(db_session), await _new_todo(db_session)
+    snapshots = [TodoScheduleSnapshot.from_todo(todo) for todo in (kept, edited)]
+    edited.content = "Call Dad"
+    await db_session.flush()
+    sent_at = datetime(2026, 9, 5, 8, 1, tzinfo=UTC)
+
+    assert await stamp_pushed_if_current(db_session, snapshots, sent_at=sent_at) == 1
+
+    await db_session.refresh(kept)
+    await db_session.refresh(edited)
+    assert kept.notification_sent_at == sent_at
+    assert edited.notification_sent_at is None

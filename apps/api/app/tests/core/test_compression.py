@@ -170,8 +170,8 @@ async def test_compression_streams_sse_through_the_real_stack_token_by_token() -
 
 
 async def test_compression_gzips_json_through_the_real_stack() -> None:
-    """The BaseHTTPMiddleware rate limiter re-streams every reply; a big JSON one is
-    still gzipped and a small one is not."""
+    """Through every middleware of the app, a big JSON reply is gzipped and a small one
+    is not."""
     app = create_app()
 
     @app.get("/test-big")
@@ -191,3 +191,30 @@ async def test_compression_gzips_json_through_the_real_stack() -> None:
         body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
         decoded = gzip.decompress(body) if encoded else body
         assert json.loads(decoded) == (_BIG if encoded else {"ok": True})
+
+
+async def test_a_small_body_that_arrives_in_parts_is_not_gzipped() -> None:
+    """Starlette's own size check reads only a body sent in one message: a small reply
+    streamed in parts, its length declared, is left as it is."""
+    app = create_app()
+    parts = [b'{"ok": ', b"true}"]
+
+    @app.get("/test-small-parts")
+    async def small_parts() -> StreamingResponse:
+        async def body() -> AsyncIterator[bytes]:
+            for part in parts:
+                yield part
+
+        return StreamingResponse(
+            body(),
+            media_type="application/json",
+            headers={"content-length": str(sum(len(part) for part in parts))},
+        )
+
+    sent: list[Message] = []
+    await _drive(app, "/test-small-parts", sent)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    headers = {k.decode().lower(): v.decode() for k, v in start["headers"]}
+    assert "content-encoding" not in headers
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    assert json.loads(body) == {"ok": True}

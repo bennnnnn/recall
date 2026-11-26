@@ -29,7 +29,10 @@ SPEECH_LIMIT_EXCEEDED_MESSAGE = (
 SPEECH_NOT_IN_PLAN_MESSAGE = "Voice input isn't part of your plan. Upgrade to dictate messages."
 SPEECH_RATE_LIMIT_MESSAGE = "Too many voice requests. Please wait a moment and try again."
 SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many Listen requests. Please wait a moment and try again."
-SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE = "Daily Listen limit reached. Try again tomorrow."
+# Listen has no count of its own: it comes out of the day's chat allowance (its tokens).
+SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE = (
+    "You've reached today's limit, which Listen shares with chat. Try again after midnight UTC."
+)
 SPEECH_TTS_NOT_IN_PLAN_MESSAGE = (
     "The natural voice for Listen isn't part of your plan. "
     "Upgrade for it, or use your phone's voice."

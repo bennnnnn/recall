@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -46,8 +47,9 @@ _DAY_SECONDS = 24 * 60 * 60
 # A copy is deleted this long after its record expired: a lookup that read the record
 # just before then still finds its bytes.
 _SWEEP_MARGIN_SECONDS = 60 * 60
-# Copies deleted per sweep at most; the next hourly cycle takes the rest.
+# Copies read per batch, and deleted per hourly cycle at most; the next cycle takes the rest.
 _SWEEP_BATCH = 500
+_SWEEP_MAX_PER_CYCLE = 10_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,26 +161,46 @@ async def remember(
 
 
 async def sweep_expired(
-    settings: Settings, gateway: StorageGateway, redis: Redis, *, now: float | None = None
+    settings: Settings,
+    gateway: StorageGateway,
+    redis: Redis,
+    *,
+    now: float | None = None,
+    keep_going: Callable[[], Awaitable[bool]] | None = None,
+    batch: int = _SWEEP_BATCH,
 ) -> int:
-    """Delete shared copies whose record has aged out; how many went.
+    """Delete shared copies whose record has aged out, ``batch`` listed at a time; how
+    many went.
 
     Each entry names one copy, so removing it touches no copy stored since. One whose
-    delete failed stays listed for the next cycle.
+    delete failed stays listed for the next cycle. Batches follow while aged copies
+    remain, up to ``_SWEEP_MAX_PER_CYCLE``: one batch an hour fell behind as soon as more
+    than that many new lookups were kept an hour. A batch with no delete stops the cycle
+    (storage is failing; the next cycle tries again), and so does ``keep_going`` answering
+    False before a batch (the cycle lost its lock).
     """
     cutoff = (time.time() if now is None else now) - _max_age_seconds(settings)
     cutoff -= _SWEEP_MARGIN_SECONDS
-    listed = await redis.zrangebyscore(_STORED_INDEX, "-inf", cutoff, start=0, num=_SWEEP_BATCH)
-    deleted = 0
-    for member in listed:
-        name = member.decode() if isinstance(member, bytes) else str(member)
-        try:
-            await gateway.delete_bytes(f"{SHARED_PREFIX}{name}")
-        except Exception:
-            logger.warning("Deleting an aged answer photo failed", exc_info=True)
-            continue
-        await redis.zrem(_STORED_INDEX, name)
-        deleted += 1
+    deleted = failed = 0
+    while deleted + failed < _SWEEP_MAX_PER_CYCLE:
+        if deleted and keep_going is not None and not await keep_going():
+            break
+        # Copies whose delete failed stay first in the list: read past them.
+        listed = await redis.zrangebyscore(_STORED_INDEX, "-inf", cutoff, start=failed, num=batch)
+        batch_deleted = 0
+        for member in listed:
+            name = member.decode() if isinstance(member, bytes) else str(member)
+            try:
+                await gateway.delete_bytes(f"{SHARED_PREFIX}{name}")
+            except Exception:
+                logger.warning("Deleting an aged answer photo failed", exc_info=True)
+                failed += 1
+                continue
+            await redis.zrem(_STORED_INDEX, name)
+            batch_deleted += 1
+        deleted += batch_deleted
+        if len(listed) < batch or not batch_deleted:
+            break
     if deleted:
         logger.info("Answer photo cache swept deleted=%s", deleted)
     return deleted

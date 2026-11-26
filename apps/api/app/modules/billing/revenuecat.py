@@ -195,6 +195,9 @@ async def _recheck_plan(
     app_user_id: str,
 ) -> tuple[bool, str]:
     """Apply the plan RevenueCat's subscriber record holds now. Raises when unreadable."""
+    # The stale check read the user row: end that transaction before RevenueCat is asked,
+    # so no pooled connection waits on its answer.
+    await session.commit()
     plan = await subscription_service.resolve_plan_from_revenuecat(settings, app_user_id)
     if plan is None:
         logger.warning(

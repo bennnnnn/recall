@@ -7,13 +7,14 @@ what "due" means had to be made twice. The candidates come in pages ordered by
 cycle reads only rows in the reminder window and stops at its bound; the rest
 come next cycle.
 
-What a send changes is here too (``mark_reminder_pushed``, ``mark_reminder_emailed``):
+What a send changes is here too (``mark_reminders_pushed``, ``mark_reminder_emailed``):
 notifications delivers and never writes a to-do row itself (code-health audit ARCH-05).
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -28,7 +29,10 @@ from app.modules.todos.due_day import has_time
 from app.modules.todos.email_repository import mark_email_sent_if_current
 from app.modules.todos.occurrences import TodoEmailSnapshot, TodoScheduleSnapshot
 from app.modules.todos.recurrence import is_recurrence_rule, next_recurring_due, snap_first_due
-from app.modules.todos.schedule_repository import update_schedule_if_current
+from app.modules.todos.schedule_repository import (
+    advance_schedules_if_current,
+    stamp_pushed_if_current,
+)
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -216,32 +220,54 @@ async def aged_out_unsent(
     return raw if isinstance(raw, int) else 0
 
 
-async def mark_reminder_pushed(session: AsyncSession, todo: TodoItem, *, now: datetime) -> bool:
-    """After a push for ``todo`` went out; no commit. Whether the to-do changed.
+# To-dos marked per statement: each adds its snapshot's seven bind parameters.
+_MARK_BATCH = 200
+
+
+async def mark_reminders_pushed(
+    session: AsyncSession, todos: Sequence[TodoItem], *, now: datetime
+) -> int:
+    """After pushes for ``todos`` went out; no commit. How many to-dos changed.
 
     A recurring to-do moves to its next occurrence, any other is stamped sent. Only the
     occurrence that was read changes: one edited or completed meanwhile is left alone.
+    One statement stamps the one-off ones and one moves the recurring ones, whose users'
+    zones are read together: each to-do had its own UPDATE, and each recurring one its
+    user's own read.
     """
-    snapshot = TodoScheduleSnapshot.from_todo(todo)
-    rule, due = snapshot.recurrence_rule, snapshot.due_at
-    if is_recurrence_rule(rule) and due is not None:
-        user_row = await session.get(User, snapshot.user_id)
-        timezone = user_row.timezone if user_row is not None else None
+    changed = 0
+    snapshots = [TodoScheduleSnapshot.from_todo(todo) for todo in todos]
+    for start in range(0, len(snapshots), _MARK_BATCH):
+        batch = snapshots[start : start + _MARK_BATCH]
+        once = [s for s in batch if not (is_recurrence_rule(s.recurrence_rule) and s.due_at)]
+        changed += await stamp_pushed_if_current(session, once, sent_at=now)
+        changed += await advance_schedules_if_current(
+            session, await _next_occurrences(session, batch, now=now)
+        )
+    return changed
+
+
+async def _next_occurrences(
+    session: AsyncSession, snapshots: list[TodoScheduleSnapshot], *, now: datetime
+) -> list[tuple[TodoScheduleSnapshot, datetime]]:
+    """Each recurring snapshot with its next due time, on its user's clock."""
+    recurring = [s for s in snapshots if is_recurrence_rule(s.recurrence_rule) and s.due_at]
+    if not recurring:
+        return []
+    rows = await session.execute(
+        select(User.id, User.timezone).where(User.id.in_({s.user_id for s in recurring}))
+    )
+    zones: dict[UUID, str | None] = dict(rows.tuples().all())
+    advances: list[tuple[TodoScheduleSnapshot, datetime]] = []
+    for snapshot in recurring:
+        rule, due = snapshot.recurrence_rule, snapshot.due_at
+        if not is_recurrence_rule(rule) or due is None:
+            continue
         # A lead-time notification already consumed this occurrence, even
         # when its due time is still in the future.
-        nxt = next_recurring_due(due, rule, now=max(now, due), timezone=timezone)
-        return await update_schedule_if_current(
-            session,
-            snapshot,
-            due_at=nxt,
-            due_set_at=func.now(),
-            notification_sent_at=None,
-            email_sent_at=None,
-        )
-    # A delivery is not a change to the to-do: updated_at stays.
-    return await update_schedule_if_current(
-        session, snapshot, notification_sent_at=now, updated_at=TodoItem.updated_at
-    )
+        nxt = next_recurring_due(due, rule, now=max(now, due), timezone=zones.get(snapshot.user_id))
+        advances.append((snapshot, nxt))
+    return advances
 
 
 async def mark_reminder_emailed(

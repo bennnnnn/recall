@@ -48,6 +48,8 @@ class TurnResources:
     the turn's actual usage (``ctx.reserved_tokens`` carries the same number).
     ``message_day`` is the day whose message the turn took: kept once a reply is
     saved, given back with the tokens otherwise (``ctx.message_day`` carries it).
+    ``token_day`` is the day the tokens were taken from, which their settle and refund
+    go back to (``ctx.token_day``).
     An exception that leaves ``turn_resources`` refunds both, so a path that
     settles the reservation itself must not let an exception escape after.
     """
@@ -60,6 +62,7 @@ class TurnResources:
     lock_token: str
     reserved_tokens: int = 0
     message_day: date | None = None
+    token_day: date | None = None
     # The turn's context once it has one (``top_up_reserve_for_prompt``): a kept message
     # is cleared from both, so no refund path gives it back.
     context: StreamContext | None = None
@@ -79,9 +82,11 @@ class TurnResources:
         self.message_day = await self.deps.quota.reserve_message(self.redis, user, settings)
         if self.message_day is None:
             raise QuotaExceededError(quota_exceeded_message(user))
+        self.token_day = counters.utc_today()
         self.reserved_tokens = await reserve_turn_quota(
             self.deps,
             self.redis,
+            day=self.token_day,
             user=user,
             content=content,
             model=model,
@@ -114,7 +119,12 @@ class TurnResources:
         # Stop cancels the turn meanwhile.
         refunding = create_background_task(
             refund_turn_quota(
-                self.deps, self.redis, self.user_id, self.reserved_tokens, self.message_day
+                self.deps,
+                self.redis,
+                self.user_id,
+                self.reserved_tokens,
+                self.message_day,
+                token_day=self.token_day,
             ),
             name="turn_quota_refund",
         )
@@ -139,11 +149,18 @@ class TurnResources:
 
 
 async def refund_turn_quota(
-    deps: ChatTurnDeps, redis: Redis, user_id: UUID, tokens: int, message_day: date | None
+    deps: ChatTurnDeps,
+    redis: Redis,
+    user_id: UUID,
+    tokens: int,
+    message_day: date | None,
+    *,
+    token_day: date | None = None,
 ) -> None:
-    """Give back what a turn that saved no reply took: its tokens and its message."""
+    """Give back what a turn that saved no reply took: its tokens (to the day they were
+    taken from) and its message."""
     if tokens > 0:
-        await deps.quota.refund_usage(redis, str(user_id), tokens)
+        await deps.quota.refund_usage(redis, str(user_id), tokens, day=token_day)
     if message_day is not None:
         await deps.quota.refund_message(redis, user_id, message_day)
 
@@ -308,6 +325,7 @@ async def top_up_reserve_for_prompt(
     """
     res.context = ctx
     ctx.message_day = res.message_day
+    ctx.token_day = res.token_day
     messages = ctx.prompt_messages
     if res.reserved_tokens <= 0 or not isinstance(messages, list):
         ctx.reserved_tokens = res.reserved_tokens
@@ -321,13 +339,19 @@ async def top_up_reserve_for_prompt(
     extra = needed - res.reserved_tokens
     if extra > 0:
         res.reserved_tokens += await _reserve_up_to(
-            res.deps, res.redis, res.user_id, extra, daily_limit=daily_limit
+            res.deps, res.redis, res.user_id, extra, daily_limit=daily_limit, day=res.token_day
         )
     ctx.reserved_tokens = res.reserved_tokens
 
 
 async def _reserve_up_to(
-    deps: ChatTurnDeps, redis: Redis, user_id: UUID, wanted: int, *, daily_limit: int
+    deps: ChatTurnDeps,
+    redis: Redis,
+    user_id: UUID,
+    wanted: int,
+    *,
+    daily_limit: int,
+    day: date | None,
 ) -> int:
     """``reserve_usage_up_to`` for a turn; what Redis grants after the turn is cancelled
     goes back.
@@ -336,26 +360,32 @@ async def _reserve_up_to(
     total with no turn holding it, and nothing refunded it.
     """
     reserving = asyncio.ensure_future(
-        deps.quota.reserve_usage_up_to(redis, str(user_id), wanted, daily_limit=daily_limit)
+        deps.quota.reserve_usage_up_to(
+            redis, str(user_id), wanted, daily_limit=daily_limit, day=day
+        )
     )
     try:
         return await asyncio.shield(reserving)
     except asyncio.CancelledError:
         create_background_task(
-            _give_back(deps, redis, user_id, reserving), name="turn_quota_give_back"
+            _give_back(deps, redis, user_id, reserving, day), name="turn_quota_give_back"
         )
         raise
 
 
 async def _give_back(
-    deps: ChatTurnDeps, redis: Redis, user_id: UUID, reserving: asyncio.Future[int]
+    deps: ChatTurnDeps,
+    redis: Redis,
+    user_id: UUID,
+    reserving: asyncio.Future[int],
+    day: date | None,
 ) -> None:
     try:
         granted = await reserving
     except Exception:
         return  # A reserve that failed took nothing (it logs its own failure).
     try:
-        await deps.quota.refund_usage(redis, str(user_id), granted)
+        await deps.quota.refund_usage(redis, str(user_id), granted, day=day)
     except Exception:
         logger.warning("Stopped turn's tokens not given back user_id=%s", user_id, exc_info=True)
 
@@ -371,6 +401,7 @@ async def reserve_turn_quota(
     daily_limit: int | None = None,
     max_output: int | None = None,
     vision_extra: int = 0,
+    day: date | None = None,
 ) -> int:
     """Refuse a turn the global spend cap or today's token budget cannot cover.
 
@@ -397,7 +428,7 @@ async def reserve_turn_quota(
         max_output=max_output,
         vision_extra=vision_extra,
     )
-    reserved = await _reserve_up_to(deps, redis, user.id, wanted, daily_limit=daily_limit)
+    reserved = await _reserve_up_to(deps, redis, user.id, wanted, daily_limit=daily_limit, day=day)
     if reserved <= 0:
         raise QuotaExceededError(quota_exceeded_message(user))
     return reserved

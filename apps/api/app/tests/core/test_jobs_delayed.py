@@ -132,3 +132,47 @@ async def test_a_counter_gets_its_expiry_in_the_same_transaction(fake_redis: Any
     assert 0 < await fake_redis.ttl("c") <= 50
     assert await hincr_with_ttl(fake_redis, "h", "f", 2, 100) == 2
     assert 0 < await fake_redis.ttl("h") <= 100
+
+
+async def test_auto_replay_pages_past_the_letters_it_cannot_replay(fake_redis: Any) -> None:
+    """It read the whole DLQ (up to 5,000 entries) to replay at most 50: it pages now,
+    oldest first, through letters past the hour only."""
+    for age in (7_600, 7_500, 7_400):
+        await _dead_letter(fake_redis, "memory", age_s=age)
+    await _dead_letter(fake_redis, "storage_sweep", age_s=7_300)
+    await _dead_letter(fake_redis, "storage_sweep", age_s=60)  # too fresh
+    pages: list[int] = []
+    read = fake_redis.xrange
+
+    async def counted(*args: Any, **kwargs: Any) -> Any:
+        found = await read(*args, **kwargs)
+        pages.append(len(found))
+        return found
+
+    with patch.object(fake_redis, "xrange", counted):
+        assert await admin.replay_safe_dlq_entries(fake_redis, page_size=2) == 1
+    assert pages == [2, 2, 0]  # never the fresh one
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 4
+
+
+async def test_a_worker_without_the_metrics_lock_reads_no_counts(fake_redis: Any) -> None:
+    """Every worker read all five counts every interval, and all but one dropped them."""
+    await fake_redis.set(admin._METRICS_LOCK_KEY, "1")
+    with patch.object(admin, "collect_queue_metrics") as collect:
+        assert await jobs.report_queue_metrics(fake_redis) is None
+    collect.assert_not_called()
+
+
+async def test_a_running_claim_is_refreshed_in_one_compare_and_expire() -> None:
+    """A GET then an EXPIRE cut a done marker that landed in between to the running TTL."""
+    from app.core.jobs import dedupe
+    from app.core.redis_lock import _REFRESH_LUA
+    from app.tests.fakes import redis_mock
+
+    redis = redis_mock(eval=0)
+    await dedupe._refresh_running_claim(redis, "memory:1")
+    redis.eval.assert_awaited_once_with(
+        _REFRESH_LUA, 1, dedupe.job_done_key("memory:1"), "1", "300"
+    )
+    redis.get.assert_not_awaited()
+    redis.expire.assert_not_awaited()

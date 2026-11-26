@@ -23,6 +23,9 @@ class NotificationSettings(BaseModel):
     # How long one reminder cycle (every minute) keeps sending while due reminders
     # remain, refreshing its lock; the rest go next cycle.
     reminder_cycle_budget_seconds: int = 50
+    # Reminder emails sent at once, and at most this many a second: Resend's default
+    # account limit is 2 requests a second (a 429 holds that reminder for a later try).
+    email_reminder_sends_per_second: int = 2
     # How long one receipts pass (every five minutes) keeps polling ready tickets.
     push_receipt_poll_budget_seconds: int = 120
 

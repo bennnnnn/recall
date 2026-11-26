@@ -27,6 +27,7 @@ def get_document_executor() -> BoundedSympyExecutor:
             max_workers=settings.document_pool_workers,
             queue_wait_seconds=settings.document_pool_queue_wait_seconds,
             per_user=False,
+            label="document",
         )
     return _executor
 
