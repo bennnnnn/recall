@@ -14,8 +14,8 @@ import pytest
 from app.core.config import Settings
 from app.modules.conversation.history_rag import (
     HistoryEmbeddingUnavailable,
+    _embed_and_store,
     embed_query_for_prompt,
-    index_message,
     index_turn_messages,
     one_per_chat,
     prepare_message_text,
@@ -421,7 +421,7 @@ async def test_index_message_uses_short_lived_session():
             AsyncMock(),
         ) as replace_mock,
     ):
-        count = await index_message(settings, user_id=uuid4(), message=message)
+        count = await _embed_and_store(settings, uuid4(), [message])
 
     assert count == 1
     assert open_count == 1
@@ -463,7 +463,7 @@ async def test_a_failed_piece_stores_nothing_and_the_job_retries():
         ) as replace_mock,
         pytest.raises(HistoryEmbeddingUnavailable),
     ):
-        await index_message(settings, user_id=uuid4(), message=message)
+        await _embed_and_store(settings, uuid4(), [message])
 
     assert seen == {"texts": pieces, "concurrency": 2}
     replace_mock.assert_not_awaited()
@@ -490,9 +490,7 @@ async def test_a_provider_outage_stores_nothing_and_the_job_retries():
         ) as replace_mock,
         pytest.raises(HistoryEmbeddingUnavailable),
     ):
-        await index_message(
-            Settings(chat_history_rag_enabled=True), user_id=uuid4(), message=message
-        )
+        await _embed_and_store(Settings(chat_history_rag_enabled=True), uuid4(), [message])
     replace_mock.assert_not_awaited()
 
 
@@ -816,9 +814,7 @@ async def test_the_backfill_embeds_its_messages_in_one_request_and_one_transacti
             "app.modules.conversation.history_rag.chunks_repo.replace_chunks_of_messages",
             AsyncMock(),
         ) as replace,
-        patch(
-            "app.modules.conversation.history_rag.chunks_repo.prune_beyond_window", AsyncMock()
-        ),
+        patch("app.modules.conversation.history_rag.chunks_repo.prune_beyond_window", AsyncMock()),
         patch("app.modules.conversation.history_rag.presence_cache.mark_present", AsyncMock()),
     ):
         stored = await history_rag._backfill_recent(

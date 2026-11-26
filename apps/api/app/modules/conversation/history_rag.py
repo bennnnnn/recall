@@ -122,18 +122,6 @@ async def _embed_and_store(
     return stored
 
 
-async def index_message(
-    settings: Settings,
-    *,
-    user_id: UUID,
-    message: Message,
-) -> int:
-    """Chunk + embed one message. Returns chunk count. Never holds a session during embed."""
-    if not settings.chat_history_rag_enabled:
-        return 0
-    return await _embed_and_store(settings, user_id, [message])
-
-
 async def _backfill_recent(
     settings: Settings,
     user_id: UUID,
