@@ -40,7 +40,7 @@ def _plain(text: str) -> str:
     return fold_scientific(without_markup(text))
 
 
-def _dimension(sample: str) -> str | None:
+def dimension_of(sample: str) -> str | None:
     if not sample:
         return None
     read = read_givens(f"1 {sample}", PHYSICS_UNITS)
@@ -72,7 +72,7 @@ class Stated:
         if len(read) != 1:
             return None
         (value,) = read
-        kind = _dimension(sample)
+        kind = dimension_of(sample)
         if value.dimension != kind:
             return None
         for given in self.left:
@@ -95,7 +95,7 @@ class Stated:
         """A stated g, which every scene drawn under gravity takes: Earth's (9.8, 9.81 or
         10 m/s²), or the one the physics reader reads, by its label or its world ("On the
         Moon (g = 1.62 m/s²)", ``detect_gravity``)."""
-        kind = _dimension("m/s^2")
+        kind = dimension_of("m/s^2")
         values = (*_GRAVITY, detect_gravity(self.text))
         for given in self.left:
             value = given.si if given.si is not None else given.value
@@ -109,8 +109,8 @@ class Stated:
         """A stated quantity no part used, beyond the ones the scene can leave aside (one
         of each kind ``tolerated`` names: a slope's length, a bob's mass) and a time a
         sentence asks about ("How fast is it after 3 s?")."""
-        spare = [_dimension(sample) for sample in tolerated]
-        time = _dimension("s")
+        spare = [dimension_of(sample) for sample in tolerated]
+        time = dimension_of("s")
         for given in self.left:
             if self._restated(given):
                 continue

@@ -46,7 +46,7 @@ from app.modules.physics.scene_drawing.headings import (
     stated_headings,
     states_angle,
 )
-from app.modules.physics.scene_drawing.values import Stated, _dimension
+from app.modules.physics.scene_drawing.values import Stated, dimension_of
 from app.modules.physics.scene_drawing.vector_layout import Arrow, laid_out
 from app.modules.physics.schemas import SimulationBlockSpec
 from app.services.law_binding.givens import Given
@@ -104,7 +104,7 @@ class _Read:
     @classmethod
     def of(cls, text: str, sample: str) -> _Read:
         stated = Stated.of(text)
-        kind = _dimension(sample)
+        kind = dimension_of(sample)
         givens = [given for given in stated.left if given.dimension == kind]
         ends = [stated.after_at(given) for given in givens]
         return cls(stated, stated_headings(stated.text, givens, ends))
