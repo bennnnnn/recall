@@ -74,7 +74,9 @@ export function allowsContentHeuristic(lang: string): boolean {
   return isPlainTextFenceLang(lang) || fenceIdForLang(lang) === "copy";
 }
 
-export function classifyFence(lang: string, content: string): FenceDecision {
+/** `openerRun`: the backticks the fence opened with (its `markup`); a draft's body may hold
+ * shorter runs (`looksLikeExplicitDraftContent`). */
+export function classifyFence(lang: string, content: string, openerRun = 3): FenceDecision {
   const l = lang.trim().toLowerCase();
 
   if (isFakeImageGenFence(l)) return { kind: "hide", lang: l };
@@ -84,7 +86,7 @@ export function classifyFence(lang: string, content: string): FenceDecision {
 
   const spec = fenceSpecForLang(l);
   if (spec?.structured) {
-    if (isStructuredDraftLang(l) && !looksLikeExplicitDraftContent(content)) {
+    if (isStructuredDraftLang(l) && !looksLikeExplicitDraftContent(content, openerRun)) {
       return { kind: "prose", lang: l, id: spec.id };
     }
     // Every final answer is the one card; AnswerBlock draws the check only for
@@ -124,13 +126,13 @@ export function classifyFence(lang: string, content: string): FenceDecision {
   }
 
   if (l === "copy") {
-    return shouldRenderAsCopyBlock(lang, content)
+    return shouldRenderAsCopyBlock(lang, content, openerRun)
       ? { kind: "copy", lang: l, id: "copy" }
       : { kind: "prose", lang: l, id: "copy" };
   }
 
   if (shouldRenderAsCodeBlock(lang, content)) return { kind: "code", lang: l };
-  if (shouldRenderAsCopyBlock(lang, content)) return { kind: "copy", lang: l };
+  if (shouldRenderAsCopyBlock(lang, content, openerRun)) return { kind: "copy", lang: l };
   return { kind: "code", lang: l };
 }
 

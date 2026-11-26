@@ -18,6 +18,7 @@ import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import i18n from "@/lib/i18n";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isHeldWhileStreaming } from "@/lib/fence/held";
+import { openerBacktickRun } from "@/lib/fence/scan";
 import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fence/registry";
 import {
   classifyFence,
@@ -47,6 +48,8 @@ export type FenceNode = {
   // ```answer / ```math / ```geometry / code-language tags before any of the
   // lang-based routing below ever saw them.
   sourceInfo?: string;
+  // The opener's run: ```` for a fence the server lengthened past the runs its body holds.
+  markup?: string;
   tokenIndex?: number;
   index?: number;
 };
@@ -205,7 +208,7 @@ export function renderFence(node: FenceNode, indent = false) {
   let fence: FenceReportName = fenceIdForLang(lang) ?? "code";
   let element: ReactNode;
   try {
-    const decision = classifyFence(lang, content);
+    const decision = classifyFence(lang, content, openerBacktickRun(node.markup));
     fence = fenceReportName(decision);
     element = renderFenceInner(node.key, lang, content, decision, node.tokenIndex, indent);
   } catch (error) {

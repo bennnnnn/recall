@@ -225,9 +225,11 @@ def iter_closed_fences(text: str, lang: str) -> Iterator[tuple[int, int, str]]:
 def replace_first_closed_fence_body(text: str, lang: str, new_body: str) -> str | None:
     """Replace the inner body of the first closed ```lang fence, or None with none.
 
-    The opener and closer stay, made longer than any run of their character on a line of
-    the new body: a body holding a ``` line (an email draft quoting code) closed the fence
-    there, and the rest of it spilled out as the reply's own markdown.
+    The opener and closer stay, made longer than any run of their character in the new
+    body: a body holding a ``` line (an email draft quoting code) closed the fence there,
+    and the rest of it spilled out as the reply's own markdown. The phone's twin is
+    ``replaceFirstClosedFenceBody`` (lib/fence/scan.ts); both read
+    docs/fixtures/fence_body_rewrites.json.
     """
     wanted = lang.lower()
     hit = next((f for f in iter_fences(text) if f.closed and f.lang == wanted), None)
@@ -241,14 +243,12 @@ def replace_first_closed_fence_body(text: str, lang: str, new_body: str) -> str 
 
 
 def _fence_run_for(body: str, opener: FenceMarker) -> int:
-    """The opener's run, or one longer than any fence line of its character in ``body``
-    (read leniently, as the phone and the scans read model text)."""
-    run = opener.length
-    for line in body.split("\n"):
-        marker = read_fence_marker(line, lenient=True)
-        if marker is not None and marker.char == opener.char:
-            run = max(run, marker.length + 1)
-    return run
+    """The opener's run, or one longer than the longest run of its character anywhere in
+    ``body``. Anywhere, not only on fence lines: the phone reads a draft fence holding a
+    run as long as its opener as a model's mistake and draws it as prose
+    (``looksLikeExplicitDraftContent``), so a lengthened fence must outrun every run."""
+    longest = max((len(run) for run in re.findall(re.escape(opener.char) + "+", body)), default=0)
+    return longest + 1 if longest >= opener.length else opener.length
 
 
 def _with_run(line: str, run: int) -> str:

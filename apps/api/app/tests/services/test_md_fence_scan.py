@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 
 from app.services.md_fence_scan import (
@@ -59,6 +62,21 @@ def test_a_body_holding_fence_lines_gets_a_longer_fence(draft: str, run: int) ->
     assert rewritten[fences[0].body_start : fences[0].body_end] == f"To: a@b.com\n\n{draft}\n"
     assert rewritten.startswith("Intro\n" + "`" * run + "email\n")
     assert rewritten.endswith("`" * run + "\nOutro\n")
+
+
+_REWRITES = json.loads(
+    (Path(__file__).resolve().parents[5] / "docs/fixtures/fence_body_rewrites.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", _REWRITES, ids=[case["name"] for case in _REWRITES])
+def test_the_rewrite_is_the_one_the_phone_reads_back(case: dict[str, str]) -> None:
+    """The phone's twin and its card reading hold to the same file
+    (apps/mobile lib/__tests__/fenceBodyRewrites.test.ts)."""
+    assert (
+        replace_first_closed_fence_body(case["text"], case["lang"], case["body"])
+        == case["expected"]
+    )
 
 
 def test_replace_first_closed_fence_body_returns_none_without_fence() -> None:
