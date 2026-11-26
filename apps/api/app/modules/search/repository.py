@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import (
     ColumnElement,
     Integer,
+    Select,
     func,
     literal,
     null,
@@ -75,12 +76,15 @@ async def search_conversations(
     # keyboard sent: each spelling is looked for. Any other query has one.
     spellings = devanagari_spellings(q)
     patterns = [f"%{_escaped(spelling)}%" for spelling in spellings]
+    after = decode_cursor(cursor, ids=3) if cursor is not None else None
+    title_at = func.coalesce(Chat.updated_at, Chat.created_at)
+    no_row = literal(_NO_ROW, type_=Message.id.type)
     title_stmt = select(
         *_branch(
             "title",
-            literal(_NO_ROW, type_=Message.id.type),
+            no_row,
             sql_cast(null(), Message.id.type),
-            func.coalesce(Chat.updated_at, Chat.created_at),
+            title_at,
             Chat.title,
             literal("chat"),
         )
@@ -124,18 +128,24 @@ async def search_conversations(
             or_(*(Message.search_text.ilike(p, escape="\\") for p in patterns)),
         )
     )
-    combined = union_all(title_stmt, file_stmt, msg_stmt).subquery("search_hits")
+    # Each kind's own page first: the union sorted every hit of a common word before its
+    # LIMIT (audit, 2026-11-25). A page holds at most ``limit + 1`` of each kind.
+    branches = [
+        branch
+        for branch in (
+            _page_of_kind(title_stmt, "title", (title_at, Chat.id, no_row), after, limit),
+            _page_of_kind(
+                file_stmt, "file", (Message.created_at, Chat.id, Attachment.id), after, limit
+            ),
+            _page_of_kind(
+                msg_stmt, "message", (Message.created_at, Chat.id, Message.id), after, limit
+            ),
+        )
+        if branch is not None
+    ]
+    combined = union_all(*branches).subquery("search_hits")
     order = (combined.c.rank, combined.c.created_at, combined.c.chat_id, combined.c.row_id)
     stmt = select(combined).order_by(*(column.desc() for column in order))
-    if cursor is not None:
-        at, (rank, chat_id, row_id) = decode_cursor(cursor, ids=3)
-        values = (
-            literal(rank.int, type_=Integer),
-            literal(at, type_=combined.c.created_at.type),
-            literal(chat_id, type_=combined.c.chat_id.type),
-            literal(row_id, type_=combined.c.row_id.type),
-        )
-        stmt = stmt.where(tuple_(*order) < tuple_(*values))
     rows = (await session.execute(stmt.limit(limit + 1))).all()
     page, next_cursor = page_of(
         rows,
@@ -145,6 +155,32 @@ async def search_conversations(
 
     words = await _message_words(session, user_id, page)
     return [_result(row, words, spellings) for row in page], next_cursor
+
+
+def _page_of_kind(
+    stmt: Select[Any],
+    match_type: str,
+    keys: tuple[Any, Any, Any],
+    after: tuple[datetime, list[UUID]] | None,
+    limit: int,
+) -> Select[Any] | None:
+    """One kind's hits after the cursor, newest first, at most one past the page; None when
+    the cursor is already past every hit of this kind (kinds page in rank order: the
+    message kind, ranked last, is always read)."""
+    if after is not None:
+        at, (rank, chat_id, row_id) = after
+        if _RANK[match_type] > rank.int:
+            return None
+        if _RANK[match_type] == rank.int:
+            values = (
+                literal(at, type_=keys[0].type),
+                literal(chat_id, type_=Chat.id.type),
+                literal(row_id, type_=Message.id.type),
+            )
+            stmt = stmt.where(tuple_(*keys) < tuple_(*values))
+    page = stmt.order_by(*(key.desc() for key in keys)).limit(limit + 1)
+    # A subquery each: a compound's member may not carry its own ORDER BY/LIMIT bare.
+    return select(page.subquery(f"{match_type}_hits"))
 
 
 def _escaped(query: str) -> str:
