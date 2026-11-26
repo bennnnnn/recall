@@ -3,7 +3,8 @@
 Every email is in the user's language (``user.locale``): each app language has its own copy
 (``email_copy``), English only for a locale the app does not offer. No word of an email is
 RevenueCat's or the code's own (an event name, a store id, a timestamp). All dispatch goes
-through ``email_gateway.send_email`` and is best-effort.
+through ``email_gateway.deliver_email``; a welcome or receipt a later try may deliver is
+retried by its job (``require_sent``).
 """
 
 from __future__ import annotations
@@ -161,10 +162,28 @@ def build_todo_reminder(user: User, *, title: str, content: str) -> tuple[str, s
 # ── dispatch ────────────────────────────────────────────────────────────────
 
 
-async def send_welcome(settings: Settings, user: User) -> bool:
+class EmailNotSentError(Exception):
+    """A welcome or receipt the provider did not take, and may on a later try (a timeout,
+    a 429, a 5xx, the account's key or sender): the job raises it so the worker retries."""
+
+
+def require_sent(result: email_gateway.EmailResult, kind: str) -> None:
+    """Raise for a send a later try may deliver. A message the provider refused for good
+    (a bad address) and one never attempted (email off) are not tried again."""
+    if result.outcome is email_gateway.EmailOutcome.RETRY:
+        raise EmailNotSentError(f"transactional_email {kind} not sent; retrying")
+
+
+async def send_welcome(settings: Settings, user: User) -> email_gateway.EmailResult:
     subject, html, text = build_welcome(user)
-    return await email_gateway.send_email(
-        settings, to=user.email, subject=subject, html=html, text=text
+    return await email_gateway.deliver_email(
+        settings,
+        to=user.email,
+        subject=subject,
+        html=html,
+        text=text,
+        # A retry after a timeout the provider had already taken mails nothing twice.
+        idempotency_key=f"welcome:{user.id}",
     )
 
 
@@ -174,13 +193,20 @@ async def send_purchase_receipt(
     *,
     event_type: str,
     store: str | None = None,
+    product_id: str | None = None,
     expiration: str | None = None,
-) -> bool:
+) -> email_gateway.EmailResult:
+    """The receipt; ``product_id`` keys its send (one per purchase), never its words."""
     subject, html, text = build_receipt(
         user, event_type=event_type, store=store, expiration=expiration
     )
-    return await email_gateway.send_email(
-        settings, to=user.email, subject=subject, html=html, text=text
+    return await email_gateway.deliver_email(
+        settings,
+        to=user.email,
+        subject=subject,
+        html=html,
+        text=text,
+        idempotency_key=f"receipt:{user.id}:{event_type}:{product_id or ''}:{expiration or ''}",
     )
 
 

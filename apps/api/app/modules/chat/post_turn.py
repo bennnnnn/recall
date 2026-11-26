@@ -78,6 +78,8 @@ class SavedTurn:
     # The user's message as its row keeps it (``StreamContext.stored_user_message``):
     # the title's, which reads a photo's marker. None: ``user_message`` is that already.
     title_message: str | None = None
+    # The row of ``user_message``; None when the path that saved it did not say.
+    user_message_id: UUID | None = None
 
     @classmethod
     def from_context(cls, ctx: StreamContext, assistant_text: str) -> "SavedTurn":
@@ -94,6 +96,7 @@ class SavedTurn:
             window=None if ctx.regenerate_backup is not None else ctx.recent_messages,
             history_size=ctx.history_size,
             title_message=ctx.stored_user_message,
+            user_message_id=ctx.user_message_id,
         )
 
 
@@ -245,14 +248,18 @@ async def _message_index_job(turn: FinishedTurn) -> list[PostTurnJob]:
         or not (saved.user is None or memory_switch_on(saved.user))
     ):
         return []
+    payload = {
+        "user_id": str(saved.user_id),
+        "chat_id": str(saved.chat_id),
+        "assistant_message_id": str(saved.assistant_message_id),
+    }
+    if saved.user_message_id is not None:
+        # The turn's own line: the chat's latest may be a newer turn's by the time it runs.
+        payload["user_message_id"] = str(saved.user_message_id)
     return [
         PostTurnJob(
             "message_index",
-            {
-                "user_id": str(saved.user_id),
-                "chat_id": str(saved.chat_id),
-                "assistant_message_id": str(saved.assistant_message_id),
-            },
+            payload,
             f"message_index:{saved.assistant_message_id}",
         )
     ]
@@ -335,6 +342,7 @@ async def finish_turn(
     assistant: Message | None,
     prior_count: int,
     run_title: bool | None = None,
+    user_message_id: UUID | None = None,
 ) -> None:
     """After a turn chat did not stream committed (conversation's ``turn_record`` saved it):
     its title, memory, indexing and compression jobs.
@@ -351,6 +359,7 @@ async def finish_turn(
         assistant_message_id=assistant.id if assistant is not None else None,
         prior_count=prior_count,
         run_title=prior_count == 0 if run_title is None else run_title,
+        user_message_id=user_message_id,
     )
     try:
         await enqueue_saved_turn_jobs(redis, settings, saved)

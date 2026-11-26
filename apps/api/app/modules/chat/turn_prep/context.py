@@ -87,6 +87,9 @@ class StreamContext:
     auto_routed: bool = False
     # Pre-assigned id for the assistant row so `done` can go before the insert commits.
     assistant_message_id: UUID | None = None
+    # The row of the user's line this turn answers: its post-turn jobs read that line,
+    # not whichever is the chat's latest by the time they run.
+    user_message_id: UUID | None = None
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0
@@ -240,6 +243,7 @@ def stream_context_from_bundle(
     user_message_persist: asyncio.Task[None] | None = None,
     thinking: bool | str = False,
     model_named: bool = False,
+    user_message_id: UUID | None = None,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics.
 
@@ -292,6 +296,7 @@ def stream_context_from_bundle(
         followup_problem=bundle.followup_problem,
         user_message_persist=user_message_persist,
         thinking=thinking,
+        user_message_id=user_message_id,
     )
 
 

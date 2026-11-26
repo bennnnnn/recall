@@ -1,4 +1,5 @@
 from string import Formatter
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -10,6 +11,13 @@ from app.gateways import email_gateway
 from app.modules.notifications import transactional_email as tx_email
 from app.modules.notifications.email_copy import GREETINGS, RECEIPT_LINES, TEMPLATES
 from app.tests.fakes import redis_mock
+
+_SENT = email_gateway.EmailResult(email_gateway.EmailOutcome.SENT)
+
+
+async def _sent(settings: Settings, **message: Any) -> bool:
+    """Whether the gateway sent ``message`` (``deliver_email``'s outcome)."""
+    return (await email_gateway.deliver_email(settings, **message)).sent
 
 
 def _user(*, email="user@test.local", name="Ada", locale=None):
@@ -201,26 +209,29 @@ def test_a_receipt_names_no_event_or_store_it_does_not_know():
 async def test_send_welcome_dispatches_via_gateway():
     settings = Settings()
     user = _user(name="Ada", locale="en")
-    with patch.object(email_gateway, "send_email", AsyncMock(return_value=True)) as mocked:
-        ok = await tx_email.send_welcome(settings, user)
-    assert ok is True
+    with patch.object(email_gateway, "deliver_email", AsyncMock(return_value=_SENT)) as mocked:
+        result = await tx_email.send_welcome(settings, user)
+    assert result is _SENT
     assert mocked.await_count == 1
     kwargs = mocked.await_args.kwargs
     assert kwargs["to"] == "user@test.local"
     assert kwargs["subject"] == "Welcome to Recall"
     assert "Ada" in kwargs["text"]
+    # A retry after a timeout the provider had already taken mails nothing twice.
+    assert kwargs["idempotency_key"] == f"welcome:{user.id}"
 
 
 @pytest.mark.asyncio
 async def test_send_purchase_receipt_dispatches_via_gateway():
     settings = Settings()
     user = _user(name="Bo", locale="en")
-    with patch.object(email_gateway, "send_email", AsyncMock(return_value=True)) as mocked:
-        ok = await tx_email.send_purchase_receipt(
+    with patch.object(email_gateway, "deliver_email", AsyncMock(return_value=_SENT)) as mocked:
+        result = await tx_email.send_purchase_receipt(
             settings, user, event_type="RENEWAL", store="app_store"
         )
-    assert ok is True
+    assert result is _SENT
     kwargs = mocked.await_args.kwargs
+    assert kwargs["idempotency_key"].startswith(f"receipt:{user.id}:RENEWAL:")
     assert kwargs["subject"] == "Your Recall receipt"
     assert "has renewed" in kwargs["text"]
 
@@ -230,9 +241,7 @@ async def test_gateway_mock_path_logs_when_no_key(caplog):
     settings = Settings()  # no resend_api_key by default
     assert email_gateway.is_configured(settings) is False
     with caplog.at_level("INFO", logger="app.gateways.email_gateway"):
-        ok = await email_gateway.send_email(
-            settings, to="alice@example.com", subject="s", html="<p/>", text="t"
-        )
+        ok = await _sent(settings, to="alice@example.com", subject="s", html="<p/>", text="t")
     assert ok is True
     joined = " ".join(caplog.messages)
     assert "alice@example.com" not in joined
@@ -260,9 +269,7 @@ async def test_gateway_failure_log_omits_full_recipient(monkeypatch, caplog):
         "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
     )
     with caplog.at_level("ERROR", logger="app.gateways.email_gateway"):
-        ok = await email_gateway.send_email(
-            settings, to="bob@secret.example", subject="Hi", html="<p/>", text="t"
-        )
+        ok = await _sent(settings, to="bob@secret.example", subject="Hi", html="<p/>", text="t")
     assert ok is False
     joined = " ".join(caplog.messages)
     assert "bob@secret.example" not in joined
@@ -272,14 +279,14 @@ async def test_gateway_failure_log_omits_full_recipient(monkeypatch, caplog):
 @pytest.mark.asyncio
 async def test_gateway_skips_when_disabled():
     settings = Settings(email_enabled=False)
-    ok = await email_gateway.send_email(settings, to="x@y.com", subject="s", html="<p/>", text="t")
+    ok = await _sent(settings, to="x@y.com", subject="s", html="<p/>", text="t")
     assert ok is False
 
 
 @pytest.mark.asyncio
 async def test_gateway_skips_empty_recipient():
     settings = Settings()
-    ok = await email_gateway.send_email(settings, to="   ", subject="s", html="<p/>", text="t")
+    ok = await _sent(settings, to="   ", subject="s", html="<p/>", text="t")
     assert ok is False
 
 
@@ -312,9 +319,7 @@ async def test_gateway_real_path_posts_to_resend(monkeypatch):
     monkeypatch.setattr(
         "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
     )
-    ok = await email_gateway.send_email(
-        settings, to="a@b.com", subject="Hi", html="<p>Hi</p>", text="Hi"
-    )
+    ok = await _sent(settings, to="a@b.com", subject="Hi", html="<p>Hi</p>", text="Hi")
     assert ok is True
     assert captured["url"] == settings.resend_api_url
     assert captured["headers"]["Authorization"] == "Bearer rk_test"
@@ -343,7 +348,7 @@ async def test_gateway_real_path_swallows_errors(monkeypatch):
         "app.gateways.email_gateway.get_pooled_client", lambda *_a, **_kw: FakeClient()
     )
     # Must not raise.
-    ok = await email_gateway.send_email(settings, to="a@b.com", subject="Hi", html="<p/>", text="t")
+    ok = await _sent(settings, to="a@b.com", subject="Hi", html="<p/>", text="t")
     assert ok is False
 
 
@@ -497,7 +502,7 @@ async def test_handle_transactional_email_welcome_dispatches():
     with (
         patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch.object(tx_email, "send_welcome", AsyncMock(return_value=True)) as send,
+        patch.object(tx_email, "send_welcome", AsyncMock(return_value=_SENT)) as send,
     ):
         await job_handlers._handle_transactional_email(
             settings, {"kind": "welcome", "user_id": str(uid)}
@@ -524,7 +529,7 @@ async def test_handle_transactional_email_receipt_dispatches():
     with (
         patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
-        patch.object(tx_email, "send_purchase_receipt", AsyncMock(return_value=True)) as send,
+        patch.object(tx_email, "send_purchase_receipt", AsyncMock(return_value=_SENT)) as send,
     ):
         await job_handlers._handle_transactional_email(
             settings,
@@ -541,6 +546,48 @@ async def test_handle_transactional_email_receipt_dispatches():
     kwargs = send.await_args.kwargs
     assert kwargs["event_type"] == "RENEWAL"
     assert kwargs["store"] == "app_store"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["welcome", "receipt"])
+@pytest.mark.parametrize(
+    ("outcome", "retried"),
+    [
+        (email_gateway.EmailOutcome.RETRY, True),
+        (email_gateway.EmailOutcome.SENT, False),
+        (email_gateway.EmailOutcome.REJECTED, False),
+        (email_gateway.EmailOutcome.SKIPPED, False),
+    ],
+)
+async def test_a_welcome_or_receipt_not_sent_is_retried(kind, outcome, retried):
+    """A timeout, 429 or 5xx ended the job as done: the gateway never raises, so nothing
+    retried the email (audit, 2026-11-25). Only a send a later try may deliver raises."""
+    from app.background import handlers as job_handlers
+
+    user = _user()
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    sender = "send_welcome" if kind == "welcome" else "send_purchase_receipt"
+    result = email_gateway.EmailResult(outcome)
+    with (
+        patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch.object(tx_email, sender, AsyncMock(return_value=result)),
+    ):
+        handled = job_handlers._handle_transactional_email(
+            Settings(), {"kind": kind, "user_id": str(uuid4()), "event_type": "RENEWAL"}
+        )
+        if retried:
+            with pytest.raises(tx_email.EmailNotSentError):
+                await handled
+        else:
+            await handled
 
 
 @pytest.mark.asyncio

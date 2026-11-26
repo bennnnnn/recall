@@ -74,7 +74,7 @@ from app.services.formal.answer import FormalAnswer
 from app.services.graph_facts import GraphFactReader
 from app.services.solving import PhotoReading as PhotoReading
 from app.services.solving import SubjectName as SubjectName
-from app.services.subjects.guard import GuardedSubject
+from app.services.subjects.guard import GuardedMoney, GuardedSubject
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
@@ -524,8 +524,9 @@ class MoneyPeer(Protocol):
         ...
 
 
-# Money, the subjects' peer.
-MONEY: MoneyPeer = MONEY_PEER
+# Money, the subjects' peer, guarded like them: a money member that raises answers as a turn
+# with no money in it, so a money bug never fails a turn that is not money.
+MONEY: MoneyPeer = GuardedMoney(MONEY_PEER)
 
 # The registration: one entry per subject. Which subject a line is never follows this order
 # (the subject order does); chat states the subjects' fixed prompt copy in it, which the

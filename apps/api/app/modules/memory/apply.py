@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from typing import Any
@@ -15,6 +16,8 @@ from app.modules.memory import cache
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.text import embedding_text_hash
 from app.modules.memory.writes_repository import MemoryFactWrite
+
+logger = logging.getLogger(__name__)
 
 MemorySessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
 
@@ -45,8 +48,6 @@ async def apply_memory_facts(
     """
     if not writes:
         return
-
-    from app.gateways import embedding_gateway
 
     embed_needed: list[tuple[UUID, str]] = []
     async with session_factory() as session:
@@ -88,9 +89,10 @@ async def apply_memory_facts(
         await _invalidate_memory_caches(user_id)
         return
 
-    vectors = await embedding_gateway.embed_many(
-        settings, [text for _, text in embed_needed], concurrency=settings.embedding_concurrency
-    )
+    vectors = await _vectors(settings, user_id, [text for _, text in embed_needed])
+    if vectors is None:
+        await _invalidate_memory_caches(user_id)
+        return
     to_write = [
         (memory_id, text, vec, embedding_text_hash(text))
         for (memory_id, text), vec in zip(embed_needed, vectors, strict=True)
@@ -140,6 +142,23 @@ async def _retire_said_again(
         min_similarity=settings.memory_near_duplicate_similarity,
         new_wins=new_wins,
     )
+
+
+async def _vectors(
+    settings: Settings, user_id: UUID, texts: list[str]
+) -> list[list[float] | None] | None:
+    """The facts' vectors; None while the provider is unavailable. Their text is committed
+    first, and a fact with no vector is embedded by a later pass's backfill
+    (``memory_embed_backfill_per_pass``), so the pass ends without rerunning its model."""
+    from app.gateways import embedding_gateway
+
+    try:
+        return await embedding_gateway.embed_many(
+            settings, texts, concurrency=settings.embedding_concurrency
+        )
+    except embedding_gateway.EmbeddingUnavailableError:
+        logger.warning("Memory embeddings left for a later pass user_id=%s", user_id)
+        return None
 
 
 async def _invalidate_memory_caches(user_id: UUID) -> None:

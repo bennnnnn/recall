@@ -668,3 +668,57 @@ async def test_retrieve_for_prompt_uses_stored_ocr_coverage():
     assert "first 20 OCR'd PDF pages" in block
     assert "200000" in block
     assert "first 500 PDF pages" not in block
+
+
+@pytest.mark.asyncio
+async def test_a_batch_the_provider_keeps_failing_retries_the_index_job(monkeypatch):
+    """Review of #2590: batch 2 of a file still failing after its tries came back as Nones,
+    the other chunks were stored and the job ended done, so those chunks were never
+    indexed. Now the job raises and the worker tries the whole file again."""
+    import litellm
+
+    from app.gateways import embedding_gateway, llm_spend
+    from app.modules.attachments.jobs import index_attachment_job
+    from app.modules.attachments.rag import AttachmentIndexError
+
+    monkeypatch.setattr(embedding_gateway, "_BATCH_RETRY_BASE_S", 0.0)
+    settings = Settings(
+        attachment_rag_enabled=True,
+        mock_llm_enabled=False,
+        openrouter_api_key="k",
+        embedding_batch_size=2,
+        attachment_rag_chunk_chars=200,
+        attachment_rag_chunk_overlap=0,
+    )
+    row = MagicMock(id=uuid4(), user_id=uuid4(), storage_key="u/doc", content_type="text/plain")
+    text = " ".join(f"word{index}" for index in range(400))
+    batches: list[int] = []
+
+    async def provider(*, model: str, input: list[str], **_kwargs):
+        batches.append(len(input))
+        if input[0] != chunk_text(text, chunk_chars=200, overlap=0)[0]:
+            raise litellm.InternalServerError(message="5xx", model=model, llm_provider="x")
+        return MagicMock(data=[{"embedding": [0.1] * 1536, "index": i} for i in range(len(input))])
+
+    stored = AsyncMock()
+    with (
+        patch("app.modules.attachments.rag.SessionLocal", _session_cm()),
+        patch(
+            "app.modules.attachments.rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.modules.attachments.rag.ocr_allowance.recall_ocr_text",
+            AsyncMock(return_value=ExtractedText(text=text)),
+        ),
+        patch.object(embedding_gateway, "aembedding", provider),
+        patch.object(llm_spend, "meter_model_call"),
+        patch("app.modules.attachments.rag.chunks_repo.replace_chunks", stored),
+        pytest.raises(AttachmentIndexError),
+    ):
+        await index_attachment_job(
+            settings, {"attachment_id": str(row.id), "user_id": str(row.user_id)}
+        )
+    stored.assert_not_awaited()
+    # The failing batches were retried whole, never sent one text at a time.
+    assert set(batches) == {2}

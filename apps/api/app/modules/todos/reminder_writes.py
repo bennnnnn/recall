@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.actions import _ACTION_RELOAD_LIMIT, REMINDER_TOPIC, apply_todo_actions
+from app.modules.todos.actions import ACTION_RELOAD_LIMIT, REMINDER_TOPIC, apply_todo_actions
 from app.modules.todos.due_day import has_time
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.reminder_fence_parse import ReminderFence
@@ -109,7 +109,7 @@ async def load_existing(state: ReminderWrites) -> None:
     """Load To-dos once (lazily) so multi-fence replies don't re-read the DB."""
     if not state.existing_loaded:
         state.existing = await todos_repo.list_for_user(
-            state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
+            state.session, state.user_id, limit=ACTION_RELOAD_LIMIT, needed_first=True
         )
         state.existing_loaded = True
 

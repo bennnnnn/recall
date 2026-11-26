@@ -63,6 +63,8 @@ class RegenerateTurn:
     # reply being replaced), and the model health read beside it.
     recent: list[Any]
     unhealthy: frozenset[str] = frozenset()
+    # The row of the line answered again.
+    user_message_id: UUID | None = None
 
     @property
     def before_line(self) -> list[Any]:
@@ -367,6 +369,7 @@ async def load_regenerate_turn(
         omit_message_ids=omit_message_ids,
         recent=recent,
         unhealthy=health.cooling,
+        user_message_id=last_user.id,
     )
 
 

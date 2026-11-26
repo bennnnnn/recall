@@ -141,3 +141,58 @@ def test_subject_guard_every_registered_subject_is_guarded_and_pickles(adapter: 
     assert pickle.loads(pickle.dumps(adapter.followups.shown_problem)) is not None  # noqa: S301
     timeouts = adapter.solve_timeouts()
     assert isinstance(timeouts, AbstractContextManager)
+
+
+async def test_money_guard_every_member_answers_as_no_money(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chat asks money of every turn (its prepare beside the prompt, its reads in routing
+    and card rounding): a money bug must cost only the money card (audit, 2026-11-25)."""
+    from app.services.subjects.guard import GuardedMoney
+    from app.services.subjects.registry import MONEY
+
+    monkeypatch.setattr(guard, "_FAILED", set())
+    money = GuardedMoney(_Raising())
+    settings = Settings()
+    common: dict[str, Any] = {"user": None, "location": None}
+    loan: dict[str, Any] = {**common, "earlier": [], "last_reply": ""}
+    assert await money.prepare("t", settings, None, **loan) is None
+    assert await money.prepare_standing("t", settings, None, **loan) is None
+    assert await money.prepare_read("t", settings, None, **common, conversation=[]) is None
+    assert money.reads("t") is False
+    money.read_requests(["t"], [])  # a pool read that raises reads nothing ahead
+    # Yields: the line stays its science's, with no money card.
+    assert money.yields_to("t", "physics") is True
+    assert money.names_currency("$") is False
+    assert money.owns(object()) is False
+    # The finish runs in the money finalize pass, which falls back on its own.
+    with pytest.raises(RuntimeError):
+        await money.finish(object(), "reply", settings, english=True)  # type: ignore[arg-type]
+    assert isinstance(MONEY, GuardedMoney)
+
+
+async def test_a_money_bug_never_fails_a_turn_that_is_not_money(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    """The money prepare runs beside the prompt on every turn (``server_parts``)."""
+    from types import SimpleNamespace
+
+    from app.modules.chat.turn_prep import money as money_prep
+    from app.modules.money import subject as money_subject
+    from app.modules.turn_reading.plan import single_plan
+
+    monkeypatch.setattr(guard, "_FAILED", set())
+    monkeypatch.setattr(money_subject.MoneyPeer, "prepare", _aboom)
+    monkeypatch.setattr(money_subject.MoneyPeer, "prepare_standing", _aboom)
+    request = SimpleNamespace(
+        content="hi there", has_image_attachment=False, recent_messages=[], search_budget=None
+    )
+    identity = SimpleNamespace(user=None, geo=SimpleNamespace(user_location=None))
+    turn = await money_prep.money_turn(
+        request,  # type: ignore[arg-type]
+        identity,  # type: ignore[arg-type]
+        Settings(money_read_enabled=False),
+        fake_redis,
+        single_plan("hi there"),
+    )
+    assert turn is None

@@ -64,7 +64,10 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
     start = MagicMock(return_value=read)
     captured: dict[str, Any] = {}
     resource = SimpleNamespace(
-        reserve=AsyncMock(), reserved_tokens=100, search_budget=lambda *_: None
+        reserve=AsyncMock(),
+        reserved_tokens=100,
+        search_budget=lambda *_: None,
+        message_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager
@@ -134,7 +137,10 @@ async def test_a_regenerate_an_intercept_answers_stops_the_read() -> None:
     window = [_row("user", "show me a red panda"), _row("assistant", "[photo]")]
     read = asyncio.ensure_future(asyncio.sleep(30))
     resource = SimpleNamespace(
-        reserve=AsyncMock(), reserved_tokens=100, search_budget=lambda *_: None
+        reserve=AsyncMock(),
+        reserved_tokens=100,
+        search_budget=lambda *_: None,
+        message_left=AsyncMock(return_value=True),
     )
 
     @asynccontextmanager

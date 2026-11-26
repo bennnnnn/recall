@@ -328,9 +328,7 @@ async def search_and_attach_for_chat(
         async with SessionLocal() as session:
             prior_count = await chat_history.message_count(session, chat_id)
             if create_user_message:
-                bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
-                if not bubble:
-                    bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
+                bubble = (user_message_content or "").strip() or f"{_USER_MESSAGE_PREFIX}{cleaned}"
                 user_message = await turn_record.add_turn_message(
                     session, chat_id=chat_id, user_id=user.id, role="user", content=bubble
                 )
@@ -374,6 +372,7 @@ async def search_and_attach_for_chat(
             user=user,
             chat_id=chat_id,
             user_message=user_message.content,
+            user_message_id=user_message.id,
             assistant=assistant_message,
             prior_count=prior_count,
         )

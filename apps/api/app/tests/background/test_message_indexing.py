@@ -35,8 +35,28 @@ async def test_index_message_job_calls_index_turn():
     assert kwargs["user_id"] == user_id
     assert kwargs["chat_id"] == chat_id
     assert kwargs["assistant_message_id"] == assistant_id
+    # A payload queued before it carried the turn's line: the chat's latest, as before.
+    assert kwargs["user_message_id"] is None
     # Memory off indexes nothing: the job hands conversation memory's own switch.
     assert kwargs["memory_on"] is memory_switch_on
+
+
+@pytest.mark.asyncio
+async def test_index_message_job_passes_the_turns_own_line():
+    line = uuid4()
+    with patch(
+        "app.modules.conversation.history_rag.index_turn_messages", AsyncMock(return_value=2)
+    ) as index:
+        await index_message_job(
+            Settings(chat_history_rag_enabled=True),
+            {
+                "user_id": str(uuid4()),
+                "chat_id": str(uuid4()),
+                "assistant_message_id": str(uuid4()),
+                "user_message_id": str(line),
+            },
+        )
+    assert index.await_args.kwargs["user_message_id"] == line
 
 
 @pytest.mark.asyncio
@@ -55,6 +75,7 @@ async def test_enqueue_post_turn_jobs_includes_message_index():
         reserved_tokens=10,
         max_output_tokens=100,
         assistant_message_id=uuid4(),
+        user_message_id=uuid4(),
         skip_memory_jobs=False,
         prior_count=4,
     )
@@ -70,6 +91,9 @@ async def test_enqueue_post_turn_jobs_includes_message_index():
         )
     job_types = [call.args[1] for call in enqueue.call_args_list]
     assert "message_index" in job_types
+    payload = enqueue.call_args_list[job_types.index("message_index")].args[2]
+    # The turn's own line rides in the payload: the chat's latest may be a newer turn's.
+    assert payload["user_message_id"] == str(ctx.user_message_id)
 
 
 @pytest.mark.asyncio

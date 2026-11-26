@@ -295,7 +295,9 @@ async def build_todos_system_section(
         probe, query_text=query_text, user_timezone=tz
     ):
         return None
-    items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
+    items = await todos_repo.list_for_user(
+        session, user.id, limit=settings.todo_inject_limit, needed_first=True
+    )
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     block = format_todos_block(selected, user_timezone=tz)
     # A turn that may only read its to-dos is never taught to write them.

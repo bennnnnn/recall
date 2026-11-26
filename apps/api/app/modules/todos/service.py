@@ -21,10 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 async def list_owned_todos(
-    session: AsyncSession, user_id: UUID, *, limit: int, offset: int = 0
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int,
+    offset: int = 0,
+    needed_first: bool = False,
 ) -> list[TodoItem]:
-    """Read a page of a user's to-dos without advancing recurrence."""
-    return await todos_repo.list_for_user(session, user_id, limit=limit, offset=offset)
+    """Read a page of a user's to-dos without advancing recurrence; ``needed_first`` keeps
+    the rows a snapshot needs most (``repository.list_for_user``)."""
+    return await todos_repo.list_for_user(
+        session, user_id, limit=limit, offset=offset, needed_first=needed_first
+    )
 
 
 async def todos_for_export(

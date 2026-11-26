@@ -31,6 +31,8 @@ from app.tests.job_fakes import patch_job_enqueue
 _USER = UUID(int=1)
 _CHAT = UUID(int=2)
 _ASSISTANT = UUID(int=3)
+# The row of the line each path saved: its indexing job reads that line.
+_LINE = UUID(int=4)
 _SAID = "I just moved to Lisbon, remind me to call mom tomorrow"
 # A lesson step too: every job has a reason to run.
 _REPLY = "Welcome to Lisbon!\n\n### Lesson 2: Fractions\n\n```quiz\n{}\n```"
@@ -63,13 +65,14 @@ async def _typed() -> None:
         max_output_tokens=100,
         user=make_user(id=_USER, memory_enabled=True),
         assistant_message_id=_ASSISTANT,
+        user_message_id=_LINE,
     )
     await post_turn.enqueue_post_turn_jobs(AsyncMock(), _SETTINGS, ctx, _REPLY)
 
 
 async def _voice() -> None:
     user = MagicMock(id=_USER, memory_enabled=True, timezone="UTC", locale="en")
-    rows = [MagicMock(id=uuid4(), content=_SAID), MagicMock(id=_ASSISTANT, content=_REPLY)]
+    rows = [MagicMock(id=_LINE, content=_SAID), MagicMock(id=_ASSISTANT, content=_REPLY)]
     session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
@@ -102,6 +105,7 @@ async def _picture() -> None:
         user=make_user(id=_USER, memory_enabled=True),
         chat_id=_CHAT,
         user_message=_SAID,
+        user_message_id=_LINE,
         assistant=MagicMock(id=_ASSISTANT, content=_REPLY),
         prior_count=0,
     )

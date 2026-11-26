@@ -23,7 +23,12 @@ from app.modules.memory.extract_backlog import (
     stamp_extract_cursor,
 )
 from app.modules.memory.fact_quality import FactView
-from app.modules.memory.locks import acquire_memory_write_lock, release_memory_write_lock
+from app.modules.memory.locks import (
+    acquire_memory_write_lock,
+    keep_memory_write_lock,
+    release_memory_write_lock,
+    stop_keeping,
+)
 from app.modules.memory.pass_writes import (
     Asks,
     MemorySnapshot,
@@ -153,6 +158,7 @@ async def _extract_pass(
                 user_id,
             )
             return "skipped_lock"
+        keeper = keep_memory_write_lock(user_id, lock_token)
         try:
             return await _locked_pass(
                 settings,
@@ -162,6 +168,7 @@ async def _extract_pass(
                 from_history=from_history,
             )
         finally:
+            stop_keeping(keeper)
             await release_memory_write_lock(user_id, lock_token)
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)
