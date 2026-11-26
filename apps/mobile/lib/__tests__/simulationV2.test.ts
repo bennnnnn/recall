@@ -290,7 +290,7 @@ describe("parseSimulationSpec: v2 fields", () => {
   });
 
   it("knows every title key the server can send", () => {
-    expect(SCENE_TITLE_KEYS).toHaveLength(26);
+    expect(SCENE_TITLE_KEYS).toHaveLength(31);
     for (const key of SCENE_TITLE_KEYS) {
       expect(parse({ ...PENDULUM, title_key: key })?.titleKey).toBe(key);
     }

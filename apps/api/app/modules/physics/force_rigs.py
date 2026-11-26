@@ -86,6 +86,23 @@ def _pulley(text: str, friction: bool) -> RigPicture | None:
     return None
 
 
+def table_pulley_picture(
+    *, friction: bool, masses: tuple[float, float] | None = None
+) -> SimulationBlockSpec:
+    """The block-on-a-table rig on its own, its block and hanging mass labelled with
+    ``masses`` (kg) when given: the solve and a scene a reply describes draw it too."""
+    spec = _table_pulley(friction)[0]
+    if masses is None:
+        return spec
+    from app.modules.physics.display import GIVEN_FIGURES, plain_number
+
+    bodies = [
+        body.model_copy(update={"label": f"{plain_number(mass, GIVEN_FIGURES)} kg"})
+        for body, mass in zip(spec.bodies, masses, strict=True)
+    ]
+    return spec.model_copy(update={"bodies": bodies})
+
+
 def _atwood() -> RigPicture:
     """Two masses on one rope over a wheel: tension up on both, each one's weight down."""
     wheel, axle, size = 0.5, 3.55, 0.36
