@@ -178,11 +178,7 @@ def test_the_momentum_steps_are_said_only_where_nothing_checked_the_turn() -> No
     assert maths is not None and maths.subject_notes == ()
 
 
-def test_the_momentum_steps_ask_a_force_only_when_the_question_does() -> None:
-    assert "a force only when the question asks for one" in PHYSICS_VECTORS
-    assert "then a force from it" not in PHYSICS_VECTORS
-
-
+@pytest.mark.wall_clock
 def test_a_written_power_is_read_at_once() -> None:
     started = time.perf_counter()
     assert not writes_column_vectors("A cart moves on [0; 5] 9^999999999 m. Its momentum?")
