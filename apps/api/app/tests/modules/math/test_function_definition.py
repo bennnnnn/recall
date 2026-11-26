@@ -54,8 +54,19 @@ def test_a_call_that_reads_an_applied_function_as_a_product_is_never_checked() -
     )
 
 
-def test_no_maths_module_writes_its_own() -> None:
-    pattern = r"\s*\(\s*([A-Za-z])\s*\)\s*="
-    for path in _MATH.rglob("*.py"):
-        if path.name != "function_names.py":
-            assert pattern not in path.read_text(encoding="utf-8"), path
+@pytest.mark.parametrize(
+    ("path", "shared"),
+    [
+        ("tools/extractors/functions.py", "FUNCTION_DEFINITION"),
+        ("tools/school/function_value.py", "FUNCTION_DEFINITION"),
+        ("match/graph.py", "FUNCTION_DEFINITION"),
+        ("tool_check.py", "FUNCTION_APPLIED"),
+    ],
+)
+def test_every_function_reader_takes_the_shared_pattern(path: str, shared: str) -> None:
+    """Each of the four readers imports its pattern from ``function_names`` and writes no
+    "f(x) =" pattern of its own (review, #2591: a literal search passed a restored copy)."""
+    source = (_MATH / path).read_text(encoding="utf-8")
+    assert "from app.modules.math.function_names import" in source and shared in source
+    # Every copy that drifted closed its "f(x)" on this: ``\)\s*=``.
+    assert r"\)\s*=" not in source, path

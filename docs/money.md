@@ -20,6 +20,7 @@ as a slider moves by **evaluating** the formula the server sent; it never solves
 | Whether a reading is one the product is worked at (term on its slider, two payments, a rate it is quoted at, "borrowed" from a lender at a rate, a stated payment, one loan named, the level shape: no first payment timed otherwise, no balloon) | `apps/api/app/modules/money/fits.py` |
 | A what-if that changes the chat's last request ("what if i only do 3 years instead") | `apps/api/app/modules/money/follow_up.py`, its grammar `change_line.py` |
 | A loan told over two lines ("I am planning to buy a car", then "20k with 6 percent") | `apps/api/app/modules/money/purchase.py`; what each loan buys, `Product.goods` |
+| The turn's money requests read once in the SymPy pool, beside the message's other readings (the user's earlier lines, one window for turn load and the money turn: `chat/turn_prep/reading.earlier_user_lines`) | `apps/api/app/modules/money/reading.py` (`request_of`, `standing_of`), asked through `MoneyPeer.read_requests` |
 | A request told over many lines, or in words no rule reads, on a turn the read calls money | `apps/api/app/modules/money/model_read.py` (the model's reading), `read_check.py` (each value held to the chat); chat side `modules/chat/turn_prep/money.py` |
 | The card's currency and the country a rate search names | `apps/api/app/modules/money/currencies.py` |
 | Numbers for the asked values, the prompt block and the note | `apps/api/app/modules/money/solve.py`, `block.py`, `note.py` |

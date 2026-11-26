@@ -397,6 +397,7 @@ def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
             url=str(item.get("url") or ""),
             snippet=str(item.get("snippet") or ""),
             published=str(item.get("published") or ""),
+            provider=str(item.get("provider") or ""),
         )
         for item in payload
         if isinstance(item, dict)

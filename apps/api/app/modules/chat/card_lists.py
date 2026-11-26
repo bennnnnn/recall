@@ -52,17 +52,26 @@ _INVERSE_TRIG = re.compile(
 )
 _DEGREE_MARK = re.compile(r"\^\s*\{?\s*\\circ\s*\}?|°|\\degree(?![A-Za-z])")
 _INLINE = re.compile(r"\$([^$\n]+)\$")
-# A side that is one number as written ("43.9"): no working out, so no precision of its own.
-_BARE = re.compile(r"[-+−]?\s*\d+(?:\.\d+)?")
+# A side that is one number once read ("43.9", "2.4\,\mathrm{m/s}", "43.9\,^\circ"): no working
+# out, so no precision of its own. Decided on the side as read, units and TeX spaces gone
+# (review, #2591: "v = 2.4 m/s" over a card of 2.4 m/s padded it to 2.40).
+_BARE = re.compile(r"\(*[-+]?\d+(?:\.\d+)?\)*")
 
 
-def known_value(number: str, after: str, above: str) -> float | None:
+# The symbol a card writes its number for: "x = 1.5" is x's, read plain ("\theta" is θ).
+_CARD_SYMBOL = re.compile(r"(?P<symbol>[^\s=,;:()]+)\s*=\s*$")
+
+
+def known_value(number: str, after: str, above: str, before: str = "") -> float | None:
     """The value a card's ``number`` stands for, worked out from the working above it: an
     expression on a line for the symbol the working gave that number ("θ = tan⁻¹(8.695652 /
     9.043478)" over "θ = 43.9°" is 43.879°). None when no line works it out: the card then
     keeps the figures written, never a padded digit (43.9° is no 43.90°; owner, 2026-11-25).
     ``after`` is the card's text after the number: a degree mark there reads an inverse
-    tangent in degrees."""
+    tangent in degrees. ``before`` is the card's text before it: a number the card writes for
+    a symbol ("x = 1.5") is known only from that symbol's lines, and one it writes for none
+    only when a single symbol's working ends on it (review, #2591: "x = 1.5 m" was padded to
+    1.50 from "t = 3/2 = 1.5")."""
     target = float(number)
     places = len(number.partition(".")[2])
     degrees = _DEGREE_MARK.match(after.lstrip()) is not None
@@ -70,24 +79,41 @@ def known_value(number: str, after: str, above: str) -> float | None:
     symbols = {
         sides[0] for sides in lines if len(sides) > 1 and _read(sides[-1], degrees) == target
     }
+    named = _CARD_SYMBOL.search(before)
+    if named is not None:
+        own = _symbol(named["symbol"])
+        symbols = {symbol for symbol in symbols if _symbol(symbol) == own}
+    elif len({_symbol(symbol) for symbol in symbols}) > 1:
+        return None
     for sides in reversed(lines):
         if len(sides) < 2 or sides[0] not in symbols:
             continue
         for side in sides[1:]:
-            if _BARE.fullmatch(_DEGREE_MARK.sub("", side).strip()):
-                continue  # a number as written is no working out
-            value = _read(side, degrees)
+            plain = _plain(side, degrees)
+            if plain is None or _BARE.fullmatch(plain):
+                continue  # no arithmetic, or a number as written: no working out
+            value = evaluate(plain)
             if value is not None and abs(value - target) <= 0.5 * 10**-places * (1 + 1e-9):
                 return value
     return None
 
 
+def _symbol(text: str) -> str:
+    """A symbol as read plain: ``\theta`` and θ, ``v_{x}`` and v_x are one."""
+    return re.sub(r"[\s{}]", "", plain_text(text))
+
+
 def _read(side: str, degrees: bool) -> float | None:
     """One side of a line of working worked out, or None when it is no plain arithmetic."""
+    plain = _plain(side, degrees)
+    return None if plain is None else evaluate(plain)
+
+
+def _plain(side: str, degrees: bool) -> str | None:
+    """One side of a line of working as plain arithmetic, units and TeX spaces gone."""
     tex = _DEGREE_MARK.sub("", side)
     prefix = "a" if degrees else "ra"
     tex = _INVERSE_TRIG.sub(
         lambda match: f" {prefix}{match['arc'] or match['name']}{'d' if degrees else ''} ", tex
     )
-    plain = plain_arithmetic(tex)
-    return None if plain is None else evaluate(plain)
+    return plain_arithmetic(tex)

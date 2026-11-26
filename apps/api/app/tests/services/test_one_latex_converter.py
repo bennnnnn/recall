@@ -34,15 +34,32 @@ def test_the_converter_reads_what_the_cleaners_did(tex: str, plain: str) -> None
 
 def test_a_long_reply_is_read_whole() -> None:
     """The converter leaves a text past its bound as written; a reply is read a line at a
-    time, so its last line's TeX is still read."""
-    reply = ("Some working.\n" * 2_000) + r"So $v = 35.3\,\mathrm{m/s}$."
+    time, so its last line's TeX, a box the old cleaner never opened, is still read."""
+    reply = ("Some working.\n" * 2_000) + r"So $\boxed{v = 35.3\,\mathrm{m/s}}$."
     assert len(reply) > 20_000
     assert _clean(reply).splitlines()[-1].strip() == "So  v = 35.3 m/s ."
 
 
-def test_a_signed_fraction_reads_as_its_value() -> None:
-    numbers = read_value(_clean(r"\frac{-3}{4}"))
-    assert numbers is not None and [float(number.value) for number in numbers] == [-0.75]
+@pytest.mark.parametrize(
+    ("tex", "plain"),
+    [
+        (r"\frac{F}{\pi r^2}", "F/(πr^2)"),
+        (r"\frac{1}{\omega C}", "1/(ωC)"),
+        (r"\frac{m}{\rho V}", "m/(ρV)"),
+        (r"\frac{hc}{\lambda}", "hc/λ"),
+    ],
+)
+def test_a_greek_letter_alone_is_the_only_bare_greek_denominator(tex: str, plain: str) -> None:
+    """F/πr^2 reads as (F/π)·r² (review, #2591)."""
+    assert without_markup(tex) == plain
+
+
+@pytest.mark.parametrize("unit", [r"\text{ m}", r"\mathrm{m}", r"\,\mathrm{m}"])
+def test_a_fraction_before_its_unit_reads_as_its_value(unit: str) -> None:
+    """The unit after a fraction is no factor of it: 3/4 m, never (3/4) m (review, #2591)."""
+    numbers = read_value(_clean(rf"\frac{{3}}{{4}}{unit}"))
+    assert numbers is not None
+    assert [(float(number.value), number.unit) for number in numbers] == [(0.75, "m")]
 
 
 def test_the_posed_read_knows_every_command() -> None:

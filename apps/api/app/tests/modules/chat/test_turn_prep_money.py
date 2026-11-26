@@ -285,3 +285,39 @@ async def test_a_regenerate_reads_its_money_request_in_the_pool_once(
     assert turn is not None and turn.request.values["months"] == 36
     if turn.lookup is not None:
         turn.lookup.cancel()
+
+
+async def test_turn_load_and_prep_read_one_window_of_earlier_lines(
+    fake_redis: Redis, thread_sympy_executor: None, monkeypatch: Any
+) -> None:
+    """Turn load reads the history; prep's window also holds the pending row. In a chat of
+    eight messages or more the two windows ended on different lines, so the money turn read
+    again in a second pool trip (review, #2591)."""
+    from app.modules.money import reading as money_reading
+
+    user = lambda text: SimpleNamespace(role="user", content=text)  # noqa: E731
+    reply = SimpleNamespace(role="assistant", content="ok")
+    history = [user("hi"), reply, user("how are you"), reply, user("thanks"), reply]
+    history += [user(_CAR), reply]
+    settings = Settings()
+    begin_turn()
+    await read_turn_message(_WHAT_IF, history, settings)
+
+    def never(*_args: Any) -> None:
+        raise AssertionError("read again")
+
+    monkeypatch.setattr(money_reading, "follow_up_request", never)
+    monkeypatch.setattr(money_reading, "read_money_request", never)
+    monkeypatch.setattr(money_reading, "purchase_request", never)
+    request: Any = SimpleNamespace(
+        content=_WHAT_IF,
+        has_image_attachment=False,
+        recent_messages=[*history, user(_WHAT_IF)],
+        search_budget=None,
+    )
+    turn = await money_prep.money_turn(
+        request, _identity(), settings, fake_redis, single_plan(_WHAT_IF)
+    )
+    assert turn is not None and turn.request.values["months"] == 36
+    if turn.lookup is not None:
+        turn.lookup.cancel()

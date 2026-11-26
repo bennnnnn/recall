@@ -146,13 +146,14 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
     huge_or_tiny = abs(number) >= POWER_FROM or abs(number) < POWER_BELOW
     if precision.unrounded:
         return _unrounded(number, huge_or_tiny)
-    # A float a hair under a tie is the tie, in every branch: 0.0001 × 50² / 2 is 0.125 and
-    # 0.1 × 0.1235 is 0.01235, and their 5 rounds up (review, #2591).
-    number = float(f"{number:.12g}")
     if precision.figures > 0:
         return _figures(number, precision.figures, huge_or_tiny)
     if precision.places >= 0:
         return format_places(number, precision.places), None
+    # The rule's own rounding (never a precision asked for, which may want 15 digits: π to 15
+    # places is 3.141592653589793): a float a hair under a tie is the tie, 0.0001 × 50² / 2
+    # is 0.125 and 0.1 × 0.1235 is 0.01235, and their 5 rounds up (review, #2591).
+    number = float(f"{number:.12g}")
     if huge_or_tiny:
         return _figures(number, SMALL_FIGURES, True)
     if math.isclose(number, round(number), rel_tol=1e-12, abs_tol=1e-12):
@@ -193,7 +194,7 @@ def number_latex(value: float | Fraction, precision: Precision = RULE) -> str:
 WORKING_FIGURES = 6
 # A decimal in working, with an ellipsis after it saying its digits go on.
 _LONG_DECIMAL = re.compile(
-    r"(?<![\w.^_{])(?P<digits>\d+\.\d+)(?P<dots>[ \t]*(?:…|\\[lc]?dots(?![A-Za-z])))?"
+    r"(?<![\w.^_{])(?P<digits>\d+\.\d+)(?P<dots>[ \t]*(?:…|\.\.\.|\\[lc]?dots(?![A-Za-z])))?"
 )
 
 

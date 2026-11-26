@@ -12,8 +12,10 @@ from __future__ import annotations
 import html as html_lib
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from app.core.config import Settings
+from app.core.timezone import resolve_timezone
 from app.gateways import email_gateway
 from app.models.orm import User
 from app.modules.notifications.email_copy import (
@@ -87,28 +89,42 @@ def build_welcome(user: User) -> tuple[str, str, str]:
 
 
 def receipt_lines(
-    locale: str, *, event_type: str, store: str | None, expiration: str | None
+    locale: str,
+    *,
+    event_type: str,
+    store: str | None,
+    expiration: str | None,
+    zone: ZoneInfo | None = None,
 ) -> tuple[list[str], str | None]:
     """The receipt's lines in ``locale``: what happened to the plan and the store it was
-    bought through, then the day it renews (read in UTC), or None. A store or a date it
-    cannot name is left out."""
+    bought through, then the day it renews on the user's clock (``zone``; UTC without one),
+    or None. A store or a date it cannot name is left out."""
     copy = RECEIPT_LINES.get(locale, RECEIPT_LINES["en"])
     lines = [copy.get(event_type, copy["other"])]
     store_name = STORE_NAMES.get((store or "").strip().lower())
     if store_name:
         lines.append(copy["store"].format(store=store_name))
-    day = _day(expiration)
+    day = _day(expiration, zone)
     return lines, None if day is None else copy["renews"].format(date=day)
 
 
-def _day(instant: str | None) -> str | None:
-    """``2026-08-01T00:00:00+00:00`` as the date ``2026-08-01``; None when it is no time."""
+def _day(instant: str | None, zone: ZoneInfo | None) -> str | None:
+    """``2026-08-01T02:00:00+00:00`` as the day it is on the user's clock (2026-07-31 in Los
+    Angeles; review, #2591); None when it is no time."""
     if not instant:
         return None
     try:
-        return datetime.fromisoformat(instant).date().isoformat()
+        moment = datetime.fromisoformat(instant)
     except ValueError:
         return None
+    if moment.tzinfo is not None and zone is not None:
+        moment = moment.astimezone(zone)
+    return moment.date().isoformat()
+
+
+def _zone_of(user: User) -> ZoneInfo | None:
+    timezone = getattr(user, "timezone", None)
+    return resolve_timezone(timezone) if isinstance(timezone, str) and timezone else None
 
 
 def build_receipt(
@@ -121,7 +137,9 @@ def build_receipt(
     """Return (subject, html, text) for a purchase/renewal receipt."""
     locale = _locale_for(user)
     tpl = _template("receipt", locale)
-    lines, renews = receipt_lines(locale, event_type=event_type, store=store, expiration=expiration)
+    lines, renews = receipt_lines(
+        locale, event_type=event_type, store=store, expiration=expiration, zone=_zone_of(user)
+    )
     return (
         tpl["subject"],
         _render(

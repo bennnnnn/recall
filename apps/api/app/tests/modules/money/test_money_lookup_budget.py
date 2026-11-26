@@ -4,6 +4,7 @@ and the request read once a turn, off the event loop (audit, 2026-11-25)."""
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -65,11 +66,14 @@ async def test_a_used_car_turn_starts_both_lookups_beside_the_turns_search(
     assert turn.begin_search()
 
 
-def _search(calls: list[list[str]], *, delay: float = 0.0) -> Any:
+_TAVILY = [replace(hit, provider="tavily") for hit in HITS]
+
+
+def _search(calls: list[list[str]], *, delay: float = 0.0, hits: list[Any] | None = None) -> Any:
     async def search(_settings: Settings, queries: list[str], **_: Any) -> tuple[list, list]:
         calls.append(queries)
         await asyncio.sleep(delay)
-        return HITS, []
+        return (_TAVILY if hits is None else hits), []
 
     return search
 
@@ -154,3 +158,53 @@ async def test_a_turns_money_request_is_read_with_its_message_in_the_pool(
     monkeypatch.setattr(money_reading, "read_money_request", never)
     turn = await service.prepare_money_turn(text, settings, fake_redis, user=None, location=None)
     assert turn is not None and turn.request.product.key == "car"
+
+
+async def test_the_stand_in_providers_answer_with_no_rate_is_never_kept(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    """DuckDuckGo stands in when Tavily fails: its weaker hits holding no rate say nothing
+    for everyone, so no miss is kept (review, #2591)."""
+    calls: list[list[str]] = []
+
+    async def nothing(**_: Any) -> RateReading:
+        return RateReading(found=False)
+
+    ddg = [replace(hit, provider="duckduckgo") for hit in HITS]
+    monkeypatch.setattr(rates, "run_cached_search", _search(calls, hits=ddg))
+    monkeypatch.setattr(rates.litellm_gateway, "complete_structured", nothing)
+    for _ in range(2):
+        await current_average(
+            product("mortgage"), 30, _COUNTRY, Settings(), fake_redis, today=TODAY
+        )
+    assert len(calls) == 2
+    assert await fake_redis.get("money:average:mortgage:30:the united states") is None
+
+
+async def test_a_turn_behind_a_refused_lookup_looks_for_itself(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    """The leader's search was refused (past its plan's searches): a waiting turn with a
+    search of its own gets its rate, never the leader's None (review, #2591)."""
+    refused: Any = object()
+
+    async def search(_settings: Settings, _queries: list[str], **kwargs: Any) -> tuple[list, list]:
+        await asyncio.sleep(0.05)
+        return ([] if kwargs.get("budget") is refused else _TAVILY), []
+
+    async def read(**_: Any) -> RateReading:
+        return RateReading(
+            found=True, rate_percent=6.27, as_of="2026-10-16", source_url=HITS[0].url
+        )
+
+    monkeypatch.setattr(rates, "run_cached_search", search)
+    monkeypatch.setattr(rates.litellm_gateway, "complete_structured", read)
+    mortgage = product("mortgage")
+    leader, waiter = await asyncio.gather(
+        current_average(
+            mortgage, 30, _COUNTRY, Settings(), fake_redis, today=TODAY, budget=refused
+        ),
+        current_average(mortgage, 30, _COUNTRY, Settings(), fake_redis, today=TODAY),
+    )
+    assert leader is None
+    assert waiter is not None and waiter.value == 6.27

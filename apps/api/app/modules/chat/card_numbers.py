@@ -239,9 +239,9 @@ def _known(match: re.Match[str], value: str, above: str) -> Number | None:
     (``card_lists.known_value``), when the card shows fewer places than the rule."""
     written = match.group("number").replace(",", "")
     places = len(written.partition(".")[2])
-    if places >= PLACES or match.group("braced", "bare", "calculator") != (None,) * 3:
+    if places >= PLACES or power_of(match) is not None:
         return None
-    found = known_value(written, value[match.end() :], above)
+    found = known_value(written, value[match.end() :], above, value[: match.start()])
     return None if found is None else Number(Fraction(repr(found)), None)
 
 
@@ -258,7 +258,7 @@ def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
     pieces, at = [], 0
     for match in WRITTEN_NUMBER.finditer(value):
         number = match.group("number")
-        if "." not in number or match.group("braced", "bare", "calculator") != (None,) * 3:
+        if "." not in number or power_of(match) is not None:
             continue
         read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
         known = _known(match, value, above)
@@ -294,7 +294,9 @@ def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) 
     written = _figures(digits)
     if _figures(mantissa) <= written:
         return precision
-    if exponent is not None or abs(number.value) < SMALL_BELOW:
+    # Places come only from a number written in full: "1.5 \times 10^{3}" has one place in
+    # its mantissa, and 1500 none (review, #2591: it read 1500.0 J).
+    if exponent is not None or power_of(match) is not None or abs(number.value) < SMALL_BELOW:
         return Precision(figures=written)
     return Precision(places=len(digits.partition(".")[2]))
 

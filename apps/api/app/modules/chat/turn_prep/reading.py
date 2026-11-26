@@ -329,12 +329,25 @@ def earlier_user_lines(recent: Sequence[Any], content: str) -> tuple[str, ...]:
     from app.services.problem_followup import message_role_content
     from app.services.text_normalize import collapse_ws
 
+    rows = list(recent)
+    own = collapse_ws(content)
+
+    def is_own(message: Any) -> bool:
+        role, text = message_role_content(message)
+        return role == "user" and isinstance(text, str) and collapse_ws(text) == own
+
+    # The turn's own row, when the window ends on it (prep's holds the pending message, turn
+    # load's does not), goes before the window is taken: both read the same eight messages
+    # (review, #2591).
+    if rows and is_own(rows[-1]):
+        rows.pop()
     lines = [
         text
-        for message in list(recent)[-_MONEY_WINDOW:]
+        for message in rows[-_MONEY_WINDOW:]
         if (said := message_role_content(message))[0] == "user" and isinstance(text := said[1], str)
     ]
-    if lines and collapse_ws(lines[-1]) == collapse_ws(content):
+    # A regenerate's window ends on the reply it replaces, after the turn's own line.
+    if lines and collapse_ws(lines[-1]) == own:
         lines.pop()
     return tuple(lines)
 

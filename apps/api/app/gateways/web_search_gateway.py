@@ -51,6 +51,10 @@ class WebSearchHit:
     # alone), when the provider says: Tavily's news search does; its general search and
     # DuckDuckGo do not.
     published: str = ""
+    # Who answered: "tavily", "duckduckgo", or "" (a mock, or a cache entry from before).
+    # A reader that keeps an answer for everyone keeps only the search of record's
+    # (``money.rates``).
+    provider: str = ""
 
 
 class WebSearchUnavailableError(Exception):
@@ -96,6 +100,7 @@ def _ddg_item_to_hit(item: dict[str, object]) -> WebSearchHit | None:
         title=title or url or "Untitled",
         url=url,
         snippet=snippet[:SNIPPET_CHARS],
+        provider="duckduckgo",
     )
 
 
@@ -254,6 +259,7 @@ async def _search_tavily(
                 url=url,
                 snippet=snippet[:SNIPPET_CHARS],
                 published=_published_at(item.get("published_date")),
+                provider="tavily",
             )
         )
     return hits

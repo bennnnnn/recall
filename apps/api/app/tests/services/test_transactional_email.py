@@ -883,3 +883,18 @@ async def test_an_account_or_sender_refusal_is_retried_not_given_up(
         )
     assert result.outcome == outcome
     assert any(record.levelno == logging.ERROR for record in caplog.records)
+
+
+def test_a_renewal_is_dated_on_the_users_own_clock() -> None:
+    """02:00 UTC on 1 August is 31 July in Los Angeles (review, #2591)."""
+    user = _user(name="Bo", locale="en")
+    user.timezone = "America/Los_Angeles"
+    _, _, text = tx_email.build_receipt(
+        user, event_type="RENEWAL", expiration="2026-08-01T02:00:00+00:00"
+    )
+    assert "Renews on: 2026-07-31" in text
+    user.timezone = "Europe/Berlin"
+    _, _, text = tx_email.build_receipt(
+        user, event_type="RENEWAL", expiration="2026-08-01T02:00:00+00:00"
+    )
+    assert "Renews on: 2026-08-01" in text

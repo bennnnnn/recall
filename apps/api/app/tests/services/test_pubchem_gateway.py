@@ -338,7 +338,8 @@ async def test_an_iupac_name_is_cached_for_a_day() -> None:
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=empty):
         assert await pubchem_gateway.lookup_iupac_name("CCO", redis=redis2) is None
     # PubChem answered with no name: remembered for a quarter of an hour, not a day.
-    redis2.set.assert_awaited_once_with("pubchem:iupac:CCO", "missing", ex=15 * 60)
+    # Under its own key: the name key never holds the marker (review, #2591).
+    redis2.set.assert_awaited_once_with("pubchem:iupac-missing:CCO", "missing", ex=15 * 60)
 
 
 @pytest.mark.asyncio
@@ -351,8 +352,9 @@ async def test_a_smiles_pubchem_does_not_know_is_remembered_briefly(status: int)
     redis.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
         assert await pubchem_gateway.lookup_iupac_name("C1CC1N", redis=redis) is None
-    redis.set.assert_awaited_once_with("pubchem:iupac:C1CC1N", "missing", ex=15 * 60)
-    redis.get = AsyncMock(return_value=b"missing")
+    redis.set.assert_awaited_once_with("pubchem:iupac-missing:C1CC1N", "missing", ex=15 * 60)
+    stored = {"pubchem:iupac-missing:C1CC1N": b"missing"}
+    redis.get = AsyncMock(side_effect=stored.get)
     with patch.object(pubchem_gateway, "get_pooled_client") as mock_client:
         assert await pubchem_gateway.lookup_iupac_name("C1CC1N", redis=redis) is None
     mock_client.assert_not_called()

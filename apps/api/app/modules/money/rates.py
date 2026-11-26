@@ -41,8 +41,9 @@ _MISS = "missing"
 _MISS_SECONDS = 15 * 60
 _MISSED = object()
 # The lookup running for each (event loop, cache key): a turn that asks while one is on its
-# way waits for that answer instead of starting a second search (single flight).
-_IN_FLIGHT: dict[tuple[int, str], asyncio.Task[MarketRate | None]] = {}
+# way waits for that answer instead of starting a second search (single flight). Its answer
+# says whether it speaks for everyone (``_Answer.shared``).
+_IN_FLIGHT: dict[tuple[int, str], asyncio.Task[_Answer]] = {}
 # The search results the reading may cite; more only dilute a small model's attention.
 _TOP_RESULTS = 5
 _READ_MAX_TOKENS = 96
@@ -129,8 +130,24 @@ async def current_average(
         running = asyncio.ensure_future(_look_up(search, key, lookup, bucket, country, day))
         _IN_FLIGHT[flight] = running
         running.add_done_callback(lambda _done: _IN_FLIGHT.pop(flight, None))
-    found = await asyncio.shield(running)
+        answer = await asyncio.shield(running)
+    else:
+        answer = await asyncio.shield(running)
+        if not answer.shared:
+            # The leader's search was refused, past its plan's searches or no user's, or
+            # answered by the stand-in provider: this turn looks for itself (review, #2591).
+            answer = await _look_up(search, key, lookup, bucket, country, day)
+    found = answer.rate
     return None if found is None else replace(found, spread=lookup.spread)
+
+
+@dataclass(frozen=True)
+class _Answer:
+    """A lookup's checked rate, or None; ``shared``: what it found speaks for everyone (a
+    rate, or the search of record answered and held none), so a waiting turn may take it."""
+
+    rate: MarketRate | None
+    shared: bool
 
 
 @dataclass(frozen=True)
@@ -150,10 +167,11 @@ async def _look_up(
     bucket: float | None,
     country: str,
     today: date,
-) -> MarketRate | None:
+) -> _Answer:
     """One search and one read for ``key``; a checked rate is kept for the cache's time, and
-    an answer with no checked rate for ``_MISS_SECONDS``. A search or a read that failed is
-    never kept: the next turn tries again."""
+    an answer with no checked rate for ``_MISS_SECONDS`` only when the search of record
+    (Tavily) answered it: a search or a read that failed, a refused or used-up search, and
+    the stand-in provider's weaker hits are never kept, and the next turn tries again."""
     try:
         hits, _ = await run_cached_search(
             search.settings,
@@ -164,15 +182,18 @@ async def _look_up(
         )
     except Exception:
         logger.info("money rate search failed for %s", key, exc_info=True)
-        return None
+        return _Answer(None, shared=False)
     shown = hits[:_TOP_RESULTS]
     reading = await _read(shown, lookup, bucket, country, search.settings, today)
     found = checked(reading, shown, lookup, bucket, country, today)
     if found is not None:
         await _store(search.redis, key, found, search.settings.money_rate_cache_seconds)
-    elif reading is not None:
+        return _Answer(found, shared=True)
+    of_record = bool(shown) and all(hit.provider == "tavily" for hit in shown)
+    if reading is not None and of_record:
         await _store_miss(search.redis, key)
-    return found
+        return _Answer(None, shared=True)
+    return _Answer(None, shared=False)
 
 
 async def _read(

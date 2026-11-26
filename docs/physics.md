@@ -786,7 +786,9 @@ fixes below so the coverage number stays honest, `investigation.json`, the Septe
 investigation's 286 questions (multi-part ones list every `parts` value the card must
 hold), and `investigation_lookalikes.json`, the everyday sentences its new readers must
 leave alone. For each turn it routes the prompt as a
-chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
+chat turn does and reads the verified answer card (1% tolerance, or half the card's last
+place for a rounded decimal card, which the rule writes to two places: 0.15 for 0.1549 is
+3% off and right; any unit of the same kind).
 It also checks the reply's Given / Required / Formula / Substitution / Answer order (an older
 reply's Find counts as Required), flags
 calculator notation and an invented zero given, and validates every `simulation` and `graph`

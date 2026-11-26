@@ -96,6 +96,12 @@ def _iupac_cache_key(smiles: str) -> str:
     return f"pubchem:iupac:{smiles.strip()}"
 
 
+def _iupac_missing_key(smiles: str) -> str:
+    """A SMILES PubChem has no IUPAC name for, under its own key: an instance that reads the
+    name key as a name never reads the marker as one (review, #2591)."""
+    return f"pubchem:iupac-missing:{smiles.strip()}"
+
+
 def _compound_from_cache(raw: str) -> PubChemCompound | None:
     try:
         data = json.loads(raw)
@@ -279,15 +285,19 @@ async def lookup_iupac_name(smiles: str, redis: Redis | None = None) -> str | No
     if not is_smiles(smiles):
         return None
     cache_key = _iupac_cache_key(smiles)
+    missing_key = _iupac_missing_key(smiles)
     if redis is not None:
         try:
             cached = await redis.get(cache_key)
+            missed = None if cached else await redis.get(missing_key)
         except Exception:
             logger.debug("PubChem cache read failed", exc_info=True)
-            cached = None
+            cached = missed = None
         if cached:
             known = cached.decode() if isinstance(cached, bytes) else str(cached)
             return None if known == _MISSING else known
+        if missed:
+            return None
     url = f"{PUG_REST_URL}/compound/smiles/{quote(smiles, safe='')}/property/IUPACName/JSON"
     fetched = await _pug_get(url, "iupac")
     props = None if fetched.data is None else _first_properties(fetched.data)
@@ -295,7 +305,7 @@ async def lookup_iupac_name(smiles: str, redis: Redis | None = None) -> str | No
     if not isinstance(name, str) or not name.strip():
         # PubChem answered and has no name for it: remembered briefly. Busy is never.
         if redis is not None and (fetched.missing or fetched.data is not None):
-            await _write_cache(redis, cache_key, _MISSING, _IUPAC_MISSING_TTL_SECONDS)
+            await _write_cache(redis, missing_key, _MISSING, _IUPAC_MISSING_TTL_SECONDS)
         return None
     name = name.strip()
     if redis is not None:
