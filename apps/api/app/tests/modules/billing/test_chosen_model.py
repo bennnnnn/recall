@@ -133,7 +133,7 @@ def test_settings_show_the_models_the_plan_still_includes(
     out = _user_out(plan_id, saved)
     assert (out.enabled_models, out.default_model) == (shown, chosen)
     user: Any = SimpleNamespace(plan=plan_id, enabled_models=saved)
-    assert plan.is_auto_enabled(user) is (chosen == "auto")
+    assert plan.is_auto_enabled(user, Settings()) is (chosen == "auto")
 
 
 @pytest.mark.parametrize(
@@ -151,4 +151,4 @@ def test_a_named_model_the_plan_dropped_is_auto(
     plan_id: str, named: str | None, kept: str | None
 ) -> None:
     user: Any = SimpleNamespace(plan=plan_id, enabled_models=None)
-    assert plan.pick_for_plan(user, named) == kept
+    assert plan.pick_for_plan(user, named, Settings()) == kept

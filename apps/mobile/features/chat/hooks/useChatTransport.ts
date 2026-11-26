@@ -200,7 +200,7 @@ export function useChatTransport({
     async (content: string, options?: SendSseOptions) => {
       const token = getToken();
       if (!token || !chatId) return;
-      const signal = sse.begin();
+      const { signal, streamId } = sse.begin();
       const turnId = options?.ttftTurnId ?? null;
       try {
         await streamChatMessageSse({
@@ -212,7 +212,7 @@ export function useChatTransport({
           clientGeo: options?.clientGeo,
           ttftTurnId: turnId,
           clientMessageId: options?.clientMessageId,
-          signal,
+          signal, streamId,
           onEvent: (payload) => {
             if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload, turnId);
           },
@@ -230,14 +230,14 @@ export function useChatTransport({
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       const token = getToken();
       if (!token || !chatId) return;
-      const signal = sse.begin();
+      const { signal, streamId } = sse.begin();
       try {
         await streamChatRegenerateSse({
           token,
           chatId,
           model,
           clientGeo,
-          signal,
+          signal, streamId,
           onEvent: (payload) => {
             if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload);
           },

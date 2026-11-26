@@ -29,6 +29,8 @@ type StreamChatSseClient = {
   signal?: AbortSignal;
   /** Optimistic user-message id for the send that opened this stream. */
   ttftTurnId?: string | null;
+  /** The stream's name, which the user's Stop says it by (`useSseStream`). */
+  streamId?: string;
   onEvent: (payload: ChatSsePayload) => void;
 };
 
@@ -56,6 +58,7 @@ async function streamChatSseRequest(
   const body = {
     ...extraBody,
     model: options.model ?? null,
+    ...(options.streamId ? { stream_id: options.streamId } : {}),
     client_timezone: getDeviceTimezone(),
     ...clientGeoWsFields(options.clientGeo),
   };

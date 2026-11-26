@@ -43,7 +43,7 @@ def resolve_user_model(
     one is left in the pool.
     """
     pool = model_pool(user, settings)
-    if is_auto_enabled(user):
+    if is_auto_enabled(user, settings):
         routed = resolve_alias_in_pool(
             AUTO_ALIAS,
             content,
@@ -110,7 +110,7 @@ def resolve_user_model_override(
     that is not in that pool raises rather than silently switching models, unless the plan
     no longer includes it (``pick_for_plan``): then the turn routes as Auto.
     """
-    model_alias = pick_for_plan(user, model_alias)
+    model_alias = pick_for_plan(user, model_alias, settings)
     if is_explicit_pick(model_alias):
         if model_alias not in override_pool(user, settings):
             raise UnknownModelOverrideError(model_alias)
@@ -149,7 +149,7 @@ def resolve_regenerate_model(
     or failing). Pro's stronger everyday model thinks there itself and keeps the turn.
     """
     pool = override_pool(user, settings)
-    model_alias = pick_for_plan(user, model_alias)
+    model_alias = pick_for_plan(user, model_alias, settings)
     if is_explicit_pick(model_alias):
         if model_alias not in pool:
             raise UnknownModelOverrideError(model_alias)
@@ -163,12 +163,12 @@ def resolve_regenerate_model(
         note_route("regenerate_same")
         # "Try again" on Pro after a cheap everyday reply (an older chat, or a fallback)
         # gets Pro's everyday model.
-        if not is_auto_enabled(user):
+        if not is_auto_enabled(user, settings):
             return prior_assistant_model
         model = _everyday_for_plan(user, settings, prior_assistant_model, list(pool), unhealthy)
     else:
         model = resolve_user_model(user, content, settings, unhealthy=unhealthy)
-        if not is_auto_enabled(user):
+        if not is_auto_enabled(user, settings):
             return model
     thinking = escalation_model(
         model, math_lane_for(user, settings), model_pool(user, settings), unhealthy

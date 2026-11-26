@@ -6,8 +6,9 @@ the price of the model that ran the call. Memory jobs, titles, compression,
 follow-up questions, OCR, embeddings, the query classifiers, a chat turn's tool
 selection rounds and every attempt of its reply's stream are all metered here,
 whether or not the turn then saves a reply: a turn stopped, refused or failed
-after its calls ran was billed for them. Finalize settles only the user's own
-quota (``modules/chat/turn_settle``), so nothing is counted twice.
+after its calls ran was billed for them. A stream attempt's bill is also added to
+the turn's usage when the reply kept it, which finalize charges to the user's own
+quota (``modules/chat/turn_settle``); nothing is counted twice.
 
 The write runs on its own task, so it never adds latency to the call it
 measured or loses its result to the caller's deadline. Best-effort: a failed
@@ -24,6 +25,7 @@ from app.core.background_tasks import create_background_task
 from app.core.redis import get_redis_client
 from app.core.spend_counter import record_global_spend
 from app.gateways.stream_signals import REQUEST_FAULT, StreamAttempt
+from app.gateways.stream_usage import merge_attempt_usage
 from app.models.model_catalog import estimate_cost_usd
 
 logger = logging.getLogger(__name__)
@@ -58,46 +60,48 @@ def meter_model_call(alias: str, response: object) -> None:
     _meter(alias, response_cost_usd(alias, response))
 
 
-def stream_attempt_cost_usd(
-    alias: str,
-    usage: Mapping[str, int],
-    prompt_chars: int,
-    cause: str | None,
-    text_chars: int = 0,
-) -> float:
-    """What one chat stream attempt cost: its reported tokens, or, when the provider
-    reported none and likely ran the prompt, the prompt's estimated tokens and the text it
-    streamed (a Stop or a cut ends the stream before its usage chunk).
-
-    A failure the provider refused before running anything (a 4xx, a rate limit, no
-    connection, a server error) bills nothing without usage. A stop (no cause) did run."""
+def billed_tokens(
+    usage: Mapping[str, int], prompt_chars: int, cause: str | None, text_chars: int = 0
+) -> tuple[int, int] | None:
+    """(input, output) tokens one chat stream attempt was billed: what the provider
+    reported, or, when it reported none and likely ran the prompt, the prompt's estimate
+    and the text it streamed (a Stop or a cut ends the stream before its usage chunk).
+    None when the provider refused it before running anything (a 4xx, a rate limit, no
+    connection, a server error) and reported nothing. A stop (no cause) did run."""
     input_tokens = _tokens(usage.get("input"))
     output_tokens = _tokens(usage.get("output"))
     if "output" not in usage:
         output_tokens = max(0, text_chars) // _CHARS_PER_TOKEN
     if not input_tokens:
         if not output_tokens and cause in _UNBILLED_CAUSES:
-            return 0.0
+            return None
         # An attempt cut off mid-thought has only its reasoning estimated: it read the prompt.
         input_tokens = max(0, prompt_chars) // _CHARS_PER_TOKEN
-    cost = estimate_cost_usd(alias, input_tokens=input_tokens, output_tokens=output_tokens)
-    return cost or 0.0
+    return input_tokens, output_tokens
 
 
-def meter_stream_attempt(
-    alias: str, usage: Mapping[str, int], prompt_chars: int, attempt: StreamAttempt
+def settle_stream_attempt(
+    alias: str,
+    attempt_usage: Mapping[str, int],
+    prompt_chars: int,
+    attempt: StreamAttempt,
+    reply_usage: dict[str, int] | None,
 ) -> None:
-    """Count one chat stream attempt toward today's global spend at its own model's price:
-    the one the reply kept, and every one it did not (a fallback, a retry, one cut off by
-    the first-reply cap, one stopped before or during its text).
+    """One chat stream attempt's bill, from its own usage alone (``billed_tokens``):
+    counted toward today's global spend at its model's price, every attempt, and added to
+    the reply's usage (``reply_usage``) when the reply kept any of it.
 
-    The provider billed each, whatever the turn did next: a reply the user stopped, a
-    turn refused or failed after the stream ran, a reply never saved. The user's own quota
-    is charged only for the attempt a saved reply kept (``modules/chat/turn_settle``)."""
-    _meter(
-        alias,
-        stream_attempt_cost_usd(alias, usage, prompt_chars, attempt.cause, attempt.text_chars),
-    )
+    The provider billed each attempt whatever the turn did next: a fallback, a retry, one
+    cut off by the first-reply cap, one stopped before or during its text, a turn refused
+    or failed after the stream ran. A reply the user stopped mid-stream is charged what
+    its stream sent, never the shorter text the client says it drew: the usage chunk never
+    came, and the turn's usage held only its earlier calls (security review, 2026-11-25)."""
+    billed = billed_tokens(attempt_usage, prompt_chars, attempt.cause, attempt.text_chars)
+    if billed is None:
+        return
+    merge_attempt_usage(reply_usage, {**attempt_usage, "input": billed[0], "output": billed[1]})
+    cost = estimate_cost_usd(alias, input_tokens=billed[0], output_tokens=billed[1])
+    _meter(alias, cost or 0.0)
 
 
 def meter_reported_cost(alias: str, cost: float) -> None:

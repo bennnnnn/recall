@@ -145,10 +145,6 @@ class Quota(Protocol):
 
     async def global_spend_exceeded(self, redis: Redis, settings: Settings) -> bool: ...
 
-    async def record_global_spend(
-        self, redis: Redis, usd: float, *, day: date | None = ...
-    ) -> int: ...
-
 
 class UsageRepo(Protocol):
     """The day's usage row in the database, which reseeds Redis after an eviction."""

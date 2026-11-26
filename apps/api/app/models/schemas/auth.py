@@ -94,9 +94,10 @@ class UserOut(BaseModel):
         """A model the catalog dropped since it was saved, or one the plan no longer
         includes, is off; with none left, Auto (``plan.saved_choices``): Settings shows the
         models messages really use."""
+        from app.core.config import get_settings
         from app.modules.billing.plan import saved_choices
 
-        return saved_choices(info.data.get("plan"), value)
+        return saved_choices(info.data.get("plan"), value, get_settings())
 
     @field_validator("location_enabled")
     @classmethod

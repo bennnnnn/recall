@@ -110,10 +110,10 @@ export const chatsApi = {
     }),
   /** The user's Stop for the reply streaming over SSE in this chat (said before the stream
    * closes: one that only closes is a drop, which the server finishes and saves). */
-  stopChatStream: (token: string, chatId: string, shownChars?: number) =>
+  stopChatStream: (token: string, chatId: string, streamId: string, shownChars?: number) =>
     request<void>(`/chats/${chatId}/stream/stop`, token, {
       method: "POST",
-      body: JSON.stringify(shownChars == null ? {} : { shown_chars: shownChars }),
+      body: JSON.stringify({ stream_id: streamId, ...(shownChars == null ? {} : { shown_chars: shownChars }) }),
     }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: "DELETE" }),

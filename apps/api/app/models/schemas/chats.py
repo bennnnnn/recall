@@ -142,6 +142,9 @@ class StreamStopRequest(BaseModel):
     ``shown_chars``: how much of the reply the client drew, as the socket's cancel frame
     says it (a UTF-16 length); the saved reply is cut to it, never what the turn costs."""
 
+    # The stream's name, as the client sent it when it opened the stream: a Stop said for
+    # one stream never stops another turn.
+    stream_id: UUID
     shown_chars: int | None = Field(default=None, ge=0, le=SHOWN_CHARS_MAX)
 
 
@@ -157,6 +160,9 @@ class ChatMessageRequest(_StreamClientContext):
     # after a dead socket, the SSE fallback, Retry): the server runs one turn per
     # name (``modules/chat/client_message.py``). Regenerate ignores it.
     client_message_id: UUID | None = None
+    # The client's name for an SSE stream it opens, which its Stop names
+    # (``POST /chats/{id}/stream/stop``, ``modules/chat/sse_stop``). The socket ignores it.
+    stream_id: UUID | None = None
 
 
 class SearchResultItem(BaseModel):

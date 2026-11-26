@@ -79,15 +79,20 @@ def allowed_model_ids(user: User, settings: Settings) -> set[str]:
     return set(free_pool(settings))
 
 
-def plan_includes(plan: User | str | None, model_id: str) -> bool:
-    """Whether the plan offers ``model_id`` at all: a paid plan every selectable model, Free
-    those marked free. Whether this server can run it now is ``allowed_model_ids``."""
+def plan_includes(plan: User | str | None, model_id: str, settings: Settings) -> bool:
+    """Whether the plan offers ``model_id`` at all: with ``all_models`` (entitlements, the
+    rule ``allowed_model_ids`` asks too) every selectable model, else those marked free.
+    Whether this server can run it now is ``allowed_model_ids``."""
     offered = {model.id: model for model in model_catalog.selectable_models()}
     model = offered.get(model_id)
-    return model is not None and (is_paid(plan) or model.plan_access == "free")
+    if model is None:
+        return False
+    return model.plan_access == "free" or can_use(plan, "all_models", settings)
 
 
-def saved_choices(plan: User | str | None, saved: list[str] | None) -> list[str] | None:
+def saved_choices(
+    plan: User | str | None, saved: list[str] | None, settings: Settings
+) -> list[str] | None:
     """The model switches a user saved, as their plan stands today.
 
     A model the catalog dropped, or one the plan no longer includes (Pro ended), is off;
@@ -99,21 +104,23 @@ def saved_choices(plan: User | str | None, saved: list[str] | None) -> list[str]
     kept = current_choices(saved)
     if kept is None:
         return None
-    kept = [choice for choice in kept if choice == AUTO_ALIAS or plan_includes(plan, choice)]
+    kept = [
+        choice for choice in kept if choice == AUTO_ALIAS or plan_includes(plan, choice, settings)
+    ]
     return kept or None
 
 
-def is_auto_enabled(user: User) -> bool:
+def is_auto_enabled(user: User, settings: Settings) -> bool:
     """Auto is on, or no switch the user saved names a model the plan still offers."""
-    saved = saved_choices(user, user.enabled_models)
+    saved = saved_choices(user, user.enabled_models, settings)
     return saved is None or AUTO_ALIAS in saved
 
 
-def pick_for_plan(user: User, model_alias: str | None) -> str | None:
+def pick_for_plan(user: User, model_alias: str | None, settings: Settings) -> str | None:
     """A message's model as the plan stands: a named model the plan no longer includes is
     Auto (None), so a phone that still shows it gets an answer, never a refusal. A model
     the user turned off, or one no catalog knows, stays named (and is refused)."""
-    if not is_explicit_pick(model_alias) or plan_includes(user, model_alias):
+    if not is_explicit_pick(model_alias) or plan_includes(user, model_alias, settings):
         return model_alias
     offered = {model.id for model in model_catalog.selectable_models()}
     return None if model_alias in offered else model_alias

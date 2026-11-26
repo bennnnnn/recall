@@ -343,3 +343,28 @@ async def test_a_stopped_reply_keeps_no_structure_name_it_never_checked(
     saved, *_ = await _finalize("So far:\n\n```smiles\nCaffeine\nCCO\n```\n", user_stopped=True)
     assert "Caffeine" not in saved
     assert "```smiles\nCCO\n```" in saved
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("shown_chars", [0, 1, 40])
+async def test_any_count_after_the_whole_reply_charges_the_whole_reply(
+    stream_offline_io, monkeypatch: pytest.MonkeyPatch, shown_chars: int
+) -> None:
+    """The client's count only trims what saves. ``shown_chars: 1`` saved one character and
+    was charged about one token for a whole reply (review of #2596): the charge is what
+    the server sent, whatever the count."""
+    from app.modules.chat import stream_pipeline
+    from app.modules.chat.context_window import estimate_tokens
+
+    unsaved = AsyncMock()
+    monkeypatch.setattr(stream_pipeline, "charge_unsent_reply", unsaved)
+    _yielded, _outcome, finalize, _resources = await _stop_after_two_tokens(
+        shown_chars, tokens=_WHOLE_ANSWER
+    )
+
+    call = finalize.await_args if shown_chars else unsaved.await_args
+    assert call is not None
+    sent = "".join(_WHOLE_ANSWER[:-1]).strip()
+    assert call.kwargs["usage"]["output"] == estimate_tokens(sent)
+    if shown_chars:
+        assert len(_saved_text(finalize)) <= shown_chars

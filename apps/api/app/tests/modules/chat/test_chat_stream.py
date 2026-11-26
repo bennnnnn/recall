@@ -2,7 +2,9 @@
 
 import asyncio
 from contextlib import suppress
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -79,11 +81,14 @@ def test_sse_payload_format():
     assert _sse({"type": "start"}) == 'data: {"type":"start"}\n\n'
 
 
-def _stop_said(shown_chars: int | None = None):
-    """A ``stop_check`` that finds the user's Stop (``sse_stop.wait_for_stop``)."""
+def _stop_said(shown_chars: int | None = None, *, said: bool = True) -> Any:
+    """A stream's ``SseStop`` that finds the user's Stop (or, ``said=False``, none)."""
     from app.modules.chat.sse_stop import StopAsked
 
-    return AsyncMock(return_value=StopAsked(shown_chars))
+    return SimpleNamespace(
+        wait=AsyncMock(return_value=StopAsked(shown_chars) if said else None),
+        clear_soon=MagicMock(),
+    )
 
 
 @pytest.mark.asyncio
@@ -98,7 +103,7 @@ async def test_a_dropped_sse_stream_finishes_and_saves_its_reply(monkeypatch):
     cancel_event = asyncio.Event()
     request = AsyncMock()
     request.is_disconnected = AsyncMock(side_effect=[False, False, *([True] * 100)])
-    no_stop = AsyncMock(return_value=None)
+    no_stop = _stop_said(said=False)
     produced: list[str] = []
     finished = asyncio.Event()
 
@@ -116,14 +121,15 @@ async def test_a_dropped_sse_stream_finishes_and_saves_its_reply(monkeypatch):
         stream_factory=stream_factory,
         request=request,
         cancel_event=cancel_event,
-        stop_check=no_stop,
+        stop=no_stop,
     ):
         pass
     await asyncio.wait_for(finished.wait(), timeout=2.0)
 
     assert len(produced) == 30
     assert not cancel_event.is_set()
-    no_stop.assert_awaited_once()
+    no_stop.wait.assert_awaited_once()
+    no_stop.clear_soon.assert_called_once()  # the stream's key goes with its reply
 
 
 @pytest.mark.asyncio
@@ -159,7 +165,7 @@ async def test_the_users_stop_said_over_sse_stops_the_reply(monkeypatch):
             stream_factory=stream_factory,
             request=request,
             cancel_event=cancel_event,
-            stop_check=_stop_said(7),
+            stop=_stop_said(7),
         )
     ]
 
@@ -237,7 +243,7 @@ async def test_the_users_stop_cancels_a_producer_waiting_on_the_model(monkeypatc
                 stream_factory=stream_factory,
                 request=request,
                 cancel_event=cancel_event,
-                stop_check=_stop_said(),
+                stop=_stop_said(),
             )
         ]
 
@@ -322,7 +328,7 @@ async def test_a_stop_resumes_the_generator_parked_at_yield(monkeypatch):
             request=request,
             cancel_event=asyncio.Event(),
             queue_factory=_HoldTokenQueue,
-            stop_check=_stop_said(),
+            stop=_stop_said(),
         ):
             pass
 
@@ -332,43 +338,122 @@ async def test_a_stop_resumes_the_generator_parked_at_yield(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_a_stop_is_said_for_the_users_own_chat_and_read_once(fake_redis):
-    from app.modules.chat.sse_stop import StopAsked, ask_stop, wait_for_stop
+async def test_a_stop_names_its_stream_and_is_read_once(fake_redis):
+    """A Stop is the user's, for one chat and one stream: one said late (the reply was
+    already saving) can never stop another turn in that chat (review of #2596)."""
+    from app.modules.chat.sse_stop import SseStop, StopAsked
 
-    user_id, chat_id = uuid4(), uuid4()
-    await ask_stop(fake_redis, user_id, chat_id, 12)
+    user_id, chat_id, stream_id = uuid4(), uuid4(), uuid4()
+    await SseStop(fake_redis, user_id, chat_id, stream_id).ask(12)
 
-    assert await wait_for_stop(fake_redis, uuid4(), chat_id, grace=0) is None  # another user
-    assert await wait_for_stop(fake_redis, user_id, chat_id, grace=0) == StopAsked(12)
-    assert await wait_for_stop(fake_redis, user_id, chat_id, grace=0) is None  # read once
+    assert await SseStop(fake_redis, uuid4(), chat_id, stream_id).wait(grace=0) is None
+    assert await SseStop(fake_redis, user_id, chat_id, uuid4()).wait(grace=0) is None
+    stop = SseStop(fake_redis, user_id, chat_id, stream_id)
+    assert await stop.wait(grace=0) == StopAsked(12)
+    assert await stop.wait(grace=0) is None  # read once
 
 
-def test_the_stop_route_says_stop_for_the_signed_in_user(monkeypatch):
+@pytest.mark.asyncio
+async def test_a_stop_that_lands_after_the_client_left_still_stops(fake_redis, monkeypatch):
+    """The phone says Stop on another connection, which may land after its stream closed:
+    the stream waits for it (``STOP_GRACE_SECONDS``)."""
+    from app.modules.chat import sse_stop
+
+    monkeypatch.setattr(sse_stop, "_POLL_SECONDS", 0.05)
+    stop = sse_stop.SseStop(fake_redis, uuid4(), uuid4(), uuid4())
+
+    async def say_it_late() -> None:
+        await asyncio.sleep(1.0)
+        await stop.ask(5)
+
+    late = asyncio.create_task(say_it_late())
+    assert await stop.wait() == sse_stop.StopAsked(5)
+    await late
+
+
+@pytest.mark.asyncio
+async def test_a_streams_stop_key_goes_when_its_reply_is_done(fake_redis):
+    from app.core.background_tasks import drain_background_tasks
+    from app.modules.chat.sse_stop import SseStop
+
+    stop = SseStop(fake_redis, uuid4(), uuid4(), uuid4())
+    await stop.ask(None)
+    stop.clear_soon()
+    await drain_background_tasks(timeout_seconds=2)
+
+    assert not await fake_redis.exists(stop.key)
+
+
+def test_the_stop_route_says_stop_for_the_signed_in_users_stream(monkeypatch):
     import app.modules.chat.stream_api as chat_stream
+    from app.modules.chat.sse_stop import SseStop
 
     user = api_user()
     app = app_with_user(user)
-    chat_id = uuid4()
-    ask = AsyncMock()
-    monkeypatch.setattr(chat_stream, "ask_stop", ask)
+    chat_id, stream_id = uuid4(), uuid4()
+    said: list[tuple[SseStop, int | None]] = []
+
+    async def ask(self: SseStop, shown_chars: int | None) -> None:
+        said.append((self, shown_chars))
+
+    monkeypatch.setattr(SseStop, "ask", ask)
     monkeypatch.setattr(chat_stream, "get_redis_client", lambda: None)
     with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
         client = TestClient(app)
         response = client.post(
             f"/chats/{chat_id}/stream/stop",
             headers={"Authorization": "Bearer tok"},
-            json={"shown_chars": 42},
+            json={"stream_id": str(stream_id), "shown_chars": 42},
         )
-        refused = client.post(
-            f"/chats/{chat_id}/stream/stop",
-            headers={"Authorization": "Bearer tok"},
-            json={"shown_chars": -1},
-        )
+        refused = [
+            client.post(
+                f"/chats/{chat_id}/stream/stop",
+                headers={"Authorization": "Bearer tok"},
+                json=body,
+            ).status_code
+            for body in ({"stream_id": str(stream_id), "shown_chars": -1}, {"shown_chars": 1})
+        ]
 
     assert response.status_code == 204
-    _redis, user_id, stopped_chat, shown = ask.await_args.args
-    assert (user_id, stopped_chat, shown) == (user.id, chat_id, 42)
-    assert refused.status_code == 422
+    [(stop, shown)] = said
+    assert (stop.user_id, stop.chat_id, stop.stream_id, shown) == (user.id, chat_id, stream_id, 42)
+    assert refused == [422, 422]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["message", "regenerate"])
+async def test_both_sse_routes_read_the_stop_of_the_stream_they_were_named(monkeypatch, route):
+    import app.modules.chat.stream_api as chat_stream
+    from app.models.schemas import ChatMessageRequest
+
+    seen: dict[str, Any] = {}
+
+    def capture(**kwargs: Any) -> Any:
+        seen.update(kwargs)
+        return _fake_sse_stream()
+
+    monkeypatch.setattr(chat_stream, "_stream_tokens_sse", capture)
+    stream_id, chat_id = uuid4(), uuid4()
+    endpoint = (
+        chat_stream.stream_message_sse if route == "message" else chat_stream.stream_regenerate_sse
+    )
+    redis = MagicMock()
+    await endpoint(
+        chat_id=chat_id,
+        body=ChatMessageRequest(content="hi", stream_id=stream_id),
+        request=AsyncMock(),
+        user=(user := api_user()),
+        settings=Settings(),
+        redis=redis,
+    )
+
+    stop = seen["stop"]
+    assert (stop.redis, stop.user_id, stop.chat_id, stop.stream_id) == (
+        redis,
+        user.id,
+        chat_id,
+        stream_id,
+    )
 
 
 @pytest.mark.asyncio

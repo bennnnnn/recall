@@ -43,7 +43,6 @@ def _deps(session: Any, **fields: dict[str, Any]) -> ChatTurnDeps:
             "adjust_usage": AsyncMock(return_value=0),
             "refund_usage": AsyncMock(),
             "mark_usage_needs_heal": AsyncMock(),
-            "record_global_spend": AsyncMock(),
             "daily_limit_for_user": MagicMock(return_value=100_000),
         },
     }

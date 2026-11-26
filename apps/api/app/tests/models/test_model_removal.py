@@ -180,11 +180,11 @@ def test_a_message_naming_the_removed_model_gets_an_answer(removed: str) -> None
     settings = isolated_settings(mock_llm_enabled=True)
     request = ChatMessageRequest.model_validate({"content": "hi", "model": removed})
     alone = api_user(enabled_models=[removed])
-    assert plan.is_auto_enabled(alone)
+    assert plan.is_auto_enabled(alone, settings)
     model = resolve_user_model_override(alone, request.model, "hi", settings)
     assert model in plan.model_pool(alone, settings)
     beside = api_user(enabled_models=[removed, "free-chat"])
-    assert not plan.is_auto_enabled(beside)
+    assert not plan.is_auto_enabled(beside, settings)
     assert resolve_user_model_override(beside, request.model, "hi", settings) == "free-chat"
 
 

@@ -237,7 +237,9 @@ def _regenerate_images(
     if not image_ids:
         return image_ids, turn.model
     # A model the plan no longer includes is Auto, as the turn routed it.
-    explicit = plan_service.is_explicit_pick(plan_service.pick_for_plan(turn.user, model_alias))
+    explicit = plan_service.is_explicit_pick(
+        plan_service.pick_for_plan(turn.user, model_alias, settings)
+    )
     return image_ids, plan_service.image_turn_model(
         turn.user, settings, turn.model, explicit=explicit
     )
@@ -334,7 +336,7 @@ async def stream_chat_response(
                 user_id=user_id,
                 chat_id=chat_id,
                 content=content,
-                model_alias=plan_service.pick_for_plan(turn.user, model_alias),
+                model_alias=plan_service.pick_for_plan(turn.user, model_alias, settings),
                 settings=settings,
                 redis=redis,
                 reserved_tokens=res.reserved_tokens,

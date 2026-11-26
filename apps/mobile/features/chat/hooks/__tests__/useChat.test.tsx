@@ -3,6 +3,7 @@ import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
+import { SSE_STOP_SAY_MS } from "@/features/chat/hooks/useSseStream";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import {
   DROPPED_TURN_POLL_MS,
@@ -230,10 +231,42 @@ describe("useChat transport lifecycle", () => {
     expect(options.signal.aborted).toBe(true);
     // Said to the server first: a stream that only closes is a drop, which it saves whole.
     expect(stopChatStream).toHaveBeenCalledTimes(1);
-    expect(stopChatStream.mock.calls[0].slice(0, 2)).toEqual(["token", "a"]);
+    // The Stop names this stream, so one said late never stops another turn.
+    expect(options.streamId).toEqual(expect.any(String));
+    expect(stopChatStream.mock.calls[0].slice(0, 3)).toEqual(["token", "a", options.streamId]);
     expect(current.streaming).toBe(false);
     expect(current.rejectedSend).toBeNull();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("closes a stopped SSE stream only once the server heard the Stop, or 2 s on", async () => {
+    // On a slow network the Stop must reach the server before the stream closes, or the
+    // close reads as a dropped connection and the reply saves whole (review of #2596).
+    let heard!: () => void;
+    stopChatStream.mockImplementationOnce(() => new Promise<void>((resolve) => { heard = resolve; }));
+    stopChatStream.mockImplementationOnce(() => new Promise<void>(() => {}));
+    for (const slow of [false, true]) {
+      (streamChatMessageSse as jest.Mock).mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
+      }));
+      await render(<Probe chatId={slow ? "b" : "a"} />);
+      let sending!: Promise<unknown>;
+      await act(async () => {
+        sending = current.sendMessage("question");
+        FakeSocket.instances[FakeSocket.instances.length - 1].onerror();
+      });
+      const options = (streamChatMessageSse as jest.Mock).mock.calls.at(-1)![0];
+      await act(async () => { current.stopGeneration(); });
+      expect(options.signal.aborted).toBe(false);
+      expect(current.streaming).toBe(false);
+      await act(async () => {
+        if (slow) await jest.advanceTimersByTimeAsync(SSE_STOP_SAY_MS);
+        else heard();
+        await sending;
+      });
+      expect(options.signal.aborted).toBe(true);
+      await cleanup();
+    }
   });
 
   it("bounds an OPEN silent socket without replaying or deleting an uncertain send", async () => {

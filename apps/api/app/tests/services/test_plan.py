@@ -82,7 +82,7 @@ def test_manual_mode_uses_fixed_model():
 
 def test_is_auto_enabled_defaults_true():
     user = FakeUser()
-    assert plan_service.is_auto_enabled(user) is True
+    assert plan_service.is_auto_enabled(user, Settings()) is True
 
 
 def test_free_user_can_customize_enabled_models():

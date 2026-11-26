@@ -28,7 +28,7 @@ from app.models.schemas import ChatMessageRequest, StreamStopRequest
 from app.modules.chat import stream_entry
 from app.modules.chat.client_message import UNNAMED, ClientMessageClaim, claim_client_message
 from app.modules.chat.finalize_registry import register_inflight_stream
-from app.modules.chat.sse_stop import StopAsked, ask_stop, wait_for_stop
+from app.modules.chat.sse_stop import SseStop
 from app.modules.chat.stream_events import (
     EXPECTED_TURN_ERRORS,
     TURN_KEEPALIVE_SECONDS,
@@ -69,8 +69,6 @@ _TokenStream = Callable[
 ]
 # A message's claim on its client_message_id; None when an earlier send took it.
 _ClaimMessage = Callable[[], Awaitable[ClientMessageClaim | None]]
-# The Stop the user said for a stream whose client left (``sse_stop.wait_for_stop``).
-_StopCheck = Callable[[], Awaitable[StopAsked | None]]
 
 
 async def require_chat_rate_limit(user: User = Depends(get_current_user)) -> Redis:
@@ -112,7 +110,7 @@ async def _stream_tokens_sse(
     claim_message: _ClaimMessage | None = None,
     user_id: UUID | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
-    stop_check: _StopCheck | None = None,
+    stop: SseStop | None = None,
 ) -> AsyncIterator[str]:
     """The turn's events as SSE lines, every log line inside carrying the turn's ids.
 
@@ -129,7 +127,7 @@ async def _stream_tokens_sse(
                 cancel_event=cancel_event,
                 claim_message=claim_message,
                 queue_factory=queue_factory,
-                stop_check=stop_check,
+                stop=stop,
             )
         ) as lines:
             async for line in lines:
@@ -194,7 +192,7 @@ async def _turn_sse_lines(
     cancel_event: asyncio.Event | None = None,
     claim_message: _ClaimMessage | None = None,
     queue_factory: Callable[[], _EventQueue] = asyncio.Queue,
-    stop_check: _StopCheck | None = None,
+    stop: SseStop | None = None,
 ) -> AsyncGenerator[str]:
     outcome = TurnOutcome()
     event_queue = queue_factory()
@@ -251,18 +249,20 @@ async def _turn_sse_lines(
     async def client_gone() -> None:
         """The client left. Only the user's Stop, said on its own request, stops the reply
         (``sse_stop``): a dropped stream finishes and saves it, as the socket's does."""
-        if stop_check is not None and (asked := await stop_check()) is not None:
+        if stop is not None and (asked := await stop.wait()) is not None:
             outcome.client_shown_chars = asked.shown_chars
-            stop()
+            stop_reply()
         await event_queue.put(None)
 
-    def stop() -> None:
+    def stop_reply() -> None:
         """The user's Stop (``client_gone``); a server shutdown runs the same one."""
         cancel_event.set()
         cancel_producer_once()
 
     producer = asyncio.create_task(produce_tokens())
-    register_inflight_stream(chat_id, producer, stop=stop)
+    if stop is not None:
+        producer.add_done_callback(stop.clear_soon)  # a Stop said late is the stream's alone
+    register_inflight_stream(chat_id, producer, stop=stop_reply)
     # Kept by the process, not this response: it outlives a dropped client's response.
     left = asyncio.Event()
     disconnect_watcher = create_background_task(
@@ -335,6 +335,14 @@ async def _turn_sse_lines(
                 await disconnect_watcher
 
 
+def _stream_stop(
+    redis: Redis, user_id: UUID, chat_id: UUID, stream_id: UUID | None
+) -> SseStop | None:
+    """The Stop key of a stream its client named; a stream with no name (a client that
+    says no Stop) stops only with the server."""
+    return None if stream_id is None else SseStop(redis, user_id, chat_id, stream_id)
+
+
 def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
     return StreamingResponse(
         body,
@@ -399,7 +407,7 @@ async def stream_message_sse(
             ),
             user_id=user.id,
             stream_factory=message_turn,
-            stop_check=lambda: wait_for_stop(redis, user.id, chat_id),
+            stop=_stream_stop(redis, user.id, chat_id, body.stream_id),
         )
     )
 
@@ -418,7 +426,7 @@ async def stream_regenerate_sse(
             chat_id=chat_id,
             request=request,
             user_id=user.id,
-            stop_check=lambda: wait_for_stop(redis, user.id, chat_id),
+            stop=_stream_stop(redis, user.id, chat_id, body.stream_id),
             stream_factory=lambda outcome, on_status, on_reasoning, should_cancel: (
                 stream_entry.stream_regenerate_response(
                     default_deps(),
@@ -448,4 +456,4 @@ async def stop_stream_sse(
 
     The phone says it just before it closes the stream: a stream that closes with no Stop
     said finishes and saves its reply. Only the user's own chat's stream reads it."""
-    await ask_stop(get_redis_client(), user.id, chat_id, body.shown_chars)
+    await SseStop(get_redis_client(), user.id, chat_id, body.stream_id).ask(body.shown_chars)

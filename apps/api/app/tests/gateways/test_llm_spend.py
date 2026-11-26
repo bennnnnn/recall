@@ -187,15 +187,10 @@ async def test_a_chat_turns_tool_round_is_metered_at_the_selectors_price(model_s
         ({}, 4_000, "server", None),
     ],
 )
-def test_stream_attempt_cost(
+def test_stream_attempt_billed_tokens(
     usage: dict[str, int], prompt_chars: int, cause: str | None, tokens: tuple[int, int] | None
 ) -> None:
-    cost = llm_spend.stream_attempt_cost_usd("free-chat", usage, prompt_chars, cause)
-    if tokens is None:
-        assert cost == 0.0
-    else:
-        expected = estimate_cost_usd("free-chat", input_tokens=tokens[0], output_tokens=tokens[1])
-        assert cost == pytest.approx(expected)
+    assert llm_spend.billed_tokens(usage, prompt_chars, cause) == tokens
 
 
 def _delta_chunk(content: str | None, usage: SimpleNamespace | None = None) -> SimpleNamespace:
@@ -283,11 +278,9 @@ async def test_a_reply_cut_off_after_its_text_is_metered(model_spend_redis) -> N
     assert await _metered(model_spend_redis) == _cost("smart-chat", 5_000, 2)
 
 
-async def test_a_reply_stopped_mid_stream_is_metered_from_its_text(model_spend_redis) -> None:
-    """A Stop ends the stream before the provider's usage chunk: the prompt and the text it
-    streamed are what it billed, whatever the turn then saves (none, after a scripted
-    ``shown_chars: 0``)."""
-    stream = _Stream([_delta_chunk("x" * 400), _delta_chunk("y" * 400)])
+async def _stop_after_first_chunk(usage: dict[str, int], text: str) -> str:
+    """Stream ``text`` then more, and stop (close the stream) after the first piece."""
+    stream = _Stream([_delta_chunk(text), _delta_chunk("y" * 400)])
     with patch.object(litellm_gateway, "acompletion", AsyncMock(return_value=stream)):
         tokens = cast(
             AsyncGenerator[str],
@@ -296,14 +289,39 @@ async def test_a_reply_stopped_mid_stream_is_metered_from_its_text(model_spend_r
                 model_alias="smart-chat",
                 messages=[{"role": "user", "content": "x" * 4_000}],
                 max_tokens=50,
+                usage=usage,
             ),
         )
-        assert (await anext(tokens)).startswith("x")
+        first = await anext(tokens)
         await tokens.aclose()  # the Stop
+    return first
+
+
+async def test_a_reply_stopped_mid_stream_is_metered_and_charged_from_its_text(
+    model_spend_redis,
+) -> None:
+    """A Stop ends the stream before the provider's usage chunk: the prompt and the text it
+    streamed are what it billed. Global spend counts it, and the reply's usage gets it, so
+    the user is charged what the stream sent whatever count the client gives (``0``, ``1``:
+    security review, 2026-11-25)."""
+    usage: dict[str, int] = {}
+    sent = await _stop_after_first_chunk(usage, "x" * 400)
 
     # The prompt, and the text the client was sent (a few characters may be held back).
+    assert usage == {"input": 1_000, "output": len(sent) // 4}
+    assert usage["output"] >= 90
     metered = await _metered(model_spend_redis)
-    assert _cost("smart-chat", 1_000, 90) <= metered <= _cost("smart-chat", 1_000, 100)
+    assert metered == _cost("smart-chat", 1_000, usage["output"])
+
+
+async def test_a_stopped_answer_adds_its_own_output_to_the_turns_earlier_calls() -> None:
+    """A turn's usage holds its earlier calls (a search round, a tool selection): a stopped
+    answering stream adds its own bill to them, never only fills what they left unset."""
+    usage = {"input": 2_000, "output": 7}
+    sent = await _stop_after_first_chunk(usage, "z" * 3_000)
+
+    assert usage == {"input": 3_000, "output": 7 + len(sent) // 4}
+    assert usage["output"] >= 7 + 700
 
 
 async def test_stream_calls_disable_litellm_and_sdk_retries() -> None:

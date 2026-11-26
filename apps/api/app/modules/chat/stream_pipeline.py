@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.asks_turn import write_the_rest
+from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
@@ -344,6 +345,10 @@ async def _settle_reply(
     if accum.was_cancelled and shutdown.stopping():
         accum.mark_server_stop()
     user_stopped = accum.completion == "user_stop"
+    # The charge is what the server sent, never what the client says it drew: each stream
+    # adds its own bill to ``usage`` (``llm_spend.settle_stream_attempt``), and one that
+    # reported nothing is the text it sent.
+    usage.setdefault("output", estimate_tokens(accum.reply_text()))
     assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
     if not assistant_text and user_stopped:
         # Stopped before the client drew any of it: nothing is saved, and a regenerate

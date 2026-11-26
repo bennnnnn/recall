@@ -270,10 +270,11 @@ async def test_a_cut_off_attempt_counts_its_reasoning_toward_spend() -> None:
         _Stream(thoughts=0, answer=None, endless=True), _Stream(thoughts=0, answer="Part 1")
     )
     settings = _settings(chat_reasoning_budget_tokens=10)
-    with patch("app.gateways.llm_spend.meter_stream_attempt") as meter:
+    with patch("app.gateways.llm_spend.settle_stream_attempt") as meter:
         await _reply(settings, provider, "smart-chat", ["qwen-3.8-flash"])
     # The cut attempt first, then the backup that answered.
-    alias, usage, _chars, attempt = meter.call_args_list[0].args
+    alias, usage, _chars, attempt, kept = meter.call_args_list[0].args
+    assert kept is None  # the reply did not keep it: the user is not charged for it
     assert (alias, attempt.cause) == ("smart-chat", THOUGHT_OUT)
     assert usage["output"] >= 10
 
