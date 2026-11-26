@@ -24,6 +24,7 @@ _BOLD = re.compile(r"\*\*[^*\n]+\*\*")
 _EMOJI = re.compile("[\U0001f300-\U0001faff☀-➿]")
 _LEAD = re.compile("^(?:[\U0001f300-\U0001faff☀-➿️]\\s*)*")
 _SENTENCE = re.compile(r"[.!?](?:\s|$)")
+_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class Shape:
     lines: int
     answer_card: bool
     steps_card: bool
+    table: bool
 
 
 def shape_of(reply: str) -> Shape:
@@ -52,7 +54,9 @@ def shape_of(reply: str) -> Shape:
     text = _FENCE.sub("", reply)
     lines = [line for line in text.splitlines() if line.strip()]
     first = lines[0] if lines else ""
-    intro = bool(first) and not _HEADING.match(first) and not _ITEM.match(first)
+    intro = bool(first) and not (
+        _HEADING.match(first) or _ITEM.match(first) or _TABLE_ROW.match(first)
+    )
     headings = [len(m.group(1)) for line in lines if (m := _HEADING.match(line))]
     top = [m for line in lines if (m := _ITEM.match(line)) and not m.group(1)]
     nested = [m for line in lines if (m := _ITEM.match(line)) and m.group(1)]
@@ -70,14 +74,16 @@ def shape_of(reply: str) -> Shape:
         lines=len(lines),
         answer_card=answer_card,
         steps_card=steps_card,
+        table=sum(1 for line in lines if _TABLE_ROW.match(line)) >= 3,
     )
 
 
 def misses(kind: str, shape: Shape) -> list[str]:
     """What the reply's layout lacks for its kind; empty when it is the shape wanted."""
     found: list[str] = []
-    if kind in STRUCTURED and shape.steps_card:
-        # The app's step card is its own laid-out list: numbered, each step a bold name.
+    if kind in STRUCTURED and (shape.steps_card or (kind == "compare" and shape.table)):
+        # The app's step card is its own laid-out list, and a comparison's table its own
+        # grid: each takes the list's place (SCAN_LAYOUT).
         if not shape.intro:
             found.append("no intro")
     elif kind in STRUCTURED:

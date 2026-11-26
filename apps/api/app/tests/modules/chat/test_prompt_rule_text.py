@@ -137,8 +137,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # short answer, a title, numbered bold items, their members nested; 28 of 28 replies had no
 # title and no nested list, the owner, 2026-11-26).
 _RULES = 227
-_RULE_GRAMS = 21264
-_RULE_GRAMS_SHA = "f1fefd2c697d28d7"
+_RULE_GRAMS = 21270
+_RULE_GRAMS_SHA = "c9aec152a50c0b86"
 
 
 def _rules() -> list[str]:
