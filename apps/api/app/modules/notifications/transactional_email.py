@@ -122,9 +122,8 @@ def _day(instant: str | None, zone: ZoneInfo | None) -> str | None:
     return moment.date().isoformat()
 
 
-def _zone_of(user: User) -> ZoneInfo | None:
-    timezone = getattr(user, "timezone", None)
-    return resolve_timezone(timezone) if isinstance(timezone, str) and timezone else None
+def _zone_of(user: User) -> ZoneInfo:
+    return resolve_timezone(user.timezone)
 
 
 def build_receipt(
