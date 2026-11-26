@@ -185,7 +185,7 @@ class UnknownModelOverrideError(ChatServiceError):
 
     def __init__(self, alias: str) -> None:
         self.alias = alias
-        super().__init__("That model isn't available. Choose another in Settings › Models.")
+        super().__init__("That model isn't available. Choose another in Settings > Models.")
         self.args = (f"Unknown or unavailable model: {alias}",)
 
 

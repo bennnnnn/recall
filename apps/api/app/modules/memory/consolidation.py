@@ -8,7 +8,7 @@ machinery so the rules can be read and tested on their own.
 import logging
 import re
 from collections.abc import Callable, Iterable
-from typing import Any, TypeVar
+from typing import Any
 
 from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
 from app.modules.memory.ops import normalize_memory_text
@@ -44,8 +44,6 @@ _CONSOLIDATION_ANCHOR_STOP = frozenset(
 # Two facts of one type whose words overlap this much say one thing.
 NEAR_DUP_JACCARD = 0.8
 
-_Fact = TypeVar("_Fact")
-
 
 def fact_tokens(text: str) -> frozenset[str]:
     """The words two facts are compared by (``tokens_jaccard``)."""
@@ -70,9 +68,9 @@ def _mergeable(memory: Any) -> bool:
     return _active(memory) and bool(normalize_memory_text(text)) and not is_learning_line(text)
 
 
-def duplicate_pairs(
-    facts: Iterable[_Fact], *, newest: Callable[[_Fact], Any] | None = None
-) -> list[tuple[_Fact, _Fact]]:
+def duplicate_pairs[F](
+    facts: Iterable[F], *, newest: Callable[[F], Any] | None = None
+) -> list[tuple[F, F]]:
     """Each (kept, dropped) pair of duplicate facts: the same type and text, then a type's
     facts whose words are ``NEAR_DUP_JACCARD`` alike. ``newest`` orders each choice, the
     newest kept; without it the facts' own order does.
@@ -82,11 +80,11 @@ def duplicate_pairs(
     user with two courses queued a job every 300 s that merged nothing (audit, 2026-11-25).
     """
     active = [fact for fact in facts if _mergeable(fact)]
-    by_key: dict[tuple[str, str], list[_Fact]] = {}
+    by_key: dict[tuple[str, str], list[F]] = {}
     for fact in active:
         text = normalize_memory_text(getattr(fact, "text", "")).lower()
         by_key.setdefault((str(getattr(fact, "type", "")), text), []).append(fact)
-    pairs: list[tuple[_Fact, _Fact]] = []
+    pairs: list[tuple[F, F]] = []
     used: set[int] = set()
     for group in by_key.values():
         if len(group) < 2:
