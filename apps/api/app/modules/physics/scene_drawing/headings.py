@@ -24,7 +24,8 @@ from app.services.law_binding.givens import Given
 
 _POINTS = {"east": 0.0, "north": 90.0, "west": 180.0, "south": 270.0}
 _LETTERS = {"e": "east", "n": "north", "w": "west", "s": "south"}
-_NUMBER = r"(\d+(?:\.\d+)?)\s*(?:°|º|˚|deg(?:rees?)?\b)"
+# A number starts where its digits start, never inside a run of them: a long run is read once.
+_NUMBER = r"(?<![\d.])(\d+(?:\.\d+)?)\s*(?:°|º|˚|deg(?:rees?)?\b)"
 _POINT = r"(north|south|east|west)"
 # "30° north of east": from east, turned 30° toward north.
 _OF = re.compile(rf"{_NUMBER}\s*(?:to\s+the\s+)?{_POINT}\s+of\s+(?:due\s+)?{_POINT}", re.I)
