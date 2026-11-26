@@ -242,19 +242,21 @@ async def test_plan_syncs_stop_at_the_hours_limit_across_minutes(fake_redis: Any
     """Ten a minute, every minute, still stops at sixty an hour."""
     user = api_user(plan="pro")
     settings = Settings(jwt_secret="x" * 32, revenuecat_secret_key="sk_test")
+    per_minute = account_api._SUBSCRIPTION_SYNCS_PER_MINUTE
     per_hour = account_api._SUBSCRIPTION_SYNCS_PER_HOUR
-    with (
-        patch.object(account_api, "_SUBSCRIPTION_SYNCS_PER_MINUTE", per_hour + 10),
-        patch.object(
-            account_api.subscription_service,
-            "sync_user_plan_from_revenuecat",
-            AsyncMock(return_value=user),
-        ),
+    with patch.object(
+        account_api.subscription_service,
+        "sync_user_plan_from_revenuecat",
+        AsyncMock(return_value=user),
     ):
-        for _ in range(per_hour):
+        for n in range(per_hour):
+            if n % per_minute == 0:
+                # A new minute: its own window starts empty, the hour's keeps counting.
+                await fake_redis.delete(f"rate:billing_sync:min:{user.id}")
             await account_api.sync_subscription(
                 user=user, session=AsyncMock(), settings=settings, redis=fake_redis
             )
+        await fake_redis.delete(f"rate:billing_sync:min:{user.id}")
         with pytest.raises(RateLimitedError) as refused:
             await account_api.sync_subscription(
                 user=user, session=AsyncMock(), settings=settings, redis=fake_redis
