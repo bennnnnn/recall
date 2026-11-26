@@ -62,7 +62,7 @@ def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
             "gravitation",
             "gravitational_potential_energy",
             {"M": mass[0][0], "m": mass[1][0], "r": distance[0]},
-            {"M": "kg", "m": "kg", "r": distance[1] or "m"},
+            {"M": mass[0][1] or "kg", "m": mass[1][1] or "kg", "r": distance[1] or "m"},
         )
     if "gravitational potential" in lower:
         if len(mass) != 1 or distance is None:
@@ -71,7 +71,7 @@ def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
             "gravitation",
             "gravitational_potential",
             {"M": mass[0][0], "r": distance[0]},
-            {"M": "kg", "r": distance[1] or "m"},
+            {"M": mass[0][1] or "kg", "r": distance[1] or "m"},
         )
     if "orbital energy" in lower:
         if len(mass) != 2 or distance is None:
@@ -80,7 +80,7 @@ def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
             "gravitation",
             "orbital_energy",
             {"M": mass[0][0], "m": mass[1][0], "r": distance[0]},
-            {"M": "kg", "m": "kg", "r": distance[1] or "m"},
+            {"M": mass[0][1] or "kg", "m": mass[1][1] or "kg", "r": distance[1] or "m"},
         )
     if "kepler" not in lower:
         return None
@@ -90,7 +90,7 @@ def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
         "gravitation",
         "kepler_period",
         {"M": mass[0][0], "r": distance[0]},
-        {"M": "kg", "r": distance[1] or "m"},
+        {"M": mass[0][1] or "kg", "r": distance[1] or "m"},
     )
 
 

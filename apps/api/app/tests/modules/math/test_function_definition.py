@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from app.modules.math.function_names import FUNCTION_DEFINITION
-from app.modules.math.tool_check import _UserMath
+from app.modules.math.tool_check import _UserMath, tool_call_matches_user_text
 from app.modules.math.tools.school.function_value import extract_function_value_intent
 
 _MATH = Path(__file__).resolve().parents[3] / "modules" / "math"
@@ -40,9 +40,18 @@ def test_the_value_reader_and_the_tool_check_agree() -> None:
     assert extract_function_value_intent(question) is not None
     assert _UserMath(question).functions == {"f"}
     assert "F" in _UserMath("F(x) = 2x").functions
-    # "2f(x) = 6" is an equation in f(x): no reader takes it for a definition.
-    assert not _UserMath("2f(x) = 6").functions
+    # "2f(x) = 6" is an equation in f(x): no reader takes it for a definition...
     assert extract_function_value_intent("2f(x) = 6, find f(3)") is None
+    # ...but it applies f, which the tool check's guard asks: a model's "2*f(x)" is never
+    # read as 2·f·x and checked against the user's own equation (review, #2591).
+    assert _UserMath("If 2f(x) = 4x + 6, find f(x)").functions == {"f"}
+
+
+def test_a_call_that_reads_an_applied_function_as_a_product_is_never_checked() -> None:
+    question = "If 2f(x) = 4x + 6, find f(x)"
+    assert not tool_call_matches_user_text(
+        {"action": "solve", "lhs": "2*f(x)", "rhs": "4*x+6"}, [question]
+    )
 
 
 def test_no_maths_module_writes_its_own() -> None:

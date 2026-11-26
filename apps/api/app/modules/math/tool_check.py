@@ -26,7 +26,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.modules.math.figure.shape_names import names_shape
-from app.modules.math.function_names import FUNCTION_DEFINITION
+from app.modules.math.function_names import FUNCTION_APPLIED
 from app.modules.math.match.derivative_order import derivative_orders
 from app.modules.math.match.shape_words import shape_call_answers
 from app.services.glyphs import OPERATOR_GLYPHS
@@ -216,7 +216,7 @@ class _UserMath:
                 self.equations.append(lhs - rhs)
                 self.expressions.extend([lhs, rhs])
         normalized = _normalize(text)
-        self.functions = {match["name"] for match in FUNCTION_DEFINITION.finditer(normalized)}
+        self.functions = {match["name"] for match in FUNCTION_APPLIED.finditer(normalized)}
         self.numbers = {float(match) for match in re.findall(r"\d+(?:\.\d+)?", normalized)}
         # A number with its sign as written: "-1" or "minus 1" is no 1, and "1" no -1.
         signed = [(bool(m.group(1)), float(m.group(2))) for m in _SIGNED.finditer(normalized)]

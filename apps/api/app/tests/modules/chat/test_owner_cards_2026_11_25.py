@@ -12,7 +12,7 @@ import pytest
 
 from app.modules.chat.card_lists import listed_values
 from app.modules.chat.card_numbers import card_numbers
-from app.modules.chat.worked_text import tidy_tex
+from app.modules.chat.worked_render import _line
 from app.services.answer_check import read_verified_value
 from app.services.rounding_rule import RULE, number_latex, working_figures
 
@@ -115,6 +115,7 @@ def test_an_expression_card_is_left_as_written() -> None:
 )
 def test_working_keeps_six_figures_never_a_calculators_sixteen(tex: str, shown: str) -> None:
     assert working_figures(tex) == shown
-    assert "9.043478260869565" not in tidy_tex(
-        "\\sqrt{(-9.043478260869565)^2 + (8.695652173913043)^2}"
+    # A line of working the layout writes (``worked_render._line``), not a card or a given.
+    assert "9.043478260869565" not in _line(
+        "v_f = \\sqrt{(-9.043478260869565)^2 + (8.695652173913043)^2}"
     )

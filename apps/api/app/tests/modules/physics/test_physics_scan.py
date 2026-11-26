@@ -36,6 +36,9 @@ def test_the_vision_prompt_asks_for_the_problem_as_written() -> None:
         (r"from $20^{\circ}\mathrm{C}$ to $5\,\mathrm{^{\circ}C}$", "from 20°C to 5 °C"),
         (r"$\Delta T = 60\,\mathrm{K}$ and $v_{0}$", "ΔT = 60 K and v_0"),
         (r"$E = \frac{hc}{\lambda}$", "E = hc/λ"),
+        # A line with no command keeps no braces; a Unicode minus is a minus (review, #2591).
+        (r"$a = 2 m/s^{2}$, $v_{0} = 5$ m/s", "a = 2 m/s^2, v_0 = 5 m/s"),
+        ("a charge of 2 × 10^{−6} C", "a charge of 2 × 10^-6 C"),
         # Lines stay lines; blank lines and runs of spaces do not.
         (
             "A 2 kg ball is dropped.\n\n   Find   its speed.",

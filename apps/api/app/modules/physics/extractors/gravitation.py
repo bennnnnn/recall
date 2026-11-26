@@ -18,6 +18,7 @@ from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
     MASS_UNITS,
     NUMBER,
+    in_si,
 )
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -183,5 +184,6 @@ def _resolve_body(
         return body
     masses = _central_masses(cleaned)
     if masses and radius is not None:
-        return masses[0][0], radius[0]
+        # In kg and m, as every intent here names them: "1.3e25 lb" was taken for kg.
+        return in_si(*masses[0], "kg"), in_si(*radius, "m")
     return None, None

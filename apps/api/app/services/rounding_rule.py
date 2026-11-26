@@ -143,6 +143,9 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
     huge_or_tiny = abs(number) >= POWER_FROM or abs(number) < POWER_BELOW
     if precision.unrounded:
         return _unrounded(number, huge_or_tiny)
+    # A float a hair under a tie is the tie, in every branch: 0.0001 × 50² / 2 is 0.125 and
+    # 0.1 × 0.1235 is 0.01235, and their 5 rounds up (review, #2591).
+    number = float(f"{number:.12g}")
     if precision.figures > 0:
         return _figures(number, precision.figures, huge_or_tiny)
     if precision.places >= 0:
@@ -151,8 +154,7 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
         return _figures(number, SMALL_FIGURES, True)
     if math.isclose(number, round(number), rel_tol=1e-12, abs_tol=1e-12):
         return str(round(number)), None
-    # A float a hair under a tie is the tie: 0.0001 × 50² / 2 is 0.125, and its 5 rounds up.
-    shown = format_places(float(f"{number:.12g}"), PLACES)
+    shown = format_places(number, PLACES)
     lost = not math.isclose(float(shown), number, rel_tol=1e-12)
     if lost and abs(number) < SMALL_BELOW:
         return _figures(number, SMALL_FIGURES, False)
@@ -192,16 +194,27 @@ _LONG_DECIMAL = re.compile(
 )
 
 
+# Places past the point that are a calculator's, not a person's: 0.357142857, never 16288.95.
+_CALCULATOR_PLACES = 7
+
+
 def working_figures(tex: str) -> str:
-    """``tex`` with each decimal of more than ``WORKING_FIGURES`` significant figures written
-    to them, its ellipsis dropped (``0.357142857\\ldots`` is 0.357143); a shorter one, a whole
-    number, a script and an exponent stay as written (owner, 2026-11-25)."""
+    """A line of working's calculator digits written to ``WORKING_FIGURES`` significant
+    figures, its ellipsis dropped (``0.357142857\\ldots`` is 0.357143, -9.043478260869565 is
+    -9.04348). A calculator's digits run seven places or more past the point, or say they go
+    on; a person's decimal (16288.95, 12345.67), a whole number, a script and an exponent stay
+    as written, and a digit before the point is never cut (owner, 2026-11-25). For a line
+    of working only: a card and a given are the rule's and the user's."""
 
     def shorter(match: re.Match[str]) -> str:
         digits = match["digits"]
-        if len(digits.replace(".", "").lstrip("0")) <= WORKING_FIGURES:
+        whole, _point, places = digits.partition(".")
+        figures = len(digits.replace(".", "").lstrip("0"))
+        long_run = len(places) >= _CALCULATOR_PLACES or match["dots"] is not None
+        if not long_run or figures <= WORKING_FIGURES:
             return match[0]
-        mantissa, exponent = round_figures(float(digits), WORKING_FIGURES)
+        kept = max(WORKING_FIGURES, len(whole.lstrip("0")))
+        mantissa, exponent = round_figures(float(digits), kept)
         return trim_zeros(format(mantissa.scaleb(exponent), "f"))
 
     return _LONG_DECIMAL.sub(shorter, tex)

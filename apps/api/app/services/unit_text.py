@@ -38,8 +38,9 @@ MASS_UNITS = {
         "kg": ("kg", "kilogram", "kilograms"),
         "g": ("g", "gram", "grams"),
         "mg": ("mg", "milligram", "milligrams"),
+        # A tonne; a "ton" is a short ton or a tonne, so no reader takes one (as maths
+        # declines it, ``worded_units``).
         "t": ("tonne", "tonnes"),
-        "ton": ("ton", "tons"),
         "lb": ("lb", "lbs"),
         "oz": ("oz",),
     }.items()

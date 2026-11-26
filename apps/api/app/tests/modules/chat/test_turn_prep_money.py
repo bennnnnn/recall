@@ -252,3 +252,36 @@ async def test_the_money_cards_rate_lookup_is_the_turns_search(
     )
     assert seen
     assert all(isinstance(passed, SideSearchBudget) and passed.turn is budget for passed in seen)
+
+
+async def test_a_regenerate_reads_its_money_request_in_the_pool_once(
+    fake_redis: Redis, thread_sympy_executor: None, monkeypatch: Any
+) -> None:
+    """The pool keyed the money readings by one list of earlier lines and the money turn asked
+    by another: on a regenerate (its window ends on the reply it replaces) the turn's own line
+    counted as an earlier one, so the turn read again in a second pool trip (review, #2591).
+    Both take ``earlier_user_lines`` now: the turn reads nothing again."""
+    from app.modules.money import reading as money_reading
+
+    user = lambda text: SimpleNamespace(role="user", content=text)  # noqa: E731
+    reply = SimpleNamespace(role="assistant", content="About $218 a month.")
+    window = [user(_CAR), reply, user(_WHAT_IF), reply]
+    settings = Settings()
+    begin_turn()
+    await read_turn_message(_WHAT_IF, window, settings)
+
+    def never(*_args: Any) -> None:
+        raise AssertionError("read again")
+
+    monkeypatch.setattr(money_reading, "follow_up_request", never)
+    monkeypatch.setattr(money_reading, "read_money_request", never)
+    monkeypatch.setattr(money_reading, "purchase_request", never)
+    request: Any = SimpleNamespace(
+        content=_WHAT_IF, has_image_attachment=False, recent_messages=window, search_budget=None
+    )
+    turn = await money_prep.money_turn(
+        request, _identity(), settings, fake_redis, single_plan(_WHAT_IF)
+    )
+    assert turn is not None and turn.request.values["months"] == 36
+    if turn.lookup is not None:
+        turn.lookup.cancel()

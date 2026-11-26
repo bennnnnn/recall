@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002 -- the point of this module is the micro sign and the Greek mu.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the micro sign, the Greek mu and the Unicode minus.
 """Read a photographed physics problem back as the text a student would type.
 
 The turn states the reading as the confirmed line, then the chat solves that
@@ -34,15 +34,23 @@ _DOLLARS = re.compile(r"\$\$?|~")
 # is a coefficient (μ = 0.2).
 _MICRO = re.compile(r"μ\s*(?=(?:[CFmsATHgVWJ]|Hz|Pa|mol)\b)")
 _SPACES = re.compile(r"[ \t]+")
+# A braced script on a line with no command, which the converter leaves as written:
+# "m/s^{2}" is m/s^2 and "v_{0}" v_0, a Unicode minus in it a minus (10^{−6}).
+_SCRIPT = re.compile(r"([\^_])\{\s*([-+]?\s*[\w.]+)\s*\}")
 
 
 def readable_physics(text: str) -> str:
     """OCR LaTeX as plain problem text. Lines are kept; nothing is solved."""
     lines = (
-        _SPACES.sub(" ", _MICRO.sub("µ", without_markup(_DOLLARS.sub(" ", line)))).strip()
-        for line in text.splitlines()
+        _SPACES.sub(" ", _MICRO.sub("µ", without_markup(_plain_scripts(line)))).strip()
+        for line in text.replace("\u2212", "-").splitlines()
     )
     return "\n".join(line for line in lines if line)
+
+
+def _plain_scripts(line: str) -> str:
+    line = _DOLLARS.sub(lambda mark: " " if mark[0] == "~" else "", line)
+    return _SCRIPT.sub(lambda match: match[1] + match[2].replace(" ", ""), line)
 
 
 async def read_physics_problem(

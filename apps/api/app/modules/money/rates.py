@@ -104,9 +104,10 @@ async def current_average(
     """Today's checked average for ``product`` (its ``variant`` kind) at ``term`` in
     ``country``, or None.
 
-    A miss is a search on the turn's ``budget`` (its one search; no user: the free
-    provider only); the answer then serves everyone asking the same thing until it
-    expires.
+    A miss is a search on ``budget``: a side budget on the turn's reservation, beside the
+    turn's own search (``web_search.side_search_budget``; no user: the free provider only).
+    The answer then serves everyone asking the same thing until it expires; an answer with
+    no checked rate is kept a quarter of an hour.
     """
     lookup = product.rate_lookup(variant)
     if lookup is None:

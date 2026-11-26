@@ -293,7 +293,8 @@ sweep runs on a frozen clock (`SWEEP_NOW`), so the time of day never changes a r
 **STEM sweep:** `apps/api/app/tests/behavior/stem_corpus/<subject>/*.json` holds homework questions
 with the answer worked independently from the textbook formula, plus look-alikes and questions
 that must be declined. `stem_sweep.py` runs each through the real chat path, checks the verified
-answer card's number (1%, any unit of the same kind; maths answers are judged by SymPy alone in
+answer card's number (1%, or half its last place for a rounded decimal physics or chemistry card,
+any unit of the same kind; maths answers are judged by SymPy alone in
 `stem_math_judge.py`), the reply's Given/Find/Formula/Substitution/Answer shape, and validates
 every `simulation` and `graph` fence. `test_stem_sweep.py` fails on a wrong number, a misread
 turn, a reply out of shape or a broken picture, and holds coverage question by question:

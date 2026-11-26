@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import zlib
 from collections.abc import Mapping
+from dataclasses import replace
 
 import pytest
 import sympy
 
 from app.modules.chemistry.formula_laws import FORMULA_LAWS, FormulaLaw
+from app.modules.chemistry.gas_density_laws import GAS_DENSITY_LAWS
 from app.modules.physics.catalog import CATALOG
 from app.services.law_binding.shared_laws import (
     IDEAL_GAS_DENSITY,
@@ -122,8 +124,19 @@ def test_no_chemistry_row_is_a_physics_law_written_again() -> None:
         for physics_op in physics.get(signature, [])
     }
     assert {pair for pair in copies if pair[1] not in shared} == set()
+    # A row that computes a shared law is one of the rows built from it, never a row that
+    # writes its arithmetic again under another name ("density_of_gas", review #2591).
+    built = {law.op for law in GAS_DENSITY_LAWS}
+    assert {op for op, physics_op in copies if physics_op in shared} <= built
     # The ideal-gas density is found, and is the shared law, not a copy.
     assert ("gas_density", "ideal_gas_density") in copies
+
+
+def test_a_row_written_again_under_another_name_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    copy = replace(FORMULA_LAWS["gas_density"], op="density_of_gas")
+    monkeypatch.setitem(FORMULA_LAWS, "density_of_gas", copy)
+    with pytest.raises(AssertionError):
+        test_no_chemistry_row_is_a_physics_law_written_again()
 
 
 @pytest.mark.parametrize("law", SHARED_LAWS, ids=lambda law: law.op)

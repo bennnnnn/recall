@@ -18,19 +18,27 @@ from app.services.answer_check import plain_text
 _UNIT_VECTOR = re.compile(r"\\hat\s*\{?\s*[ijk]\s*\}?|[îĵ]|k\u0302")
 _BRACKETS = re.compile(r"\\left|\\right|[()\[\]]")
 _SEPARATORS = re.compile(r",|;|\bor\b|\band\b")
-# One value: a number, or a vector's signed components, then its unit or words ("north of
-# west"), with no sign, power or bracket among them.
+# One value: a number, or a vector's signed components, then its unit (a unit's power, as
+# plain text writes it: "m/s^2") or words ("north of west"), with no sign or bracket among
+# them.
 _VALUE = re.compile(
     r"[-+±−]?\s*\d+(?:\.\d+)?(?:\s*[-+−]\s*\d+(?:\.\d+)?)*"
-    r"(?:\s*[A-Za-zµμΩ°%/·²³⁻¹]+(?:\s+[A-Za-z°]+)*)?"
+    r"(?P<unit>\s*[A-Za-zµμΩ°%/·]+(?:\^-?\d+)?(?:[/·][A-Za-zµμΩ]+(?:\^-?\d+)?)*"
+    r"(?:\s+[A-Za-z°]+)*)?"
 )
 
 
 def listed_values(value: str) -> bool:
     """``value`` is a list of values, each a number or a vector's components, at least one
-    of them a vector or a second value."""
+    of them a vector or a second value. A sum of money is no such list: it stays to the cent
+    as written."""
+    from app.services.subjects.registry import MONEY
+
     text = _BRACKETS.sub(" ", plain_text(_UNIT_VECTOR.sub(" ", value)))
     pieces = [piece.strip() for piece in _SEPARATORS.split(text) if piece.strip()]
-    if not pieces or not all(_VALUE.fullmatch(piece) for piece in pieces):
+    read = [_VALUE.fullmatch(piece) for piece in pieces]
+    if not read or not all(read):
+        return False
+    if any(match["unit"] and MONEY.names_currency(match["unit"]) for match in read if match):
         return False
     return len(pieces) > 1 or _UNIT_VECTOR.search(value) is not None
