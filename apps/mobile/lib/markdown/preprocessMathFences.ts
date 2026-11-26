@@ -234,6 +234,8 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
   let inList = false;
   let topNumber: number | null = null;
   let nestedNumber: number | null = null;
+  // The indent of the last line lifted: its siblings at that indent come back with it.
+  let liftedIndent: string | null = null;
   for (const line of lines) {
     const before = open;
     open = fenceAfterLine(open, line, true);
@@ -250,11 +252,15 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
     }
     const item = LIST_ITEM.exec(line);
     const deep = DEEP_INDENT.test(line);
+    const indent = /^\s*/.exec(line)?.[0] ?? "";
+    if (line.trim() && indent !== liftedIndent) liftedIndent = null;
+    const sibling = liftedIndent !== null && item !== null;
     if (
       deep &&
       isMathFenceInterruptLine(line) &&
-      misplacedStep(line, item, inList, topNumber, nestedNumber)
+      (sibling || misplacedStep(line, item, inList, topNumber, nestedNumber))
     ) {
+      liftedIndent = indent;
       out.push(line.trimStart());
       if (item?.[2]) topNumber = Number(item[2]);
       nestedNumber = null;

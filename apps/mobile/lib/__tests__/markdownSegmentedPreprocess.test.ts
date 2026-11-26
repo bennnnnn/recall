@@ -56,6 +56,14 @@ const INDENTED_FENCES: Reply[] = [
   // A code fence in a list item inside a worked reply: the parts still preprocess as the whole.
   ["indented-durable-then-given", ["**Speed**", "$v = d / t$", "", "- Code:", "", `  ${F}python`, "  v = d / t", `  ${F}`, "",
     "A paragraph.", "", "**Given**", "$d = 10$", "", "Done."].join("\n")],
+  // The owner's layout (2026-11-26): an item's members, indented under it past a blank line,
+  // stay its members while the reply streams, as in the whole reply.
+  ["scan-members-after-blank", ["Science splits into groups.", "", "## Types of Science", "",
+    "1. **Natural science** — the physical world.", "", "    Its main branches:",
+    "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "",
+    "2. **Social science** — people.", "    - **History**", "    - **Economics**", "", "Each has its own methods."].join("\n")],
+  ["scan-deep-bullets-after-heading", ["### Natural sciences", "    - **Physics**: matter", "    - **Chemistry**: substances",
+    "    - **Biology**: life", "", "That is the list."].join("\n")],
   ["indented-durable-between-givens", ["**Given**", "$d = 10$", "", "**Speed**", "$v = d / t$", "", "- Code:", "",
     `  ${F}python`, "  v = d / t", `  ${F}`, "", "A paragraph.", "", "**Required**", "$v$", "", "**Law of speed**", "$v = 5$", "", "Done."].join("\n")],
 ];

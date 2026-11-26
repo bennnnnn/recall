@@ -81,12 +81,12 @@ describe("an informational reply's nested members", () => {
     ],
     [
       "a bullet after a margin fence ended the list",
-      ["- **Subtract 3**", "```math", "2x=8", "```", "", "    - **Divide by 2:**"],
+      ["- **Subtract 3**", "```math", "2x=8", "```", "", "    - **Divide by 2:**", "    - **Check:**"],
       "**Divide by 2:**",
     ],
     [
       "a bullet after a fence the list lift moves to the margin",
-      ["- **Subtract 3**", "   ```math", "   2x=8", "   ```", "", "    - **Divide by 2:**"],
+      ["- **Subtract 3**", "   ```math", "   2x=8", "   ```", "", "    - **Divide by 2:**", "    - **Check:**"],
       "**Divide by 2:**",
     ],
   ])("lifts a misindented step after a maths fence: %s", (_name, lines, step) => {
@@ -94,6 +94,24 @@ describe("an informational reply's nested members", () => {
     const tokens = markdownItInstance.parse(out, {});
     expect(tokens.some((t) => t.type === "code_block")).toBe(false);
     expect(out).toContain(step);
+    // Every lifted step is a sibling at the margin, none nested under the first.
+    expect(members(items(lines.join("\n")))).toEqual([]);
+  });
+
+  it("lifts every sibling of a misindented bullet after a heading, not only the first", () => {
+    const reply = [
+      "### Natural sciences",
+      "    - **Physics**: matter",
+      "    - **Chemistry**: substances",
+      "    - **Biology**: life",
+    ].join("\n");
+    const list = items(reply);
+    expect(main(list)).toEqual([
+      "**Physics**: matter",
+      "**Chemistry**: substances",
+      "**Biology**: life",
+    ]);
+    expect(members(list)).toEqual([]);
   });
 
   it("still lifts a misindented next step to the margin", () => {

@@ -21,6 +21,9 @@
  *   label only this scan's looser pattern reads);
  * - an Answer heading looks ahead for its card (`attachAnswerHeadingToFence`),
  *   and a check section runs until a heading (`layoutCheckVerificationLines`);
+ * - a list item's indented lines (`dedentMisindentedMarkdownSteps` reads the list
+ *   they sit in to keep a member under its item, past blank lines): no cut before
+ *   an indented line while a list item is open;
  * - `<details>`, bare Vega JSON and molecule pairs are read across the whole
  *   reply: a reply with any of them is not cut at all.
  *
@@ -74,6 +77,8 @@ export type SegmentScanState = {
   prevBoldLabel: boolean;
   /** The last line was a list item or an indented line of one. */
   prevListLine: boolean;
+  /** A list item is open: blank and indented lines since it still belong to its list. */
+  listOpen: boolean;
   prevBlank: boolean;
   lastNonBlank: string;
 };
@@ -113,6 +118,7 @@ export function emptySegmentScan(): SegmentScanState {
     answerLookahead: 0,
     prevBoldLabel: false,
     prevListLine: false,
+    listOpen: false,
     prevBlank: true,
     lastNonBlank: "",
   };
@@ -166,6 +172,7 @@ function guardsAllowCut(state: SegmentScanState, line: string): boolean {
     !state.poisoned &&
     state.fence === null &&
     (state.prevBlank || (state.prevListLine && LIST_ITEM_RE.test(line))) &&
+    !(state.listOpen && INDENTED_RE.test(line)) &&
     !state.regionWorked &&
     !state.inCheck &&
     !state.unpairedTicks &&
@@ -247,6 +254,10 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
   else if (!blank) state.answerLookahead = Math.max(0, state.answerLookahead - 1);
   state.prevListLine =
     !blank && !fenceLine && !state.fence && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));
+  if (!blank && !state.fence && !fenceLine) {
+    if (LIST_ITEM_RE.test(line)) state.listOpen = true;
+    else if (!INDENTED_RE.test(line)) state.listOpen = false;
+  }
   if (!blank) {
     state.prevBoldLabel = !state.fence && !fenceLine && BOLD_LABEL_RE.test(line);
     // Only labels before the first Given: a part after it is preprocessed as worked already.

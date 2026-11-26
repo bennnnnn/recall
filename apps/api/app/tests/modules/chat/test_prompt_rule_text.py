@@ -138,8 +138,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
 # 2026-11-26).
 _RULES = 227
-_RULE_GRAMS = 21294
-_RULE_GRAMS_SHA = "4c7d3fccaa24d990"
+_RULE_GRAMS = 21334
+_RULE_GRAMS_SHA = "3a7e2a3d872a967f"
 
 
 def _rules() -> list[str]:

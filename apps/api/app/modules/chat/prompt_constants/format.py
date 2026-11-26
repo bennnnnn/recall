@@ -107,7 +107,10 @@ SCAN_LAYOUT = (
     "line, its key part bold, and at most one more line: no title, list or section. "
     "A maths, physics or chemistry working keeps its worked layout and answer card. "
     "A card or shape this turn's own rules ask for (the user's requested format, a steps "
-    "card, a comparison table, code, a draft) takes the place of the list."
+    "card, a comparison table, code, a draft) takes the place of the list. A message with "
+    "several separate requests keeps the layout its multi-part rules give (each request's "
+    "own `###` section, or one answer with no heading): no intro or `##` title of its own, "
+    "and inside a section no `###` subtitles, only its list."
 )
 
 READER_NOTE = (
