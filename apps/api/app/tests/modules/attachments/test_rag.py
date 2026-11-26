@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.modules.attachments.content import ExtractedText
 from app.modules.attachments.rag import index_attachment, retrieve_for_prompt
 from app.services.chunking import chunk_text
+from app.tests.fakes import fake_session
 
 
 def _session_cm():
@@ -733,7 +734,7 @@ async def test_index_attachment_commits_chunks_and_coverage_once():
     row = MagicMock()
     row.id, row.user_id = uuid4(), uuid4()
     row.storage_key, row.content_type = "user/doc", "text/plain"
-    session = AsyncMock()
+    session = fake_session()
     order: list[str] = []
     session.commit.side_effect = lambda: order.append("commit")
 

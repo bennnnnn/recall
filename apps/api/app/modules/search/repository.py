@@ -77,9 +77,40 @@ async def search_conversations(
     spellings = devanagari_spellings(q)
     patterns = [f"%{_escaped(spelling)}%" for spelling in spellings]
     after = decode_cursor(cursor, ids=3) if cursor is not None else None
+    # Each kind's own page first: the union sorted every hit of a common word before its
+    # LIMIT (audit, 2026-11-25). A page holds at most ``limit + 1`` of each kind.
+    kinds = (
+        _title_hits(user_id, spellings, patterns),
+        _file_hits(user_id, patterns),
+        _message_hits(user_id, patterns),
+    )
+    branches = [
+        branch
+        for match_type, stmt, keys in kinds
+        if (branch := _page_of_kind(stmt, match_type, keys, after, limit)) is not None
+    ]
+    combined = union_all(*branches).subquery("search_hits")
+    order = (combined.c.rank, combined.c.created_at, combined.c.chat_id, combined.c.row_id)
+    stmt = select(combined).order_by(*(column.desc() for column in order))
+    rows = (await session.execute(stmt.limit(limit + 1))).all()
+    page, next_cursor = page_of(
+        rows,
+        limit,
+        lambda row: encode_cursor(row.created_at, UUID(int=row.rank), row.chat_id, row.row_id),
+    )
+
+    words = await _message_words(session, user_id, page)
+    return [_result(row, words, spellings) for row in page], next_cursor
+
+
+# Each kind of hit: its statement, and its sort keys within the kind (created, chat, row).
+_Kind = tuple[str, Select[Any], tuple[Any, Any, Any]]
+
+
+def _title_hits(user_id: UUID, spellings: tuple[str, ...], patterns: list[str]) -> _Kind:
     title_at = func.coalesce(Chat.updated_at, Chat.created_at)
     no_row = literal(_NO_ROW, type_=Message.id.type)
-    title_stmt = select(
+    stmt = select(
         *_branch(
             "title",
             no_row,
@@ -97,7 +128,11 @@ async def search_conversations(
             *(Chat.title.ilike(pattern, escape="\\") for pattern in patterns),
         ),
     )
-    file_stmt = (
+    return "title", stmt, (title_at, Chat.id, no_row)
+
+
+def _file_hits(user_id: UUID, patterns: list[str]) -> _Kind:
+    stmt = (
         select(
             *_branch(
                 "file",
@@ -117,7 +152,11 @@ async def search_conversations(
             or_(*(Attachment.original_filename.ilike(p, escape="\\") for p in patterns)),
         )
     )
-    msg_stmt = (
+    return "file", stmt, (Message.created_at, Chat.id, Attachment.id)
+
+
+def _message_hits(user_id: UUID, patterns: list[str]) -> _Kind:
+    stmt = (
         select(
             *_branch("message", Message.id, Message.id, Message.created_at, null(), Message.role)
         )
@@ -128,33 +167,7 @@ async def search_conversations(
             or_(*(Message.search_text.ilike(p, escape="\\") for p in patterns)),
         )
     )
-    # Each kind's own page first: the union sorted every hit of a common word before its
-    # LIMIT (audit, 2026-11-25). A page holds at most ``limit + 1`` of each kind.
-    branches = [
-        branch
-        for branch in (
-            _page_of_kind(title_stmt, "title", (title_at, Chat.id, no_row), after, limit),
-            _page_of_kind(
-                file_stmt, "file", (Message.created_at, Chat.id, Attachment.id), after, limit
-            ),
-            _page_of_kind(
-                msg_stmt, "message", (Message.created_at, Chat.id, Message.id), after, limit
-            ),
-        )
-        if branch is not None
-    ]
-    combined = union_all(*branches).subquery("search_hits")
-    order = (combined.c.rank, combined.c.created_at, combined.c.chat_id, combined.c.row_id)
-    stmt = select(combined).order_by(*(column.desc() for column in order))
-    rows = (await session.execute(stmt.limit(limit + 1))).all()
-    page, next_cursor = page_of(
-        rows,
-        limit,
-        lambda row: encode_cursor(row.created_at, UUID(int=row.rank), row.chat_id, row.row_id),
-    )
-
-    words = await _message_words(session, user_id, page)
-    return [_result(row, words, spellings) for row in page], next_cursor
+    return "message", stmt, (Message.created_at, Chat.id, Message.id)
 
 
 def _page_of_kind(

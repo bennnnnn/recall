@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.modules.memory import MemoryLoadReport, get_memory_block
 from app.modules.memory.facts import render_memory_block
 from app.modules.memory.selection import select_whole_store
+from app.tests.fakes import fake_session
 
 
 def _fact(text: str, *, type_: str = "fact", sensitivity: str = "normal") -> SimpleNamespace:
@@ -191,7 +192,7 @@ async def test_the_query_read_ends_its_transaction_before_the_embedding(fake_red
     is a provider round trip, and the pool connection was held across it (audit,
     2026-11-25). It is committed (read only) before the embed starts."""
     store = _store() + [_fact(f"User likes hobby number {n}") for n in range(20)]
-    session = AsyncMock()
+    session = fake_session()
     events: list[str] = []
     session.commit.side_effect = lambda: events.append("commit")
 

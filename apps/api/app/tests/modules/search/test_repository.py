@@ -180,7 +180,7 @@ async def test_a_dotted_hindi_letter_is_searched_either_way(typed: str) -> None:
 @pytest.mark.asyncio
 async def test_a_cursor_past_a_kind_reads_none_of_it():
     """A message cursor (rank 0) is past every title and file: only messages are read."""
-    session = AsyncMock()
+    session = fake_session()
     page_result = MagicMock()
     page_result.all.return_value = []
     session.execute = AsyncMock(return_value=page_result)

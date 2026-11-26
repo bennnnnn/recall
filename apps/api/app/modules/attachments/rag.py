@@ -247,31 +247,43 @@ async def index_attachment(
             f"All {len(embedded)} chunk embeddings failed for {attachment_id}"
         )
 
+    coverage = _index_coverage_payload(details, settings)
+    stored = await _store_index(owner_id, row_id, chat_id, successful, coverage)
+    if stored and chat_id is not None:
+        await presence_cache.mark_present(presence_cache.documents_key(chat_id))
+    return len(successful) if stored else 0
+
+
+async def _store_index(
+    owner_id: UUID,
+    attachment_id: UUID,
+    chat_id: UUID | None,
+    chunks: list[tuple[int, str, list[float] | None]],
+    coverage: dict[str, Any],
+) -> bool:
+    """The chunks and their coverage in one transaction: both commit, or neither does."""
     async with SessionLocal() as session:
-        # One transaction: the chunks and their coverage commit together, or neither does.
         try:
             stored = await chunks_repo.replace_chunks(
                 session,
                 user_id=owner_id,
-                attachment_id=row_id,
+                attachment_id=attachment_id,
                 chat_id=chat_id,
-                chunks=successful,
+                chunks=chunks,
             )
             if stored:
                 await attachments_repo.set_index_coverage(
                     session,
-                    attachment_id=row_id,
+                    attachment_id=attachment_id,
                     user_id=owner_id,
-                    coverage=_index_coverage_payload(details, settings),
+                    coverage=coverage,
                     commit=False,
                 )
             await session.commit()
         except BaseException:
             await session.rollback()
             raise
-    if stored and chat_id is not None:
-        await presence_cache.mark_present(presence_cache.documents_key(chat_id))
-    return len(successful) if stored else 0
+    return stored
 
 
 async def chat_has_document_chunks(user_id: UUID, chat_id: UUID) -> bool:
