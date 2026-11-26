@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 import app.modules.memory.erase as erase
-from app.models.orm import Memory, MemoryArea, User
+from app.models.orm import Memory, MemoryArea, Message, User
 from app.modules.memory.fact_quality import is_learning_line
 from app.modules.memory.ops import (
     ACTIVE_STATUS,
@@ -287,17 +287,23 @@ async def retire_near_duplicates(
     *,
     min_similarity: float,
     new_wins: bool = True,
+    by_age: bool = False,
 ) -> int:
     """Of a new fact (``fact_ids``) and an active one it says again in other words, one
     is superseded by the other, which keeps the higher importance: the older one, or with
     ``new_wins`` False (an earlier chat's lines only fill gaps) the new one. Returns how
     many were retired.
 
+    ``by_age``: the facts just got their vector late (a backfill), so "new" says nothing
+    of which was said last; they are compared with each other too. Of each pair the one
+    said last stays (``_said_later_first``), and a pair whose order is unclear stays whole.
+
     The caller owns the commit. Lesson lines are the lesson job's and never retired.
     """
     if not fact_ids:
         return 0
     new, old = aliased(Memory), aliased(Memory)
+    others = old.id != new.id if by_age else old.id.notin_(fact_ids)
     result = await session.execute(
         select(new.id, old.id)
         .join(old, old.user_id == new.user_id)
@@ -306,16 +312,22 @@ async def retire_near_duplicates(
             new.id.in_(fact_ids),
             new.status == ACTIVE_STATUS,
             new.embedding.isnot(None),
-            old.id.notin_(fact_ids),
+            others,
             old.status == ACTIVE_STATUS,
             old.embedding.isnot(None),
             new.embedding.cosine_distance(old.embedding) <= 1 - min_similarity,
         )
     )
     retired = 0
+    said_at: dict[UUID, datetime | None] = {}
     for new_id, old_id in result.all():
         kept, gone = await session.get(Memory, new_id), await session.get(Memory, old_id)
-        if not new_wins:
+        if by_age:
+            ordered = await _said_later_first(session, kept, gone, said_at)
+            if ordered is None:
+                continue
+            kept, gone = ordered
+        elif not new_wins:
             kept, gone = gone, kept
         # A pair met again (one fact near two others) after one of them went is skipped.
         if (
@@ -333,6 +345,47 @@ async def retire_near_duplicates(
         _supersede(gone, kept)
         retired += 1
     return retired
+
+
+async def _said_later_first(
+    session: AsyncSession,
+    first: Memory | None,
+    second: Memory | None,
+    said_at: dict[UUID, datetime | None],
+) -> tuple[Memory, Memory] | None:
+    """The pair as (kept, retired), the one the user said last kept; None when that is
+    unclear, and both stay.
+
+    Two clocks say when: ``last_confirmed_at``, set whenever the fact's text is written
+    (an ``update`` op and a hand edit included; ``created_at`` is not), and the time of the
+    message it quotes. A history-scan fact is written now from an old message, so the
+    message's time keeps it from beating a fact the user said since (the scan only fills
+    gaps); a hand edit keeps the message it once quoted, so the write's time counts too.
+    One fact is later only on both clocks. ``said_at`` caches message times for the call.
+    """
+    if first is None or second is None:
+        return None
+    first_said = await _said(session, first, said_at)
+    second_said = await _said(session, second, said_at)
+    if first.last_confirmed_at > second.last_confirmed_at and first_said >= second_said:
+        return first, second
+    if second.last_confirmed_at > first.last_confirmed_at and second_said >= first_said:
+        return second, first
+    return None
+
+
+async def _said(
+    session: AsyncSession, fact: Memory, said_at: dict[UUID, datetime | None]
+) -> datetime:
+    """When the user said the words the fact quotes: its source message's time, or with
+    none (a hand edit, a deleted chat) when its text was last written."""
+    source = fact.source_message_id
+    if source is not None and source not in said_at:
+        said_at[source] = await session.scalar(
+            select(Message.created_at).where(Message.id == source)
+        )
+    sent = said_at.get(source) if source is not None else None
+    return sent if sent is not None else fact.last_confirmed_at
 
 
 async def update_embedding_if_current(

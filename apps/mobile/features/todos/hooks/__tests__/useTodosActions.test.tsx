@@ -177,6 +177,24 @@ describe("useTodosActions reminders", () => {
     expect(JSON.stringify(jest.mocked(Alert.alert).mock.calls)).toContain("todos.error_limit");
   });
 
+  it("says the to-do is already there when an edit would duplicate one", async () => {
+    const { status, detail } = fixture.todo_duplicate;
+    (api.updateTodo as jest.Mock).mockRejectedValue(new ApiRequestError(status, JSON.stringify({ detail })));
+    const open = todo({ id: "open-1", content: "Gym" });
+    await act(async () => {
+      render(<Probe todos={[open]} />);
+    });
+    await act(async () => {
+      actions.openTodoEditor(open);
+    });
+    await act(async () => {
+      await actions.handleUpdateTodo(open, "Run", null, null);
+    });
+    const shown = JSON.stringify(jest.mocked(Alert.alert).mock.calls);
+    expect(shown).toContain("todos.error_duplicate");
+    expect(shown).not.toContain("todos.error_update");
+  });
+
   it("creates a plain to-do without a due date", async () => {
     const created = todo({ id: "plain-1", content: "Buy milk" });
     (api.createTodo as jest.Mock).mockResolvedValue(created);

@@ -118,6 +118,12 @@ LIMITS: dict[str, _Limit] = {
         send=lambda c: c.get("/auth/me/export", headers=_AUTH),
         over="export_busy",
     ),
+    "plan sync": _Limit(
+        send=lambda c: c.post("/auth/me/sync-subscription", headers=_AUTH),
+        over="rate_limited",
+        plan="pro",
+        settings=Settings(revenuecat_secret_key="sk_test"),
+    ),
     "composer image intent": _Limit(
         send=lambda c: c.post("/images/intent", headers=_AUTH, json={"text": "draw a cat"}),
         over="rate_limited",
@@ -204,7 +210,7 @@ def test_every_route_limit_is_listed() -> None:
     )
     assert callers == [
         "core/chat_rate_limit.py",  # the chat stream (SSE) here, the socket's message limit there
-        "modules/account/api.py",  # data export
+        "modules/account/api.py",  # data export, plan sync
         "modules/account/refresh_limit.py",  # test_refresh_limit.py
         "modules/account/signin_limit.py",  # test_signin_limit.py
         "modules/analytics/api.py",  # product events, per minute and per day

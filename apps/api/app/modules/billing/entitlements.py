@@ -50,7 +50,6 @@ Allowance = Literal[
     "monthly_live_talk_minutes",
     "library_storage_bytes",
 ]
-ALLOWANCES: tuple[Allowance, ...] = get_args(Allowance)
 
 # Allowance → the free-plan Settings field; ``_pro`` follows it.
 _ALLOWANCE_SETTING: dict[Allowance, str] = {
@@ -149,31 +148,6 @@ def can_use(subject: _HasPlan | str | None, feature: Feature, settings: Settings
 
 def features_for(subject: _HasPlan | str | None, settings: Settings) -> list[Feature]:
     return [feature for feature in FEATURES if can_use(subject, feature, settings)]
-
-
-def plan_catalog(settings: Settings) -> list[dict[str, object]]:
-    """Every plan with its features and numbers, for the paywall.
-
-    An allowance the plan folds into its messages has no number of its own: it is
-    listed under ``follow_messages`` instead; one with no cap, under ``unlimited``.
-    """
-    return [
-        {
-            "id": plan,
-            "features": features_for(plan, settings),
-            "allowances": {
-                name: allowance(plan, name, settings)
-                for name in ALLOWANCES
-                if not follows_messages(plan, name, settings)
-                and not is_unlimited(plan, name, settings)
-            },
-            "unlimited": [name for name in ALLOWANCES if is_unlimited(plan, name, settings)],
-            "follow_messages": [
-                name for name in ALLOWANCES if follows_messages(plan, name, settings)
-            ],
-        }
-        for plan in PLANS
-    ]
 
 
 def plan_from_entitlements(active: set[str], settings: Settings) -> PlanId:

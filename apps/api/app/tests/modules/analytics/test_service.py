@@ -134,6 +134,35 @@ async def test_record_batch_rejects_unexpected_properties() -> None:
 
 
 @pytest.mark.asyncio
+async def test_a_client_cannot_post_an_event_the_server_records() -> None:
+    """``reply_rated`` is written when a rating saves; one posted by a client would count a
+    rating nobody gave. The whole batch is refused, the valid event with it."""
+    session = fake_session()
+    batch = ProductEventBatchIn.model_validate(
+        {
+            "events": [
+                {"name": "paywall_viewed", "properties": {"source": "settings"}},
+                {
+                    "name": "reply_rated",
+                    "properties": {"rating": "up", "model": "other", "kind": "text"},
+                },
+            ]
+        }
+    )
+
+    with patch(
+        "app.modules.analytics.service.product_events_repo.create_batch",
+        AsyncMock(),
+    ) as create_batch:
+        with pytest.raises(ValueError, match="recorded by the server"):
+            await product_analytics.record_batch(session, uuid4(), batch)
+
+    create_batch.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    assert product_analytics.SERVER_EVENTS <= set(product_analytics.EVENT_NAMES)
+
+
+@pytest.mark.asyncio
 async def test_record_batch_rolls_back_failed_persistence() -> None:
     session = AsyncMock()
     batch = ProductEventBatchIn.model_validate(

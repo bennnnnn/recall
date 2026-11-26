@@ -311,6 +311,13 @@ class UserUpdate(BaseModel):
             raise ValueError("Invalid IANA timezone name.") from exc
 
 
+# Our refresh tokens are 43 characters (``secrets.token_urlsafe(32)``); a provider's ID
+# token is a JWT of one or two kilobytes. Each is read as a Redis key or verified, so an
+# unbounded string was a Redis key of any size.
+REFRESH_TOKEN_MAX_CHARS = 256
+ID_TOKEN_MAX_CHARS = 8192
+
+
 class DeviceSessionIn(BaseModel):
     device_label: UserText | None = Field(default=None, max_length=80)
     platform: UserText | None = Field(default=None, max_length=16)
@@ -324,11 +331,11 @@ class SignInRequest(DeviceSessionIn):
 
 
 class GoogleAuthRequest(SignInRequest):
-    id_token: str
+    id_token: str = Field(max_length=ID_TOKEN_MAX_CHARS)
 
 
 class AppleAuthRequest(SignInRequest):
-    id_token: str
+    id_token: str = Field(max_length=ID_TOKEN_MAX_CHARS)
     name: UserText | None = None
     # The raw nonce; the app gave Apple its SHA-256, which the token carries.
     nonce: str | None = Field(default=None, max_length=256)
@@ -361,7 +368,7 @@ class AuthResponse(BaseModel):
 
 
 class RefreshRequest(DeviceSessionIn):
-    refresh_token: str | None = None
+    refresh_token: str | None = Field(default=None, max_length=REFRESH_TOKEN_MAX_CHARS)
 
 
 class AuthSessionOut(BaseModel):
@@ -380,7 +387,7 @@ class AuthSessionListOut(BaseModel):
 
 
 class LogoutRequest(BaseModel):
-    refresh_token: str | None = None
+    refresh_token: str | None = Field(default=None, max_length=REFRESH_TOKEN_MAX_CHARS)
     # This device's Expo push token: logout forgets it, so the account's reminders stop.
     expo_push_token: str | None = Field(default=None, min_length=8, max_length=512)
 

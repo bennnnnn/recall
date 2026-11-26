@@ -99,7 +99,12 @@ export function applyOutsideFences(text: string, fn: (prose: string) => string):
   return out.join("\n");
 }
 
-/** The text with the first closed ``lang`` fence's body replaced; null when there is none. */
+/**
+ * The text with the first closed ``lang`` fence's body replaced; null when there is none. The
+ * opener and closer outrun every run of their character in the new body, as the server's
+ * `replace_first_closed_fence_body` writes them: an email quoting code keeps its card
+ * (docs/fixtures/fence_body_rewrites.json holds the two to one answer).
+ */
 export function replaceFirstClosedFenceBody(
   text: string,
   lang: string,
@@ -111,7 +116,39 @@ export function replaceFirstClosedFenceBody(
   while (stripped.endsWith("\n")) {
     stripped = stripped.slice(0, -1);
   }
-  return text.slice(0, span.bodyStart) + `${stripped}\n` + text.slice(span.bodyEnd);
+  const body = `${stripped}\n`;
+  const opener = text.slice(span.start, span.bodyStart);
+  const marker = readFenceMarkerLoose(opener.replace(/\n$/, ""));
+  const run = marker ? fenceRunFor(body, marker.char, marker.len) : 0;
+  return (
+    text.slice(0, span.start) +
+    withRun(opener, run) +
+    body +
+    withRun(text.slice(span.bodyEnd, span.end), run) +
+    text.slice(span.end)
+  );
+}
+
+/** The opener's run, or one longer than the longest run of its character in `body`. */
+function fenceRunFor(body: string, char: "`" | "~", openerLen: number): number {
+  let longest = 0;
+  for (const run of body.match(char === "`" ? /`+/g : /~+/g) ?? []) {
+    longest = Math.max(longest, run.length);
+  }
+  return longest >= openerLen ? longest + 1 : openerLen;
+}
+
+/** A fence line with its run of backticks or tildes set to `run` characters (0 keeps it). */
+function withRun(line: string, run: number): string {
+  const match = /^([ \t>]*)(`{3,}|~{3,})/.exec(line);
+  if (!match || run === 0 || match[2]!.length === run) return line;
+  const prefix = match[1]!;
+  return prefix + match[2]![0]!.repeat(run) + line.slice(prefix.length + match[2]!.length);
+}
+
+/** The backticks a fence opened with, from its `markup` (```` → 4); 3 for any other. */
+export function openerBacktickRun(markup: string | undefined): number {
+  return markup && /^`{3,}$/.test(markup) ? markup.length : 3;
 }
 
 export function collectClosedFenceBodies(text: string, lang: string): string[] {

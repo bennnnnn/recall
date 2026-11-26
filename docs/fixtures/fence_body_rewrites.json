@@ -1,0 +1,37 @@
+[
+ {
+  "name": "plain words keep the opener",
+  "text": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nHello\n```\nWant changes?\n",
+  "lang": "email",
+  "body": "To: sam@example.com\nSubject: Tests\n\nShorter",
+  "expected": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nShorter\n```\nWant changes?\n"
+ },
+ {
+  "name": "a quoted code fence",
+  "text": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nHello\n```\nWant changes?\n",
+  "lang": "email",
+  "body": "To: sam@example.com\nSubject: Tests\n\nRun this:\n```\nnpm test\n```\nThanks",
+  "expected": "Here is the draft.\n````email\nTo: sam@example.com\nSubject: Tests\n\nRun this:\n```\nnpm test\n```\nThanks\n````\nWant changes?\n"
+ },
+ {
+  "name": "a quoted fence with a language",
+  "text": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nHello\n```\nWant changes?\n",
+  "lang": "email",
+  "body": "To: sam@example.com\n\nRun this:\n```bash\nnpm test\n```",
+  "expected": "Here is the draft.\n````email\nTo: sam@example.com\n\nRun this:\n```bash\nnpm test\n```\n````\nWant changes?\n"
+ },
+ {
+  "name": "a run mid-line",
+  "text": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nHello\n```\nWant changes?\n",
+  "lang": "email",
+  "body": "To: sam@example.com\n\nWrap code in ```` when it holds ```.",
+  "expected": "Here is the draft.\n`````email\nTo: sam@example.com\n\nWrap code in ```` when it holds ```.\n`````\nWant changes?\n"
+ },
+ {
+  "name": "a quoted reply holding a fence",
+  "text": "Here is the draft.\n```email\nTo: sam@example.com\nSubject: Tests\n\nHello\n```\nWant changes?\n",
+  "lang": "email",
+  "body": "To: sam@example.com\n\n> ````\n> x\n> ````",
+  "expected": "Here is the draft.\n`````email\nTo: sam@example.com\n\n> ````\n> x\n> ````\n`````\nWant changes?\n"
+ }
+]

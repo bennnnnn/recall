@@ -136,13 +136,23 @@ export function shouldRenderAsCodeBlock(
  * empty, the developer word "fence" leaked into it, a nested fence or a heading (the model
  * used the tag as an example and swallowed the rest of the reply), or source code.
  */
-export function looksLikeExplicitDraftContent(content: string): boolean {
+export function looksLikeExplicitDraftContent(content: string, openerRun = 3): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;
   if (/^fence!?\b/i.test(trimmed)) return false;
-  if (trimmed.includes("```")) return false;
+  // A run of backticks as long as the fence's own opener: the model nested a fence in the
+  // draft. A shorter one is the draft's own text: the server lengthens a draft's fence past
+  // every run its body holds (apps/api services/md_fence_scan.py), as an email quoting code.
+  if (longestBacktickRun(trimmed) >= Math.max(3, openerRun)) return false;
   if (/^#{1,6}\s/m.test(trimmed)) return false;
   return !looksLikeSourceCode(trimmed);
+}
+
+/** The longest run of backticks anywhere in `text`. */
+function longestBacktickRun(text: string): number {
+  let longest = 0;
+  for (const run of text.match(/`+/g) ?? []) longest = Math.max(longest, run.length);
+  return longest;
 }
 
 export function isStructuredDraftLang(lang: string): boolean {
@@ -242,11 +252,12 @@ export function isExplicitCodeLang(lang: string): boolean {
 export function shouldRenderAsCopyBlock(
   lang: string,
   content: string,
+  openerRun = 3,
 ): boolean {
   if (!isSendableFenceLang(lang)) return false;
   if (looksLikeMathAnswer(content)) return false;
   if (looksLikeFailedDiagram(content)) return false;
-  return looksLikeExplicitDraftContent(content);
+  return looksLikeExplicitDraftContent(content, openerRun);
 }
 
 /** The i18n key of a copy card's label: an email, a message, or a plain draft. */

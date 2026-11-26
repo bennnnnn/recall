@@ -388,7 +388,8 @@ def test_recheck_keeps_only_the_newest_answer_in_a_slot():
     [(False, True, True), (False, False, True), (True, True, False)],
 )
 async def test_a_fact_said_again_is_retired_after_its_vector_is_written(mock, new_wins, called):
-    """Only rows this pass wrote are compared; mock vectors are all alike and compare nothing."""
+    """Rows this pass wrote are compared, and rows it backfilled, by age (their own pass ran
+    out of time embedding); mock vectors are all alike and compare nothing."""
     from unittest.mock import AsyncMock
 
     from app.modules.memory.apply import _retire_said_again
@@ -415,9 +416,11 @@ async def test_a_fact_said_again_is_retired_after_its_vector_is_written(mock, ne
     if not called:
         memories.retire_near_duplicates.assert_not_awaited()
         return
-    call = memories.retire_near_duplicates.await_args
-    assert call.args[2] == [fresh]
-    assert call.kwargs == {"min_similarity": 0.88, "new_wins": new_wins}
+    first, second = memories.retire_near_duplicates.await_args_list
+    assert first.args[2] == [fresh]
+    assert first.kwargs == {"min_similarity": 0.88, "new_wins": new_wins}
+    assert second.args[2] == [backfilled]
+    assert second.kwargs == {"min_similarity": 0.88, "by_age": True}
 
 
 def test_a_name_from_a_pasted_word_problem_is_not_the_users():

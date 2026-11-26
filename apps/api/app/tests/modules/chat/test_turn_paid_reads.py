@@ -102,6 +102,20 @@ async def test_an_at_cap_send_is_refused_before_any_paid_read(fake_redis: Any) -
     reads.posed_started.assert_not_called()
 
 
+async def test_a_pro_day_past_its_token_budget_starts_no_paid_read(fake_redis: Any) -> None:
+    """Pro has no message cap: its token budget is the day's only stop, and a send past it
+    is refused before the read starts, as an at-cap Free send is."""
+    from app.services.quota.counters import daily_key
+
+    user = make_user(plan="pro")
+    budget = quota_service.daily_limit_for_user(user, Settings())
+    await fake_redis.set(daily_key("usage", str(user.id)), budget, ex=60)
+    with _turn_load(), _watched_reads() as reads, pytest.raises(QuotaExceededError):
+        await _send(_deps(), fake_redis, user, "what's a good name for a cat?")
+    reads.start.assert_not_called()
+    reads.posed_started.assert_not_called()
+
+
 async def test_an_at_cap_picture_still_reaches_the_intercept(fake_redis: Any) -> None:
     """A painted picture takes no chat message: at the cap the read still decides it."""
     user = make_user(plan="free")

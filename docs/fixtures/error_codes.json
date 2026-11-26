@@ -70,6 +70,13 @@
    "message": "You have 1000 open to-dos, the most Recall keeps. Complete or delete some to add more."
   }
  },
+ "todo_duplicate": {
+  "status": 409,
+  "detail": {
+   "code": "todo_duplicate",
+   "message": "You already have this to-do at that time."
+  }
+ },
  "presign_unsupported_type": {
   "status": 400,
   "detail": {

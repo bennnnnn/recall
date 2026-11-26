@@ -56,11 +56,16 @@ def _workflow_http_errors() -> Iterator[None]:
         raise _storage_http_error() from exc
 
 
+# How much of a Library search is matched: each row's filename, type and linked message are
+# scanned for it, so it stays short.
+GALLERY_QUERY_MAX_CHARS = 80
+
+
 @router.get("", response_model=Page[AttachmentListItemOut])
 async def list_attachments(
     category: str | None = Query(default=None, pattern="^(images|files)$"),
     source: str | None = Query(default=None, pattern="^(upload|generated)$"),
-    q: str | None = Query(default=None, max_length=80),
+    q: str | None = Query(default=None),
     limit: int = Query(default=30, ge=1, le=100),
     cursor: str | None = Query(default=None, max_length=200),
     user: User = Depends(get_current_user),
@@ -72,7 +77,9 @@ async def list_attachments(
     ``q`` is a case-insensitive substring over filename, content type, and
     the linked message (covers image-gen prompts).
     """
-    query = q.strip() if q else None
+    # The phone sends what was typed, at any length: a long one searches by its first
+    # characters rather than failing the Library with a 422.
+    query = q.strip()[:GALLERY_QUERY_MAX_CHARS].strip() if q else None
     if not query:
         query = None
     return await attachment_workflow.list_attachments(

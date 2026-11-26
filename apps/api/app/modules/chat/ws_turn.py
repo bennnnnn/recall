@@ -135,7 +135,7 @@ async def _run_stream(
     # already flushed (stream_end above), so only the final `done` event
     # waits on the commit — streaming latency is unchanged. If the commit
     # FAILED we send an error instead of a ghost `done` with a fake id.
-    # On TIMEOUT we send `done` without `message_id` (persisting: true) so
+    # On TIMEOUT we send `done` without `message_id` so
     # the client keeps the local bubble and refetches instead of trusting
     # a row that may never persist if the shielded task later fails.
     commit = await await_finalize_commit(pop_finalize_tasks(outcome))

@@ -1070,6 +1070,7 @@
   "todos.error_create": "सेव नहीं हो सका",
   "todos.error_delete": "डिलीट नहीं हो सका",
   "todos.error_due": "तारीख़ अपडेट नहीं हो सकी",
+  "todos.error_duplicate": "यह काम उस दिन या समय के लिए आपके पास पहले से है।",
   "todos.error_limit": "आपके पास उतने खुले काम हैं जितने Recall अधिकतम रखता है। और जोड़ने के लिए कुछ पूरे करें या हटाएँ।",
   "todos.error_update": "अपडेट नहीं हो सका",
   "todos.group_anytime": "कभी भी",

@@ -1,6 +1,7 @@
 """Plan policy: one table of what each plan includes, read from config."""
 
 from types import SimpleNamespace
+from typing import get_args
 
 import pytest
 
@@ -73,7 +74,7 @@ def test_default_numbers_per_plan(plan_id, numbers):
 
 def test_every_allowance_has_a_setting_for_every_plan():
     fields = Settings.model_fields
-    for name in entitlements.ALLOWANCES:
+    for name in get_args(entitlements.Allowance):
         for plan_id in entitlements.PLANS:
             assert entitlements.setting_name(name, plan_id) in fields
 
@@ -137,16 +138,6 @@ def test_expired_entitlements_do_not_count():
     assert _plan_from_revenuecat_payload(payload, Settings()) == "free"
 
 
-def test_plan_catalog_lists_exactly_free_and_pro():
-    """One paid plan: GET /billing/plans serves this catalog to the paywall."""
-    catalog = entitlements.plan_catalog(Settings())
-    assert [item["id"] for item in catalog] == ["free", "pro"]
-    assert entitlements.PAID_PLANS == frozenset({"pro"})
-    pro = catalog[1]
-    assert pro["allowances"]["monthly_live_talk_minutes"] == 60
-    assert "live_talk" in pro["features"]
-
-
 _EXTRAS = {
     "daily_image_uploads",
     "daily_document_uploads",
@@ -179,7 +170,7 @@ def test_free_counts_only_messages_and_pro_only_its_photos_follow_them():
 def test_every_listed_allowance_is_one():
     settings = Settings(_env_file=None)
     for listed in (settings.follow_messages, settings.follow_messages_pro):
-        assert set(listed) <= set(entitlements.ALLOWANCES)
+        assert set(listed) <= set(get_args(entitlements.Allowance))
 
 
 def test_pro_messages_are_unlimited_and_free_counts_ten():
@@ -197,17 +188,3 @@ def test_read_aloud_has_no_count_and_stays_off_free():
     assert entitlements.is_unlimited("pro", "daily_speech_tts", settings)
     assert entitlements.can_use("pro", "speech_tts", settings)
     assert not entitlements.can_use("free", "speech_tts", settings)
-
-
-def test_plan_catalog_shows_no_number_where_a_plan_has_none():
-    """The paywall never reads a separate upload or search count for Free, nor a message
-    count for Pro."""
-    free, pro = entitlements.plan_catalog(Settings(_env_file=None))
-    assert set(free["follow_messages"]) == _EXTRAS
-    assert _EXTRAS.isdisjoint(free["allowances"])
-    assert free["allowances"]["daily_messages"] == 10
-    assert pro["follow_messages"] == ["daily_image_uploads"]
-    assert pro["allowances"]["daily_scanned_documents"] == 100
-    assert pro["unlimited"] == ["daily_messages", "daily_speech_tts"]
-    assert "daily_messages" not in pro["allowances"]
-    assert pro["allowances"]["daily_web_searches"] == 40

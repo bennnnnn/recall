@@ -129,7 +129,8 @@ async def test_logout_leaves_a_redis_outage_to_the_503_handler():
                 LogoutRequest(refresh_token="rtok"),
                 request=request,
                 settings=settings,
-                redis=redis_mock(),
+                # The refresh token's session is read first: here it names none.
+                redis=redis_mock(get=None),
                 session=AsyncMock(),
             )
 

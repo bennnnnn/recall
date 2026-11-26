@@ -80,6 +80,24 @@ function node(content: string, info?: string): FenceNode {
   return { key: "k", content, sourceInfo: info };
 }
 
+describe("renderFence draft opener", () => {
+  const draft = "To: sam@example.com\n\nRun this:\n```\nnpm test\n```\nThanks";
+
+  it("draws an email the server fenced past its quoted code as the email card", async () => {
+    const lengthened: FenceNode = { ...node(draft, "email"), markup: "````" };
+    const { getByLabelText } = await render(<>{renderFence(lengthened)}</>);
+    expect(getByLabelText("Edit email")).toBeOnTheScreen();
+  });
+
+  it("keeps a ``` fence nested in a ``` draft as prose", async () => {
+    const { queryByLabelText, getByText } = await render(
+      <>{renderFence({ ...node(draft, "email"), markup: "```" })}</>,
+    );
+    expect(queryByLabelText("Edit email")).toBeNull();
+    expect(getByText(/npm test/)).toBeOnTheScreen();
+  });
+});
+
 describe("renderFence math dispatch", () => {
   it("routes an explicit ```math fence to MathBlock", async () => {
     const { getByTestId, getByText, queryByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
