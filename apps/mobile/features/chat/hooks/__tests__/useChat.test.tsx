@@ -1539,7 +1539,7 @@ describe("useChat socket while the app is in the background", () => {
     await act(async () => { sending = current.sendMessage("after resume"); });
     expect(FakeSocket.instances).toHaveLength(2);
     const reopened = FakeSocket.instances[1];
-    expect(reopened.url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+&app_version=[\w.+%-]+$/);
+    expect(reopened.url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
     await act(async () => { reopened.open(); await sending; });
     expect(reopened.send).toHaveBeenCalledWith(expect.stringContaining("\"type\":\"message\""));
     expect(streamChatMessageSse).not.toHaveBeenCalled();
@@ -1933,7 +1933,7 @@ describe("useChat socket recovery", () => {
     let sending!: Promise<unknown>;
     await act(async () => { sending = current.sendMessage("on the new network"); });
     expect(FakeSocket.instances).toHaveLength(2);
-    expect(latestSocket().url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+&app_version=[\w.+%-]+$/);
+    expect(latestSocket().url).toMatch(/^wss:\/\/test\/a\?request_id=[\w-]+$/);
     await act(async () => { latestSocket().open(); await sending; });
     expect(frames(latestSocket()).at(-1)).toMatchObject({ type: "message", content: "on the new network" });
   });
