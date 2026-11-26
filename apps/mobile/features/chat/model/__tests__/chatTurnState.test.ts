@@ -318,7 +318,7 @@ describe("a turn from send to the end", () => {
     it("a Stop puts it back, over the socket or SSE, and the late done names it", () => {
       const run = play(idle(), [send("Top 5 universities in Ethiopia"), ...retracted, { type: "stop" }]);
       expect(run.of("cancel_socket")).toEqual([{ type: "cancel_socket", streamedChars: denial.length }]);
-      expect(run.of("abort_sse")).toHaveLength(1);
+      expect(run.of("stop_sse")).toEqual([{ type: "stop_sse", streamedChars: denial.length }]);
       expect(run.messages.at(-1)).toMatchObject({ id: `streamed-${NOW}`, content: denial, generationStopped: true });
       const done = play(run.state, [
         frame({ type: "done", message_id: "m-1", final_content: denial, completion: "user_stop" }),
@@ -361,7 +361,9 @@ describe("a turn from send to the end", () => {
       frame({ type: "token", content: " more" }),
       frame({ type: "done", message_id: "m-1", final_content: "Partial more and more", completion: "user_stop" }),
     ]);
-    expect(run.of("abort_sse")).toHaveLength(1);
+    // Over SSE the Stop is said to the server: a stream that only closes is a drop it saves.
+    expect(run.of("stop_sse")).toEqual([{ type: "stop_sse", streamedChars: 7 }]);
+    expect(run.of("abort_sse")).toEqual([]);
     expect(run.of("cancel_socket")).toEqual([{ type: "cancel_socket", streamedChars: 7 }]);
     expect(run.messages.at(-1)).toMatchObject({ id: "m-1", content: "Partial more and more", generationStopped: true });
     expect(run.state.stoppedStreamedId).toBeNull();

@@ -12,11 +12,14 @@ from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing.entitlements import allowance
 from app.services.quota.counters import (
+    COUNTERS,
     DAILY_TTL,
     daily_key,
     floor_counter,
+    limit,
     raise_counter,
     refund_daily,
+    unlimited,
     utc_today,
 )
 
@@ -39,6 +42,23 @@ async def get_daily_usage(redis: Redis, user_id: str) -> int:
     key = _usage_key(user_id, utc_today())
     value = await redis.get(key)
     return int(value or 0)
+
+
+async def has_turn_left(redis: Redis, user: User, settings: Settings, *, daily_limit: int) -> bool:
+    """Whether a chat turn could still start today: a message left (on a plan that caps
+    them) and tokens under ``daily_limit``. A read, nothing taken: one round trip for both
+    counters, before the turn's paid reads begin. Redis down raises
+    ``RedisUnavailableError``."""
+    keys = [_usage_key(str(user.id), utc_today())]
+    if not unlimited("chat_message", user, settings):
+        keys.append(daily_key(COUNTERS["chat_message"].prefix, user.id))
+    try:
+        values = await redis.mget(keys)
+    except RedisError as exc:
+        raise RedisUnavailableError() from exc
+    if int(values[0] or 0) >= daily_limit:
+        return False
+    return len(values) < 2 or int(values[1] or 0) < limit("chat_message", user, settings)
 
 
 async def has_daily_usage_key(redis: Redis, user_id: str, *, day: date | None = None) -> bool:

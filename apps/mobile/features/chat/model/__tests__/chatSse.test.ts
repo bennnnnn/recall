@@ -1,4 +1,9 @@
-import { parseSseChunk, shouldAbortPriorSse, streamChatMessageSse } from "@/features/chat/model/sse";
+import {
+  parseSseChunk,
+  shouldAbortPriorSse,
+  streamChatMessageSse,
+  streamChatRegenerateSse,
+} from "@/features/chat/model/sse";
 import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 jest.mock("@/lib/config", () => ({
@@ -106,6 +111,17 @@ describe("streamChatMessageSse routes through lib/api requestSse", () => {
     expect(body).toMatchObject({ content: "hi", model: null });
     expect(body).not.toHaveProperty("client_message_id");
     expect(events).toEqual([{ type: "done" }]);
+  });
+
+  it("names its stream in the body, which the user's Stop says it by", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream('data: {"type":"done"}\n\n'));
+    await streamChatMessageSse({
+      token: "tok", chatId: "chat-1", content: "hi", streamId: "stream-1", onEvent: jest.fn(),
+    });
+    requestSseMock.mockResolvedValueOnce(makeOkStream('data: {"type":"done"}\n\n'));
+    await streamChatRegenerateSse({ token: "tok", chatId: "chat-1", streamId: "stream-2", onEvent: jest.fn() });
+    expect(requestSseMock.mock.calls[0][2]).toMatchObject({ stream_id: "stream-1" });
+    expect(requestSseMock.mock.calls[1][2]).toMatchObject({ stream_id: "stream-2" });
   });
 
   it("names a resent message and settles on the server's duplicate answer", async () => {

@@ -33,6 +33,16 @@ it("reads a new zone at a new path: a list kept for the old one is never revalid
   expect(paths).toEqual(["/chats?client_timezone=Asia%2FKathmandu", "/chats?client_timezone=Pacific%2FKiritimati"]);
 });
 
+it("says the user's Stop for the stream it names, with how much the phone drew", async () => {
+  await chatsApi.stopChatStream("token", "chat-1", "stream-1", 12);
+  await chatsApi.stopChatStream("token", "chat-1", "stream-2");
+  const bodies = jest.mocked(request).mock.calls.map(([path, , init]) => [path, JSON.parse(String(init?.body))]);
+  expect(bodies).toEqual([
+    ["/chats/chat-1/stream/stop", { stream_id: "stream-1", shown_chars: 12 }],
+    ["/chats/chat-1/stream/stop", { stream_id: "stream-2" }],
+  ]);
+});
+
 describe("listAllMessages", () => {
   const msg = (id: string) => ({ id, role: "user", content: id });
   const staleCursor = () =>

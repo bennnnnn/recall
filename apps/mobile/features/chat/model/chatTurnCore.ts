@@ -129,6 +129,9 @@ export type ChatTurnCommand =
   | { type: "usage"; usage: TurnUsage }
   | { type: "drop_socket" }
   | { type: "abort_sse" }
+  /** The user's Stop over SSE: said to the server, then the stream closes (a stream that only
+   * closes is a drop, which the server finishes and saves). `streamedChars` as on the socket. */
+  | { type: "stop_sse"; streamedChars?: number }
   | { type: "cancel_socket"; streamedChars?: number }
   | { type: "retry_fallback"; fallback: AuthFallback }
   | { type: "follow_dropped_turn"; follow: DroppedTurnFollow; polls?: number; pollMs?: (poll: number) => number }

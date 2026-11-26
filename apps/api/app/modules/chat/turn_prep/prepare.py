@@ -313,8 +313,8 @@ def _stream_context(
             settings=settings,
         ),
     )
-    ctx.auto_routed = plan_service.is_auto_enabled(user) and not plan_service.is_explicit_pick(
-        turn.model_alias
-    )
+    ctx.auto_routed = plan_service.is_auto_enabled(
+        user, settings
+    ) and not plan_service.is_explicit_pick(turn.model_alias)
     ctx.cooling_models = turn.unhealthy or frozenset()
     return ctx

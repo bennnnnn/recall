@@ -5,9 +5,10 @@ can still name an alias the catalog has since dropped. Read and written, the sav
 keeps only the models the catalog still offers (``current_choices``); a list left with
 none is the default, Auto. A request naming an alias the catalog really had and dropped
 (``REMOVED_ALIASES``) is Auto (``requested_choice``), so a stale phone's message still
-gets an answer; one the plan does not include is still refused where the turn picks its
-model. Any other name is refused, as it always was: a typo ("smart-chta") or a name no
-alias ever had ("gpt-4o") is a 422, never a silent switch to Auto.
+gets an answer; so is one the plan no longer includes, where the turn picks its model
+(``billing.plan.pick_for_plan``). Any other name is refused, as it always was: a typo
+("smart-chta") or a name no alias ever had ("gpt-4o") is a 422, never a silent switch
+to Auto.
 
 The routing lanes are data that must name catalog models. The API and the worker check
 them as they start (``check_routing_lanes``), so a removal that leaves a lane naming

@@ -11,9 +11,9 @@ import { STREAM_IDLE_TIMEOUT_MS } from "@/features/chat/model/wsConnect";
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
 
 /** Abort the previous SSE only when replacing a stream in the same chat.
- * New chat / leave must not abort — Stop is the only hard cancel (WS drains
- * on disconnect; SSE Stop is abort, so a chat switch must leave the fetch
- * running). */
+ * New chat / leave must not abort: Stop is the only hard cancel. A named stream's Stop is
+ * said to the server (`useSseStream`) and a stream that only closes finishes and saves; an
+ * unnamed one stops when it closes, so a chat switch leaves the fetch running. */
 export function shouldAbortPriorSse(
   previousChatId: string | null,
   nextChatId: string | null,
@@ -29,6 +29,8 @@ type StreamChatSseClient = {
   signal?: AbortSignal;
   /** Optimistic user-message id for the send that opened this stream. */
   ttftTurnId?: string | null;
+  /** The stream's name, which the user's Stop says it by (`useSseStream`). */
+  streamId?: string;
   onEvent: (payload: ChatSsePayload) => void;
 };
 
@@ -56,6 +58,7 @@ async function streamChatSseRequest(
   const body = {
     ...extraBody,
     model: options.model ?? null,
+    ...(options.streamId ? { stream_id: options.streamId } : {}),
     client_timezone: getDeviceTimezone(),
     ...clientGeoWsFields(options.clientGeo),
   };
