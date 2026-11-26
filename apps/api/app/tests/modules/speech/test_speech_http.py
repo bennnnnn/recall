@@ -1,5 +1,6 @@
 """/speech over HTTP: transcribe, speak, live talk."""
 
+from concurrent import futures
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -217,7 +218,7 @@ def test_speech_transcribe_cancelled_refunds():
             AsyncMock(),
         ) as refund,
     ):
-        with pytest.raises((asyncio.CancelledError, RuntimeError)):
+        with pytest.raises((asyncio.CancelledError, futures.CancelledError, RuntimeError)):
             client.post(
                 "/speech/transcribe",
                 headers={"Authorization": "Bearer tok"},
@@ -391,7 +392,7 @@ def test_speech_tts_cancelled_refunds():
             AsyncMock(),
         ) as refund,
     ):
-        with pytest.raises((asyncio.CancelledError, RuntimeError)):
+        with pytest.raises((asyncio.CancelledError, futures.CancelledError, RuntimeError)):
             client.post(
                 "/speech/tts",
                 headers={"Authorization": "Bearer tok"},

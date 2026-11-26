@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.modules.chat import stream_entry
 from app.modules.chat.turn_resources import TurnResources
 from app.modules.conversation import chats_repository, messages_repository
+from app.services.quota import counters as quota_counters
 from app.tests.fakes import FakeSessionCM, redis_mock
 from app.tests.modules.chat.chat_test_support import FakeSessionCM as _FakeSessionCM
 from app.tests.modules.chat.chat_test_support import turn_deps
@@ -96,7 +97,8 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
         ]
 
     assert tokens == []
-    refund.assert_awaited_once_with(redis, str(user.id), 500)
+    # Borrowed resources name no reserve day: the refund goes to today's.
+    refund.assert_awaited_once_with(redis, str(user.id), 500, day=None)
 
 
 @pytest.mark.asyncio
@@ -137,7 +139,8 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
             ):
                 pass
 
-    refund.assert_awaited_once_with(redis, str(user.id), 250)
+    # Back to the day the tokens were taken from.
+    refund.assert_awaited_once_with(redis, str(user.id), 250, day=quota_counters.utc_today())
 
 
 @pytest.mark.asyncio

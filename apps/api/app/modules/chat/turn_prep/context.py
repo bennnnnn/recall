@@ -75,6 +75,9 @@ class StreamContext:
     # The UTC day whose chat message this turn took (``TurnResources.message_day``): kept
     # when a reply is saved, given back with ``reserved_tokens`` when none is.
     message_day: date | None = None
+    # The UTC day ``reserved_tokens`` were taken from (``TurnResources.token_day``): the
+    # settle and any refund go back to it, after midnight too.
+    token_day: date | None = None
     # The request's zone (the client's over the profile's): finalize uses the one the prompt
     # used for relative dates and reminder clocks.
     user_timezone: str | None = None

@@ -557,9 +557,13 @@ async def test_a_lookup_turn_that_finds_a_photo_keeps_its_message(fake_redis, qu
     fetch_client.__aenter__ = AsyncMock(return_value=fetch_client)
     fetch_client.__aexit__ = AsyncMock(return_value=None)
 
-    async def _fake_create(session, *, role, content, **kwargs):
-        return MagicMock(id=uuid4(), content=content)
+    created: dict[str, MagicMock] = {}
 
+    async def _fake_create(session, *, role, content, **kwargs):
+        created[role] = MagicMock(id=uuid4(), content=content)
+        return created[role]
+
+    finish = AsyncMock()
     with (
         patch(
             "app.modules.images.search.chat_history.get_chat", AsyncMock(return_value=MagicMock())
@@ -577,7 +581,7 @@ async def test_a_lookup_turn_that_finds_a_photo_keeps_its_message(fake_redis, qu
         ),
         patch("app.modules.images.search.attachments_service.add_server_images", AsyncMock()),
         patch.object(messages_repository, "create", AsyncMock(side_effect=_fake_create)),
-        patch("app.modules.images.search.finish_turn", AsyncMock()),
+        patch("app.modules.images.search.finish_turn", finish),
     ):
         await search_and_attach_for_chat(
             Settings(image_search_enabled=True),
@@ -587,3 +591,5 @@ async def test_a_lookup_turn_that_finds_a_photo_keeps_its_message(fake_redis, qu
             takes_message=True,
         )
     assert await fake_redis.get(_chat_messages_used(user)) == "4"
+    # Its indexing job reads this turn's own line, not the chat's latest.
+    assert finish.await_args.kwargs["user_message_id"] == created["user"].id

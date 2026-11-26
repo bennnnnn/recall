@@ -22,6 +22,7 @@ from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
+from app.core.vectors import EMBEDDING_DIM
 from app.modules.memory.topics import (
     AREA_SUMMARY_MAX,
     AREA_TITLE_MAX,
@@ -121,7 +122,7 @@ class Memory(Base):
     # (``repository.list_scored_for_user``), and a read of it raises instead of
     # quietly fetching ~50 KB a fact.
     embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536), nullable=True, deferred=True, deferred_raiseload=True
+        Vector(EMBEDDING_DIM), nullable=True, deferred=True, deferred_raiseload=True
     )
     # Hash of the text this embedding was actually computed from — lets
     # extraction/consolidation detect "embedding is stale relative to text"

@@ -4,7 +4,7 @@ The public-surface check passed while images wrote attachments' rows and notific
 wrote to-dos': attachments' ``service.py`` forwarded thirteen repository functions, and
 to-dos exported its ``repository`` and two of its writers. Another module now calls an
 operation the owner keeps (``attachments.service.add_server_images``,
-``todos.mark_reminder_pushed``), and neither a package surface nor a public file hands
+``todos.mark_reminders_pushed``), and neither a package surface nor a public file hands
 a repository out.
 """
 

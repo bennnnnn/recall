@@ -120,3 +120,55 @@ async def test_live_talk_reads_the_needed_rows() -> None:
 
     assert read.await_args is not None
     assert read.await_args.kwargs == {"limit": 2, "needed_first": True}
+
+
+async def _new_user(session):
+    return await users_repo.create(
+        session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_open_dated_rows_nearest_now_are_kept_before_stale_overdue_ones(db_session):
+    """A fired one-off reminder stays open until it is ticked: first by due time, a stale
+    pile of them pushed tomorrow's dentist out of the read."""
+    user = await _new_user(db_session)
+    now = datetime.now(UTC)
+    for content, due in (
+        ("Renew passport", now - timedelta(days=30)),
+        ("Pay rent", now - timedelta(days=20)),
+        ("Zumba class", now - timedelta(hours=3)),
+        ("Dentist", now + timedelta(days=1)),
+    ):
+        await todos_repo.create(
+            db_session, user_id=user.id, content=content, topic="Reminders", due_at=due
+        )
+
+    needed = await todos_repo.list_for_user(db_session, user.id, limit=2, needed_first=True)
+
+    assert {item.content for item in needed} == {"Zumba class", "Dentist"}
+
+
+@pytest.mark.asyncio
+async def test_among_done_rows_the_most_recently_changed_are_kept(db_session):
+    """A just-ticked to-do stays within reach of "uncheck that" past the cut."""
+    user = await _new_user(db_session)
+    changed = datetime(2026, 11, 1, tzinfo=UTC)
+    rows = []
+    for index in range(3):
+        todo = await todos_repo.create(
+            db_session, user_id=user.id, content=f"Chore {index}", topic="Aa"
+        )
+        await todos_repo.update(db_session, todo, checked=True)
+        rows.append(todo)
+    for days, todo in enumerate(rows):
+        todo.updated_at = changed + timedelta(days=days)
+    await db_session.flush()
+
+    needed = await todos_repo.list_for_user(db_session, user.id, limit=2, needed_first=True)
+
+    assert {item.content for item in needed} == {"Chore 1", "Chore 2"}

@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
 from app.modules.billing import subscription as subscription_service
-from app.tests.fakes import make_user
+from app.tests.fakes import fake_session, make_user
 
 
 def test_entitlement_active_lifetime():
@@ -446,3 +446,26 @@ async def test_an_id_of_no_subscriber_shape_asks_nothing(
     monkeypatch.setattr(revenuecat_gateway, "get_pooled_client", no_client)
     assert revenuecat_gateway.subscriber_id(app_user_id) is None
     assert await revenuecat_gateway.fetch_subscriber("sk_test", app_user_id) is None
+
+
+@pytest.mark.asyncio
+async def test_a_transfer_ends_the_open_read_before_asking_revenuecat() -> None:
+    """Each target was asked with the caller's read (or the last target's) still open."""
+    steps: list[str] = []
+    session = fake_session(commit=AsyncMock(side_effect=lambda: steps.append("commit")))
+
+    async def resolve(_settings: Settings, _app_user_id: str) -> str:
+        steps.append("revenuecat")
+        return "free"
+
+    with (
+        patch("app.modules.billing.subscription.resolve_plan_from_revenuecat", resolve),
+        patch(
+            "app.modules.billing.subscription.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(plan="free")),
+        ),
+    ):
+        assert await subscription_service.handle_revenuecat_transfer(
+            session, Settings(), new_app_user_id=str(uuid4()), transferred_from=[]
+        )
+    assert steps == ["commit", "revenuecat"]

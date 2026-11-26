@@ -251,8 +251,9 @@ def _turn_settings(
     """The user's own switches (web search off) narrow the server's for this turn, and
     the turn's read starts under them as early as the turn allows, beside the intercepts and
     the prep: how to handle the message, live facts included (``chat.turn_decision``). An
-    intercepted turn leaves it to end on its own timeout. ``recent``: the chat before the
-    line, oldest first.
+    intercepted turn stops both reads once the intercept has answered (the live read in
+    ``turn_intercepts``, the follow-up read with ``stop_posed_read``). ``recent``: the chat
+    before the line, oldest first.
 
     A line answered again is read the same way: left to the reply's model alone, GPT-6
     Luna with its thinking raised searched a textbook physics problem (2026-11-09). A short

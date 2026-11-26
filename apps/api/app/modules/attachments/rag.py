@@ -103,7 +103,9 @@ _RAG_MISS_NOTE = (
     "answer in the excerpts, say so."
 )
 
-# Foreground TTFT path — match memory's live-embed budget.
+# On the reply's path, but longer than memory's live-embed budget
+# (``memory_query_embed_timeout_seconds``, 0.75 s): a question about a file needs its
+# excerpts, while memory falls back to its type-priority block.
 _RAG_EMBED_TIMEOUT_SECONDS = 2.0
 
 
