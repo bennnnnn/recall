@@ -27,7 +27,7 @@
   "contexts/ModelsContext.tsx::ModelsProvider": 126,
   "features/account/hooks/useProfileEditor.ts::useProfileEditor": 144,
   "features/account/screens/ArchivedChatsScreen.tsx::ArchivedChatsScreen": 106,
-  "features/account/screens/DataControlsScreen.tsx::DataControlsScreen": 209,
+  "features/account/screens/DataControlsScreen.tsx::DataControlsScreen": 173,
   "features/account/screens/ModelsSettingsScreen.tsx::ModelsSettingsScreen": 124,
   "features/account/screens/NotificationsSettingsScreen.tsx::NotificationsSettingsContent": 209,
   "features/account/screens/SecuritySettingsScreen.tsx::SecuritySettingsScreen": 105,

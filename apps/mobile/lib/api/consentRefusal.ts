@@ -9,7 +9,7 @@
  * 403 with the code (so an HTTP caller only has to stop showing its own error for
  * `CONSENT_REQUIRED_CODE`). A sign-in records the agreement itself
  * (features/auth/api.ts), so this reaches only an account without one: from before
- * that, or one that withdrew in Data controls.
+ * that, or a client that sends no flag.
  */
 
 export const CONSENT_REQUIRED_CODE = "consent_required";

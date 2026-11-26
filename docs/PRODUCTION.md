@@ -640,7 +640,7 @@ background, and runs the new code from the next launch.
       the sign-in: the sign-in page's line under its buttons (`login.agree_line`, "By
       continuing, you agree to the Terms and Privacy Policy.", the user's wording) with the
       Terms and Privacy links, and every sign-in sends `ai_data_consent: true`. An account
-      without it (from before, withdrawn in Data controls, or a client that sends no flag:
+      without it (from before, or a client that sends no flag:
       an older phone, web slice 1) is asked on the consent screen (phone `/consent`, the web's own) and agrees
       with `PATCH /auth/me`. Change that line, the consent screen and the policy together.
       The server refuses chat, speech and scan reads until then (`consent_required`)
