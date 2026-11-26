@@ -62,7 +62,9 @@ class ReplyCard:
 
 
 def reply_cards(text: str) -> list[ReplyCard]:
-    """Each closed card holding one plain value, with the part its heading names."""
+    """Each card holding one plain value, with the part its heading names. A card is
+    ``card_walk``'s: closed, or the last left open to the reply's end, which the closer
+    closes after this pass (a reply cut off at the length limit)."""
     cards: list[ReplyCard] = []
     for card in answer_cards(text):
         fence = card.fence
