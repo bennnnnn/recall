@@ -46,7 +46,8 @@ async def list_for_user(
 async def list_scored_for_user(
     session: AsyncSession, user_id: UUID, query_vec: list[float]
 ) -> list[tuple[Memory, float | None]]:
-    """The user's active and muted facts, each with its cosine similarity to ``query_vec``.
+    """The user's active facts, each with its cosine similarity to ``query_vec``: a muted
+    fact never reaches a prompt, so it is not scored.
 
     Postgres computes the similarities, so no vector leaves the database: loading both
     vector copies of 150 facts moved ~7 MB and cost ~60 ms of event-loop CPU a turn. A
@@ -55,7 +56,7 @@ async def list_scored_for_user(
     similarity = (1 - Memory.embedding.cosine_distance(query_vec)).label("similarity")
     result = await session.execute(
         select(Memory, similarity)
-        .where(Memory.user_id == user_id, Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS)))
+        .where(Memory.user_id == user_id, Memory.status == ACTIVE_STATUS)
         .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc(), Memory.id.desc())
     )
     return [(memory, _finite(score)) for memory, score in result.all()]

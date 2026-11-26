@@ -119,7 +119,7 @@ async def load_relevant_memories(
                 query_text=query_text,
                 with_profile=with_profile,
             )
-        all_memories = await memories_repo.list_for_user(session, user.id)
+        all_memories = await memories_repo.list_for_user(session, user.id, include_muted=False)
         if lexical:
             return selection.select_memories_lexical(
                 all_memories,
@@ -350,7 +350,7 @@ async def _whole_store_block(
     from app.modules.memory import repository as memories_repo
 
     try:
-        rows = await memories_repo.list_for_user(session, user.id)
+        rows = await memories_repo.list_for_user(session, user.id, include_muted=False)
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         report.degrade("unavailable")
@@ -494,7 +494,9 @@ async def _cached_block(
         from app.modules.memory import repository as memories_repo
 
         try:
-            memories = select(await memories_repo.list_for_user(session, user.id))
+            memories = select(
+                await memories_repo.list_for_user(session, user.id, include_muted=False)
+            )
         except Exception:
             logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
             report.degrade("unavailable")
