@@ -347,8 +347,9 @@ async def _settle_reply(
     user_stopped = accum.completion == "user_stop"
     # The charge is what the server sent, never what the client says it drew: each stream
     # adds its own bill to ``usage`` (``llm_spend.settle_stream_attempt``), and one that
-    # reported nothing is the text it sent.
-    usage.setdefault("output", estimate_tokens(accum.reply_text()))
+    # reported nothing is the text it sent. An instant reply ran no model: it costs nothing.
+    if not ctx.instant_reply:
+        usage.setdefault("output", estimate_tokens(accum.reply_text()))
     assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
     if not assistant_text and user_stopped:
         # Stopped before the client drew any of it: nothing is saved, and a regenerate
