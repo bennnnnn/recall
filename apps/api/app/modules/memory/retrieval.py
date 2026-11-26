@@ -403,6 +403,10 @@ async def _query_block(
 
     from app.gateways import embedding_gateway
 
+    # End the reads before the embedding (a provider round trip): the whole-store read
+    # left the session's transaction open, holding its pool connection across the wait
+    # (CLAUDE.md "Transaction ownership"). Nothing here writes.
+    await session.commit()
     query_vec = await embedding_gateway.get_or_embed_query(
         settings,
         user.id,

@@ -184,3 +184,26 @@ async def test_a_turn_that_names_nothing_reads_who_the_user_is_of_a_large_store(
     assert "User works as a nurse" in block
     assert "hobby number" not in block
     embed.assert_not_awaited()
+
+
+async def test_the_query_read_ends_its_transaction_before_the_embedding(fake_redis):
+    """The whole-store read opens the session's transaction; the query embed that follows
+    is a provider round trip, and the pool connection was held across it (audit,
+    2026-11-25). It is committed (read only) before the embed starts."""
+    store = _store() + [_fact(f"User likes hobby number {n}") for n in range(20)]
+    session = AsyncMock()
+    events: list[str] = []
+    session.commit.side_effect = lambda: events.append("commit")
+
+    async def _embed(*_args, **_kwargs):
+        events.append("embed")
+        return [1.0, 0.0]
+
+    with (
+        patch("app.modules.memory.repository.list_for_user", AsyncMock(return_value=store)),
+        patch("app.modules.memory.repository.list_scored_for_user", AsyncMock(return_value=[])),
+        patch("app.gateways.embedding_gateway.get_or_embed_query", _embed),
+    ):
+        await get_memory_block(session, _user(), Settings(), query_text="any gift ideas?")
+
+    assert events[:2] == ["commit", "embed"]
