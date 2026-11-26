@@ -28,7 +28,7 @@ def _parts(text: str) -> list[str]:
         (
             "a ball is thrown straight up at 15 m/s. how high does it go and how long till it "
             "comes back down",
-            ["11.5 m", "3.06 s"],
+            ["11.47 m", "3.06 s"],
         ),
         # 72 km/h = 20 m/s; a = (0 - 20)/4 = -5 m/s²; s = ½(20 + 0)·4 = 40 m.
         (
@@ -51,7 +51,7 @@ def _parts(text: str) -> list[str]:
         (
             "A ball is thrown straight up at 20 m/s. Find (a) the maximum height (b) the time "
             "to reach the top (c) the total time in the air.",
-            ["20.4 m", "2.04 s", "4.08 s"],
+            ["20.39 m", "2.04 s", "4.08 s"],
         ),
     ],
 )

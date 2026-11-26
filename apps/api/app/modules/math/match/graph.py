@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 
+from app.modules.math.function_names import FUNCTION_DEFINITION
 from app.modules.math.match.letter_runs import (
     VIZ_COMMANDS,
     _alpha_run_end,
@@ -575,7 +576,6 @@ def graph_expr_pair(text: str) -> tuple[str, str] | None:
     return None
 
 
-_DEFINES_A_FUNCTION = re.compile(r"\b[a-z]\s*\(\s*x\s*\)\s*=")
 # The words that put "x = 2" on a curve: "at x = 2", "when x = 2", "where x = 2".
 _AT_A_POINT = re.compile(r"\b(?:at|when|where)\s+x\s*$")
 
@@ -593,7 +593,7 @@ def vertical_line_x(text: str) -> float | None:
         return None
     # With f(x) = … defined, an "x = 2" tied to it is a point on its curve ("the tangent to
     # f(x) = √(9 - x²) at x = 2 … Draw the curve"); "the vertical line x = 2" stays a line.
-    defines = _DEFINES_A_FUNCTION.search(lower) is not None
+    defines = any(match["var"] == "x" for match in FUNCTION_DEFINITION.finditer(lower))
     idx = 0
     while True:
         hit = _standalone_equals(lower, "x", start=idx)

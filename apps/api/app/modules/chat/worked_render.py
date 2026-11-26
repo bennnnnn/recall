@@ -41,6 +41,7 @@ from app.modules.chat.worked_text import (
 )
 from app.modules.chat.worked_units import quantity_tex
 from app.modules.chat.worked_values import writes_its_unit
+from app.services.rounding_rule import working_figures
 from app.services.worked_parts import WorkedPart, lettered_line, part_letter, render_parts
 from app.services.workout import (
     ANSWER,
@@ -77,7 +78,8 @@ def _line(tex: str, note: str | None = None) -> str:
     said = [prose_maths(words) for words in (before, after) if words]
     if said:
         move = "; ".join([note_from_label(said[0]), *said[1:], *([move] if move else [])])
-    return math_line(tidy_tex(maths), move)
+    # A line of working writes a calculator's digits to six figures (``working_figures``).
+    return math_line(working_figures(tidy_tex(maths)), move)
 
 
 # A braced group or a command: words in a group are a script's or an argument's

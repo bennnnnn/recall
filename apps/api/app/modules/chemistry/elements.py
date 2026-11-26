@@ -190,6 +190,15 @@ ELEMENTS: tuple[Element, ...] = tuple(
 )
 BY_SYMBOL: dict[str, Element] = {element.symbol: element for element in ELEMENTS}
 BY_NUMBER: dict[int, Element] = {element.number: element for element in ELEMENTS}
+# The British and older IUPAC spellings the table (which follows the American ones) does not
+# carry: "aluminium" and "caesium" are IUPAC's own, "sulphur" a British textbook's.
+OTHER_SPELLINGS: dict[str, str] = {"aluminium": "Al", "caesium": "Cs", "sulphur": "S"}
+# Every element by its name in words, lower case, in either spelling: the one table each
+# reader of an element's name looks it up in.
+BY_NAME: dict[str, str] = {
+    **{element.name.lower(): element.symbol for element in ELEMENTS},
+    **OTHER_SPELLINGS,
+}
 # These elements are written as molecules. ``O2-`` is superoxide, not oxide.
 DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 

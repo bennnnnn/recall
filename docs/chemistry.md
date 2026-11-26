@@ -256,15 +256,22 @@ constant and an activity. A chemistry question routes to physics for them
 (`services/subjects/dispatch.detect_subject`) and reads its answer in its own units:
 
 - a gas stated in litres or atmospheres gives a volume in L and a pressure in atm, not m³
-  and Pa ("2 mol at 300 K and 1 atm" occupies 49.2 L). A gas stated in m³ or Pa keeps SI;
+  and Pa ("2 mol at 300 K and 1 atm" occupies 49.23 L). A gas stated in m³ or Pa keeps SI;
 - a rate from a half-life in years, days or minutes is per that unit (1.21 × 10⁻⁴ 1/yr);
 - the subscripted states a chemistry class writes are read: `P1 = 2 atm, V1 = 3 L, V2 = 6 L,
   find P2`.
 
 - a latent heat per gram is read as a chemistry class labels it (`ΔHfus = 334 J/g`);
 - a hot object dropped into water gives its specific heat by calorimetry, with water's c as
-  the setting, and in grams and °C a specific heat is per gram and degree (`0.558 J/(g·°C)`,
+  the setting, and in grams and °C a specific heat is per gram and degree (`0.56 J/(g·°C)`,
   not `558 J/(kg·K)`).
+
+The ideal-gas density `ρ = PM/RT` is physics' law too, but only chemistry reads a molar mass
+from the gas it names ("the density of CO2 at STP"): its two rows (a density, and a molar mass
+from a density) take physics' arithmetic in their own names and units
+(`services/law_binding/shared_laws.py`), never a copy. The shared-law test reads every
+chemistry row's formula, its symbols by dimension, against physics' catalog, so a law
+written again under another name fails it (`test_shared_law_formulas.py`).
 
 Every converted answer shows the conversion as its last substitution row. Routing also runs
 the other way: a closed chemistry calculation (a mass percent, a molality, a cell potential)

@@ -39,7 +39,7 @@ def _answer(text: str) -> str | None:
         (
             "A 200 µF capacitor is connected to a 6 V battery. Find the charge stored on the capacitor.",
             "capacitor_charge",
-            "0.0012 C",
+            "0.00120 C",
         ),
         (
             "A capacitor of 50 µF stores a charge of 1 mC. Find the potential difference across it.",
@@ -55,7 +55,7 @@ def _answer(text: str) -> str | None:
         (
             "Find the total capacitance of a 4 µF and a 6 µF capacitor in series.",
             "capacitors_series",
-            "2.4 µF",
+            "2.40 µF",
         ),
         (
             "Find the total capacitance of a 4 µF and a 6 µF capacitor in parallel.",
@@ -94,7 +94,7 @@ def _answer(text: str) -> str | None:
         (
             "An electron is accelerated through a potential difference of 100 V. Find the energy gained.",
             "charge_energy",
-            "1.6 × 10⁻¹⁷ J",  # e · 100
+            "1.60 × 10⁻¹⁷ J",  # e · 100
         ),
         (
             "An electron is accelerated through a potential difference of 100 V. "
@@ -105,7 +105,7 @@ def _answer(text: str) -> str | None:
         (
             "A proton is in an electric field of 2000 N/C. Find the force on it.",
             "field_force_on_charge",
-            "3.2 × 10⁻¹⁶ N",
+            "3.20 × 10⁻¹⁶ N",
         ),
         (
             # 500 turns are a count: μ₀·500·2/0.25, not 500 revolutions of 2π rad.
@@ -124,20 +124,20 @@ def _answer(text: str) -> str | None:
             "Light travels from air into glass of refractive index 1.5 at an angle of incidence "
             "of 40 degrees. Find the angle of refraction.",
             "snell_refraction_angle",
-            "25.4°",
+            "25.37°",
         ),
         ("Find the power of a lens of focal length 25 cm.", "lens_power", "4 D"),
         (
             "Light of wavelength 600 nm passes through a diffraction grating with 300 lines per mm. "
             "Find the angle of the first order maximum.",
             "grating_angle",
-            "10.4°",  # asin(600e-9 · 3e5)
+            "10.37°",  # asin(600e-9 · 3e5)
         ),
         (
             "A diffraction grating has a line density of 5.00e5 /m. Light of wavelength 600 nm "
             "is seen in the first order. Find the angle.",
             "grating_angle",
-            "17.5°",  # asin(600e-9 · 5e5)
+            "17.46°",  # asin(600e-9 · 5e5)
         ),
         (
             "A concave mirror has a radius of curvature of 40 cm. Find its focal length.",
@@ -200,33 +200,33 @@ def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
         (
             "A siren of 500 Hz approaches a stationary observer at 20 m/s. "
             "The speed of sound is 340 m/s. Find the frequency heard.",
-            "531 Hz (approaching, sound at 340 m/s)",  # 500·340/320
+            "531.25 Hz (approaching, sound at 340 m/s)",  # 500·340/320
         ),
         (
             "A siren of 500 Hz moves away from a stationary observer at 20 m/s. "
             "The speed of sound is 340 m/s. Find the frequency heard.",
-            "472 Hz (receding, sound at 340 m/s)",  # 500·340/360
+            "472.22 Hz (receding, sound at 340 m/s)",  # 500·340/360
         ),
         (
             "The speed of sound is 340 m/s. An ambulance siren of 700 Hz approaches a "
             "stationary listener at 30 m/s. What frequency does the listener hear?",
-            "768 Hz (approaching, sound at 340 m/s)",
+            "767.74 Hz (approaching, sound at 340 m/s)",
         ),
         (
             # The observer moves; the source is still: 500·350/340.
             "An observer moves at 10 m/s toward a stationary siren of 500 Hz. "
             "The speed of sound is 340 m/s. Find the frequency heard.",
-            "515 Hz (approaching, sound at 340 m/s)",
+            "514.71 Hz (approaching, sound at 340 m/s)",
         ),
         (
             "An observer moves at 10 m/s away from a stationary siren of 500 Hz. "
             "The speed of sound is 340 m/s. Find the frequency heard.",
-            "485 Hz (receding, sound at 340 m/s)",  # 500·330/340
+            "485.29 Hz (receding, sound at 340 m/s)",  # 500·330/340
         ),
         (
             # Was 506 Hz: 72 km/h was read as 72 m/s. It is 20 m/s: 400·343/323.
             "A train whistle of 400 Hz approaches at 72 km/h. Find the observed frequency.",
-            "425 Hz (approaching, sound at 343 m/s)",
+            "424.77 Hz (approaching, sound at 343 m/s)",
         ),
     ],
 )
@@ -316,10 +316,10 @@ def test_givens_in_different_units_answer_in_si() -> None:
         # An interchangeable list read "respectively" keeps its order.
         (
             "Find the total capacitance of a 4 µF and a 6 µF capacitor respectively in series.",
-            "2.4 µF",
+            "2.40 µF",
         ),
         # "Bill" is a name here, not a price.
-        ("Bill has a mass of 70 kg. What is Bill's weight?", "686.7 N"),
+        ("Bill has a mass of 70 kg. What is Bill's weight?", "686.70 N"),
     ],
 )
 def test_review_cases_answer_the_question_asked(text: str, answer: str) -> None:
@@ -335,8 +335,8 @@ def test_bragg_uses_the_stated_order_and_angle() -> None:
         "X-rays of wavelength 0.154 nm strike a crystal at a Bragg angle of 30 degrees "
         "in the first order. Find the plane spacing."
     )
-    assert _answer(wavelength) == "0.2 nm"
-    assert _answer(spacing) == "0.154 nm"
+    assert _answer(wavelength) == "0.20 nm"
+    assert _answer(spacing) == "0.15 nm"
 
 
 @pytest.mark.parametrize(

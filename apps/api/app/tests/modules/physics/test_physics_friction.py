@@ -42,21 +42,21 @@ def _verified_answer(text: str) -> str | None:
 
 VERIFIED: list[tuple[str, str, str]] = [
     # f = mu N, level ground: 0.2 * 10 * 9.81
-    ("friction force on a 10 kg block with coefficient 0.2", "friction_force", "19.6 N"),
+    ("friction force on a 10 kg block with coefficient 0.2", "friction_force", "19.62 N"),
     (
         "what is the friction force on a 10 kg box with a coefficient of friction of 0.2",
         "friction_force",
-        "19.6 N",
+        "19.62 N",
     ),
     (
         "calculate the frictional force for a 10 kg crate and mu = 0.2",
         "friction_force",
-        "19.6 N",
+        "19.62 N",
     ),
     # N = m g, and N = m g cos(theta) on a slope
-    ("normal force on a 10 kg block on level ground", "normal_force", "98.1 N"),
-    ("what is the normal force on a 10 kg box resting on a table", "normal_force", "98.1 N"),
-    ("find the normal force for a 10 kg mass on a 30 degree incline", "normal_force", "85 N"),
+    ("normal force on a 10 kg block on level ground", "normal_force", "98.10 N"),
+    ("what is the normal force on a 10 kg box resting on a table", "normal_force", "98.10 N"),
+    ("find the normal force for a 10 kg mass on a 30 degree incline", "normal_force", "84.96 N"),
     # a = g(sin(theta) - mu cos(theta))
     (
         "a 10 kg block on a 30 degree incline with coefficient of friction 0.2, "
@@ -67,7 +67,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "what is the acceleration of a block on a frictionless 30 degree incline",
         "incline_acceleration",
-        "4.9 m/s²",
+        "4.91 m/s²",
     ),
     (
         "a crate slides down a 30 degree ramp with mu = 0.2, find the acceleration",
@@ -134,7 +134,7 @@ def test_incline_acceleration_does_not_depend_on_mass() -> None:
         "what is the acceleration of a 250 kg block on a frictionless 30 degree incline"
     )
 
-    assert without == "4.9 m/s²"
+    assert without == "4.91 m/s²"
     assert with_mass == without
 
 

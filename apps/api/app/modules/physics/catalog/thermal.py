@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.services.law_binding.shared_laws import IDEAL_GAS_DENSITY
 from app.services.law_binding.spec import (
     Binding,
     FormulaSpec,
@@ -626,7 +627,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\rho",
         base_latex=r"\rho = \frac{PM}{RT}",
         assumptions=("an ideal gas",),
-        expression="pres*molar_mass/(R_gas*temp)",
+        expression=IDEAL_GAS_DENSITY.expression,
         variables=(
             _PRESSURE,
             var("molar_mass", "M", "kilogram / mole", words=("molar",), needs_words=True),

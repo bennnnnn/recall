@@ -36,6 +36,9 @@ def test_the_vision_prompt_asks_for_the_problem_as_written() -> None:
         (r"from $20^{\circ}\mathrm{C}$ to $5\,\mathrm{^{\circ}C}$", "from 20°C to 5 °C"),
         (r"$\Delta T = 60\,\mathrm{K}$ and $v_{0}$", "ΔT = 60 K and v_0"),
         (r"$E = \frac{hc}{\lambda}$", "E = hc/λ"),
+        # A line with no command keeps no braces; a Unicode minus is a minus (review, #2591).
+        (r"$a = 2 m/s^{2}$, $v_{0} = 5$ m/s", "a = 2 m/s^2, v_0 = 5 m/s"),
+        ("a charge of 2 × 10^{−6} C", "a charge of 2 × 10^-6 C"),
         # Lines stay lines; blank lines and runs of spaces do not.
         (
             "A 2 kg ball is dropped.\n\n   Find   its speed.",
@@ -77,7 +80,7 @@ async def test_a_photo_with_a_confirmed_reading_is_verified_from_that_reading() 
     augmentation = await build_subject_augmentation(caption, _SETTINGS, has_image_attachment=True)
     assert augmentation.subject == "physics"
     assert augmentation.verified is not None
-    assert augmentation.verified.canonical_answer == "39.6 m/s"
+    assert augmentation.verified.canonical_answer == "39.62 m/s"
     # The model still answers a photo: it may hold a diagram the text does not.
     assert (
         maybe_direct_subject_reply(augmentation.verified, caption, has_image_attachment=True)
@@ -93,7 +96,7 @@ async def test_a_reading_edited_into_lines_is_verified_whole() -> None:
     caption = f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} {reading}\n\nplease explain"
     augmentation = await build_subject_augmentation(caption, _SETTINGS, has_image_attachment=True)
     assert augmentation.verified is not None
-    assert augmentation.verified.canonical_answer == "39.6 m/s"
+    assert augmentation.verified.canonical_answer == "39.62 m/s"
 
 
 @pytest.mark.asyncio

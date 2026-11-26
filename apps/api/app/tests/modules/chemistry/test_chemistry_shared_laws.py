@@ -36,10 +36,10 @@ def _physics_answer(question: str) -> str | None:
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        ("What volume does 2 mol of gas occupy at 300 K and 1 atm?", "49.2 L"),
+        ("What volume does 2 mol of gas occupy at 300 K and 1 atm?", "49.23 L"),
         ("Find the pressure of 1 mol of gas in 10 L at 273 K.", "2.24 atm"),
-        ("A gas at 1 atm and 273 K with 1 mol occupies what volume? PV=nRT", "22.4 L"),
-        ("Use ideal gas law PV=nRT: P=2 atm, n=1 mol, T=300 K, find volume", "12.3 L"),
+        ("A gas at 1 atm and 273 K with 1 mol occupies what volume? PV=nRT", "22.40 L"),
+        ("Use ideal gas law PV=nRT: P=2 atm, n=1 mol, T=300 K, find volume", "12.31 L"),
         ("Use Boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2", "1 atm"),
         ("Use boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2", "1 atm"),
         ("Use Boyle's law: P1 = 760 mmHg, V1 = 2 L, P2 = 380 mmHg, find V2", "4 L"),
@@ -48,18 +48,18 @@ def _physics_answer(question: str) -> str | None:
         (
             "Use the combined gas law: P1 = 1 atm, V1 = 2 L, T1 = 27 °C, "
             "P2 = 202.65 kPa, T2 = 327 °C, find V2",
-            "2 L",
+            "2.00 L",
         ),
         (
             "Use the combined gas law: P1=1 atm, V1=2 L, T1=300 K, V2=4 L, T2=300 K, find P2",
-            "0.5 atm",
+            "0.50 atm",
         ),
         (
             "How much heat is needed to raise the temperature of 100 g of water by 10 °C? "
             "c = 4.18 J/g°C",
             "4180 J",
         ),
-        ("A 100 g sample has a half-life of 5 years. How much remains after 15 years?", "12.5 g"),
+        ("A 100 g sample has a half-life of 5 years. How much remains after 15 years?", "12.50 g"),
         # A latent heat per gram, labelled as a chemistry class labels it.
         ("How much heat is needed to melt 50 g of ice? ΔHfus = 334 J/g", "16700 J"),
         ("How much heat is needed to boil 20 g of water? ΔHvap = 2260 J/g", "45200 J"),
@@ -68,7 +68,7 @@ def _physics_answer(question: str) -> str | None:
         (
             "A 50 g piece of metal at 100 °C is dropped into 100 g of water at 20 °C. "
             "The final temperature is 25 °C. Find the specific heat of the metal.",
-            "0.558 J/(g·°C)",
+            "0.56 J/(g·°C)",
         ),
     ],
 )
@@ -94,7 +94,7 @@ def test_a_gas_law_without_a_unit_is_not_verified(question: str) -> None:
 
 def test_a_gas_stated_in_si_keeps_si() -> None:
     assert _physics_answer("A gas of 2 mol at 300 K occupies 0.05 m^3. Find the pressure.") == (
-        "99774 Pa"
+        "99773.55 Pa"
     )
 
 
@@ -129,7 +129,7 @@ def test_chemistry_keeps_no_second_copy_of_a_shared_law() -> None:
         # A row for a converted answer names its symbol, never a bare "= …".
         (
             "A radioactive isotope has a half-life of 5 days. Find the decay constant.",
-            r"\lambda = 1.6 \times 10^{-6}\,\mathrm{1/s} = 0.139\,\mathrm{1/day}",
+            r"\lambda = 1.60 \times 10^{-6}\,\mathrm{1/s} = 0.14\,\mathrm{1/day}",
         ),
     ],
 )
@@ -140,7 +140,7 @@ def test_the_working_reaches_the_unit_the_answer_is_shown_in(question: str, row:
 @pytest.mark.parametrize("spelling", ["h", "hr", "hrs", "hours"])
 def test_every_spelling_of_a_time_unit_gives_one_rate_unit(spelling: str) -> None:
     question = f"A radioactive isotope has a half-life of 5 {spelling}. Find the decay constant."
-    assert _physics_answer(question) == "0.139 1/h"
+    assert _physics_answer(question) == "0.14 1/h"
 
 
 def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> None:
@@ -158,7 +158,7 @@ def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> N
         (
             "A 0.2 kg block of copper at 90 °C is placed in 0.5 kg of water at 20 °C. "
             "The equilibrium temperature is 22.4 °C. Find the specific heat capacity of copper.",
-            "372 J/(kg·K)",
+            "371.54 J/(kg·K)",
         ),
         (
             "A 2 kg block absorbs 1000 J and its temperature rises by 10 °C. Find the specific heat.",
@@ -166,7 +166,7 @@ def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> N
         ),
         (
             "A 200 g block absorbs 1000 J and its temperature rises by 10 °C. Find the specific heat.",
-            "0.5 J/(g·°C)",
+            "0.50 J/(g·°C)",
         ),
     ],
 )

@@ -34,6 +34,8 @@ _WRAPPERS = frozenset(
         "mathsf",
         "mathnormal",
         "mbox",
+        "rm",
+        "boxed",
         "operatorname",
         "ce",
         "pu",
@@ -64,6 +66,9 @@ _GLYPHS = {
     "rightarrow": "→",
     "longrightarrow": "→",
     "infty": "∞",
+    "ldots": "…",
+    "dots": "…",
+    "cdots": "…",
     "degree": "°",
     "%": "%",
     "alpha": "α",
@@ -103,9 +108,14 @@ _COMMAND = re.compile(r"\\([A-Za-z]+|.)")
 _DELIMITERS = frozenset({"(", ")", "[", "]"})
 # A fraction's part, or a script, that needs no brackets: "1", "m", "s^2", "v_0".
 _SIMPLE = re.compile(r"[\w.°]+(?:[\^_][\w.]+)?")
+# A signed number is one part too: \\frac{-3}{4} is -3/4.
+_SIGNED_NUMBER = re.compile(r"-\d+(?:\.\d+)?")
 # A denominator that needs no brackets: a number or one unit ("s^2", "kg", "cm^3"). Any other
-# keeps its brackets: \frac{1}{4\pi\varepsilon_0} is 1/(4πε_0), never (1/4)πε_0.
-_ONE_TERM = re.compile(r"\d+(?:\.\d+)?|[A-Za-z]{1,3}(?:\^-?\d+)?")
+# keeps its brackets: \frac{1}{4\pi\varepsilon_0} is 1/(4πε_0), never (1/4)πε_0, and a Greek
+# letter is one only alone: \frac{F}{\pi r^2} is F/(πr^2), never (F/π)r^2 (review, #2591).
+_ONE_TERM = re.compile(
+    r"\d+(?:\.\d+)?|[A-Za-z]{1,3}(?:\^-?\d+)?|[\u0391-\u03a9\u03b1-\u03c9](?:\^-?\d+)?"
+)
 # A signed power or an ion's charge as a superscript: "s^{-2}" is s^-2, "Fe^{3+}" Fe^3+.
 _CHARGE = re.compile(r"-\d+|\d*[+-]")
 _FORMULA_COUNT = re.compile(r"(?<=[A-Za-z)\]])_(\d+)")
@@ -247,7 +257,9 @@ def _fraction(tex: _Tex, start: int, at: int, out: list[str]) -> tuple[str, int]
         return top
     numerator, denominator = top[0].strip(), bottom[0].strip()
     shown = [
-        numerator if _SIMPLE.fullmatch(numerator) else f"({numerator})",
+        numerator
+        if _SIMPLE.fullmatch(numerator) or _SIGNED_NUMBER.fullmatch(numerator)
+        else f"({numerator})",
         denominator if _ONE_TERM.fullmatch(denominator) else f"({denominator})",
     ]
     fraction = f"{shown[0]}/{shown[1]}"
@@ -257,7 +269,11 @@ def _fraction(tex: _Tex, start: int, at: int, out: list[str]) -> tuple[str, int]
     after = tex.text[bottom[1] : bottom[1] + 3].lstrip()[:2]
     # A command after it is a factor ("\\frac{1}{2}\\rho v^2"); a closing delimiter is not.
     glued = before.isalnum() or before == ")" or after[:1].isalnum() or after[:1] == "("
-    glued = glued or (after[:1] == "\\" and after[1:].isalpha())
+    # A unit's run or a space after it is no factor: "\\frac{3}{4}\\text{ m}" is 3/4 m, a
+    # value (review, #2591).
+    command = _COMMAND.match(tex.text[bottom[1] :].lstrip())
+    unit_after = command is not None and command.group(1) in _WRAPPERS | _SPACES.keys()
+    glued = glued or (after[:1] == "\\" and after[1:].isalpha() and not unit_after)
     return (f"({fraction})" if glued else fraction), bottom[1]
 
 

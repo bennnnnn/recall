@@ -188,6 +188,7 @@ def ask_turn_readings(
     has_image_attachment: bool,
     settings: Settings,
     earlier_lines: tuple[str, ...] = (),
+    money_lines: tuple[str, ...] = (),
 ) -> None:
     """Every reading the turn's sync code asks of its message. Runs in a pool worker."""
     from app.modules.chat.model_routing.route import route_chat_model
@@ -215,6 +216,7 @@ def ask_turn_readings(
     for text in earlier_lines:
         detect_subject(text)
         plan_turn(text, chemistry_enabled=chemistry)
+    _read_money_requests(content, plan, money_lines, chemistry)
     if prior_user:
         detect_subject(prior_user, chemistry_enabled=chemistry)
     route_chat_model(
@@ -239,6 +241,25 @@ def _read_money_yield(
         content, has_image_attachment=has_image_attachment, chemistry_enabled=chemistry
     )
     MONEY.yields_to(content, subject)
+
+
+def _read_money_requests(
+    content: str, plan: TurnPlan, money_lines: tuple[str, ...], chemistry: bool
+) -> None:
+    """The money request each request of the message makes after the user's earlier lines,
+    each in the parts its own turn read it in, and the chat's standing one: what the money
+    turn asks (``turn_prep.money``), read here so it never reads them on the loop."""
+    from app.modules.chat.turn_prep.intents import plan_turn
+    from app.services.subjects.registry import MONEY
+
+    earlier: list[tuple[str, ...]] = []
+    for line in money_lines:
+        if not line.strip():
+            earlier.append(())  # unplanned, as the money turn reads it: the run ends here
+            continue
+        line_plan = plan_turn(line, chemistry_enabled=chemistry)
+        earlier.append(line_plan.texts() if line_plan.multi else (line,))
+    MONEY.read_requests(plan.texts() if plan.multi else (content,), earlier)
 
 
 def _read_place_requests(
@@ -289,9 +310,46 @@ async def read_turn_message(
             has_image_attachment=has_image_attachment,
             settings=settings,
             earlier_lines=_earlier_user_lines(earlier),
+            money_lines=earlier_user_lines(recent, content),
             timeout=settings.subject_read_timeout_seconds,
         )
     read_turn(content, settings, has_image_attachment=has_image_attachment)
+
+
+# The messages before a turn its money request reads back over (``money_turn``).
+_MONEY_WINDOW = 8
+
+
+def earlier_user_lines(recent: Sequence[Any], content: str) -> tuple[str, ...]:
+    """The user's lines before this turn's, oldest first, among the last eight messages: the
+    turn's own line left out wherever the window ends (a regenerate's ends on the reply it
+    replaces). A line with no text (a photo alone) is kept, unplanned: it ends a money run.
+    The money turn and the pool's read of its requests take this one list, so the reading
+    the pool made is the one the turn asks."""
+    from app.services.problem_followup import message_role_content
+    from app.services.text_normalize import collapse_ws
+
+    rows = list(recent)
+    own = collapse_ws(content)
+
+    def is_own(message: Any) -> bool:
+        role, text = message_role_content(message)
+        return role == "user" and isinstance(text, str) and collapse_ws(text) == own
+
+    # The turn's own row, when the window ends on it (prep's holds the pending message, turn
+    # load's does not), goes before the window is taken: both read the same eight messages
+    # (review, #2591).
+    if rows and is_own(rows[-1]):
+        rows.pop()
+    lines = [
+        text
+        for message in rows[-_MONEY_WINDOW:]
+        if (said := message_role_content(message))[0] == "user" and isinstance(text := said[1], str)
+    ]
+    # A regenerate's window ends on the reply it replaces, after the turn's own line.
+    if lines and collapse_ws(lines[-1]) == own:
+        lines.pop()
+    return tuple(lines)
 
 
 def _earlier_user_lines(earlier: Sequence[Any]) -> tuple[str, ...]:

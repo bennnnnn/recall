@@ -159,7 +159,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
         (
             "How much work is done by a 10 N force at an angle of 30 degrees over 4 m?",
             "work",
-            "34.6 J",
+            "34.64 J",
         ),
         (
             "A force of 10 N at 60 degrees moves an object at 4 m/s. What is the power?",
@@ -181,7 +181,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "Using conservation of energy, an object starts from rest at an initial height "
             "of 20 m. Find its speed at a final height of 5 m.",
             "mechanical_energy_gravity",
-            "17.2 m/s",
+            "17.16 m/s",
         ),
         (
             "Using conservation of energy, a 0.4 kg mass on a spring of constant 100 N/m "

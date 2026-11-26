@@ -16,13 +16,13 @@ from app.modules.physics.extractors.stated_values import (
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.schemas import PhysicsIntent
 
 _ENERGY_UNIT = r"kilojoules?|joules?|kJ|J"
-_MASS_UNIT = r"kg|g|mg|lb|lbs|oz"
 _NONCONSERVATIVE_RE = re.compile(
     r"\b(?:friction|frictional|drag|air resistance|rough|roughness)\b",
     re.IGNORECASE,
@@ -118,7 +118,7 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
     if final is not None:
         params["v2"], units["v2"] = final
     mass = find_value_with_specific_unit(
-        cleaned, _MASS_UNIT, ("mass", "block", "object", "cart", "box")
+        cleaned, MASS_UNITS, ("mass", "block", "object", "cart", "box")
     )
     if mass is not None:
         params["m"], units["m"] = mass
@@ -201,7 +201,7 @@ def _gravity(cleaned: str) -> PhysicsIntent | None:
 
 def _spring(cleaned: str) -> PhysicsIntent | None:
     stiffness = re.search(rf"({NUMBER})\s*N/m\b", cleaned, re.IGNORECASE)
-    mass = find_value_with_specific_unit(cleaned, _MASS_UNIT, ("mass", "object", "block"))
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "object", "block"))
     if stiffness is None or mass is None:
         return None
     params: dict[str, float] = {"k": float(stiffness.group(1)), "m": mass[0]}

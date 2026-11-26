@@ -1,11 +1,12 @@
-# ruff: noqa: RUF001, RUF002 -- the point of this module is the symbols OCR spells in LaTeX.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the micro sign, the Greek mu and the Unicode minus.
 """Read a photographed physics problem back as the text a student would type.
 
 The turn states the reading as the confirmed line, then the chat solves that
 text like a typed question: verified, with the five-part reply. A vision
 model often answers in LaTeX (``2 \\times 10^{-6}\\,\\mathrm{C}``,
 ``30^{\\circ}``), which the student should not have to read, so the
-reading is turned into plain text first (``2 × 10^-6 C``, ``30°``).
+reading is turned into plain text first (``2 × 10^-6 C``, ``30°``) by the one
+LaTeX converter (``services.latex_markup``).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import re
 
 from app.core.config import Settings
+from app.services.latex_markup import without_markup
 from app.services.scan_text import read_problem_text
 
 PHYSICS_READ_PROMPT = (
@@ -26,74 +28,29 @@ PHYSICS_READ_PROMPT = (
 
 _MOCK_READING = "A ball is dropped from 20 m. How long does it take to hit the ground?"
 
-# Math delimiters around an expression: \( \), \[ \], $$ and $.
-_DELIMITERS = re.compile(r"\\[()\[\]]|\$\$?")
-# \mathrm{m/s}, \text{ kg}: the text inside, as written.
-_TEXT_RUN = re.compile(r"\\(?:mathrm|text|textrm|operatorname|mathit|mathbf)\s*\{([^{}]*)\}")
-_DEGREE = re.compile(r"\^\s*(?:\{\s*\\circ\s*\}|\\circ)|\\circ|\\degree")
-_FRACTION = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
-_EXPONENT = re.compile(r"\^\s*\{\s*([-+−]?\s*[\w.]+)\s*\}")
-_SUBSCRIPT = re.compile(r"_\s*\{\s*(\w+)\s*\}")
-# µ is the micro prefix before a unit; anywhere else it is a coefficient.
-# ΔT is one symbol: LaTeX writes it with a space that a student does not.
-_DELTA = re.compile(r"\\Delta\s*")
-_MICRO = re.compile(r"\\mu\s*(?=(?:[CFmsATHgVWJ]|Hz|Pa|mol)\b)")
-_SPACING = re.compile(r"\\[,;:!> ]|~")
-_LEFT_RIGHT = re.compile(r"\\(?:left|right)\s*(?=[()\[\]|.])")
-_BRACES = re.compile(r"\{([^{}\\]*)\}")
+# Dollar delimiters and LaTeX's tie, a space a student types as one.
+_DOLLARS = re.compile(r"\$\$?|~")
+# μ is the micro prefix before a unit, as the student's keyboard writes it; anywhere else it
+# is a coefficient (μ = 0.2).
+_MICRO = re.compile(r"μ\s*(?=(?:[CFmsATHgVWJ]|Hz|Pa|mol)\b)")
 _SPACES = re.compile(r"[ \t]+")
-
-_SYMBOLS = {
-    r"\times": "×",
-    r"\cdot": "·",
-    r"\%": "%",
-    r"\Omega": "Ω",
-    r"\omega": "ω",
-    r"\mu": "μ",
-    r"\lambda": "λ",
-    r"\theta": "θ",
-    r"\pi": "π",
-    r"\rho": "ρ",
-    r"\alpha": "α",
-    r"\beta": "β",
-    r"\gamma": "γ",
-    r"\varepsilon": "ε",
-    r"\epsilon": "ε",
-    r"\sigma": "σ",
-    r"\tau": "τ",
-    r"\varphi": "φ",
-    r"\phi": "φ",
-    r"\eta": "η",
-    r"\approx": "≈",
-    r"\leq": "≤",
-    r"\geq": "≥",
-}
-# Longest first, so \varepsilon is not read as \var + epsilon.
-_SYMBOL = re.compile(
-    "|".join(re.escape(name) for name in sorted(_SYMBOLS, key=len, reverse=True)) + r"(?![A-Za-z])"
-)
+# A braced script on a line with no command, which the converter leaves as written:
+# "m/s^{2}" is m/s^2 and "v_{0}" v_0, a Unicode minus in it a minus (10^{−6}).
+_SCRIPT = re.compile(r"([\^_])\{\s*([-+]?\s*[\w.]+)\s*\}")
 
 
 def readable_physics(text: str) -> str:
     """OCR LaTeX as plain problem text. Lines are kept; nothing is solved."""
-    text = _DELIMITERS.sub("", text)
-    # Inner groups first, so a text run (\mathrm{m/s^{2}}) holds no braces.
-    text = _DEGREE.sub("°", text)
-    text = _EXPONENT.sub(lambda match: "^" + re.sub(r"\s+", "", match.group(1)), text)
-    text = _SUBSCRIPT.sub(r"_\1", text)
-    text = _TEXT_RUN.sub(r"\1", text)
-    text = _FRACTION.sub(r"\1/\2", text)
-    text = _DELTA.sub("Δ", text)
-    text = _MICRO.sub("µ", text)
-    text = _SPACING.sub(" ", text)
-    text = _LEFT_RIGHT.sub("", text)
-    text = _SYMBOL.sub(lambda match: _SYMBOLS[match.group(0)], text)
-    # Braces left around plain text ({m}) are grouping only. Two passes
-    # cover the nesting a problem statement uses.
-    for _ in range(2):
-        text = _BRACES.sub(r"\1", text)
-    lines = (_SPACES.sub(" ", line).strip() for line in text.splitlines())
+    lines = (
+        _SPACES.sub(" ", _MICRO.sub("µ", without_markup(_plain_scripts(line)))).strip()
+        for line in text.replace("\u2212", "-").splitlines()
+    )
     return "\n".join(line for line in lines if line)
+
+
+def _plain_scripts(line: str) -> str:
+    line = _DOLLARS.sub(lambda mark: " " if mark[0] == "~" else "", line)
+    return _SCRIPT.sub(lambda match: match[1] + match[2].replace(" ", ""), line)
 
 
 async def read_physics_problem(

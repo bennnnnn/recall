@@ -4,8 +4,13 @@ Provides:
 - name → properties (SMILES, molecular formula, weight, CID) via the PUG-REST API
 - SMILES → IUPACName via the PUG-REST API
 
-A 404 means the name does not exist and is remembered for an hour; a 429, a 5xx or a network
-error is PubChem being busy, is retried once after a bounded wait, and is never remembered.
+A 404 means the name does not exist and is remembered for an hour (a SMILES with no IUPAC
+name for a quarter of an hour); a 429, a 5xx or a network error is PubChem being busy, is
+retried once after a bounded wait, and is never remembered. A SMILES is sent only when it is
+one (its characters, at most ``MAX_SMILES_LENGTH``): a sentence is never a lookup.
+
+Nothing logged names what was looked up: a compound name or a SMILES is the user's text
+(SECURITY.md). A log line says which lookup it was and what went wrong.
 
 All calls are server-side (Golden Rule 1 — no provider keys in the app).
 PubChem is a free public API; no key required.
@@ -16,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
@@ -30,6 +36,13 @@ PUG_REST_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 DEFAULT_TIMEOUT_SECONDS = 10.0
 _CACHE_TTL_SECONDS = 24 * 60 * 60
 _MISSING_TTL_SECONDS = 60 * 60
+# A SMILES PubChem has no IUPAC name for, remembered briefly: a slip of a key is corrected soon.
+_IUPAC_MISSING_TTL_SECONDS = 15 * 60
+_MISSING = "missing"
+# The longest SMILES sent (RDKit's own bound, ``chemistry.smiles.MAX_SMILES_LENGTH``), and the
+# characters one is written in: atoms, bonds, rings, branches and bracket atoms.
+MAX_SMILES_LENGTH = 500
+_SMILES = re.compile(r"(?:Cl|Br|[BCNOPSFI]|[bcnops]|\[[^\]\s\[]{1,20}\]|[=#$/\\()@+\-.%:*]|\d)+")
 _TRANSIENT_STATUSES = frozenset({429, 500, 502, 503, 504})
 # The turn waits at most a couple of seconds for PubChem, so a retry must be short.
 _RETRY_DEFAULT_SECONDS = 0.25
@@ -81,6 +94,12 @@ def _name_cache_key(name: str) -> str:
 
 def _iupac_cache_key(smiles: str) -> str:
     return f"pubchem:iupac:{smiles.strip()}"
+
+
+def _iupac_missing_key(smiles: str) -> str:
+    """A SMILES PubChem has no IUPAC name for, under its own key: an instance that reads the
+    name key as a name never reads the marker as one (review, #2591)."""
+    return f"pubchem:iupac-missing:{smiles.strip()}"
 
 
 def _compound_from_cache(raw: str) -> PubChemCompound | None:
@@ -164,21 +183,23 @@ async def wait_before_retry(seconds: float) -> None:
     await asyncio.sleep(seconds)
 
 
-async def _pug_get(url: str) -> _Fetched:
-    """GET from PUG-REST as JSON, retrying once when PubChem is busy."""
+async def _pug_get(url: str, lookup: str) -> _Fetched:
+    """GET from PUG-REST as JSON, retrying once when PubChem is busy. ``lookup`` names the
+    kind of lookup for the log ("name", "iupac"); the URL holds the user's text and is never
+    logged."""
     client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
     for attempt in range(2):
         delay = _RETRY_DEFAULT_SECONDS
         try:
             resp = await client.get(url, headers={"Accept": "application/json"})
         except Exception as exc:
-            logger.info("PubChem GET failed url=%s: %s", url, exc)
+            logger.info("PubChem %s lookup failed: %s", lookup, type(exc).__name__)
         else:
             if resp.status_code == 200:
                 try:
                     body = resp.json()
                 except ValueError:
-                    logger.info("PubChem returned invalid JSON url=%s", url)
+                    logger.info("PubChem %s lookup returned invalid JSON", lookup)
                     return _Fetched()
                 return _Fetched(data=body if isinstance(body, dict) else None)
             if resp.status_code in {400, 404}:
@@ -200,7 +221,7 @@ async def _read_name_cache(redis: Redis, key: str, name: str) -> PubChemResult |
     if cached is None:
         return None
     raw = cached.decode() if isinstance(cached, bytes) else cached
-    if raw == "missing":
+    if raw == _MISSING:
         return PubChemResult(error=f"compound '{name}' not found")
     compound = _compound_from_cache(raw)
     return None if compound is None else PubChemResult(compound=compound)
@@ -233,10 +254,10 @@ async def lookup_by_name(name: str, redis: Redis | None = None) -> PubChemResult
         f"{PUG_REST_URL}/compound/name/{quote(name, safe='')}/property/"
         "CanonicalSMILES,IsomericSMILES,MolecularFormula,MolecularWeight/JSON"
     )
-    fetched = await _pug_get(url)
+    fetched = await _pug_get(url, "name")
     if fetched.missing:
         if redis is not None:
-            await _write_cache(redis, cache_key, "missing", _MISSING_TTL_SECONDS)
+            await _write_cache(redis, cache_key, _MISSING, _MISSING_TTL_SECONDS)
         return PubChemResult(error=f"compound '{name}' not found")
     props = None if fetched.data is None else _first_properties(fetched.data)
     if props is None:
@@ -249,29 +270,42 @@ async def lookup_by_name(name: str, redis: Redis | None = None) -> PubChemResult
     return PubChemResult(compound=compound)
 
 
+def is_smiles(text: str) -> bool:
+    """``text`` is written as a SMILES, within ``MAX_SMILES_LENGTH``: the only text sent."""
+    return len(text) <= MAX_SMILES_LENGTH and _SMILES.fullmatch(text) is not None
+
+
 async def lookup_iupac_name(smiles: str, redis: Redis | None = None) -> str | None:
     """Return PubChem's IUPACName property, or None when it is absent.
 
     A common title is not a substitute. Callers must not label a missing
-    property as a verified IUPAC name.
+    property as a verified IUPAC name. Text that is no SMILES is never sent.
     """
     smiles = smiles.strip()
-    if not smiles:
+    if not is_smiles(smiles):
         return None
     cache_key = _iupac_cache_key(smiles)
+    missing_key = _iupac_missing_key(smiles)
     if redis is not None:
         try:
             cached = await redis.get(cache_key)
+            missed = None if cached else await redis.get(missing_key)
         except Exception:
             logger.debug("PubChem cache read failed", exc_info=True)
-            cached = None
+            cached = missed = None
         if cached:
-            return cached.decode() if isinstance(cached, bytes) else str(cached)
+            known = cached.decode() if isinstance(cached, bytes) else str(cached)
+            return None if known == _MISSING else known
+        if missed:
+            return None
     url = f"{PUG_REST_URL}/compound/smiles/{quote(smiles, safe='')}/property/IUPACName/JSON"
-    fetched = await _pug_get(url)
+    fetched = await _pug_get(url, "iupac")
     props = None if fetched.data is None else _first_properties(fetched.data)
     name = None if props is None else props.get("IUPACName")
     if not isinstance(name, str) or not name.strip():
+        # PubChem answered and has no name for it: remembered briefly. Busy is never.
+        if redis is not None and (fetched.missing or fetched.data is not None):
+            await _write_cache(redis, missing_key, _MISSING, _IUPAC_MISSING_TTL_SECONDS)
         return None
     name = name.strip()
     if redis is not None:

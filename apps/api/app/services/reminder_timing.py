@@ -151,6 +151,7 @@ _REMINDER_TITLES: dict[str, dict[str, str]] = {
     "pt": {"reminder": "Lembrete", "overdue": "Lembrete atrasado"},
     "ru": {"reminder": "Напоминание", "overdue": "Просроченное напоминание"},
     "tr": {"reminder": "Hatırlatma", "overdue": "Gecikmiş hatırlatma"},
+    "am": {"reminder": "አስታዋሽ", "overdue": "ጊዜው ያለፈበት አስታዋሽ"},
     "hi": {"reminder": "रिमाइंडर", "overdue": "समय निकल चुका रिमाइंडर"},
 }
 

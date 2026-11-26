@@ -10,6 +10,9 @@ from app.modules.physics.extractors.cues import (
     has_cue,
 )
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
+from app.modules.physics.extractors.unit_patterns import (
+    MASS_UNITS,
+)
 from app.modules.physics.givens import unit_dimension
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
@@ -107,7 +110,7 @@ def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     mass_unit = "kg"
     mu = find_value_with_specific_unit(
         cleaned,
-        r"kg|g|mg|lb|lbs|oz",
+        MASS_UNITS,
         ("mass", "object", "body"),
     )
     if mu is not None:

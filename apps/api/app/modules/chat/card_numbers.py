@@ -21,8 +21,11 @@ follows the rule.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
+from fractions import Fraction
 from typing import TYPE_CHECKING
 
+from app.modules.chat.card_lists import known_value, listed_values
 from app.modules.chat.card_walk import answer_cards
 from app.modules.chat.written_numbers import (
     WRITTEN_NUMBER,
@@ -30,7 +33,12 @@ from app.modules.chat.written_numbers import (
     first_number,
     power_of,
 )
-from app.services.answer_check import Number, VerifiedValue, read_verified_value
+from app.services.answer_check import (
+    TRAILING_DOTS,
+    Number,
+    VerifiedValue,
+    read_verified_value,
+)
 from app.services.answer_fence import (
     CHEMISTRY_NOTATION_LINE,
     UNCHECKED_ANSWER_MARKER,
@@ -38,7 +46,9 @@ from app.services.answer_fence import (
     answer_header_and_value,
 )
 from app.services.rounding_rule import (
+    PLACES,
     RULE,
+    SMALL_BELOW,
     Precision,
     asked_precision,
     number_latex,
@@ -201,17 +211,62 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
     plain = plain_numbers(body)
     if plain is None:
-        return None
+        return _listed_shown(body, above, precision)
     headers, value, read = plain
     numbers = list(read.numbers)
     written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
     for match, number, worked in zip(written, numbers, each, strict=True):
-        own = precision if worked is not None else _no_new_figures(match, number, precision)
+        known = worked or _known(match, value, above)
+        own = precision if known is not None else _no_new_figures(match, number, precision)
         # The sign stays where the card wrote it, before the match.
-        pieces += [value[at : match.start()], _number_shown(match, worked or number, own)]
-        at = match.end()
+        pieces += [value[at : match.start()], _number_shown(match, known or number, own)]
+        at = _past_dots(value, match.end())
+    shown = "".join([*pieces, value[at:]])
+    return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+def _past_dots(value: str, at: int) -> int:
+    """Past an ellipsis after a number's digits ("0.357142857\\ldots"): once the number is
+    rounded it no longer goes on."""
+    dots = TRAILING_DOTS.match(value, at)
+    return dots.end() if dots is not None else at
+
+
+def _known(match: re.Match[str], value: str, above: str) -> Number | None:
+    """The value a card's number rounds, as the working above it works it out
+    (``card_lists.known_value``), when the card shows fewer places than the rule."""
+    written = match.group("number").replace(",", "")
+    places = len(written.partition(".")[2])
+    # A whole number ("120 N/m") claims no places to fill: working through rounded steps
+    # (1/0.008333 is 120.0048) would pad it to 120.00 from a value no step knows exactly.
+    if places == 0 or places >= PLACES or power_of(match) is not None:
+        return None
+    found = known_value(written, value[match.end() :], above, value[: match.start()])
+    return None if found is None else Number(Fraction(repr(found)), None)
+
+
+def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
+    """A card of several values no single reading takes, each a number standing as a value: a
+    vector's components ("(-9.0434 î + 8.6956 ĵ) m/s"), a magnitude, an angle and its
+    direction. Each decimal number is written by the rule; a whole number, a script, a
+    fraction's part, money and an expression are left as written (``listed_values``)."""
+    headers, value = answer_header_and_value(body)
+    if not value or "\n" in value or CHEMISTRY_NOTATION_LINE in headers or _KEPT.search(value):
+        return None
+    if not listed_values(value):
+        return None
+    pieces, at = [], 0
+    for match in WRITTEN_NUMBER.finditer(value):
+        number = match.group("number")
+        if "." not in number or power_of(match) is not None:
+            continue
+        read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
+        known = _known(match, value, above)
+        own = precision if known is not None else _no_new_figures(match, read, precision)
+        pieces += [value[at : match.start()], _number_shown(match, known or read, own)]
+        at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
 
@@ -229,16 +284,23 @@ def _figures(text: str) -> int:
 
 
 def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) -> Precision:
-    """The card's own value, with no working to take it from: in three figures or in powers
-    of ten the rule shows no more figures than the card wrote. A Kp of 1.2 x 10^-4 (two
-    figures, from 1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had."""
+    """The card's own value, with no working to take it from: the rule shows no more figures
+    than the card wrote, never a padded zero. A Kp of 1.2 x 10^-4 (two figures, from
+    1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had, and a θ of 43.9° (from
+    43.879°) as 43.90° a digit the true value contradicts (owner, 2026-11-25). A value the
+    working knows, or one the card wrote to more places, is written by the rule."""
     if precision != RULE:
         return precision
     mantissa, exponent = number_parts(abs(number.value), precision)
-    if exponent is None and abs(number.value) >= 1:
-        return precision  # two places, zeros kept: 2.4 is 2.40
-    written = _figures(match.group("number"))
-    return Precision(figures=written) if _figures(mantissa) > written else precision
+    digits = match.group("number").replace(",", "")
+    written = _figures(digits)
+    if _figures(mantissa) <= written:
+        return precision
+    # Places come only from a number written in full: "1.5 \times 10^{3}" has one place in
+    # its mantissa, and 1500 none (review, #2591: it read 1500.0 J).
+    if exponent is not None or power_of(match) is not None or abs(number.value) < SMALL_BELOW:
+        return Precision(figures=written)
+    return Precision(places=len(digits.partition(".")[2]))
 
 
 def _measured(unit: str) -> bool:

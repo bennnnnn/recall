@@ -15,21 +15,25 @@ from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     ordered_values,
 )
-from app.modules.physics.extractors.unit_patterns import DECIMAL, DEGREE_WORD
+from app.modules.physics.extractors.unit_patterns import (
+    DECIMAL,
+    DEGREE_WORD,
+    MASS_UNITS,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import to_si
 from app.services.text_match import has_equation
 
 _TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"\A(?=.*\btension\b)(?=.*\d\s*(?:kg|lbs?|oz)\b)"
+        rf"\A(?=.*\btension\b)(?=.*\d\s*(?:{MASS_UNITS})\b)"
         r"(?=.*(?:lift|rais|hoist|hang|suspend|hold|support|lower|descend|elevator))",
         re.IGNORECASE | re.DOTALL,
     ),
     # An Atwood pair often never says "tension" at all.
     re.compile(r"\batwood\b", re.IGNORECASE),
-    re.compile(r"\bpulley\b.{0,80}?\d\s*(?:kg|lbs?|oz)\b", re.IGNORECASE),
-    re.compile(r"\d\s*(?:kg|lbs?|oz)\b.{0,80}?\bpulley\b", re.IGNORECASE),
+    re.compile(rf"\bpulley\b.{{0,80}}?\d\s*(?:{MASS_UNITS})\b", re.IGNORECASE),
+    re.compile(rf"\d\s*(?:{MASS_UNITS})\b.{{0,80}}?\bpulley\b", re.IGNORECASE),
 )
 
 _TENSION_UP_RE = re.compile(
@@ -82,7 +86,7 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(strip_param_assignments(cleaned)):
         return None
 
-    masses = ordered_values(cleaned, r"kg|lbs?|oz")
+    masses = ordered_values(cleaned, MASS_UNITS)
     if not masses:
         return None
 

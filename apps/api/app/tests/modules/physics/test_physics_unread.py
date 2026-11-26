@@ -94,7 +94,7 @@ def test_a_question_read_whole_has_nothing_unread(text: str) -> None:
         (
             "Calculate the power of a pump that can lift 300 liters of water through a "
             "vertical height of 12 m in 8 sec\n(Note that 1 liter of water= 1 kg of water)",
-            "4414.5 W",
+            "4414.50 W",
         ),
         # Their look-alikes, written cleanly, verify as before.
         (
@@ -146,12 +146,12 @@ def test_a_question_read_whole_has_nothing_unread(text: str) -> None:
         (
             "Calculate the power of a pump that can lift 300 liters of water through a "
             "vertical height of 12 m in 8 s (Note that 1 liter = 1 kg)",
-            "4414.5 W",
+            "4414.50 W",
         ),
         (
             "Given 1 liter of water = 1 kg, calculate the power of a pump that lifts 300 "
             "liters of water 12 m in 8 s.",
-            "4414.5 W",
+            "4414.50 W",
         ),
         ("A sprinter runs 100 m in 9.8 s. What is her average speed?", None),
         (

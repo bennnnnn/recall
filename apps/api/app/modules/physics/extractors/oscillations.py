@@ -11,7 +11,11 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import EARTH_G, detect_gravity
-from app.modules.physics.extractors.unit_patterns import DECIMAL, LENGTH_UNIT_PATTERN
+from app.modules.physics.extractors.unit_patterns import (
+    DECIMAL,
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+)
 from app.modules.physics.extractors.written_unit import written_unit
 from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
@@ -209,9 +213,7 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
         cleaned, LENGTH_UNIT_PATTERN, _DISPLACEMENT_KEYWORDS
     )
     # "A 250 g mass hangs on a spring" is a mass in grams.
-    mass = find_value_with_specific_unit(
-        cleaned, r"kg|mg|g|grams?|lb|lbs|oz", ("mass", "object", "body", "block")
-    )
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "object", "body", "block"))
 
     # f = (1/2π)√(k/m) is the period law asked for the frequency. Returning
     # the period makes the ask guard drop the question.

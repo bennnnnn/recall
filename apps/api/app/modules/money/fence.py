@@ -14,15 +14,18 @@ import json
 import logging
 import math
 from fractions import Fraction
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
 from app.modules.money.catalog import Input, Span
-from app.modules.money.rates import MarketRate
 from app.modules.money.schemas import CalculatorSpec, Control, Marker, Readout
 from app.modules.money.solve import Worked, output_value, rate_name
 from app.services.law_binding.expression import names, to_tree
 from app.services.md_fence_scan import iter_closed_fences
+
+if TYPE_CHECKING:
+    from app.modules.money.rates import MarketRate
 
 logger = logging.getLogger(__name__)
 

@@ -16,6 +16,7 @@ from app.modules.physics.extractors.stated_values import find_value_with_specifi
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.extractors.unit_patterns import (
     LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
     NUMBER,
     VELOCITY_UNIT_PATTERN,
 )
@@ -271,7 +272,7 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     mass = find_value_with_specific_unit(
-        cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
+        cleaned, MASS_UNITS, ("mass", "object", "body", "ball", "car")
     )
 
     op: _CircularOp

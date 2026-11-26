@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS, ELEMENTS
+from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS
 from app.modules.chemistry.equations import written_is_balanced
 from app.modules.chemistry.extractors.parsing import (
     _N,
@@ -403,7 +403,7 @@ def _empirical_from_masses(text: str) -> ChemistryIntent | None:
     masses: dict[str, float] = {}
     for match in _ELEMENT_GRAMS.finditer(text):
         word = match.group(2)
-        symbol = word if word in BY_SYMBOL else _ELEMENT_BY_NAME.get(word.lower())
+        symbol = word if word in BY_SYMBOL else ELEMENT_NAMES.get(word.lower())
         if symbol is None:
             continue
         if symbol in masses:
@@ -423,16 +423,12 @@ def _empirical_from_masses(text: str) -> ChemistryIntent | None:
     )
 
 
-_ELEMENT_BY_NAME = {element.name.lower(): element.symbol for element in ELEMENTS}
-_ELEMENT_BY_NAME.update({"aluminium": "Al", "caesium": "Cs", "sulphur": "S"})
-
-
 def _percents(text: str) -> dict[str, float]:
     """``40% C`` or ``40% carbon`` by element. A word that is no element is skipped."""
     found: dict[str, float] = {}
     for match in re.finditer(rf"({_N})\s*%\s*([A-Za-z]+)(?![A-Za-z])", text):
         word = match.group(2)
-        symbol = word if word in BY_SYMBOL else _ELEMENT_BY_NAME.get(word.lower())
+        symbol = word if word in BY_SYMBOL else ELEMENT_NAMES.get(word.lower())
         if symbol is not None:
             found[symbol] = float(match.group(1))
     return found

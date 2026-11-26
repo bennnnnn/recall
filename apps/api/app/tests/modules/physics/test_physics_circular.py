@@ -45,17 +45,17 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "centripetal force on a 2 kg mass at 4 m/s in a circle of radius 3 m",
         "centripetal_force",
-        "10.7 N",
+        "10.67 N",
     ),
     (
         "what is the centripetal force for a 2 kg object moving at 4 m/s around a 3 m radius",
         "centripetal_force",
-        "10.7 N",
+        "10.67 N",
     ),
     (
         "find the centripetal force on a 2 kg ball at 4 m/s with radius 3 m",
         "centripetal_force",
-        "10.7 N",
+        "10.67 N",
     ),
     ("centripetal acceleration at 4 m/s with radius 3 m", "centripetal_acceleration", "5.33 m/s²"),
     (

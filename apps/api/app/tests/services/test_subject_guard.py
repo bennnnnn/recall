@@ -160,6 +160,7 @@ async def test_money_guard_every_member_answers_as_no_money(
     assert await money.prepare_standing("t", settings, None, **loan) is None
     assert await money.prepare_read("t", settings, None, **common, conversation=[]) is None
     assert money.reads("t") is False
+    money.read_requests(["t"], [])  # a pool read that raises reads nothing ahead
     # Yields: the line stays its science's, with no money card.
     assert money.yields_to("t", "physics") is True
     assert money.names_currency("$") is False

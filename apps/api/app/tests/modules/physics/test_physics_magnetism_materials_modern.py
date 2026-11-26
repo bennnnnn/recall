@@ -88,14 +88,14 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the magnetic flux through 0.2 m^2 in a 0.5 T field",
         "magnetism",
         "magnetic_flux",
-        "0.1 Wb",
+        "0.10 Wb",
     ),
     (
         "Two point charges of 2 microcoulombs and 3 microcoulombs are separated by 0.5 m. "
         "Find the electric force.",
         "magnetism",
         "electric_force",
-        "0.216 N",
+        "0.22 N",
     ),
     # --- materials --------------------------------------------------------
     (
@@ -104,12 +104,12 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "stress",
         "20000 Pa",
     ),
-    ("what is the strain if a 2 m wire extends by 4 mm", "materials", "strain", "0.002"),
+    ("what is the strain if a 2 m wire extends by 4 mm", "materials", "strain", "0.00200"),
     (
         "what is the young modulus for a stress of 2e7 Pa and strain of 0.001",
         "materials",
         "youngs_modulus",
-        "2 × 10¹⁰ Pa",
+        "2.00 × 10¹⁰ Pa",
     ),
     # --- modern -----------------------------------------------------------
     (
@@ -146,7 +146,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the energy equivalent of 2 kg of mass",
         "modern",
         "mass_energy",
-        "1.8 × 10¹⁷ J",
+        "1.80 × 10¹⁷ J",
     ),
 ]
 
@@ -224,7 +224,7 @@ def test_each_half_life_halves_what_is_left() -> None:
     [
         (
             "Find the Coulomb force between charges -2 uC and 3 uC separated by 50 cm.",
-            "0.216 N",
+            "0.22 N",
         ),
         (
             "Two charges of 1 microcoulomb each are 1 m apart. Find the electric force.",
@@ -247,8 +247,8 @@ def test_electric_force_obeys_inverse_square_law() -> None:
         "Two point charges of 2 uC and 3 uC are separated by 1 m. Find the electric force."
     )
     assert near is not None and far is not None
-    # Three figures each: the ratio holds to the rounding, and 2x would miss by 50%.
-    assert float(near.split()[0]) == pytest.approx(4 * float(far.split()[0]), rel=1e-2)
+    # Each to the card's rounding (two places, three figures below 0.1): 2x would miss by 50%.
+    assert float(near.split()[0]) == pytest.approx(4 * float(far.split()[0]), rel=3e-2)
 
 
 def test_electric_force_refuses_three_body_partial_answer() -> None:

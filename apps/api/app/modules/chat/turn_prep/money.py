@@ -24,8 +24,7 @@ from app.modules.chat.figure_turn import LIVE_READ
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn
-from app.modules.chat.turn_prep.mode import prior_user_texts
-from app.modules.chat.turn_prep.reading import read_turn
+from app.modules.chat.turn_prep.reading import earlier_user_lines, read_turn
 from app.modules.chat.turn_prep.request import TurnIdentity, TurnRequest
 from app.modules.turn_reading.plan import TurnPlan
 from app.services.subjects.registry import MONEY
@@ -46,7 +45,7 @@ async def money_turn(
     recent = request.recent_messages or []
     earlier = [
         _parts(line, settings.chemistry_enabled)
-        for line in prior_user_texts(recent, request.content)
+        for line in earlier_user_lines(recent, request.content)
     ]
     last_reply = next(
         (

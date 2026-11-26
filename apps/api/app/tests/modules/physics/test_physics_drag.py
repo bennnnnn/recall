@@ -93,8 +93,8 @@ def test_numeric_linear_drag_at_four_seconds() -> None:
     assert intent is not None
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "39.2 m/s" in (block.canonical_answer or "")
-    assert "24.8 m/s" in (block.canonical_answer or "")
+    assert "39.24 m/s" in (block.canonical_answer or "")
+    assert "24.80 m/s" in (block.canonical_answer or "")
 
 
 def test_upward_linear_drag_at_launch_is_the_launch_speed() -> None:
@@ -132,7 +132,7 @@ def test_stokes_terminal_velocity() -> None:
     assert intent.physics_op == "stokes_terminal_velocity"
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "0.131 m/s" in (block.canonical_answer or "")
+    assert "0.13 m/s" in (block.canonical_answer or "")
 
 
 def test_stokes_force_stays_a_force() -> None:
@@ -152,7 +152,7 @@ def test_banked_frictionless_speed() -> None:
     assert intent.physics_op == "banked_speed"
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "13.4 m/s" in (block.canonical_answer or "")
+    assert "13.36 m/s" in (block.canonical_answer or "")
 
 
 def test_banked_angle_from_speed() -> None:
@@ -177,7 +177,7 @@ def test_level_curve_max_speed() -> None:
     assert intent.physics_op == "level_curve_speed"
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "14 m/s" in (block.canonical_answer or "")
+    assert "14.01 m/s" in (block.canonical_answer or "")
 
 
 def test_contact_speed_at_the_top() -> None:
@@ -190,7 +190,7 @@ def test_contact_speed_at_the_top() -> None:
     assert intent.physics_op == "contact_speed"
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
-    assert "2.8 m/s" in (block.canonical_answer or "")
+    assert "2.80 m/s" in (block.canonical_answer or "")
 
 
 def test_free_fall_without_drag_stays_kinematics() -> None:

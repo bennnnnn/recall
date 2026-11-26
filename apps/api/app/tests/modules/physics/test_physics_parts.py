@@ -24,7 +24,7 @@ from app.tests.modules.physics.test_physics_presentation import _verified
             "A ball is launched at 20 m/s at 30 degrees above the horizontal. "
             "Find the time of flight and the range.",
             ["(a) Time of flight", "(b) Range"],
-            [r"2.04\,\mathrm{s}", r"35.3\,\mathrm{m}"],
+            [r"2.04\,\mathrm{s}", r"35.31\,\mathrm{m}"],
         ),
     ],
 )

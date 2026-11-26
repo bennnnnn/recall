@@ -12,6 +12,7 @@ answers every row, so a new law of this kind is one entry.
 from __future__ import annotations
 
 from app.modules.chemistry.formula_record import FormulaLaw, _law
+from app.modules.chemistry.gas_density_laws import GAS_DENSITY_LAWS
 from app.modules.chemistry.stated_laws import STATED_LAWS
 
 _BUILT_IN: dict[str, FormulaLaw] = {
@@ -175,36 +176,8 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "P = {mole_fraction_a.value} × {pressure_a} + {mole_fraction_b.value} × {pressure_b}",
             non_negative=frozenset({"mole_fraction_a", "mole_fraction_b"}),
         ),
-        _law(
-            "gas_density",
-            "gases",
-            "Ideal gas density",
-            "ρ = PM / RT",
-            "Density, ρ",
-            ("ρ", "g/L"),
-            "pressure*molar_mass/(R_atm*temperature)",
-            (
-                ("pressure", "P", "atm"),
-                ("molar_mass", "M({formula})", "g/mol"),
-                ("temperature", "T", "K"),
-            ),
-            "ρ = ({pressure})({molar_mass}) / [({R_atm})({temperature})]",
-        ),
-        _law(
-            "molar_mass_from_density",
-            "gases",
-            "Ideal gas density",
-            "M = ρRT / P",
-            "Molar mass, M",
-            ("M", "g/mol"),
-            "density*R_atm*temperature/pressure",
-            (
-                ("density", "ρ", "g/L"),
-                ("temperature", "T", "K"),
-                ("pressure", "P", "atm"),
-            ),
-            "M = ({density})({R_atm})({temperature}) / {pressure}",
-        ),
+        # A gas's density is physics' law, in chemistry's names (``gas_density_laws``).
+        *GAS_DENSITY_LAWS,
         _law(
             "percent_ionization",
             "acid_base",

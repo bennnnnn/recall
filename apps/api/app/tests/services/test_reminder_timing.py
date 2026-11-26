@@ -6,6 +6,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from app.core.validation import LOCALE_NAMES
 from app.services.reminder_timing import (
     DEFAULT_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -279,7 +280,17 @@ def test_reminder_title_localizes_and_distinguishes_overdue():
     assert reminder_title(is_overdue=True, locale="es") == "Recordatorio atrasado"
     # Unsupported/unset locale falls back to English rather than crashing.
     assert reminder_title(is_overdue=False, locale=None) == "Reminder"
-    assert reminder_title(is_overdue=False, locale="am") == "Reminder"
+    assert reminder_title(is_overdue=False, locale="de") == "Reminder"
+    assert reminder_title(is_overdue=False, locale="am") == "አስታዋሽ"
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALE_NAMES))
+@pytest.mark.parametrize("overdue", [False, True])
+def test_every_app_language_titles_its_reminders(locale: str, overdue: bool) -> None:
+    """Amharic's reminder push and email were titled in English (audit, 2026-11-25)."""
+    title = reminder_title(is_overdue=overdue, locale=locale)
+    english = reminder_title(is_overdue=overdue, locale="en")
+    assert title and (locale == "en" or title != english)
 
 
 def _quiet_user(*, enabled: bool = True, start: int = 1320, end: int = 420, tz: str = "UTC"):

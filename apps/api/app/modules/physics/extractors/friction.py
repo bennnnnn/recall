@@ -12,7 +12,10 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import detect_gravity
-from app.modules.physics.extractors.unit_patterns import DEGREE_WORD
+from app.modules.physics.extractors.unit_patterns import (
+    DEGREE_WORD,
+    MASS_UNITS,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -121,7 +124,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     mass = find_value_with_specific_unit(
-        cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "block", "box", "crate", "object", "body")
+        cleaned, MASS_UNITS, ("mass", "block", "box", "crate", "object", "body")
     )
 
     frictionless = "frictionless" in lower

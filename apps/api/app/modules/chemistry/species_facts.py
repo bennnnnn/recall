@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
+from app.modules.chemistry.elements import BY_NAME, BY_SYMBOL
 from app.modules.chemistry.formula import LEADING_GROUP, parse_formula
 
 # Common names a school question uses for a compound.
@@ -127,12 +127,8 @@ KNOWN_SUBSTANCES = frozenset(
     }
 )
 
-# An element named in words: "zinc", "copper" (and the American aluminum).
-ELEMENT_NAMES: dict[str, str] = {
-    **{element.name.lower(): element.symbol for element in ELEMENTS},
-    "aluminum": "Al",
-    "sulphur": "S",
-}
+# An element named in words: "zinc", "copper", in either spelling ("aluminium", "aluminum").
+ELEMENT_NAMES: dict[str, str] = BY_NAME
 
 
 def element_symbol(token: str) -> str | None:
