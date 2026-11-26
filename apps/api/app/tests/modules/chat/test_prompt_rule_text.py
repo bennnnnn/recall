@@ -127,10 +127,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # rules it keeps, five shared sentences named so it can say them too (ORDINARY_FORMAT_GUIDE,
 # PRIVACY_CONTEXT_HINT, NO_SENDING_RULE…, the owner, 2026-11-22); then a ```worked substitution
 # that may end on its rounding ("= 4.82488 s \approx 4.82 s", its unit on both sides), its
-# answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23).
-_RULES = 223
-_RULE_GRAMS = 20912
-_RULE_GRAMS_SHA = "5a90a29ec5277666"
+# answer record still the value unrounded (prompt_constants.worked, the owner, 2026-11-23); then
+# vectors in the question's notation, a column question answered in columns, and an impulse worked
+# as momentum before, after and their change (PHYSICS_VECTORS, WORKED_COLUMN_VECTORS_NOTE, the
+# owner's ball question, 2026-11-25).
+_RULES = 225
+_RULE_GRAMS = 21127
+_RULE_GRAMS_SHA = "9a5117dd6c905b62"
 
 
 def _rules() -> list[str]:
