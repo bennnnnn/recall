@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -110,15 +111,46 @@ async def _embed_and_store(
         stored += len(pieces)
     if not rows:
         return 0
+    if whole:
+        await _store(settings, user_id, rows)
+    else:
+        stored = await _store_each_that_can(settings, user_id, rows)
+    if stored:
+        await presence_cache.mark_present(presence_cache.history_key(user_id))
+    return stored
+
+
+_Rows = list[tuple[UUID, UUID, str, list[tuple[int, str, list[float] | None]]]]
+
+
+async def _store(settings: Settings, user_id: UUID, rows: _Rows) -> None:
+    """The messages' chunks in one transaction: one delete and one insert for them all."""
     async with SessionLocal() as session:
-        # One delete and one insert for the turn's two messages, not two of each.
         await chunks_repo.replace_chunks_of_messages(session, user_id=user_id, messages=rows)
         await chunks_repo.prune_beyond_window(
             session, user_id, window=settings.chat_history_rag_search_window
         )
         await session.commit()
-    if stored:
-        await presence_cache.mark_present(presence_cache.history_key(user_id))
+
+
+async def _store_each_that_can(settings: Settings, user_id: UUID, rows: _Rows) -> int:
+    """The backfill's chunks in one transaction; when it fails (a message deleted during the
+    embed, a short database failure), each message alone, its vectors kept, so one line
+    lost never loses the others (review of #2592). Returns the chunks stored."""
+    try:
+        await _store(settings, user_id, rows)
+        return sum(len(chunks) for *_ids, chunks in rows)
+    except SQLAlchemyError:
+        logger.warning("Chat-history RAG backfill: one write failed user_id=%s", user_id)
+    stored = 0
+    for row in rows:
+        try:
+            await _store(settings, user_id, [row])
+            stored += len(row[3])
+        except SQLAlchemyError:
+            logger.warning(
+                "Chat-history RAG backfill: message not stored message_id=%s", row[0], exc_info=True
+            )
     return stored
 
 
