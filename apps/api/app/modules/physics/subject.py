@@ -31,7 +31,11 @@ from app.modules.physics.prompt import (
     solved_already,
     unverified_physics_note,
 )
-from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY, physics_prompt_hints
+from app.modules.physics.reply_policy import (
+    PHYSICS_REPLY_POLICY,
+    PHYSICS_VECTORS,
+    physics_prompt_hints,
+)
 from app.modules.physics.scene_drawing.contract import (
     DESCRIBED_PICTURE_SPEECH,
     MOTION_DRAW_CONTRACT,
@@ -70,6 +74,8 @@ _HINTS = SubjectHints(
     (PHYSICS_REPLY_POLICY,),
     shared_math_ink=False,
     followup=(PHYSICS_FOLLOWUP_HINT,),
+    # Only where no solver checked the turn: a verified impulse is copied as its solver wrote it.
+    worked=(PHYSICS_VECTORS,),
     # Its words are rules the leak pass knows: the contract a field picture is described by.
     beside_visuals=(
         FIELD_DRAW_CONTRACT,

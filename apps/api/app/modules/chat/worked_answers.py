@@ -22,6 +22,7 @@ from app.modules.chat.worked_units import quantity_tex, unit_tex
 from app.modules.chat.worked_values import a_sum, one_value_each, writes_its_unit
 from app.modules.turn_reading.routing import is_short_reply
 from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
+from app.services.column_vector import without_matrix_markup
 from app.services.final_value import UNIT_VECTOR
 from app.services.workout import Workout, math_line, render_workout
 
@@ -43,6 +44,11 @@ class WorkedLayout:
     # both legs."), as ``services.question_parts`` reads them: the layout's parts are these
     # (``worked_asks``), none when the question has no labels.
     question_parts: tuple[str, ...] = ()
+    # The question writes its vectors as columns (``turn_reading.vector_notation``): the
+    # block writes them so too (``worked_turn``).
+    column_vectors: bool = False
+    # The subject's own notes for a working no solver checked (``SubjectHints.worked``).
+    subject_notes: tuple[str, ...] = ()
 
 
 _UPRIGHT_GROUP = re.compile(r"\\(?:mathrm|text)\s*\{[^{}]*\}")
@@ -64,9 +70,10 @@ _EULER = re.compile(r"(?<![A-Za-z\\])e(?=\s*\^)")
 def in_symbols(tex: str) -> bool:
     """A value written in letters ("C V_0", "\\frac{1}{2}MR^2"): its units are its
     symbols', so none is written after it. A command (\\pi, \\times), a unit set upright,
-    a calculator's power of ten, Euler's e or a unit vector is no symbol: "\\pi/3",
-    "2400\\,\\mathrm{s}", "1.5e-3", "20e^{-0.5}" and "-16\\hat{i} + 20\\hat{j}" are numbers."""
-    plain = UNIT_VECTOR.sub(" ", _UPRIGHT_GROUP.sub("", tex))
+    a calculator's power of ten, Euler's e, a unit vector or a column's markup is no symbol:
+    "\\pi/3", "2400\\,\\mathrm{s}", "1.5e-3", "20e^{-0.5}", "-16\\hat{i} + 20\\hat{j}" and
+    "\\begin{pmatrix}-5\\\\0\\end{pmatrix}" are numbers."""
+    plain = UNIT_VECTOR.sub(" ", _UPRIGHT_GROUP.sub("", without_matrix_markup(tex)))
     plain = _E_NOTATION.sub(" ", _COMMAND.sub("", plain))
     plain = _EULER.sub(" ", plain)
     return _LETTER.search(plain) is not None

@@ -118,6 +118,12 @@ const VARIANTS: Record<string, string> = {
   "spacing": "So $x\\hspace{1em}y$, $a\\,b\\;c\\:d\\!e$ and $\\phantom{0}1$.",
   "paren delimiters": "Half is \\( \\frac{1}{2} \\) and \\[ \\int_0^1 x\\,dx = \\tfrac{1}{2} \\]",
   "environments": "$$\\begin{cases} x + y = 3 \\\\ x - y = 1 \\end{cases}$$\n\n$$\\begin{pmatrix} 1 & 2 \\\\ 3 & 4 \\end{pmatrix}$$",
+  // A question in column vectors is answered in them, inline, in the working and on its card
+  // (the owner's ball question, 2026-11-25).
+  "column vectors":
+    "$\\vec{p}_i = 0.5 \\times \\begin{pmatrix}5\\\\2\\end{pmatrix} = \\begin{pmatrix}2.5\\\\1\\end{pmatrix}\\,\\mathrm{kg\\,m/s}$  \n" +
+    "$\\vec{F} = \\frac{1}{0.1}\\begin{bmatrix}-5\\\\0\\end{bmatrix}$\n\n**Answer (a)**\n\n" +
+    "```answer\nverified: false\n\\begin{pmatrix}-5\\\\0\\end{pmatrix}\\,\\text{N s}\n```",
   "aligned": "$$\\begin{aligned} a &= b + c \\\\ &= d \\end{aligned}$$",
   "math fence": "```math\n\\frac{a}{b} = \\sqrt{\\frac{c}{d}}\n```",
   "latex fence": "```latex\nE = mc^2\n```",

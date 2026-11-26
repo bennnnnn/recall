@@ -484,6 +484,9 @@ describe("parseSimpleLatex", () => {
     expect(
       segmentsToPlain(parseSimpleLatex(String.raw`\begin{bmatrix} a & b \\ c & d \end{bmatrix}`)),
     ).toBe("[a, b; c, d]");
+    // A column vector (the owner's ball question, 2026-11-25): one entry a row.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\begin{pmatrix}-5\\0\end{pmatrix}`))).toBe("(-5; 0)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\begin{bmatrix} 2.5 \\ 1 \end{bmatrix}`))).toBe("[2.5; 1]");
     expect(
       segmentsToPlain(
         parseSimpleLatex(String.raw`\begin{aligned} 2x + y &= 5 \\ x - y &= 1 \end{aligned}`),

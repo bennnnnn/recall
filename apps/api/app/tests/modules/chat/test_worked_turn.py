@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from uuid import uuid4
 
 import pytest
@@ -57,7 +58,9 @@ def test_a_calculation_nothing_verified_gets_the_block(
     layout = worked_layout(
         content, subject, Settings(), answered=False, lightweight=False, several_requests=False
     )
-    assert layout == WorkedLayout(law_heading=law_heading)
+    # The subject's own notes for its working are the subject's (``test_worked_columns``).
+    assert layout is not None
+    assert replace(layout, subject_notes=()) == WorkedLayout(law_heading=law_heading)
 
 
 @pytest.mark.parametrize(

@@ -81,6 +81,21 @@ WORKED_BLOCK_CONTRACT = (
     "```"
 )
 
+# Said beside the contract when the question writes its vectors as columns
+# (``turn_reading.vector_notation``): the owner's ball question gave its velocity as the column
+# 5 over 2 and was answered in \hat{i} and \hat{j}, straight from I = m(v_f - v_i), where the
+# textbook works the momentum before, after and their change in columns (2026-11-25).
+WORKED_COLUMN_VECTORS_NOTE = (
+    "This question writes its vectors as columns ([5; 2], or a bracket with one number a "
+    "line, is the column 5 over 2). Write every vector in the block as a column too, "
+    "`\\begin{pmatrix}5\\\\2\\end{pmatrix}`: each given, each line of working and each "
+    "answer, its unit in the unit field (`given: \\vec{v}_i | \\begin{pmatrix}5\\\\2"
+    "\\end{pmatrix} | m/s | velocity before`, `answer: \\vec{I} | \\begin{pmatrix}-5\\\\0"
+    "\\end{pmatrix} | N s`), never in \\hat{i} and \\hat{j}. Work a column one step a "
+    "line, as the textbook does: each product or difference of columns, then its result."
+)
+
+
 # Said beside the contract when the question letters its parts (``worked_turn``): asked
 # "a) The altitude. b) The lengths of both legs. c) The area", the model gave each leg a
 # part of its own and the layout lettered four parts (a) to (d); asked "a) center b) radius c)
