@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -72,11 +73,16 @@ def _pieces(settings: Settings, message: Message) -> list[str]:
     )[: settings.chat_history_rag_max_chunks_per_message]
 
 
-async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Message]) -> int:
+async def _embed_and_store(
+    settings: Settings, user_id: UUID, messages: list[Message], *, whole: bool = True
+) -> int:
     """Embed every piece of ``messages`` in one request and store them in one transaction.
 
-    Never holds a session during the embed. Raises ``HistoryEmbeddingUnavailable``
-    unless every piece got a full vector, so a message is indexed whole or not at all.
+    Never holds a session during the embed. A message is indexed whole or not at all.
+    ``whole``: raise ``HistoryEmbeddingUnavailable`` unless every piece got a full vector
+    (the turn's own lines, which the job retries); otherwise a message the provider refused
+    a piece of is left out and the rest are stored (the backfill). The provider failing
+    the request raises either way.
     """
     planned = [(message, _pieces(settings, message)) for message in messages]
     planned = [(message, pieces) for message, pieces in planned if pieces]
@@ -89,40 +95,63 @@ async def _embed_and_store(settings: Settings, user_id: UUID, messages: list[Mes
         )
     except embedding_gateway.EmbeddingUnavailableError as exc:
         raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, provider unavailable") from exc
-    if len(vectors) != len(texts) or any(
-        vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in vectors
-    ):
+    if len(vectors) != len(texts):
         raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
     rows = []
-    offset = 0
+    offset = stored = 0
     for message, pieces in planned:
         chunk_vectors = vectors[offset : offset + len(pieces)]
         offset += len(pieces)
+        if any(vec is None or len(vec) != chunks_repo.EMBEDDING_DIM for vec in chunk_vectors):
+            if whole:
+                raise HistoryEmbeddingUnavailable(f"{len(texts)} pieces, not every one embedded")
+            continue
         chunks = list(zip(range(len(pieces)), pieces, chunk_vectors, strict=True))
         rows.append((message.id, message.chat_id, message.role, chunks))
-    stored = offset
-    async with SessionLocal() as session:
-        # One delete and one insert for the turn's two messages, not two of each.
-        await chunks_repo.replace_chunks_of_messages(session, user_id=user_id, messages=rows)
-        await chunks_repo.prune_beyond_window(
-            session, user_id, window=settings.chat_history_rag_search_window
-        )
-        await session.commit()
+        stored += len(pieces)
+    if not rows:
+        return 0
+    if whole:
+        await _store(settings, user_id, rows)
+    else:
+        stored = await _store_each_that_can(settings, user_id, rows)
     if stored:
         await presence_cache.mark_present(presence_cache.history_key(user_id))
     return stored
 
 
-async def index_message(
-    settings: Settings,
-    *,
-    user_id: UUID,
-    message: Message,
-) -> int:
-    """Chunk + embed one message. Returns chunk count. Never holds a session during embed."""
-    if not settings.chat_history_rag_enabled:
-        return 0
-    return await _embed_and_store(settings, user_id, [message])
+_Rows = list[tuple[UUID, UUID, str, list[tuple[int, str, list[float] | None]]]]
+
+
+async def _store(settings: Settings, user_id: UUID, rows: _Rows) -> None:
+    """The messages' chunks in one transaction: one delete and one insert for them all."""
+    async with SessionLocal() as session:
+        await chunks_repo.replace_chunks_of_messages(session, user_id=user_id, messages=rows)
+        await chunks_repo.prune_beyond_window(
+            session, user_id, window=settings.chat_history_rag_search_window
+        )
+        await session.commit()
+
+
+async def _store_each_that_can(settings: Settings, user_id: UUID, rows: _Rows) -> int:
+    """The backfill's chunks in one transaction; when it fails (a message deleted during the
+    embed, a short database failure), each message alone, its vectors kept, so one line
+    lost never loses the others (review of #2592). Returns the chunks stored."""
+    try:
+        await _store(settings, user_id, rows)
+        return sum(len(chunks) for *_ids, chunks in rows)
+    except SQLAlchemyError:
+        logger.warning("Chat-history RAG backfill: one write failed user_id=%s", user_id)
+    stored = 0
+    for row in rows:
+        try:
+            await _store(settings, user_id, [row])
+            stored += len(row[3])
+        except SQLAlchemyError:
+            logger.warning(
+                "Chat-history RAG backfill: message not stored message_id=%s", row[0], exc_info=True
+            )
+    return stored
 
 
 async def _backfill_recent(
@@ -146,15 +175,18 @@ async def _backfill_recent(
         already = await chunks_repo.indexed_message_ids(
             session, user_id, [row.id for row in pending]
         )
-    total = 0
-    for row in pending:
-        if row.id in already:
-            continue
-        try:
-            total += await index_message(settings, user_id=user_id, message=row)
-        except Exception:
-            logger.warning("Chat-history RAG backfill failed message_id=%s", row.id, exc_info=True)
-    return total
+    todo = [row for row in pending if row.id not in already]
+    if not todo:
+        return 0
+    # One embedding request and one transaction for them all; one at a time, an outage
+    # failed each of the 40 in turn (audit, 2026-11-25).
+    try:
+        return await _embed_and_store(settings, user_id, todo, whole=False)
+    except HistoryEmbeddingUnavailable:
+        logger.warning(
+            "Chat-history RAG backfill: embedder unavailable user_id=%s", user_id, exc_info=True
+        )
+        return 0
 
 
 async def index_turn_messages(

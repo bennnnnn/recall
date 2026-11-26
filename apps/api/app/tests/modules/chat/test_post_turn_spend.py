@@ -172,7 +172,10 @@ _CAPPED_OR_DOWN = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("spend_read", _CAPPED_OR_DOWN)
-async def test_spend_cap_keeps_topic_drops_llm_jobs(spend_read):
+async def test_spend_cap_drops_every_job_that_calls_a_model_the_title_too(spend_read):
+    """The title is a model call: its handler skipped it under the cap, after it was queued
+    and read the spend again; now it is not queued (audit, 2026-11-25). The title is still
+    written once spending resumes (the message list asks for it)."""
     ctx = _ctx(prior_count=0, run_title=True)  # turn 1 would enqueue memory
     with (
         patch_job_enqueue() as enqueue,
@@ -187,7 +190,7 @@ async def test_spend_cap_keeps_topic_drops_llm_jobs(spend_read):
             ctx,
             "ok",
         )
-    assert [c.args[1] for c in enqueue.call_args_list] == ["topic"]
+    assert [c.args[1] for c in enqueue.call_args_list] == []
 
 
 @pytest.mark.asyncio

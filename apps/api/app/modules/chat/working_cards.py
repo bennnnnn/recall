@@ -28,6 +28,7 @@ import math
 import re
 from dataclasses import dataclass
 
+from app.modules.chat.card_walk import answer_cards
 from app.modules.chat.tex_arithmetic import (
     INLINE_MATH,
     UNIT_GROUP,
@@ -44,18 +45,13 @@ from app.modules.chat.working_check import (
     wrong_steps,
 )
 from app.modules.chat.working_numbers import shown_like
-from app.services.answer_fence import (
-    ANSWER_FENCE_LANGS,
-    VERIFIED_ANSWER_MARKER,
-    answer_header_and_value,
-)
+from app.modules.chat.written_numbers import SIGNED_NUMBER, any_numbers
+from app.services.answer_fence import VERIFIED_ANSWER_MARKER, answer_header_and_value
 from app.services.md_fence_scan import iter_fences
 
 # A line that is a bold heading alone: "**Answer**", "**Answer (b)**".
 _BOLD_LINE = re.compile(r"\*\*[^*\n]+\*\*")
 _UPRIGHT = re.compile(r"\\(?:text|mathrm|operatorname|textrm)\s*\{([^{}]*)\}")
-# A number whole, its thousands commas with it: "1,200" is one number, not 1 and 200.
-_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 
 
 @dataclass(frozen=True)
@@ -120,8 +116,7 @@ def _held(statements: list[str], expression: str, value: float, earlier: str, na
             and math.isclose(same, value, rel_tol=1e-9, abs_tol=1e-12)
         ):
             return True
-    written = set(_NUMBER.findall(earlier))
-    return all(number in written for number in _NUMBER.findall(expression))
+    return any_numbers(expression) <= any_numbers(earlier)
 
 
 def _counted(value: float, shown: str) -> bool:
@@ -140,18 +135,12 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
     """Each unchecked card whose one value is not the working's last expression's; a
     number of the ``question`` is one the working holds."""
     found: list[CardSlip] = []
-    previous = 0
-    fences = list(iter_fences(text))
-    last_card = max(
-        (fence.start for fence in fences if fence.closed and fence.lang in ANSWER_FENCE_LANGS),
-        default=-1,
-    )
-    for fence in fences:
-        above, start = text[previous : fence.start], previous
-        previous = fence.end
-        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
-            continue
-        card = _card_value(text[fence.body_start : fence.body_end])
+    cards = list(answer_cards(text))
+    last_card = cards[-1].fence.start if cards else -1
+    for answer in cards:
+        fence, start = answer.fence, answer.since_fence
+        above = text[start : fence.start]
+        card = _card_value(answer.body(text))
         # The headings right above the card ("**Answer for $D$**") are no working (review,
         # #2536): the working's last line is the last maths above them.
         lines = list(INLINE_MATH.finditer(without_closing_headings(above)))
@@ -191,8 +180,6 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
     return found
 
 
-# The number a card writes, as written: "-7", "1,200", "3.85" (its unit after it left off).
-_WRITTEN_NUMBER = re.compile(r"[-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?")
 # A list marker or a space: what may stand before the working's last line on its line.
 _LINE_LEAD = re.compile(r"[ \t]*(?:(?:[-*+]|\d{1,3}[.)])[ \t]+)?")
 _SPACING = re.compile(r"\\[,;: !]|\s")
@@ -209,7 +196,7 @@ def _plain_number(shown: str) -> str | None:
     """The card's value when it is one plain number, a unit after it or none; never one in
     powers of ten, a fraction or a multiple of pi, whose leading digits are no value
     ("6 \\times 10^3", "7/2", "8\\pi": review, #2536)."""
-    written = _WRITTEN_NUMBER.match(shown)
+    written = SIGNED_NUMBER.match(shown)
     if written is None:
         return None
     rest = _SPACING.sub("", UNIT_GROUP.sub("", shown[written.end() :]))

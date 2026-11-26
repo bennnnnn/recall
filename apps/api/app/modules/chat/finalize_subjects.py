@@ -26,6 +26,7 @@ from app.modules.chat.working_check import (
     working_note,
 )
 from app.modules.chat.working_fix import put_right
+from app.modules.chat.written_numbers import writes_decimal_comma
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -40,7 +41,7 @@ from app.services.answer_fence import (
     normalize_owned_fences,
     strip_forged_verified_markers,
 )
-from app.services.md_fence_scan import iter_fences, map_closed_fences
+from app.services.md_fence_scan import close_unclosed_fences, iter_fences, map_closed_fences
 from app.services.part.answer_cards import land_part_answer_cards
 from app.services.part.fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
@@ -349,13 +350,29 @@ def check_working(state: FinalizeState) -> str:
         # is not its value (``working_cards``).
         text, card_note = held_cards(text, ctx.user_message_content or "")
         note = note or card_note
-        text = drop_restated_tail(text, ctx.user_message_content or "")
+        comma = reply_writes_decimal_comma(ctx)
+        text = drop_restated_tail(text, ctx.user_message_content or "", decimal_comma=comma)
         if getattr(ctx, "worked", None) is not None:
             # The working said again after the cards goes (``worked_lead.drop_recap_tail``).
-            text = drop_recap_tail(text, ctx.user_message_content or "")
+            text = drop_recap_tail(text, ctx.user_message_content or "", decimal_comma=comma)
         if note:
-            text = f"{text.rstrip()}\n\n{note}"
+            text = with_closing_note(text, note)
     return text
+
+
+def reply_writes_decimal_comma(ctx: object) -> bool:
+    """Whether the turn's reply writes a decimal comma ("3,7 m/s"): its language's."""
+    user = getattr(ctx, "user", None)
+    locale = user.locale if user is not None else None
+    question = getattr(ctx, "user_message_content", None) or ""
+    return writes_decimal_comma(question, locale if isinstance(locale, str) else None)
+
+
+def with_closing_note(text: str, note: str) -> str:
+    """``text`` with ``note`` after it, never inside a fence the reply left open: that fence
+    is closed first, as the closer would close it (a card cut off at the length limit kept
+    "Check the answer: …" as its last line, review of #2592)."""
+    return f"{close_unclosed_fences(text).rstrip()}\n\n{note}"
 
 
 def strip_text_plots(state: FinalizeState) -> str:

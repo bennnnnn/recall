@@ -154,8 +154,10 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
   - `R2_BUCKET`
 - [ ] Smoke-test: upload image in app → confirm object in R2 → download in chat
 - [ ] Bucket lifecycle: abort incomplete multipart after 7 days. Account delete
-  purges known keys then enqueues a `storage_sweep` job that `list`+`delete`s
-  leftover objects under `{user_id}/` (covers Redis reaper never running). Do
+  makes no storage call in the request: it enqueues a `storage_sweep` job (and
+  schedules an `account_sweep_backstop` before its rows commit) whose worker
+  `list`+`delete`s every object under `{user_id}/`, thumbnails included, retried
+  until done; a key outside that prefix goes to the reaper's retry queue. Do
   not weaken `reap_orphan_attachments`. Unconfirmed original uploads are reaped
   after `attachment_pending_orphan_hours` (default 1h). Hidden clones stay until
   `attachment_orphan_grace_hours` (default 24h) — that billed window is
@@ -776,7 +778,9 @@ Once the day's total reaches the cap, until 00:00 UTC:
   "… temporarily unavailable";
 - background model jobs, the tool loop and follow-up questions are skipped.
 
-A Redis error counts as over the cap (fail closed). Known gap: the tool rounds
+A Redis error counts as over the cap (fail closed). A turn's checks made together
+(its admission and the reads it starts beside the reply) share one read for a second
+(`TURN_SPEND_SHARED_SECONDS`); its tool loop, follow-ups and jobs read again. Known gap: the tool rounds
 of a turn that ends in a generated image are not charged (the image is).
 
 **Daily tokens.** A turn reserves its estimate (the message plus

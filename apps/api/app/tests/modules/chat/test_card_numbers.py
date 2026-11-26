@@ -271,3 +271,33 @@ def test_an_uncertain_photo_s_model_card_still_follows_the_rule() -> None:
     state = _state(reply, _TITRATION, _chemistry(_TITRATION))
     state.ctx.photo_uncertain = True  # type: ignore[attr-defined]
     assert "0.1312" not in format_card_numbers(state)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        r"3.2\times10^{-19}",
+        r"3.2 \times 10^{-19}",
+        # TeX's spacing around the times sign is the number's (review of #2592): the card
+        # read one number and rewrote only "3.2", leaving its power, so it showed 10^-38.
+        r"3.2\,\times\,10^{-19}",
+        r"3.2\;\cdot\;10^{-19}",
+        # Prose spellings: every one is one number, written once by the rule.
+        "3.2 × 10^-19",
+        "3.2 x 10^-19",
+        "3.2*10^-19",
+        "3.2 · 10^-19",
+        "3.2 × 10⁻¹⁹",
+        "3.2 × 10^−19",
+        "3.2e-19",
+    ],
+)
+def test_a_card_in_powers_of_ten_is_written_once_whatever_its_spelling(written: str) -> None:
+    reply = _card(f"E = {written}\\,\\mathrm{{J}}")
+    assert card_numbers(reply, Precision()) == _card("E = 3.2 \\times 10^{-19}\\,\\mathrm{J}")
+
+
+def test_a_card_of_a_multi_digit_power_keeps_it_whole() -> None:
+    """10^23 is ten to the 23rd: read as 10^2 and a 3, the card was two numbers."""
+    reply = _card("N = 6.02 × 10^23")
+    assert card_numbers(reply, Precision()) == _card("N = 6.02 \\times 10^{23}")

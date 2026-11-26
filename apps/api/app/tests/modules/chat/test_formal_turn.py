@@ -541,3 +541,22 @@ async def test_a_card_in_two_forms_gets_no_second_card(monkeypatch: pytest.Monke
     _answered(monkeypatch, _answer(_value(84.0, "%", uses=(18.0,))))
     reply = "18 and 35\n\n**Answer**\n\n" + _card("0.840\\ (84.0\\ \\text{percent})")
     assert await _finalized(_ctx(live_read=_read()), reply) == reply
+
+
+def test_a_last_card_left_open_is_held_to_the_server_s_value() -> None:
+    """The formal pass runs before the closer: a reply cut off at the length limit ends on a
+    card with no closer, which the closer then closes. That card is held like any other
+    (review of #2592), and the closer still finds it open to close."""
+    from app.modules.chat.formal_cards import held_to_server
+    from app.services.md_fence_scan import close_unclosed_fences
+
+    reply = (
+        "Kicked at 18 m/s at 35°, $R = 32.4\\ \\text{m}$.\n\n**Answer**\n\n"
+        "```answer\nverified: false\n32.4\\ \\mathrm{m}\n"
+    )
+    held = held_to_server(reply, _RANGE.values, "Worked out again from the values in the question:")
+    assert "31.07\\ \\mathrm{m}" in held
+    after = held.split("**Answer**")[1]
+    assert "32.4" not in after
+    closed = close_unclosed_fences(held)
+    assert closed.rstrip().endswith("```")

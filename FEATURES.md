@@ -1081,8 +1081,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   product events as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
   screen while the archive builds.
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
-  then signs out: rows, stored files, and (in the worker's `storage_sweep`) every Redis key
-  that names the user.
+  then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
+  stored files (every object under the account's prefix) and every Redis key that names
+  the user.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English).
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Settings → Appearance.

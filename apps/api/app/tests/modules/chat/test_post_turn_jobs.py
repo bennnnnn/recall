@@ -102,10 +102,10 @@ async def test_a_chat_is_compressed_again_after_its_first_run(fake_redis) -> Non
 
 
 @pytest.mark.asyncio
-async def test_post_turn_jobs_under_the_spend_cap_keep_lesson_progress_and_the_title() -> None:
+async def test_post_turn_jobs_under_the_spend_cap_keep_only_lesson_progress() -> None:
+    """Lesson progress calls no model; the title does, and waits as the other jobs do."""
     assert [name for name, _key in await _enqueued(_turn(), spend_capped=True)] == [
-        "lesson_progress",
-        "topic",
+        "lesson_progress"
     ]
 
 

@@ -31,7 +31,6 @@ from app.core.jobs import (
     unique_dedupe_key,
 )
 from app.core.redis import get_redis_client
-from app.exceptions import RedisUnavailableError
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.chat import compaction, lesson_progress
@@ -118,16 +117,12 @@ async def _spend_capped(settings: Settings) -> bool:
     all users. Per-user quota debiting would punish users for the app's
     own background work (title generation, memory extraction).
     """
-    if settings.daily_global_spend_usd <= 0:
-        return False
-    try:
-        capped = await quota_service.global_spend_exceeded(get_redis_client(), settings)
-    except RedisUnavailableError:
-        logger.warning("skipping background LLM job: global spend unreadable (Redis down)")
-        return True
-    if capped:
-        logger.warning("skipping background LLM job: global spend cap")
-    return capped
+    reason = await quota_service.spend_pause_reason(
+        quota_service.global_spend_exceeded, get_redis_client(), settings
+    )
+    if reason is not None:
+        logger.warning("skipping background LLM job: %s", reason)
+    return reason is not None
 
 
 _Handler = Callable[[Settings, dict[str, Any]], Awaitable[None]]

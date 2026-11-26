@@ -19,6 +19,7 @@ from app.core.spend_counter import (
     global_spend_exceeded,
     record_global_spend,
     spend_key,
+    spend_pause_reason,
 )
 from app.services.quota.counters import refund_daily
 
@@ -38,6 +39,7 @@ __all__ = [
     "record_global_spend",
     "record_voice_spend",
     "release_global_spend",
+    "spend_pause_reason",
 ]
 
 IMAGE_GEN_SPEND_USD = 0.03

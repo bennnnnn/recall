@@ -184,9 +184,10 @@ async def enqueue_index_jobs(
     )
 
 
-async def delete_account_files(settings: Settings, storage_keys: list[str]) -> None:
-    """Delete a deleted account's stored files, once its rows are committed; never raises."""
-    await _lifecycle.delete_objects_of_deleted_rows(settings, storage_keys)
+async def delete_account_files(user_id: UUID, storage_keys: list[str]) -> None:
+    """A deleted account's stored files, once its rows are committed: left to its
+    ``storage_sweep`` (``lifecycle.leave_to_account_sweep``); never raises."""
+    await _lifecycle.leave_to_account_sweep(user_id, storage_keys)
 
 
 async def sweep_account_storage(settings: Settings, user_id: UUID) -> int:
