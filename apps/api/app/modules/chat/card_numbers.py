@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
+# ruff: noqa: RUF002, RUF003 -- the module reads × and − as a card writes them.
 """Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
 wrote the card: a subject's solver, the worked layout, the formal check or the model; a
 chemistry solver's checked card is the exception (below).
@@ -23,15 +23,15 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from app.modules.chat.card_walk import answer_cards
+from app.modules.chat.written_numbers import WRITTEN_NUMBER, any_numbers, first_number
 from app.services.answer_check import Number, VerifiedValue, read_verified_value
 from app.services.answer_fence import (
-    ANSWER_FENCE_LANGS,
     CHEMISTRY_NOTATION_LINE,
     UNCHECKED_ANSWER_MARKER,
     VERIFIED_ANSWER_MARKER,
     answer_header_and_value,
 )
-from app.services.md_fence_scan import iter_fences
 from app.services.rounding_rule import (
     RULE,
     Precision,
@@ -44,18 +44,6 @@ from app.services.school_rounding import round_places
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
 
-# A number the card writes, its power of ten with it (also a calculator's "1.77e-10": its
-# 10 read as a number of its own was rewritten "1.77e-1.77 \times 10^{-10}", 2026-11-21);
-# never a script's (m^{2}, s^{-2}) or a fraction's part (\frac{1}{2}), nor a digit inside
-# a word.
-WRITTEN_NUMBER = re.compile(
-    r"(?<![\^_{\w.,])(?<!\^[-−])(?<!\^\{[-−])(?P<number>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
-    r"(?:[eE](?P<calculator>[-+]?\d+)"
-    r"|\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))?"
-    r"(?![\w.])"
-)
-# A number in a card or a solver's answer, compared as written.
-_DIGITS = re.compile(r"\d+(?:\.\d+)?")
 # Left as written: money, a decimal comma, a pH, pOH or pK.
 _KEPT = re.compile(r"\\\$|[€£¥]|\{,\}|\bp(?:H|OH|K[ab]?)\b")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
@@ -79,7 +67,7 @@ def format_card_numbers(state: FinalizeState) -> str:
     if state.ctx.photo_uncertain is True:
         answers = (verified, *verified.question_parts)
         unchecked = frozenset(
-            number for block in answers for number in _DIGITS.findall(block.canonical_answer or "")
+            number for block in answers for number in any_numbers(block.canonical_answer or "")
         )
     return card_numbers(state.text, precision, keep_checked=True, solver_numbers=unchecked)
 
@@ -97,12 +85,9 @@ def card_numbers(
     card that is the solver's (a photo read uncertainly) holds. The model's own unchecked
     card on that turn follows the rule."""
     changes: list[tuple[int, int, str]] = []
-    previous = 0
-    for fence in iter_fences(text):
-        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
-            continue
-        above, previous = text[previous : fence.start], fence.end
-        body = text[fence.body_start : fence.body_end]
+    for card in answer_cards(text):
+        fence = card.fence
+        above, body = text[card.since_card : fence.start], card.body(text)
         if keep_checked and _solver_card(body, solver_numbers):
             if precision == RULE or not _known_to(body, above, precision):
                 continue
@@ -120,8 +105,8 @@ def _solver_card(body: str, solver_numbers: frozenset[str]) -> bool:
     headers, value = answer_header_and_value(body)
     if VERIFIED_ANSWER_MARKER in headers:
         return True
-    found = _DIGITS.search(value.rpartition("=")[2])
-    return UNCHECKED_ANSWER_MARKER in headers and found is not None and found[0] in solver_numbers
+    found = first_number(value.rpartition("=")[2])
+    return UNCHECKED_ANSWER_MARKER in headers and found is not None and found in solver_numbers
 
 
 def cards_again(text: str, precision: Precision) -> list[tuple[str, str]] | None:
@@ -135,17 +120,14 @@ def cards_again(text: str, precision: Precision) -> list[tuple[str, str]] | None
     written (an expression, a fraction, a sum of money, a pH).
     """
     cards: list[tuple[str, str]] = []
-    previous = 0
-    for fence in iter_fences(text):
-        if not fence.closed or fence.lang not in ANSWER_FENCE_LANGS:
-            continue
-        above, previous = text[previous : fence.start], fence.end
-        body = text[fence.body_start : fence.body_end]
+    for card in answer_cards(text):
+        fence = card.fence
+        above, body = text[card.since_card : fence.start], card.body(text)
         shown = _shown(body, above, precision)
         if shown is None or not _known_to(body, above, precision):
             return None
-        card = text[fence.start : fence.body_start] + shown + text[fence.body_end : fence.end]
-        cards.append((_heading_above(above), card.strip()))
+        whole = text[fence.start : fence.body_start] + shown + text[fence.body_end : fence.end]
+        cards.append((_heading_above(above), whole.strip()))
     return cards or None
 
 
