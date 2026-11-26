@@ -20,7 +20,6 @@ from redis.asyncio import Redis
 from app.core import jobs
 from app.core.config import Settings
 from app.core.log_text import log_safe
-from app.exceptions import RedisUnavailableError
 from app.models.orm import Message, User
 from app.modules.chat.context_window import FoldRule, estimate_tokens, total_tokens
 from app.modules.chat.titles import title_job_key, title_job_payload
@@ -177,7 +176,9 @@ async def _topic_job(turn: FinishedTurn) -> list[PostTurnJob]:
     # as the user's words, the reply's verdict named the chat ("No Math Problem Found").
     user_message = saved.title_message or saved.user_message or saved.assistant_text
     assistant_message = saved.assistant_text or saved.user_message
-    if not saved.run_title or not (user_message and assistant_message):
+    # A title is a model call: while spending is paused it waits, as the other jobs do
+    # (its handler skipped it, after the job was queued and read the spend again).
+    if turn.spend_capped or not saved.run_title or not (user_message and assistant_message):
         return []
     return [
         PostTurnJob(
@@ -288,19 +289,17 @@ async def enqueue_post_turn_jobs(
 
 async def _spend_capped(redis: Redis, settings: Settings, saved: SavedTurn) -> bool:
     """The day's cap reached, or the spend unreadable (Redis down): the jobs that spend skip."""
-    try:
-        capped = await quota_service.global_spend_exceeded(redis, settings)
-        reason = "global spend cap"
-    except RedisUnavailableError:
-        capped, reason = True, "global spend unreadable (Redis down)"
-    if capped:
+    reason = await quota_service.spend_pause_reason(
+        quota_service.global_spend_exceeded, redis, settings
+    )
+    if reason is not None:
         logger.warning(
             "skipping background LLM jobs: %s user_id=%s chat_id=%s",
             reason,
             saved.user_id,
             saved.chat_id,
         )
-    return capped
+    return reason is not None
 
 
 async def enqueue_saved_turn_jobs(redis: Redis, settings: Settings, saved: SavedTurn) -> None:

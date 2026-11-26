@@ -182,6 +182,7 @@
   "chat.menu": "Sohbet seçenekleri",
   "chat.message_render_failed": "Bu mesaj gösterilemedi.",
   "chat.model_unavailable": "Bu model şu anda yanıt vermiyor. Tekrar deneyin veya Ayarlar › Varsayılan model bölümünden başka bir model seçin.",
+  "chat.unknown_model": "Bu model kullanılamıyor. Ayarlar › Varsayılan model bölümünden başka bir model seçin.",
   "chat.new_chat": "Yeni sohbet",
   "chat.offline_body": "Mesaj göndermek için internete yeniden bağlanın.",
   "chat.open_drawer_a11y": "Menüyü aç",

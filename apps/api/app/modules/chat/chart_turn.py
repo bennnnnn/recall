@@ -73,10 +73,9 @@ def stop_chart(ctx: StreamContext) -> None:
         ctx.chart.cancel()
 
 
-async def _drawn(task: asyncio.Task[str | None], settings: Settings) -> str | None:
+async def _drawn(task: asyncio.Task[str | None], state: FinalizeState) -> str | None:
     """The server's chart, when it is in within the wait; None otherwise."""
-    # Waited on, never awaited: a chart that failed or was stopped is no chart.
-    await asyncio.wait([task], timeout=settings.chart_wait_seconds)
+    await state.wait_beside(task, state.settings.chart_wait_seconds)
     if not task.done():
         task.cancel()
         return None
@@ -140,7 +139,7 @@ async def attach_chart(state: FinalizeState) -> str:
     if state.was_cancelled or turn is None:
         stop_chart(state.ctx)
         return state.text
-    drawn = await _drawn(task, state.settings)
+    drawn = await _drawn(task, state)
     text = placed_charts(state.text, drawn, turn[0], _answers_before(state.ctx))
     if text == state.text:
         return text

@@ -157,18 +157,12 @@ def test_delete_account_with_redis_failing_is_refused_503_unavailable(step: str)
     delete_user.assert_not_awaited()
 
 
-def test_delete_account_returns_204_when_one_storage_delete_fails():
-    """R2 outage on one object must not leave the account wipe unfinished: the rows are
-    gone, the failed object is queued for the retry, and the sweep deletes the prefix."""
+def test_delete_account_makes_no_storage_call_and_leaves_the_files_to_the_sweep():
+    """The request deleted each object and listed each one's thumbnails inside the delete
+    (audit, 2026-11-25). Now it makes no storage call: the sweep it queues deletes the
+    account's prefix in the worker, and a key outside the prefix is queued for the reaper."""
     user = _fake_user()
     app = _app_with_user(user)
-
-    async def delete_bytes(key: str) -> None:
-        if key == "user/bad":
-            raise RuntimeError("r2 down")
-
-    gateway = MagicMock()
-    gateway.delete_bytes = delete_bytes
     lifecycle = "app.modules.account.lifecycle"
     with (
         patch(f"{lifecycle}.quota_carryover.save_on_delete", AsyncMock()),
@@ -176,11 +170,13 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
         patch(f"{lifecycle}.tokens_service.purge_user_sessions", AsyncMock()),
         patch(
             f"{lifecycle}.attachments_service.delete_user_rows",
-            AsyncMock(return_value=["user/ok", "user/bad"]),
+            AsyncMock(return_value=[f"{user.id}/ok", "elsewhere/old"]),
         ),
         patch(f"{lifecycle}.users_repo.delete_user", AsyncMock()) as delete_user,
-        patch("app.modules.attachments.lifecycle.get_storage_gateway", return_value=gateway),
-        patch("app.modules.attachments.lifecycle.delete_thumbnails", AsyncMock(return_value=True)),
+        patch(
+            "app.modules.attachments.lifecycle.get_storage_gateway",
+            side_effect=AssertionError("no storage call in the request"),
+        ),
         patch(
             "app.modules.attachments.lifecycle.enqueue_failed_storage_deletes", AsyncMock()
         ) as queued,
@@ -191,8 +187,9 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
 
     assert r.status_code == 204
     delete_user.assert_awaited_once()
-    queued.assert_awaited_once_with(["user/bad"])
+    queued.assert_awaited_once_with(["elsewhere/old"])
     sweep.assert_awaited_once()
+    assert sweep.await_args.args[1] == "storage_sweep"
 
 
 def test_export_returns_data():

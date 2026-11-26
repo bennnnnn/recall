@@ -371,8 +371,7 @@ async def attach_figure(state: FinalizeState) -> str:
     if state.was_cancelled or figure is None or figure.whole(_without(state.text, drawn)):
         stop_figure(ctx)
         return state.text
-    # Waited on, never awaited: a picture that failed or was stopped is no picture.
-    await asyncio.wait([task], timeout=state.settings.figure_wait_seconds)
+    await state.wait_beside(task, state.settings.figure_wait_seconds)
     if not task.done():
         logger.info("figure late: not drawn within %.1f s", state.settings.figure_wait_seconds)
         stop_figure(ctx)

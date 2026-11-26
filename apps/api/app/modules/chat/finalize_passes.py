@@ -25,10 +25,12 @@ is the one step with an effect outside the reply.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from redis.asyncio import Redis
 
@@ -75,6 +77,7 @@ from app.modules.chat.finalize_subjects import (
     prepare_model_reply,
     recover_math_fences,
     recover_subject_fences,
+    reply_writes_decimal_comma,
     strip_solve_markers,
     strip_text_plots,
     subject_fences,
@@ -150,6 +153,20 @@ class FinalizeState:
     # Indexes into ``ctx.search_sources`` of the pages the reply relied on, as the claim
     # check read them: only those are chips. None: not read, and every page is one.
     sources_used: list[int] | None = None
+    # When the first wait on a task started beside the reply began (``wait_beside``).
+    beside_waits_from: float | None = None
+
+    async def wait_beside(self, task: asyncio.Future[Any], seconds: float) -> None:
+        """Wait for a task started beside the reply (the figure, the data chart, the formal
+        answer) at most ``seconds`` from when the first such wait began: the waits share one
+        deadline, so a turn with all three waits 2 s, not 2 + 2 + 2 (audit, 2026-11-25).
+        Each task has run since the turn began; a wait never cuts its own allowance short."""
+        now = time.monotonic()
+        if self.beside_waits_from is None:
+            self.beside_waits_from = now
+        left = max(0.0, self.beside_waits_from + seconds - now)
+        # Waited on, never awaited: a task that failed or was stopped is no result.
+        await asyncio.wait([task], timeout=left)
 
     @property
     def cut_off(self) -> bool:
@@ -321,7 +338,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "worked_lead",
         lambda s: drop_guessed_lead(
-            s.text, laid_out=getattr(getattr(s, "ctx", None), "worked", None) is not None
+            s.text,
+            laid_out=getattr(getattr(s, "ctx", None), "worked", None) is not None,
+            decimal_comma=reply_writes_decimal_comma(getattr(s, "ctx", None)),
         ),
         kind=TEXT,
         after=frozenset({"working_check"}),

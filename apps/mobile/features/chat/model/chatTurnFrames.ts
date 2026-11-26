@@ -31,7 +31,7 @@ import {
 } from "@/features/chat/model/chatTurnCore";
 
 /** Errors whose own action (upgrade, change model) stands in for Retry. */
-const OWN_RECOVERY_CODES = new Set(["quota_exceeded", "model_unavailable"]);
+const OWN_RECOVERY_CODES = new Set(["quota_exceeded", "model_unavailable", "unknown_model"]);
 
 /** Why a failed send can be offered again: the server says its message is not in the chat. */
 function unsavedReason(payload: ChatSsePayload): RejectedSend["reason"] | null {

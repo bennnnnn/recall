@@ -59,13 +59,14 @@ async def test_search_includes_title_only_match():
 
 @pytest.mark.asyncio
 async def test_search_pages_the_merged_union_once():
-    """The cursor and limit apply to the union, not to the title, file and message
-    streams separately; nothing counts every hit, and nothing skips by offset."""
+    """The cursor and limit apply to each kind's hits first, then to the union: the union
+    sorted every hit of a common word before its LIMIT (audit, 2026-11-25). Nothing counts
+    every hit, and nothing skips by offset."""
     session = AsyncMock()
     page_result = MagicMock()
     page_result.all.return_value = []
     session.execute = AsyncMock(return_value=page_result)
-    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), UUID(int=0), uuid4(), uuid4())
+    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), UUID(int=2), uuid4(), uuid4())
 
     results, next_cursor = await search_repo.search_conversations(
         session, uuid4(), "trip", limit=20, cursor=cursor
@@ -76,11 +77,11 @@ async def test_search_pages_the_merged_union_once():
     assert session.execute.await_count == 2  # the page, then its message words by id
     sql = str(session.execute.await_args_list[0].args[0]).lower()
     assert "union all" in sql
-    assert sql.count("limit") == 1
+    # A title cursor (rank 2): every kind is read, each to one row past the page, then the
+    # union to the page.
+    assert sql.count("limit") == 4
     assert "offset" not in sql
-    assert (
-        "(search_hits.rank, search_hits.created_at, search_hits.chat_id, search_hits.row_id)" in sql
-    )
+    assert sql.count(" < (") == 1  # only the cursor's own kind is filtered by its keys
     assert "count(" not in sql
     # A common word sorted every matching body through ORDER BY/LIMIT: the union carries
     # keys, and the page's bodies are read by id afterwards.
@@ -174,3 +175,20 @@ async def test_a_dotted_hindi_letter_is_searched_either_way(typed: str) -> None:
     )
     assert f"%{_ONE_SIGN}%" in sql and f"%{_LETTER_AND_DOT}%" in sql
     assert _ONE_SIGN in results[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_a_cursor_past_a_kind_reads_none_of_it():
+    """A message cursor (rank 0) is past every title and file: only messages are read."""
+    session = fake_session()
+    page_result = MagicMock()
+    page_result.all.return_value = []
+    session.execute = AsyncMock(return_value=page_result)
+    cursor = encode_cursor(datetime(2026, 9, 4, tzinfo=UTC), UUID(int=0), uuid4(), uuid4())
+
+    await search_repo.search_conversations(session, uuid4(), "trip", limit=20, cursor=cursor)
+
+    sql = str(session.execute.await_args_list[0].args[0]).lower()
+    assert "from attachments" not in sql
+    assert "chats.title is not null" not in sql
+    assert sql.count("limit") == 2

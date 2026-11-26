@@ -37,7 +37,7 @@ from redis.exceptions import ResponseError
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import access_tokens, user_cache
+from app.core import access_tokens, spend_counter, user_cache
 from app.core import redis as core_redis
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import get_settings
@@ -106,29 +106,31 @@ _FIRST_UNTOLD = ("memory", "topic", "compress", "message_index")
 # A Free turn, a regenerate too, reads the day's message count before its paid reads start
 # (one GET, ``TurnResources.message_left``): at the cap it is refused before any model call
 # (audit, 2026-11-25). A plan with no cap reads nothing.
+# Every check of the day's spend in a turn shares one read of it (``spend_counter``,
+# audit 2026-11-25): each request's Redis count fell by one to five, and its ceiling with it.
 CEILINGS: dict[str, Ceiling] = {
     "greeting": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=22, models=1),
+        Counts(sql=5, checkouts=3, transactions=3, redis=20, models=1),
         Counts(sql=11, checkouts=4, transactions=4, redis=19, embeds=1),
         _FIRST,
     ),
     "question": Ceiling(
-        Counts(sql=6, checkouts=4, transactions=4, redis=28, models=2),
+        Counts(sql=6, checkouts=4, transactions=4, redis=25, models=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "follow-up, short chat": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=29, models=3),
+        Counts(sql=5, checkouts=3, transactions=3, redis=24, models=3),
         Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
     "follow-up, long chat": Ceiling(
-        Counts(sql=8, checkouts=5, transactions=5, redis=31, models=3),
+        Counts(sql=8, checkouts=5, transactions=5, redis=26, models=3),
         Counts(sql=18, checkouts=5, transactions=5, redis=23, models=2, embeds=1),
         _NEXT,
     ),
     "maths": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=23, models=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=21, models=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
@@ -137,38 +139,38 @@ CEILINGS: dict[str, Ceiling] = {
     # and answers from its results in another. A searched reply also gets one claim check (a
     # model call and its spend write) before it saves, so a claim no source made is cut.
     "web search": Ceiling(
-        Counts(sql=5, checkouts=3, transactions=3, redis=36, models=4, searches=2),
+        Counts(sql=5, checkouts=3, transactions=3, redis=33, models=4, searches=2),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "reminder": Ceiling(
-        Counts(sql=10, checkouts=8, transactions=8, redis=31, models=1, embeds=1),
+        Counts(sql=10, checkouts=8, transactions=8, redis=24, models=1, embeds=1),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "photo lookup": Ceiling(
         # Redis 30: the lookup is the turn, so it takes the turn's chat message (one INCR).
-        Counts(sql=6, checkouts=4, transactions=4, redis=31, models=2, searches=1),
+        Counts(sql=6, checkouts=4, transactions=4, redis=27, models=2, searches=1),
         Counts(sql=13, checkouts=4, transactions=4, redis=22, models=2, embeds=1),
         _FIRST,
     ),
     "picture": Ceiling(
-        Counts(sql=8, checkouts=3, transactions=3, redis=14, models=1),
+        Counts(sql=8, checkouts=3, transactions=3, redis=13, models=1),
         Counts(sql=16, checkouts=5, transactions=5, redis=28, models=2, embeds=1),
         _FIRST_UNTOLD,
     ),
     "attachment question": Ceiling(
-        Counts(sql=13, checkouts=8, transactions=8, redis=36, models=2, embeds=1),
+        Counts(sql=13, checkouts=8, transactions=8, redis=27, models=2, embeds=1),
         Counts(sql=14, checkouts=5, transactions=5, redis=26, models=2, embeds=1),
         ("attachment_index", *_FIRST),
     ),
     "regenerate": Ceiling(
-        Counts(sql=10, checkouts=3, transactions=3, redis=32, models=3),
+        Counts(sql=10, checkouts=3, transactions=3, redis=27, models=3),
         Counts(sql=15, checkouts=4, transactions=4, redis=21, models=1, embeds=1),
         _NEXT,
     ),
     "clarify picks": Ceiling(
-        Counts(sql=9, checkouts=7, transactions=7, redis=34, models=2, embeds=1),
+        Counts(sql=9, checkouts=7, transactions=7, redis=26, models=2, embeds=1),
         Counts(sql=12, checkouts=3, transactions=3, redis=16, models=1, embeds=1),
         _NEXT,
     ),
@@ -470,6 +472,11 @@ async def harness(
     monkeypatch.setenv("STORAGE_LOCAL_PATH", str(tmp_path))
     # Production runs with the global spend cap on; a turn and each job read it.
     monkeypatch.setenv("DAILY_GLOBAL_SPEND_USD", "1000")
+    # A turn's spend checks share one read for TURN_SPEND_SHARED_SECONDS; a check after it
+    # reads again. Held open here, so the count is the design's (one read a turn), never the
+    # machine's speed: CI's slower run outlasted the window and read again. The re-read after
+    # the window is its own test (core/test_spend_read_once.py).
+    monkeypatch.setattr(spend_counter, "TURN_SPEND_SHARED_SECONDS", float("inf"))
     # Every kind of turn runs for one free user: more than a free day's messages.
     monkeypatch.setenv("DAILY_MESSAGE_LIMIT", "100")
     # The memory read's wait for its query embedding (0.75 s in production): past it the

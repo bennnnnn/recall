@@ -151,19 +151,26 @@ async def purge_attachments_for_messages(
     return len(storage_keys)
 
 
-async def delete_objects_of_deleted_rows(settings: Settings, storage_keys: list[str]) -> None:
-    """Delete the stored objects (and thumbnails) of rows already deleted and committed.
+def account_prefix(user_id: UUID) -> str:
+    """Where every object of an account is stored (``{user_id}/{attachment_id}``), its
+    thumbnails under it."""
+    return f"{user_id}/"
 
-    Account delete calls it once the account's rows are gone. Best effort, never raises:
-    a failed object is queued for the reaper's retry, and the account's ``storage_sweep``
-    deletes everything left under ``{user_id}/``.
+
+async def leave_to_account_sweep(user_id: UUID, storage_keys: list[str]) -> None:
+    """A deleted account's stored objects, once its rows are committed.
+
+    Every object under the account's prefix, thumbnails included, goes with its
+    ``storage_sweep``: one listing and batched deletes in the worker, retried until done,
+    with the backstop scheduled before the commit behind it. A key outside the prefix,
+    which no upload writes today, is queued for the reaper's retry, so no object is left.
+    The request used to delete each object and list each one's thumbnails, eight at a
+    time, inside the delete (audit, 2026-11-25). Never raises.
     """
-    try:
-        failed = await delete_storage_keys(settings, storage_keys)
-    except Exception:
-        logger.warning("Stored objects of a deleted account not deleted; queued", exc_info=True)
-        failed = storage_keys
-    await enqueue_failed_storage_deletes(failed)
+    prefix = account_prefix(user_id)
+    await enqueue_failed_storage_deletes(
+        [key for key in storage_keys if not key.startswith(prefix)]
+    )
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
@@ -244,10 +251,10 @@ async def _reap_orphan_batch(settings: Settings) -> tuple[int, int]:
 async def sweep_user_storage(settings: Settings, user_id: UUID) -> int:
     """Delete leftover objects under ``{user_id}/`` after account wipe.
 
-    Complements ``delete_objects_of_deleted_rows`` when Redis pending-delete never
-    ran. Prefix is the user UUID only — never ``/`` or ``..``.
+    Every file of a deleted account goes here (``leave_to_account_sweep``). Prefix is the
+    user UUID only — never ``/`` or ``..``.
     """
-    prefix = f"{user_id}/"
+    prefix = account_prefix(user_id)
     if ".." in prefix or prefix.startswith("/"):
         return 0
     gateway = get_storage_gateway(settings)

@@ -305,6 +305,22 @@ def test_a_lesson_line_is_never_stale_or_merged():
     assert _duplicate_pairs(facts) == []
 
 
+def test_two_courses_queue_no_consolidation_the_job_would_not_do() -> None:
+    """The check that queues the consolidation job and the job agree: two lesson lines are
+    no duplicates. The check counted them and the job skipped them, so a user with two
+    courses queued a job every 300 s that merged nothing (audit, 2026-11-25)."""
+    from app.modules.memory.consolidation import facts_need_consolidation
+
+    other = _LESSON_LINE.replace("Greeting", "Maths")
+    facts = [
+        SimpleNamespace(type="focus", text=text, status="active") for text in (_LESSON_LINE, other)
+    ]
+    assert facts_need_consolidation(facts) is False
+    # The same lines as ordinary facts still are.
+    plain = [SimpleNamespace(type="focus", text="User " + f.text, status="active") for f in facts]
+    assert facts_need_consolidation(plain) is True
+
+
 def _add(text, type_="fact", topic="notes"):
     return {"op": "add", "type": type_, "topic": topic, "text": text, "confidence": 0.9}
 
