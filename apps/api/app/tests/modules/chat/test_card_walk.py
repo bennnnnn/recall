@@ -93,3 +93,58 @@ def test_a_card_is_closed_or_open_to_the_reply_s_end() -> None:
     cards = list(answer_cards(closed))
     assert [card.body(closed) for card in cards] == ["x = 3\n", "y = 4\n"]
     assert cards[1].since_card == cards[0].fence.end
+
+
+_SPANISH_WORKING = (
+    "**Datos**\n\n**Given**\n\n$d = 37\\ \\mathrm{m}$, $t = 10\\ \\mathrm{s}$\n\n"
+    "**Solution**\n\n$v = \\frac{37}{10} = 3{,}7$\n\n"
+    "```answer\nverified: false\nv = 3{,}7\\ \\mathrm{m/s}\n```\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("written", "comma", "read"),
+    [
+        ("3,7 m/s", True, {"3.7"}),
+        ("3{,}75 m", True, {"3.75"}),
+        ("1,000 m", True, {"1000"}),  # three digits still group thousands
+        ("3,7 m/s", False, {"3", "7"}),  # English: a list, never 3.7
+        ("1,000 m", False, {"1000"}),
+    ],
+)
+def test_a_decimal_comma_is_one_number_where_the_language_writes_one(
+    written: str, comma: bool, read: set[str]
+) -> None:
+    assert any_numbers(written, decimal_comma=comma) == read
+
+
+@pytest.mark.parametrize(
+    ("question", "locale", "comma"),
+    [
+        ("Un coche recorre 37 m en 10 s. ¿Cuál es su rapidez media?", "es", True),
+        ("Une voiture parcourt 37 m en 10 s. Quelle est sa vitesse moyenne ?", "fr", True),
+        ("Um carro percorre 37 m em 10 s. Qual é a sua velocidade média?", "pt", True),
+        ("A car covers 37 m in 10 s. What is its average speed?", "en", False),
+    ],
+)
+def test_the_reply_s_language_says_whether_it_writes_a_decimal_comma(
+    question: str, locale: str, comma: bool
+) -> None:
+    from app.modules.chat.written_numbers import writes_decimal_comma
+
+    assert writes_decimal_comma(question, locale) is comma
+
+
+@pytest.mark.parametrize("closing", ["La rapidez media es 2,9 m/s.", "La vitesse est 2,9 m/s."])
+def test_a_closing_line_with_a_new_decimal_comma_value_is_no_recap(closing: str) -> None:
+    """Read as 2 and 9, numbers the working holds, a new value after the card was taken for
+    the working said again and cut (review of #2592)."""
+    reply = _SPANISH_WORKING.replace("10\\ \\mathrm{s}$", "10\\ \\mathrm{s}$, $n = 2$, $k = 9$")
+    reply += f"\n{closing}\n\nRevisa la tabla.\n"
+    assert drop_recap_tail(reply, decimal_comma=True) == reply
+
+
+def test_a_lead_stating_a_decimal_comma_value_never_worked_is_a_guess() -> None:
+    working = _SPANISH_WORKING.replace("10\\ \\mathrm{s}$", "10\\ \\mathrm{s}$, $n = 2$, $k = 9$")
+    reply = "La rapidez es **2,9 m/s**.\n\n" + working
+    assert drop_guessed_lead(reply, decimal_comma=True) == working

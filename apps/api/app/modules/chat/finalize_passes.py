@@ -77,6 +77,7 @@ from app.modules.chat.finalize_subjects import (
     prepare_model_reply,
     recover_math_fences,
     recover_subject_fences,
+    reply_writes_decimal_comma,
     strip_solve_markers,
     strip_text_plots,
     subject_fences,
@@ -337,7 +338,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "worked_lead",
         lambda s: drop_guessed_lead(
-            s.text, laid_out=getattr(getattr(s, "ctx", None), "worked", None) is not None
+            s.text,
+            laid_out=getattr(getattr(s, "ctx", None), "worked", None) is not None,
+            decimal_comma=reply_writes_decimal_comma(getattr(s, "ctx", None)),
         ),
         kind=TEXT,
         after=frozenset({"working_check"}),

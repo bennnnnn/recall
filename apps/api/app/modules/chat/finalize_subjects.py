@@ -26,6 +26,7 @@ from app.modules.chat.working_check import (
     working_note,
 )
 from app.modules.chat.working_fix import put_right
+from app.modules.chat.written_numbers import writes_decimal_comma
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
     ANSWER_FENCE_LANGS,
@@ -349,13 +350,22 @@ def check_working(state: FinalizeState) -> str:
         # is not its value (``working_cards``).
         text, card_note = held_cards(text, ctx.user_message_content or "")
         note = note or card_note
-        text = drop_restated_tail(text, ctx.user_message_content or "")
+        comma = reply_writes_decimal_comma(ctx)
+        text = drop_restated_tail(text, ctx.user_message_content or "", decimal_comma=comma)
         if getattr(ctx, "worked", None) is not None:
             # The working said again after the cards goes (``worked_lead.drop_recap_tail``).
-            text = drop_recap_tail(text, ctx.user_message_content or "")
+            text = drop_recap_tail(text, ctx.user_message_content or "", decimal_comma=comma)
         if note:
             text = with_closing_note(text, note)
     return text
+
+
+def reply_writes_decimal_comma(ctx: object) -> bool:
+    """Whether the turn's reply writes a decimal comma ("3,7 m/s"): its language's."""
+    user = getattr(ctx, "user", None)
+    locale = getattr(user, "locale", None) if user is not None else None
+    question = getattr(ctx, "user_message_content", None) or ""
+    return writes_decimal_comma(question, locale if isinstance(locale, str) else None)
 
 
 def with_closing_note(text: str, note: str) -> str:
