@@ -280,6 +280,15 @@ expected failure until the gap is fixed (then delete the `gap` line). `./scripts
 sends the same prompts to the running API and writes the replies to `tmp/battery/`
 (`--category teaching`, `--only map-where-is`).
 
+**Reply layout:** every informational reply, on every plan and model, has one layout
+(`SCAN_LAYOUT` in `modules/chat/prompt_constants/format.py`, said beside the message): a short
+answer first, a `##` title, numbered items with **bold** names, each item's members as a nested
+list, `###` subtitles for distinct parts. A one-line fact stays a line or two; a conversation
+stays plain lines; a maths, physics or chemistry working keeps its worked layout.
+`apps/api/app/tests/behavior/format_corpus.json` holds 42 chat questions by kind and
+`format_shape.py` judges a reply's layout; `python3 scripts/format_eval.py` sends them to the
+running API (Free and Pro) and reports each kind (`--rescore tmp/format/run.json` re-judges).
+
 **Behavior sweep:** `apps/api/app/tests/behavior/sweep_corpus/*.json` holds ~1,000 turns (a prompt,
 any earlier turns, a reply a model might write, and what should happen: `answer`, `save`,
 `photo`, `search`, `settings`, …). `sweep.py` routes each one and runs its reply through the real

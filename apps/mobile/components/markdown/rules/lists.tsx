@@ -39,6 +39,25 @@ function bulletDiscStyle(): ViewStyle {
 /** A list's end: no gap under it, its last item flush. */
 const OPEN_LIST_END = { marginBottom: 0 };
 
+/**
+ * How deep a list item sits: 1 for a main item, 2 for a member under it. The owner's
+ * shape (2026-11-26) is numbered main items with their members nested under each, read
+ * at a glance: a group ends with more room than a member does, and a member's marker is a
+ * ring, so the two levels never look alike.
+ */
+function listDepth(parent: AstParent[]): number {
+  return parent.filter((ancestor) => ancestor.type === "bullet_list" || ancestor.type === "ordered_list")
+    .length;
+}
+
+/** The gap under a main item that holds members: a group's end, wider than a member's. */
+const GROUP_END = { marginBottom: Space.md };
+
+/** A nested member's marker: a ring in the body ink, not the main items' disc. */
+function memberRing(t: Theme): ViewStyle {
+  return { backgroundColor: "transparent", borderWidth: 1.5, borderColor: t.text };
+}
+
 type ListItemNode = AstNode & { index: number; markup?: string };
 
 /**
@@ -95,8 +114,10 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
       styles: StyleMap,
     ) => {
       const task = taskChecked(node);
+      const depth = listDepth(parent);
       const itemStyle = [
         styles._VIEW_SAFE_list_item as object,
+        depth === 1 && listItemHasNestedList(node) && GROUP_END,
         isLastListItem(parent, node.index) &&
           !listGoesOn(parent[0], parent.slice(1)) &&
           (styles.lastListItem as object),
@@ -176,25 +197,11 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
       if (immediateAncestorType(parent) === "bullet_list") {
         return (
           <View key={node.key} style={itemStyle}>
-            {listItemHasNestedList(node) ? (
-              // No disc on a parent topic, but keep its column: the label lines
-              // up with its siblings' text and the sub-bullets indent under it.
-              <View
-                style={[
-                  mdMath.listBullet,
-                  bulletDiscStyle(),
-                  mdMath.listBulletSpacer,
-                ]}
-                accessible={false}
-                testID="md-list-bullet-spacer"
-              />
-            ) : (
-              <View
-                style={[mdMath.listBullet, bulletDiscStyle()]}
-                accessible={false}
-                testID="md-list-bullet"
-              />
-            )}
+            <View
+              style={[mdMath.listBullet, bulletDiscStyle(), depth > 1 && memberRing(t)]}
+              accessible={false}
+              testID="md-list-bullet"
+            />
             <View
               style={[
                 mdMath.listContent,

@@ -235,11 +235,12 @@ def test_ways_and_tips_answers_are_bold_led_numbered_lists() -> None:
     parts = _hints("ways to become rich")
     assert FORMAT_CONTRACT in parts
     assert NON_DRAFT_TURN_HINT in parts
-    assert "numbered list of about 5-8 items" in FORMAT_CONTRACT
-    assert "**bold label of 2-5 words**" in FORMAT_CONTRACT
-    # A long list ("list ways of becoming smart" got 10 flat items) is grouped.
-    assert "Over 8 items: group them under 2-4 short ### headings" in FORMAT_CONTRACT
-    assert "numbering continuing across groups" in FORMAT_CONTRACT
+    # Numbered items with bold names, a long list grouped under ### subtitles ("list ways of
+    # becoming smart" got 10 flat items): the one layout, said beside the message.
+    from app.modules.chat.prompt_constants.format import READER_NOTE, SCAN_LAYOUT
+
+    assert SCAN_LAYOUT in READER_NOTE
+    assert "`###` subtitles" in FORMAT_CONTRACT
 
 
 # The chat from the app: a message to mom, then "asking money" and "send it"

@@ -211,16 +211,29 @@ export function liftMathFencesOutOfLists(content: string): string {
   return out.join("\n");
 }
 
+const DEEP_INDENT = /^(?:[ \t]{4,}|\t+)/;
+const LIST_ITEM = /^(\s*)(?:[-*+]|(\d+)[.)])\s/;
+
 /**
  * CommonMark treats 4+ space (or tab) indented lines as a code block.
  * After an unclosed ```math, the next `2. **Simplify:**` often lands in
  * that indent — a gray Prism card of markdown source. Pull those steps
  * (and only those) back to column 0. Real fenced bodies are left alone.
+ *
+ * A step is told from a list's own nested members by its place, not its
+ * look (2026-11-26: "1. **Natural science**" with "    - **Chemistry**" or
+ * "    1. Chemistry" under it lost its members to the margin and renumbered
+ * the main list): a numbered line comes back only when its number continues
+ * the main list and not a nested one, a bullet only when no list holds it,
+ * and a heading always (none belongs inside a list item).
  */
 export function dedentMisindentedMarkdownSteps(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
   let open: OpenFence | null = null;
+  let inList = false;
+  let topNumber: number | null = null;
+  let nestedNumber: number | null = null;
   for (const line of lines) {
     const before = open;
     open = fenceAfterLine(open, line, true);
@@ -228,13 +241,51 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
       out.push(line);
       continue;
     }
-    if (/^(?:[ \t]{4,}|\t+)/.test(line) && isMathFenceInterruptLine(line)) {
+    const item = LIST_ITEM.exec(line);
+    const deep = DEEP_INDENT.test(line);
+    if (
+      deep &&
+      isMathFenceInterruptLine(line) &&
+      misplacedStep(line, item, inList, topNumber, nestedNumber)
+    ) {
       out.push(line.trimStart());
+      if (item?.[2]) topNumber = Number(item[2]);
+      nestedNumber = null;
+      inList = Boolean(item);
       continue;
+    }
+    if (item) {
+      inList = true;
+      const number = item[2] ? Number(item[2]) : null;
+      if (!deep) {
+        topNumber = number ?? topNumber;
+        nestedNumber = null;
+      } else if (number !== null) {
+        nestedNumber = number;
+      }
+    } else if (line.trim() && !/^\s/.test(line)) {
+      inList = false;
+      topNumber = null;
+      nestedNumber = null;
     }
     out.push(line);
   }
   return out.join("\n");
+}
+
+/** A deep-indented step that belongs at the margin, not a member of the list above it. */
+function misplacedStep(
+  line: string,
+  item: RegExpExecArray | null,
+  inList: boolean,
+  topNumber: number | null,
+  nestedNumber: number | null,
+): boolean {
+  if (!item) return /^\s*#{1,6}\s/.test(line) || !inList;
+  if (!item[2]) return !inList;
+  const number = Number(item[2]);
+  const continuesNested = nestedNumber !== null && number === nestedNumber + 1;
+  return topNumber !== null && number === topNumber + 1 && !continuesNested;
 }
 
 const INLINE_MATH_FENCE_INFO = /^(math|latex|tex)?$/i;

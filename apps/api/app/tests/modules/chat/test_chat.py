@@ -527,19 +527,16 @@ def test_format_hints_discourage_tables_for_how_tos():
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():
-    """Balanced/detailed turns must stay answer-first and skip decorative
-    headings, emoji, raw URLs, and restating the question. These live in
-    UNIVERSAL_FORMAT_BASELINE so they cannot silently drop from the prompt."""
+    """Balanced/detailed turns stay answer-first and skip decorative headings, emoji and
+    raw URLs; the layout itself is the scan layout said beside the message (2026-11-26:
+    "no intro paragraph", "headings only for real sections" and "the simplest structure"
+    left 28 of 28 informational replies with no title and no nested list)."""
     from app.modules.chat.prompt_constants import (
         STYLE_HINTS,
         UNIVERSAL_FORMAT_BASELINE,
     )
+    from app.modules.chat.prompt_constants.format import READER_NOTE, SCAN_LAYOUT
 
-    assert (
-        "Lead with the answer (a calculation leads with its working); explanation after."
-        in UNIVERSAL_FORMAT_BASELINE
-    )
-    assert "No intro paragraph before the conclusion." in UNIVERSAL_FORMAT_BASELINE
     assert "Never use decorative headings" in UNIVERSAL_FORMAT_BASELINE
     assert "Introduction, Background, Overview, Conclusion" in UNIVERSAL_FORMAT_BASELINE
     assert "Let's dive in" in UNIVERSAL_FORMAT_BASELINE
@@ -547,13 +544,10 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "emoji" not in UNIVERSAL_FORMAT_BASELINE.lower()
     assert "[OpenAI docs](url)" in UNIVERSAL_FORMAT_BASELINE
     assert "not raw URLs" in UNIVERSAL_FORMAT_BASELINE
-    assert "Do not restate the question." in UNIVERSAL_FORMAT_BASELINE
-    assert "simplest structure" in UNIVERSAL_FORMAT_BASELINE
-    assert "do not add sections just to look structured" in UNIVERSAL_FORMAT_BASELINE
-    assert (
-        "Lead with the answer (a calculation leads with its working); explanation after."
-        in STYLE_HINTS["balanced"]
-    )
+    for banned in ("No intro paragraph", "simplest structure", "just to look structured"):
+        assert banned not in UNIVERSAL_FORMAT_BASELINE
+    assert "layout note" in STYLE_HINTS["balanced"]
+    assert SCAN_LAYOUT in READER_NOTE
 
 
 def test_format_contract_is_markdown_not_ui_fences():
@@ -582,16 +576,11 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "An untagged fence has no language label" in FORMAT_CONTRACT
     assert "Do not backtick a phrase" in FORMAT_CONTRACT
     assert "$O(n)$" in FORMAT_CONTRACT
-    assert "Bullets are for parallel unordered items" in FORMAT_CONTRACT
-    assert "Numbers are for steps, rankings" in FORMAT_CONTRACT
-    # "Ways to become rich": numbered items, each led by a bold label.
-    assert "**bold label of 2-5 words**" in FORMAT_CONTRACT
-    assert "The bold labels alone give the gist" in FORMAT_CONTRACT
-    assert "Letters are for alternatives/answer choices" in FORMAT_CONTRACT
     assert "roman numerals only when requested" in FORMAT_CONTRACT
-    assert "Nest at most one level" in FORMAT_CONTRACT
-    assert "unordered children stay bullets" in FORMAT_CONTRACT
     assert "plain labels such as `A.` or `I.`" in FORMAT_CONTRACT
+    # The owner's shape (2026-11-26): members nest under their item, never one level only.
+    for gone in ("Nest at most one level", "No sub-bullets unless", "parent bullet whose"):
+        assert gone not in FORMAT_CONTRACT
     assert "```smiles" not in VISUALIZATION_HINTS
     assert CHEMISTRY_FENCE_HINT not in VISUALIZATION_HINTS
     from app.modules.math.reply_policy import MATH_SOLVER_HINT

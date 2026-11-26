@@ -66,7 +66,8 @@ EMOJI_HINTS: dict[str, str] = {
     ),
     "more": (
         "Emoji: plenty, the user likes them. A fitting emoji leads every heading and every "
-        "list item's label, ✅ and ❌ may mark yes and no in a comparison, and a short "
+        "main item's bold name, never a nested member's line, ✅ and ❌ may mark yes and no "
+        "in a comparison, and a short "
         "friendly line may carry one. " + EMOJI_FITS + " " + _EMOJI_NEVER + " " + _EMOJI_SETTING
     ),
 }
@@ -108,7 +109,8 @@ def emoji_note(level: str | None, memory_block: str) -> str | None:
     if level == "more":
         note = (
             "Emoji in this reply: plenty, as the user's Emoji setting says. A fitting emoji "
-            "leads every heading and every list item's label (1. 💧 **Drink water** — …). "
+            "leads every heading and every main item's bold name (1. 💧 **Drink water** — …), "
+            "never a nested member's line. "
             + EMOJI_FITS
             + " "
             + _EMOJI_NEVER
