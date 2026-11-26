@@ -138,9 +138,21 @@ def test_working_keeps_six_figures_never_a_calculators_sixteen(tex: str, shown: 
             "x = 2.40\\,\\mathrm{m}",
         ),
         (
-            "$\\theta = \\tan^{-1}(0.9615)$  \n$\\theta = 43.9^\\circ$",
+            "$\\theta = \\tan^{-1}(8.695652 / 9.043478)$  \n$\\theta = 43.9^\\circ$",
             "\\theta = 43.9^\\circ",
             "\\theta = 43.88^\\circ",
+        ),
+        # Worked from a rounded 0.9615, tan⁻¹ lies anywhere in 43.86° to 43.89°: as written.
+        (
+            "$\\theta = \\tan^{-1}(0.9615)$  \n$\\theta = 43.9^\\circ$",
+            "\\theta = 43.9^\\circ",
+            "\\theta = 43.9^\\circ",
+        ),
+        # 1/0.008333 is 120.0048, but 0.008333 may be 1/120: 120.0 is no 120.00 (review, #2591).
+        (
+            "$k = \\frac{1}{0.008333}$  \n$k = 120.0\\,\\mathrm{N/m}$",
+            "k = 120.0\\,\\mathrm{N/m}",
+            "k = 120\\,\\mathrm{N/m}",
         ),
     ],
 )

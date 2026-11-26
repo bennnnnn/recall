@@ -14,6 +14,7 @@ import re
 
 from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
 from app.services.answer_check import plain_text
+from app.services.rounding_rule import PLACES, format_places
 
 # A unit vector, a bracket round a vector, and what separates the card's values.
 _UNIT_VECTOR = re.compile(r"\\hat\s*\{?\s*[ijk]\s*\}?|[îĵ]|k\u0302")
@@ -93,9 +94,29 @@ def known_value(number: str, after: str, above: str, before: str = "") -> float 
             if plain is None or _BARE.fullmatch(plain):
                 continue  # no arithmetic, or a number as written: no working out
             value = evaluate(plain)
-            if value is not None and abs(value - target) <= 0.5 * 10**-places * (1 + 1e-9):
-                return value
+            if value is None or abs(value - target) > 0.5 * 10**-places * (1 + 1e-9):
+                continue
+            return value if _rounds_one_way(value, plain) else None
     return None
+
+
+# A decimal the working wrote: its figures bound how far off it may be.
+_DECIMAL = re.compile(r"(?<![\d.])\d*\.\d+")
+
+
+def _rounds_one_way(value: float, plain: str) -> bool:
+    """The value, worked from decimals that may themselves be rounded, is known to the
+    rule's places: every value within its error bound (each decimal off by up to half its
+    last figure, relatively, added up) rounds to the same two places. 1/0.008333 is 120.0048,
+    but 0.008333 may be 1/120, so 120.0 is no 120.00 (review, #2591)."""
+    error = 0.0
+    for decimal in _DECIMAL.findall(plain):
+        digits = decimal.replace(".", "").lstrip("0")
+        if digits:
+            error += 0.5 * 10 ** (1 - len(digits))
+    spread = abs(value) * error
+    shown = format_places(value, PLACES)
+    return all(format_places(edge, PLACES) == shown for edge in (value - spread, value + spread))
 
 
 def _symbol(text: str) -> str:

@@ -144,5 +144,6 @@ def test_a_number_written_for_one_symbol_is_never_known_from_anothers() -> None:
     assert _card(working, "x = 1.5 m") == "x = 1.5 m"
     assert _card(working, "t = 1.5 s") == "t = 1.50 s"
     assert (
-        _card(r"$\theta = \tan^{-1}(0.9615)$  $\theta = 43.9^\circ$", "θ = 43.9°") == "θ = 43.88°"
+        _card(r"$\theta = \tan^{-1}(8.695652 / 9.043478)$  $\theta = 43.9^\circ$", "θ = 43.9°")
+        == "θ = 43.88°"
     )

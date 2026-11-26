@@ -239,7 +239,9 @@ def _known(match: re.Match[str], value: str, above: str) -> Number | None:
     (``card_lists.known_value``), when the card shows fewer places than the rule."""
     written = match.group("number").replace(",", "")
     places = len(written.partition(".")[2])
-    if places >= PLACES or power_of(match) is not None:
+    # A whole number ("120 N/m") claims no places to fill: working through rounded steps
+    # (1/0.008333 is 120.0048) would pad it to 120.00 from a value no step knows exactly.
+    if places == 0 or places >= PLACES or power_of(match) is not None:
         return None
     found = known_value(written, value[match.end() :], above, value[: match.start()])
     return None if found is None else Number(Fraction(repr(found)), None)
