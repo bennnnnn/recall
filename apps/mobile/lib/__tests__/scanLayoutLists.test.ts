@@ -102,14 +102,17 @@ describe("an informational reply's nested members", () => {
   it.each(["### Natural sciences", "Its main branches:", "```text\nnot a list\n```"])(
     "lifts every indented bold bullet under %s, not only the first",
     (above) => {
-      const reply = [above, "", "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "    - **Biology**: life"].join("\n");
-      const list = items(reply);
-      expect(main(list)).toEqual([
-        "**Physics**: matter and energy",
-        "**Chemistry**: substances",
-        "**Biology**: life",
-      ]);
-      expect(members(list)).toEqual([]);
+      // With a blank line under it and without one.
+      for (const gap of [[""], []]) {
+        const reply = [above, ...gap, "    - **Physics**: matter and energy", "    - **Chemistry**: substances", "    - **Biology**: life"].join("\n");
+        const list = items(reply);
+        expect(main(list)).toEqual([
+          "**Physics**: matter and energy",
+          "**Chemistry**: substances",
+          "**Biology**: life",
+        ]);
+        expect(members(list)).toEqual([]);
+      }
     },
   );
 
