@@ -7,10 +7,10 @@ machinery so the rules can be read and tested on their own.
 
 import logging
 import re
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Callable, Iterable
+from typing import Any, TypeVar
 
-from app.modules.memory.fact_quality import FactView, texts_to_drop
+from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
 from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.text import merge_diet_facts
 
@@ -41,7 +41,10 @@ _CONSOLIDATION_ANCHOR_STOP = frozenset(
 )
 
 
-_NEAR_DUP_JACCARD = 0.8
+# Two facts of one type whose words overlap this much say one thing.
+NEAR_DUP_JACCARD = 0.8
+
+_Fact = TypeVar("_Fact")
 
 
 def fact_tokens(text: str) -> frozenset[str]:
@@ -56,42 +59,71 @@ def tokens_jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return shared / (len(a) + len(b) - shared)
 
 
+def _active(memory: Any) -> bool:
+    return str(getattr(memory, "status", None) or "active") == "active"
+
+
+def _mergeable(memory: Any) -> bool:
+    """An active fact with words; a lesson chat's progress line is the lesson job's, never
+    merged: two courses are never one line."""
+    text = getattr(memory, "text", "")
+    return _active(memory) and bool(normalize_memory_text(text)) and not is_learning_line(text)
+
+
+def duplicate_pairs(
+    facts: Iterable[_Fact], *, newest: Callable[[_Fact], Any] | None = None
+) -> list[tuple[_Fact, _Fact]]:
+    """Each (kept, dropped) pair of duplicate facts: the same type and text, then a type's
+    facts whose words are ``NEAR_DUP_JACCARD`` alike. ``newest`` orders each choice, the
+    newest kept; without it the facts' own order does.
+
+    The one rule: the job merges these pairs and the check that queues the job asks whether
+    there are any. Written twice, the check counted lesson lines the job leaves alone, so a
+    user with two courses queued a job every 300 s that merged nothing (audit, 2026-11-25).
+    """
+    active = [fact for fact in facts if _mergeable(fact)]
+    by_key: dict[tuple[str, str], list[_Fact]] = {}
+    for fact in active:
+        text = normalize_memory_text(getattr(fact, "text", "")).lower()
+        by_key.setdefault((str(getattr(fact, "type", "")), text), []).append(fact)
+    pairs: list[tuple[_Fact, _Fact]] = []
+    used: set[int] = set()
+    for group in by_key.values():
+        if len(group) < 2:
+            continue
+        if newest is not None:
+            group.sort(key=newest, reverse=True)
+        used.update(id(fact) for fact in group)
+        pairs += [(group[0], extra) for extra in group[1:]]
+    remaining = [fact for fact in active if id(fact) not in used]
+    if newest is not None:
+        remaining.sort(key=newest, reverse=True)
+    claimed: set[int] = set()
+    # Each fact's words once, not again for every pair (CX-5).
+    tokens = [fact_tokens(getattr(fact, "text", "")) for fact in remaining]
+    for index, left in enumerate(remaining):
+        if id(left) in claimed:
+            continue
+        for offset, right in enumerate(remaining[index + 1 :], index + 1):
+            if id(right) in claimed or getattr(right, "type", "") != getattr(left, "type", ""):
+                continue
+            if tokens_jaccard(tokens[index], tokens[offset]) < NEAR_DUP_JACCARD:
+                continue
+            claimed.add(id(right))
+            pairs.append((left, right))
+    return pairs
+
+
 def facts_need_consolidation(memories: Iterable[Any]) -> bool:
-    """True when two active facts are duplicates, or one should be dropped."""
+    """True when two active facts are duplicates (``duplicate_pairs``), or one should be
+    dropped."""
+    memory_list = list(memories)
     active_views = [
         FactView(text=normalize_memory_text(getattr(memory, "text", "")))
-        for memory in memories
-        if str(getattr(memory, "status", None) or "active") == "active"
-        and normalize_memory_text(getattr(memory, "text", ""))
+        for memory in memory_list
+        if _active(memory) and normalize_memory_text(getattr(memory, "text", ""))
     ]
-    if texts_to_drop(active_views):
-        return True
-    active: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for memory in memories:
-        status = str(getattr(memory, "status", None) or "active")
-        if status != "active":
-            continue
-        text = normalize_memory_text(getattr(memory, "text", ""))
-        if not text:
-            continue
-        key = (str(getattr(memory, "type", "")), text.lower())
-        if key in seen:
-            return True
-        seen.add(key)
-        active.append(key)
-    # Each fact's words once, and only facts of one type compared: every pair was read
-    # again per pair, 41 ms at 150 facts on each memory list (CX-3).
-    by_type: dict[str, list[frozenset[str]]] = {}
-    for memory_type, text in active:
-        if tokens := fact_tokens(text):
-            by_type.setdefault(memory_type, []).append(tokens)
-    return any(
-        tokens_jaccard(left, right) >= _NEAR_DUP_JACCARD
-        for group in by_type.values()
-        for index, left in enumerate(group)
-        for right in group[index + 1 :]
-    )
+    return bool(texts_to_drop(active_views)) or bool(duplicate_pairs(memory_list))
 
 
 def extract_consolidation_anchors(text: str) -> frozenset[str]:

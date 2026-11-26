@@ -14,11 +14,10 @@ from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.consolidation import (
     accept_memory_section_rewrite,
-    fact_tokens,
+    duplicate_pairs,
     facts_need_consolidation,
-    tokens_jaccard,
 )
-from app.modules.memory.fact_quality import FactView, is_learning_line, texts_to_drop
+from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.facts import is_active_memory
 from app.modules.memory.locks import (
     acquire_memory_write_lock,
@@ -41,61 +40,14 @@ class _Pair:
     memory_type: str
 
 
-_NEAR_DUP_JACCARD = 0.8
-
-
 def _duplicate_pairs(facts: list[Memory]) -> list[_Pair]:
-    # A lesson chat's progress line is the lesson job's: two courses are never one line.
-    active = [
-        fact
-        for fact in facts
-        if is_active_memory(fact)
-        and normalize_memory_text(fact.text)
-        and not is_learning_line(fact.text)
+    """The pairs to merge, by the one rule (``consolidation.duplicate_pairs``), the newest kept."""
+    return [
+        _Pair(keep_text=keeper.text, drop_text=extra.text, memory_type=keeper.type)
+        for keeper, extra in duplicate_pairs(
+            facts, newest=lambda fact: fact.last_confirmed_at or fact.updated_at
+        )
     ]
-    by_key: dict[tuple[str, str], list[Memory]] = {}
-    for fact in active:
-        key = (fact.type, normalize_memory_text(fact.text).lower())
-        by_key.setdefault(key, []).append(fact)
-    pairs: list[_Pair] = []
-    used: set[UUID] = set()
-    for group in by_key.values():
-        if len(group) < 2:
-            continue
-        group.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)
-        keeper = group[0]
-        used.add(keeper.id)
-        for extra in group[1:]:
-            used.add(extra.id)
-            pairs.append(
-                _Pair(
-                    keep_text=keeper.text,
-                    drop_text=extra.text,
-                    memory_type=keeper.type,
-                )
-            )
-    remaining = [fact for fact in active if fact.id not in used]
-    remaining.sort(key=lambda fact: fact.last_confirmed_at or fact.updated_at, reverse=True)
-    claimed: set[UUID] = set()
-    # Each fact's words once, not again for every pair (CX-5).
-    tokens = [fact_tokens(fact.text) for fact in remaining]
-    for index, left in enumerate(remaining):
-        if left.id in claimed:
-            continue
-        for offset, right in enumerate(remaining[index + 1 :], index + 1):
-            if right.id in claimed or right.type != left.type:
-                continue
-            if tokens_jaccard(tokens[index], tokens[offset]) < _NEAR_DUP_JACCARD:
-                continue
-            claimed.add(right.id)
-            pairs.append(
-                _Pair(
-                    keep_text=left.text,
-                    drop_text=right.text,
-                    memory_type=left.type,
-                )
-            )
-    return pairs
 
 
 async def _load_pairs(
