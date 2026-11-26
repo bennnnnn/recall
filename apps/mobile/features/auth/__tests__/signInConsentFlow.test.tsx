@@ -224,8 +224,8 @@ it("an account without the agreement (from before, or withdrawn) is still asked,
   ]);
 });
 
-it("after a withdrawal, signing out from the consent screen and in again agrees by the tap", async () => {
-  // Withdrawn in Data controls: the server holds no agreement, and the gate asks again.
+it("an account from before sign-in agreed: signing out from the consent screen and in again agrees by the tap", async () => {
+  // The server holds no agreement (an account from before), and the gate asks.
   mockStoredToken = "access-a";
   const view = await render(<AuthProvider><App /></AuthProvider>);
   await settle();

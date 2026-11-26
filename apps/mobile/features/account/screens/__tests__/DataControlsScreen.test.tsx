@@ -15,8 +15,6 @@ const mockDeleteAccount = jest.fn();
 const mockDeleteAllChats = jest.fn();
 const mockReplace = jest.fn();
 const mockReportError = jest.fn();
-const mockMergeUser = jest.fn();
-const mockWriteCachedUser = jest.fn();
 let mockProgress = "idle";
 let mockUser: Record<string, unknown>;
 
@@ -31,7 +29,6 @@ jest.mock("@/contexts/AuthContext", () => ({
     token: "tok",
     user: mockUser,
     updateUser: mockUpdateUser,
-    mergeUser: mockMergeUser,
   }),
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
@@ -45,9 +42,6 @@ jest.mock("@/features/account/hooks/useDataControls", () => ({
 }));
 jest.mock("@/lib/api", () => ({
   api: { archiveAllChats: jest.fn(), deleteAllChats: (...args: unknown[]) => mockDeleteAllChats(...args) },
-}));
-jest.mock("@/lib/cachedUser", () => ({
-  writeCachedUser: (...args: unknown[]) => mockWriteCachedUser(...args),
 }));
 jest.mock("@/ui/overlay/dialogs", () => ({
   confirmDialog: (...args: unknown[]) => mockConfirm(...args),
