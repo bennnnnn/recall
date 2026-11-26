@@ -19,9 +19,11 @@ async function deleteAttachment(token: string, attachmentId: string): Promise<vo
 /**
  * What an upload is for. A chat file goes out with a message, so on a plan whose uploads
  * follow messages the server wants one left; a profile photo or a picture's reference
- * photo does not (apps/api modules/attachments/upload.py).
+ * photo does not (apps/api modules/attachments/upload.py). A paste is a chat file holding
+ * text pasted into the composer: the one upload the server reads as the user's own words,
+ * so only the composer's paste sends it (attachments.ts uploadChatAttachment).
  */
-export type UploadPurpose = "chat" | "avatar" | "reference";
+export type UploadPurpose = "chat" | "paste" | "avatar" | "reference";
 
 export const attachmentsApi = {
   presignAttachment: (

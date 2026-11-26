@@ -325,6 +325,10 @@ async def _save_spoken_reminders(
                 user_text=said or None,
             )
         return updated
+    except todos_service.TodoLimitError:
+        # Expected at the cap: nothing was saved, so the reply must not say it was.
+        logger.info("Live talk reminder refused at the to-do cap chat_id=%s", log_safe(chat_id))
+        return todos_service.TODO_LIST_FULL_REPLY
     except Exception:
         logger.exception("Live talk reminder materialize failed chat_id=%s", log_safe(chat_id))
         return assistant

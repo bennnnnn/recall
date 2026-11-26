@@ -129,7 +129,9 @@ async def test_delete_with_the_database_failing_at_a_step_deletes_nothing_and_re
     assert before["signed_in"] == 200 and before["file"] and before["rows"]["User"] == 1
 
     with _db_fails_at(step):
-        refused = await world.client.delete("/auth/me", headers=world.a.headers)
+        refused = await world.client.request(
+            "DELETE", "/auth/me", json={"confirm": "delete"}, headers=world.a.headers
+        )
 
     assert (refused.status_code, refused.json()) == (503, _UNAVAILABLE)
     # Nothing is deleted, and the account is still signed in for the phone's retry.
@@ -139,7 +141,11 @@ async def test_delete_with_the_database_failing_at_a_step_deletes_nothing_and_re
     await _run_sweeps(world)
     assert await _state(world) == before
 
-    assert (await world.client.delete("/auth/me", headers=world.a.headers)).status_code == 204
+    assert (
+        await world.client.request(
+            "DELETE", "/auth/me", json={"confirm": "delete"}, headers=world.a.headers
+        )
+    ).status_code == 204
     assert await _run_sweeps(world) >= 1
     await _assert_gone(world)
 
@@ -176,7 +182,9 @@ async def test_delete_with_a_purge_failing_after_the_commit_is_finished_by_the_s
     else:
         failing = patch.object(queue, "append_entry", _redis_down)
     with failing:
-        response = await world.client.delete("/auth/me", headers=world.a.headers)
+        response = await world.client.request(
+            "DELETE", "/auth/me", json={"confirm": "delete"}, headers=world.a.headers
+        )
 
     assert response.status_code == 204
     assert set((await _rows_owned_by(world.a.id)).values()) == {0}

@@ -103,9 +103,12 @@ describe("text pasted into the composer, as a file to send", () => {
     ).toBe("Summarize this file.");
   });
 
-  it("is told apart by its name and type, and named in the person's language", () => {
-    expect(isPastedText({ fileName: PASTED_TEXT_FILE_NAME, contentType: "text/markdown" })).toBe(false);
-    expect(isPastedText({ fileName: "notes.txt", contentType: "text/plain" })).toBe(false);
+  it("is the composer's paste alone, never a file by its name, and named in the person's language", () => {
+    const named = { kind: "file" as const, localUri: "file:///p.txt", contentType: "text/plain", fileName: PASTED_TEXT_FILE_NAME };
+    expect(isPastedText(named)).toBe(false);
+    // A picked (or Library) file named as a paste is a document: it asks what a file asks.
+    expect(messageTextForSend("", named)).toBe("Summarize this file.");
+    expect(isPastedText({ fileName: "notes.txt" })).toBe(false);
     const t = (key: string) => `t:${key}`;
     expect(attachmentDisplayName(PASTED_TEXT_FILE_NAME, t)).toBe("t:chat.pasted_text");
     expect(attachmentDisplayName("notes.txt", t)).toBe("notes.txt");

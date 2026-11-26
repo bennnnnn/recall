@@ -1085,8 +1085,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and memory area, todos, attachments, daily usage, push devices (no token) and
   product events as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
   screen while the archive builds.
-- ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
-  then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
+- ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`
+  with `{"confirm": "delete"}`, which the confirm dialog sends; a bearer token alone is refused
+  400 `confirm_required`), then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
   stored files (every object under the account's prefix) and every Redis key that names
   the user.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English).
@@ -1115,7 +1116,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   have accepted (a read timeout, an unreadable answer) is held 15 min, not resent next minute;
   a 429 waits its Retry-After and a 5xx backs off; a request Expo refuses as a whole (a 400) is
   split in halves so one bad token holds back only itself. Push and email cycles send while due
-  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap); receipts are polled
+  reminders remain for `reminder_cycle_budget_seconds` (no fixed page cap), but each account
+  gets at most `REMINDERS_PER_ACCOUNT_PER_CYCLE` (20) per channel per cycle, counted only for
+  sends tried (a held reminder takes no share); the rest go next cycle, so one account's
+  backlog never delays everyone else's (`modules/todos/limits.py`). An account keeps at most
+  `OPEN_TODOS_MAX` (1,000) open to-dos: one more, or reopening a done one, is refused 409
+  `todo_limit`, and the phone says so in the user's language; receipts are polled
   in batches for `push_receipt_poll_budget_seconds`. An account keeps at most
   `push_tokens_max_per_user` (10) device tokens, newest first; registration is one
   `INSERT … ON CONFLICT`, so two registrations at once no longer fail one.

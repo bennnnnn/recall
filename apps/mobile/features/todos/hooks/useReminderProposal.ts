@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { allowReminderAlerts } from "@/features/todos/model/reminderAlerts";
+import { isTodoLimit } from "@/features/todos/model/todoLimit";
 import {
   isProposalSaved,
   markProposalSaved,
@@ -12,7 +13,7 @@ import {
 import { api, type Todo } from "@/lib/api";
 import { notifyDestructive, notifyError, notifySuccess } from "@/lib/haptics";
 
-type ReminderProposalError = "expired" | "changed" | "failed";
+type ReminderProposalError = "expired" | "changed" | "limit" | "failed";
 
 /** `rows` with the saved rows in place (new ones first) and the deleted ones gone. */
 export function applySavedRows(rows: Todo[], saved: Todo[], deletedIds: string[]): Todo[] {
@@ -44,9 +45,10 @@ export function useReminderProposal(proposal: ReminderProposal) {
     try {
       saved = await api.confirmReminderProposal(token, proposal.proposalId);
     } catch (caught) {
-      // ApiRequestError carries the HTTP status: 410 expired, 409 changed since.
+      // ApiRequestError carries the HTTP status: 410 expired, 409 changed since, unless
+      // the 409 is the account's open to-do cap.
       const status = (caught as { status?: unknown } | null)?.status;
-      setError(status === 410 ? "expired" : status === 409 ? "changed" : "failed");
+      setError(isTodoLimit(caught) ? "limit" : status === 410 ? "expired" : status === 409 ? "changed" : "failed");
       notifyError();
       sending.current = false;
       setBusy(false);

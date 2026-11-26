@@ -22,6 +22,8 @@ import { DialogHost } from "@/ui/overlay/DialogHost";
 import { preloadFigures } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
 import { sweepOldPickerCopies } from "@/lib/accountFiles";
+import { nameThisBuild } from "@/lib/api/appVersionHeader";
+import { appVersion } from "@/lib/appVersion";
 import { watchPhoneClock } from "@/lib/datetime/phoneClockSync";
 import { boundImageMemoryCache } from "@/lib/images/memoryCache";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
@@ -46,6 +48,8 @@ void restoreLaunchPrefs().then(() => markLaunchReady("prefs"));
 void sweepOldPickerCopies();
 // Before the first picture decodes: the memory cache keeps what it decodes until told a limit.
 boundImageMemoryCache();
+// Before the first call: every call to the API names this build (lib/api/appVersionHeader.ts).
+nameThisBuild(appVersion());
 
 const markSessionRestored = () => markLaunchReady("session");
 

@@ -2,8 +2,10 @@
 
 A paste of more than a couple of thousand characters leaves the phone's composer as a
 ``.txt`` attachment (``apps/mobile/features/attachments/model/pastedText.ts``), uploaded
-like any document. The phone names that file ``PASTED_TEXT_FILENAME``; the name and the
-``text/plain`` type together are how the server knows the text was pasted, not picked.
+like any document but presigned with the purpose ``"paste"``, which the row keeps
+(``Attachment.pasted``). That record is how the server knows the text was pasted, not
+picked: never the file's name or anything its text says, so a document a third party
+wrote cannot be read as the user's own words (security review, 2026-11-25).
 
 The model reads it as it would the same text typed: up to a message's length inline
 (another document gets ``MAX_EXTRACT_CHARS``), the rest through retrieval as with any
@@ -18,7 +20,6 @@ from app.modules.attachments.content_types import normalize_content_type
 from app.modules.attachments.text_extract import MAX_INDEX_EXTRACT_CHARS
 from app.services.prompt_safety import PASTED_TEXT_HEADER
 
-PASTED_TEXT_FILENAME = "pasted-text.txt"
 PASTED_TEXT_CONTENT_TYPE = "text/plain"
 
 # Read inline: as much as a typed message may hold.
@@ -36,12 +37,10 @@ PASTE_TOO_LONG_MESSAGE = (
 )
 
 
-def is_pasted_text(content_type: str, filename: str | None) -> bool:
-    """Whether an attachment is text the phone's composer turned into a file."""
-    return (
-        filename == PASTED_TEXT_FILENAME
-        and normalize_content_type(content_type) == PASTED_TEXT_CONTENT_TYPE
-    )
+def is_pasted_text(content_type: str, *, recorded_paste: bool) -> bool:
+    """Whether an attachment is text the phone's composer turned into a file: its row says
+    it was uploaded as a paste, and it is plain text."""
+    return recorded_paste and normalize_content_type(content_type) == PASTED_TEXT_CONTENT_TYPE
 
 
 def pasted_text_in(attachment_lines: list[str]) -> str:

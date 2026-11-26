@@ -7,17 +7,13 @@ import {
   fetchMemoryDocuments,
   getCachedMemoryDocuments,
   memoryDocumentsReadAt,
-  setMemoryDocuments,
   subscribeMemoryDocuments,
   updateMemoryDocuments,
 } from "@/features/memory/model/memoryDocumentsCache";
 import { invalidateMemoriesCache } from "@/features/memory/model/memoryListCache";
-import { memoryFailure, type MemoryChange, type MemoryFailure } from "@/features/memory/model/memoryFailure";
+import { memoryFailure, type MemoryChange } from "@/features/memory/model/memoryFailure";
+import { useMemoryInstruct } from "@/features/memory/hooks/useMemoryInstruct";
 import type { MemoryDocument, MemoryDocuments } from "@/features/memory/types";
-
-type InstructOutcome =
-  | { ok: true; reply: string; applied: number; dropped: number }
-  | { ok: false; failure: MemoryFailure };
 
 const NOT_SIGNED_IN = { ok: false, failure: "failed" } as const;
 
@@ -98,22 +94,7 @@ export function useMemoryDocuments(token: string | null) {
     if (result.error && !getCachedMemoryDocuments()) setError(true);
   }, [token, reportFailure]);
 
-  const instruct = useCallback(async (
-    instruction: string,
-    topic?: string,
-  ): Promise<InstructOutcome> => {
-    if (!token) return NOT_SIGNED_IN;
-    const session = getSessionGeneration();
-    try {
-      const result = await api.instructMemory(token, instruction, topic);
-      const scanning = getCachedMemoryDocuments()?.scanning ?? false;
-      setMemoryDocuments({ documents: result.documents, scanning }, session);
-      invalidateMemoriesCache();
-      return { ok: true, reply: result.reply, applied: result.applied, dropped: result.dropped ?? 0 };
-    } catch (error) {
-      return { ok: false, failure: memoryFailure(error) };
-    }
-  }, [token]);
+  const instruct = useMemoryInstruct(token);
 
   const removeOptimistically = useCallback(async (
     remove: (documents: MemoryDocument[]) => MemoryDocument[],

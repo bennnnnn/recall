@@ -100,6 +100,10 @@ async def test_an_instruction_is_saved_like_remember_this():
     ]
     # A hand edit: if it changes saved facts, the history scan skips older lines.
     assert apply.await_args.kwargs["manual_edit"] is True
+    # The user waits on it: its embeddings have their own short deadline.
+    assert (
+        apply.await_args.kwargs["embed_timeout_seconds"] == Settings().memory_instruct_embed_seconds
+    )
     assert instruct.await_args.kwargs["focus_topic"] == "preferences"
     assert instruct.await_args.kwargs["existing_areas"][0]["topic"] == "area:recall"
     release.assert_awaited_once()
@@ -176,3 +180,71 @@ async def test_busy_memory_raises_without_calling_the_model():
             )
     instruct.assert_not_awaited()
     release.assert_not_awaited()
+
+
+@pytest.mark.wall_clock
+@pytest.mark.asyncio
+async def test_the_instruction_model_has_one_deadline_its_fallback_included() -> None:
+    """The model and its fallback held the memory lock for two background timeouts while
+    the phone gave up at 30 s (security review, 2026-11-25): one budget covers both now."""
+    import asyncio
+    import time
+
+    from app.modules.memory import llm as memory_llm
+
+    seen: dict[str, object] = {}
+
+    async def slow(**kwargs: object) -> MemoryFactUpdateResult:
+        seen.update(kwargs)
+        await asyncio.sleep(5)
+        raise AssertionError("past the deadline")
+
+    settings = Settings()
+    settings.memory_instruct_model_seconds = 1
+    started = time.monotonic()
+    with (
+        patch("app.modules.memory.llm.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.memory.llm.litellm_gateway.complete_structured", slow),
+    ):
+        result = await memory_llm.instruct_memory(
+            settings, "keep lists short", existing_facts=[], existing_areas=[]
+        )
+    assert result is None  # the endpoint answers memory_edit_failed; the lock is released
+    assert time.monotonic() - started < 3
+    assert seen["timeout_seconds"] == 1
+
+
+def test_the_phone_waits_longer_than_the_server_may_work() -> None:
+    import re
+    from pathlib import Path
+
+    api_ts = Path(__file__).parents[5] / "mobile/features/memory/api.ts"
+    found = re.search(r"INSTRUCT_TIMEOUT_MS = ([\d_]+)", api_ts.read_text())
+    assert found is not None
+    # The model's budget, the embeddings' own deadline, then the writes.
+    settings = Settings()
+    budget = settings.memory_instruct_model_seconds + settings.memory_instruct_embed_seconds
+    assert int(found[1].replace("_", "")) >= (budget + 20) * 1000
+
+
+@pytest.mark.wall_clock
+@pytest.mark.asyncio
+async def test_a_stalled_embedding_leaves_the_vectors_for_a_later_pass() -> None:
+    """The edit's text is saved before its vectors: a provider that stalls past the edit's
+    deadline ends the step (a later pass backfills them), the request answers."""
+    import asyncio
+    import time
+
+    from app.modules.memory import apply as memory_apply
+
+    async def stall(*_args: object, **_kwargs: object) -> list[list[float]]:
+        await asyncio.sleep(5)
+        raise AssertionError("past the deadline")
+
+    started = time.monotonic()
+    with patch("app.gateways.embedding_gateway.embed_many", stall):
+        vectors = await memory_apply._vectors(
+            Settings(), uuid4(), ["User likes tea"], timeout_seconds=0.2
+        )
+    assert vectors is None
+    assert time.monotonic() - started < 2

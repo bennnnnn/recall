@@ -318,6 +318,13 @@ it("reuploads a restored Library document after its rejected server ID is remove
   expect(requestRaw).toHaveBeenCalledWith("/attachments/a1/upload", "token", expect.objectContaining({ method: "PUT", body: expect.any(ArrayBuffer) }), true, expect.any(Number));
 });
 
+it("presigns only the composer's paste as a paste, never a picked file with a paste's name", async () => {
+  const named = { localUri: "file:///picked.txt", contentType: "text/plain", fileName: "pasted-text.txt", kind: "file" as const };
+  await uploadChatAttachment("token", named);
+  await uploadChatAttachment("token", { ...named, pasted: { chars: 3, preview: "abc" } });
+  expect(jest.mocked(api.presignAttachment).mock.calls.map((call) => call[1].purpose)).toEqual(["chat", "paste"]);
+});
+
 describe("every picked photo leaves without its metadata, as something the API takes", () => {
   type Asset = { uri: string; mimeType?: string; width?: number; height?: number; name: string };
   const library = (asset: Asset) => {

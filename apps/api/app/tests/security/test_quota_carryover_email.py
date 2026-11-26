@@ -201,7 +201,9 @@ async def test_quota_carryover_email_key_unsaved_refuses_delete(linked: Linked) 
 
     headers = {"Authorization": f"Bearer {token}"}
     with _carry_write_fails(linked.redis, email_key):
-        refused = await linked.client.delete("/auth/me", headers=headers)
+        refused = await linked.client.request(
+            "DELETE", "/auth/me", json={"confirm": "delete"}, headers=headers
+        )
     assert refused.status_code == 503, refused.text
     assert refused.json()["detail"]["code"] == "unavailable"
     assert await _accounts_on(email) == 1

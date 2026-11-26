@@ -150,6 +150,7 @@ async def list_attachments(
                 message_id=row.message_id,
                 original_filename=row.original_filename,
                 chat_title=chat_title,
+                pasted=row.pasted,
             )
         )
     return Page(items=items, next_cursor=next_cursor)
