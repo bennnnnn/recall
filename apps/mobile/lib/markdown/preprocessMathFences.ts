@@ -237,6 +237,13 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
   for (const line of lines) {
     const before = open;
     open = fenceAfterLine(open, line, true);
+    if (!before && open && fenceEndsList(line)) {
+      // A fence at the margin ends the list; so does one liftMathFencesOutOfLists will
+      // move there: the step after it is lifted, never kept as the list's member.
+      inList = false;
+      topNumber = null;
+      nestedNumber = null;
+    }
     if (before || open) {
       out.push(line);
       continue;
@@ -273,6 +280,13 @@ export function dedentMisindentedMarkdownSteps(content: string): string {
   return out.join("\n");
 }
 
+/** A fence opener that ends the list above it: at the margin, or one lifted out of lists. */
+function fenceEndsList(line: string): boolean {
+  if (!/^\s/.test(line)) return true;
+  const lang = readFenceMarkerLoose(line)?.info ?? "";
+  return /^[a-zA-Z][\w-]*$/.test(lang) && shouldLiftFenceOutOfList(lang);
+}
+
 /** A deep-indented step that belongs at the margin, not a member of the list above it. */
 function misplacedStep(
   line: string,
@@ -282,7 +296,7 @@ function misplacedStep(
   nestedNumber: number | null,
 ): boolean {
   if (!item) return /^\s*#{1,6}\s/.test(line) || !inList;
-  if (!item[2]) return !inList;
+  if (!item[2] || !inList) return !inList;
   const number = Number(item[2]);
   const continuesNested = nestedNumber !== null && number === nestedNumber + 1;
   return topNumber !== null && number === topNumber + 1 && !continuesNested;

@@ -73,6 +73,29 @@ describe("an informational reply's nested members", () => {
     expect(members(list)).toEqual(["Chemistry", "Biology", "History"]);
   });
 
+  it.each([
+    [
+      "a numbered step with no list open",
+      ["Divide both sides:", "```math", "4x = 4", "```", "", "    2. **Simplify:**"],
+      "**Simplify:**",
+    ],
+    [
+      "a bullet after a margin fence ended the list",
+      ["- **Subtract 3**", "```math", "2x=8", "```", "", "    - **Divide by 2:**"],
+      "**Divide by 2:**",
+    ],
+    [
+      "a bullet after a fence the list lift moves to the margin",
+      ["- **Subtract 3**", "   ```math", "   2x=8", "   ```", "", "    - **Divide by 2:**"],
+      "**Divide by 2:**",
+    ],
+  ])("lifts a misindented step after a maths fence: %s", (_name, lines, step) => {
+    const out = preprocessMarkdown(lines.join("\n"));
+    const tokens = markdownItInstance.parse(out, {});
+    expect(tokens.some((t) => t.type === "code_block")).toBe(false);
+    expect(out).toContain(step);
+  });
+
   it("still lifts a misindented next step to the margin", () => {
     const reply = ["1. **Divide both sides by 4**", "", "    2. **Simplify:**", "", "x = 1"].join(
       "\n",
