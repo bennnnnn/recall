@@ -182,6 +182,7 @@
   "chat.menu": "የውይይት አማራጮች",
   "chat.message_render_failed": "ይህን መልእክት ማሳየት አልተቻለም።",
   "chat.model_unavailable": "ያ ሞዴል አሁን ምላሽ እየሰጠ አይደለም። እንደገና ይሞክሩ፣ ወይም በቅንብሮች › ሞዴሎች ውስጥ ሌላ ሞዴል ይምረጡ።",
+  "chat.unknown_model": "ያ ሞዴል አይገኝም። በቅንብሮች › ሞዴሎች ውስጥ ሌላ ሞዴል ይምረጡ።",
   "chat.new_chat": "አዲስ ውይይት",
   "chat.offline_body": "መልዕክት ለመላክ እንደገና በይነመረብ ይገናኙ።",
   "chat.open_drawer_a11y": "ምናሌ ክፈት",

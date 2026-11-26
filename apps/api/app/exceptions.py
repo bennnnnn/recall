@@ -177,11 +177,16 @@ class ConsentRequiredError(ChatServiceError):
 
 
 class UnknownModelOverrideError(ChatServiceError):
-    """Per-message picker asked for an alias the user's pool does not include."""
+    """Per-message picker asked for an alias the user's pool does not include.
+
+    The client gets the ``unknown_model`` code, which the phone words in its language, and
+    a plain English message for any other client: never the alias, an internal name. The
+    alias stays on the error and in its ``str`` for the logs."""
 
     def __init__(self, alias: str) -> None:
         self.alias = alias
-        super().__init__(f"Unknown or unavailable model: {alias}")
+        super().__init__("That model isn't available. Choose another in Settings › Models.")
+        self.args = (f"Unknown or unavailable model: {alias}",)
 
 
 class RedisUnavailableError(Exception):
