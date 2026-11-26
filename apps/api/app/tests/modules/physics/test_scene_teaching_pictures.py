@@ -288,6 +288,22 @@ def test_a_value_the_question_asks_to_show_is_no_given_the_scene_must_use() -> N
     assert len(fences) == 1 and "projectile" in fences[0]
 
 
+async def test_no_figure_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import quota as quota_service
+
+    async def capped(*_: Any) -> bool:
+        return True
+
+    async def never(**_: Any) -> Any:
+        raise AssertionError("no model call past the cap")
+
+    monkeypatch.setattr(quota_service, "global_spend_exceeded", capped)
+    monkeypatch.setattr("app.gateways.structured_completion.complete_structured", never)
+    monkeypatch.setattr("app.core.redis.get_redis_client", lambda: None)
+    read = await figure_read.read_physics_picture(_settings(), _BAR, [], asked=False)
+    assert read is None
+
+
 def test_a_follow_up_with_no_number_is_held_to_the_problem_before_it() -> None:
     assert figure_read.problem_text("draw it", [_SEESAW]) == _SEESAW
     assert figure_read.problem_text(_BAR, [_SEESAW]) == _BAR
