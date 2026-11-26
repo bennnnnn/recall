@@ -198,6 +198,8 @@ const NO_ACCOUNT_DATA = [
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
   "lib/accentPrefs.ts#accentPref",
   "lib/accentRuntime.ts#accent",
+  // This build's version and native build: the same for every account.
+  "lib/api/appVersionHeader.ts#tag",
   "lib/api/client.ts#onTokenRefresh",
   "lib/api/client.ts#onUnauthorized",
   "lib/api/consentRefusal.ts#onConsentRequired",

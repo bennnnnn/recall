@@ -106,8 +106,11 @@ def _client(user: MagicMock) -> TestClient:
 
 @pytest.mark.parametrize(
     "body, code",
-    [({"apple_authorization_code": "code-1"}, "code-1"), (None, None), ({}, None)],
-    ids=["with-code", "no-body", "empty-body"],
+    [
+        ({"confirm": "delete", "apple_authorization_code": "code-1"}, "code-1"),
+        ({"confirm": "delete"}, None),
+    ],
+    ids=["with-code", "no-code"],
 )
 def test_delete_me_passes_the_apple_code_through(body, code):
     user = _user(apple_sub="apple-sub")
@@ -125,10 +128,26 @@ def test_delete_me_rejects_an_oversized_apple_code():
         response = _client(_user(apple_sub="apple-sub")).request(
             "DELETE",
             "/auth/me",
-            json={"apple_authorization_code": "x" * 5000},
+            json={"confirm": "delete", "apple_authorization_code": "x" * 5000},
             headers={"Authorization": "Bearer tok"},
         )
     assert response.status_code == 422
+    delete.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "body",
+    [None, {}, {"apple_authorization_code": "code-1"}, {"confirm": "yes"}, {"confirm": "DELETE"}],
+    ids=["no-body", "empty-body", "code-only", "other-word", "other-case"],
+)
+def test_delete_me_without_the_confirmation_deletes_nothing(body):
+    """A bearer token alone never deletes the account: the request must say it means it."""
+    with patch("app.modules.account.api.account_lifecycle.delete_account", AsyncMock()) as delete:
+        response = _client(_user(apple_sub="apple-sub")).request(
+            "DELETE", "/auth/me", json=body, headers={"Authorization": "Bearer tok"}
+        )
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "confirm_required"
     delete.assert_not_awaited()
 
 

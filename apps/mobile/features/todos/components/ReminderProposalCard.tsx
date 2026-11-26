@@ -60,7 +60,9 @@ export function ReminderProposalCard({ proposal }: Props) {
           </View>
         );
       })}
-      {error ? <Text style={s.error}>{t(`todos.proposal_error_${error}`)}</Text> : null}
+      {error ? (
+        <Text style={s.error}>{t(error === "limit" ? "todos.error_limit" : `todos.proposal_error_${error}`)}</Text>
+      ) : null}
       {done ? (
         <View style={s.doneRow} accessibilityLiveRegion="polite">
           <Icon name="check-circle-filled" size={IconSize.sm} color={theme.primary} />

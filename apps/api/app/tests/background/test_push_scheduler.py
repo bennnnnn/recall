@@ -43,7 +43,12 @@ async def _cycle(
     page_iter = iter(pages)
 
     async def collect(
-        session: object, *, now: datetime, after: object, ttl_seconds: int | None
+        session: object,
+        *,
+        now: datetime,
+        after: object,
+        ttl_seconds: int | None,
+        share: object = None,
     ) -> PushPage:
         order.append(f"collect after={after}")
         return next(page_iter)

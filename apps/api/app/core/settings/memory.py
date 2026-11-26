@@ -16,6 +16,12 @@ class MemorySettings(BaseModel):
     # (``prompt_builder._context_plan``, the "ambient" scope). Off: such a turn reads none.
     memory_ambient_read_enabled: bool = True
     memory_active_fact_cap: int = 150
+    # The most the model may take over one memory edit the user typed (POST
+    # /memories/instruct), its fallback included. It held the memory lock for up to two
+    # background timeouts (120 s) while the phone gave up at 30 s, said "Can't reach
+    # Recall", and a retry met memory_busy (security review, 2026-11-25). The phone waits
+    # this plus room for the writes (features/memory/api.ts INSTRUCT_TIMEOUT_MS).
+    memory_instruct_model_seconds: int = 45
     # A new fact this close (cosine) to an active one says the same thing in other words
     # and replaces it. Measured 2026-11-20: true paraphrases scored 0.89-0.91, distinct
     # look-alikes ("plays guitar" / "plays piano", "lives in Paris" / "in Lyon") 0.52-0.86.

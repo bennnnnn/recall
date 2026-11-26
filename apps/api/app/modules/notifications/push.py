@@ -30,6 +30,7 @@ from app.models.orm import PushToken, TodoItem
 from app.modules.notifications.send_backoff import SendBackoff, occurrence_key
 from app.modules.todos import (
     PUSH_REMINDERS,
+    AccountShare,
     aged_out_unsent,
     due_reminder_page,
     is_due_now,
@@ -270,8 +271,10 @@ async def collect_push_page(
     after: tuple[datetime, UUID] | None = None,
     limit: int = PUSH_PAGE_ROWS,
     ttl_seconds: int | None = None,
+    share: AccountShare | None = None,
 ) -> PushPage:
-    """Push messages for one page of due to-dos (``todos.due_reminder_page``)."""
+    """Push messages for one page of due to-dos (``todos.due_reminder_page``). With the
+    cycle's ``share``, an account past its share this cycle waits for the next one."""
     rows = await due_reminder_page(session, PUSH_REMINDERS, now=now, after=after, limit=limit)
     if not rows:
         return PushPage(messages=[], next_after=None)
@@ -291,6 +294,8 @@ async def collect_push_page(
                 continue
             user_tokens = tokens_by_user.get(todo.user_id, [])
             if not user_tokens:
+                continue
+            if share is not None and not share.take(todo.user_id):
                 continue
             title = reminder_title(is_overdue=todo.due_at < now, locale=user.locale)
             _append_outbound(

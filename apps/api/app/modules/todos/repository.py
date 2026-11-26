@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.modules.todos import write_log
+from app.modules.todos.limits import ensure_room_for_open
 
 DEFAULT_TOPIC = "General"
 OPEN_CONTENT_DUE_UNIQUE = "uq_todo_open_content_due"
@@ -222,6 +223,8 @@ async def create(
     planned = write_log.planned()
     if planned is not None:
         return write_log.plan_create(planned, todo)
+    # Every add goes through here (the list, a chat card's tap): one cap for all of them.
+    await ensure_room_for_open(session, user_id)
     session.add(todo)
     if commit:
         await session.commit()
@@ -252,6 +255,9 @@ async def update(
     planned = write_log.planned()
     if planned is not None:
         return cast(TodoItem, write_log.plan_update(planned, todo, changes))
+    if changes.get("checked") is False and todo.checked:
+        # Reopening a completed to-do adds an open one, as a new one does.
+        await ensure_room_for_open(session, todo.user_id)
     for key, value in changes.items():
         setattr(todo, key, value)
     if commit:

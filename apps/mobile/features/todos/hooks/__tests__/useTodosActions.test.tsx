@@ -150,6 +150,17 @@ describe("useTodosActions reminders", () => {
     expect(Alert.alert).toHaveBeenCalled();
   });
 
+  it("says the account's open to-do cap, not a failed save, when the API refuses for it", async () => {
+    (api.createTodo as jest.Mock).mockRejectedValue(Object.assign(new Error("limit"), { status: 409, code: "todo_limit" }));
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("One more", null, jest.fn());
+    });
+    expect(JSON.stringify(jest.mocked(Alert.alert).mock.calls)).toContain("todos.error_limit");
+  });
+
   it("creates a plain to-do without a due date", async () => {
     const created = todo({ id: "plain-1", content: "Buy milk" });
     (api.createTodo as jest.Mock).mockResolvedValue(created);

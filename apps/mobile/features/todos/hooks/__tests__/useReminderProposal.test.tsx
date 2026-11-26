@@ -162,3 +162,12 @@ it("says a failed save with a haptic and no success", async () => {
   expect(notifyError).toHaveBeenCalledTimes(1);
   expect(notifySuccess).not.toHaveBeenCalled();
 });
+
+it("says the account's open to-do cap, not that the reminder changed", async () => {
+  jest.mocked(api.confirmReminderProposal).mockRejectedValue(
+    Object.assign(new Error("limit"), { status: 409, code: "todo_limit" }),
+  );
+  const { result } = await renderHook(() => useReminderProposal(proposal));
+  await act(async () => { await result.current.confirm(); });
+  expect(result.current.error).toBe("limit");
+});

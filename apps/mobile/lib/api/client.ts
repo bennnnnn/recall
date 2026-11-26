@@ -12,6 +12,7 @@ import {
 
 import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { newRequestId, REQUEST_ID_HEADER, responseRequestId } from "@/lib/api/requestId";
+import { appVersionHeaders } from "@/lib/api/appVersionHeader";
 import { shareRefresh } from "@/lib/api/refreshFlight";
 import { accessTokenNeedsRefresh } from "@/lib/api/tokenExpiry";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
@@ -68,7 +69,11 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
   const forwardAbort = () => controller.abort();
   init.signal?.addEventListener("abort", forwardAbort, { once: true });
   if (init.signal?.aborted) controller.abort();
-  const headers = { ...(init.headers as Record<string, string> | undefined), [REQUEST_ID_HEADER]: newRequestId() };
+  const headers = {
+    ...(init.headers as Record<string, string> | undefined),
+    [REQUEST_ID_HEADER]: newRequestId(),
+    ...appVersionHeaders(),
+  };
   try {
     return await fetch(url, { ...init, headers, signal: controller.signal });
   } catch (error) {
@@ -264,7 +269,11 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
   let answered = false;
   let status: number | null = null;
   try {
-    const headers = { ...(init.headers as Record<string, string> | undefined), [REQUEST_ID_HEADER]: requestId };
+    const headers = {
+      ...(init.headers as Record<string, string> | undefined),
+      [REQUEST_ID_HEADER]: requestId,
+      ...appVersionHeaders(),
+    };
     const response = await fetch(apiUrl(path), { ...init, headers });
     status = response.status;
     unreachable = UNAVAILABLE_STATUSES.has(response.status);
@@ -466,6 +475,7 @@ export async function authorizeNativeTransfer(
   }
   const status = await send({
     [REQUEST_ID_HEADER]: newRequestId(),
+    ...appVersionHeaders(),
     ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {}),
   });
   requireSession(generation);

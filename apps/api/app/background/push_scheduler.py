@@ -20,7 +20,7 @@ from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways.expo_push_gateway import MAX_MESSAGES_PER_REQUEST
 from app.modules.notifications import push as push_notifications
-from app.modules.todos import advance_recurring_without_device
+from app.modules.todos import AccountShare, advance_recurring_without_device
 from app.repositories import push_tokens as push_repo
 
 logger = logging.getLogger(__name__)
@@ -53,11 +53,17 @@ async def _push_cycle(settings: Settings, lock: CycleLock) -> None:
     stop_at = time.monotonic() + settings.reminder_cycle_budget_seconds
     sent = 0
     after = None
+    # One account's backlog never fills the cycle ahead of everyone else's reminders.
+    share = AccountShare()
     while True:
         # A short-lived session per page; none is held across Expo HTTP.
         async with SessionLocal() as session:
             page = await push_notifications.collect_push_page(
-                session, now=now, after=after, ttl_seconds=settings.push_reminder_ttl_seconds
+                session,
+                now=now,
+                after=after,
+                ttl_seconds=settings.push_reminder_ttl_seconds,
+                share=share,
             )
         messages = await push_notifications.without_held(backoff, page.messages)
         for start in range(0, len(messages), MAX_MESSAGES_PER_REQUEST):

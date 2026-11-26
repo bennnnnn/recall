@@ -48,6 +48,7 @@ def _row(content_type: str, *, verified: bool = True, reserved: bool = False) ->
         verified_at=None if not verified else datetime(2026, 8, 1, tzinfo=UTC),
         source="upload",
         original_filename=None,
+        pasted=False,
         library_visible=True,
         created_at=created,
     )

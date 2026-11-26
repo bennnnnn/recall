@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -13,6 +15,8 @@ from app.modules.memory.offline import offline_memory_facts, offline_section_mer
 from app.modules.memory.schemas import MemoryFactUpdateResult, MemorySectionItem
 from app.modules.memory.topics import STANDARD_TOPICS
 from app.services.prompt_safety import wrap_untrusted
+
+logger = logging.getLogger(__name__)
 
 # What belongs in each document, for the model (the UI shows the short summary).
 _TOPIC_HINTS = {
@@ -421,13 +425,21 @@ async def instruct_memory(
             ),
         },
     ]
-    return await litellm_gateway.complete_structured(
-        settings=settings,
-        model_alias=ROUTING.background,
-        messages=messages,
-        schema=MemoryFactUpdateResult,
-        max_tokens=2048,
-    )
+    budget = settings.memory_instruct_model_seconds
+    try:
+        # One deadline for the call and its fallback: the user is waiting on the answer.
+        async with asyncio.timeout(budget):
+            return await litellm_gateway.complete_structured(
+                settings=settings,
+                model_alias=ROUTING.background,
+                messages=messages,
+                schema=MemoryFactUpdateResult,
+                max_tokens=2048,
+                timeout_seconds=budget,
+            )
+    except TimeoutError:
+        logger.warning("Memory instruction model ran out of its %s s", budget)
+        return None
 
 
 async def merge_memory_section(

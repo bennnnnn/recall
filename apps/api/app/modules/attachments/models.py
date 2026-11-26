@@ -74,6 +74,12 @@ class Attachment(Base):
         default=True,
         server_default="true",
     )
+    # Text the user pasted into the composer, which the phone sent as a file: set only by a
+    # presign with the purpose "paste" (``upload.py``), never read off the name or the text,
+    # and the one thing that frames the file as the user's own words (``pasted_text.py``).
+    pasted: Mapped[bool] = mapped_column(
+        Boolean(), nullable=False, default=False, server_default=text("false")
+    )
     # First time a message linked this row. An upload never linked is a composer
     # draft: kept out of Library and reaped; one whose chat was deleted stays.
     linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

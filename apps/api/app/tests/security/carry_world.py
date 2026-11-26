@@ -156,7 +156,12 @@ async def delete(world: Linked, user_id: UUID, token: str) -> None:
     """Delete the account through ``DELETE /auth/me`` and run its sweep."""
     from app.background.handlers import _handle_storage_sweep
 
-    response = await world.client.delete("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    response = await world.client.request(
+        "DELETE",
+        "/auth/me",
+        json={"confirm": "delete"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert response.status_code == 204, response.text
     await _handle_storage_sweep(world.settings, {"user_id": str(user_id)})
     world.users.remove(user_id)

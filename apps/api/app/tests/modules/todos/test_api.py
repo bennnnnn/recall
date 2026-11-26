@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy.types import DateTime, TypeDecorator
 
+from app.core.db import get_db
 from app.models.orm import TodoItem
 from app.modules.todos import api as todos_router
 from app.modules.todos import crud
@@ -400,6 +401,27 @@ def test_create_todo():
         )
     assert r.status_code == 201
     assert r.json()["content"] == "Test todo"
+
+
+def test_create_todo_past_the_cap_is_refused_with_its_code():
+    """The phone names the cap in the user's language by the code (``todos.error_limit``)."""
+    from fastapi.testclient import TestClient
+
+    from app.modules.todos.limits import OPEN_TODOS_MAX
+
+    app = app_with_user(api_user())
+    full = AsyncMock(return_value=OPEN_TODOS_MAX)
+    with patch("app.modules.todos.repository.next_sort_order", AsyncMock(return_value=0)):
+        session = AsyncMock()
+        session.scalar = full
+        session.add = MagicMock()
+        app.dependency_overrides[get_db] = lambda: session
+        r = TestClient(app).post(
+            "/todos", headers={"Authorization": "Bearer tok"}, json={"content": "One more"}
+        )
+    assert r.status_code == 409
+    assert r.json()["detail"]["code"] == "todo_limit"
+    session.add.assert_not_called()
 
 
 def test_create_todo_with_chat_id():
