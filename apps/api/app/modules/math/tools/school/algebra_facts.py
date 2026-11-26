@@ -13,6 +13,7 @@ from typing import Any
 from app.modules.math.schemas import MathIntent, declined_reading
 from app.modules.math.solve.declines import sympy_decline
 from app.modules.math.solve.triangle import cos_degrees, cosine_rule_side
+from app.modules.math.tex_numbers import short_number as _number
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.school._parse import _SIDE_ASKED
 from app.modules.math.tools.school.equation_features.count_conditions import has_condition
@@ -271,10 +272,6 @@ def _cosine_rule(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | No
         answer,
     )
     return replace(block, worked_reply=working)
-
-
-def _number(value: Any) -> str:
-    return f"{float(value):g}"
 
 
 def _side_answer(side: Any, *, exact: bool) -> str:

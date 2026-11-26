@@ -240,7 +240,8 @@ def test_an_invented_scene_with_no_verified_block_is_struck_out() -> None:
     out = validate_physics_fences('```simulation\n{"type":"orbit","bodies":[]}\n```')
 
     assert PHYSICS_SHORT_HINT not in out
-    assert "Could not render that diagram" in out
+    # Nothing of its own, in no language: chat's owed_picture says what was not drawn.
+    assert out.strip() == ""
 
 
 # --- the spec's own rules ---------------------------------------------------

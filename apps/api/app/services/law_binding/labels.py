@@ -19,6 +19,7 @@ import re
 from functools import lru_cache
 
 from app.services.law_binding.spec import VariableSpec
+from app.services.law_binding.words import LABEL_LINK
 
 CHANGE = "change"
 
@@ -61,7 +62,7 @@ _DURATION = re.compile(
 # or a hedge ("about").
 _LINK = (
     r"(?:\s+[^\s\d.,;:?!=]{1,3}(?=\s*[=:]))?"
-    r"(?:\s*(?:of|is|was|equals?|equal\s+to|=|:|≈|about|approximately|roughly|around))*\s*$"
+    rf"(?:\s*(?:of|{LABEL_LINK}|about|approximately|roughly|around))*\s*$"
 )
 # A value said as the size of a change: a verb, then "by" or "through" right before the value
 # ("reduces its speed by 5 m/s", "is heated through 100 °C"). It is a change only beside a

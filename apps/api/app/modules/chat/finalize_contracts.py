@@ -79,5 +79,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "proper_case",
         "request_sections",
         "presentation",
+        # A stopped reply left empty by a pass that took its picture out says so.
+        "owed_picture",
     }
 )

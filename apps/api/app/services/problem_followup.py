@@ -21,7 +21,7 @@ from app.services.latex_markup import without_markup
 from app.services.law_binding.fit import read_givens
 from app.services.law_binding.givens import Given
 from app.services.law_binding.units import UnitTable
-from app.services.number_text import fold_scientific
+from app.services.number_text import DECIMAL, fold_scientific
 from app.services.scaled_followup import (
     Scaling,
     counted,
@@ -32,6 +32,7 @@ from app.services.scaled_followup import (
     thrown_at,
     written_owner,
 )
+from app.services.text_normalize import SENTENCE_BREAK
 
 # A line that asks only to have the previous result explained, read lowercase.
 EXPLAIN_RE = re.compile(
@@ -168,7 +169,7 @@ def followup_line(query: str | None) -> str | None:
 
 def ask_replaced(prior: str, phrase: str) -> str:
     """The prior problem asking "Find the <phrase>." in place of its own ask sentence."""
-    parts = re.split(r"(?<=[.?!])\s+", prior.strip())
+    parts = SENTENCE_BREAK.split(prior.strip())
     replacement = f"Find the {phrase}."
     if parts and _ASK_SENTENCE.search(parts[-1]):
         parts[-1] = replacement
@@ -259,7 +260,7 @@ def remove_given(text: str, given: Given) -> str:
 def with_sentences(prior: str, *, ask: str | None, stated: tuple[str, ...]) -> str:
     """The prior problem with sentences ``stated`` before its ask, and ``ask`` in place of
     its ask sentence when given."""
-    parts = re.split(r"(?<=[.?!])\s+", prior.strip())
+    parts = SENTENCE_BREAK.split(prior.strip())
     has_ask = bool(parts) and _ASK_SENTENCE.search(parts[-1]) is not None
     setup = parts[:-1] if has_ask else parts
     question = ask if ask is not None else (parts[-1] if has_ask else "")
@@ -304,19 +305,25 @@ def item_number(text: str, start: int, end: int) -> bool:
     return _ITEM.search(text, max(0, start - 24), start) is not None
 
 
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+# The shared grammar: ".5" is one half, never a 5 after a stray full stop.
+_NUMBER = re.compile(DECIMAL)
 
 
 def stated_numbers(text: str) -> Counter[str]:
     """The numbers ``text`` writes, each as often as it writes it, without its markup and
-    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice."""
+    never an item's number ("Solve 1"): "3x + 3 = 7" writes 3 twice, and ".5" writes 0.5."""
     plain = without_markup(fold_scientific(text))
     return Counter(
-        match.group()
+        _leading_zero(match.group())
         for match in _NUMBER.finditer(plain)
         if not item_number(plain, match.start(), match.end())
         and not _EXPONENT.search(plain, max(0, match.start() - 3), match.start())
     )
+
+
+def _leading_zero(number: str) -> str:
+    """ ".5" as "0.5": one number however its whole part is written."""
+    return f"0{number}" if number.startswith(".") else number
 
 
 # A power of ten's exponent, once scientific notation is folded ("1e-12"): its value's, not a

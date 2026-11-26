@@ -10,7 +10,6 @@ mode, ``chat.turn_prep.mode``: it reads the window, not only the message.)
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -21,6 +20,7 @@ from app.modules.turn_reading.teaching import (
     is_teaching_request,
     teaching_reason,
 )
+from app.services.text_normalize import SENTENCE_BREAK
 
 # Why the plan is what it is: one request, several, or the pool read gave up (the whole
 # message as one request, as every turn before plans).
@@ -85,15 +85,12 @@ def current_turn_reading() -> TurnReading | None:
     return kept if isinstance(kept, TurnReading) else None
 
 
-_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+")
-
-
 def request_units(text: str, plan: TurnPlan) -> tuple[str, ...]:
     """The message's requests as one reader judges each: the plan's parts when it splits the
     message, else its sentences ("Will it rain tomorrow? And what's 15% of 80?")."""
     if plan.multi:
         return plan.texts()
-    return tuple(part for part in _SENTENCE_BREAK.split(" ".join(text.split())) if part)
+    return tuple(part for part in SENTENCE_BREAK.split(" ".join(text.split())) if part)
 
 
 def is_homework(text: str) -> bool:

@@ -269,7 +269,7 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
         raise AssertionError("the budget should have cancelled this lookup")
 
     monkeypatch.setattr(chemistry_context.pubchem_gateway, "lookup_by_name", slow_lookup)
-    monkeypatch.setattr(chemistry_context, "PUBCHEM_BUDGET_SECONDS", 0.05)
+    monkeypatch.setattr("app.modules.chemistry.compound_lookup.PUBCHEM_BUDGET_SECONDS", 0.05)
     start = time.perf_counter()
     result = await chemistry_context.build_chemistry_augmentation(
         "what is the structure of aspirin?", _SETTINGS

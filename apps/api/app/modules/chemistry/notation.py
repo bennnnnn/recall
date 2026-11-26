@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import re
 
-_SUBSCRIPT = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-_SUPERSCRIPT = str.maketrans("0123456789+-−", "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁻")
+from app.services.glyphs import TO_SUBSCRIPT, TO_SUPERSCRIPT_CHARGE
 
 # ``^2-``  ``^3+``  ``^-4``  ``^{-4}``  ``^(−4)``  ``^2``: a body of digits and one sign only.
 # ``e^(-kt)`` and ``x^(1/2)`` are expressions, not exponents, and keep their caret.
@@ -44,20 +43,20 @@ def _caret(match: re.Match[str]) -> str:
         body = match.group("bare")
     if not _CARET_BODY.match(body.strip()):
         return match.group(0)
-    return body.strip().translate(_SUPERSCRIPT)
+    return body.strip().translate(TO_SUPERSCRIPT_CHARGE)
 
 
 def _glued_charge(match: re.Match[str]) -> str:
     symbol, magnitude, sign = match.groups()
-    return f"{symbol}{f'{magnitude}{sign}'.translate(_SUPERSCRIPT)}"
+    return f"{symbol}{f'{magnitude}{sign}'.translate(TO_SUPERSCRIPT_CHARGE)}"
 
 
 def _bracket_charge(match: re.Match[str]) -> str:
-    return f"{match.group(1)}{match.group(2)}".translate(_SUPERSCRIPT)
+    return f"{match.group(1)}{match.group(2)}".translate(TO_SUPERSCRIPT_CHARGE)
 
 
 def _subscript(match: re.Match[str]) -> str:
-    return f"{match.group(1)}{match.group(2).translate(_SUBSCRIPT)}"
+    return f"{match.group(1)}{match.group(2).translate(TO_SUBSCRIPT)}"
 
 
 def typeset(text: str) -> str:
@@ -69,7 +68,7 @@ def typeset(text: str) -> str:
     out = _GLUED_CHARGE.sub(_glued_charge, out)
     out = _BRACKET_CHARGE.sub(_bracket_charge, out)
     out = _SUBSCRIPT_DIGITS.sub(_subscript, out)
-    out = _SINGLE_CHARGE.sub(lambda match: match.group(1).translate(_SUPERSCRIPT), out)
+    out = _SINGLE_CHARGE.sub(lambda match: match.group(1).translate(TO_SUPERSCRIPT_CHARGE), out)
     out = _LOG10.sub("log₁₀", out)
     return _LEADING_MINUS.sub("−", out)
 

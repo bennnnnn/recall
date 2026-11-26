@@ -268,7 +268,7 @@ def test_kinematics_speed_graph_plots_the_magnitude() -> None:
 
     (graph,) = result.graph_specs
     assert graph.expr == "v(t) = |5 - 9.81*t|"
-    assert graph.title == "Speed vs. Time" and graph.y_label == "Speed (m/s)"
+    assert graph.title == "|v|\u2013t" and graph.y_label == "|v| (m/s)"
     assert graph.trajectory_type == "velocity_vs_time"
     assert len(graph.points) == 100
     assert all(speed >= 0 for _, speed in graph.points)

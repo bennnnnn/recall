@@ -10,6 +10,7 @@ from fractions import Fraction
 from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tex_numbers import fraction_tex
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.school._parse import count_value
@@ -17,7 +18,6 @@ from app.modules.math.tools.school.probability_formulas import (
     extract_probability_formulas,
     probability_formula_block,
 )
-from app.modules.math.tools.school.single_draw import fraction_tex
 from app.services.number_text import SIGNED_DECIMAL, count_word_pattern
 from app.services.workout import Workout, math_line, render_workout
 

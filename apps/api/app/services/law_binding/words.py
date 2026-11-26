@@ -45,8 +45,11 @@ _CHANGE_VERBS = {
 }
 
 
-_LABEL_LINK = r"(?:is|was|equals?|equal\s+to|=|:|≈)"
-_LABEL_WORD = r"\s+[^\s\d.,;:?!=]+"
+# The words that link a label to its value ("a power of 2 W" takes its "of" apart), and one
+# word between them: the label readers of the law binder (``words``, ``inverse``, ``labels``)
+# all build from these, so a link one reads is one they all read.
+LABEL_LINK = r"(?:is|was|equals?|equal\s+to|=|:|≈)"
+LABEL_WORD = r"\s+[^\s\d.,;:?!=]+"
 
 
 @lru_cache(maxsize=256)
@@ -55,8 +58,8 @@ def _label_patterns(phrase: str) -> tuple[re.Pattern[str], re.Pattern[str]]:
     # Its noun and "of" ("a total power of"), or a longer subject and a verb ("the secondary
     # voltage of a transformer is"). "The total power of two lenses of 2 D" labels a lens.
     before = re.compile(
-        rf"(?<![\w]){words}(?:(?:{_LABEL_WORD}){{0,2}}?\s*(?:of|{_LABEL_LINK})"
-        rf"|(?:{_LABEL_WORD}){{0,6}}?\s+{_LABEL_LINK})\s*(?:about\s+|approximately\s+)?$"
+        rf"(?<![\w]){words}(?:(?:{LABEL_WORD}){{0,2}}?\s*(?:of|{LABEL_LINK})"
+        rf"|(?:{LABEL_WORD}){{0,6}}?\s+{LABEL_LINK})\s*(?:about\s+|approximately\s+)?$"
     )
     after = re.compile(rf"\s*(?:the\s+)?{words}(?![\w])")
     return before, after

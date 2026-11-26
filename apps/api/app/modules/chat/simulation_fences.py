@@ -14,8 +14,6 @@ import re
 from app.services.answer_fence import SERVER_DRAWN_LANGS, normalize_owned_fences
 from app.services.md_fence_scan import Fence, map_closed_fences, read_fence_marker
 
-_DIAGRAM_FAIL_NOTE = "*Could not render that diagram.*"
-
 
 def strip_model_drawn_fences(text: str, langs: tuple[str, ...] = SERVER_DRAWN_LANGS) -> str:
     """``text`` without the server-drawn fences of ``langs`` a model wrote, in any spelling,
@@ -33,7 +31,9 @@ def strip_model_drawn_fences(text: str, langs: tuple[str, ...] = SERVER_DRAWN_LA
     if stripped == text:
         return text
     cleaned = re.sub(r"\n{3,}", "\n\n", stripped).strip()
-    return cleaned or _DIAGRAM_FAIL_NOTE
+    # Nothing left is left empty: ``owed_picture`` says, in the reply's language, that the
+    # picture was not drawn (an English "Could not render that diagram" stood in any).
+    return cleaned
 
 
 def drop_open_fences(text: str, langs: tuple[str, ...]) -> str:

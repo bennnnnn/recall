@@ -26,7 +26,12 @@ from typing import Literal
 from app.modules.chemistry.elements import BY_SYMBOL, DIATOMIC_ELEMENTS
 from app.modules.chemistry.lowercase_formulas import MAX_LOWERCASE, lowercase_formula
 from app.modules.chemistry.nomenclature import salt_from_name
-from app.modules.chemistry.species_facts import ELEMENT_NAMES, NAMED_COMPOUNDS, is_formula
+from app.modules.chemistry.species_facts import (
+    ELEMENT_NAMES,
+    NAMED_COMPOUNDS,
+    is_formula,
+    longest_first,
+)
 from app.services.number_text import TEXT_NUMBER
 
 # Tokens are bounded, so a run such as "a1(a1(a1(…" is read in linear time: it was cubic, 8.7 s
@@ -62,9 +67,9 @@ class Mention:
 @lru_cache(maxsize=1)
 def _name_pattern() -> re.Pattern[str]:
     """Compound names and element names, longest first, with the word after each."""
-    names = sorted({*NAMED_COMPOUNDS, *ELEMENT_NAMES}, key=len, reverse=True)
+    names = longest_first({*NAMED_COMPOUNDS, *ELEMENT_NAMES})
     return re.compile(
-        r"\b(?P<name>" + "|".join(re.escape(name) for name in names) + rf")\b(?P<roman>{_ROMAN})"
+        r"\b(?P<name>" + names + rf")\b(?P<roman>{_ROMAN})"
         r"(?=\s+(?P<next>[A-Za-z]+))?",
         re.IGNORECASE,
     )

@@ -34,22 +34,18 @@ from app.services.part.answer_cards import land_part_answer_cards, own_line_part
 from app.services.part.place import place_after_part
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_scan import scanner_camera_subject
+from app.services.text_normalize import SENTENCE_BREAK
 from app.services.workout import as_formula_heading
 
 logger = logging.getLogger(__name__)
 
 _PICTURE_FENCE_LANGS = ("graph", "simulation", "geometry")
-_DIAGRAM_FAILED = "*Could not render that diagram.*"
 # "The diagram is drawn under this reply": where the app puts the picture, not the
 # lesson's words (2026-10-30). The picture is simply below.
 _DRAWN_UNDER_REPLY = re.compile(
     r"\b(is|are)\s+drawn\s+(?:under|below|beneath)\s+(?:this|the|my)\s+(?:reply|answer|message)",
     re.IGNORECASE,
 )
-
-
-def _has_picture_fence(content: str) -> bool:
-    return any(fence.lang in _PICTURE_FENCE_LANGS for fence in iter_fences(content))
 
 
 def _without_model_result_fences(content: str) -> str:
@@ -127,13 +123,12 @@ def validate_physics_fences(
     different final value; the server never corrects its own (instant) text.
     ``user_text`` is the request: a flowchart it asked for survives the picture.
     """
-    had_visual_fence = _has_picture_fence(content)
     # The model's card goes, and the sentence it closed on would be read as the answer: kept.
     summary = closing_summary(content)
     cleaned = own_line_part_answers(_without_model_result_fences(content))
     if verified is None:
-        if had_visual_fence and not cleaned:
-            return _DIAGRAM_FAILED
+        # A reply that was only a picture of the model's own is left empty: chat's
+        # ``owed_picture`` says, in the reply's language, that no picture was drawn.
         return cleaned
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
     # A question in parts: each part's card under its own Answer heading. A reply whose
@@ -206,9 +201,6 @@ def _part_pictures(text: str, verified: VerifiedPhysicsBlock) -> tuple[str, list
     return text, placed
 
 
-_SENTENCES = re.compile(r"(?<=[.?!])\s+")
-
-
 def read_from_their_words(verified: VerifiedPhysicsBlock, user_text: str) -> bool:
     """The card is a typed reader's (an extractor, the binder, a chain of catalog laws) of the
     student's own words: every sentence it read is in their message. A follow-up's rewritten
@@ -217,7 +209,8 @@ def read_from_their_words(verified: VerifiedPhysicsBlock, user_text: str) -> boo
     if not read or verified.physics_intent is None or scanner_camera_subject(user_text):
         return False
     said = " ".join(user_text.split())
-    return all(" ".join(sentence.split()) in said for sentence in _SENTENCES.split(read.strip()))
+    sentences = SENTENCE_BREAK.split(read.strip())
+    return all(" ".join(sentence.split()) in said for sentence in sentences)
 
 
 # "### Joke": a later request's section, after the one the solve answered.
@@ -269,4 +262,4 @@ def replace_unclosed_physics_fences_safe(
     except Exception:
         logger.warning("physics fence finalization failed; keeping prose only", exc_info=True)
         cleaned = _without_model_result_fences(closed)
-        return cleaned or (_DIAGRAM_FAILED if _has_picture_fence(closed) else "")
+        return cleaned

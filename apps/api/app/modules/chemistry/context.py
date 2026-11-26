@@ -18,6 +18,7 @@ from app.modules.chemistry.block import (
     verified_iupac,
     verified_structure,
 )
+from app.modules.chemistry.compound_lookup import PUBCHEM_BUDGET_SECONDS, compound_by_name
 from app.modules.chemistry.elements import BY_NAME, BY_NUMBER, BY_SYMBOL, Element
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -36,8 +37,6 @@ from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
-# PubChem is context, not a dependency: a slow lookup must not delay first token.
-PUBCHEM_BUDGET_SECONDS = 2.0
 
 _DESCRIPTOR_CUE = re.compile(
     r"\b(?:logp|log\s*p|tpsa|polar\s+surface\s+area|drug[-\s]?likeness|"
@@ -374,20 +373,9 @@ async def build_chemistry_augmentation(
     name = reading.lookup
     if name is None:
         return None, None, False, False
-    try:
-        lookup = await asyncio.wait_for(
-            pubchem_gateway.lookup_by_name(name, redis=redis), PUBCHEM_BUDGET_SECONDS
-        )
-    except TimeoutError:
-        logger.info("PubChem lookup timed out name_chars=%d", len(name))
+    compound = await compound_by_name(name, redis=redis)
+    if compound is None:
         return unverified_chemistry_note(), None, True, False
-    if lookup.error is not None or lookup.compound is None:
-        # Not the lookup's error either: it quotes the name.
-        logger.info(
-            "PubChem lookup failed name_chars=%d found=%s", len(name), lookup.compound is not None
-        )
-        return unverified_chemistry_note(), None, True, False
-    compound = lookup.compound
     if _SEE_STRUCTURE.search(content):
         verified = verified_structure(
             name, compound.smiles, compound.molecular_formula, compound.molecular_weight

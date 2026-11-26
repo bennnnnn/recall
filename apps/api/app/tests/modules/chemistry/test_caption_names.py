@@ -56,7 +56,7 @@ async def test_caption_names_a_slow_lookup_gives_no_name() -> None:
 
     with (
         patch("app.gateways.pubchem_gateway.lookup_by_name", slow),
-        patch("app.modules.chemistry.context.PUBCHEM_BUDGET_SECONDS", 0.01),
+        patch("app.modules.chemistry.compound_lookup.PUBCHEM_BUDGET_SECONDS", 0.01),
     ):
         assert await checked_names(_REPLY, Settings()) == {}
 

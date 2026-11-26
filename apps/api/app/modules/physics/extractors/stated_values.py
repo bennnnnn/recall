@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_left, bisect_right
+from functools import lru_cache
 
 from app.modules.physics.extractors.unit_patterns import NUMBER, in_base_unit, with_prefixes
 from app.modules.physics.extractors.written_unit import written_unit
@@ -85,8 +86,7 @@ def keyword_spans(
     for keyword in keywords:
         if whole_words:
             spans.extend(
-                (found.start(), found.end())
-                for found in re.finditer(rf"\b{re.escape(keyword.lower())}\b", lower)
+                (found.start(), found.end()) for found in _whole_word(keyword).finditer(lower)
             )
             continue
         start = 0
@@ -94,6 +94,21 @@ def keyword_spans(
             spans.append((idx, idx + len(keyword)))
             start = idx + len(keyword)
     return spans
+
+
+@lru_cache(maxsize=512)
+def _whole_word(keyword: str) -> re.Pattern[str]:
+    """``keyword`` as a whole word, built once: every value reader asks for the same few."""
+    return re.compile(rf"\b{re.escape(keyword.lower())}\b")
+
+
+@lru_cache(maxsize=256)
+def _value_with_unit(unit_pattern: str) -> re.Pattern[str]:
+    """A number followed by one of ``unit_pattern``'s units (and their prefixes), built once
+    per unit pattern rather than on every read."""
+    return re.compile(
+        rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])", re.IGNORECASE
+    )
 
 
 # Words that sit between a label and the number it names: "distance of 1.50 m",
@@ -119,16 +134,14 @@ def _value_the_keyword_names(
     number that follows it.
     """
     named: list[tuple[int, int, re.Match[str]]] = []
-    for candidate in matches:
+    # The matches are in reading order and never overlap, so another value lies between a
+    # keyword and this one exactly when the value just before this one starts after the
+    # keyword: one comparison, where asking every other match made the read cubic.
+    for index, candidate in enumerate(matches):
+        before = matches[index - 1].start() if index else -1
         gap: int | None = None
         for _start, end in spans:
-            if end > candidate.start():
-                continue
-            if any(
-                other.start() >= end and other.end() <= candidate.start()
-                for other in matches
-                if other.start() != candidate.start()
-            ):
+            if end > candidate.start() or before >= end:
                 continue
             if _LABEL_GAP.fullmatch(text[end : candidate.start()]) is None:
                 continue
@@ -166,11 +179,7 @@ def find_value_with_specific_unit(
     """
     matches = [
         m
-        for m in re.finditer(
-            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
-            text,
-            re.IGNORECASE,
-        )
+        for m in _value_with_unit(unit_pattern).finditer(text)
         if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]
     if not matches:
@@ -250,11 +259,7 @@ def ordered_values(text: str, unit_pattern: str) -> list[tuple[float, str]]:
     """
     return [
         in_base_unit(float(m.group(1)), m.group(2), unit_pattern)
-        for m in re.finditer(
-            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
-            text,
-            re.IGNORECASE,
-        )
+        for m in _value_with_unit(unit_pattern).finditer(text)
         if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]
 
@@ -267,10 +272,6 @@ def positioned_values(text: str, unit_pattern: str) -> list[tuple[int, float, st
     """
     return [
         (m.start(), *in_base_unit(float(m.group(1)), m.group(2), unit_pattern))
-        for m in re.finditer(
-            rf"({NUMBER})\s*({with_prefixes(unit_pattern)})(?![A-Za-z0-9/^])",
-            text,
-            re.IGNORECASE,
-        )
+        for m in _value_with_unit(unit_pattern).finditer(text)
         if not part_label(text, m) and not set_aside(text, m.start(), m.end(1), PHYSICS_UNITS)
     ]

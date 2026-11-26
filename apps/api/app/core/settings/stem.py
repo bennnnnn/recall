@@ -20,8 +20,9 @@ class StemSettings(BaseModel):
     # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
     # chat bubbles and FallbackMarkdown when the rich renderer dies.
     math_graph_max_points: int = 96
-    # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
-    # this bounds how long a single pathological expression can occupy that thread
+    # SymPy solve/simplify/integrate run in the SymPy process pool (core/sympy_executor.py:
+    # they're sync and CPU-bound, so never on the event loop or a thread); this bounds how
+    # long a single pathological expression can hold its worker, which a timeout kills,
     # before the chat turn falls back to an unverified reply. Every subject's solve:
     # maths, physics and chemistry.
     stem_solve_timeout_seconds: float = 5.0

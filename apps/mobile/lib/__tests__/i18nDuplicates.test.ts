@@ -34,6 +34,7 @@ const KEPT_APART: Record<string, string> = {
   "money.term_months money.term_years": "a loan's term in months, and in years",
   "rich.diagram_title_wave rich.scene_title_wave": "a diagram and a scene, each named by its kind",
   "rich.diagram_title_field rich.scene_title_electric_field": "a diagram named by its kind, and the title the server names by its key",
+  "chat.math_converter_cat_time rich.motion_quantity_time": "a converter's unit group, and a motion graph's axis the server names by its key",
   "settings.appearance settings.field_appearance": "a Settings row, and a field a settings card names by its id",
   "settings.chat share.default_title": "a Settings section, and a shared chat's default title",
   "todos.proposal_done_move todos.proposal_done_set_due": "a to-do card per change, named by its kind",

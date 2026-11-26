@@ -30,7 +30,14 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.services.card_text import card_maths, named_value, whole_maths, without_emphasis, wordy
+from app.services.card_text import (
+    approx_as_equals,
+    card_maths,
+    named_value,
+    whole_maths,
+    without_emphasis,
+    wordy,
+)
 from app.services.card_value import final_answer_only
 from app.services.final_value import is_final_value
 from app.services.latex_groups import closed_group_end
@@ -321,16 +328,11 @@ _WORD = re.compile(r"[A-Za-z]{3,}")
 _DISPLAY = {"$$": "$$", "\\[": "\\]"}
 
 
-def _relations(text: str) -> str:
-    """``≈`` and ``\\approx`` read as ``=``: an approximate answer is still the answer."""
-    return text.replace("\\approx", "=").replace("\u2248", "=")
-
-
 def _is_maths(line: str) -> bool:
     """``$…$``, ``\\[…``, or a bare equation: one name before the ``=`` or ``≈``
     (``Area = 12 cm²``) or no words at all (``2x + 3 - 3 = 7 - 3``). "So x = 3 is the
     answer." is a sentence."""
-    text = _relations(_value_line(line))
+    text = approx_as_equals(_value_line(line))
     return (
         text.startswith(("$", "\\[", "\\("))
         or _EQUATION_START.match(text) is not None
@@ -385,7 +387,9 @@ def _card_start(values: list[tuple[int, str]]) -> int:
     """Where the card's values begin: the last one, and the final values just before it
     (both roots, ``x = 2`` and ``x = -2``); earlier lines are working."""
     start = len(values) - 1
-    while start > 0 and all(is_final_value(_relations(values[i][1])) for i in (start - 1, start)):
+    while start > 0 and all(
+        is_final_value(approx_as_equals(values[i][1])) for i in (start - 1, start)
+    ):
         start -= 1
     return start
 
@@ -544,7 +548,9 @@ def land_answer_card(
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.
-        if not maths and (("$" not in value and "=" not in _relations(value)) or wordy(value)):
+        if not maths and (
+            ("$" not in value and "=" not in approx_as_equals(value)) or wordy(value)
+        ):
             return text
         card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card_maths(value)}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []

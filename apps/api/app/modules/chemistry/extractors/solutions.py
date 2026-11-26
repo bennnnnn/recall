@@ -14,6 +14,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
     is_formula,
+    longest_first,
     named_species,
     without_formulas,
 )
@@ -231,7 +232,7 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
     return None
 
 
-_NAMED = "|".join(re.escape(name) for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
+_NAMED = longest_first(NAMED_COMPOUNDS)
 # What the asked grams are of: a named compound, a formula, or the solute by a common noun.
 _SOLUTE = rf"(?:{_NAMED}|solute|salt|sugar|{CHEMICAL_FORMULA}{FORMULA_END})"
 # "How many grams of NaCl are needed to make 500 g of a 5.0% by mass solution?", "What mass of

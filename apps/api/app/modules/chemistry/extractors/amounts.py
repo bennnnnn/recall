@@ -25,6 +25,7 @@ from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
     element_symbol,
     is_formula,
+    longest_first,
     without_formulas,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
@@ -278,7 +279,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
 
 
 _PARTICLE_NOUN = r"(?P<noun>atoms?|molecules?|formula\s+units?)"
-_NAMED = "|".join(re.escape(name) for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
+_NAMED = longest_first(NAMED_COMPOUNDS)
 # What the particles are of: a named compound, a formula, or one word (an element's name).
 _PARTICLE_SUBSTANCE = (
     rf"(?:the\s+)?(?:element\s+)?(?P<what>{_NAMED}|{SAMPLE_FORMULA}{FORMULA_END}|"

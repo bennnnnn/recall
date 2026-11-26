@@ -389,13 +389,68 @@ async def test_a_model_simulation_is_dropped_on_an_unverified_physics_turn(
     assert "The car stops in 40 m." in out
 
 
-async def test_a_model_simulation_alone_leaves_the_diagram_note(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("prompt", "line"),
+    [
+        ("show the car braking", "I couldn't draw this diagram."),
+        # In the reply's language: an English "Could not render that diagram" stood in any.
+        ("Покажи, как тормозит машина", "Не удалось нарисовать эту схему."),
+    ],
+)
+async def test_a_model_simulation_alone_says_the_diagram_was_not_drawn(
+    monkeypatch: pytest.MonkeyPatch, prompt: str, line: str
 ) -> None:
     reply = "~~~simulation\n" + json.dumps(_scene()) + "\n~~~"
-    out = await _finalize(monkeypatch, reply, prompt="show the car braking")
+    out = await _finalize(monkeypatch, reply, prompt=prompt)
     assert "simulation" not in out
-    assert "Could not render that diagram" in out
+    assert "Could not render" not in out
+    assert out.strip() == line
+
+
+@pytest.mark.parametrize(("stopped", "completion"), [(True, "user_stop"), (False, "interrupted")])
+async def test_a_stopped_or_cut_picture_only_reply_is_never_empty(
+    monkeypatch: pytest.MonkeyPatch, stopped: bool, completion: Any
+) -> None:
+    """Stopped by the user or cut by its provider, a reply that was only its own picture,
+    which a pass took out, still says the picture was not drawn: never saved as ""."""
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _inline)
+    reply = "~~~simulation\n" + json.dumps(_scene()) + "\n~~~"
+    out = await enrich_final_content(
+        _deps(),
+        AsyncMock(),
+        Settings(),
+        _ctx("show the car braking"),
+        assistant_text=reply,
+        usage={},
+        outcome=TurnOutcome(completion=completion),
+        was_cancelled=stopped,
+        should_cancel=None,
+        user_stopped=stopped,
+    )
+    assert out.strip() == "I couldn't draw this diagram."
+
+
+@pytest.mark.parametrize(
+    ("reply", "line"),
+    [
+        # A molecule nobody asked for, its SMILES no renderer draws: the lead that presented
+        # it would point at nothing.
+        (
+            "Caffeine is a stimulant.\n\nHere's its structure:\n\n```smiles\nC1CC(\n```\n",
+            "I couldn't draw this molecule.",
+        ),
+        (
+            "The car slows evenly.\n\nHere is the diagram:\n\n~~~simulation\n{}\n~~~\n",
+            "I couldn't draw this diagram.",
+        ),
+    ],
+)
+async def test_a_dropped_picture_s_lead_says_it_was_not_drawn(
+    monkeypatch: pytest.MonkeyPatch, reply: str, line: str
+) -> None:
+    out = await _finalize(monkeypatch, reply, prompt="tell me about it")
+    assert "Here" not in out and line in out
+    assert out.splitlines()[0] in reply
 
 
 async def test_a_server_scene_still_ships_on_a_verified_physics_turn(

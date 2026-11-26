@@ -43,6 +43,10 @@ SUPERSCRIPT_SIGNED = str.maketrans(SUPERSCRIPT_DIGIT_GLYPHS + "⁻⁺", "0123456
 SUBSCRIPT_DIGITS = str.maketrans(SUBSCRIPT_DIGIT_GLYPHS, "0123456789")
 # An exponent written raised: "x²", "m⁻¹" (a worked block's units, a graph's labels).
 TO_SUPERSCRIPT = str.maketrans("0123456789-", SUPERSCRIPT_DIGIT_GLYPHS + "⁻")
+# A charge written raised, its sign too: "Fe³⁺", "SO₄²⁻" (a minus sign is a minus).
+TO_SUPERSCRIPT_CHARGE = str.maketrans("0123456789+-\u2212", SUPERSCRIPT_DIGIT_GLYPHS + "⁺⁻⁻")
+# A count written lowered: "H₂O", "P₁".
+TO_SUBSCRIPT = str.maketrans("0123456789", SUBSCRIPT_DIGIT_GLYPHS)
 
 # Every raised and lowered form Unicode has of a digit, a Latin letter, a plus, minus or
 # equals sign and a round bracket (its <super> and <sub> forms), as the character it

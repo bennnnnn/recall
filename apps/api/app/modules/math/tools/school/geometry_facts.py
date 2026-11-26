@@ -11,6 +11,7 @@ import re
 from dataclasses import replace
 
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tex_numbers import short_number as _number
 from app.modules.math.tools.block import VerifiedMathBlock, finish_with_answer
 from app.services.number_text import DECIMAL
 from app.services.workout import Workout, math_line, render_workout
@@ -111,10 +112,6 @@ def extract_geometry_fact_intent(cleaned: str) -> MathIntent | None:
                 return None
             return MathIntent(kind="arithmetic", school_op=op, combo_n=sides, operation="solve")
     return None
-
-
-def _number(value: float) -> str:
-    return f"{value:g}"
 
 
 def _degrees(value: float) -> str:

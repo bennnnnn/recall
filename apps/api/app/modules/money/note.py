@@ -22,6 +22,7 @@ from app.modules.money.periods import rate_words
 from app.modules.money.rates import MarketRate
 from app.modules.money.read import MoneyRequest
 from app.modules.money.solve import Worked, rate_name
+from app.services.text_normalize import SENTENCE_OR_LINE_BREAK
 
 
 def reading_note(request: MoneyRequest, reply: str = "") -> str | None:
@@ -64,7 +65,6 @@ _AS_LOAN_BEFORE = re.compile(
     r"\b(?:loan(?:\s+amount)?|borrow(?:ing)?|financ\w*)\s+(?:of\s+|is\s+)?\W{0,3}$", re.IGNORECASE
 )
 _SUM = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s?([km]\b)?", re.IGNORECASE)
-_SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 _SCALE = {"k": 1_000, "m": 1_000_000}
 _NEARBY = 40
 
@@ -75,7 +75,7 @@ def states_reading(reply: str, guessed: float, price: float, as_down: bool) -> b
     after, before = (
         (_AS_DOWN_AFTER, _AS_DOWN_BEFORE) if as_down else (_AS_LOAN_AFTER, _AS_LOAN_BEFORE)
     )
-    for sentence in _SENTENCE.split(reply or ""):
+    for sentence in SENTENCE_OR_LINE_BREAK.split(reply or ""):
         found = list(_SUM.finditer(sentence))
         if price not in {_value(match) for match in found}:
             continue

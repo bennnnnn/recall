@@ -123,7 +123,7 @@ def test_an_shm_period_emits_an_animatable_trajectory() -> None:
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.trajectory_type == "position_vs_time"
-    assert spec.y_label == "Displacement (m)"
+    assert spec.y_label == "x (m)"
 
     ys = [point[1] for point in spec.points]
     # Starts at full displacement and swings symmetrically about zero.
@@ -152,7 +152,7 @@ def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
 
     result = solve_physics(intent)
     spec = result.graph_specs[0]
-    assert spec.y_label == "Displacement (normalised)"
+    assert spec.y_label == "x/A"
     assert max(point[1] for point in spec.points) == pytest.approx(1.0, abs=1e-3)
     # The spring is drawn at a display size, and no number is written on the
     # swing: neither the labels nor the description name an amplitude.

@@ -8,6 +8,7 @@ its Ka stated, and a salt splits into i ions. These are school facts, not looked
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from functools import lru_cache
 
 from app.modules.chemistry.elements import BY_NAME, BY_SYMBOL
@@ -149,10 +150,15 @@ _FORMULA_TOKEN = re.compile(
 _ION = re.compile(r"(?<![A-Za-z0-9])([A-Z][a-z]?)(\d?)\+")
 
 
+def longest_first(names: Iterable[str]) -> str:
+    """``names`` as one regex alternation, longest first: "sodium" never stands for the start
+    of "sodium chloride". Every reader of compound names builds its alternation here."""
+    return "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True))
+
+
 @lru_cache(maxsize=1)
 def _name_pattern() -> re.Pattern[str]:
-    names = sorted(NAMED_COMPOUNDS, key=len, reverse=True)
-    return re.compile(r"\b(" + "|".join(re.escape(name) for name in names) + r")\b", re.IGNORECASE)
+    return re.compile(r"\b(" + longest_first(NAMED_COMPOUNDS) + r")\b", re.IGNORECASE)
 
 
 def is_formula(token: str) -> bool:

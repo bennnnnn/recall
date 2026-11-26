@@ -17,6 +17,7 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
     is_formula,
+    longest_first,
     without_formulas,
 )
 from app.modules.chemistry.stoichiometry import molar_mass
@@ -187,7 +188,7 @@ _FASTER = re.compile(r"\bfaster\b", re.IGNORECASE)
 _TIME_ASK = re.compile(r"\b(?:longer|time|takes?|took|how\s+long)\b", re.IGNORECASE)
 
 
-_GAS_WORDS = "|".join(sorted((*_GAS_NAMES, *NAMED_COMPOUNDS), key=len, reverse=True))
+_GAS_WORDS = longest_first((*_GAS_NAMES, *NAMED_COMPOUNDS))
 
 
 _GAS_TOKEN = re.compile(

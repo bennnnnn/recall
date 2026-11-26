@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from app.modules.turn_reading.lesson_flow import active_lesson_step, lesson_after_gap, lesson_titles
 from app.modules.turn_reading.turn import teaching_of
 from app.services.md_fence_scan import iter_fences
-from app.services.text_normalize import straighten_apostrophes
+from app.services.text_normalize import SENTENCE_BREAK, straighten_apostrophes
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -39,7 +39,6 @@ _ASK = re.compile(
     r"(?:\s+please)?\W*$",
     re.IGNORECASE,
 )
-_SENTENCES = re.compile(r"(?<=[.!?])\s+")
 # A reaction before the ask ("Very interesting."): a few words, no number or option.
 _WORD = r"[^\W\d_]{2,}(?:'[^\W\d_]+)?"
 _REACTION = re.compile(rf"^\W*(?:{_WORD}\W+){{0,2}}{_WORD}\W*$")
@@ -47,7 +46,7 @@ _REACTION = re.compile(rf"^\W*(?:{_WORD}\W+){{0,2}}{_WORD}\W*$")
 
 def asked_lesson(text: str | None) -> int | None:
     """The lesson number the message asks to start or go to, or None."""
-    sentences = _SENTENCES.split(straighten_apostrophes(text or "").strip())
+    sentences = SENTENCE_BREAK.split(straighten_apostrophes(text or "").strip())
     if not sentences[-1] or not all(_REACTION.match(s) for s in sentences[:-1]):
         return None
     found = _ASK.match(sentences[-1])
