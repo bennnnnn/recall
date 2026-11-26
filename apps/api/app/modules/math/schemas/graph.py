@@ -113,8 +113,11 @@ class GraphBlockSpec(BaseModel):
     trajectory_type: Literal["position_vs_time", "velocity_vs_time", "parametric"] | None = None
     # A motion graph's quantity against time (``physics.graph_labels``): its title and axes
     # are symbols ("|v|-t"), which a screen reader reads out mark by mark, so the phone says
-    # the quantity's name in the user's language instead. None on every other graph.
-    quantity: Literal["displacement", "distance", "velocity", "speed", "acceleration"] | None = None
+    # the quantity's name in the user's language instead. Left out of every other graph's
+    # fence, which stays as it was.
+    quantity: Literal["displacement", "distance", "velocity", "speed", "acceleration"] | None = (
+        Field(default=None, exclude_if=lambda value: value is None)
+    )
 
     @model_validator(mode="after")
     def vertical_or_function_shape(self) -> GraphBlockSpec:
