@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 import app.modules.memory.erase as erase
-from app.models.orm import Memory, MemoryArea, User
+from app.models.orm import Memory, MemoryArea, Message, User
 from app.modules.memory.fact_quality import is_learning_line
 from app.modules.memory.ops import (
     ACTIVE_STATUS,
@@ -295,8 +295,8 @@ async def retire_near_duplicates(
     many were retired.
 
     ``by_age``: the facts just got their vector late (a backfill), so "new" says nothing
-    of which was said last. Of each pair, the one created earlier goes and the later one
-    stays, as when the later one is written; they are compared with each other too.
+    of which was said last; they are compared with each other too. Of each pair the one
+    said last stays (``_said_later_first``), and a pair whose order is unclear stays whole.
 
     The caller owns the commit. Lesson lines are the lesson job's and never retired.
     """
@@ -319,10 +319,14 @@ async def retire_near_duplicates(
         )
     )
     retired = 0
+    said_at: dict[UUID, datetime | None] = {}
     for new_id, old_id in result.all():
         kept, gone = await session.get(Memory, new_id), await session.get(Memory, old_id)
         if by_age:
-            kept, gone = _later_first(kept, gone)
+            ordered = await _said_later_first(session, kept, gone, said_at)
+            if ordered is None:
+                continue
+            kept, gone = ordered
         elif not new_wins:
             kept, gone = gone, kept
         # A pair met again (one fact near two others) after one of them went is skipped.
@@ -343,13 +347,45 @@ async def retire_near_duplicates(
     return retired
 
 
-def _later_first(
-    first: Memory | None, second: Memory | None
-) -> tuple[Memory | None, Memory | None]:
-    """The pair as (kept, retired): the one created later is kept; a tie keeps ``first``."""
-    if first is None or second is None or first.created_at is None or second.created_at is None:
+async def _said_later_first(
+    session: AsyncSession,
+    first: Memory | None,
+    second: Memory | None,
+    said_at: dict[UUID, datetime | None],
+) -> tuple[Memory, Memory] | None:
+    """The pair as (kept, retired), the one the user said last kept; None when that is
+    unclear, and both stay.
+
+    Two clocks say when: ``last_confirmed_at``, set whenever the fact's text is written
+    (an ``update`` op and a hand edit included; ``created_at`` is not), and the time of the
+    message it quotes. A history-scan fact is written now from an old message, so the
+    message's time keeps it from beating a fact the user said since (the scan only fills
+    gaps); a hand edit keeps the message it once quoted, so the write's time counts too.
+    One fact is later only on both clocks. ``said_at`` caches message times for the call.
+    """
+    if first is None or second is None:
+        return None
+    first_said = await _said(session, first, said_at)
+    second_said = await _said(session, second, said_at)
+    if first.last_confirmed_at > second.last_confirmed_at and first_said >= second_said:
         return first, second
-    return (second, first) if second.created_at > first.created_at else (first, second)
+    if second.last_confirmed_at > first.last_confirmed_at and second_said >= first_said:
+        return second, first
+    return None
+
+
+async def _said(
+    session: AsyncSession, fact: Memory, said_at: dict[UUID, datetime | None]
+) -> datetime:
+    """When the user said the words the fact quotes: its source message's time, or with
+    none (a hand edit, a deleted chat) when its text was last written."""
+    source = fact.source_message_id
+    if source is not None and source not in said_at:
+        said_at[source] = await session.scalar(
+            select(Message.created_at).where(Message.id == source)
+        )
+    sent = said_at.get(source) if source is not None else None
+    return sent if sent is not None else fact.last_confirmed_at
 
 
 async def update_embedding_if_current(

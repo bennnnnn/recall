@@ -1,5 +1,6 @@
 """PostgreSQL regressions for memory management versus stale background results."""
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -135,23 +136,32 @@ async def test_a_kept_near_duplicate_keeps_only_a_slot_its_text_answers(db_sessi
     assert gone.status == "superseded"
 
 
+_JAN, _FEB, _MAR = (datetime(2026, month, 1, tzinfo=UTC) for month in (1, 2, 3))
+
+
+def _denver(user_id, text, *, written, created=_JAN, **kw):
+    return Memory(
+        user_id=user_id, type="profile", text=text, embedding=[0.1] * 1536,
+        created_at=created, last_confirmed_at=written, **kw,
+    )  # fmt: skip
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("backfilled_is_newer", [False, True])
-async def test_a_backfilled_fact_said_again_keeps_the_newer_one(db_session, backfilled_is_newer):
+async def test_a_backfilled_fact_said_again_keeps_the_one_written_last(
+    db_session, backfilled_is_newer
+):
     """A fact whose vector came late (its instruct pass ran out of time embedding) was never
-    compared. Compared once backfilled, the fact created earlier goes, whichever one it is,
-    as when the later one is written (#2597 review)."""
-    from datetime import UTC, datetime
-
+    compared. Compared once backfilled, the one whose text was written last stays, whichever
+    it is. A rewrite keeps the fact's ``created_at``: a fact made in January and rewritten in
+    March is the newer of it and one made in February (#2599 review)."""
     user = await _make_user(db_session)
-    earlier, later = datetime(2026, 11, 1, tzinfo=UTC), datetime(2026, 11, 2, tzinfo=UTC)
-    backfilled = Memory(
-        user_id=user.id, type="profile", text="User lives in Denver", embedding=[0.1] * 1536,
-        created_at=later if backfilled_is_newer else earlier,
-    )  # fmt: skip
-    other = Memory(
-        user_id=user.id, type="profile", text="User is based in Denver", embedding=[0.1] * 1536,
-        created_at=earlier if backfilled_is_newer else later, importance=0.9,
+    backfilled = _denver(
+        user.id, "User lives in Denver", written=_MAR if backfilled_is_newer else _FEB
+    )
+    other = _denver(
+        user.id, "User is based in Denver", created=_FEB,
+        written=_FEB if backfilled_is_newer else _MAR, importance=0.9,
     )  # fmt: skip
     db_session.add_all([backfilled, other])
     await db_session.flush()
@@ -164,6 +174,53 @@ async def test_a_backfilled_fact_said_again_keeps_the_newer_one(db_session, back
     kept, gone = (backfilled, other) if backfilled_is_newer else (other, backfilled)
     assert (kept.status, gone.status) == ("active", "superseded")
     assert kept.importance == 0.9
+
+
+@pytest.mark.asyncio
+async def test_two_backfilled_facts_retire_only_the_earlier(db_session):
+    """Backfilled facts are compared with each other: the pair comes back both ways, and
+    only the one written first goes."""
+    user = await _make_user(db_session)
+    earlier = _denver(user.id, "User lives in Denver", written=_FEB)
+    later = _denver(user.id, "User is based in Denver", written=_MAR)
+    db_session.add_all([earlier, later])
+    await db_session.flush()
+
+    retired = await memories_repo.retire_near_duplicates(
+        db_session, user.id, [later.id, earlier.id], min_similarity=0.9, by_age=True
+    )
+
+    assert retired == 1
+    assert (earlier.status, later.status) == ("superseded", "active")
+
+
+@pytest.mark.asyncio
+async def test_a_backfilled_scan_fact_never_beats_a_fact_said_since(db_session):
+    """The history scan writes a fact now from an old line; it only fills gaps. Backfilled,
+    it is written later but quotes an older message: unclear, so both stay."""
+    from app.models.orm import Chat, Message
+
+    user = await _make_user(db_session)
+    chat = Chat(user_id=user.id, title="Old chat")
+    db_session.add(chat)
+    await db_session.flush()
+    line = Message(chat_id=chat.id, user_id=user.id, role="user", content="I live in Denver")
+    line.created_at = _JAN
+    db_session.add(line)
+    await db_session.flush()
+    said_since = _denver(user.id, "User is based in Denver", written=_FEB)
+    scanned = _denver(
+        user.id, "User lives in Denver", written=_MAR, created=_MAR, source_message_id=line.id
+    )
+    db_session.add_all([said_since, scanned])
+    await db_session.flush()
+
+    retired = await memories_repo.retire_near_duplicates(
+        db_session, user.id, [scanned.id], min_similarity=0.9, by_age=True
+    )
+
+    assert retired == 0
+    assert (said_since.status, scanned.status) == ("active", "active")
 
 
 @pytest.mark.asyncio
