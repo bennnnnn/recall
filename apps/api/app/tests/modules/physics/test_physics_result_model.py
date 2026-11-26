@@ -183,7 +183,7 @@ def test_rpm_converts_once_to_the_same_angular_speed() -> None:
     )
     result = solve_physics(intent)
     assert result.quantities[0].value == pytest.approx(120 * 2 * math.pi / 60)
-    assert result.answer_value.startswith("12.6")
+    assert result.answer_value.startswith("12.57")
     assert r"120\cdot\frac{2\pi}{60}" in result.answer
 
 

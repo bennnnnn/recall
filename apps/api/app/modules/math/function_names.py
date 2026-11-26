@@ -30,6 +30,24 @@ GREEK_NAMES = (
 )  # fmt: skip
 
 
+# A function the message defines, one letter of one letter: "f(x) = x^2", "g ( t )=3t",
+# "F(x) =". Never one with a letter, a digit or a mark glued before its name ("2f(x) = 6",
+# "of(x)"), nor a comparison ("f(x) == 3"). Every reader of a definition asks this one
+# pattern: four had drifted apart (audit, 2026-11-25).
+FUNCTION_DEFINITION = re.compile(
+    r"(?<!\w)(?P<name>[A-Za-z])\s*\(\s*(?P<var>[A-Za-z])\s*\)\s*=(?!=)"
+)
+
+
+# A function the message applies to a letter, a coefficient before its name allowed: "If
+# 2f(x) = 4x + 6, find f(x)" applies f, though it defines nothing. The tool check asks this
+# looser question, so SymPy never reads a model's "2*f(x)" as the product 2·f·x
+# (``tool_check._applies_a_function``, 2026-11-14).
+FUNCTION_APPLIED = re.compile(
+    r"(?<![A-Za-z])(?P<name>[A-Za-z])\s*\(\s*(?P<var>[A-Za-z])\s*\)\s*=(?!=)"
+)
+
+
 def names_longest_first(names: frozenset[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Longest first, so a regex or prefix match reads ``sinh`` before ``sin``."""
     return tuple(sorted(names, key=lambda name: (-len(name), name)))

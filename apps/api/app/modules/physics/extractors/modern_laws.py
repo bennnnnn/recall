@@ -173,7 +173,7 @@ def _mass_energy(cleaned: str) -> PhysicsIntent | None:
         is None
     ):
         return None
-    mass = find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
+    mass = find_value_with_specific_unit(cleaned, MASS_UNITS, ("mass", "of"))
     if mass is None:
         return None
     return PhysicsIntent(

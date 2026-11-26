@@ -25,18 +25,18 @@ CASES: list[tuple[str, str, str]] = [
     (
         "Find the electric field 0.2 m from a point charge of 2 uC.",
         "electric_field",
-        "4.49 × 10⁵ N/C",
+        "449377.59 N/C",
     ),
     (
         "Find the electric potential 0.2 m from a point charge of 2 uC.",
         "electric_potential",
-        "89876 V",
+        "89875.52 V",
     ),
     (
         "Find the electric potential energy of two point charges 2 uC and -3 uC "
         "separated by 0.5 m.",
         "electric_potential_energy",
-        "-0.108 J",
+        "-0.11 J",
     ),
     (
         "Find the capacitance of a parallel plate capacitor with area 0.02 m^2 "
@@ -44,7 +44,7 @@ CASES: list[tuple[str, str, str]] = [
         "parallel_plate_capacitance",
         "1.77 × 10⁻¹⁰ F",
     ),
-    ("Find the energy stored by a 10 uF capacitor at 12 V.", "capacitor_energy", "7.2 × 10⁻⁴ J"),
+    ("Find the energy stored by a 10 uF capacitor at 12 V.", "capacitor_energy", "7.20 × 10⁻⁴ J"),
     (
         "Find the time constant of an RC circuit with resistance 1000 ohm and capacitance 10 uF.",
         "rc_time_constant",
@@ -65,43 +65,43 @@ CASES: list[tuple[str, str, str]] = [
     (
         "Find the magnetic field 0.2 m from a long straight wire carrying 10 A.",
         "magnetic_field_wire",
-        "1 × 10⁻⁵ T",
+        "1.00 × 10⁻⁵ T",
     ),
     ("Find the lens power for focal length 0.5 m.", "lens_power", "2 D"),
     (
         "A double-slit experiment has wavelength 600 nm, screen distance 2 m, "
         "and slit separation 0.5 mm. Find fringe spacing.",
         "double_slit_fringe_spacing",
-        "0.0024 m",
+        "0.00240 m",
     ),
     (
         "A double-slit experiment has wavelength 500 nm, a screen distance of 1.50 m, "
         "and a slit separation of 0.250 mm. Find the fringe spacing.",
         "double_slit_fringe_spacing",
-        "0.003 m",
+        "0.00300 m",
     ),
     (
         "A single-slit diffraction experiment has wavelength 500 nm, a screen distance "
         "of 1.50 m, and a slit width of 0.100 mm. Find the central width.",
         "diffraction_central_width",
-        "0.015 m",
+        "0.0150 m",
     ),
     (
         "A single-slit diffraction experiment has wavelength 600 nm, screen "
         "distance 2 m, and slit width 0.2 mm. Find central width.",
         "diffraction_central_width",
-        "0.012 m",
+        "0.0120 m",
     ),
     (
         "Using Malus law, find intensity for input intensity 100 W/m^2 at 60 degrees.",
         "malus_intensity",
         "25 W/m²",
     ),
-    ("Find the Brewster angle when n1=1 and n2=1.5.", "brewster_angle", "56.3°"),
+    ("Find the Brewster angle when n1=1 and n2=1.5.", "brewster_angle", "56.31°"),
     (
         "Find Carnot efficiency for a hot reservoir at 500 K and a cold reservoir at 300 K.",
         "carnot_efficiency",
-        "0.4 (40%)",
+        "0.40 (40%)",
     ),
     (
         "Find the entropy change for reversible heat 1000 J at temperature 500 K.",
@@ -119,18 +119,18 @@ CASES: list[tuple[str, str, str]] = [
         "mass_flow_rate",
         "20 kg/s",
     ),
-    ("Using Torricelli law, find exit speed for water depth 5 m.", "torricelli_speed", "9.9 m/s"),
+    ("Using Torricelli law, find exit speed for water depth 5 m.", "torricelli_speed", "9.90 m/s"),
     (
         "Using Stokes drag, find force for viscosity 0.2 Pa*s, sphere radius "
         "0.01 m, and speed 3 m/s.",
         "stokes_drag",
-        "0.113 N",
+        "0.11 N",
     ),
     (
         "Find Reynolds number for density 1000 kg/m^3, speed 2 m/s, characteristic "
         "length 0.1 m, and viscosity 0.001 Pa*s.",
         "reynolds_number",
-        "2 × 10⁵",
+        "200000",
     ),
     (
         "Find surface tension if force is 0.14 N along contact length 2 m.",
@@ -143,7 +143,7 @@ CASES: list[tuple[str, str, str]] = [
         "140 Pa",
     ),
     ("Find the Lorentz factor at 0.8 c.", "lorentz_factor", "1.67"),
-    ("Find time dilation for proper time 10 s at 0.8 c.", "time_dilation", "16.7 s"),
+    ("Find time dilation for proper time 10 s at 0.8 c.", "time_dilation", "16.67 s"),
     ("Find length contraction for proper length 100 m at 0.8 c.", "length_contraction", "60 m"),
     (
         "Find maximum photoelectric kinetic energy for frequency 1e15 Hz and work function 2 eV.",
@@ -158,21 +158,21 @@ CASES: list[tuple[str, str, str]] = [
     (
         "Find energy for an electron in a particle in a box of width 1 nm at n=2.",
         "particle_box_energy",
-        "2.41 × 10⁻¹⁹ J (1.5 eV)",
+        "2.41 × 10⁻¹⁹ J (1.50 eV)",
     ),
-    ("Find the hydrogen energy at n=2.", "hydrogen_energy_level", "-3.4 eV"),
+    ("Find the hydrogen energy at n=2.", "hydrogen_energy_level", "-3.40 eV"),
     ("Find the Compton wavelength shift at 90 degrees.", "compton_shift", "2.43 × 10⁻¹² m"),
     ("Using Wien's law, find peak wavelength at temperature 3000 K.", "wien_peak", "9.66 × 10⁻⁷ m"),
     (
         "Find Stefan-Boltzmann blackbody power for area 2 m^2, temperature "
         "500 K, and emissivity 0.8.",
         "stefan_boltzmann_power",
-        "5670 W",
+        "5670.37 W",
     ),
     (
         "Using Stefan's law, a blackbody of area 0.2 m^2 is at 500 K. Find the power.",
         "stefan_boltzmann_power",
-        "709 W",
+        "708.80 W",
     ),
 ]
 
@@ -199,7 +199,9 @@ def test_phase2_catalog_is_verified_and_uses_structured_working(
         reply.index(h) for h in headings
     )
     assert "Physics formula:" not in reply
-    assert re.search(r"\d+\.\d*00(?=\D|$)", reply) is None
+    # The working pads no number; an answer card keeps its two places (``rounding_rule``).
+    working = re.sub(r"```answer\n.*?```", "", reply, flags=re.DOTALL)
+    assert re.search(r"\d+\.\d*00(?=\D|$)", working) is None
     if operation == "carnot_efficiency":
         assert "$T_H = 500\\,\\mathrm{K}$" in reply
         assert "$T_C = 300\\,\\mathrm{K}$" in reply

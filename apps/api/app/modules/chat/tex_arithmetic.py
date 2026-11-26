@@ -81,7 +81,12 @@ _TRIG_DEGREES = re.compile(
 )
 # The names a plain side may call, longest first: "sind" is a sine of degrees, "rsin" one
 # of radians; "lgx" a log with no base written (base 10, or e: ``log_readings``).
-_FUNCTIONS = r"sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
+# "asind" … "ratan" are an inverse sine … tangent in degrees or radians: no reading of a
+# line writes them, only a card that recovers a rounded angle (``card_lists.known_value``).
+_FUNCTIONS = (
+    r"asind|acosd|atand|rasin|racos|ratan|"
+    r"sqrt|abs|pi|sind|cosd|tand|rsin|rcos|rtan|lgx|lg|lbin|ln|exp|euler"
+)
 # ln 2, \\log_{10} 1000, \\sin 0.5: a function of one bare number, its brackets left out.
 _BARE_ARGUMENT = re.compile(
     r"\\(ln|log|exp|sin|cos|tan)(\s*_\s*\{?\s*(?:10|2|e)\s*\}?)?\s+(-?\d+(?:\.\d+)?)(?![\d.]|\s*[\^\\A-Za-z])"
@@ -338,6 +343,12 @@ CALLS: dict[str, Callable[[float], float]] = {
     "lgx": math.log10,
     "lbin": math.log2,
     "exp": math.exp,
+    "asind": lambda x: math.degrees(math.asin(x)),
+    "acosd": lambda x: math.degrees(math.acos(x)),
+    "atand": lambda x: math.degrees(math.atan(x)),
+    "rasin": math.asin,
+    "racos": math.acos,
+    "ratan": math.atan,
 }
 
 

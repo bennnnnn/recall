@@ -6,11 +6,13 @@ states it. The reading is used only when the rate is plausible for the product, 
 is recent (both set on the catalog row) and the page is one the search returned; anything
 else is no average, and the reply then gives no market note and no marker. One answer
 serves every turn for the same product (or kind of it: a used car), term and country for
-``money_rate_cache_seconds``. Nothing here raises into the turn.
+``money_rate_cache_seconds``, and an answer with no checked rate for a quarter of an hour;
+turns asking while a lookup is on its way share it. Nothing here raises into the turn.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import Sequence
@@ -32,6 +34,16 @@ from app.modules.web_search import run_cached_search
 logger = logging.getLogger(__name__)
 
 _CACHE_PREFIX = "money:average:"
+# A product, term and country the web gave no checked rate for, kept a quarter of an hour:
+# every turn about it searched again (audit, 2026-11-25), and a rate published since is found
+# soon after.
+_MISS = "missing"
+_MISS_SECONDS = 15 * 60
+_MISSED = object()
+# The lookup running for each (event loop, cache key): a turn that asks while one is on its
+# way waits for that answer instead of starting a second search (single flight). Its answer
+# says whether it speaks for everyone (``_Answer.shared``).
+_IN_FLIGHT: dict[tuple[int, str], asyncio.Task[_Answer]] = {}
 # The search results the reading may cite; more only dilute a small model's attention.
 _TOP_RESULTS = 5
 _READ_MAX_TOKENS = 96
@@ -93,9 +105,10 @@ async def current_average(
     """Today's checked average for ``product`` (its ``variant`` kind) at ``term`` in
     ``country``, or None.
 
-    A miss is a search on the turn's ``budget`` (its one search; no user: the free
-    provider only); the answer then serves everyone asking the same thing until it
-    expires.
+    A miss is a search on ``budget``: a side budget on the turn's reservation, beside the
+    turn's own search (``web_search.side_search_budget``; no user: the free provider only).
+    The answer then serves everyone asking the same thing until it expires; an answer with
+    no checked rate is kept a quarter of an hour.
     """
     lookup = product.rate_lookup(variant)
     if lookup is None:
@@ -106,34 +119,92 @@ async def current_average(
     key = f"{_CACHE_PREFIX}{kind}:{term_key}:{country.lower()}"
     day = today or datetime.now(UTC).date()
     cached = await _cached(redis, key)
-    if cached is not None and _fresh(cached.as_of, lookup, day):
+    if cached is _MISSED:
+        return None
+    if isinstance(cached, MarketRate) and _fresh(cached.as_of, lookup, day):
         return replace(cached, spread=lookup.spread)
+    search = _Search(settings, redis, user, budget)
+    flight = (id(asyncio.get_running_loop()), key)
+    running = _IN_FLIGHT.get(flight)
+    if running is None:
+        running = asyncio.ensure_future(_look_up(search, key, lookup, bucket, country, day))
+        _IN_FLIGHT[flight] = running
+        running.add_done_callback(lambda _done: _IN_FLIGHT.pop(flight, None))
+        answer = await asyncio.shield(running)
+    else:
+        answer = await asyncio.shield(running)
+        if not answer.shared:
+            # The leader's search was refused, past its plan's searches or no user's, or
+            # answered by the stand-in provider: this turn looks for itself (review, #2591).
+            answer = await _look_up(search, key, lookup, bucket, country, day)
+    found = answer.rate
+    return None if found is None else replace(found, spread=lookup.spread)
+
+
+@dataclass(frozen=True)
+class _Answer:
+    """A lookup's checked rate, or None; ``shared``: what it found speaks for everyone (a
+    rate, or the search of record answered and held none), so a waiting turn may take it."""
+
+    rate: MarketRate | None
+    shared: bool
+
+
+@dataclass(frozen=True)
+class _Search:
+    """Whose search a lookup runs on: the turn that started it."""
+
+    settings: Settings
+    redis: Redis | None
+    user: User | None
+    budget: TavilyBudget | None
+
+
+async def _look_up(
+    search: _Search,
+    key: str,
+    lookup: RateLookup,
+    bucket: float | None,
+    country: str,
+    today: date,
+) -> _Answer:
+    """One search and one read for ``key``; a checked rate is kept for the cache's time, and
+    an answer with no checked rate for ``_MISS_SECONDS`` only when the search of record
+    (Tavily) answered it: a search or a read that failed, a refused or used-up search, and
+    the stand-in provider's weaker hits are never kept, and the next turn tries again."""
     try:
         hits, _ = await run_cached_search(
-            settings,
+            search.settings,
             [search_query(lookup, bucket, country)],
-            user=user,
-            redis=redis,
-            budget=budget,
+            user=search.user,
+            redis=search.redis,
+            budget=search.budget,
         )
     except Exception:
-        logger.info("money rate search failed for %s", product.key, exc_info=True)
-        return None
-    found = await read_rate(hits[:_TOP_RESULTS], lookup, bucket, country, settings, day)
+        logger.info("money rate search failed for %s", key, exc_info=True)
+        return _Answer(None, shared=False)
+    shown = hits[:_TOP_RESULTS]
+    reading = await _read(shown, lookup, bucket, country, search.settings, today)
+    found = checked(reading, shown, lookup, bucket, country, today)
     if found is not None:
-        await _store(redis, key, found, settings.money_rate_cache_seconds)
-    return found
+        await _store(search.redis, key, found, search.settings.money_rate_cache_seconds)
+        return _Answer(found, shared=True)
+    of_record = bool(shown) and all(hit.provider == "tavily" for hit in shown)
+    if reading is not None and of_record:
+        await _store_miss(search.redis, key)
+        return _Answer(None, shared=True)
+    return _Answer(None, shared=False)
 
 
-async def read_rate(
+async def _read(
     hits: Sequence[WebSearchHit],
     lookup: RateLookup,
     bucket: float | None,
     country: str,
     settings: Settings,
     today: date,
-) -> MarketRate | None:
-    """The rate the results state, checked; None when none passes."""
+) -> RateReading | None:
+    """The small model's reading of the results; None when there are none or it failed."""
     if not hits:
         return None
     listing = "\n\n".join(
@@ -157,7 +228,7 @@ async def read_rate(
     except Exception:
         logger.info("money rate read failed", exc_info=True)
         return None
-    return checked(reading, hits, lookup, bucket, country, today)
+    return reading if isinstance(reading, RateReading) else None
 
 
 def checked(
@@ -200,13 +271,16 @@ def _fresh(as_of: date, lookup: RateLookup, today: date) -> bool:
     return -1 <= age <= lookup.fresh_days
 
 
-async def _cached(redis: Redis | None, key: str) -> MarketRate | None:
+async def _cached(redis: Redis | None, key: str) -> MarketRate | object | None:
+    """The cached rate, ``_MISSED`` when the last lookup found none, else None."""
     if redis is None:
         return None
     try:
         raw = await redis.get(key)
         if raw is None:
             return None
+        if raw in (_MISS, _MISS.encode()):
+            return _MISSED
         data = json.loads(raw)
         return MarketRate(
             value=float(data["value"]),
@@ -236,3 +310,12 @@ async def _store(redis: Redis | None, key: str, rate: MarketRate, seconds: int) 
         await redis.set(key, json.dumps(payload), ex=seconds)
     except Exception:
         logger.debug("money rate cache write failed for %s", key, exc_info=True)
+
+
+async def _store_miss(redis: Redis | None, key: str) -> None:
+    if redis is None:
+        return
+    try:
+        await redis.set(key, _MISS, ex=_MISS_SECONDS)
+    except Exception:
+        logger.info("money rate miss not kept for %s", key, exc_info=True)

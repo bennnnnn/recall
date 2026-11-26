@@ -252,7 +252,7 @@ def test_lens_powers_written_as_d_add() -> None:
     text = "Two thin lenses in contact have powers 4.00 D and 2.50 D. Find the total power."
     intent = extract_physics_intent(text)
     assert intent is not None and intent.physics_op == "lens_power_sum"
-    assert _answer(text) == "6.5 D"
+    assert _answer(text) == "6.50 D"
 
 
 def test_torque_on_a_stated_moment_stays_physics() -> None:

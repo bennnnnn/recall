@@ -29,7 +29,7 @@ def _answer(text: str) -> str | None:
         (
             "The temperature of 3 kg of water decreases by 10 °C. c = 4200 J/kg°C. How much "
             "heat is released?",
-            "-1.26 × 10⁵ J (released)",
+            "-126000 J (released)",
         ),
         (
             "A 2 kg block of iron (c = 450 J/kg°C) cools by 20 °C. How much heat does it give out?",
@@ -74,7 +74,7 @@ def test_a_braking_force_stays_a_size_with_its_direction() -> None:
         (
             "2 mol of an ideal gas is compressed isothermally at 300 K from 0.04 m^3 to "
             "0.01 m^3. How much work is done on the gas?",
-            "6916 J (done on the gas)",
+            "6915.78 J (done on the gas)",
         ),
     ],
 )
@@ -91,7 +91,7 @@ def test_a_rise_after_a_falling_body_stays_a_rise() -> None:
         "c = 130 J/kg°C. (a) How fast does it hit the ground? (b) How much heat does it absorb?"
     )
     _outcome, block = solve_physics_request(text, Settings(math_tools_enabled=True), None)
-    assert block is not None and block.canonical_answer == "19.8 m/s; 780 J"
+    assert block is not None and block.canonical_answer == "19.81 m/s; 780 J"
 
 
 def test_the_size_of_heat_given_off_is_a_right_claim() -> None:

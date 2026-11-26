@@ -74,7 +74,7 @@ def _values(text: str) -> list[tuple[float, str]]:
             "A ball rolls off a 1.2 m high table with a speed of 3 m/s. "
             "How long does it take to hit the floor?",
             "0.4 s",
-            "0.495 s",
+            "0.49 s",
         ),
         (
             # The sound goes there and back.
@@ -107,18 +107,18 @@ def test_a_wrong_answer_the_sweep_found_is_right(text: str, was: str, now: str) 
         (
             "A diver steps off a 10 m platform. With what speed does she hit the water?",
             "drop_speed",
-            "14 m/s",
+            "14.01 m/s",
         ),
         (
             "A 60 kg skydiver falls at constant (terminal) velocity. "
             "What is the air resistance on her?",
             "terminal_drag",
-            "588.6 N",
+            "588.60 N",
         ),
         (
             "what is the component of gravity along a 40 degree slope for a 3 kg mass",
             "weight_along_slope",
-            "18.9 N",
+            "18.92 N",
         ),
         (
             "A 0.2 kg ball's velocity changes from 0 to 25 m/s in 0.01 s when kicked. "
@@ -138,8 +138,8 @@ def test_a_wrong_answer_the_sweep_found_is_right(text: str, was: str, now: str) 
             "15 N",
         ),
         ("What is the acceleration due to gravity on Mars?", "surface_gravity_named", "3.73 m/s²"),
-        ("How long should a pendulum be to have a period of 2 s?", "pendulum_length", "0.994 m"),
-        ("A 60 W bulb runs on 120 V. What current does it draw?", "current_from_power", "0.5 A"),
+        ("How long should a pendulum be to have a period of 2 s?", "pendulum_length", "0.99 m"),
+        ("A 60 W bulb runs on 120 V. What current does it draw?", "current_from_power", "0.50 A"),
         (
             "A 3 kg block of aluminium (c = 900 J/kg·K) absorbs 54 kJ. "
             "What is its temperature rise?",
@@ -154,12 +154,12 @@ def test_a_wrong_answer_the_sweep_found_is_right(text: str, was: str, now: str) 
         (
             "A 0.002 m^3 stone is fully submerged in water. What is the upthrust?",
             "upthrust",
-            "19.6 N",
+            "19.62 N",
         ),
         (
             "What is the critical angle for glass of refractive index 1.5?",
             "critical_angle",
-            "41.8°",
+            "41.81°",
         ),
     ],
 )
@@ -210,17 +210,17 @@ def test_a_how_far_place_question_is_still_a_location_lookup() -> None:
 @pytest.mark.parametrize(
     ("text", "op", "answer"),
     [
-        ("How long does light take to cross 3000 km?", "light_travel_time", "0.01 s"),
+        ("How long does light take to cross 3000 km?", "light_travel_time", "0.0100 s"),
         (
             "What is the gravitational force between Earth and a 1 kg mass at its surface?",
             "gravitational_force_at_surface",
             "9.82 N",
         ),
-        ("Find the force between two 1 µC charges 5 cm apart.", "electric_force", "3.6 N"),
+        ("Find the force between two 1 µC charges 5 cm apart.", "electric_force", "3.60 N"),
         (
             "Two identical 4 nC charges are 2 cm apart. What is the force between them?",
             "electric_force",
-            "3.6 × 10⁻⁴ N",
+            "3.60 × 10⁻⁴ N",
         ),
         (
             "A 10 kg box is pulled with 50 N to the right and 20 N to the left. "
@@ -244,7 +244,7 @@ def test_a_how_far_place_question_is_still_a_location_lookup() -> None:
             "A 50 kg girl and a 70 kg boy push off each other on ice. "
             "If the second moves at 1 m/s, how fast does the first move?",
             "push_off_speed_first",
-            "1.4 m/s",
+            "1.40 m/s",
         ),
         (
             "A water wave travels 12 m in 4 s and its wavelength is 1.5 m. What is the frequency?",
@@ -260,7 +260,7 @@ def test_a_how_far_place_question_is_still_a_location_lookup() -> None:
             "A 100 W TV is left on for 5 hours a day for 30 days. "
             "Electricity costs $0.15 per kWh. How much energy does it use?",
             "energy_over_days",
-            "5.4 × 10⁷ J (15 kWh)",
+            "54000000 J (15 kWh)",
         ),
     ],
 )
@@ -300,9 +300,7 @@ def test_a_price_beside_a_motion_question_is_ignored() -> None:
 
 
 def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
-    assert (
-        _answer("what is the energy used by a 2000 W heater in 3 hours") == "2.16 × 10⁷ J (6 kWh)"
-    )
+    assert _answer("what is the energy used by a 2000 W heater in 3 hours") == "21600000 J (6 kWh)"
     # Seconds are a physics class's unit: no kWh beside them.
     assert _answer("A 60 W bulb is on for 30 s. How much energy does it use?") == "1800 J"
 
@@ -315,12 +313,12 @@ def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
             "A car travels at a constant speed of 50 km/h for 100 km. It then speeds up to "
             "100 km/h and is driven another 100 km. What is the car's average speed for the "
             "200 km trip?",
-            "66.7 km/h",
+            "66.67 km/h",
         ),
         (
             "A car drives at 60 km/h for 120 km and then at 80 km/h for another 120 km. "
             "What is its average speed for the 240 km trip?",
-            "68.6 km/h",
+            "68.57 km/h",
         ),
         (
             # The legs pair in the order written: 2 h, then 3 h.
@@ -349,7 +347,7 @@ def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
             # "Average velocity" and a clause before the question.
             "A passenger walks 4 m forward in 8 s to take his seat on provided place forward. "
             "What is his average velocity?",
-            "0.5 m/s",
+            "0.50 m/s",
         ),
     ],
 )

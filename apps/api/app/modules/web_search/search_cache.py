@@ -172,13 +172,65 @@ class TurnTavilyBudget:
 def turn_search_budget(
     settings: Settings, user: User | None, *, keep_message: Callable[[], None]
 ) -> TurnTavilyBudget:
-    """A chat turn's one search budget, made before its prep so the money card's rate
-    lookup, the read's search and the reply's own calls share it
-    (``StreamContext.search_budget``). On a plan whose searches follow its messages the
-    message covers the search: once one reaches a provider ``keep_message`` keeps it
-    spent, even when the user stops the turn or the socket drops before any reply. Given
-    back, a Free user could search without end."""
+    """A chat turn's one search budget, made before its prep so the read's search and the
+    reply's own calls share it (``StreamContext.search_budget``), and the money card's rate
+    lookups take its reservation (``side_search_budget``). On a plan whose searches follow
+    its messages the message covers the search: once one reaches a provider
+    ``keep_message`` keeps it spent, even when the user stops the turn or the socket drops
+    before any reply. Given back, a Free user could search without end."""
     return TurnTavilyBudget(settings=settings, user=user, on_provider_call=keep_message)
+
+
+@dataclass
+class SideSearchBudget:
+    """A lookup the server makes for a turn beside the user's own search: the money card's
+    average rate, one search per product, term and country that every user then reads from
+    the cache (``money.rates``).
+
+    It takes the turn's reservation (one daily slot a turn on a plan with a cap, the
+    message on a plan whose searches follow messages) but not the turn's one search: on
+    Free the rate lookup, its stand-in and the reply's search ran on that one search, so
+    one never searched and the reply was refused its own (audit, 2026-11-25). A money turn
+    starts at most two lookups, so a message still buys a bounded number of searches. Its
+    ledger is its own: a failed lookup never tells the reply that its search failed.
+    """
+
+    turn: TavilyBudget
+    _answered: int = 0
+    _failed: int = 0
+
+    async def skip_tavily(self, redis: Redis) -> bool:
+        return await self.turn.skip_tavily(redis)
+
+    def begin_search(self) -> bool:
+        return True
+
+    def note_provider_call(self) -> None:
+        self.turn.note_provider_call()
+
+    def record_search(self, *, failed: bool) -> None:
+        if failed:
+            self._failed += 1
+        else:
+            self._answered += 1
+
+    @property
+    def search_failed(self) -> bool:
+        return self._failed > 0 and self._answered == 0
+
+    @property
+    def search_used(self) -> bool:
+        return False
+
+    @property
+    def daily_limit_reached(self) -> bool:
+        return self.turn.daily_limit_reached
+
+
+def side_search_budget(turn: TavilyBudget | None) -> TavilyBudget | None:
+    """The budget a server lookup searches on beside ``turn``'s own search (``SideSearchBudget``);
+    None without a turn budget (the search then reserves its own)."""
+    return None if turn is None else SideSearchBudget(turn)
 
 
 async def run_cached_search(
@@ -345,6 +397,7 @@ def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
             url=str(item.get("url") or ""),
             snippet=str(item.get("snippet") or ""),
             published=str(item.get("published") or ""),
+            provider=str(item.get("provider") or ""),
         )
         for item in payload
         if isinstance(item, dict)

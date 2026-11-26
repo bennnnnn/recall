@@ -270,7 +270,7 @@ def test_a_stated_constant_is_the_one_the_answer_uses() -> None:
     assert answer is not None
     assert answer_number(answer) == pytest.approx(0.6, rel=1e-6)
     assert answer_number(_answer(text.replace(", with k = 9 × 10^9 N·m²/C²", "")) or "") == (
-        pytest.approx(0.599, rel=1e-3)
+        pytest.approx(0.599, abs=0.005)
     )
 
 

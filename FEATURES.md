@@ -460,8 +460,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   daily proration so the counting assumption is never hidden.
 - ✅ **Physics** — server-side extractors and pure solvers (see
   [docs/physics.md](./docs/physics.md)). Verified operations are the
-  formula catalog, one entry per `physics_op`. Answers have
-  three significant figures and upright units, in the unit the question asks for
+  formula catalog, one entry per `physics_op`. Answers follow the card rule (two decimal places,
+  three significant figures below 0.1, `services/rounding_rule.py`) with upright units, in the unit the question asks for
   ("in kWh", "in psi"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
   a stated value of a kind it uses, leaves out a stated force, speed, length or angle, or
   answers a different quantity than the one asked, is declined. A student's own result
@@ -987,8 +987,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   day's tokens by its text's tokens (about four characters each).
 - ✅ **What a message covers** — a photo-lookup turn takes its chat message like any turn
   (given back if the lookup fails); a turn whose search reached a provider, or that sends
-  a PDF that may be OCR'd, keeps its message even when stopped before the reply; the money
-  card's rate lookup, the read's search and the reply's own call share the turn's one search; a profile photo or a picture's reference
+  a PDF that may be OCR'd, keeps its message even when stopped before the reply; the
+  read's search and the reply's own call share the turn's one search, and the money card's
+  rate lookups search beside it on its reservation (each answer kept for every user); a profile photo or a picture's reference
   photo needs no message left (presign `purpose`).
 - ✅ **Upload size and Library total** — every upload, photo or document, is held to
   10 MB at presign, on the API's own upload and on the stored R2 object, and to the

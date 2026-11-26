@@ -26,7 +26,7 @@ def projectile() -> VerifiedPhysicsBlock:
     assert intent is not None
     verified = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert verified is not None
-    assert verified.display_answer == "35.3\\,\\mathrm{m}"
+    assert verified.display_answer == "35.31\\,\\mathrm{m}"
     return verified
 
 
@@ -54,7 +54,7 @@ def test_a_wrong_value_before_a_question_is_corrected(projectile: VerifiedPhysic
         "Want me to find the maximum height too?"
     )
     out = validate_physics_fences(prose, verified=projectile)
-    correction = "The verified answer is $35.3\\,\\mathrm{m}$."
+    correction = "The verified answer is $35.31\\,\\mathrm{m}$."
     assert correction in out
     assert out.index(correction) < out.index(_card(projectile))
     assert "```simulation" in out

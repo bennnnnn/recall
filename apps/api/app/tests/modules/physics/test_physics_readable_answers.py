@@ -15,10 +15,10 @@ from app.modules.physics.solvers.results import QuantityResult, solved
 @pytest.mark.parametrize(
     ("seconds", "note"),
     [
-        (5545.0, "92.4 min"),  # a 400 km orbit
+        (5545.0, "92.42 min"),  # a 400 km orbit
         (7200.0, "2 h"),
         (3 * 86400.0, "3 days"),
-        (3.156e7 * 3, "3 years"),
+        (3.156e7 * 3, "3.00 years"),
     ],
 )
 def test_a_long_time_in_seconds_also_reads_in_a_counted_unit(seconds: float, note: str) -> None:

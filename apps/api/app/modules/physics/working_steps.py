@@ -48,6 +48,7 @@ from app.modules.physics.solvers.results import PhysicsResult
 from app.services.law_binding.inverse import form_params
 from app.services.law_binding.reduction import Reduction, reduce_substitution
 from app.services.law_binding.symbols import plain_symbol
+from app.services.rounding_rule import number_parts
 from app.services.school_rounding import round_figures
 from app.services.units import get_unit_registry
 
@@ -82,10 +83,13 @@ def answer_parts(latex_answer: str | None) -> list[tuple[str, float]]:
 
 def _same(worked: float, verified: float) -> bool:
     """Equal to three figures, or within 0.1%: the working's constants are rounded as
-    typed, so 7672.4 worked from them is the verified 7673, and 5542 is 5545."""
-    return round_figures(worked, ANSWER_FIGURES) == round_figures(
-        verified, ANSWER_FIGURES
-    ) or math.isclose(worked, verified, rel_tol=1e-3)
+    typed, so 7672.4 worked from them is the verified 7673, and 5542 is 5545. Or the rule
+    writes one card for both: 0.4967 worked is a card of 0.50."""
+    return (
+        round_figures(worked, ANSWER_FIGURES) == round_figures(verified, ANSWER_FIGURES)
+        or math.isclose(worked, verified, rel_tol=1e-3)
+        or number_parts(worked) == number_parts(verified)
+    )
 
 
 # The SI unit a working value is in, found by the answer's unit's dimension.

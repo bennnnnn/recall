@@ -69,13 +69,13 @@ def _answer(text: str) -> str | None:
             "A stone is dropped from a bridge and hits the water 3 s later. "
             "How high is the bridge?",
             "drop_height",
-            "44.1 m",  # ½·9.81·9
+            "44.15 m",  # ½·9.81·9
         ),
         (
             "A ball is thrown horizontally at 15 m/s from a cliff 20 m high. "
             "How far from the base of the cliff does it land?",
             "range",
-            "30.3 m",  # 15·√(2·20/9.81)
+            "30.29 m",  # 15·√(2·20/9.81)
         ),
         (
             "A ball is thrown horizontally from a 45 m tall building at 12 m/s. "
@@ -83,13 +83,13 @@ def _answer(text: str) -> str | None:
             "time_of_flight",
             "3.03 s",  # √(2·45/9.81)
         ),
-        ("What is the weight of a 70 kg person on Earth?", "weight", "686.7 N"),
-        ("What is the weight of a 70 kg astronaut on the Moon?", "weight", "113.4 N"),  # 70·1.62
+        ("What is the weight of a 70 kg person on Earth?", "weight", "686.70 N"),
+        ("What is the weight of a 70 kg astronaut on the Moon?", "weight", "113.40 N"),  # 70·1.62
         (
             "Two masses of 3 kg and 5 kg hang over a frictionless pulley. "
             "Find the acceleration and the tension.",
             "atwood",
-            "2.45 m/s² and 36.8 N",  # 2·9.81/8; 2·15·9.81/8
+            "2.45 m/s² and 36.79 N",  # 2·9.81/8; 2·15·9.81/8
         ),
         (
             "A 20 kg crate is pulled across a floor with a force of 100 N. "
@@ -100,12 +100,12 @@ def _answer(text: str) -> str | None:
         (
             "A 60 kg person climbs 3 m of stairs in 4 s. What is their power output?",
             "lifting_power",
-            "441 W",  # 60·9.81·3 / 4
+            "441.45 W",  # 60·9.81·3 / 4
         ),
         (
             "Find the period of a satellite orbiting at a radius of 7000 km around Earth.",
             "kepler_period",
-            "5829 s (97.1 min)",  # 2π√(r³/GM), and in minutes
+            "5828.50 s (97.14 min)",  # 2π√(r³/GM), and in minutes
         ),
         (
             "A flywheel with moment of inertia 4 kg m^2 spins at 10 rad/s. "
@@ -131,13 +131,13 @@ def _answer(text: str) -> str | None:
             "First-order Bragg diffraction occurs at 30 degrees from crystal planes "
             "0.2 nm apart. Find the wavelength.",
             "bragg_wavelength",
-            "0.2 nm",
+            "0.20 nm",
         ),
         (
             "First-order Bragg diffraction uses X-rays of wavelength 0.2 nm at 30 degrees. "
             "Find the plane spacing.",
             "bragg_spacing",
-            "0.2 nm",
+            "0.20 nm",
         ),
         (
             "At constant pressure, a gas at 300 K occupies 2 L and expands to 4 L. "
@@ -159,18 +159,18 @@ def _answer(text: str) -> str | None:
         (
             "Find the mean speed of nitrogen molecules at 300 K. Molar mass is 0.028 kg/mol.",
             "mean_molecular_speed",
-            "476 m/s",
+            "476.29 m/s",
         ),
         (
             "Find the most probable speed of nitrogen molecules at 300 K. "
             "Molar mass is 0.028 kg/mol.",
             "most_probable_speed",
-            "422 m/s",
+            "422.10 m/s",
         ),
         (
             "How much does the temperature of 2 kg of water increase after absorbing 8360 J?",
             "temperature_change_from_heat",
-            "0.999 K",
+            "1.00 K",
         ),
         (
             "What mass of water warms by 5 K after absorbing 41860 J?",
@@ -181,13 +181,13 @@ def _answer(text: str) -> str | None:
             "A 0.1 kg metal sample at 373 K is placed in 0.2 kg of water at 293 K. "
             "The final temperature is 298 K. Find the metal's specific heat capacity.",
             "calorimetry_specific_heat",
-            "558 J/(kg·K)",
+            "558.13 J/(kg·K)",
         ),
         (
             "What mass of ice melts when it absorbs 67000 J? "
             "Use a latent heat of fusion of 334000 J/kg.",
             "mass_from_latent_heat",
-            "0.201 kg",
+            "0.20 kg",
         ),
         (
             "A particle has rest mass 1 kg and relativistic momentum 3e8 kg m/s. "
@@ -248,7 +248,7 @@ def test_a_largest_first_pair_compares_in_si_and_keeps_its_units(text: str) -> N
     assert intent is not None
     assert intent.physics_params == {"m1": 5.0, "m2": 3000.0}
     assert intent.physics_units == {"m1": "kg", "m2": "g"}
-    assert _answer(text) == "2.45 m/s² and 36.8 N"
+    assert _answer(text) == "2.45 m/s² and 36.79 N"
 
 
 @pytest.mark.parametrize(
@@ -269,13 +269,13 @@ def test_a_largest_first_pair_compares_in_si_and_keeps_its_units(text: str) -> N
         (
             "Find the gravitational potential at the surface of Earth.",
             "gravitational_potential",
-            "-6.26 × 10⁷ J/kg",  # -GM/R
+            "-62565145.91 J/kg",  # -GM/R
         ),
         (
             "A pressure increase of 2.00e6 Pa produces a volume strain of 0.00100. "
             "Find the bulk modulus.",
             "bulk_modulus",
-            "2 × 10⁹ Pa",  # 2e6/0.001
+            "2.00 × 10⁹ Pa",  # 2e6/0.001
         ),
         (
             "The sound intensity is 1.00e-6 W/m^2. Find the sound level in decibels.",

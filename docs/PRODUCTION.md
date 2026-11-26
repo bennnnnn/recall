@@ -317,7 +317,9 @@ allowances per plan) means no daily count of its own: an upload is allowed while
 account has a message left today and does not use one up (the send does; with none
 left it is refused `quota_exceeded`, the chat's own words); a turn's search or photo
 lookup, and a sent scanned PDF's OCR, are covered by that turn's message, and at most
-one search a turn reaches the providers. Past Pro's 40 searches a turn searches
+one search of the user's a turn reaches the providers; a money turn's rate lookups (at most two, each
+kept for every user, misses for 15 minutes) search beside it on its reservation
+(`web_search.side_search_budget`). Past Pro's 40 searches a turn searches
 nothing, not even DuckDuckGo, and the reply says today's searches are used up and
 reset tomorrow; DuckDuckGo stands in only when Tavily itself fails. What bounds uploads
 that are never sent: the 10 MB per file. A profile photo or an AI picture's reference

@@ -75,7 +75,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "two resistors of 4 ohms and 6 ohms in parallel, what is the total resistance",
         "parallel_resistance",
-        "2.4 Ω",
+        "2.40 Ω",
     ),
 ]
 
@@ -309,7 +309,7 @@ NETWORKS: list[tuple[str, str, str]] = [
     (
         "what is the combined resistance of 4 ohms and 6 ohms in parallel",
         "parallel_resistance",
-        "2.4 Ω",
+        "2.40 Ω",
     ),
     (
         "what is the total resistance of a 4 ohm and 6 ohm resistor in series",
@@ -327,7 +327,7 @@ def test_series_voltage_asked_as_current_is_ohms_law() -> None:
     intent = extract_physics_intent(text)
     assert isinstance(intent, PhysicsIntent) and intent.physics_op == "series_current"
     assert intent.physics_params == {"R1": 4.0, "R2": 12.0, "V": 8.0}
-    assert _verified_answer(text) == "0.5 A"
+    assert _verified_answer(text) == "0.50 A"
 
 
 def test_parallel_voltage_asked_as_current_is_ohms_law() -> None:
@@ -367,14 +367,14 @@ NEW_OPS: list[tuple[str, str, str]] = [
     (
         "what is the energy used by a 2000 W heater in 3 hours",
         "electrical_energy",
-        "2.16 × 10⁷ J (6 kWh)",
+        "21600000 J (6 kWh)",
     ),
     (
         "how much energy does a 100 W bulb use in 10 hours",
         "electrical_energy",
-        "3.6 × 10⁶ J (1 kWh)",
+        "3600000 J (1 kWh)",
     ),
-    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3.6 × 10⁶ J (1 kWh)"),
+    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000 J (1 kWh)"),
     ("what is the capacitance storing 6 C at 3 V", "capacitance", "2 F"),
     ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3 F"),
     ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2 F"),

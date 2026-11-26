@@ -14,7 +14,11 @@ from app.modules.physics.extractors.stated_values import (
     ordered_values,
     positioned_values,
 )
-from app.modules.physics.extractors.unit_patterns import LENGTH_UNIT_PATTERN, NUMBER
+from app.modules.physics.extractors.unit_patterns import (
+    LENGTH_UNIT_PATTERN,
+    MASS_UNITS,
+    NUMBER,
+)
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -35,7 +39,7 @@ _GRAVITATION_CUES = (
 
 _GRAVITATION_CUE_RES: tuple[re.Pattern[str], ...] = (
     # "the force between two 1000 kg masses 10 m apart" names no topic word.
-    re.compile(r"\bforce\s+between\b.{0,80}?\d\s*(?:kg|tonnes?|tons?)\b", re.IGNORECASE),
+    re.compile(rf"\bforce\s+between\b.{{0,80}}?\d\s*(?:{MASS_UNITS})\b", re.IGNORECASE),
     re.compile(r"\bg\s+on\s+a\s+planet\b", re.IGNORECASE),
 )
 
@@ -54,7 +58,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     body = central_body(lower)
-    masses = ordered_values(cleaned, r"kg|tonnes?|tons?")
+    masses = ordered_values(cleaned, MASS_UNITS)
     radius = find_value_with_specific_unit(
         cleaned, LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True
     )
@@ -79,8 +83,8 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return PhysicsIntent(
             kind="gravitation",
             physics_op="escape_velocity",
-            physics_params={"M": planet_mass, "radius_body": planet_radius},
-            physics_units={"M": "kg", "radius_body": "m"},
+            physics_params={"M": planet_mass[0], "radius_body": planet_radius[0]},
+            physics_units={"M": planet_mass[1], "radius_body": planet_radius[1]},
             operation="solve",
         )
 
@@ -95,8 +99,8 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         # radius - but the two are rarely in the same unit ("400 km above the
         # earth"), so they are passed separately and added after `to_si`
         # rather than summed here in whatever units they arrived in.
-        params: dict[str, float] = {"M": planet_mass, "radius_body": planet_radius}
-        units: dict[str, str] = {"M": "kg", "radius_body": "m"}
+        params: dict[str, float] = {"M": planet_mass[0], "radius_body": planet_radius[0]}
+        units: dict[str, str] = {"M": planet_mass[1], "radius_body": planet_radius[1]}
         if altitude is not None:
             params["altitude"] = altitude[0]
             units["altitude"] = altitude[1] or "m"
@@ -115,8 +119,8 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return PhysicsIntent(
             kind="gravitation",
             physics_op="gravitational_potential",
-            physics_params={"M": planet_mass, "r": planet_radius},
-            physics_units={"M": "kg", "r": "m"},
+            physics_params={"M": planet_mass[0], "r": planet_radius[0]},
+            physics_units={"M": planet_mass[1], "r": planet_radius[1]},
             operation="solve",
         )
 
@@ -127,8 +131,8 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         return PhysicsIntent(
             kind="gravitation",
             physics_op="surface_gravity",
-            physics_params={"M": planet_mass, "radius_body": planet_radius},
-            physics_units={"M": "kg", "radius_body": "m"},
+            physics_params={"M": planet_mass[0], "radius_body": planet_radius[0]},
+            physics_units={"M": planet_mass[1], "radius_body": planet_radius[1]},
             operation="solve",
         )
 
@@ -157,7 +161,7 @@ def _central_masses(cleaned: str) -> list[tuple[float, str]]:
     orbiting = orbiting_body_masses(cleaned)
     return [
         (value, unit)
-        for at, value, unit in positioned_values(cleaned, r"kg|tonnes?|tons?")
+        for at, value, unit in positioned_values(cleaned, MASS_UNITS)
         if not any(start <= at < end for start, end in orbiting)
     ]
 
@@ -166,8 +170,8 @@ def _resolve_body(
     body: tuple[float, float] | None,
     cleaned: str,
     radius: tuple[float, str] | None,
-) -> tuple[float | None, float | None]:
-    """A named body, or a stated mass and radius - never a mix of guesses.
+) -> tuple[tuple[float, str] | None, tuple[float, str] | None]:
+    """A named body, or a stated mass and radius, each with its unit - never a mix of guesses.
 
     A question that *describes* a planet without naming it and supplies only
     one of the two is refused: silently finishing it with Earth's other number
@@ -176,8 +180,12 @@ def _resolve_body(
     between two bodies still takes both.
     """
     if body is not None:
-        return body
+        return (body[0], "kg"), (body[1], "m")
     masses = _central_masses(cleaned)
     if masses and radius is not None:
-        return masses[0][0], radius[0]
+        # The mass in the unit it was read in, as the force between two bodies takes it:
+        # "1.3e25 lb" was taken for kilograms, and no givens check knows a pound (review,
+        # #2591). A radius stays as read in metres: one in km is held to the question's own
+        # "7000 km" by the givens check, which declines it, and the law binder answers it.
+        return (masses[0][0], masses[0][1] or "kg"), (radius[0], "m")
     return None, None

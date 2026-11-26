@@ -313,7 +313,7 @@ async def test_names_that_differ_only_in_spacing_and_case_share_a_cache_key() ->
 
 
 @pytest.mark.asyncio
-async def test_an_iupac_name_is_cached_and_a_missing_one_is_not() -> None:
+async def test_an_iupac_name_is_cached_for_a_day() -> None:
     client = AsyncMock()
     client.get = AsyncMock(
         return_value=_mock_response(
@@ -337,7 +337,98 @@ async def test_an_iupac_name_is_cached_and_a_missing_one_is_not() -> None:
     redis2.set = AsyncMock()
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=empty):
         assert await pubchem_gateway.lookup_iupac_name("CCO", redis=redis2) is None
-    redis2.set.assert_not_called()
+    # PubChem answered with no name: remembered for a quarter of an hour, not a day.
+    # Under its own key: the name key never holds the marker (review, #2591).
+    redis2.set.assert_awaited_once_with("pubchem:iupac-missing:CCO", "missing", ex=15 * 60)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [400, 404])
+async def test_a_smiles_pubchem_does_not_know_is_remembered_briefly(status: int) -> None:
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=_mock_response(status))
+    redis = redis_mock()
+    redis.get = AsyncMock(return_value=None)
+    redis.set = AsyncMock()
+    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+        assert await pubchem_gateway.lookup_iupac_name("C1CC1N", redis=redis) is None
+    redis.set.assert_awaited_once_with("pubchem:iupac-missing:C1CC1N", "missing", ex=15 * 60)
+    stored = {"pubchem:iupac-missing:C1CC1N": b"missing"}
+    redis.get = AsyncMock(side_effect=stored.get)
+    with patch.object(pubchem_gateway, "get_pooled_client") as mock_client:
+        assert await pubchem_gateway.lookup_iupac_name("C1CC1N", redis=redis) is None
+    mock_client.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_busy_pubchem_leaves_an_iupac_lookup_unremembered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def no_wait(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(pubchem_gateway, "wait_before_retry", no_wait)
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=_mock_response(503))
+    redis = redis_mock()
+    redis.get = AsyncMock(return_value=None)
+    redis.set = AsyncMock()
+    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+        assert await pubchem_gateway.lookup_iupac_name("CCO", redis=redis) is None
+    redis.set.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "what is this compound called",
+        "CCO; DROP TABLE",
+        "C" * (pubchem_gateway.MAX_SMILES_LENGTH + 1),
+        "CC\u00e9O",
+    ],
+)
+async def test_text_that_is_no_smiles_is_never_sent(text: str) -> None:
+    with patch.object(pubchem_gateway, "get_pooled_client") as mock_client:
+        assert await pubchem_gateway.lookup_iupac_name(text) is None
+    mock_client.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "smiles",
+    ["CCO", "c1ccccc1", "CC(=O)OC1=CC=CC=C1C(=O)O", "[NH4+]", "C/C=C\\C", "N[C@@H](C)C(=O)O"],
+)
+def test_a_smiles_is_one(smiles: str) -> None:
+    assert pubchem_gateway.is_smiles(smiles)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_lookup_logs_no_compound_and_no_smiles(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The URL carries what the user asked about; only the kind of lookup is logged."""
+
+    async def no_wait(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(pubchem_gateway, "wait_before_retry", no_wait)
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=Exception("boom"))
+    broken = _mock_response(200)
+    broken.json.side_effect = ValueError("not json")
+    broken_client = AsyncMock()
+    broken_client.get = AsyncMock(return_value=broken)
+    with caplog.at_level("DEBUG", logger="app.gateways.pubchem_gateway"):
+        with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+            await pubchem_gateway.lookup_by_name("my secret compound")
+            await pubchem_gateway.lookup_iupac_name("CC(C)CCOS")
+        with patch.object(pubchem_gateway, "get_pooled_client", return_value=broken_client):
+            await pubchem_gateway.lookup_by_name("my secret compound")
+            await pubchem_gateway.lookup_iupac_name("CC(C)CCOS")
+    logged = " ".join(record.getMessage() for record in caplog.records)
+    assert caplog.records
+    for secret in ("secret", "CC(C)CCOS", "CC%28C%29CCOS", "pubchem.ncbi"):
+        assert secret not in logged
 
 
 @pytest.mark.asyncio

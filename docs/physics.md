@@ -531,10 +531,12 @@ The binder reads these laws, beside the extractors' own:
 
 ## Numbers and units
 
-- **Answers** have three significant figures, trailing zeros trimmed. Scientific notation is
-  used outside [10⁻³, 10⁵), and rounding comes first: 99999.7 is 1 × 10⁵. That is the card's
+- **Answers** are written by the rule every card follows (`services/rounding_rule.py`, owner
+  2026-11-18 and 2026-11-25): two decimal places with zeros kept (`66.61 m`, `0.58`), three
+  significant figures only below 0.1 (`0.0649`), in full below 10⁹ and a power of ten only
+  for a huge or tiny value. The instant reply's card is the finished one. That is the card's
   precision: the Substitution ends on the value it reaches, unrounded (`a = 4.905 m/s²`
-  over a card of `4.9 m/s²`, `R = 31.0357 m` over `31 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
+  over a card of `4.91 m/s²`, `R = 31.0357 m` over `31.04 m`, `R_p = 1.78723 Ω` over `1.79 Ω`;
   `working_steps._unrounded`), or the card's own value when nothing rounds (`v = 15 km/h`
   over `15 km/h`), as a textbook closes its working before the boxed answer: only the card
   rounds (the owner's rule, 2026-11-11, as in maths and chemistry). A row no reader can work
@@ -796,7 +798,9 @@ fixes below so the coverage number stays honest, `investigation.json`, the Septe
 investigation's 286 questions (multi-part ones list every `parts` value the card must
 hold), and `investigation_lookalikes.json`, the everyday sentences its new readers must
 leave alone. For each turn it routes the prompt as a
-chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
+chat turn does and reads the verified answer card (1% tolerance, or half the card's last
+place for a rounded decimal card, which the rule writes to two places: 0.15 for 0.1549 is
+3% off and right; any unit of the same kind).
 It also checks the reply's Given / Required / Formula / Substitution / Answer order (an older
 reply's Find counts as Required), flags
 calculator notation and an invented zero given, and validates every `simulation` and `graph`

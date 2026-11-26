@@ -64,8 +64,9 @@ class TurnRequest:
     # What the user typed or said, when ``content`` also holds text the turn read off their
     # photo (its reading, maths' ``Solve:`` line); None: ``content`` is all theirs.
     said: str | None = None
-    # The turn's one search budget, shared by the money card's rate lookup, the read's
-    # search and the reply's own calls (``turn_resources.turn_search_budget``).
+    # The turn's one search budget, shared by the read's search and the reply's own calls
+    # (``turn_resources.turn_search_budget``); the money card's rate lookups take its
+    # reservation but search beside it (``web_search.side_search_budget``).
     search_budget: TavilyBudget | None = None
 
     @property

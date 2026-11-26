@@ -52,7 +52,7 @@ _CASES = [
     ("What is the power of a force of 10 N moving at 3 m/s?", "30 W", False),
     ("A machine does 1,200 J of work in 30 seconds. What is its power?", "40 W", False),
     (_AVERAGE_SPEED, "5 m/s", False),
-    (_ELECTRIC_FORCE, "0.216 N", False),
+    (_ELECTRIC_FORCE, "0.22 N", False),
     (
         "A car travels 180 meters in 12 seconds. What is its average speed?",
         "15 m/s",
@@ -157,15 +157,15 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         ("A ball is dropped from 20 m. Find its speed after 500 ms. Use g=10.", "5 m/s"),
         ("A ball is dropped from 20 m. Find the time to ground.", "2.02 s"),
         ("A ball is in free fall from 20 m. Find its acceleration. Use g=1.62.", "-1.62 m/s²"),
-        ("A projectile is launched at 72 km/h at 30 degrees. Find its range. Use g=10.", "34.6 m"),
+        ("A projectile is launched at 72 km/h at 30 degrees. Find its range. Use g=10.", "34.64 m"),
         ("Find the force on a 500 g object with acceleration -2 m/s^2.", "-1 N"),
-        ("Find the acceleration of a 2 kg object under a force of -5 N.", "-2.5 m/s²"),
+        ("Find the acceleration of a 2 kg object under a force of -5 N.", "-2.50 m/s²"),
         ("Find the mass of an object with force -20 N and acceleration -4 m/s^2.", "5 kg"),
         ("Find the kinetic energy of a 500 g object moving at -4 m/s.", "4 J"),
         ("Find the potential energy of a 0.5 kg object at height 200 cm. Use g=10.", "10 J"),
         ("Find the work done by a force of -10 N over a distance of 300 cm.", "-30 J"),
         ("What is the power of a force of 5 N moving at -2 m/s?", "-10 W"),
-        ("Find the average speed for 1 km in 2 min.", "0.5 km/min"),
+        ("Find the average speed for 1 km in 2 min.", "0.50 km/min"),
         ("Find the average speed for 0 m in 20 s.", "0 m/s"),
     ],
 )
@@ -189,7 +189,7 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
         r"{2 \times 9.81\,\mathrm{m/s²}}$"
     ) in working
     assert "0 +" not in working
-    assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
+    assert "```answer\n5.10\\,\\mathrm{m}\n```" in reply
 
 
 def test_collision_hides_the_internal_elasticity_switch_from_given() -> None:

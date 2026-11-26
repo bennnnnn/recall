@@ -2,7 +2,8 @@
 
 ``prepare_money_turn`` runs while the prompt is built. It reads the request (or the
 change a follow-up makes to the chat's last one, ``follow_up``, or an amount and a rate
-for what the user's line before says they are buying, ``purchase``) and starts the
+for what the user's line before says they are buying, ``purchase``) once, off the event
+loop (``reading``), and starts the
 average-rate lookup at once. The lookup is awaited before the prompt only when the
 numbers need it (the user gave no rate, or asked what rates are); otherwise it runs while
 the reply streams, and ``finish_money_reply`` collects it to write the note and the
@@ -18,34 +19,32 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from typing import Any
 
 from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.core.readings import read_aside
 from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import User
 from app.modules.money.agreement import card_figures
 from app.modules.money.block import money_block, standing_block
 from app.modules.money.currencies import country_for, currency_for
 from app.modules.money.fence import calculator_fence, card_values
-from app.modules.money.follow_up import (
-    as_parts,
-    follow_up_request,
-    standing_request,
-    switches_product,
-)
+from app.modules.money.follow_up import switches_product
 from app.modules.money.model_read import read_money_chat
 from app.modules.money.note import market_note, reading_note
-from app.modules.money.purchase import purchase_request
 from app.modules.money.rates import MarketRate, current_average
-from app.modules.money.read import MoneyRequest, read_money_request
+from app.modules.money.read import MoneyRequest
 from app.modules.money.read_check import Chat, checked_request
+from app.modules.money.reading import earlier_parts, request_of, standing_of
 from app.modules.money.solve import Worked, missing, rate_name, work
 from app.modules.money.standing import COMMON_TERMS, about_the_loan, figures
 from app.modules.money.worked_problem import lays_out_working
+from app.modules.web_search import side_search_budget
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +95,7 @@ async def prepare_money_turn(
     """
     if not settings.money_enabled:
         return None
-    before = as_parts(earlier[-1]) if earlier else ()
-    request = (
-        follow_up_request(text, earlier)
-        or read_money_request(text)
-        or purchase_request(text, before)
-    )
+    request = await _read(request_of, settings, text, earlier_parts(earlier))
     if request is None:
         return None
     return await _prepared(
@@ -179,6 +173,10 @@ async def _prepared(
     country = country_for(request.currency, location)
     # A request missing more than its rate works nothing: no search is spent on it.
     workable = request.rates_only or set(missing(request)) <= {rate_name(product)}
+    # The lookups search beside the turn's own search, never in its place: on a plan whose
+    # message covers one search, the kind's lookup and its stand-in ran on that one search,
+    # so one of them never searched and the reply's search was refused (audit, 2026-11-25).
+    budget = side_search_budget(search_budget)
     if workable and product.rate_lookup(request.variant) is not None:
         lookup = create_background_task(
             current_average(
@@ -189,15 +187,13 @@ async def _prepared(
                 redis,
                 user=user,
                 variant=request.variant,
-                budget=search_budget,
+                budget=budget,
             ),
             name="money_average",
         )
     if workable and product.variant(request.variant) is not None and product.lookup is not None:
         stand_in = create_background_task(
-            current_average(
-                product, term, country, settings, redis, user=user, budget=search_budget
-            ),
+            current_average(product, term, country, settings, redis, user=user, budget=budget),
             name="money_average_stand_in",
         )
     average = None
@@ -225,7 +221,7 @@ async def prepare_standing_turn(
     """The chat's earlier loan for a message about it that is no money request itself."""
     if not settings.money_enabled or not about_the_loan(text, last_reply):
         return None
-    request = standing_request(earlier)
+    request = await _read(standing_of, settings, earlier_parts(earlier))
     # "The interest rate on a savings account" after a mortgage is about another product.
     if request is None or request.rates_only or switches_product(request.product, text):
         return None
@@ -247,7 +243,7 @@ async def prepare_standing_turn(
                 redis,
                 user=user,
                 variant=request.variant,
-                budget=search_budget,
+                budget=side_search_budget(search_budget),
             ),
             name="money_average_standing",
         )
@@ -294,6 +290,12 @@ async def finish_money_reply(
     if card:
         pieces.append(card)
     return "\n\n".join(piece for piece in pieces if piece)
+
+
+async def _read[T](fn: Callable[..., T], settings: Settings, *args: Any) -> T | None:
+    """A money reading of the user's words (``reading``): the one the turn's pool read made,
+    else read in the pool now; None when the pool gives up, as a turn's declined read is."""
+    return await read_aside(fn, *args, timeout=settings.subject_read_timeout_seconds)
 
 
 async def _average(

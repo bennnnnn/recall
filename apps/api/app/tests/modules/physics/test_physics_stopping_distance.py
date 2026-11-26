@@ -51,14 +51,14 @@ def test_reaction_braking_stop_is_verified() -> None:
     assert "22.5" in reply
     assert "37.5" in reply
     assert "-5" in reply
-    assert "```answer\n37.5\\,\\mathrm{m}\n```" in reply
+    assert "```answer\n37.50\\,\\mathrm{m}\n```" in reply
 
 
 def test_brake_to_stop_is_not_constant_speed() -> None:
     intent = extract_physics_intent(_BRAKE_ONLY)
     assert intent is not None
     assert intent.physics_op == "suvat_distance"
-    assert _answer(_BRAKE_ONLY) == "22.5 m"
+    assert _answer(_BRAKE_ONLY) == "22.50 m"
 
 
 def test_constant_speed_distance_stays_a_rate() -> None:

@@ -3,9 +3,14 @@
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
 
-- Two decimal places, zeros kept: 2.453 is 2.45, 2.4 is 2.40, 19394.567 is 19394.57. A whole
-  result stays whole (1500). A value two places would round to fewer than three figures keeps
-  three significant figures (0.455, 0.0567, 0.00123): a card is never more than 0.5% off.
+- Two decimal places, zeros kept: 2.453 is 2.45, 2.4 is 2.40, 19394.567 is 19394.57, and
+  below 1 too: 0.577 is 0.58, 0.4551 is 0.46 (owner, 2026-11-25, replacing 2026-11-19's
+  three figures under 1). A whole result stays whole (1500). Only a value below 0.1
+  (``SMALL_BELOW``), which two places would show as next to nothing, keeps three
+  significant figures (0.0649, 0.00123). A zero is added only to a value known to that
+  place: the server's own, or one the working above a model's card works out
+  (``card_numbers``); a card the model rounded with nothing to work it from keeps the figures
+  it wrote (43.9°, never 43.90° for 43.877°).
 - Written in full below 10⁹; a power of ten only from 10⁹, or below 0.001, to three
   significant figures (6.02 × 10²³, 1.60 × 10⁻¹⁹).
 - No thousands separators: the card reads like the working above it.
@@ -35,6 +40,9 @@ from app.services.school_rounding import (
 
 PLACES = 2
 SMALL_FIGURES = 3
+# Below this a value keeps SMALL_FIGURES significant figures instead of PLACES places: the
+# one line that says what a "small" value is.
+SMALL_BELOW = 0.1
 POWER_FROM = 1e9
 POWER_BELOW = 1e-3
 
@@ -142,13 +150,17 @@ def number_parts(value: float | Fraction, precision: Precision = RULE) -> tuple[
         return _figures(number, precision.figures, huge_or_tiny)
     if precision.places >= 0:
         return format_places(number, precision.places), None
+    # The rule's own rounding (never a precision asked for, which may want 15 digits: π to 15
+    # places is 3.141592653589793): a float a hair under a tie is the tie, 0.0001 × 50² / 2
+    # is 0.125 and 0.1 × 0.1235 is 0.01235, and their 5 rounds up (review, #2591).
+    number = float(f"{number:.12g}")
     if huge_or_tiny:
         return _figures(number, SMALL_FIGURES, True)
     if math.isclose(number, round(number), rel_tol=1e-12, abs_tol=1e-12):
         return str(round(number)), None
     shown = format_places(number, PLACES)
     lost = not math.isclose(float(shown), number, rel_tol=1e-12)
-    if lost and len(shown.lstrip("-").replace(".", "").lstrip("0")) < SMALL_FIGURES:
+    if lost and abs(number) < SMALL_BELOW:
         return _figures(number, SMALL_FIGURES, False)
     return shown, None
 
@@ -174,3 +186,39 @@ def number_latex(value: float | Fraction, precision: Precision = RULE) -> str:
     """``2.45``, ``6.02 \\times 10^{23}``."""
     mantissa, exponent = number_parts(value, precision)
     return mantissa if exponent is None else rf"{mantissa} \times 10^{{{exponent}}}"
+
+
+# The most significant figures a line of working writes: the working ends on its value
+# unrounded, as a person writes it, never a calculator's sixteen digits ("-9.043478260869565"
+# is -9.04348), the figures physics' own working keeps (``display.GIVEN_FIGURES``).
+WORKING_FIGURES = 6
+# A decimal in working, with an ellipsis after it saying its digits go on.
+_LONG_DECIMAL = re.compile(
+    r"(?<![\w.^_{])(?P<digits>\d+\.\d+)(?P<dots>[ \t]*(?:…|\.\.\.|\\[lc]?dots(?![A-Za-z])))?"
+)
+
+
+# Places past the point that are a calculator's, not a person's: 0.357142857, never 16288.95.
+_CALCULATOR_PLACES = 7
+
+
+def working_figures(tex: str) -> str:
+    """A line of working's calculator digits written to ``WORKING_FIGURES`` significant
+    figures, its ellipsis dropped (``0.357142857\\ldots`` is 0.357143, -9.043478260869565 is
+    -9.04348). A calculator's digits run seven places or more past the point, or say they go
+    on; a person's decimal (16288.95, 12345.67), a whole number, a script and an exponent stay
+    as written, and a digit before the point is never cut (owner, 2026-11-25). For a line
+    of working only: a card and a given are the rule's and the user's."""
+
+    def shorter(match: re.Match[str]) -> str:
+        digits = match["digits"]
+        whole, _point, places = digits.partition(".")
+        figures = len(digits.replace(".", "").lstrip("0"))
+        long_run = len(places) >= _CALCULATOR_PLACES or match["dots"] is not None
+        if not long_run or figures <= WORKING_FIGURES:
+            return match[0]
+        kept = max(WORKING_FIGURES, len(whole.lstrip("0")))
+        mantissa, exponent = round_figures(float(digits), kept)
+        return trim_zeros(format(mantissa.scaleb(exponent), "f"))
+
+    return _LONG_DECIMAL.sub(shorter, tex)

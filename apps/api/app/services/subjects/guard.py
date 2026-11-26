@@ -597,6 +597,12 @@ class GuardedMoney:
         # Unguarded: the money finalize pass falls back on its own (module docstring).
         return await self._inner.finish(turn, text, settings, english=english)
 
+    def read_requests(self, texts: Sequence[str], earlier: Sequence[str | Sequence[str]]) -> None:
+        # Nothing read ahead: the money turn reads its line in the pool when it asks.
+        neutral_on_error(
+            _MONEY, "read_requests", None, lambda: self._inner.read_requests(texts, earlier)
+        )
+
     def reads(self, text: str) -> bool:
         # No money request: routing gives the line its subject's lane.
         return neutral_on_error(_MONEY, "reads", False, lambda: self._inner.reads(text))

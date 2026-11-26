@@ -38,8 +38,10 @@ if TYPE_CHECKING:
     from app.modules.web_search.place_addresses import keep_given_addresses
     from app.modules.web_search.recency import wants_dated_results
     from app.modules.web_search.search_cache import (
+        SideSearchBudget,
         TurnTavilyBudget,
         run_cached_search,
+        side_search_budget,
         turn_search_budget,
     )
     from app.modules.web_search.source_credits import drop_source_credits
@@ -71,6 +73,8 @@ _EXPORTS = {
     "names_its_place": "geo_intent",
     "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
+    "side_search_budget": "search_cache",
+    "SideSearchBudget": "search_cache",
     "turn_search_budget": "search_cache",
     "sources_payload": "formatting",
     "strip_sources_from_text": "formatting",
@@ -86,6 +90,7 @@ __all__ = [
     "LOCATION_ASK_OPENING",
     "WEB_SEARCH_HINT",
     "SearchSource",
+    "SideSearchBudget",
     "TurnTavilyBudget",
     "WebSearchAdapter",
     "asks_about_a_place",
@@ -102,6 +107,7 @@ __all__ = [
     "names_its_place",
     "points_back_in_chat",
     "run_cached_search",
+    "side_search_budget",
     "sources_payload",
     "strip_sources_from_text",
     "turn_search_budget",

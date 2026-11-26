@@ -29,13 +29,13 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Use Gauss's law to find the field outside a sphere of charge 2e-6 C and radius 0.2 m.",
         "gauss_outside",
-        "4.49 × 10⁵ N/C",
+        "449377.59 N/C",
     ),
     (
         "Using Gauss's law, a point charge of 4.00 uC. Find the electric field outside "
         "at a distance of 0.200 m from the center.",
         "gauss_outside",
-        "8.99 × 10⁵ N/C",
+        "898755.18 N/C",
     ),
     (
         "Use Gauss's law for a point inside a hollow shell of charge 2e-6 C "
@@ -47,17 +47,17 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Use Gauss's law inside a uniform sphere of charge 2e-6 C "
         "with radius 0.5 m and a distance of 0.2 m from the center.",
         "gauss_inside_sphere",
-        "28760 N/C",
+        "28760.17 N/C",
     ),
     (
         "Use Gauss's law for an infinite line charge of 2e-6 C/m at a distance of 0.05 m.",
         "gauss_line",
-        "7.19 × 10⁵ N/C",
+        "719004.14 N/C",
     ),
     (
         "Use Gauss's law for an infinite nonconducting sheet of charge density 2e-6 C/m^2.",
         "gauss_plane",
-        "1.13 × 10⁵ N/C",
+        "112940.91 N/C",
     ),
     (
         "Faraday's law for 100 turns when the flux changes by 0.02 Wb in 0.1 s.",
@@ -77,23 +77,23 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Find the time constant of an RL circuit with a 2 H inductor and a 4 ohm resistor.",
         "rl_time_constant",
-        "0.5 s",
+        "0.50 s",
     ),
     (
         "An RL circuit with a 12 V battery, a 4 ohm resistor and a 2 H inductor "
         "is closed. Find the current after 0.5 s as it grows.",
         "rl_growth",
-        "1.9 A",
+        "1.90 A",
     ),
     (
         "An RL circuit with a 4 ohm resistor and a 2 H inductor is opened. "
         "The current of 3 A decays. Find the current after 0.5 s.",
         "rl_decay",
-        "1.1 A",
+        "1.10 A",
     ),
     ("What is the rms voltage for a peak of 10 V?", "rms_voltage", "7.07 V"),
     ("What is the rms current for a peak of 2 A?", "rms_current", "1.41 A"),
-    ("What is the peak voltage for an rms of 10 V?", "rms_voltage", "14.1 V"),
+    ("What is the peak voltage for an rms of 10 V?", "rms_voltage", "14.14 V"),
     ("What is the peak current for an rms of 2 A?", "rms_current", "2.83 A"),
     (
         "Kirchhoff's loop rule for a single loop with a 12 V battery "
@@ -110,23 +110,23 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Find the inductive reactance of a 0.2 H inductor at 50 Hz.",
         "inductive_reactance",
-        "62.8 Ω",
+        "62.83 Ω",
     ),
     (
         "Find the capacitive reactance of a 1e-4 F capacitor at 50 Hz.",
         "capacitive_reactance",
-        "31.8 Ω",
+        "31.83 Ω",
     ),
     (
         "Find the series impedance for a resistance of 30 ohm, "
         "inductive reactance of 40 ohm and capacitive reactance of 10 ohm.",
         "series_impedance",
-        "42.4 Ω",
+        "42.43 Ω",
     ),
     (
         "Find the resonant frequency of an LC circuit with inductance 1 H and capacitance 1e-6 F.",
         "lc_resonance",
-        "159 Hz",
+        "159.15 Hz",
     ),
     (
         "Find the average power of an AC current of 2 A through a resistance of 5 ohm.",
@@ -155,28 +155,28 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Find the gravitational potential of a 6e24 kg mass at a distance of 6e6 m.",
         "gravitational_potential",
-        "-6.67 × 10⁷ J/kg",
+        "-66743000 J/kg",
     ),
     (
         "Find the gravitational potential energy of a 6e24 kg mass and a 1 kg mass "
         "separated by a distance of 6e6 m.",
         "gravitational_potential_energy",
-        "-6.67 × 10⁷ J",
+        "-66743000 J",
     ),
     (
         "Find the orbital energy of a 6e24 kg mass and a 1 kg mass at a distance of 6e6 m.",
         "orbital_energy",
-        "-3.34 × 10⁷ J",
+        "-33371500 J",
     ),
     (
         "Use Kepler's law for a 6e24 kg mass and an orbital radius of 6e6 m. Find the period.",
         "kepler_period",
-        "4615 s (76.9 min)",
+        "4614.54 s (76.91 min)",
     ),
     (
         "Find the internal energy of 2 mol of monatomic ideal gas at 300 K.",
         "monatomic_energy",
-        "7483 J",
+        "7483.02 J",
     ),
     (
         "An isobaric expansion at a pressure of 100000 Pa changes volume "
@@ -188,7 +188,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "An adiabatic expansion with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "
         "and ends at volume 0.02 m^3. Find the final pressure.",
         "adiabatic_pressure",
-        "75786 Pa",
+        "75785.83 Pa",
     ),
     (
         "An adiabatic process with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "
@@ -223,7 +223,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "What is the temperature of 2 mol of ideal gas in a volume of 0.05 m^3 "
         "at a pressure of 101325 Pa?",
         "ideal_gas_temperature",
-        "305 K",
+        "304.66 K",
     ),
     (
         "what is the force on a charge of 2 C moving at 10 m/s "
@@ -234,7 +234,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "what is the force on a 2 m wire carrying 3 A in a 0.5 T magnetic field at 30 degrees",
         "magnetic_force_wire",
-        "1.5 N",
+        "1.50 N",
     ),
     (
         "what is the magnetic flux through 0.2 m^2 in a 0.5 T field at 60 degrees",
@@ -245,7 +245,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Doppler effect: the source approaches at 30 m/s and the observer approaches "
         "at 10 m/s. The frequency is 500 Hz.",
         "doppler_frequency",
-        "564 Hz (approaching, sound at 343 m/s)",
+        "563.90 Hz (approaching, sound at 343 m/s)",
     ),
 ]
 

@@ -32,22 +32,22 @@ def _answers(question: str) -> list[str] | None:
     [
         (
             "i kick a ball at 20 m/s at 30 degrees, how far does it land and whats the max height",
-            ["35.3 m", "5.1 m"],
+            ["35.31 m", "5.10 m"],
         ),
         (
             "A stone is thrown at 12 m/s at 60 degrees. How long is it in the air and how far "
             "does it go?",
-            ["2.12 s", "12.7 m"],
+            ["2.12 s", "12.71 m"],
         ),
         (
             "an object is 30 cm from a convex lens with focal length 10 cm. where is the image "
             "and how big is it",
-            ["15 cm", "-0.5"],
+            ["15 cm", "-0.50"],
         ),
         (
             "An object is 30 cm from a concave mirror with focal length 10 cm. Find the image "
             "distance and the magnification.",
-            ["15 cm", "-0.5"],
+            ["15 cm", "-0.50"],
         ),
     ],
 )
@@ -86,7 +86,7 @@ def test_the_time_to_the_top_is_not_the_whole_flight(question: str) -> None:
     assert _answers(
         "I kick a ball at 20 m/s at 30 degrees, how far does it land and how long does it take "
         "to reach the top"
-    ) == ["35.3 m", "1.02 s"]
+    ) == ["35.31 m", "1.02 s"]
 
 
 def test_the_speed_at_the_top_is_not_the_impact_speed() -> None:
@@ -108,7 +108,7 @@ def test_a_length_is_a_launch_height_only_when_the_words_say_so() -> None:
     assert _answers(
         "A plane flying horizontally at 70 m/s drops a package from 200 m. How far ahead does "
         "the package land?"
-    ) == ["447 m"]
+    ) == ["446.99 m"]
 
 
 def test_a_level_launch_with_no_height_is_not_answered_from_the_ground() -> None:
