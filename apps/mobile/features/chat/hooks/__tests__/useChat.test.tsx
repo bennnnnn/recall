@@ -233,10 +233,42 @@ describe("useChat transport lifecycle", () => {
     expect(stopChatStream).toHaveBeenCalledTimes(1);
     // The Stop names this stream, so one said late never stops another turn.
     expect(options.streamId).toEqual(expect.any(String));
-    expect(stopChatStream.mock.calls[0].slice(0, 3)).toEqual(["token", "a", options.streamId]);
+    expect(stopChatStream.mock.calls[0]).toEqual(["token", "a", options.streamId, 0]);
     expect(current.streaming).toBe(false);
     expect(current.rejectedSend).toBeNull();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("lets a done that beat the Stop over SSE name the saved reply", async () => {
+    // Stopped near the end: the reply finished while the Stop was on its way, and the
+    // server saved it whole. Its done must reach the chat, as the socket's late done does.
+    let heard!: () => void;
+    stopChatStream.mockImplementationOnce(() => new Promise<void>((resolve) => { heard = resolve; }));
+    (streamChatMessageSse as jest.Mock).mockImplementationOnce(({ signal }) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("stopped"), { name: "AbortError" })));
+    }));
+    await render(<Probe chatId="a" />);
+    let sending!: Promise<unknown>;
+    await act(async () => {
+      sending = current.sendMessage("question");
+      FakeSocket.instances[0].onerror();
+    });
+    const options = (streamChatMessageSse as jest.Mock).mock.calls[0][0];
+    await act(async () => {
+      options.onEvent({ type: "start" });
+      options.onEvent({ type: "token", content: "The whole" });
+      jest.advanceTimersByTime(50);
+    });
+    await act(async () => { current.stopGeneration(); });
+    await act(async () => {
+      options.onEvent({ type: "token", content: " answer" });
+      options.onEvent({ type: "stream_end" });
+      options.onEvent({ type: "done", message_id: SERVER_REPLY_ID, final_content: "The whole answer", completion: "complete" });
+      heard();
+      await sending;
+    });
+
+    expect(current.messages.at(-1)).toMatchObject({ id: SERVER_REPLY_ID });
   });
 
   it("closes a stopped SSE stream only once the server heard the Stop, or 2 s on", async () => {

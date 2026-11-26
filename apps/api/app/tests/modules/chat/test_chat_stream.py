@@ -256,8 +256,8 @@ async def test_the_users_stop_cancels_a_producer_waiting_on_the_model(monkeypatc
 
 @pytest.mark.asyncio
 async def test_a_cancelled_sse_response_leaves_the_reply_running_to_its_save(monkeypatch):
-    """Dropping the socket cancels this generator; the reply is not stopped by it and still
-    finishes (the producer saves it)."""
+    """Dropping the socket cancels this generator; a named stream's reply is not stopped by
+    it and still finishes (the producer saves it)."""
     import app.modules.chat.stream_api as chat_stream
 
     monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
@@ -279,6 +279,7 @@ async def test_a_cancelled_sse_response_leaves_the_reply_running_to_its_save(mon
             stream_factory=stream_factory,
             request=request,
             cancel_event=asyncio.Event(),
+            stop=_stop_said(said=False),
         ):
             if "hello" in chunk:
                 seen.set()
@@ -290,6 +291,39 @@ async def test_a_cancelled_sse_response_leaves_the_reply_running_to_its_save(mon
         await task
 
     await asyncio.wait_for(finished.wait(), timeout=2.0)
+
+
+@pytest.mark.asyncio
+async def test_an_unnamed_sse_stream_still_stops_when_its_client_leaves(monkeypatch):
+    """A client that names no stream (``apps/web``, an older phone) stops only by leaving:
+    leaving stops the reply and frees the chat's lock at once, as before. Left running, the
+    chat answered its next send ``busy`` until the reply finished (review of #2596)."""
+    import app.modules.chat.stream_api as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+    cancel_event = asyncio.Event()
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(side_effect=[False, False, *([True] * 100)])
+    produced: list[str] = []
+
+    async def stream_factory(_result, _on_status, _on_reasoning, should_cancel):
+        for i in range(1000):
+            if should_cancel():
+                return
+            produced.append(str(i))
+            yield str(i)
+            await asyncio.sleep(0.01)
+
+    async for _chunk in chat_stream._stream_tokens_sse(
+        chat_id=uuid4(),
+        stream_factory=stream_factory,
+        request=request,
+        cancel_event=cancel_event,
+    ):
+        pass
+
+    assert cancel_event.is_set()
+    assert len(produced) < 1000
 
 
 @pytest.mark.asyncio

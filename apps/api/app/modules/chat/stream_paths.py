@@ -18,7 +18,6 @@ from typing import Any
 from redis.asyncio import Redis
 
 from app.core.aio import settled_result
-from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.spend_counter import spend_pause_reason
 from app.gateways.litellm_gateway import ModelUnavailableError
@@ -51,7 +50,7 @@ _STOP_CLOSE_TIMEOUT_SECONDS = 2.0
 
 
 async def _close_stopped_stream(close: Callable[[], Any]) -> None:
-    """Close a stopped provider stream without blocking the reply save."""
+    """Close a stopped stream, bounded: a socket that will not close never holds the save."""
     with suppress(Exception, asyncio.CancelledError):
         await asyncio.wait_for(close(), _STOP_CLOSE_TIMEOUT_SECONDS)
 
@@ -507,11 +506,10 @@ async def _stream_round(
         close = getattr(llm_stream, "aclose", None)
         if close is not None:
             if accum.was_cancelled:
-                # Closing the provider socket can outlive the stop. Do not
-                # make the partial-reply save wait on it.
-                create_background_task(
-                    _close_stopped_stream(close),
-                    name="close_stopped_stream",
-                )
+                # Closed here, bounded: the gateway settles the stopped attempt's bill
+                # into ``usage`` as it closes, which the charge then reads, once. Closed
+                # in the background, that bill landed after the charge and a stop paid
+                # twice (review of #2596). The provider socket closes on its own.
+                await _close_stopped_stream(close)
             else:
                 await close()

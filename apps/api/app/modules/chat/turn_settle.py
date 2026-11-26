@@ -348,12 +348,13 @@ async def charge_unsent_reply(
     *,
     sent_text: str,
     usage: dict[str, int],
-) -> None:
+) -> TurnUsage | None:
     """Charge a reply the server sent but saves none of (its client says it drew none).
 
     A client's count can only shorten the reply that saves, never what the turn costs: the
     text went out, so its message stays taken and its tokens settle to what it used, in the
-    day's row too (a reseed keeps them). A failed row write still settles Redis.
+    day's row too (a reseed keeps them). A failed row write still settles Redis. Returns
+    the day's usage after it (None when the settle failed).
     """
     charge = _turn_charge(ctx, sent_text, usage)
     _log_turn_cost(ctx, charge)
@@ -374,4 +375,5 @@ async def charge_unsent_reply(
         await pool_liveness.run_unit(deps.session_factory, record)
     except Exception:
         logger.exception("Usage row for an unsaved reply failed user_id=%s", ctx.user_id)
-    await _settle_quota(deps, redis, ctx, settings, charge)
+    # The day's counts after it, which ``done`` carries, as after a saved reply.
+    return await _settle_quota(deps, redis, ctx, settings, charge)

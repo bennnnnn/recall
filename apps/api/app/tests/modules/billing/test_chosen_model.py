@@ -152,3 +152,19 @@ def test_a_named_model_the_plan_dropped_is_auto(
 ) -> None:
     user: Any = SimpleNamespace(plan=plan_id, enabled_models=None)
     assert plan.pick_for_plan(user, named, Settings()) == kept
+
+
+def test_a_dropped_model_answers_with_the_model_settings_names() -> None:
+    """Auto off, ``smart-chat`` first: after Pro ends Settings says messages use the next
+    model still on, and a stale phone's ``smart-chat`` answers with that one, not the
+    cheapest of the pool (review of #2596)."""
+    from app.modules.chat.model_routing.choice import resolve_user_model_override
+
+    settings = Settings(mock_llm_enabled=True)
+    saved = ["smart-chat", "glm-5.3-flash", "free-chat"]
+    shown = _user_out("free", saved).default_model
+    user: Any = SimpleNamespace(plan="free", enabled_models=saved)
+
+    assert shown == "glm-5.3-flash"
+    assert plan.pick_for_plan(user, "smart-chat", settings) == shown
+    assert resolve_user_model_override(user, "smart-chat", "hi", settings) == shown

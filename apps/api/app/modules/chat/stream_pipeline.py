@@ -19,7 +19,6 @@ from app.core.config import Settings
 from app.core.ids import uuid7
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.modules.chat.asks_turn import write_the_rest
-from app.modules.chat.context_window import estimate_tokens
 from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.drawing_turn import write_for_a_picture
 from app.modules.chat.finalize_passes import enrich_final_content
@@ -305,6 +304,7 @@ async def _settle_unsaved_stop(
     accum: StreamAccum,
     usage: dict[str, int],
     resources: TurnResources | None,
+    outcome: TurnOutcome | None,
 ) -> None:
     """A Stop whose client says it drew none of the reply. The client's count only cuts
     what saves: what the server itself sent decides the charge. Up to a few tokens in
@@ -317,7 +317,11 @@ async def _settle_unsaved_stop(
         return
 
     async def charge() -> None:
-        await charge_unsent_reply(deps, redis, settings, ctx, sent_text=sent, usage=usage)
+        day_usage = await charge_unsent_reply(
+            deps, redis, settings, ctx, sent_text=sent, usage=usage
+        )
+        if outcome is not None:
+            outcome.usage = day_usage  # ``done`` carries the counts it took
         if resources is not None:
             resources.mark_settled()
 
@@ -346,17 +350,19 @@ async def _settle_reply(
         accum.mark_server_stop()
     user_stopped = accum.completion == "user_stop"
     # The charge is what the server sent, never what the client says it drew: each stream
-    # adds its own bill to ``usage`` (``llm_spend.settle_stream_attempt``), and one that
-    # reported nothing is the text it sent. An instant reply ran no model: it costs nothing.
-    if not ctx.instant_reply:
-        usage.setdefault("output", estimate_tokens(accum.reply_text()))
+    # settled its own bill into ``usage`` as it closed (``llm_spend.settle_stream_attempt``).
+    # An instant reply's text came from no model: it costs what the calls before it billed
+    # (a tool round), else nothing, on a Stop too (``finalize_text.record_instant_usage``).
+    if ctx.instant_reply:
+        usage.setdefault("input", 0)
+        usage.setdefault("output", 0)
     assistant_text = accum.reply_text(outcome.client_shown_chars if outcome else None)
     if not assistant_text and user_stopped:
         # Stopped before the client drew any of it: nothing is saved, and a regenerate
         # keeps the answer it was replacing (as a stop before the first token does).
         if outcome is not None:
             outcome.completion = accum.completion
-        await _settle_unsaved_stop(deps, redis, settings, ctx, accum, usage, resources)
+        await _settle_unsaved_stop(deps, redis, settings, ctx, accum, usage, resources, outcome)
         return
     if not assistant_text and not _describes_its_picture(ctx, accum):
         raise ModelUnavailableError.for_alias(ctx.model)

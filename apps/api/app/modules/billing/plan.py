@@ -118,12 +118,21 @@ def is_auto_enabled(user: User, settings: Settings) -> bool:
 
 def pick_for_plan(user: User, model_alias: str | None, settings: Settings) -> str | None:
     """A message's model as the plan stands: a named model the plan no longer includes is
-    Auto (None), so a phone that still shows it gets an answer, never a refusal. A model
-    the user turned off, or one no catalog knows, stays named (and is refused)."""
+    the one Settings names instead (``saved_choices``): Auto (None), or with Auto off the
+    first model still on. A phone that still shows it gets an answer, never a refusal. A
+    model the user turned off, or one no catalog knows, stays named (and is refused)."""
     if not is_explicit_pick(model_alias) or plan_includes(user, model_alias, settings):
         return model_alias
     offered = {model.id for model in model_catalog.selectable_models()}
-    return None if model_alias in offered else model_alias
+    if model_alias not in offered:
+        return model_alias
+    # What Settings says messages use (``UserOut.default_model``): Auto, or with Auto off
+    # the first model still on. Routed as Auto, a lapsed Pro's turn picked the cheapest of
+    # its models while Settings named another (review of #2596).
+    saved = saved_choices(user, user.enabled_models, settings)
+    if saved is None or AUTO_ALIAS in saved:
+        return None
+    return saved[0]
 
 
 def models_choosing(user: User, settings: Settings, model_id: str) -> list[str]:

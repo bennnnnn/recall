@@ -214,7 +214,7 @@ export function useChatTransport({
           clientMessageId: options?.clientMessageId,
           signal, streamId,
           onEvent: (payload) => {
-            if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload, turnId);
+            if (!signal.aborted && sse.delivers(signal, payload)) onPayloadRef.current(chatId, payload, turnId);
           },
         });
         sse.end(signal);
@@ -239,7 +239,7 @@ export function useChatTransport({
           clientGeo,
           signal, streamId,
           onEvent: (payload) => {
-            if (!signal.aborted && sse.isCurrent(signal)) onPayloadRef.current(chatId, payload);
+            if (!signal.aborted && sse.delivers(signal, payload)) onPayloadRef.current(chatId, payload);
           },
         });
         sse.end(signal);

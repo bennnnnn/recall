@@ -9,7 +9,8 @@ short, with no checked cards and no Continue, where the socket finishes and save
 reads that word once its client is gone; a stream gone with no Stop said finishes and
 saves its reply, as the socket's does. A Stop names its stream, so one said late (the
 reply was already saving) can never stop another turn, and the stream's key goes when its
-reply is done.
+reply is done. A stream its client did not name (``apps/web``, an older phone) has no
+Stop but leaving, so leaving still stops it and frees the chat.
 """
 
 from __future__ import annotations

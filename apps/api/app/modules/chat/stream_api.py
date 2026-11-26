@@ -247,9 +247,11 @@ async def _turn_sse_lines(
         outcome.stop_when_safe(producer.cancel)
 
     async def client_gone() -> None:
-        """The client left. Only the user's Stop, said on its own request, stops the reply
-        (``sse_stop``): a dropped stream finishes and saves it, as the socket's does."""
-        if stop is not None and (asked := await stop.wait()) is not None:
+        """The client left: a named stream stops only for its Stop (``sse_stop``), else it
+        finishes and saves; an unnamed one (``apps/web``) stops, as it always did."""
+        if stop is None:
+            stop_reply()
+        elif (asked := await stop.wait()) is not None:
             outcome.client_shown_chars = asked.shown_chars
             stop_reply()
         await event_queue.put(None)
@@ -338,8 +340,8 @@ async def _turn_sse_lines(
 def _stream_stop(
     redis: Redis, user_id: UUID, chat_id: UUID, stream_id: UUID | None
 ) -> SseStop | None:
-    """The Stop key of a stream its client named; a stream with no name (a client that
-    says no Stop) stops only with the server."""
+    """The Stop key of a stream its client named; a stream with no name stops when its
+    client leaves (``client_gone``)."""
     return None if stream_id is None else SseStop(redis, user_id, chat_id, stream_id)
 
 
