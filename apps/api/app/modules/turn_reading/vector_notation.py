@@ -26,23 +26,24 @@ from app.services.column_vector import writes_column
 from app.services.law_binding.units import dimension_of
 
 # One entry of a stacked or semicolon column: a signed number (a decimal point or comma, a
-# simple fraction) or a letter.
-_ENTRY = r"[-+−]?[ \t]*+(?:\d*+[.,]\d++|\d++(?:/\d++)?|[A-Za-z])"
+# simple fraction) or a letter. Compiled, so no reader of the prompt's copy takes a pattern
+# for a rule.
+_ENTRY = re.compile(r"[-+−]?[ \t]*+(?:\d*+[.,]\d++|\d++(?:/\d++)?|[A-Za-z])")
 # One entry of a transposed row, which commas separate.
-_ROW_ENTRY = r"[-+−]?[ \t]*+(?:\d*+\.\d++|\d++(?:/\d++)?|[A-Za-z])"
+_ROW_ENTRY = re.compile(r"[-+−]?[ \t]*+(?:\d*+\.\d++|\d++(?:/\d++)?|[A-Za-z])")
 # Entries stacked in a bracket, one a line.
 _STACKED = re.compile(
-    rf"[\[(][ \t]*+{_ENTRY}[ \t]*+(?:\r?\n[ \t]*+{_ENTRY}[ \t]*+){{1,2}}\r?\n?[ \t]*+[\])]"
+    rf"[\[(][ \t]*+{_ENTRY.pattern}[ \t]*+(?:\r?\n[ \t]*+{_ENTRY.pattern}[ \t]*+){{1,2}}\r?\n?[ \t]*+[\])]"
 )
 # Entries split by semicolons in square brackets, a column typed on one line: [5; 2], and the
 # words after it, where a unit stands.
 _SEMICOLONS = re.compile(
-    rf"\[[ \t]*+{_ENTRY}[ \t]*+(?:;[ \t]*+{_ENTRY}[ \t]*+){{1,2}}\]"
+    rf"\[[ \t]*+{_ENTRY.pattern}[ \t]*+(?:;[ \t]*+{_ENTRY.pattern}[ \t]*+){{1,2}}\]"
     r"(?P<after>[ \t]*+[^\s,;.!?()\[\]]++(?:[ \t]++[^\s,;.!?()\[\]]++){0,2})?"
 )
 # A row transposed: (5, 2)^T, [5, 2]ᵀ.
 _TRANSPOSED = re.compile(
-    rf"[\[(][ \t]*+{_ROW_ENTRY}[ \t]*+(?:,[ \t]*+{_ROW_ENTRY}[ \t]*+){{1,2}}[\])][ \t]*+"
+    rf"[\[(][ \t]*+{_ROW_ENTRY.pattern}[ \t]*+(?:,[ \t]*+{_ROW_ENTRY.pattern}[ \t]*+){{1,2}}[\])][ \t]*+"
     r"(?:\^[ \t]*+\{?T\}?|ᵀ)"
 )
 # A tall bracket's top and bottom pieces, as a scan of a printed column reads them.
