@@ -292,12 +292,17 @@ async def test_ws_stop_before_the_message_saves_keeps_the_message(
 async def test_sse_client_gone_before_the_message_saves_keeps_the_message(
     chat: _Chat, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Over SSE the client stops by leaving: its message stays as on the socket."""
+    """Over SSE the phone says Stop, then leaves: its message stays as on the socket. A
+    client that leaves without saying Stop is a dropped connection, whose reply finishes
+    (``sse_stop``)."""
+    from app.modules.chat.sse_stop import ask_stop
+
     reached, release = _held_load(monkeypatch)
     leave = asyncio.Event()
 
     async def stop_then_release() -> None:
         await reached.wait()
+        await ask_stop(core_redis.get_redis_client(), chat.user_id, chat.chat_id, 0)
         leave.set()
         await asyncio.sleep(0.05)
         release.set()

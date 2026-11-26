@@ -2,8 +2,9 @@
 
 The counter itself is ``core/spend_counter.py``. Every model call, a chat turn's
 tool rounds and reply stream included, is priced by the gateway that makes it at
-its own model's rate (``gateways/llm_spend.py``), whether or not a reply saves. The prices below are for calls without a token
-count: images, photo lookup, scan reads, voice and live talk.
+its own model's rate (``gateways/llm_spend.py``), whether or not a reply saves. The
+prices below are for calls without a token count: images, photo lookup, scan reads,
+voice and live talk.
 """
 
 import logging

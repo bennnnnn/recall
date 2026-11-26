@@ -157,17 +157,20 @@ async def _watch_disconnect(
     cancel_event: asyncio.Event,
     producer: asyncio.Task[None],
     client_gone: Callable[[], Awaitable[None]],
+    left: asyncio.Event,
 ) -> None:
-    """Run ``client_gone`` once the client has left while the reply still runs.
+    """Run ``client_gone`` once the client has left while the reply still runs: seen by a
+    poll, or at once when the response ends with the reply still running (``left``).
 
     It runs on its own task: a disconnected response is cancelled at every await, and
     the user's Stop must still be read after that."""
     try:
         while not cancel_event.is_set() and not producer.done():
-            if await request.is_disconnected():
+            if left.is_set() or await request.is_disconnected():
                 await client_gone()
                 return
-            await asyncio.sleep(_DISCONNECT_POLL_SECONDS)
+            with suppress(TimeoutError):
+                await asyncio.wait_for(left.wait(), _DISCONNECT_POLL_SECONDS)
     except asyncio.CancelledError:
         pass
 
@@ -261,8 +264,10 @@ async def _turn_sse_lines(
     producer = asyncio.create_task(produce_tokens())
     register_inflight_stream(chat_id, producer, stop=stop)
     # Kept by the process, not this response: it outlives a dropped client's response.
+    left = asyncio.Event()
     disconnect_watcher = create_background_task(
-        _watch_disconnect(request, cancel_event, producer, client_gone), name="sse_disconnect"
+        _watch_disconnect(request, cancel_event, producer, client_gone, left),
+        name="sse_disconnect",
     )
 
     try:
@@ -310,6 +315,8 @@ async def _turn_sse_lines(
         # never stops the producer: the reply runs on and saves, and the watcher
         # stops it only for the user's Stop (``client_gone``).
         clear_task_cancellation()
+        if not producer.done():
+            left.set()  # the response ended first: the watcher reads the user's Stop now
         # Settled off this task once the producer is done: a disconnected
         # client's response is cancelled again at every await below.
         claim.settle_after(producer, outcome)
