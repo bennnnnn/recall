@@ -18,10 +18,16 @@ import re
 
 # The digits of a number: thousands commas, then a decimal part.
 NUMBER_BODY = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
-# Its power of ten, a calculator's or written out.
+# Its power of ten, a calculator's or written out, in TeX or in prose: "1.77e-10",
+# "1.8 \times 10^{-5}", "6.02 × 10^23", "1.8 x 10^-5", "3*10^8", "1.8 × 10⁻⁵". An exponent
+# without braces is every digit it has ("10^23" is 10 to the 23rd, not 10^2 and 3), ending
+# where the number does (a sentence's full stop may follow).
+_SUPERSCRIPTS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _POWER = (
     r"(?:[eE](?P<calculator>[-+]?\d+)"
-    r"|\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+]?\d)))"
+    r"|\s*(?P<times>\\times|\\cdot|[×x*·])\s*10\s*"
+    r"(?:\^\s*(?:\{\s*(?P<braced>[-+−]?\d+)\s*\}|(?P<bare>[-+−]?\d+)(?!\w|\.\d))"
+    rf"|\^?(?P<sup>[⁻⁺]?[{_SUPERSCRIPTS}]+)))"
 )
 # A number the card writes, its power of ten with it (also a calculator's "1.77e-10": its
 # 10 read as a number of its own was rewritten "1.77e-1.77 \times 10^{-10}", 2026-11-21);
@@ -32,6 +38,7 @@ WRITTEN_NUMBER = re.compile(
 )
 # Every number a text writes, each whole with its power of ten.
 _ANY_NUMBER = re.compile(rf"(?P<number>{NUMBER_BODY}){_POWER}?")
+_FROM_SUPERSCRIPT = str.maketrans(_SUPERSCRIPTS + "⁻⁺", "0123456789-+")
 # A signed value as a card writes it: "-7", "−1,200", "3.85".
 SIGNED_NUMBER = re.compile(rf"[-−]?(?:{NUMBER_BODY})")
 
@@ -39,7 +46,21 @@ SIGNED_NUMBER = re.compile(rf"[-−]?(?:{NUMBER_BODY})")
 def power_of(match: re.Match[str]) -> str | None:
     """The power of ten a number is written with, or None."""
     exponent = match.group("calculator") or match.group("braced") or match.group("bare")
+    if exponent is None and match.group("sup") is not None:
+        exponent = match.group("sup").translate(_FROM_SUPERSCRIPT)
     return None if exponent is None else exponent.replace("−", "-")
+
+
+def in_tex(match: re.Match[str]) -> bool:
+    """The number is written as TeX writes it: plain, or its power ``\\times 10^{n}``
+    (a calculator's "e", a superscript, "x" or "*" is prose's)."""
+    if power_of(match) is None:
+        return True
+    return (
+        match.group("calculator") is None
+        and match.group("sup") is None
+        and (match.group("times") in ("\\times", "\\cdot", "×"))
+    )
 
 
 def number_key(match: re.Match[str]) -> str:

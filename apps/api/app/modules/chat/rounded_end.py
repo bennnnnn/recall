@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- the module reads the minus and times signs as a reply writes them.
+# ruff: noqa: RUF001, RUF003 -- the module reads the minus and times signs as a reply writes them.
 """The working's last line shows the card's rounding, as textbooks write it.
 
 The working ends on its value unrounded and the card rounds it once (the owner's rule,
@@ -34,7 +34,7 @@ from app.modules.chat.card_numbers import (
 from app.modules.chat.card_walk import answer_cards
 from app.modules.chat.tex_arithmetic import INLINE_MATH
 from app.modules.chat.working_cards import only_headings, without_closing_headings
-from app.modules.chat.written_numbers import WRITTEN_NUMBER
+from app.modules.chat.written_numbers import WRITTEN_NUMBER, in_tex
 from app.services.answer_check import Number, read_verified_value
 
 if TYPE_CHECKING:
@@ -76,8 +76,8 @@ def _card(body: str) -> tuple[Number, str, str | None] | None:
         return None
     _headers, value, read = plain
     written = WRITTEN_NUMBER.search(value)
-    if written is None or written.group("calculator") is not None:
-        return None  # "1.77e-10" is a calculator's, not a line of maths
+    if written is None or not in_tex(written):
+        return None  # "1.77e-10", "1.8 × 10⁻⁵": prose's spelling, not a line of maths
     return read.numbers[0], written.group(0).replace("×", "\\times "), read.label
 
 

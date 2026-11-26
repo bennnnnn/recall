@@ -13,10 +13,42 @@ from app.modules.chat.written_numbers import any_numbers
 
 @pytest.mark.parametrize(
     "written",
-    ["1.77e-10", "1.77E-10", r"1.77 \times 10^{-10}", r"1.77\cdot10^{-10}", "1.77 × 10^{−10}"],
+    [
+        "1.77e-10",
+        "1.77E-10",
+        r"1.77 \times 10^{-10}",
+        r"1.77\cdot10^{-10}",
+        "1.77 × 10^{−10}",
+        # Prose spellings (review of #2592): every digit of a bare exponent, x and *, and
+        # superscripts.
+        "1.77 × 10^-10",
+        "1.77 x 10^-10",
+        "1.77*10^-10",
+        "1.77 × 10⁻¹⁰",
+        "1.77 x 10^-10.",
+    ],
 )
 def test_a_number_with_its_power_of_ten_is_one_number(written: str) -> None:
     assert any_numbers(f"K = {written} M") == {"1.77e-10"}
+
+
+@pytest.mark.parametrize("written", ["6.02 × 10^23", "6.02 x 10^23", "6.02 × 10²³", "6.02*10^23"])
+def test_a_bare_exponent_is_every_digit_it_has(written: str) -> None:
+    """10^23 is ten to the 23rd, not 10^2 and a 3."""
+    assert any_numbers(f"{written} atoms") == {"6.02e23"}
+
+
+@pytest.mark.parametrize("given", ["1.8 × 10⁻⁵", "1.8 x 10^-5", "1.8e-5", r"1.8 \times 10^{-5}"])
+def test_a_lead_restating_a_given_stays(given: str) -> None:
+    """A lead that only says the question's value again, in prose's spelling, states no
+    result: it stays above the working, which writes the value in TeX (review of #2592)."""
+    working = (
+        "**Given**\n\n$K_a = 1.8 \\times 10^{-5}$, $c = 0.10\\ \\mathrm{M}$\n\n"
+        "**Solution**\n\n$x = \\sqrt{1.8 \\times 10^{-5} \\times 0.10} = 0.00134$\n\n"
+        "```answer\nverified: false\n[H^+] = 0.00134\\ \\mathrm{M}\n```\n"
+    )
+    reply = f"Ka = {given}, so the acid is weak.\n\n" + working
+    assert drop_guessed_lead(reply) == reply
 
 
 def test_every_number_is_read_whole() -> None:

@@ -24,7 +24,12 @@ import re
 from typing import TYPE_CHECKING
 
 from app.modules.chat.card_walk import answer_cards
-from app.modules.chat.written_numbers import WRITTEN_NUMBER, any_numbers, first_number
+from app.modules.chat.written_numbers import (
+    WRITTEN_NUMBER,
+    any_numbers,
+    first_number,
+    power_of,
+)
 from app.services.answer_check import Number, VerifiedValue, read_verified_value
 from app.services.answer_fence import (
     CHEMISTRY_NOTATION_LINE,
@@ -214,16 +219,7 @@ def _shown(body: str, above: str, precision: Precision) -> str | None:
 def _number_shown(match: re.Match[str], number: Number, precision: Precision) -> str:
     """The number by the rule; a whole number with no unit written in full stays whole at
     any size: 2^40 is 1099511627776, an exact answer, not 1.10 x 10^12 (review)."""
-    if (
-        number.places == 0
-        and not number.unit
-        and match.group("braced", "bare", "calculator")
-        == (
-            None,
-            None,
-            None,
-        )
-    ):
+    if number.places == 0 and not number.unit and power_of(match) is None:
         return str(abs(int(number.value)))
     return number_latex(abs(number.value), precision)
 
