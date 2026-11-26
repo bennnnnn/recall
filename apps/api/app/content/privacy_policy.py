@@ -98,7 +98,7 @@ Crash and error reports hold technical details (device type, operating system, a
 - **Delete memories**: Remove individual learned facts from the Memory screen, or turn memory off.
 - **Delete chats**: Delete one chat or clear all of them.
 - **Turn things off**: Web search, location, notifications and email reminders each have a switch in Settings.
-- **AI processing**: Recall cannot answer without the AI services above. You can withdraw your agreement in the phone app (Settings → Data controls); Recall then cannot chat, use your voice or read photos until you agree again. To stop for good, delete your account.
+- **AI processing**: Recall cannot answer without the AI services above. You agree once: in the phone app by signing in; in the web app, or with an older account, on the screen that asks after sign-in. To stop it, delete your account (Settings → Data controls → Delete your account): nothing more goes to these services, and your data is deleted as described above.
 
 Depending on where you live, you may also have the right to access, correct or delete your data, or to object to how it is used. Contact us to make a request.
 

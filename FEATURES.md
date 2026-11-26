@@ -1137,9 +1137,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   in it (the user's wording), and every
   Google, Apple and dev sign-in sends `ai_data_consent: true`, so the server stores
   `users.ai_data_consent_at` with the sign-in and a new account opens the chat. An account
-  without it (from before this, withdrawn, or signed in by a client that sends no flag)
-  sees once what goes to which outside service (AI models via OpenRouter, OpenAI voice,
-  Mathpix math photos, Tavily search, optional location) with a privacy-policy link; Agree
+  without it (from before this, or signed in by a client that sends no flag) sees one
+  sentence (outside AI and search services such as OpenAI and Anthropic through OpenRouter)
+  with a privacy-policy link, which lists every service (owner, 2026-11-25: nothing to read
+  through); Agree
   stores it (`PATCH /auth/me` `ai_data_consent`), Not now signs out to the sign-in page.
   Every signed-in screen waits on it (the root layout's
   `features/auth/components/AiConsentRedirect.tsx` sends it to `app/consent.tsx`); the web
@@ -1148,8 +1149,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   scan read-back are refused with `consent_required` (an error frame with
   `user_message_saved: false`, or HTTP 403) until the account agrees, and the phone answers it
   with the consent screen (any feature hands it on with `notifyConsentRequired()`,
-  `lib/api/consentRefusal.ts`). Settings → Data controls shows when the account agreed and
-  can withdraw it, which brings the consent screen back. Image generation, attachment uploads and
+  `lib/api/consentRefusal.ts`). There is no withdraw row (owner, 2026-11-25, as other AI apps
+  have none); deleting the account stops it. Image generation, attachment uploads and
   memory instructions are not gated yet.
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.

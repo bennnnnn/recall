@@ -32,8 +32,6 @@ const KEPT_APART: Record<string, string> = {
   "memory.doc.profile.title settings.profile": "a memory page named by its id, and a Settings page",
   "memory.title settings.memory": "the Memory screen, and Settings → Memory",
   "money.term_months money.term_years": "a loan's term in months, and in years",
-  "onboarding.consent_search_title settings.web_search": "a consent item, and a Settings row",
-  "onboarding.consent_voice_title settings.voice": "a consent item, and a Settings page",
   "rich.diagram_title_wave rich.scene_title_wave": "a diagram and a scene, each named by its kind",
   "rich.diagram_title_field rich.scene_title_electric_field": "a diagram named by its kind, and the title the server names by its key",
   "settings.appearance settings.field_appearance": "a Settings row, and a field a settings card names by its id",
