@@ -1,0 +1,624 @@
+{
+ "_doc": "Physics questions that ask to see a diagram (draw: true), and look-alikes that ask to see none (draw: false). physics_diagram_eval.py sends each to a running API and reads the reply's pictures. kind: the picture a right answer draws (vectors: arrows held to the question's directions and sizes; free_body, incline, atwood, pulley, projectile, circuit, rays, collision, pendulum). arrows (vectors only): each stated arrow as [size, compass direction of travel], which the drawn arrows must match. refuse: questions the server must never draw wrongly (review, #2593): wrong lists arrows that would be wrong, no_after an after picture the question denies, no_rig a frictionless rig; drawing nothing passes. masses (draw): [mass, heading] pairs, the body with that arrow labelled with that mass.",
+ "draw": [
+  {
+   "id": "junction-collision",
+   "kind": "vectors",
+   "prompt": "Two roads are perpendicular and meet at a junction. Car A of mass 1000 kg travels along one road at 20 m/s due North. Car B of mass 1300 kg, travels due West along the other road at 16 m/s. At the junction the cars collide and move together. a) Write down the initial velocities of the cars before collision in vector form. b) Find the velocity of the cars after collision. First draw a diagram of the cars before collision",
+   "arrows": [
+    [
+     "20 m/s",
+     "north"
+    ],
+    [
+     "16 m/s",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "intersection-velocities",
+   "kind": "vectors",
+   "prompt": "A car travels at 15 m/s due east and a truck travels at 10 m/s due north towards the same intersection. Draw a diagram showing their velocities before they collide.",
+   "arrows": [
+    [
+     "15 m/s",
+     "east"
+    ],
+    [
+     "10 m/s",
+     "north"
+    ]
+   ]
+  },
+  {
+   "id": "skaters-momenta",
+   "kind": "vectors",
+   "prompt": "Two ice skaters collide and hold on to each other. Skater A of mass 60 kg moves east at 4 m/s and skater B of mass 50 kg moves north at 3 m/s. Draw a diagram of the skaters before the collision and find their velocity afterwards.",
+   "arrows": [
+    [
+     "4 m/s",
+     "east"
+    ],
+    [
+     "3 m/s",
+     "north"
+    ]
+   ]
+  },
+  {
+   "id": "truck-car-lock",
+   "kind": "vectors",
+   "prompt": "A truck of mass 3000 kg moving east at 10 m/s collides with a car of mass 1000 kg moving north at 20 m/s, and they lock together. Draw a diagram of the vehicles before the collision and find their common velocity.",
+   "arrows": [
+    [
+     "10 m/s",
+     "east"
+    ],
+    [
+     "20 m/s",
+     "north"
+    ]
+   ]
+  },
+  {
+   "id": "head-on-balls",
+   "kind": "vectors",
+   "prompt": "A ball of mass 0.2 kg moving at 5 m/s to the right hits a ball of mass 0.3 kg moving at 2 m/s to the left. Draw a diagram of the balls before the collision.",
+   "arrows": [
+    [
+     "5 m/s",
+     "east"
+    ],
+    [
+     "2 m/s",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "hiker-displacement",
+   "kind": "vectors",
+   "prompt": "A hiker walks 3 km north and then 4 km east. Draw a vector diagram of her displacements and find her resultant displacement.",
+   "arrows": [
+    [
+     "3 km",
+     "north"
+    ],
+    [
+     "4 km",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "right-angle-forces",
+   "kind": "vectors",
+   "prompt": "Two forces of 6 N and 8 N act on a point at right angles to each other. Draw a diagram of the forces and find the resultant force.",
+   "arrows": [
+    [
+     "6 N",
+     null
+    ],
+    [
+     "8 N",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "river-boat",
+   "kind": "vectors",
+   "prompt": "A boat heads due east across a river at 4 m/s while the current flows due south at 3 m/s. Draw a velocity vector diagram and find the boat's resultant velocity.",
+   "arrows": [
+    [
+     "4 m/s",
+     "east"
+    ],
+    [
+     "3 m/s",
+     "south"
+    ]
+   ]
+  },
+  {
+   "id": "plane-wind",
+   "kind": "vectors",
+   "prompt": "A plane flies at 200 m/s due north while a wind blows at 50 m/s due east. Sketch the velocity vectors and find the plane's resultant velocity.",
+   "arrows": [
+    [
+     "200 m/s",
+     "north"
+    ],
+    [
+     "50 m/s",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "tugboats",
+   "kind": "vectors",
+   "prompt": "Two tugboats pull a ship, one with a force of 5000 N due east and the other with 3000 N due north. Draw a diagram of the forces on the ship and find the resultant force.",
+   "arrows": [
+    [
+     "5000 N",
+     "east"
+    ],
+    [
+     "3000 N",
+     "north"
+    ]
+   ]
+  },
+  {
+   "id": "swimmer-river",
+   "kind": "vectors",
+   "prompt": "A swimmer swims due north at 1.5 m/s across a river flowing due east at 2 m/s. Draw the velocity vectors of the swimmer and the river.",
+   "arrows": [
+    [
+     "1.5 m/s",
+     "north"
+    ],
+    [
+     "2 m/s",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "force-components",
+   "kind": "vectors",
+   "prompt": "A force of 20 N acts at 30° above the horizontal. Draw the force and its horizontal and vertical components, and find each component."
+  },
+  {
+   "id": "box-on-table",
+   "kind": "free_body",
+   "prompt": "Draw a free-body diagram of a 5 kg box resting on a horizontal table."
+  },
+  {
+   "id": "incline-friction",
+   "kind": "incline",
+   "prompt": "A 10 kg block slides down a 30° incline with a coefficient of friction of 0.2. Draw a free-body diagram of the block and find its acceleration."
+  },
+  {
+   "id": "hanging-mass",
+   "kind": "free_body",
+   "prompt": "A 2 kg mass hangs from a string attached to the ceiling. Draw a diagram showing the forces on the mass and find the tension in the string."
+  },
+  {
+   "id": "atwood",
+   "kind": "atwood",
+   "prompt": "Two masses of 3 kg and 5 kg hang from the ends of a string over a frictionless pulley. Draw a diagram of the system and find the acceleration of the masses."
+  },
+  {
+   "id": "table-pulley",
+   "kind": "pulley",
+   "prompt": "A 4 kg block on a smooth horizontal table is connected by a light string over a pulley at the edge to a hanging 2 kg mass. Draw a diagram of the system and find the acceleration."
+  },
+  {
+   "id": "projectile-angle",
+   "kind": "projectile",
+   "prompt": "A ball is kicked at 20 m/s at 40° above the horizontal from level ground. Sketch its path and find its range."
+  },
+  {
+   "id": "cliff-horizontal",
+   "kind": "projectile",
+   "prompt": "A stone is thrown horizontally at 15 m/s from the top of a cliff 45 m high. Draw a diagram of its motion and find how far from the base of the cliff it lands."
+  },
+  {
+   "id": "series-circuit",
+   "kind": "circuit",
+   "prompt": "Draw a circuit diagram of a 12 V battery connected to two resistors of 4 Ω and 6 Ω in series, and find the current."
+  },
+  {
+   "id": "parallel-circuit",
+   "kind": "circuit",
+   "prompt": "Three resistors of 2 Ω, 3 Ω and 6 Ω are connected in parallel across a 6 V battery. Draw the circuit diagram and find the total current."
+  },
+  {
+   "id": "lens-rays",
+   "kind": "rays",
+   "prompt": "An object is placed 30 cm from a converging lens of focal length 10 cm. Draw a ray diagram and find the image distance."
+  },
+  {
+   "id": "refraction",
+   "kind": "rays",
+   "prompt": "A ray of light passes from air into glass of refractive index 1.5 at an angle of incidence of 40°. Draw a diagram showing the refraction and find the angle of refraction."
+  },
+  {
+   "id": "car-forces",
+   "kind": "free_body",
+   "prompt": "A car of mass 1200 kg is pulled forward by a driving force of 3000 N against a friction force of 600 N on a level road. Draw a free-body diagram of the car and find its acceleration."
+  },
+  {
+   "id": "pulled-box-angle",
+   "kind": "free_body",
+   "prompt": "A box is pulled along a rough floor by a rope at 25° above the horizontal with a tension of 40 N. Draw the forces acting on the box."
+  },
+  {
+   "id": "stationary-target",
+   "kind": "collision",
+   "prompt": "A 0.5 kg ball moving at 6 m/s strikes a stationary 1 kg ball and they stick together. Draw a diagram of the balls before the collision and find their speed afterwards."
+  },
+  {
+   "id": "pendulum",
+   "kind": "pendulum",
+   "prompt": "A simple pendulum has a length of 1.2 m. Draw the pendulum and find its period."
+  },
+  {
+   "id": "bearing-journey",
+   "kind": "vectors",
+   "prompt": "A ship sails 40 km due east and then 30 km due south. Draw a diagram of its journey and find its displacement from the start.",
+   "arrows": [
+    [
+     "40 km",
+     "east"
+    ],
+    [
+     "30 km",
+     "south"
+    ]
+   ]
+  },
+  {
+   "id": "drone-wind-angle",
+   "kind": "vectors",
+   "prompt": "A drone flies at 12 m/s on a heading 30° east of north, and a wind blows at 5 m/s due east. Draw a vector diagram of the two velocities.",
+   "arrows": [
+    [
+     "12 m/s",
+     "N30E"
+    ],
+    [
+     "5 m/s",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "wind-from-west",
+   "kind": "vectors",
+   "prompt": "A plane flies due north at 200 km/h while the wind blows from the west at 50 km/h. Draw a vector diagram of the velocities and find the plane's resultant velocity.",
+   "arrows": [
+    [
+     "200 km/h",
+     "north"
+    ],
+    [
+     "50 km/h",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "north-wind-boat",
+   "kind": "vectors",
+   "prompt": "A boat sails due east at 5 m/s in a north wind of 3 m/s. Draw the velocity vectors of the boat and the wind.",
+   "arrows": [
+    [
+     "5 m/s",
+     "east"
+    ],
+    [
+     "3 m/s",
+     "south"
+    ]
+   ]
+  },
+  {
+   "id": "bare-left-head-on",
+   "kind": "vectors",
+   "prompt": "A ball moving left at 3 m/s hits a ball moving right at 2 m/s head-on. Draw a diagram of the balls before the collision.",
+   "arrows": [
+    [
+     "3 m/s",
+     "west"
+    ],
+    [
+     "2 m/s",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "trolleys-head-on",
+   "kind": "vectors",
+   "prompt": "Two identical trolleys, each of mass 2 kg, move towards each other at 3 m/s to the right and 1 m/s to the left, collide and stick together. Draw the trolleys before the collision.",
+   "arrows": [
+    [
+     "3 m/s",
+     "east"
+    ],
+    [
+     "1 m/s",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "westerly-direction",
+   "kind": "vectors",
+   "prompt": "A ship sails in a westerly direction at 12 km/h. Draw a diagram of its velocity.",
+   "arrows": [
+    [
+     "12 km/h",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "sled-left-angle",
+   "kind": "vectors",
+   "prompt": "A rope pulls a sled to the left with a force of 40 N at 30° above the horizontal. Draw a diagram of the force of the rope on the sled.",
+   "arrows": [
+    [
+     "40 N",
+     "left30up"
+    ]
+   ]
+  },
+  {
+   "id": "final-velocity-junction",
+   "kind": "vectors",
+   "prompt": "Find the final velocity when a 1000 kg car moving north at 20 m/s collides with a 1300 kg car moving west at 16 m/s and they stick together. Draw a diagram of the cars before the collision.",
+   "arrows": [
+    [
+     "20 m/s",
+     "north"
+    ],
+    [
+     "16 m/s",
+     "west"
+    ]
+   ],
+   "masses": [
+    [
+     "1000 kg",
+     "north"
+    ],
+    [
+     "1300 kg",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "letters-junction",
+   "kind": "vectors",
+   "prompt": "Car A (1000 kg) and car B (1300 kg) collide at a junction: A was travelling north at 20 m/s and B west at 16 m/s. Draw a diagram of the cars before they collide.",
+   "arrows": [
+    [
+     "20 m/s",
+     "north"
+    ],
+    [
+     "16 m/s",
+     "west"
+    ]
+   ],
+   "masses": [
+    [
+     "1000 kg",
+     "north"
+    ],
+    [
+     "1300 kg",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "respectively-cars",
+   "kind": "vectors",
+   "prompt": "Two cars of masses 1000 kg and 1300 kg travel at 20 m/s and 16 m/s due north and due west respectively towards a junction, where they collide. Draw a diagram of the cars before they collide.",
+   "arrows": [
+    [
+     "20 m/s",
+     "north"
+    ],
+    [
+     "16 m/s",
+     "west"
+    ]
+   ],
+   "masses": [
+    [
+     "1000 kg",
+     "north"
+    ],
+    [
+     "1300 kg",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "both-stick",
+   "kind": "vectors",
+   "prompt": "A 1000 kg car moving north at 20 m/s and a 1300 kg truck moving west at 16 m/s both collide at a junction and stick together. Draw a diagram of the vehicles before the collision.",
+   "arrows": [
+    [
+     "20 m/s",
+     "north"
+    ],
+    [
+     "16 m/s",
+     "west"
+    ]
+   ],
+   "masses": [
+    [
+     "1000 kg",
+     "north"
+    ],
+    [
+     "1300 kg",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "rear-end",
+   "kind": "vectors",
+   "prompt": "A 1000 kg car travelling east at 25 m/s hits a 3000 kg truck travelling east at 10 m/s from behind. Draw a diagram of the vehicles before the collision.",
+   "arrows": [
+    [
+     "25 m/s",
+     "east"
+    ],
+    [
+     "10 m/s",
+     "east"
+    ]
+   ]
+  },
+  {
+   "id": "latex-right-angle",
+   "kind": "vectors",
+   "prompt": "Two forces of 6 N and 8 N act on a point at $90^\\circ$ to each other. Draw a diagram of the forces and find the resultant.",
+   "arrows": [
+    [
+     "6 N",
+     null
+    ],
+    [
+     "8 N",
+     null
+    ]
+   ]
+  },
+  {
+   "id": "en-dash-north-east",
+   "kind": "vectors",
+   "prompt": "A boat sails north–east at 20 km/h. Draw its velocity vector.",
+   "arrows": [
+    [
+     "20 km/h",
+     "NE"
+    ]
+   ]
+  },
+  {
+   "id": "opposed-forces",
+   "kind": "vectors",
+   "prompt": "Forces of 5 N due east and 8 N due west act on a point. Draw the forces and their resultant.",
+   "arrows": [
+    [
+     "5 N",
+     "east"
+    ],
+    [
+     "8 N",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "momentum-power",
+   "kind": "vectors",
+   "prompt": "A 600 kg cart moves north with a momentum of 1.2 × 10^4 kg m/s. Draw its momentum vector.",
+   "arrows": [
+    [
+     "12000 kg m/s",
+     "north"
+    ]
+   ]
+  }
+ ],
+ "look_alikes": [
+  {
+   "id": "junction-no-picture",
+   "prompt": "Car A of mass 1000 kg travels at 20 m/s due north and car B of mass 1300 kg travels at 16 m/s due west. They collide at a junction and stick together. Find their velocity after the collision."
+  },
+  {
+   "id": "what-is-vector",
+   "prompt": "What is a vector? Explain the difference between speed and velocity."
+  },
+  {
+   "id": "draw-conclusion",
+   "prompt": "Draw a conclusion: is momentum conserved when two cars collide and stick together?"
+  },
+  {
+   "id": "why-diagram",
+   "prompt": "Why does drawing a diagram help when solving collision problems?"
+  },
+  {
+   "id": "distance-north",
+   "prompt": "A car travels due north at 20 m/s for 10 s. How far does it travel?"
+  },
+  {
+   "id": "show-that",
+   "prompt": "Show that momentum is conserved when a 2 kg ball at 3 m/s hits a 1 kg ball at rest and they stick together."
+  },
+  {
+   "id": "resultant-words",
+   "prompt": "A hiker walks 3 km north and then 4 km east. How far is she from her starting point?"
+  },
+  {
+   "id": "north-wind-words",
+   "prompt": "Which way does a north wind blow?"
+  }
+ ],
+ "refuse": [
+  {
+   "id": "braking-force",
+   "prompt": "A car travelling north at 20 m/s brakes with a force of 5000 N. Draw the braking force on the car.",
+   "wrong": [
+    [
+     "5000 N",
+     "north"
+    ]
+   ]
+  },
+  {
+   "id": "bare-westerly",
+   "prompt": "A westerly blows at 12 km/h across a field. Draw a diagram of its velocity.",
+   "wrong": [
+    [
+     "12 km/h",
+     "west"
+    ]
+   ]
+  },
+  {
+   "id": "north-north-east",
+   "prompt": "A boat sails north-north-east at 20 km/h. Draw its velocity vector.",
+   "wrong": [
+    [
+     "20 km/h",
+     "north"
+    ],
+    [
+     "20 km/h",
+     "NE"
+    ]
+   ]
+  },
+  {
+   "id": "sled-up-right",
+   "prompt": "A rope pulls a sled to the left with a force of 40 N at 30° above the horizontal. Draw the forces on the sled.",
+   "wrong": [
+    [
+     "40 N",
+     "N30E"
+    ]
+   ]
+  },
+  {
+   "id": "bounce-apart",
+   "prompt": "Two roads join at a junction. Car A of mass 1000 kg travels at 20 m/s due north and car B of mass 1300 kg travels at 16 m/s due west. They collide and bounce apart. Draw the cars before and after the collision.",
+   "no_after": true
+  },
+  {
+   "id": "wheels-lock",
+   "prompt": "Car A of mass 1000 kg travels at 20 m/s due north and car B of mass 1300 kg travels at 16 m/s due west. They collide at a junction and their wheels lock. Draw the cars before and after the collision.",
+   "no_after": true
+  },
+  {
+   "id": "friction-table",
+   "prompt": "A 5 kg block on a table with friction is connected over a pulley to a hanging 2 kg mass. Draw a diagram of the system.",
+   "no_rig": true
+  }
+ ]
+}

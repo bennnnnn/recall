@@ -132,6 +132,11 @@ export const SCENE_TITLE_KEYS = [
   "standing_wave",
   "buoyancy",
   "charges",
+  "velocities",
+  "displacements",
+  "momentum",
+  "before_collision",
+  "after_collision",
 ] as const;
 
 export type SceneTitleKey = (typeof SCENE_TITLE_KEYS)[number];

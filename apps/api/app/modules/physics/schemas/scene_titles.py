@@ -34,4 +34,10 @@ TitleKey = Literal[
     "buoyancy",
     "charges",
     "electric_field",
+    # A vector picture a reply describes (``scene_drawing.vectors``).
+    "velocities",
+    "displacements",
+    "momentum",
+    "before_collision",
+    "after_collision",
 ]

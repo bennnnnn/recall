@@ -9,6 +9,7 @@ from app.modules.physics.field_lines.build import field_fences
 from app.modules.physics.scene_drawing.apparatus import described_apparatus
 from app.modules.physics.scene_drawing.describe import described_scene
 from app.modules.physics.scene_drawing.motion_graph import described_motion
+from app.modules.physics.scene_drawing.vectors import described_vectors
 
 
 def scene_fences(
@@ -16,11 +17,14 @@ def scene_fences(
 ) -> list[str]:
     """The pictures of the first described scene that checks against ``texts`` (the user's
     messages, the last first); none when none does. One setup, one scene: a question in
-    parts gets one picture of what it is about. A motion's graphs only when the message
-    asks to see a picture, as its contract is only then given (review)."""
+    parts gets one picture of what it is about. A motion's graphs, and the question's own
+    arrows, only when the message asks to see a picture, as their contracts are only then
+    given (review)."""
     fences: list[str] = []
     for body in descriptions:
         specs = described_scene(body, texts) or described_apparatus(body, texts)
+        if not specs and asked:
+            specs = described_vectors(body, texts)
         if specs and not fences:
             fences = [
                 scene_fence(spec.model_dump(mode="json", exclude_none=True)) for spec in specs
