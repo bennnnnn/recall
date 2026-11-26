@@ -21,14 +21,22 @@ from app.modules.physics.scene_drawing.contract import (
     DESCRIBED_PICTURE_SPEECH,
     MOTION_DRAW_CONTRACT,
     SCENE_DRAW_CONTRACT,
+    VECTORS_DRAW_CONTRACT,
 )
 from app.services.md_fence_scan import iter_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 from app.tests.modules.chat.test_drawing_turn import _ctx, _deadline, _decision, _settings, _state
 
-# Physics' contract: its setup's scene, then an electric field's lines.
+# Physics' contract: its setup's scene, the question's own arrows, then an electric
+# field's lines.
 _PHYSICS_CONTRACT = "\n".join(
-    (SCENE_DRAW_CONTRACT, FIELD_DRAW_CONTRACT, MOTION_DRAW_CONTRACT, DESCRIBED_PICTURE_SPEECH)
+    (
+        SCENE_DRAW_CONTRACT,
+        VECTORS_DRAW_CONTRACT,
+        FIELD_DRAW_CONTRACT,
+        MOTION_DRAW_CONTRACT,
+        DESCRIBED_PICTURE_SPEECH,
+    )
 )
 _FIELD = (
     "Draw the pattern of the electric field around: a) a positive charge b) a negative "
