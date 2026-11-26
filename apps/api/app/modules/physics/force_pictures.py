@@ -49,6 +49,8 @@ _BODY = re.compile(
 )
 # A body that rolls on a surface rather than slides.
 _ROLLS = re.compile(r"\b(?:cylinder|ball|wheel|sphere|disc|disk|hoop|roller|marble)", re.I)
+# A body on its way: rolling, sliding or moving, not resting.
+_ROLLING = re.compile(r"\b(?:roll(?:s|ed|ing)?|slid(?:e|es|ing)|mov(?:es|ed|ing))\b", re.I)
 # Several free-body diagrams asked for ("at the start, during and at the end of its fall"):
 # this file draws one, which would say only part of it.
 _SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
@@ -188,9 +190,11 @@ def force_picture(text: str, *, asked: bool = True) -> ForcePicture | None:
     if _FALLING.search(text) is not None:
         return _in_the_air(text)
     if _SURFACE.search(text) is not None:
-        # A body that rolls (a cylinder pulled by a string off its top, a wheel) is no box
-        # sliding: its friction and the point the pull acts at are another picture.
-        if _ROLLS.search(_subject(text)) is not None:
+        # A round body pulled, pushed or rolling (a cylinder pulled by a string off its top,
+        # a wheel) is no box sliding: its friction and the point the pull acts at are another
+        # picture. One at rest ("a ball rests on a table") is weight and normal, as drawn.
+        moving = _DRIVEN.search(text) is not None or _ROLLING.search(text) is not None
+        if _ROLLS.search(_subject(text)) is not None and moving:
             return None
         return _on_surface(text, rubs)
     return None
@@ -202,6 +206,9 @@ def _on_something_else(text: str) -> bool:
     ladder against a wall was drawn as a box on level ground, textbook round 2026-11-25)."""
     asked = _FORCES_ON.search(text)
     if asked is None or _POINTS_BACK.match(text, asked.end()) is not None:
+        return False
+    # "the forces when a block rests on a table": the body is named before the "on".
+    if _BODY.search(asked.group(0)) is not None:
         return False
     return _BODY.search(text, asked.end(), asked.end() + 40) is None
 

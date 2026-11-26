@@ -76,6 +76,21 @@ def test_a_picture_boxed_in_bars_goes_with_the_heading_over_it() -> None:
     assert without_sketches(_PIPE) == "Laminar flow moves in smooth layers.\n"
 
 
+def test_a_table_drawn_in_box_characters_is_no_drawing() -> None:
+    """A t-v table in box characters is data, kept on a physics turn (review of #2603)."""
+    table = (
+        "```text\n"
+        "┌─────┬───────┐\n"
+        "│ t   │ v     │\n"
+        "├─────┼───────┤\n"
+        "│ 0   │ 0     │\n"
+        "│ 2 s │ 4 m/s │\n"
+        "└─────┴───────┘\n"
+        "```\n"
+    )
+    assert without_sketches(table) == table
+
+
 def test_a_text_table_with_borders_is_no_drawing() -> None:
     table = "```text\n+-----+------+\n| m   | 2 kg |\n| v   | 3 m/s|\n+-----+------+\n```\n"
     assert without_sketches(table) == table

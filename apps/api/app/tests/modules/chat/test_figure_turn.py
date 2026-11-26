@@ -105,7 +105,7 @@ class _Figure:
 
         return adds_to(text, fence)
 
-    def without_substitutes(self, text: str, fence: str) -> str:
+    def without_substitutes(self, text: str, fence: str, user_text: str = "") -> str:
         from app.modules.math.figure.substitutes import without_substitutes
 
         return without_substitutes(text, fence)
@@ -630,13 +630,33 @@ async def test_a_physics_solve_that_drew_nothing_gets_the_read_s_picture(
     assert physics is not None
     monkeypatch.setattr(physics, "draw", stand_in.draw)
     ctx = _ctx(live_read=_read(subject="physics", picture="none"))
-    ctx.verified_subject = VerifiedPhysicsBlock(text="W = 40 J")
+    # A real solve: its answer card in its canonical fence, which is no picture (review).
+    ctx.verified_subject = VerifiedPhysicsBlock(
+        text="W = 40 J", canonical_answer="40 J", canonical_fence={"type": "answer"}
+    )
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     assert ctx.figure is not None
     text = await figure_turn.attach_figure(_state(ctx, "It is 40 J."))
     assert text.endswith(_SCENE + "\n") and stand_in.modes == [False]
     held = f"It is 40 J.\n\n{_SCENE}\n"
     assert await figure_turn.attach_figure(_state(ctx, held)) == held
+
+
+async def test_a_flowchart_the_user_asked_for_stays_beside_the_physics_picture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ "... make a mermaid flowchart of how to find a": the forces picture is added and the
+    flowchart asked for stays (review of #2603)."""
+    stand_in = _Figure(_SCENE)
+    physics = figure_turn._figure("physics")
+    assert physics is not None
+    monkeypatch.setattr(physics, "draw", stand_in.draw)
+    line = "A 5 kg box is pushed with 10 N on a table. Make a mermaid flowchart of how to find a."
+    flowchart = "```mermaid\ngraph TD\nA[F] --> B[a = F/m]\n```"
+    ctx = _ctx(line, live_read=_read(subject="physics", picture="none"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, f"Here.\n\n{flowchart}"))
+    assert flowchart in text and _SCENE in text
 
 
 async def test_a_chemistry_solve_gets_no_maths_figure(figure: _Figure) -> None:

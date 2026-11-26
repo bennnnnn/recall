@@ -45,9 +45,46 @@ def _boxed_art(rows: list[str]) -> bool:
     return len(inked) >= 3 and framed and sum(_drawn_row(row) for row in inked) >= 2
 
 
+# A table drawn in box characters: its borders, and the bars between its cells.
+_BOX_BORDER = frozenset("┌┐└┘├┤┬┴┼─━│┃═║╔╗╚╝╠╣╦╩╬ ")
+_BOX_BAR = "│┃║"
+
+
+def _box_table(rows: list[str]) -> bool:
+    """A data table drawn in box characters ("┌───┬───┐" over "│ t │ v │"): every row a
+    border or cells between bars, and every row of cells holding a word or a number in two
+    cells or more. A table, never a sketch (review of #2603)."""
+    inked = [row.strip() for row in rows if row.strip()]
+    cells = [row for row in inked if not set(row) <= _BOX_BORDER]
+    if len(inked) < 3 or not cells:
+        return False
+    for row in cells:
+        if row[0] not in _BOX_BAR or row[-1] not in _BOX_BAR:
+            return False
+        parts = re.split(f"[{_BOX_BAR}]", row)[1:-1]
+        if sum(any(c.isalnum() for c in part) for part in parts) < 2:
+            return False
+    return True
+
+
 def _sketch(rows: list[str]) -> bool:
+    if _box_table(rows):
+        return False
     inked = [row for row in rows if row.strip()]
     return is_arrow_sketch(rows) or is_text_plot(inked) or _boxed_art(rows)
+
+
+# A drawing in characters the user asked for ("show laminar flow as ASCII art"): theirs, as
+# the physics pack allows (``reply_policy.PHYSICS_NO_SKETCH``, "unless the user asks").
+_ASKS_TEXT_ART = re.compile(
+    r"\bascii\b|\btext[\s-]?(?:art|diagram|drawing|sketch|picture)s?\b"
+    r"|\b(?:in|with|using)\s+(?:keyboard\s+|plain[\s-]text\s+)?characters\b",
+    re.IGNORECASE,
+)
+
+
+def asks_for_text_art(user_text: str) -> bool:
+    return _ASKS_TEXT_ART.search(user_text or "") is not None
 
 
 def without_sketches(text: str) -> str:

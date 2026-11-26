@@ -440,3 +440,18 @@ def test_a_sentence_about_the_draw_block_comes_off() -> None:
     assert drop_prompt_leaks(reply, "Draw a graph of force against distance.") == (
         "The force is largest at the start.\n\nThe area under the line is the work."
     )
+    pointing = "The forces act down.\n\nThis draw block shows them.\n\nThe net force is 0."
+    assert drop_prompt_leaks(pointing, "x") == "The forces act down.\n\nThe net force is 0."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "First, draw block diagrams for each subsystem.",
+        "1. Draw blocks for each stage.\n2. Join them with arrows.",
+        "Minecraft builders draw blocks on graph paper first.",
+    ],
+)
+def test_draw_block_in_english_stays(reply: str) -> None:
+    """ "Draw block diagrams" is English, never the prompt's block (review of #2603)."""
+    assert drop_prompt_leaks(reply, "How do I design a control system?") == reply

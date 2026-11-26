@@ -346,3 +346,28 @@ def test_a_box_at_constant_velocity_has_no_lone_friction() -> None:
         "mg",
         "N",
     }
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A round body at rest is weight and normal; only one rolling or pulled is refused.
+        "A ball rests on a table. Draw the forces acting on it.",
+        # The body named before the "on" of "forces ... on" (review of #2603).
+        "Draw the forces when a block rests on a table.",
+    ],
+)
+def test_a_body_at_rest_on_a_table_keeps_its_picture(text: str) -> None:
+    assert _labels(text) == {"mg", "N"}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A string wound round a cylinder on a rough table is pulled with 6 N. Draw the forces.",
+        "A ball rolls along a rough floor. Draw the forces acting on it.",
+        "Find the friction and normal forces that act on the ladder resting on the ground.",
+    ],
+)
+def test_a_body_this_file_does_not_draw_gets_no_box(text: str) -> None:
+    assert force_picture(text) is None

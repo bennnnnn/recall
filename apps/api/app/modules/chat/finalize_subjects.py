@@ -48,6 +48,7 @@ from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_mark
 from app.services.structure_captions import STRUCTURE_LANGS, without_structure_captions
 from app.services.subjects.registry import (
     FENCE_FALLBACK,
+    SUBJECTS,
     SubjectName,
     adapter_named,
     fence_owner,
@@ -376,15 +377,13 @@ def with_closing_note(text: str, note: str) -> str:
 
 
 def strip_text_plots(state: FinalizeState) -> str:
-    """A graph drawn in text characters on a graph turn, and any picture drawn in characters
-    on a physics turn: the prompt forbids them, and the phone shows them as broken rows of
-    symbols."""
+    """What each subject's prompt forbids and the phone shows as broken rows of symbols:
+    maths' graph drawn in text characters on a graph turn, physics' picture drawn in
+    characters. Every subject is asked, by name order, through its fence (``tidy``)."""
     ctx = state.ctx
     text = state.text
-    for subject in ("math", "physics"):
-        text = subject_adapter(subject).fence.tidy(
-            text, ctx.user_message_content, ctx.verified_subject
-        )
+    for adapter in sorted(SUBJECTS, key=lambda adapter: adapter.name):
+        text = adapter.fence.tidy(text, ctx.user_message_content or "", ctx.verified_subject)
     return text
 
 

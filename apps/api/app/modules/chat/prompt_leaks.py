@@ -44,8 +44,10 @@ _PROMPT_LABEL = re.compile(
     r"|\bverified (?:math|physics|chemistry) block\b|\bno verified block\b"
     r"|\bverified block (?:is|was) (?:present|given|shown|provided|attached)\b"
     # The block a reply describes its picture in, which never reaches the phone: "Here is
-    # the ```draw block representing this scenario" (textbook round, 2026-11-25).
-    r"|\bdraw blocks?\b",
+    # the ```draw block representing this scenario" (textbook round, 2026-11-25). Only the
+    # block named as one, its fence ticks or "the"/"this" before it: "draw block diagrams for
+    # each subsystem" and "draw blocks on graph paper" are English (review of #2603).
+    r"|`+draw`*\s+blocks?\b|\b(?:the|this|that|my)\s+draw\s+blocks?\b(?!\s+diagrams?)",
     re.IGNORECASE,
 )
 # An instruction copied from the prompt's rules: "Do not describe the work as math,

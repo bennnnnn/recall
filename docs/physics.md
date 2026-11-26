@@ -673,7 +673,8 @@ draws nothing. Work done (W = F d cos θ) is not listed: the law says the angle 
 and the displacement, never which way either points, and a box drawn pushed along the ground
 showed a box raised by a rope moving sideways (textbook round, 2026-11-25).
 
-Every other physics question gets the picture it is taught from, asked for or not (owner,
+Every other physics question (one no solve read, or one whose solve drew no picture, its answer
+card being none) gets the picture it is taught from, asked for or not (owner,
 2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
 of them because the student had not written "draw"). Beside the reply, one short structured call
 (`scene_drawing/figure_read.py`, on the formal reader's lane, `physics_setup`) says what the question's picture
@@ -699,8 +700,15 @@ its setup. Three blocks are the read's own:
   5]"}`, held to a vector the question writes, number for number, in a unit of the picture's
   quantity or none; every written vector of that kind is drawn.
 A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
-reply, picture or none (`sketches.without_sketches`), and a sentence that names the ```draw block
-comes off any reply (`chat/prompt_leaks.py`).
+reply, picture or none (`sketches.without_sketches`), unless the user asked for one ("as ASCII
+art") and no server picture stands in for it; a data table drawn in box characters stays. A
+sentence that names Recall's draw block ("the ```draw block", "this draw block") comes off any
+reply (`chat/prompt_leaks.py`); "draw block diagrams" is English and stays. The forces block
+draws a round body at rest (a ball on a table) but none rolling or pulled; a beam's every force
+is held to its own mark (the clause stating it names the mark's letter, its distance, an end or
+the pivot), so two forces swapped draw nothing; and a resultant is left off only when the
+question asks for one drawn body's velocity relative to another's (a boat "relative to the
+water" keeps its resultant, the answer).
 
 A request to see the forces on a body ("draw the forces on a box sliding down a 30°
 incline with friction", "show the forces on a hanging mass") needs no number: when nothing

@@ -78,10 +78,33 @@ def test_a_bar_is_drawn_to_scale_with_each_force_where_the_question_puts_it() ->
         [*_BAR_MARKS[:2], {"gap": "12 cm", "forces": [{"size": "10 N", "direction": "down"}]}],
         [*_BAR_MARKS[:3], {"name": "Q", "gap": "9 cm"}],
         [*_BAR_MARKS[:2], {"gap": "12 cm", "forces": [{"size": "9 N", "direction": "up"}]}],
-        [_BAR_MARKS[0], {"name": "P", "gap": "4 cm"}, {"name": "Q", "gap": "20 cm"}],
+        # Every distance stated, the 9 N left off (review of #2603: the case before also
+        # held an unstated 20 cm, refused before this check ran).
+        [_BAR_MARKS[0], _BAR_MARKS[1], {"name": "Q", "gap": "12 cm"}],
         [{"gap": "4 cm", "forces": [{"size": "6 N", "direction": "down"}]}, _BAR_MARKS[1]],
+        # Each force and distance stated, each force at the wrong mark, or the gaps swapped.
+        [
+            {"forces": [{"size": "9 N", "direction": "down"}]},
+            _BAR_MARKS[1],
+            {"gap": "12 cm", "forces": [{"size": "6 N", "direction": "down"}]},
+            _BAR_MARKS[3],
+        ],
+        [
+            _BAR_MARKS[0],
+            {"name": "P", "gap": "12 cm"},
+            {"gap": "4 cm", "forces": [{"size": "9 N", "direction": "down"}]},
+            _BAR_MARKS[3],
+        ],
     ],
-    ids=["unstated-force", "unstated-distance", "wrong-way", "force-left-out", "first-gap"],
+    ids=[
+        "unstated-force",
+        "unstated-distance",
+        "wrong-way",
+        "force-left-out",
+        "first-gap",
+        "forces-swapped",
+        "gaps-swapped",
+    ],
 )
 def test_a_bar_that_does_not_hold_draws_nothing(marks: list[dict[str, Any]]) -> None:
     assert _beam(_BAR, marks) == []
@@ -192,6 +215,38 @@ def test_a_relative_velocity_gets_no_resultant_of_the_sum() -> None:
     assert len(spec.vectors) == 2 and all(v.role != "result" for v in spec.vectors)
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A boat heads due north at 4 m/s relative to the water; the river flows due east at "
+        "3 m/s. Find the resultant velocity.",
+        "A plane flies due north at 4 m/s relative to the air in a wind blowing due east at "
+        "3 m/s. What is the velocity of the plane relative to the ground?",
+    ],
+)
+def test_a_velocity_relative_to_a_medium_keeps_its_resultant(question: str) -> None:
+    """ "relative to the water": the boat's and the current's sum is the answer, relative to
+    the ground (review of #2603)."""
+    arrows = [
+        {
+            "name": "boat" if "boat" in question else "plane",
+            "size": "4 m/s",
+            "direction": "due north",
+        },
+        {"name": "current", "size": "3 m/s", "direction": "due east"},
+    ]
+    block = {
+        "kind": "vectors",
+        "layout": "tail",
+        "quantity": "velocity",
+        "arrows": arrows,
+        "resultant": True,
+    }
+    (spec,) = described_vectors(json.dumps(block), [question])
+    (result,) = [v for v in spec.vectors if v.role == "result"]
+    assert (round(result.dx, 6), round(result.dy, 6)) == (3.0, 4.0)
+
+
 def _components(*arrows: dict[str, str], layout: str = "chain") -> list[Any]:
     block = {
         "kind": "vectors",
@@ -242,7 +297,8 @@ async def test_the_figure_read_s_block_is_drawn_only_when_it_holds(
 ) -> None:
     blocks: list[dict[str, Any] | None] = [
         {"kind": "beam", "marks": _BAR_MARKS},
-        {"kind": "beam", "marks": [_BAR_MARKS[0], {"name": "P", "gap": "5 cm"}]},
+        # Every value stated, the 9 N left off: drawn by nothing.
+        {"kind": "beam", "marks": [_BAR_MARKS[0], _BAR_MARKS[1], {"name": "Q", "gap": "12 cm"}]},
         None,
     ]
     modes: list[bool] = []

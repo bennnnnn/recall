@@ -47,6 +47,9 @@ _LETTER = re.compile(r"[A-Za-z]")
 # A direction a sentence gives a force: up or down, as a bar's forces are.
 _DIRECTION = re.compile(r"\b(?:up|upward|upwards|down|downward|downwards)\b", re.IGNORECASE)
 _SENTENCE_END = re.compile(r"[.;?!](?!\d)")
+# Where a force's clause ends: a stop or a comma, never "and" ("B = 10 N downwards and C =
+# 10 N upwards both act at point X" is one clause of X's).
+_CLAUSE_STOP = re.compile(r"[.;?!,](?!\d)")
 # A value written straight after "the" names one stated elsewhere ("the 8 N force").
 _THE = re.compile(r"\bthe[ \t]+$", re.IGNORECASE)
 # Where a clause of one sentence ends: a comma or "and" between two forces.
@@ -89,6 +92,8 @@ class _Length:
 
     si: float | None
     label: str
+    # Where the question writes it: its value, or the letter of an unknown one.
+    span: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -164,10 +169,11 @@ def _laid_out(described: _Beam, stated: Stated) -> _Layout | None:
         if length.label
     ]
     loads: list[list[_Load]] = []
-    for mark in described.marks:
-        checked = [_load(stated, force) for force in mark.forces]
+    for index, mark in enumerate(described.marks):
+        tied = _Ties(stated.text, described.marks, lengths, index)
+        checked = [_load(stated, force, tied) for force in mark.forces]
         if any(load is None for load in checked):
-            return _refused("a force the question does not state")
+            return _refused("a force the question does not state at its mark")
         loads.append([load for load in checked if load is not None])
     # A force or mass the question states again ("the 8 N force", "the 2.5 kg mass") is one
     # the bar already holds.
@@ -217,11 +223,12 @@ def _length(stated: Stated, written: str) -> _Length | None:
     of one it asks for."""
     letter = _letter(stated.text, written)
     if letter is not None:
-        return _Length(None, letter)
+        at = _token(letter).search(stated.text)
+        return _Length(None, letter, at.span() if at else None)
     given = stated.take(written, "m")
     if given is None or given.si is None or given.si <= 0:
         return None
-    return _Length(given.si, _label(given))
+    return _Length(given.si, _label(given), (given.start, given.end))
 
 
 def _letter(text: str, written: str) -> str | None:
@@ -232,12 +239,61 @@ def _letter(text: str, written: str) -> str | None:
     return letter if re.search(rf"(?<![\w']){re.escape(letter)}(?![\w'])", text) else None
 
 
-def _load(stated: Stated, force: _BeamForce) -> _Load | None:
+def _token(letter: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![\w']){re.escape(letter)}(?![\w'])")
+
+
+# What names a bar's end, and its pivot, in a question's words.
+_END = re.compile(r"\bends?\b", re.IGNORECASE)
+_PIVOT = re.compile(r"\b(?:pivot|balance\s+point|axis|fulcrum|hinge)\b", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class _Ties:
+    """What ties a force to its mark in the question's words: the mark's letter, its own
+    distance or the gap after it, "end" for an end of the bar, the pivot's name for the
+    pivot. A force is held to its mark when its own clause holds one of them: "an 8 N force
+    acts downwards 10 cm to the right of P" is the 8 N at the mark 10 cm on, never at the
+    left end, so a picture with two forces swapped draws nothing (review of #2603)."""
+
+    text: str
+    marks: Sequence[_Mark]
+    lengths: Sequence[_Length]
+    index: int
+
+    def hold(self, start: int, end: int) -> bool:
+        begin = max((m.end() for m in _CLAUSE_STOP.finditer(self.text, 0, start)), default=0)
+        stop = _CLAUSE_STOP.search(self.text, end)
+        finish = stop.start() if stop else len(self.text)
+        clause = self.text[begin:finish]
+        mark = self.marks[self.index]
+        name = (mark.name or "").strip()
+        if name and _LETTER.fullmatch(name) and _token(name).search(clause):
+            return True
+        if self.index in (0, len(self.marks) - 1) and _END.search(clause):
+            return True
+        if mark.pivot and _PIVOT.search(clause):
+            return True
+        # Its own distance, and the gap after it (the 2 m from a mass to the pivot beside it).
+        # ``lengths[k]`` is the distance of mark k + 1.
+        spans = [self.lengths[self.index - 1].span] if self.index else []
+        after = self.index + 1
+        if after < len(self.marks) and self.marks[after].at is None:
+            spans.append(self.lengths[self.index].span)
+        return any(span is not None and begin <= span[0] < finish for span in spans)
+
+
+def _load(stated: Stated, force: _BeamForce, ties: _Ties) -> _Load | None:
     up = force.direction == "up"
     letter = _letter(stated.text, force.size)
     if letter is not None:
-        at = re.search(rf"(?<![\w']){re.escape(letter)}(?![\w'])", stated.text)
-        said = _said_direction(stated.text, at.start(), at.end()) if at else None
+        at = next(
+            (m for m in _token(letter).finditer(stated.text) if ties.hold(m.start(), m.end())),
+            None,
+        )
+        if at is None:
+            return None
+        said = _said_direction(stated.text, at.start(), at.end())
         if said is not None and said != up:
             return None
         return _Load(None, _named(force.name, letter), up)
@@ -250,7 +306,8 @@ def _load(stated: Stated, force: _BeamForce) -> _Load | None:
         agreeing = [
             given
             for given in candidates
-            if kind == _MASS or _said_direction(stated.text, given.start, given.end) == up
+            if (kind == _MASS or _said_direction(stated.text, given.start, given.end) == up)
+            and ties.hold(given.start, given.end)
         ]
         if not agreeing:
             return None

@@ -70,7 +70,13 @@ Quantity = Literal["velocity", "force", "displacement", "momentum"]
 # A value stated once that two arrows share: "two forces of 10 N each", "each of mass 2 kg".
 _SHARED = re.compile(r"\b(?:each|both|identical)\b", re.IGNORECASE)
 _ANGLE_TOLERANCE = 0.5
-_RELATIVE_TO = re.compile(r"\brelative\s+(?:to|velocity)\b", re.IGNORECASE)
+# "the velocity of Nishan relative to Melesse": the asked vector is one body's relative to
+# another, their difference.
+_RELATIVE_TO = re.compile(
+    r"\b(?:velocity|speed|displacement|motion)\s+of\s+(?:the\s+)?(?P<one>[\w ]{1,30}?)\s+"
+    r"relative\s+to\s+(?:the\s+)?(?P<other>[\w ]{1,30}?)(?=\s*(?:[?.,;!]|$|\band\b))",
+    re.IGNORECASE,
+)
 # An angle is a direction's own number ("30° above the horizontal"), never a value it
 # describes; a mass and a pure number have no direction.
 _NO_DIRECTION = frozenset({dimension_of("°"), dimension_of("kg"), None})
@@ -176,8 +182,10 @@ def described_vectors(body: str, texts: Sequence[str]) -> list[SimulationBlockSp
         logger.info("described vectors: no after drawn, the question states none")
     # A velocity relative to another body is their difference, never the sum a resultant
     # draws: "the velocity of Nishan relative to Melesse" got the sum's 42° north of east
-    # beside a reply that worked out 42° south of east (textbook round, 2026-11-25).
-    resultant = described.resultant and _RELATIVE_TO.search(question) is None
+    # beside a reply that worked out 42° south of east (textbook round, 2026-11-25). Only when
+    # both bodies are arrows of the picture: a boat's velocity "relative to the water" with
+    # the current beside it sums to the very answer, relative to the ground (review).
+    resultant = described.resultant and not _asks_a_difference(question, arrows)
     try:
         return laid_out(arrows, described.layout, described.quantity, resultant, question, after)
     except ValueError as exc:  # a layout the scene schema refuses is no picture
@@ -217,6 +225,20 @@ def _checked(described: _Vectors, question: str) -> list[Arrow] | None:
         logger.info("described vectors not drawn: a stated %s left out", described.quantity)
         return None
     return arrows
+
+
+def _asks_a_difference(question: str, arrows: list[Arrow]) -> bool:
+    """The question asks for one arrow's body relative to another arrow's body."""
+    keys = [arrow.key for arrow in arrows if arrow.key]
+
+    def drawn(name: str) -> bool:
+        # "Nishan" names the arrow "nishan"; "car A" the arrow "car a"; "A" the arrow "a".
+        words = name.lower().split()
+        return any(key.split() == words or key in words for key in keys)
+
+    return any(
+        drawn(found["one"]) and drawn(found["other"]) for found in _RELATIVE_TO.finditer(question)
+    )
 
 
 def _one_body_twice(arrows: list[Arrow]) -> bool:
