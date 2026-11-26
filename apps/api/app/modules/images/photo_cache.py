@@ -167,8 +167,10 @@ async def sweep_expired(
     *,
     now: float | None = None,
     keep_going: Callable[[], Awaitable[bool]] | None = None,
+    batch: int = _SWEEP_BATCH,
 ) -> int:
-    """Delete shared copies whose record has aged out; how many went.
+    """Delete shared copies whose record has aged out, ``batch`` listed at a time; how
+    many went.
 
     Each entry names one copy, so removing it touches no copy stored since. One whose
     delete failed stays listed for the next cycle. Batches follow while aged copies
@@ -184,9 +186,7 @@ async def sweep_expired(
         if deleted and keep_going is not None and not await keep_going():
             break
         # Copies whose delete failed stay first in the list: read past them.
-        listed = await redis.zrangebyscore(
-            _STORED_INDEX, "-inf", cutoff, start=failed, num=_SWEEP_BATCH
-        )
+        listed = await redis.zrangebyscore(_STORED_INDEX, "-inf", cutoff, start=failed, num=batch)
         batch_deleted = 0
         for member in listed:
             name = member.decode() if isinstance(member, bytes) else str(member)
@@ -199,7 +199,7 @@ async def sweep_expired(
             await redis.zrem(_STORED_INDEX, name)
             batch_deleted += 1
         deleted += batch_deleted
-        if len(listed) < _SWEEP_BATCH or not batch_deleted:
+        if len(listed) < batch or not batch_deleted:
             break
     if deleted:
         logger.info("Answer photo cache swept deleted=%s", deleted)

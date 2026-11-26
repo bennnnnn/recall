@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from concurrent import futures
 from typing import Any
 from unittest.mock import patch
 
@@ -65,7 +66,7 @@ def test_a_failed_clip_keeps_its_slot_only_once_the_provider_was_asked(
         patch(f"app.modules.speech.api.speech_service.{service_fn}", _provider(asked, outcome)),
     ):
         if outcome == "cancel":
-            with pytest.raises((asyncio.CancelledError, RuntimeError)):
+            with pytest.raises((asyncio.CancelledError, futures.CancelledError, RuntimeError)):
                 _post(client, route)
         else:
             assert _post(client, route).status_code == 502

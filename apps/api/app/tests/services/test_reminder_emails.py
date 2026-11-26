@@ -9,7 +9,7 @@ from app.core.config import Settings
 from app.gateways.email_gateway import EmailOutcome, EmailResult
 from app.modules.notifications import reminder_email as reminder_emails
 from app.modules.todos.occurrences import TodoEmailSnapshot
-from app.tests.fakes import make_user
+from app.tests.fakes import fake_session, make_user
 
 
 @pytest.fixture
@@ -222,10 +222,9 @@ async def test_reminder_emails_go_out_side_by_side(email_write):
     for _ in range(2):
         user = _user()
         rows.append((_todo(due_at=now + timedelta(minutes=5), user_id=user.id), user))
-    session = AsyncMock()
     result = MagicMock()
     result.all.return_value = rows
-    session.execute = AsyncMock(return_value=result)
+    session = fake_session(execute=AsyncMock(return_value=result))
     both = asyncio.Event()
     started: list[UUID] = []
 

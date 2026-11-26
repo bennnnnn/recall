@@ -106,14 +106,14 @@ async def process_todo_reminder_emails(
         # A few at once, at most that many a second (the provider's rate limit): one at a
         # time, a cycle's sends waited on each other's round trip.
         rate = max(1, settings.email_reminder_sends_per_second)
+        next_batch_at = 0.0
         for start in range(0, len(due), rate):
+            await asyncio.sleep(max(0.0, next_batch_at - time.monotonic()))
             if keep_lock is not None and not await keep_lock():
                 logger.warning("Email reminder cycle lost its lock; stopping")
                 return sent
-            began = time.monotonic()
+            next_batch_at = time.monotonic() + 1.0
             sent += await _send_batch(session, settings, due[start : start + rate], now, backoff)
-            if start + rate < len(due):
-                await asyncio.sleep(max(0.0, 1.0 - (time.monotonic() - began)))
         if after is None:
             break
         if time.monotonic() >= stop_at:
@@ -139,17 +139,15 @@ async def _send_batch(
     backoff: SendBackoff | None,
 ) -> int:
     """Send ``batch`` side by side, then mark each one that went out (the session is used
-    by one coroutine at a time); how many were sent."""
+    by one coroutine at a time); how many were sent and marked."""
     results = await gather_or_cancel(*(_send(settings, d, backoff) for d in batch))
     sent = 0
     for delivery, result in zip(batch, results, strict=True):
-        if result is None:
-            continue
-        if result.outcome is EmailOutcome.REJECTED or result.sent:
-            # Refused for good (a bad address): stamped as handled, so it is not sent
-            # again every minute until it ages out two days later.
-            await _mark(session, delivery.occurrence, now)
-        sent += int(result.sent)
+        # Refused for good (a bad address) is stamped as handled too, so it is not sent
+        # again every minute until it ages out two days later.
+        if result is not None and (result.sent or result.outcome is EmailOutcome.REJECTED):
+            marked = await _mark(session, delivery.occurrence, now)
+            sent += int(result.sent and marked)
     return sent
 
 
@@ -182,13 +180,16 @@ async def _send(
     return result
 
 
-async def _mark(session: AsyncSession, occurrence: TodoEmailSnapshot, now: datetime) -> None:
+async def _mark(session: AsyncSession, occurrence: TodoEmailSnapshot, now: datetime) -> bool:
+    """Stamp the reminder emailed and commit; False (rolled back, logged) when that failed."""
     try:
         await mark_reminder_emailed(session, occurrence, sent_at=now)
         await session.commit()
     except Exception:
         await session.rollback()
         logger.exception("Todo reminder email mark failed todo_id=%s", occurrence.id)
+        return False
+    return True
 
 
 async def run_email_reminder_cycle(

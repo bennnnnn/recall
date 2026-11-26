@@ -9,6 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.billing import revenuecat
+from app.tests.fakes import fake_session
 
 _SUB = "app.modules.billing.revenuecat.subscription_service"
 
@@ -174,8 +175,7 @@ async def test_the_stale_check_read_ends_before_revenuecat_is_asked():
     """The stale check's read left a transaction open, holding a pooled connection,
     across the RevenueCat request."""
     steps: list[str] = []
-    session = AsyncMock()
-    session.commit = AsyncMock(side_effect=lambda: steps.append("commit"))
+    session = fake_session(commit=AsyncMock(side_effect=lambda: steps.append("commit")))
 
     async def resolve(*_args: object) -> str:
         steps.append("revenuecat")

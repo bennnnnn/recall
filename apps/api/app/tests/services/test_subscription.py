@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
 from app.modules.billing import subscription as subscription_service
-from app.tests.fakes import make_user
+from app.tests.fakes import fake_session, make_user
 
 
 def test_entitlement_active_lifetime():
@@ -452,8 +452,7 @@ async def test_an_id_of_no_subscriber_shape_asks_nothing(
 async def test_a_transfer_ends_the_open_read_before_asking_revenuecat() -> None:
     """Each target was asked with the caller's read (or the last target's) still open."""
     steps: list[str] = []
-    session = AsyncMock()
-    session.commit = AsyncMock(side_effect=lambda: steps.append("commit"))
+    session = fake_session(commit=AsyncMock(side_effect=lambda: steps.append("commit")))
 
     async def resolve(_settings: Settings, _app_user_id: str) -> str:
         steps.append("revenuecat")

@@ -149,8 +149,8 @@ async def test_auto_replay_pages_past_the_letters_it_cannot_replay(fake_redis: A
         pages.append(len(found))
         return found
 
-    with patch.object(admin, "_AUTO_REPLAY_PAGE", 2), patch.object(fake_redis, "xrange", counted):
-        assert await admin.replay_safe_dlq_entries(fake_redis) == 1
+    with patch.object(fake_redis, "xrange", counted):
+        assert await admin.replay_safe_dlq_entries(fake_redis, page_size=2) == 1
     assert pages == [2, 2, 0]  # never the fresh one
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 4
 

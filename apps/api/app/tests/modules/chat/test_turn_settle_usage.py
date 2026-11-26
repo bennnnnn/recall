@@ -22,7 +22,7 @@ def _charge() -> Any:
 
 @pytest.mark.asyncio
 async def test_the_settle_returns_the_days_usage() -> None:
-    ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000)
+    ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000, token_day=None)
     deps = turn_deps(
         quota={
             "daily_limit_for_user": MagicMock(return_value=10_000),
@@ -42,7 +42,7 @@ async def test_the_settle_returns_the_days_usage() -> None:
 
 @pytest.mark.asyncio
 async def test_a_failed_settle_reports_no_usage() -> None:
-    ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000)
+    ctx = SimpleNamespace(user=MagicMock(), user_id=uuid4(), reserved_tokens=1000, token_day=None)
     deps = turn_deps(
         quota={
             "daily_limit_for_user": MagicMock(return_value=10_000),

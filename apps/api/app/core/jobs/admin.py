@@ -356,7 +356,9 @@ async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> i
     return replayed
 
 
-async def replay_safe_dlq_entries(redis: Redis, *, now: float | None = None) -> int:
+async def replay_safe_dlq_entries(
+    redis: Redis, *, now: float | None = None, page_size: int = _AUTO_REPLAY_PAGE
+) -> int:
     """Re-enqueue dead letters of types safe to run again, at most hourly and boundedly.
 
     Documents uploaded, emails sent and storage swept during an outage stayed lost unless
@@ -377,16 +379,14 @@ async def replay_safe_dlq_entries(redis: Redis, *, now: float | None = None) -> 
     while replayed < _AUTO_REPLAY_BATCH:
         page = cast(
             list[tuple[str, dict[str, Any]]],
-            await redis.xrange(
-                JOBS_DLQ_STREAM, min=start, max=str(cutoff_ms), count=_AUTO_REPLAY_PAGE
-            ),
+            await redis.xrange(JOBS_DLQ_STREAM, min=start, max=str(cutoff_ms), count=page_size),
         )
         for entry_id, fields in page:
             if replayed >= _AUTO_REPLAY_BATCH:
                 break
             if await _auto_replay(redis, entry_id, fields):
                 replayed += 1
-        if len(page) < _AUTO_REPLAY_PAGE:
+        if len(page) < page_size:
             break
         start = next_stream_id(page[-1][0])
     if replayed:

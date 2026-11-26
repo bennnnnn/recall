@@ -8,25 +8,30 @@ planner from flattening the window into the outer query.
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.vectors import EMBEDDING_DIM
-from app.models.orm import AttachmentChunk, MessageChunk
 
 
-async def nearest_in_window[Chunk: (AttachmentChunk, MessageChunk)](
+async def nearest_in_window(
     session: AsyncSession,
-    table: type[Chunk],
+    table: Any,
     query_embedding: list[float],
     *,
     filters: list[ColumnElement[bool]],
     window: int,
     limit: int,
     max_distance: float | None,
-) -> list[Chunk]:
+) -> list[Any]:
     """The ``limit`` embedded rows of ``table`` nearest ``query_embedding`` (cosine) among
-    the newest ``window`` that match ``filters``; none for a vector of the wrong width."""
+    the newest ``window`` that match ``filters``; none for a vector of the wrong width.
+
+    ``table`` is a chunk model (its ``id``, ``embedding`` and ``created_at``), passed by
+    its owning module: shared persistence names no product module's table.
+    """
     if len(query_embedding) != EMBEDDING_DIM:
         return []
     newest = (

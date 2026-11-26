@@ -553,8 +553,9 @@ async def test_the_document_pool_names_itself_in_its_logs(caplog):
             await executor.run(_divide, 1, 2, timeout=1.0)
     finally:
         set_document_executor(None)
-    assert "document queued" in caplog.text
-    assert "sympy" not in caplog.text
+    said = [record.getMessage() for record in caplog.records]
+    assert any(line.startswith("document queued") for line in said), said
+    assert not any(line.startswith("sympy") for line in said), said
 
 
 @pytest.mark.wall_clock
