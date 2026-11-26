@@ -21,6 +21,10 @@ READY_DB_TIMEOUT_SECONDS = 3.0
 READY_REDIS_TIMEOUT_SECONDS = 1.0
 # How long one process keeps the answer of /health/dependencies, which every phone asks.
 DEPENDENCY_CHECK_TTL_SECONDS = 5.0
+# How long one process keeps /health/ready's database answer. The route is public: a probe
+# per call let anyone hold a pooled connection per request. Fly checks every 20 s (fly.toml), so an
+# answer at most this old still drains a Machine within one check.
+READY_CHECK_TTL_SECONDS = 3.0
 
 
 async def database_answers() -> bool:
@@ -90,6 +94,7 @@ class DependencyCheck:
 
 
 DEPENDENCY_CHECK = DependencyCheck(both_answer, ttl_seconds=DEPENDENCY_CHECK_TTL_SECONDS)
+READY_CHECK = DependencyCheck(database_answers, ttl_seconds=READY_CHECK_TTL_SECONDS)
 
 
 @router.get("/health")
@@ -103,9 +108,10 @@ async def ready() -> dict[str, str]:
     """Readiness — Postgres can take traffic.
 
     Redis is reported but not required. A Redis blip must not drain the Fly
-    fleet; chat/quota already fail closed per request.
+    fleet; chat/quota already fail closed per request. The database answer is this
+    process's, at most ``READY_CHECK_TTL_SECONDS`` old (``READY_CHECK``).
     """
-    if not await database_answers():
+    if not await READY_CHECK.answers():
         # Don't leak the underlying exception text (it may include connection
         # strings or internal details) — just signal not ready.
         raise HTTPException(

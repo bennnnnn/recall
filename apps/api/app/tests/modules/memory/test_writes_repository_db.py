@@ -136,6 +136,37 @@ async def test_a_kept_near_duplicate_keeps_only_a_slot_its_text_answers(db_sessi
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("backfilled_is_newer", [False, True])
+async def test_a_backfilled_fact_said_again_keeps_the_newer_one(db_session, backfilled_is_newer):
+    """A fact whose vector came late (its instruct pass ran out of time embedding) was never
+    compared. Compared once backfilled, the fact created earlier goes, whichever one it is,
+    as when the later one is written (#2597 review)."""
+    from datetime import UTC, datetime
+
+    user = await _make_user(db_session)
+    earlier, later = datetime(2026, 11, 1, tzinfo=UTC), datetime(2026, 11, 2, tzinfo=UTC)
+    backfilled = Memory(
+        user_id=user.id, type="profile", text="User lives in Denver", embedding=[0.1] * 1536,
+        created_at=later if backfilled_is_newer else earlier,
+    )  # fmt: skip
+    other = Memory(
+        user_id=user.id, type="profile", text="User is based in Denver", embedding=[0.1] * 1536,
+        created_at=earlier if backfilled_is_newer else later, importance=0.9,
+    )  # fmt: skip
+    db_session.add_all([backfilled, other])
+    await db_session.flush()
+
+    retired = await memories_repo.retire_near_duplicates(
+        db_session, user.id, [backfilled.id], min_similarity=0.9, by_age=True
+    )
+
+    assert retired == 1
+    kept, gone = (backfilled, other) if backfilled_is_newer else (other, backfilled)
+    assert (kept.status, gone.status) == ("active", "superseded")
+    assert kept.importance == 0.9
+
+
+@pytest.mark.asyncio
 async def test_writes_and_the_turns_scoring_read_only_the_rows_they_use(db_session):
     """A superseded row is history: a write loaded every one, forever. A muted row never
     reaches a prompt: the turn's semantic read scored it, then threw it away (audit,

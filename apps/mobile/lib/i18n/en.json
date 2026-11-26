@@ -1070,6 +1070,7 @@
   "todos.error_create": "Could not save",
   "todos.error_delete": "Could not delete",
   "todos.error_due": "Could not update date",
+  "todos.error_duplicate": "You already have this to-do for that day or time.",
   "todos.error_limit": "You have the most open to-dos Recall keeps. Complete or delete some to add more.",
   "todos.error_update": "Could not update",
   "todos.group_anytime": "Anytime",

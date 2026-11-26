@@ -223,13 +223,41 @@ def iter_closed_fences(text: str, lang: str) -> Iterator[tuple[int, int, str]]:
 
 
 def replace_first_closed_fence_body(text: str, lang: str, new_body: str) -> str | None:
-    """Replace the inner body of the first closed ```lang fence. Keep opener/closer."""
+    """Replace the inner body of the first closed ```lang fence, or None with none.
+
+    The opener and closer stay, made longer than any run of their character on a line of
+    the new body: a body holding a ``` line (an email draft quoting code) closed the fence
+    there, and the rest of it spilled out as the reply's own markdown.
+    """
     wanted = lang.lower()
     hit = next((f for f in iter_fences(text) if f.closed and f.lang == wanted), None)
     if hit is None:
         return None
     body = new_body.rstrip("\n") + "\n"
-    return text[: hit.body_start] + body + text[hit.body_end :]
+    run = _fence_run_for(body, hit.opener)
+    opener = _with_run(text[hit.start : hit.body_start], run)
+    closer = _with_run(text[hit.body_end : hit.end], run)
+    return text[: hit.start] + opener + body + closer + text[hit.end :]
+
+
+def _fence_run_for(body: str, opener: FenceMarker) -> int:
+    """The opener's run, or one longer than any fence line of its character in ``body``
+    (read leniently, as the phone and the scans read model text)."""
+    run = opener.length
+    for line in body.split("\n"):
+        marker = read_fence_marker(line, lenient=True)
+        if marker is not None and marker.char == opener.char:
+            run = max(run, marker.length + 1)
+    return run
+
+
+def _with_run(line: str, run: int) -> str:
+    """A fence line with its run of backticks or tildes set to ``run`` characters."""
+    marker = read_fence_marker(line.rstrip("\n"), lenient=True)
+    if marker is None or marker.length == run:
+        return line
+    start = len(marker.prefix)
+    return line[:start] + marker.char * run + line[start + marker.length :]
 
 
 def has_closed_fence(text: str, lang: str) -> bool:

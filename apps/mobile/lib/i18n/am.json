@@ -1084,6 +1084,7 @@
   "todos.error_create": "መቀመጥ አልተቻለም",
   "todos.error_delete": "መሰረዝ አልተቻለም",
   "todos.error_due": "ቀን መዘመን አልተቻለም",
+  "todos.error_duplicate": "ይህ ተግባር ለዚያ ቀን ወይም ሰዓት አስቀድሞ አለዎት።",
   "todos.error_limit": "Recall ሊይዘው የሚችለው ከፍተኛ የክፍት ተግባራት ብዛት ላይ ደርሰዋል። ተጨማሪ ለማከል አንዳንዶቹን ያጠናቅቁ ወይም ይሰርዙ።",
   "todos.error_update": "መዘመን አልተቻለም",
   "todos.overdue_days": "{{count}}ቀን አልፏል",

@@ -1097,6 +1097,7 @@
   "todos.error_create": "No se pudo crear la tarea",
   "todos.error_delete": "No se pudo eliminar",
   "todos.error_due": "No se pudo actualizar la fecha",
+  "todos.error_duplicate": "Ya tienes esta tarea para ese día u hora.",
   "todos.error_limit": "Tienes el máximo de tareas abiertas que guarda Recall. Completa o elimina algunas para añadir más.",
   "todos.error_update": "No se pudo actualizar",
   "todos.overdue_days": "{{count}} d de retraso",

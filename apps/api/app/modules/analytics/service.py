@@ -112,6 +112,9 @@ _OPTIONAL_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
 
 # Every event name the app records (the CHECK constraint on product_events matches).
 EVENT_NAMES: tuple[str, ...] = tuple(_ALLOWED_PROPERTIES)
+# Events only the server records, from what it saved: a client posting one is refused, or
+# any account could count ratings it never gave (``record_reply_rating``).
+SERVER_EVENTS: frozenset[str] = frozenset({"reply_rated"})
 
 
 def _validate_properties(event: ProductEventIn) -> None:
@@ -130,8 +133,12 @@ async def record_batch(
     user_id: UUID,
     batch: ProductEventBatchIn,
 ) -> None:
+    """A client's batch, every event checked before any is stored: one the server owns
+    (``SERVER_EVENTS``) or with properties off its list refuses the batch."""
     rows: list[ProductEvent] = []
     for event in batch.events:
+        if event.name in SERVER_EVENTS:
+            raise ValueError(f"Product event {event.name} is recorded by the server")
         _validate_properties(event)
         rows.append(
             ProductEvent(

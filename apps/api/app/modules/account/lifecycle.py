@@ -117,18 +117,17 @@ async def logout(
         user_id = await _session_user(redis, settings, access_token, refresh_token)
         if user_id is not None:
             await push_tokens_repo.delete_token(session, user_id, expo_push_token)
-    if access_token and refresh_token:
-        await tokens_service.revoke_access_token(redis, access_token, settings)
-        await tokens_service.revoke_refresh_token(redis, refresh_token)
-    elif refresh_token:
-        await tokens_service.revoke_refresh_token(redis, refresh_token)
-    elif access_token:
-        # No refresh token (the phone could not read it): this device's session only.
+    if access_token and not refresh_token:
+        # No refresh token (the phone could not read it): this device's session only, and
+        # its refresh token too while the account's set still holds it.
         user_id = await tokens_service.verify_access_token(redis, access_token, settings)
         session_id = tokens_service.session_id_from_access_token(access_token, settings)
         if session_id:
             await tokens_service.end_session(redis, user_id, session_id, settings=settings)
-        await tokens_service.revoke_access_token(redis, access_token, settings)
+    # The session ends, every access token it issued with it, not only the one presented.
+    await tokens_service.end_own_session(
+        redis, settings, access_token=access_token, refresh_token=refresh_token
+    )
 
 
 async def logout_everywhere(

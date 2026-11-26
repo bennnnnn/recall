@@ -38,6 +38,29 @@ def test_replace_first_closed_fence_body_keeps_surrounding_prose() -> None:
     assert next_text.endswith("```\nOutro\n")
 
 
+@pytest.mark.parametrize(
+    "draft, run",
+    [
+        ("Run this:\n```\nnpm test\n```\nThanks", 4),
+        ("Run this:\n```bash\nnpm test\n```", 4),
+        ("Quoted:\n> ````\n> x\n> ````", 5),
+        ("No fence here, only `inline` code", 3),
+    ],
+)
+def test_a_body_holding_fence_lines_gets_a_longer_fence(draft: str, run: int) -> None:
+    """An email draft that quotes code closed its own ```email fence at the first ``` line,
+    and the rest spilled into the reply as markdown. The fence grows past every run."""
+    text = "Intro\n```email\nTo: a@b.com\n\nHello\n```\nOutro\n"
+    rewritten = replace_first_closed_fence_body(text, "email", f"To: a@b.com\n\n{draft}")
+    assert rewritten is not None
+    fences = [fence for fence in iter_fences(rewritten) if fence.lang == "email"]
+    assert len(fences) == 1 and fences[0].closed
+    assert fences[0].opener.length == run
+    assert rewritten[fences[0].body_start : fences[0].body_end] == f"To: a@b.com\n\n{draft}\n"
+    assert rewritten.startswith("Intro\n" + "`" * run + "email\n")
+    assert rewritten.endswith("`" * run + "\nOutro\n")
+
+
 def test_replace_first_closed_fence_body_returns_none_without_fence() -> None:
     assert replace_first_closed_fence_body("plain", "email", "Hi") is None
 

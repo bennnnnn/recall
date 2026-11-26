@@ -287,17 +287,23 @@ async def retire_near_duplicates(
     *,
     min_similarity: float,
     new_wins: bool = True,
+    by_age: bool = False,
 ) -> int:
     """Of a new fact (``fact_ids``) and an active one it says again in other words, one
     is superseded by the other, which keeps the higher importance: the older one, or with
     ``new_wins`` False (an earlier chat's lines only fill gaps) the new one. Returns how
     many were retired.
 
+    ``by_age``: the facts just got their vector late (a backfill), so "new" says nothing
+    of which was said last. Of each pair, the one created earlier goes and the later one
+    stays, as when the later one is written; they are compared with each other too.
+
     The caller owns the commit. Lesson lines are the lesson job's and never retired.
     """
     if not fact_ids:
         return 0
     new, old = aliased(Memory), aliased(Memory)
+    others = old.id != new.id if by_age else old.id.notin_(fact_ids)
     result = await session.execute(
         select(new.id, old.id)
         .join(old, old.user_id == new.user_id)
@@ -306,7 +312,7 @@ async def retire_near_duplicates(
             new.id.in_(fact_ids),
             new.status == ACTIVE_STATUS,
             new.embedding.isnot(None),
-            old.id.notin_(fact_ids),
+            others,
             old.status == ACTIVE_STATUS,
             old.embedding.isnot(None),
             new.embedding.cosine_distance(old.embedding) <= 1 - min_similarity,
@@ -315,7 +321,9 @@ async def retire_near_duplicates(
     retired = 0
     for new_id, old_id in result.all():
         kept, gone = await session.get(Memory, new_id), await session.get(Memory, old_id)
-        if not new_wins:
+        if by_age:
+            kept, gone = _later_first(kept, gone)
+        elif not new_wins:
             kept, gone = gone, kept
         # A pair met again (one fact near two others) after one of them went is skipped.
         if (
@@ -333,6 +341,15 @@ async def retire_near_duplicates(
         _supersede(gone, kept)
         retired += 1
     return retired
+
+
+def _later_first(
+    first: Memory | None, second: Memory | None
+) -> tuple[Memory | None, Memory | None]:
+    """The pair as (kept, retired): the one created later is kept; a tie keeps ``first``."""
+    if first is None or second is None or first.created_at is None or second.created_at is None:
+        return first, second
+    return (second, first) if second.created_at > first.created_at else (first, second)
 
 
 async def update_embedding_if_current(

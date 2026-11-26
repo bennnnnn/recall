@@ -30,6 +30,7 @@ from app.core.access_tokens import verify_access_token as verify_access_token
 from app.core.config import Settings
 from app.exceptions import AuthenticationError, RedisUnavailableError
 from app.models.schemas import UserOut
+from app.models.schemas.auth import REFRESH_TOKEN_MAX_CHARS
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,16 @@ _REUSE_DETECTION_WINDOW_SECONDS = 24 * 60 * 60
 ROTATION_GRACE_SECONDS = 10
 _REFRESH_GRACE_PREFIX = "refresh_grace:"
 _MAX_SESSION_TRANSACTION_ATTEMPTS = 3
+# Live sessions one account keeps: a sign-in past it ends the least recently used ones.
+# There was no cap, so a loop of sign-ins grew the account's set (and the Security list,
+# read whole) without bound. A person with a phone, a tablet and the web uses a handful.
+MAX_SESSIONS_PER_ACCOUNT = 20
+
+
+def _is_refresh_token(token: str | None) -> bool:
+    """A string that may be one of our refresh tokens: anything longer never becomes part
+    of a Redis key (the cookie path skips the request schema's bound)."""
+    return bool(token) and len(token or "") <= REFRESH_TOKEN_MAX_CHARS
 
 
 def _refresh_key(token: str) -> str:
@@ -143,6 +154,7 @@ async def issue_token_pair(
     )
     try:
         await _drop_expired_sessions(redis, user_set_key)
+        await _end_sessions_past_cap(redis, user_id, settings)
         async with redis.pipeline(transaction=True) as pipe:
             pipe.set(_refresh_key(refresh_token), payload, ex=ttl)
             pipe.sadd(user_set_key, refresh_token)
@@ -171,6 +183,14 @@ async def _drop_expired_sessions(redis: Redis, user_set_key: str) -> None:
     expired = [token for token, exists in zip(members, live, strict=True) if not exists]
     if expired:
         await redis.srem(user_set_key, *expired)
+
+
+async def _end_sessions_past_cap(redis: Redis, user_id: UUID, settings: Settings) -> None:
+    """Make room for one more session: the least recently used past the cap end."""
+    sessions = await list_sessions(redis, user_id, current_session_id=None)
+    for stale in sessions[MAX_SESSIONS_PER_ACCOUNT - 1 :]:
+        await _revoke_session_id(redis, str(stale["id"]), settings)
+        await revoke_refresh_token(redis, str(stale["_refresh_token"]))
 
 
 async def _revoke_all_refresh_tokens(redis: Redis, user_id: UUID, settings: Settings) -> None:
@@ -270,6 +290,8 @@ async def refresh_token_pair(
     device_label: str | None = None,
     platform: str | None = None,
 ) -> tuple[str, str, UserOut]:
+    if not _is_refresh_token(refresh_token):
+        raise AuthenticationError("Invalid refresh token")
     try:
         key = _refresh_key(refresh_token)
         user_id_raw = await redis.get(key)
@@ -347,13 +369,20 @@ async def refresh_token_pair(
     return access_token, new_refresh, user_out
 
 
-async def refresh_token_user(redis: Redis, refresh_token: str) -> UUID | None:
-    """The account a live refresh token belongs to, read without using the token up."""
+async def _live_refresh_record(redis: Redis, refresh_token: str) -> dict[str, Any] | None:
+    """A live refresh token's session record, read without using the token up."""
+    if not _is_refresh_token(refresh_token):
+        return None
     try:
         raw = await redis.get(_refresh_key(refresh_token))
     except RedisError as exc:
         raise RedisUnavailableError() from exc
-    record = parse_refresh_record(raw) if raw is not None else None
+    return parse_refresh_record(raw) if raw is not None else None
+
+
+async def refresh_token_user(redis: Redis, refresh_token: str) -> UUID | None:
+    """The account a live refresh token belongs to, read without using the token up."""
+    record = await _live_refresh_record(redis, refresh_token)
     return UUID(str(record["user_id"])) if record is not None else None
 
 
@@ -375,7 +404,7 @@ async def revoke_access_token(redis: Redis, access_token: str, settings: Setting
 
 
 async def revoke_refresh_token(redis: Redis, refresh_token: str | None) -> None:
-    if not refresh_token:
+    if refresh_token is None or not _is_refresh_token(refresh_token):
         return
     try:
         async with redis.pipeline(transaction=True) as pipe:
@@ -478,13 +507,56 @@ async def revoke_session(
 
 
 async def end_session(redis: Redis, user_id: UUID, session_id: str, *, settings: Settings) -> bool:
-    """End one session: its access tokens by id, and its refresh token. Whether it was live.
+    """End one of the account's sessions: its access tokens by id, and its refresh token.
+    Whether it was live.
 
-    Signing out without the refresh token (the phone could not read it) ends this session
-    by its access token's id; it used to end every session on every device.
+    The session must be one this account holds before anything is written: an id it does
+    not hold (another account's, or made up) is refused with nothing revoked. It used to
+    write the revocation first, so any caller could end another account's session by id.
     """
     sessions = await list_sessions(redis, user_id, current_session_id=None)
     match = next((item for item in sessions if item["id"] == session_id), None)
+    if match is None:
+        return False
+    await _revoke_session_id(redis, session_id, settings)
+    await revoke_refresh_token(redis, str(match["_refresh_token"]))
+    return True
+
+
+async def end_own_session(
+    redis: Redis,
+    settings: Settings,
+    *,
+    access_token: str | None,
+    refresh_token: str | None,
+) -> None:
+    """Sign this device out: the session its own tokens name ends, with every access token
+    it issued, and the presented tokens are revoked.
+
+    Revoking only the presented access token's ``jti`` left the session's other access
+    tokens (one issued before the last refresh) working until they expired. Each id comes
+    from a credential the caller holds: a live refresh token's record, or an access token
+    this server signed.
+    """
+    session_ids: set[str] = set()
+    if refresh_token:
+        record = await _live_refresh_record(redis, refresh_token)
+        if record is not None:
+            session_ids.add(str(record["session_id"]))
+    if access_token:
+        sid = session_id_from_access_token(access_token, settings)
+        if sid:
+            session_ids.add(sid)
+    for session_id in sorted(session_ids):
+        await _revoke_session_id(redis, session_id, settings)
+    if access_token:
+        await revoke_access_token(redis, access_token, settings)
+    await revoke_refresh_token(redis, refresh_token)
+
+
+async def _revoke_session_id(redis: Redis, session_id: str, settings: Settings) -> None:
+    """Refuse every access token of this session for as long as one can still be valid.
+    Only for a session the caller has shown is its own."""
     try:
         await redis.set(
             _revoked_session_key(session_id),
@@ -494,7 +566,3 @@ async def end_session(redis: Redis, user_id: UUID, session_id: str, *, settings:
     except RedisError as exc:
         logger.warning("Session revoke failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
-    if match is None:
-        return False
-    await revoke_refresh_token(redis, str(match["_refresh_token"]))
-    return True

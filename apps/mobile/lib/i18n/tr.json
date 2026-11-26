@@ -1084,6 +1084,7 @@
   "todos.error_create": "Görev oluşturulamadı",
   "todos.error_delete": "Silinemedi",
   "todos.error_due": "Tarih güncellenemedi",
+  "todos.error_duplicate": "Bu yapılacak o gün veya saat için zaten listenizde.",
   "todos.error_limit": "Recall'un tuttuğu en fazla açık yapılacak sayısına ulaştınız. Daha fazla eklemek için bazılarını tamamlayın veya silin.",
   "todos.error_update": "Güncellenemedi",
   "todos.overdue_days": "{{count}}g gecikmiş",

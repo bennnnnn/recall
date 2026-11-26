@@ -1433,6 +1433,29 @@ def test_list_attachments_q_filter():
     assert kwargs.get("q") == "cat"
 
 
+def test_a_long_library_search_is_cut_not_refused():
+    """The phone's search box has no limit: past 80 characters the Library answered 422 and
+    showed an error. The search matches by its first 80 characters instead."""
+    user = _fake_user()
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="url1")
+    mock_list = AsyncMock(return_value=([_attachment_row()], None))
+    typed = "  " + "a" * 79 + " " + "b" * 300
+    with (
+        patch(
+            "app.modules.attachments.workflow.attachments_repo.list_for_gallery",
+            mock_list,
+        ),
+        patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(_app_with_user(user))
+        r = client.get("/attachments", params={"q": typed}, headers={"Authorization": "Bearer t"})
+
+    assert r.status_code == 200
+    _, kwargs = mock_list.call_args
+    assert kwargs.get("q") == "a" * 79
+
+
 def test_list_attachments_category_filter():
     """GET /attachments?category=files filters to non-image attachments."""
     user = _fake_user()
