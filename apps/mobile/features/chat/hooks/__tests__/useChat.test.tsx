@@ -1350,7 +1350,7 @@ describe("useChat transport lifecycle", () => {
       await render(<Probe chatId="a" />);
       const socket = await openSocket();
       const queued = await paintWhileSaving(socket);
-      await act(async () => { socket.emit({ type: "done", persisting: true }); });
+      await act(async () => { socket.emit({ type: "done" }); });
       await act(async () => { await queued.waiting; });
       expect(current.messages.map((message) => message.id)).toEqual([
         expect.stringMatching(/^local-/), expect.stringMatching(/^streamed-/), "local-2",

@@ -341,7 +341,7 @@ describe("ChatWsTransport", () => {
       jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1_000);
       expect(transport.sendMessage({ ...MESSAGE, client_message_id: "name-2" })).toBe(true);
       socket.emit({ type: "start" });
-      socket.emit({ type: "done", persisting: true });
+      socket.emit({ type: "done" });
       jest.advanceTimersByTime(WS_IDLE_KEEP_MS - 1);
       expect(socket.close).not.toHaveBeenCalled();
       jest.advanceTimersByTime(1);
@@ -349,7 +349,7 @@ describe("ChatWsTransport", () => {
     });
 
     it.each([
-      ["a reply still saving", { type: "done", persisting: true }],
+      ["a reply still saving", { type: "done" }],
       ["an error", { type: "error", message: "nope" }],
       ["a duplicate", { type: "duplicate" }],
     ])("is kept for a Retry or the next message after %s", async (_label, frame) => {
@@ -364,7 +364,7 @@ describe("ChatWsTransport", () => {
 
     it("is let go at once when the user leaves the chat with nothing due", async () => {
       const { socket, transport } = await sentTurn();
-      socket.emit({ type: "done", persisting: true });
+      socket.emit({ type: "done" });
       inView = false;
       transport.leftView();
       expect(socket.close).toHaveBeenCalledTimes(1);
@@ -433,7 +433,7 @@ describe("ChatWsTransport", () => {
 
     it("opens a new socket for the send after it was let go", async () => {
       const { socket, sockets, transport } = await sentTurn();
-      socket.emit({ type: "done", persisting: true });
+      socket.emit({ type: "done" });
       transport.leftView();
       expect(transport.isOpen()).toBe(false);
       const connecting = transport.connect();
@@ -469,7 +469,7 @@ describe("ChatWsTransport", () => {
       expect(settled).toBe(true);
       expect(transport.sendMessage(MESSAGE)).toBe(true);
       socket.emit({ type: "start" });
-      socket.emit({ type: "done", persisting: true });
+      socket.emit({ type: "done" });
       expect(socket.close).toHaveBeenCalledTimes(1);
       let later = false;
       void transport.connect().then(() => { later = true; });
@@ -597,7 +597,7 @@ describe("ChatWsTransport", () => {
     jest.advanceTimersByTime(WS_FOLLOW_UPS_WAIT_MS);
     expect(transport.expectsFollowUps()).toBe(false);
     // A reply still saving (no id) gets none; a closed socket brings none.
-    socket.emit({ type: "done", persisting: true });
+    socket.emit({ type: "done" });
     expect(transport.expectsFollowUps()).toBe(false);
     socket.emit({ type: "done", message_id: "saved-3" });
     (socket.onclose as (event: { code: number }) => void)({ code: 4408 });
