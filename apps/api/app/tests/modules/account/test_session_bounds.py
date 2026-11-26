@@ -8,6 +8,8 @@ length reached Redis or the verifier; plan syncs had no limit.
 
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -15,6 +17,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import AuthenticationError, RateLimitedError
 from app.models.schemas import AppleAuthRequest, GoogleAuthRequest, LogoutRequest, RefreshRequest
@@ -108,6 +111,69 @@ async def test_a_sign_in_past_the_cap_ends_the_least_recently_used_session(
     assert await tokens_service.verify_access_token(fake_redis, newest_access, _SETTINGS) == user_id
 
 
+async def _seed_sessions(redis: Any, user_id: Any, count: int) -> list[str]:
+    """Sessions an account from before the cap holds, oldest first: their ids."""
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    ids: list[str] = []
+    for n in range(count):
+        session_id, token = str(uuid4()), f"seeded-{n}-{uuid4().hex}"
+        seen = (start + timedelta(minutes=n)).isoformat()
+        record = {"user_id": str(user_id), "session_id": session_id, "created_at": seen,
+                  "last_seen_at": seen, "device_label": f"device {n}", "platform": "ios"}  # fmt: skip
+        await redis.set(f"refresh:{token}", json.dumps(record), ex=3600)
+        await redis.sadd(f"refresh_user:{user_id}", token)
+        ids.append(session_id)
+    return ids
+
+
+async def test_an_account_far_past_the_cap_is_trimmed_in_one_round_trip(fake_redis: Any) -> None:
+    """1,000 sessions from a sign-in loop used to end one at a time inside the sign-in."""
+    user_id = uuid4()
+    seeded = await _seed_sessions(fake_redis, user_id, 300)
+    pipelines = MagicMock(wraps=fake_redis.pipeline)
+    writes = MagicMock(wraps=fake_redis.set)
+    with patch.object(fake_redis, "pipeline", pipelines), patch.object(fake_redis, "set", writes):
+        access, _ = await tokens_service.issue_token_pair(fake_redis, user_id, _SETTINGS)
+
+    cap = tokens_service.MAX_SESSIONS_PER_ACCOUNT
+    assert await fake_redis.scard(f"refresh_user:{user_id}") == cap
+    # Expired-member check, the trim, the new session: never one call per session.
+    assert pipelines.call_count <= 3
+    writes.assert_not_called()
+    assert await fake_redis.get(f"revoked:sid:{seeded[0]}") == "1"
+    assert await fake_redis.get(f"revoked:sid:{seeded[-1]}") is None
+    assert await tokens_service.verify_access_token(fake_redis, access, _SETTINGS) == user_id
+
+
+async def test_the_session_route_lists_the_cap_with_this_device_among_them(
+    fake_redis: Any,
+) -> None:
+    """GET /auth/sessions for an account past the cap, this device the least recently seen."""
+    from starlette.requests import Request
+
+    user = api_user()
+    seeded = await _seed_sessions(fake_redis, user.id, tokens_service.MAX_SESSIONS_PER_ACCOUNT + 5)
+    mine = create_access_token(user.id, _SETTINGS, session_id=seeded[0])
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/auth/sessions",
+            "query_string": b"",
+            "headers": [(b"authorization", f"Bearer {mine}".encode())],
+        }
+    )
+
+    response = await account_api.list_sessions(
+        request, user=user, settings=_SETTINGS, redis=fake_redis
+    )
+
+    rows = json.loads(bytes(response.body))["sessions"]
+    assert len(rows) == tokens_service.MAX_SESSIONS_PER_ACCOUNT
+    assert [row["id"] for row in rows if row["current"]] == [seeded[0]]
+    assert rows[0]["id"] == seeded[-1]
+
+
 def test_the_session_list_is_bounded_and_keeps_this_device() -> None:
     cap = tokens_service.MAX_SESSIONS_PER_ACCOUNT
     rows: list[dict[str, Any]] = [{"id": str(n), "current": False} for n in range(cap + 5)]
@@ -170,3 +236,27 @@ async def test_plan_syncs_are_limited_per_account(fake_redis: Any) -> None:
             user=api_user(plan="pro"), session=AsyncMock(), settings=settings, redis=fake_redis
         )
     assert sync.await_count == account_api._SUBSCRIPTION_SYNCS_PER_MINUTE + 1
+
+
+async def test_plan_syncs_stop_at_the_hours_limit_across_minutes(fake_redis: Any) -> None:
+    """Ten a minute, every minute, still stops at sixty an hour."""
+    user = api_user(plan="pro")
+    settings = Settings(jwt_secret="x" * 32, revenuecat_secret_key="sk_test")
+    per_hour = account_api._SUBSCRIPTION_SYNCS_PER_HOUR
+    with (
+        patch.object(account_api, "_SUBSCRIPTION_SYNCS_PER_MINUTE", per_hour + 10),
+        patch.object(
+            account_api.subscription_service,
+            "sync_user_plan_from_revenuecat",
+            AsyncMock(return_value=user),
+        ),
+    ):
+        for _ in range(per_hour):
+            await account_api.sync_subscription(
+                user=user, session=AsyncMock(), settings=settings, redis=fake_redis
+            )
+        with pytest.raises(RateLimitedError) as refused:
+            await account_api.sync_subscription(
+                user=user, session=AsyncMock(), settings=settings, redis=fake_redis
+            )
+    assert refused.value.headers == {"Retry-After": "3600"}

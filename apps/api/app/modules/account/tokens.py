@@ -186,11 +186,25 @@ async def _drop_expired_sessions(redis: Redis, user_set_key: str) -> None:
 
 
 async def _end_sessions_past_cap(redis: Redis, user_id: UUID, settings: Settings) -> None:
-    """Make room for one more session: the least recently used past the cap end."""
+    """Make room for one more session: the least recently used past the cap end, in one
+    round trip. An account from before the cap may hold thousands; ended one at a time,
+    each cost a write and a watched transaction inside the sign-in request.
+
+    A refresh of one of them racing this finds its token gone and is refused, as after a
+    sign-out (``refresh_token_pair`` watches the key).
+    """
     sessions = await list_sessions(redis, user_id, current_session_id=None)
-    for stale in sessions[MAX_SESSIONS_PER_ACCOUNT - 1 :]:
-        await _revoke_session_id(redis, str(stale["id"]), settings)
-        await revoke_refresh_token(redis, str(stale["_refresh_token"]))
+    stale = sessions[MAX_SESSIONS_PER_ACCOUNT - 1 :]
+    if not stale:
+        return
+    revoked_for = max(60, settings.jwt_expire_minutes * 60)
+    tokens = [str(item["_refresh_token"]) for item in stale]
+    async with redis.pipeline(transaction=True) as pipe:
+        for item in stale:
+            pipe.set(_revoked_session_key(str(item["id"])), "1", ex=revoked_for)
+        pipe.delete(*[_refresh_key(token) for token in tokens])
+        pipe.srem(_user_refresh_set_key(user_id), *tokens)
+        await pipe.execute()
 
 
 async def _revoke_all_refresh_tokens(redis: Redis, user_id: UUID, settings: Settings) -> None:
