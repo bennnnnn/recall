@@ -35,6 +35,7 @@ from app.modules.chat.worked_solution import Given, Part, Step, WorkedSolution
 from app.modules.chat.worked_text import (
     formula_title,
     is_prose,
+    is_word_symbol,
     names_nothing,
     tidy_symbol,
     tidy_tex,
@@ -86,6 +87,7 @@ def _line(tex: str, note: str | None = None) -> str:
 # (v_{avg}, \frac{distance}{time}, \text{W}), never the sentence's.
 _COMMAND_GROUP = re.compile(r"\{[^{}]*\}|\\[A-Za-z]+")
 _SENTENCE_WORD = re.compile(r"[A-Za-z]{3,}")
+_OPENING_WORD = re.compile(r"[A-Z][a-z]{3,}\s+(?![=<>≈≤≥])\S")
 
 
 def _in_sentences(tex: str) -> bool:
@@ -95,7 +97,10 @@ def _in_sentences(tex: str) -> bool:
     plain = tex
     for _ in range(4):  # nested groups, innermost first
         plain = _COMMAND_GROUP.sub(" ", plain)
-    return len(_SENTENCE_WORD.findall(plain)) >= 3
+    words = len(_SENTENCE_WORD.findall(plain))
+    # Two words when the line opens on one that no relation follows: "Substitute I =
+    # \frac{1}{2}mR^2 and \alpha = \frac{a}{R}:" is a sentence ("Area = l w" is maths).
+    return words >= 3 or (words == 2 and _OPENING_WORD.match(tex) is not None)
 
 
 def _plain(tex: str) -> str:
@@ -394,15 +399,24 @@ def _ended(sentence: str) -> str:
 
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
-    concluded = _concluded(solution)
+    concluded = _concluded(solution) | _letters_as_symbols(solution)
     return tuple(
         text_line(prose_maths(item.meaning))
-        if item.meaning and _symbol_key(item.symbol) in concluded
+        if item.meaning and (_symbol_key(item.symbol) in concluded or is_word_symbol(item.symbol))
         else text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
-        if names_nothing(item.symbol)
+        if names_nothing(item.symbol) or is_word_symbol(item.symbol)
         else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
         for item in solution.required
     )
+
+
+def _letters_as_symbols(solution: WorkedSolution) -> set[str]:
+    """The asks whose "symbol" is only its part's letter: "(a) $a$ (graph description) (b)
+    $b$ (when it speeds up most)" named no quantity (textbook round, 2026-11-26). Only when
+    every ask of two or more is lettered so, in order: one ``a`` may be an acceleration."""
+    keys = [_symbol_key(item.symbol) for item in solution.required]
+    lettered = len(keys) >= 2 and all(key == part_letter(at) for at, key in enumerate(keys))
+    return set(keys) if lettered else set()
 
 
 def _symbol_key(symbol: str) -> str:
@@ -469,7 +483,11 @@ def _asked_by_parts(
     for index, part in enumerate(parts):
         record = asked[index] if index < len(asked) else asked[0] if len(asked) == 1 else None
         # A record's "symbol" in words names every part at once, never this one.
-        own = record.symbol if record and not names_nothing(record.symbol) else ""
+        own = (
+            record.symbol
+            if record and not names_nothing(record.symbol) and not is_word_symbol(record.symbol)
+            else ""
+        )
         answered = _answered_symbols(part)
         symbol = answered or own
         # The record's meaning is its own symbol's: a part finding another ("t" under

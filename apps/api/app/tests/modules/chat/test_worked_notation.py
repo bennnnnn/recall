@@ -1,0 +1,136 @@
+"""A ```worked block's symbols as the phone draws them (Grade 11 physics round, 2026-11-26).
+
+The model wrote a Greek letter by its name ("theta | 60", "omega_0 = \\frac{2\\pi}{T}"), a
+command run into a letter ("\\DeltaP_h"), a word or an option's numeral as what is asked
+("equilibrium", "iii"), the part letters as symbols ("a | graph description"), the contract's
+own "what (a) finds", "vector" as a unit, and one part's working twice.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.modules.chat.worked_answers import answer_lines
+from app.modules.chat.worked_render import WorkedLayout, render_worked
+from app.modules.chat.worked_solution import Answer, Given, assemble, read_record
+from app.modules.chat.worked_text import is_word_symbol, tidy_symbol, tidy_tex
+
+PHYSICS = WorkedLayout(law_heading=True)
+
+
+def _laid_out(block: str) -> str:
+    records = [read_record(line) for line in block.strip().split("\n")]
+    return render_worked(assemble([r for r in records if r is not None]), PHYSICS)
+
+
+@pytest.mark.parametrize(
+    ("tex", "shown"),
+    [
+        ("theta = 60^\\circ", "\\theta = 60^\\circ"),
+        ("omega_0 = \\frac{2\\pi}{T}", "\\omega_0 = \\frac{2\\pi}{T}"),
+        ("\\cos theta", "\\cos \\theta"),
+        ("2theta", "2\\theta"),
+        ("\\DeltaP_h = 5", "\\Delta P_h = 5"),
+        ("\\Deltat", "\\Delta t"),
+        # As written: a command, a word group, a product, a longer word.
+        ("\\theta + \\beta", "\\theta + \\beta"),
+        ("\\text{theta wave}", "\\text{theta wave}"),
+        ("p = mu", "p = mu"),
+        ("\\varepsilon_0", "\\varepsilon_0"),
+        ("\\phantom{x}", "\\phantom{x}"),
+        ("thetas", "thetas"),
+    ],
+)
+def test_a_greek_name_in_maths_is_its_letter(tex: str, shown: str) -> None:
+    assert tidy_tex(tex) == shown
+
+
+def test_a_greek_symbol_reads_as_its_letter_in_every_line() -> None:
+    text = _laid_out(
+        "given: theta | 60 | ° | angle\nrequired: F | force\n"
+        "formula: Force | F = mg\\cos theta\nanswer: F | 3 | N"
+    )
+    assert "$\\theta = 60" in text and "$\\theta$ = angle" in text
+    assert "theta" not in text.replace("\\theta", "")
+
+
+@pytest.mark.parametrize(
+    ("symbol", "word"),
+    [
+        ("graph", True),
+        ("equilibrium", True),
+        ("iii", True),
+        ("theta", False),
+        ("vmax", False),
+        ("v", False),
+        ("F_{net}", False),
+    ],
+)
+def test_a_word_is_no_symbol(symbol: str, word: bool) -> None:
+    assert is_word_symbol(symbol) is word
+
+
+def test_what_is_asked_in_words_reads_as_words() -> None:
+    text = _laid_out(
+        "required: equilibrium |\nrequired: graph | velocity-time graph\n"
+        "formula: Net force | F_{net} = 0\nanswer: | yes | |"
+    )
+    assert "$equilibrium$" not in text and "$graph$" not in text
+    assert "velocity-time graph" in text
+
+
+def test_part_letters_given_as_symbols_are_no_symbols() -> None:
+    text = _laid_out(
+        "required: a | graph description\nrequired: b | time of greatest acceleration\n"
+        "part: a | graph\nsay: The graph rises.\npart: b | greatest acceleration\n"
+        "formula: Acceleration | a = \\frac{\\Delta v}{t}\nanswer: a | 1.2 | m/s^2"
+    )
+    assert "(a) graph description" in text
+    assert "(b) time of greatest acceleration" in text
+
+
+def test_the_contracts_placeholder_is_no_title() -> None:
+    text = _laid_out(
+        "required: a \\times b | what (a) finds\nrequired: b \\times a | what (b) finds\n"
+        "part: a | what (a) finds\nsubstitution: a \\times b = 3\nanswer: a \\times b | 3 |\n"
+        "part: b | What (b) finds\nsubstitution: b \\times a = -3\nanswer: b \\times a | -3 |"
+    )
+    assert "finds" not in text.lower()
+
+
+def test_vector_names_no_unit() -> None:
+    given = read_record("given: a | 8i + j - 2k | vector |")
+    assert isinstance(given, Given) and given.unit == ""
+
+
+def test_a_part_worked_twice_shows_its_working_once() -> None:
+    working = "formula: Conversion | h = 66 \\times c\nsubstitution: h = 167.64\\,\\mathrm{cm}"
+    text = _laid_out(
+        f"given: c | 2.54 | cm/in | factor\nrequired: h | height\n{working}\n"
+        f"part: a | height\n{working}\nanswer: h | 167.64 | cm"
+    )
+    assert text.count("$h = 167.64") == 1
+    assert text.count("$h = 66 \\times c$") == 1
+
+
+def test_a_symbol_split_by_two_subscripts_keeps_its_word() -> None:
+    assert tidy_symbol("v_A_mag") == "v_{A,mag}"
+
+
+def test_a_placeholder_for_a_value_found_later_is_no_card_value() -> None:
+    answers = [
+        read_record("answer: N_f | 343 | N"),
+        read_record("answer: f_f | ? | N | found below"),
+    ]
+    lines = answer_lines([a for a in answers if isinstance(a, Answer)], PHYSICS)
+    assert lines == "$343\\,\\mathrm{N}$"
+
+
+def test_a_sentence_written_in_a_maths_field_reads_as_one() -> None:
+    text = _laid_out(
+        "required: a | acceleration\nformula: Rotation | \\tau = I\\alpha\n"
+        "substitution: Substitute I = \\frac{1}{2}mR^2 and \\alpha = \\frac{a}{R}:\n"
+        "substitution: Area = l w\nanswer: a | 2 | m/s^2"
+    )
+    assert "Substitute $I = \\frac{1}{2}mR^2$ and $\\alpha = \\frac{a}{R}$:" in text
+    assert "$Area = l w$" in text

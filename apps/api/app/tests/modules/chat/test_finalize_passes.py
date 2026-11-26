@@ -103,6 +103,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "figure",
         "data_chart",
         "server_answer_cards",
+        "worked_again",
         "unverified_notes",
         "working_check",
         "worked_lead",

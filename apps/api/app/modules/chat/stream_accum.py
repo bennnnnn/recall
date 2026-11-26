@@ -49,6 +49,8 @@ class StreamAccum:
     rewritten: bool = False
     # The app language the reply's ```worked block named for its words (``worked_stream``).
     worked_language: str | None = None
+    # The last ```worked block as the server laid it out (``worked_again``).
+    worked_layout: str = ""
     # The reply's ```draw blocks, kept out of what the client was sent (``draw_stream``),
     # each with how many pieces of text the client had been sent when it closed: finalize
     # draws the picture they describe, and text taken back takes its own blocks with it.

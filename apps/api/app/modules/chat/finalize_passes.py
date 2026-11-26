@@ -121,6 +121,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
+from app.modules.chat.worked_again import drop_working_again_pass
 from app.modules.chat.worked_language import localize_working_pass
 from app.modules.chat.worked_lead import drop_guessed_lead
 from app.services.subjects.registry import FENCE_FALLBACK, SUBJECTS
@@ -330,6 +331,11 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         )
     ),
     FinalizePass("server_answer_cards", mark_server_cards, kind=TEXT),
+    # Working the model wrote again outside its laid-out ```worked block, while the block
+    # still reads as it was laid out (before its answer becomes a card).
+    FinalizePass(
+        "worked_again", drop_working_again_pass, kind=TEXT, before=frozenset({"working_check"})
+    ),
     FinalizePass("unverified_notes", tidy_and_drop_unverified_notes, kind=TEXT),
     FinalizePass("working_check", check_working, kind=TEXT),
     # Once the working's own Answer has become its card: a lead above the working that

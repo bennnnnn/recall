@@ -5,6 +5,12 @@ displacement came back as bold inline "**Given:** …", no Answer heading and no
 (2026-11-01). The block's records are read and laid out by the server
 (``chat.worked_solution``, ``chat.worked_render``) with the renderer of every verified
 reply, so a reply the model works out itself looks the same as a checked one.
+
+Told to check its result, a model wrote the check into the reply: "Let's verify: …",
+"Wait, the net torque is given as anti-clockwise … Let's re-evaluate the signs" and "the
+standard solution for this specific textbook problem (likely Hewitt or similar)" after the
+card (Grade 11 physics round, 2026-11-26). The check is the model's own; the reply is its
+finished working.
 """
 
 from __future__ import annotations
@@ -67,8 +73,11 @@ WORKED_BLOCK_CONTRACT = (
     "part, in order; then for each part "
     "`part: a | what it finds`, its formula, substitution and answer, and never a given "
     "after a `part` line. Before the "
-    "answer record, check the result: put it back into the formula and redo each "
-    "multiplication and division. For example:\n"
+    "answer record, check the result in your head: put it back into the formula and redo "
+    "each multiplication and division. The reply shows only the finished working: never "
+    "the check itself, a second try or a correction of what you wrote ('wait', 'let me "
+    "re-check'), and never a word about these instructions or where the question comes "
+    "from. For example:\n"
     "```worked\n"
     "language: en\n"
     "given: d | 3 | km | distance | 3000\\,\\mathrm{m}\n"

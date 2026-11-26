@@ -180,9 +180,20 @@ def _answer_line(answer: Answer, layout: WorkedLayout) -> str:
     return f"{math_line(shown)} ({note})" if note else math_line(shown)
 
 
+# A value that holds no value: "answer: f | ? | N | (found below)" put "$?\,\mathrm{N}$
+# ((found below))" in a card (Grade 11 physics round, 2026-11-26).
+_NO_VALUE = re.compile(r"[\s?.\u2026\u2014\u2013\-]*")
+
+
 def answer_lines(answers: Sequence[Answer], layout: WorkedLayout) -> str:
-    """The answers' lines, values on one line each and a sentence answer as its own card."""
-    answers = [one for answer in answers for one in one_value_each(answer)]
+    """The answers' lines, values on one line each and a sentence answer as its own card;
+    a placeholder for a value found later is none."""
+    answers = [
+        one
+        for answer in answers
+        for one in one_value_each(answer)
+        if not _NO_VALUE.fullmatch(one.value)
+    ]
     sentences = [sentence_answer(answer) for answer in answers]
     values = _HARD_BREAK.join(
         _answer_line(answer, layout)
