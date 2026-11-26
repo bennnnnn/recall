@@ -95,29 +95,21 @@ class SympyAdapter:
             },
         }
 
-    async def _run_off_loop(self, fn: Callable[..., _T], *args: Any) -> _T | None:
+    async def _run_off_loop(self, fn: Callable[..., _T | None], *args: Any) -> _T | None:
         """Run synchronous, CPU-bound SymPy work in the bounded subprocess pool with a hard
         timeout + SIGTERM on timeout, as every chat-path SymPy call: a pathological expression
         sent through the model-callable "sympy" tool would otherwise stall every stream on
         this worker's event loop. A decline (``SolveServiceError``) is raised with its reason.
 
         The function and args must be picklable (top-level functions + plain data) so they
-        can cross the subprocess boundary. None when the step fails: for a step the call can
-        do without (a restatement check, a number line beside the answer).
+        can cross the subprocess boundary. A step that fails raises ``_StepFailed`` with what
+        went wrong: every failure was "timed out", so a model told a call that failed on its
+        input to wait and send it again.
         """
-        try:
-            return await self._required(fn, *args)
-        except _StepFailed:
-            return None
-
-    async def _required(self, fn: Callable[..., _T | None], *args: Any) -> _T:
-        """``_run_off_loop`` for a step the call cannot do without: what went wrong is the
-        call's answer (``_StepFailed``), said as it was. Every failure was "timed out", so a
-        model told a call that failed on its input to wait and send it again."""
         from app.core.sympy_executor import run_sympy
 
         try:
-            result = await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
+            return await run_sympy(fn, *args, timeout=self.settings.stem_solve_timeout_seconds)
         except math_solve.SolveServiceError:
             raise
         except (TimeoutError, BrokenProcessPool) as exc:
@@ -127,9 +119,21 @@ class SympyAdapter:
         except Exception as exc:
             logger.warning("sympy MCP tool call failed", exc_info=True)
             raise _StepFailed(_NOT_COMPUTED) from exc
+
+    async def _required(self, fn: Callable[..., _T | None], *args: Any) -> _T:
+        """A step the call cannot do without: one that found nothing is the call's answer."""
+        result = await self._run_off_loop(fn, *args)
         if result is None:
             raise _StepFailed(_NO_RESULT)
         return result
+
+    async def _optional(self, fn: Callable[..., _T | None], *args: Any) -> _T | None:
+        """A step the call can do without (a restatement check, a number line beside the
+        answer, the generic reading): None when it fails."""
+        try:
+            return await self._run_off_loop(fn, *args)
+        except _StepFailed:
+            return None
 
     async def _action_solve(self, args: dict[str, Any]) -> ToolResult:
         data = EquationInput(
@@ -195,7 +199,7 @@ class SympyAdapter:
         # As the heuristic path: an integral SymPy could not close (a literal Integral(...)),
         # or a rewrite that only restates the expression (solve/restated.py), is NOT a
         # verified answer: an honesty note, and no ```answer fence for validate_math_fences.
-        restated = action in REWRITES and await self._run_off_loop(
+        restated = action in REWRITES and await self._optional(
             card_restates, expr_result.latex, (expr,)
         )
         if not expr_result.solved or restated:
@@ -256,9 +260,7 @@ class SympyAdapter:
         lhs = str(args.get("lhs") or "")
         rhs = str(args.get("rhs") or "")
         ineq_text = f"{lhs} {comparator} {rhs}"
-        line_spec = await self._run_off_loop(
-            math_solve.number_line_spec_from_expr, ineq_text, variable
-        )
+        line_spec = await self._optional(math_solve.number_line_spec_from_expr, ineq_text, variable)
         if line_spec is not None:
             fence = line_spec.model_dump()
             content = _verified_content(
@@ -623,7 +625,7 @@ class SympyAdapter:
                 return await handler(self, args)
             # Read in the SymPy pool, as every chat-path read is (Golden Rule 7).
             text = str(args.get("text") or "")
-            intent = await self._run_off_loop(math_tools.extract_math_intent, text)
+            intent = await self._optional(math_tools.extract_math_intent, text)
             if intent:
                 block = await math_tools._build_verified_block_async(intent, self.settings)
                 if block:
