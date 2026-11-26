@@ -220,8 +220,8 @@ def held_to_the_ask(
     decision = answered_read(ctx.live_read)
     line = ctx.user_message_content or ""
     out = text
-    if mermaid_stands_in(decision, line) and (dropped := without_flowcharts(out)) != out:
-        out = dropped.strip()
+    if mermaid_stands_in(decision, line) and (no_flowcharts := without_flowcharts(out)) != out:
+        out = no_flowcharts.strip()
     # A reply that was only a flowchart taken out, only its picture's description dropped,
     # or only its own picture a subject's check took out, says the picture was not drawn:
     # never an empty reply. A photo or a painting asked for is no drawing the app owes: its
