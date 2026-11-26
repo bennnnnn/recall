@@ -123,8 +123,7 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
       const depth = listDepth(parent);
       const itemStyle = [
         styles._VIEW_SAFE_list_item as object,
-        depth === 1 && listItemHasNestedList(node) && GROUP_END,
-        depth > 1 && MEMBER_GAP,
+        depth > 1 ? MEMBER_GAP : listItemHasNestedList(node) && GROUP_END,
         isLastListItem(parent, node.index) &&
           !listGoesOn(parent[0], parent.slice(1)) &&
           (styles.lastListItem as object),
