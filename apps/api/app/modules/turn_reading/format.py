@@ -1,4 +1,4 @@
-"""Whether a message asks for a comparison, a callout, a how-to or a quote."""
+"""Whether a message asks for a comparison, a callout, a plan, steps or a quote."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import re
 
 from app.modules.turn_reading.chart import is_chart_question
 from app.modules.turn_reading.diagrams import is_mermaid_question
-from app.modules.turn_reading.turn import teaching_reason_of
 
 _COMPARISON_TURN = re.compile(
     r"(?:"
@@ -154,24 +153,12 @@ def is_howto_question(text: str) -> bool:
     return bool(_HOWTO_TURN.search(cleaned))
 
 
-# "How do I make tea", "how to tie a tie", "what are the steps to renew a
-# passport": a task the user will do. Feelings and judgment ("how do I know if",
-# "how do I deal with") are not steps.
-_TASK_HOWTO = re.compile(
-    r"^(?:(?:so|ok(?:ay)?|hey|hi|please|quick\s+question)[,!:]?\s+)?"
-    r"(?:how\s+(?:do|can|should|would)\s+(?:i|you|we|one)|how\s+to"
-    r"|what\s+(?:are|is)\s+the\s+steps?\s+(?:to|for)|(?:give\s+me\s+)?(?:the\s+)?steps\s+to)\s+"
-    r"(?!(?:know|tell|feel|deal|cope|forgive|trust|decide|understand|stop\s+(?:feeling|thinking)"
-    r"|get\s+over|be\s+(?:happy|confident|happier)|love|say|pronounce|spell)\b)[^\W\d_]",
-    re.IGNORECASE,
-)
-
-
-# Asked for as steps anywhere in the message: "walk me through changing a tire",
-# "install Python step by step", "receta de pan paso a paso".
+# Asked for as steps in so many words: "walk me through changing a tire", "install Python
+# step by step", "receta de pan paso a paso". Whether a plain "how do I …" is one procedure
+# to carry out in order, or tips and ways ("how to look handsome"), is the turn's read's
+# call (``decider_read.STEPS_QUESTION``), never these words.
 _STEPWISE_TURN = re.compile(
     r"(?:"
-    r"\bhow (?:do i|to) (?:set up|setup|install|configure|build)\b|"
     r"\bwalk\s+me\s+through\b|"
     r"\bstep[\s-]?by[\s-]?step\b|"
     r"\bpaso\s+a\s+paso\b|"
@@ -182,15 +169,12 @@ _STEPWISE_TURN = re.compile(
 )
 
 
-def is_task_howto(text: str) -> bool:
-    """True for "how do I <do a task>": numbered steps, not a plan or an essay. "Teach me how
-    to balance an equation" is one too: the teaching reader calls it a procedure, no lesson,
-    and with neither layout it was answered as a plain list ending "Want to try one?"."""
+def asks_for_steps(text: str) -> bool:
+    """True when the message asks in words for its answer as steps ("step by step", "walk me
+    through"), and no compare, chart, flowchart or callout owns its layout."""
     cleaned = text.strip()
     if not cleaned or len(cleaned) > 300:
         return False
-    if _TASK_HOWTO.search(cleaned) is not None or teaching_reason_of(cleaned) == "procedure":
-        return True
     return _STEPWISE_TURN.search(cleaned) is not None and not _owned_by_another_layout(cleaned)
 
 

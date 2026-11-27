@@ -181,6 +181,8 @@ class PromptStats:
     history_size: tuple[int, int] | None = None
     # The rules message for ordinary chat, when the turn may take one and it is shorter.
     ordinary: OrdinaryPrompt | None = None
+    # The turn's words leave its layout open: the read may give it the ```steps card.
+    steps_open: bool = False
 
 
 @dataclass(frozen=True)
@@ -330,6 +332,7 @@ def _assemble(
     )
     if stats is not None:
         stats.ordinary = _ordinary_prompt(turn, "\n\n".join(rules))
+        stats.steps_open = turn.steps_open
     messages = [
         *({"role": "system", "content": "\n\n".join(parts)} for parts in (stable, rules)),
         *history_messages(window, math_followup=math_followup),

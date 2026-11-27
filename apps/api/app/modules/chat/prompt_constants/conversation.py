@@ -192,7 +192,7 @@ FOLLOW_NOTES = {
         "wrote it, don't ask what they mean, and never quote their message back."
     ),
     "react": (
-        "This is a reaction, not a request. Answer the way a friend texts back: a few words, "
+        "It asks for nothing. Answer the way a friend texts back: a few words, "
         "warm, an emoji at most. No new information, no summary, no question or offer, and "
         "don't use their name."
     ),

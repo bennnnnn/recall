@@ -15,7 +15,7 @@ from app.services.workout import PHYSICS_WORKOUT_PROMPT_SHORT, SELF_CHECK_PROMPT
 
 
 def test_physics_prompt_names_its_subject_and_not_math() -> None:
-    assert "This is a physics problem" in PHYSICS_INTENT_HINT
+    assert PHYSICS_INTENT_HINT.startswith("Physics answers:")
     assert "[BEGIN VERIFIED PHYSICS]" in PHYSICS_INTENT_HINT
     assert VERIFIED_MATH_BEGIN not in PHYSICS_INTENT_HINT
 

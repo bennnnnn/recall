@@ -3,7 +3,7 @@
 import pytest
 
 from app.modules.chat.prompt_constants import DAY_PLANNING_ANSWER_HINT
-from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.chat.prompt_format import _DAY_REFLECTION_HINT, _style_format_hints
 from app.modules.todos.prompt_context import should_inject_todos_prompt
 from app.services.day_planning import (
     is_day_planning_question,
@@ -107,7 +107,5 @@ def test_reflection_style_hints_keep_reminders_and_loose_ends():
         is_day_plan=True,
         minimal_personal_context=False,
     )
-    joined = "\n".join(parts)
     assert DAY_PLANNING_ANSWER_HINT in parts
-    assert "end-of-day reflection" in joined
-    assert "keep reminders, lists, and loose ends" in joined
+    assert _DAY_REFLECTION_HINT in parts

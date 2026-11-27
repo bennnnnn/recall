@@ -154,6 +154,9 @@ class StreamContext:
     # The shorter rules message the read takes when it calls the message everyday chat
     # (``ordinary_prompt``); None when the turn's words ask for a shape of their own.
     ordinary_prompt: OrdinaryPrompt | None = None
+    # The turn's words leave its layout open: the read may give the reply the ```steps card
+    # when it calls the answer one procedure (``steps_turn``).
+    steps_open: bool = False
     # What the reply shows above its text, linked to it when it saves: that photo, or
     # the picture a multi-part message asked for (``reply_picture``).
     answer_photo_ids: list[UUID] = field(default_factory=list)
@@ -278,6 +281,7 @@ def stream_context_from_bundle(
         context_summarized=bundle.stats.context_summarized,
         history_size=bundle.stats.history_size,
         ordinary_prompt=bundle.stats.ordinary,
+        steps_open=bundle.stats.steps_open,
         instant_reply=bundle.instant_reply,
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
