@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import { withQuery } from "@/lib/api/path";
 import type { Page, SearchResult } from "@/lib/api/types";
 
 export const searchApi = {
@@ -9,8 +10,7 @@ export const searchApi = {
     init?: Pick<RequestInit, "signal">,
     cursor?: string,
   ) => {
-    const params = new URLSearchParams({ q, limit: String(limit) });
-    if (cursor) params.set("cursor", cursor);
-    return request<Page<SearchResult>>(`/search?${params}`, token, init);
+    const path = withQuery("/search", { q, limit, cursor: cursor || undefined });
+    return request<Page<SearchResult>>(path, token, init);
   },
 };
