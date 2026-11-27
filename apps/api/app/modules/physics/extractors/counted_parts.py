@@ -58,18 +58,12 @@ _EACH_AFTER = re.compile(
     r"\s*each\b(?!\s+(?:other|day|night|week|month|year|hour|minute|second|time)\b)",
     re.IGNORECASE,
 )
-# "each" as the subject of a verb whose object is a value: "each cost $3", "each weigh 2 kg".
-_EACH_HAS_ITS_OWN = re.compile(r"\s+[A-Za-z]+\s+(?:[$£€¥]\s*)?\d")
 
 
 def each_after(text: str, at: int) -> re.Match[str] | None:
-    """ "each" right after a value, saying the value is each item's, whatever the verb after
-    it: "20 N each act as a couple", "10 Ω each are connected". Not when "each" is the subject
-    of a verb whose own object is a value ("10 Ω each cost $3"): that is said of the cost."""
-    found = _EACH_AFTER.match(text, at)
-    if found is None or _EACH_HAS_ITS_OWN.match(text, found.end()) is not None:
-        return None
-    return found
+    """ "each" right after a value, saying the value is each item's, whatever the clause goes
+    on with: "20 N each act as a couple", "10 Ω each are connected", "10 Ω each cost $3"."""
+    return _EACH_AFTER.match(text, at)
 
 
 # A plural noun ("each of the resistors has 4 Ω"); not "across".
