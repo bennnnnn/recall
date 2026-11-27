@@ -78,6 +78,8 @@ class RoutingLanes:
     chart_read: str
     # A physics question written down as maths beside the reply (``physics.formal_read``):
     # JSON mode. smart-chat read faster (median 1.0 s) and better than GPT-6 Luna (1.9 s).
+    # It also reads which picture a physics question is taught from
+    # (``physics.scene_drawing.figure_read``), beside the reply.
     physics_setup: str
     # The second reader of a checked physics answer (``physics.cross_check``), from another
     # company, asked only when the server could not solve the first reading and its model's own
