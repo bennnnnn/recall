@@ -248,6 +248,9 @@ const NO_ACCOUNT_DATA = [
   // The launch's install check, once a run: the phone's, not an account's.
   "lib/secureStore.ts#installCheck",
   "lib/secureStore.ts#failureReported",
+  "lib/secureStore.ts#reinstallCleared",
+  // The installation id read running now: the phone's id, the same for every account.
+  "lib/installationId.ts#reading",
   "lib/sentry.ts#failedStarts",
   "lib/sentry.ts#sdk",
   "lib/skiaAvailability.ts#cached",

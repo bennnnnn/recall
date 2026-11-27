@@ -38,7 +38,7 @@ async function readLegacyId(path: string | null): Promise<string | null> {
   }
 }
 
-export async function getInstallationId(): Promise<string | null> {
+async function readOrCreateId(): Promise<string | null> {
   const path = legacyPath();
   let stored: string | null;
   try {
@@ -58,4 +58,15 @@ export async function getInstallationId(): Promise<string | null> {
   }
   if (legacy && path) await deleteAsync(path, { idempotent: true }).catch(() => {});
   return next;
+}
+
+/** The read that is running: callers at once (push registration, an analytics flush) share
+ * it, so a first launch never moves the old id and makes a new one over it. */
+let reading: Promise<string | null> | null = null;
+
+export function getInstallationId(): Promise<string | null> {
+  reading ??= readOrCreateId().finally(() => {
+    reading = null;
+  });
+  return reading;
 }

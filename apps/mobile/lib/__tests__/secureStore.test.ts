@@ -24,13 +24,23 @@ type Item = { value: string; accessible: number | "default" };
 const mockKeychain = new Map<string, Item>();
 const mockFiles = new Map<string, string>();
 const mockKeychainLocked = { now: false };
+const mockDiskFull = { now: false };
+const mockReport = jest.fn();
+const mockLogoutSession = jest.fn(async (..._args: unknown[]) => true);
 
 const mockGetItem = jest.fn(async (key: string, _options?: object) => {
   if (mockKeychainLocked.now) throw new Error("errSecInteractionNotAllowed");
   return mockKeychain.get(key)?.value ?? null;
 });
+/**
+ * As expo-secure-store 58.0.2 does on iOS (`ios/SecureStoreModule.swift`): a new item takes the
+ * class it is given (the default without one); a write over an existing item goes to
+ * `SecItemUpdate`, which changes the class only when `keychainAccessible` is passed.
+ */
 const mockSetItem = jest.fn(async (key: string, value: string, options?: { keychainAccessible?: number }) => {
-  mockKeychain.set(key, { value, accessible: options?.keychainAccessible ?? "default" });
+  const existing = mockKeychain.get(key);
+  const accessible = options?.keychainAccessible ?? existing?.accessible ?? "default";
+  mockKeychain.set(key, { value, accessible });
 });
 const mockDeleteItem = jest.fn(async (key: string, _options?: object) => {
   mockKeychain.delete(key);
@@ -49,6 +59,7 @@ jest.mock("expo-file-system/legacy", () => ({
   getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
   readAsStringAsync: jest.fn(async (path: string) => mockFiles.get(path) ?? ""),
   writeAsStringAsync: jest.fn(async (path: string, contents: string) => {
+    if (mockDiskFull.now) throw new Error("ENOSPC");
     mockFiles.set(path, contents);
   }),
   moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
@@ -61,12 +72,16 @@ jest.mock("expo-file-system/legacy", () => ({
 }));
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
 jest.mock("expo-crypto", () => ({ randomUUID: () => "new-install-id" }));
-jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
+jest.mock("@/lib/sentry", () => ({ reportFailure: (...args: unknown[]) => mockReport(...args) }));
+jest.mock("@/lib/api/client", () => ({ logoutSession: (...args: unknown[]) => mockLogoutSession(...args) }));
+jest.mock("@/lib/api/connectionFailures", () => ({ onConnectionAnswered: () => () => {} }));
+jest.mock("@/lib/foregroundRefresh", () => ({ onAppStateChange: () => () => {} }));
 jest.mock("@/lib/onboarding", () => ({}));
 
 type Modules = {
   auth: typeof import("@/lib/auth");
   installationId: typeof import("@/lib/installationId");
+  pendingLogout: typeof import("@/lib/pendingLogout");
 };
 
 /** The app as a fresh launch loads it: nothing in memory, the disk and Keychain as they were. */
@@ -75,6 +90,7 @@ async function launch(): Promise<Modules> {
   return {
     auth: await import("@/lib/auth"),
     installationId: await import("@/lib/installationId"),
+    pendingLogout: await import("@/lib/pendingLogout"),
   };
 }
 
@@ -90,6 +106,9 @@ beforeEach(() => {
   mockKeychain.clear();
   mockFiles.clear();
   mockKeychainLocked.now = false;
+  mockDiskFull.now = false;
+  mockReport.mockClear();
+  mockLogoutSession.mockClear();
   mockGetItem.mockClear();
   mockSetItem.mockClear();
   mockDeleteItem.mockClear();
@@ -185,4 +204,58 @@ it("keeps an upgraded phone's installation id, moved from its documents file int
   expect(mockKeychain.get(INSTALL_ID)).toEqual({ value: "kept-id", accessible: THIS_DEVICE_ONLY });
   expect(mockFiles.has(`${DOCS}recall.installation-id.txt`)).toBe(false);
   await expect((await launch()).installationId.getInstallationId()).resolves.toBe("kept-id");
+});
+
+it("leaves an item's class alone on a write without this-device-only, as the native module does", async () => {
+  oldVersionSignedIn();
+  // The Keychain's own rule, which the migration relies on passing the class every time.
+  await mockSetItem(SESSION, "x");
+  expect(mockKeychain.get(SESSION)?.accessible).toBe("default");
+  await mockSetItem(SESSION, "x", { keychainAccessible: THIS_DEVICE_ONLY });
+  expect(mockKeychain.get(SESSION)?.accessible).toBe(THIS_DEVICE_ONLY);
+});
+
+it("on a reinstall, owes the server the old session's logout, which the next start sends", async () => {
+  oldVersionSignedIn();
+  await (await launch()).auth.getToken();
+  mockFiles.clear();
+
+  const reinstalled = await launch();
+  await expect(reinstalled.auth.getToken()).resolves.toBeNull();
+  const owed = JSON.parse(mockKeychain.get("recall_pending_logouts_v1")?.value ?? "[]") as { accessToken: string }[];
+  expect(owed.map((entry) => entry.accessToken)).toEqual(["access-a"]);
+  expect(mockKeychain.get("recall_pending_logouts_v1")?.accessible).toBe(THIS_DEVICE_ONLY);
+
+  // No one is signed in, so the logout also takes this device's push token off that account.
+  await reinstalled.pendingLogout.retryPendingLogouts(async () => "ExponentPushToken[device]");
+  expect(mockLogoutSession).toHaveBeenCalledWith("access-a", "refresh-a", "ExponentPushToken[device]");
+  expect(JSON.parse(mockKeychain.get("recall_pending_logouts_v1")?.value ?? "[]")).toEqual([]);
+});
+
+it("clears a reinstall once a run, so a marker that cannot be written never deletes a new sign-in", async () => {
+  oldVersionSignedIn();
+  mockKeychain.set(RAN, { value: "1", accessible: THIS_DEVICE_ONLY });
+  mockDiskFull.now = true;
+  const { auth } = await launch();
+  await expect(auth.getToken()).resolves.toBeNull();
+  expect(mockReport).toHaveBeenCalledWith("install_check", expect.any(Error));
+
+  await auth.setTokenPair("access-new", "refresh-new");
+  await expect(auth.getToken()).resolves.toBe("access-new");
+  expect(mockFiles.has(MARKER)).toBe(false);
+  expect(mockReport).toHaveBeenCalledTimes(1);
+
+  // Storage frees up: the marker is written and the new sign-in stays.
+  mockDiskFull.now = false;
+  await expect(auth.getToken()).resolves.toBe("access-new");
+  expect(mockFiles.has(MARKER)).toBe(true);
+  await expect((await launch()).auth.getToken()).resolves.toBe("access-new");
+});
+
+it("gives callers at once on the first upgraded launch the one id it moved", async () => {
+  mockFiles.set(`${DOCS}recall.installation-id.txt`, "kept-id");
+  const { installationId } = await launch();
+  const ids = await Promise.all([installationId.getInstallationId(), installationId.getInstallationId()]);
+  expect(ids).toEqual(["kept-id", "kept-id"]);
+  expect(mockKeychain.get(INSTALL_ID)?.value).toBe("kept-id");
 });

@@ -279,14 +279,6 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
         clear: async () => undefined,
       }),
     }));
-    jest.doMock("@/lib/cache/cacheFile", () => ({
-      cacheFile: () => ({
-        read: async () => null,
-        readSync: () => null,
-        write: async () => undefined,
-        clear: async () => undefined,
-      }),
-    }));
   });
 
   it("loads and configures on the native store", () => {

@@ -16,13 +16,14 @@
  * | --- | --- | --- | --- |
  * | yes | yes | an ordinary launch | nothing |
  * | no | no | first launch of this version: an upgrade, or a new install | each item rewritten in the new class |
- * | no | yes | this version ran, then its files went: a reinstall | session and installation id cleared |
+ * | no | yes | this version ran, then its files went: a reinstall | session and installation id cleared, the session's logout owed to the server |
  * | yes | no | a backup restored onto another phone, or a first launch cut short | items rewritten, nothing cleared |
  *
  * The marker is written before the "ran" item, so a launch killed between the two reads as
  * the last row next time, never as a reinstall: an upgrade can never sign anyone out. Any
  * read that fails (the Keychain locked in a background launch) changes nothing; the next call
- * looks again.
+ * looks again. A reinstall clears at most once a run, so a marker that cannot be written (a
+ * full disk) never deletes a sign-in made after the clear.
  */
 import * as SecureStore from "expo-secure-store";
 
@@ -47,6 +48,8 @@ const MARKER_FILE = "recall.install-marker.txt";
 const MIGRATED_KEYS = [SECURE_KEYS.session, SECURE_KEYS.pendingLogouts] as const;
 /** What a reinstall forgets. Owed logouts stay: they still revoke sessions on the server. */
 const CLEARED_ON_REINSTALL = [SECURE_KEYS.session, SECURE_KEYS.installationId] as const;
+/** As many owed logouts as `lib/pendingLogout.ts` keeps. */
+const MAX_PENDING_LOGOUTS = 5;
 
 const SECURE_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
@@ -61,7 +64,10 @@ const keychain = {
 /**
  * Rewrites each item in the new class. iOS finds an item whatever its class (the class is
  * not part of the Keychain query), and a write over an existing item updates its class in
- * place (`SecItemUpdate`), so the value is never deleted first. Running it again is harmless.
+ * place: expo-secure-store's `set` meets `errSecDuplicateItem` and calls `update`, which puts
+ * `kSecAttrAccessible` in `SecItemUpdate`'s attributes whenever `keychainAccessible` is passed
+ * (`ios/SecureStoreModule.swift`, 58.0.2). So the value is never deleted first, and running it
+ * again is harmless.
  */
 async function migrateItems(): Promise<void> {
   for (const key of MIGRATED_KEYS) {
@@ -69,6 +75,45 @@ async function migrateItems(): Promise<void> {
     if (value !== null) await keychain.set(key, value);
   }
 }
+
+/** A stored record read as JSON; null when there is none or it is not JSON (reported). */
+function readJson(raw: string | null): unknown {
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    reportFailure("install_check", error);
+    return null;
+  }
+}
+
+/** The stored session's token pair, or null (none, signed out, or not a session). */
+function tokenPair(raw: string | null): { accessToken: string; refreshToken: string | null } | null {
+  const pair = readJson(raw) as { accessToken?: unknown; refreshToken?: unknown } | null;
+  if (typeof pair?.accessToken !== "string" || !pair.accessToken) return null;
+  return { accessToken: pair.accessToken, refreshToken: typeof pair.refreshToken === "string" ? pair.refreshToken : null };
+}
+
+/**
+ * The session a deleted app left: its logout is written down as owed (`lib/pendingLogout.ts`
+ * sends it at start), so the server ends it and forgets this device's push token for that
+ * account, instead of keeping both for the refresh token's 30 days. Then it is cleared.
+ */
+async function forgetReinstalledSession(): Promise<void> {
+  const session = tokenPair(await keychain.get(SECURE_KEYS.session));
+  if (session) {
+    const parsed = readJson(await keychain.get(SECURE_KEYS.pendingLogouts));
+    const owed = (Array.isArray(parsed) ? parsed : []) as { accessToken?: unknown }[];
+    if (!owed.some((entry) => entry.accessToken === session.accessToken)) {
+      const entry = { ...session, pushToken: null, queuedAt: Date.now() };
+      await keychain.set(SECURE_KEYS.pendingLogouts, JSON.stringify([...owed, entry].slice(-MAX_PENDING_LOGOUTS)));
+    }
+  }
+  for (const key of CLEARED_ON_REINSTALL) await keychain.delete(key);
+}
+
+/** Set once this run's reinstall clear is done. */
+let reinstallCleared = false;
 
 async function checkInstall(): Promise<void> {
   // Required here so a test or a build without the native file system skips the check. A
@@ -91,7 +136,8 @@ async function checkInstall(): Promise<void> {
   const ran = (await keychain.get(RAN_KEY)) === RAN_VALUE;
   if (hasMarker && ran) return;
   if (!hasMarker && ran) {
-    for (const key of CLEARED_ON_REINSTALL) await keychain.delete(key);
+    if (!reinstallCleared) await forgetReinstalledSession();
+    reinstallCleared = true;
   } else {
     await migrateItems();
   }
@@ -99,18 +145,16 @@ async function checkInstall(): Promise<void> {
   await keychain.set(RAN_KEY, RAN_VALUE);
 }
 
-let installCheck: Promise<boolean> | null = null;
+let installCheck: Promise<void> | null = null;
 let failureReported = false;
 
 /** The launch check, once a run; one that failed runs again on the next call. */
-function installChecked(): Promise<boolean> {
-  installCheck ??= checkInstall().then(
-    () => true,
+function installChecked(): Promise<void> {
+  installCheck ??= checkInstall().catch(
     (error: unknown) => {
       installCheck = null;
       if (!failureReported) reportFailure("install_check", error);
       failureReported = true;
-      return false;
     },
   );
   return installCheck;

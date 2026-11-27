@@ -8,6 +8,14 @@
  * file and writes it in place, so there each write goes to `<name>.tmp` first and is renamed
  * over the file (`File.renameTo`, one atomic rename). A temp file a kill left behind is never
  * read, and the next write replaces it.
+ *
+ * Backups. Android backs up none of these files: expo-secure-store's Auto Backup rules include
+ * only shared preferences (`lib/__tests__/appStoreConfig.test.ts`). iOS backs up the documents
+ * directory, and nothing Expo offers can exclude a file from it (no `NSURLIsExcludedFromBackupKey`
+ * in expo-file-system; Application Support is not reachable; Caches is the purgeable directory
+ * these files left). So on iOS an unsent draft rides in the user's own backup, a deliberate
+ * choice: each file names the account that wrote it and is read only for that account, and the
+ * purchase hold is written on Android only. Excluding it on iOS needs a native module.
  */
 import { Platform } from "react-native";
 import {
