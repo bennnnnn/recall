@@ -10,6 +10,7 @@ are lettered in the order shown.
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 import re
 from types import SimpleNamespace
@@ -436,6 +437,7 @@ def test_the_finished_reply_letters_what_is_asked_and_states_each_answer_once() 
         text=reply,
         server_text=False,
         was_cancelled=False,
+        settings=SimpleNamespace(stem_solve_timeout_seconds=10.0),
         ctx=SimpleNamespace(
             verified_subject=None,
             solver_unverified=True,
@@ -445,7 +447,7 @@ def test_the_finished_reply_letters_what_is_asked_and_states_each_answer_once() 
             ),
         ),
     )
-    text = check_working(cast(FinalizeState, state))
+    text = asyncio.run(check_working(cast(FinalizeState, state)))
     assert _LETTERED in text
     assert text.count("```answer") == 2
     assert text.rstrip().endswith("the train's speed is **30 m/s**.")

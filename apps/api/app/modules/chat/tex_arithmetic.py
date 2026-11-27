@@ -21,8 +21,11 @@ _INLINE_CODE = re.compile(r"`[^`\n]*`")
 _MIXED_NUMBER = re.compile(r"\d\s*\\[dt]?frac\b")
 INLINE_MATH = re.compile(r"(?<![\\$])\$(?!\$)([^$\n]+?)(?<!\\)\$(?!\$)")
 # 3.98 \times 10^{-19} is one number: "a * 10^-19 / b * 10^-19" divides two of them.
+# A closing brace is the power's only after its opening one: "\\frac{6.245 \\times 10^7}{…}"
+# keeps the fraction's own brace (the line was read as no arithmetic at all).
 _SCIENTIFIC = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:\\times|\\cdot|\u00d7|\*)\s*10\s*\^\s*\{?\s*([-+]?\d+)\s*\}?"
+    r"(\d+(?:\.\d+)?)\s*(?:\\times|\\cdot|\u00d7|\*)\s*10\s*\^\s*"
+    r"(?:\{\s*([-+]?\d+)\s*\}|([-+]?\d+))"
 )
 # A word inside \text{} ("and", "for x = 3") joins two statements; it is not a unit.
 _TEXT_WORD = re.compile(r"\\text\s*\{\s*[A-Za-z]{2,}(?:\s+[A-Za-z]+)*\s*\}")
@@ -121,7 +124,7 @@ def plain_arithmetic(tex: str) -> str | None:
     if _MIXED_NUMBER.search(tex):
         return None
     text = tex.replace("\\left", "").replace("\\right", "")
-    text = _SCIENTIFIC.sub(r"(\1e\2)", text)
+    text = _SCIENTIFIC.sub(lambda m: f"({m[1]}e{m[2] or m[3]})", text)
     text = _TRIG_DEGREES.sub(r" \1d(\2)", text)
     text = _named_functions(text)
     text = re.sub(r"\\pi(?![A-Za-z])", " pi ", text)
