@@ -36,7 +36,8 @@ _NAMES_THE_ASKER = re.compile(
     r"\bthe (?:user|learner|student)(?:'s message)? (?:says|said|asks|asked|wants|wanted"
     r"|writes|wrote|is asking|is requesting|requests|requested|needs|is looking for"
     r"|is learning|has been learning|is on|knows|already knows|prefers|mentioned"
-    r"|is a|is an|follows up|followed up|likes)\b"
+    r"|is a|is an|follows up|followed up|likes|means|meant|is referring to|refers to"
+    r"|is asking about|typed|misspelled|misspelt)\b"
     # Memory as the source about them; never memory a program keeps ("kept in memory").
     r"|\b(?:my |their |saved )?memory (?:says|said|notes|mentions|indicates)\b"
     r"|\b(?:according to|based on) (?:the |their |my |saved )?memory\b",

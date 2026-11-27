@@ -364,6 +364,10 @@ _BAHIR_DAR_ANSWER = "Bahir Dar has **Lake Tana**, its island monasteries and the
         f"{_BAHIR_DAR_PLAN} {_BAHIR_DAR_ANSWER}",
         # A student's profile, the same shape.
         f"The user is a student, so I keep the answer simple.\n\n{_BAHIR_DAR_ANSWER}",
+        # Live 2026-11-27 (Pro, free-chat, this branch's first run): the typo read aloud.
+        'The user means "Bahir Dar," and they\'re asking what the city has, meaning its main '
+        "attractions and features. This is settled knowledge, so I'll answer from what I know."
+        f"\n\n{_BAHIR_DAR_ANSWER}",
     ],
 )
 def test_a_plan_in_the_present_tense_comes_off(reply: str) -> None:
