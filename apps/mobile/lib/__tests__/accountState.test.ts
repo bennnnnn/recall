@@ -243,7 +243,6 @@ const NO_ACCOUNT_DATA = [
   "features/scanner/model/switchCue.ts#cueEpoch",
   "features/scanner/model/switchCue.ts#preparing",
   "lib/sentry.ts#sdk",
-  "lib/sentry.ts#starting",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",

@@ -171,9 +171,10 @@ export function initMobileSentry(): void {
     });
     sdk = Sentry;
     for (const report of earlyReports.splice(0)) report(Sentry);
-  } catch {
-    // The SDK could not load (a dev bundle offline): the next init tries again.
-    return;
+  } catch (error) {
+    // The SDK could not load (a dev bundle offline): the app goes on without it, and the
+    // next init tries again. There is no Sentry to tell, so the console is told.
+    console.warn("Sentry could not start", error);
   }
 }
 
