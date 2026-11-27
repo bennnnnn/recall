@@ -714,3 +714,43 @@ def test_a_draw_block_of_the_user_s_own_stays(line: str, contract: bool) -> None
 def test_draw_block_in_english_stays(reply: str) -> None:
     """ "Draw block diagrams" is English, never the prompt's block (review of #2603)."""
     assert drop_prompt_leaks(reply, "How do I design a control system?") == reply
+
+
+# The reply explained by a saved preference, anywhere in it: the final live run's free-plan
+# chemistry tips closed "Since you prefer brief replies, I'll keep it concise: focus on…".
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "1. **Review**\n\nSince you prefer brief replies, I'll keep it concise: focus on "
+            "doing problems. Good luck!",
+            "1. **Review**\n\nFocus on doing problems. Good luck!",
+        ),
+        ("Paris.\n\nSince you asked for short answers, I'll keep this brief.", "Paris."),
+        (
+            "Because you like short replies, let me keep it simple. Plants make sugar.",
+            "Plants make sugar.",
+        ),
+        (
+            "Lake Tana is the draw. As you prefer brief replies, I keep it short: boats leave "
+            "at eight.",
+            "Lake Tana is the draw. Boats leave at eight.",
+        ),
+    ],
+)
+def test_a_reply_explained_by_a_preference_loses_the_clause(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "any tips?") == kept
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Advice that names what they like, with no first-person "keep it short".
+        "Since you prefer brief answers in interviews, keep each to two minutes.",
+        "Because you like short runs, keep each one under 5 km at first.",
+        # In code, as written.
+        "```text\nSince you prefer brief replies, I'll keep it short.\n```",
+    ],
+)
+def test_advice_about_what_they_prefer_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "interview tips") == reply

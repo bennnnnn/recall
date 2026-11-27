@@ -110,6 +110,15 @@ _EARLIER_REPLY = re.compile(
     r"[^.!?\n]*?,\s*(?:so|but)\b",
     re.IGNORECASE,
 )
+# "Since you prefer brief replies, I'll keep it concise:", the reply's shape explained by a
+# preference, said to the person: only with a first-person "keep it short" after it, so advice
+# ("Since you prefer brief answers in interviews, keep each to two minutes") stays.
+_PREFERENCE_TALK = re.compile(
+    r"(?:^|(?<=[.!?] ))(?:since|because|as) you(?:'ve said you)? (?:prefer|like|want|asked"
+    r" for)\b[^.!?\n:]{0,60}?,\s*(?:i(?:'ll| will)?|let me) keep (?:it|this|things|the answer)"
+    r" (?:short|shorter|brief|concise|simple)\b[^.!?\n:]{0,40}?(?::\s*|[.!?](?:\s+|$))",
+    re.IGNORECASE,
+)
 _SENTENCE = re.compile(r"[^.!?\n]*[.!?]+(?=\s|$)")
 _PLAN_PARAGRAPH = 500
 _MOST_PARAGRAPHS = 2
@@ -225,8 +234,28 @@ def without_narration(text: str, asked: Sequence[str | None] = ()) -> str:
         rest = kept + gap + after if kept else after.lstrip("\n")
         if kept:
             break
-    rest = _without_memory_leads(rest)
+    rest = _without_memory_leads(_without_preference_talk(rest))
     return text if rest == text.lstrip() else rest
+
+
+def _without_preference_talk(text: str) -> str:
+    """``text`` without a clause that explains the reply by a saved preference, anywhere
+    outside a code fence: "Since you prefer brief replies, I'll keep it concise: focus on…"
+    closed a free-plan chemistry reply on the final run (2026-11-27). What follows the clause
+    stays, its first letter raised."""
+    lines = text.split("\n")
+    owners = line_fences(text)
+    for index, line in enumerate(lines):
+        if owners[index] is not None:
+            continue
+        while (talk := _PREFERENCE_TALK.search(line)) is not None:
+            after = line[talk.end() :]
+            line = line[: talk.start()] + after[:1].upper() + after[1:]
+        lines[index] = line
+    kept = "\n".join(lines)
+    if kept == text or not kept.strip():
+        return text
+    return kept.rstrip()
 
 
 def _without_memory_leads(text: str) -> str:
