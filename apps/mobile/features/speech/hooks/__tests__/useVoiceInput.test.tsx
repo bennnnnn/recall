@@ -1,11 +1,13 @@
 import React from "react";
 import { act, render } from "@testing-library/react-native";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 import { transcribeSpeech } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { deleteVoiceRecording, startVoiceRecording, type VoiceRecorder } from "@/lib/speech/voiceAudio";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
+import { heldScreenAwakeTags } from "@/lib/keepAwake";
 
 jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
 // The recorded path: a build without WebRTC (live takes: useComposerLiveDictation.test.tsx).
@@ -264,5 +266,54 @@ describe("useVoiceInput plan refusal", () => {
     await act(async () => { await planVoice.finishRecording(); });
     expect(onPlanRequired).toHaveBeenCalledTimes(paywalls);
     expect(reportRecoverableError).not.toHaveBeenCalled();
+  });
+});
+
+/** A 45 s take was cut off when auto-lock took the app off the screen (review H4, 2026-11-27). */
+describe("useVoiceInput keeps the screen on", () => {
+  const dictationTags = () => heldScreenAwakeTags().filter((tag) => tag.startsWith("dictation:"));
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("holds the screen on while the mic records, and lets it sleep once the take is done", async () => {
+    startMock.mockResolvedValueOnce(fakeRecorder());
+    const view = await render(<Probe />);
+    expect(dictationTags()).toEqual([]);
+    await act(async () => { await voice.startRecording(); });
+    expect(dictationTags()).toHaveLength(1);
+    const [tag] = dictationTags();
+    expect(activateKeepAwakeAsync).toHaveBeenCalledWith(tag);
+
+    // Heard nothing: the take ends with no upload.
+    await act(async () => { await voice.finishRecording(); });
+    expect(voice.voiceRecording).toBe(false);
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+    expect(dictationTags()).toEqual([]);
+    await view.unmount();
+  });
+
+  it("lets the screen sleep on a cancel, and on a recorder that would not start", async () => {
+    startMock.mockResolvedValueOnce(fakeRecorder());
+    const view = await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+    await act(async () => { voice.cancelVoiceInput(); });
+    expect(dictationTags()).toEqual([]);
+
+    startMock.mockRejectedValueOnce(new Error("recorder failed"));
+    await act(async () => { await voice.startRecording(); });
+    expect(voice.voiceRecording).toBe(false);
+    expect(dictationTags()).toEqual([]);
+    await view.unmount();
+  });
+
+  it("lets the screen sleep when the chat screen goes mid-take", async () => {
+    startMock.mockResolvedValueOnce(fakeRecorder());
+    const view = await render(<Probe />);
+    await act(async () => { await voice.startRecording(); });
+    const [tag] = dictationTags();
+    await view.unmount();
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+    expect(dictationTags()).toEqual([]);
   });
 });

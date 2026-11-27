@@ -15,6 +15,8 @@ import { clearSavedComposerDrafts } from "@/features/chat/model/composerDraftFil
 import { Image } from "expo-image";
 import { ensureLocale } from "@/lib/i18n";
 import { resetShareGuard } from "@/lib/share/file";
+import { heldScreenAwakeTags, holdScreenAwake } from "@/lib/keepAwake";
+import { deactivateKeepAwake } from "expo-keep-awake";
 
 const mockFiles: Record<string, string[]> = {};
 const mockDeleted: string[] = [];
@@ -57,6 +59,10 @@ jest.mock("@/features/todos/model/reminderSeen", () => ({ clearSeenReminderIds: 
 jest.mock("@/features/todos/model/homeReminderNudges", () => ({ clearHomeNudgeState: jest.fn() }));
 jest.mock("expo-image", () => ({
   Image: { clearMemoryCache: jest.fn(async () => true), clearDiskCache: jest.fn(async () => true) },
+}));
+jest.mock("expo-keep-awake", () => ({
+  activateKeepAwakeAsync: jest.fn(async () => undefined),
+  deactivateKeepAwake: jest.fn(async () => undefined),
 }));
 jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn(async () => undefined) }));
 jest.mock("@/lib/i18n/deviceLanguage", () => ({ deviceLanguage: () => "fr" }));
@@ -102,6 +108,14 @@ it("forgets the account's photos, which expo-image keeps in memory and on disk",
   await clearSignedOutAccount("user-1");
   expect(Image.clearMemoryCache).toHaveBeenCalledTimes(1);
   expect(Image.clearDiskCache).toHaveBeenCalledTimes(1);
+});
+
+it("lets the screen sleep: a call, take or picture of the account's keeps it on no longer", async () => {
+  holdScreenAwake("live-talk:a");
+  holdScreenAwake("picture:b");
+  await clearSignedOutAccount("user-1");
+  expect(heldScreenAwakeTags()).toEqual([]);
+  expect(jest.mocked(deactivateKeepAwake).mock.calls).toEqual([["live-talk:a"], ["picture:b"]]);
 });
 
 it("draws the sign-in screen in the phone's language, as a launch with no account does", async () => {

@@ -78,6 +78,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "lib/math/svgMath.ts#cache": "clearSvgMathCache",
   "lib/math/svgMath.ts#drawings": "clearSvgMathCache",
   "lib/onboarding.ts#onboardedPref": "clearOnboarded",
+  // A call, take or picture the last account left running does not keep the screen on.
+  "lib/keepAwake.ts#held": "releaseAllScreenAwake",
   "features/billing/model/purchases.ts#configuredAppUserId": "signOutRevenueCat",
   // A purchase held for approval, and Android's copy on disk: signOutRevenueCat releases both.
   "features/billing/model/heldPurchase.ts#held": "signOutRevenueCat",

@@ -1,5 +1,6 @@
 import type React from "react";
 import { act, renderHook } from "@testing-library/react-native";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { api, type Message } from "@/lib/api";
 import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
@@ -7,6 +8,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { notifyWarning } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { onAppEvent } from "@/lib/appEvents";
+import { heldScreenAwakeTags } from "@/lib/keepAwake";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({
@@ -456,5 +458,64 @@ describe("image generation under the composer's painted bubble", () => {
     await act(async () => { result.current.retry(); await Promise.resolve(); await Promise.resolve(); });
     expect(replay().map((row) => row.id)).toEqual(["saved-user", "saved-image"]);
     expect(api.generateImage).toHaveBeenCalledTimes(2);
+  });
+});
+
+/** A picture takes 30 s to 2 minutes; auto-lock left the user a dark screen (review H4, 2026-11-27). */
+describe("a picture's wait keeps the screen on", () => {
+  const pictureTags = () => heldScreenAwakeTags().filter((tag) => tag.startsWith("picture:"));
+  beforeEach(() => jest.clearAllMocks());
+
+  async function waitFor(outcome: "drawn" | "failed") {
+    let finish!: (ok: boolean) => void;
+    (api.generateImage as jest.Mock).mockImplementation(() => new Promise((resolve, reject) => {
+      finish = (ok) => ok
+        ? resolve({ user_message: { id: "u", role: "user", content: "x" }, assistant_message: { id: "a", role: "assistant", content: "image" } })
+        : reject(new Error("provider failed"));
+    }));
+    const rendered = await renderHook(() => useImageGeneration({
+      token: "tok", ...host(), editThread: () => undefined,
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
+      newMessageCountRef: { current: 0 }, t: (key) => key,
+    }));
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = rendered.result.current.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" });
+      await Promise.resolve();
+    });
+    expect(rendered.result.current.generating).toBe(true);
+    expect(pictureTags()).toHaveLength(1);
+    const [tag] = pictureTags();
+    expect(activateKeepAwakeAsync).toHaveBeenCalledWith(tag);
+    await act(async () => {
+      finish(outcome === "drawn");
+      await pending;
+    });
+    expect(rendered.result.current.generating).toBe(false);
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+    expect(pictureTags()).toEqual([]);
+    return rendered;
+  }
+
+  it.each(["drawn", "failed"] as const)("holds the screen on until the picture is %s", async (outcome) => {
+    const { unmount } = await waitFor(outcome);
+    await unmount();
+  });
+
+  it("lets the screen sleep when the chat screen goes mid-wait", async () => {
+    (api.generateImage as jest.Mock).mockImplementation(() => new Promise(() => undefined));
+    const { result, unmount } = await renderHook(() => useImageGeneration({
+      token: "tok", ...host(), editThread: () => undefined,
+      streaming: false, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
+      newMessageCountRef: { current: 0 }, t: (key) => key,
+    }));
+    await act(async () => {
+      void result.current.submitPrompt({ prompt: "cat", userMessage: "Draw a cat" });
+      await Promise.resolve();
+    });
+    const [tag] = pictureTags();
+    await unmount();
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
+    expect(pictureTags()).toEqual([]);
   });
 });

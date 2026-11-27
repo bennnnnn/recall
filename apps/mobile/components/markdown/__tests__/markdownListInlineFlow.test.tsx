@@ -122,14 +122,19 @@ describe("markdown list item inline flow", () => {
     expect(outermostTextAncestor(after as never)).toBe(boldOuter);
   });
 
-  it("bolds the number of an item whose title sits on its own line", async () => {
+  // The owner's layout (#2601): a titled item's name stays on its text's line, and its
+  // number keeps the body weight, as every sibling's does (listItemTitleShape.test.tsx).
+  it("keeps a titled item's name inline and its number regular", async () => {
     const md = [
       "1. **Read widely** – Consume diverse books and articles outside your comfort zone.",
       "2. **Prioritize sleep** – Aim for seven to nine hours every night.",
     ].join("\n");
     const { getByText } = await render(<MarkdownContent content={md} />);
-    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("700");
-    expect(getByText(/Consume diverse books/)).toBeTruthy();
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("400");
+    const name = getByText("Read widely");
+    expect(outermostTextAncestor(getByText(/Consume diverse books/) as never)).toBe(
+      outermostTextAncestor(name as never),
+    );
   });
 
   it("keeps a plain numbered step's number regular", async () => {

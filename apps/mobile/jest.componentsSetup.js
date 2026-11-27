@@ -153,6 +153,13 @@ jestGlobals.mock("expo-haptics", () => ({
   },
 }));
 
+// expo-keep-awake is a native module; live talk, dictation and a picture's wait hold it
+// (lib/keepAwake.ts). Tests that check the holds mock it themselves.
+jestGlobals.mock("expo-keep-awake", () => ({
+  activateKeepAwakeAsync: jestGlobals.fn(async () => undefined),
+  deactivateKeepAwake: jestGlobals.fn(async () => undefined),
+}));
+
 // expo-clipboard is a native module (expo-modules-core EventEmitter) that
 // cannot load here; the share sheet renders in the chat screen and drawer.
 // Tests that check copying mock it themselves.

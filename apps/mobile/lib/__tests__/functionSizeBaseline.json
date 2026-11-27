@@ -1,7 +1,7 @@
 {
   "components/CodeBlock.tsx::CodeBlock": 138,
-  "components/markdown/rules/lists.tsx::listRules": 167,
-  "components/markdown/rules/lists.tsx::listRules.list_item": 113,
+  "components/markdown/rules/lists.tsx::listRules": 165,
+  "components/markdown/rules/lists.tsx::listRules.list_item": 111,
   "components/rich/AnswerBlock.tsx::AnswerBlock": 146,
   "components/rich/CalculatorBlock.tsx::CalculatorCard": 137,
   "components/rich/CartesianAxes.tsx::CartesianAxes": 159,
