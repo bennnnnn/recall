@@ -33,6 +33,8 @@ a code fence.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.services.md_fence_scan import line_fences
 from app.services.text_normalize import straighten_apostrophes
@@ -91,6 +93,13 @@ _ABOUT_A_PRODUCT = re.compile(
     r"|ux|ui|support|tickets?|user stor(?:y|ies)|onboarding|flows?)\b",
     re.IGNORECASE,
 )
+# The user's message is about their own correspondence (a thread, an email, a reply of theirs):
+# "Your last reply covered the pricing" is about their reply to the client (review of #2609).
+_OWN_CORRESPONDENCE = re.compile(
+    r"\b(?:my|our)\s+(?:own\s+)?(?:repl(?:y|ies)|emails?|thread|messages?|texts?|letters?|drafts?"
+    r"|correspondence|inbox|dms?)\b|\b(?:thread|emails?|exchange|conversation|chat) with\b",
+    re.IGNORECASE,
+)
 # The prompt's name for the model's own last reply, said to the user, when the sentence goes
 # on to work out what the message points to or what comes next ("…, so "the second one" is
 # wind", "…, but the item you're asking about is…"). Never the user's own reply or answer:
@@ -136,59 +145,86 @@ def narrates_the_turn(paragraph: str, *, product: bool = False) -> bool:
     )
 
 
-def _speaks_to_them(paragraph: str) -> bool:
+@dataclass(frozen=True)
+class _Chat:
+    """What the user's recent messages say about the chat: about a bot, an app or its users
+    (a first-person plan is the design), or about their own correspondence ("your last reply"
+    is theirs)."""
+
+    product: bool = False
+    own_mail: bool = False
+
+    @classmethod
+    def of(cls, asked: Sequence[str | None]) -> _Chat:
+        lines = [straighten_apostrophes(line) for line in asked if line]
+        return cls(
+            product=any(_ABOUT_A_PRODUCT.search(line) for line in lines),
+            own_mail=any(_OWN_CORRESPONDENCE.search(line) for line in lines),
+        )
+
+    def earlier_reply(self, sentence: str) -> bool:
+        """``sentence`` opens on the prompt's "your last reply", meaning Recall's own."""
+        return not self.own_mail and _EARLIER_REPLY.match(sentence) is not None
+
+
+def _speaks_to_them(paragraph: str, chat: _Chat) -> bool:
     """The paragraph says "you" to the person, the prompt's "your last reply" aside."""
-    prose = _EARLIER_REPLY.sub(" ", straighten_apostrophes(paragraph))
+    prose = straighten_apostrophes(paragraph)
+    if not chat.own_mail:
+        prose = _EARLIER_REPLY.sub(" ", prose)
     return _TO_THEM.search(prose) is not None
 
 
-def _narrating_lead(paragraph: str, *, product: bool) -> int:
+def _narrating_lead(paragraph: str, chat: _Chat) -> int:
     """Where the sentences at the start of ``paragraph`` that narrate the turn end (0 when
     it opens on anything else, or when the paragraph speaks to the person)."""
-    if _speaks_to_them(paragraph):
+    if _speaks_to_them(paragraph, chat):
         return 0
     at = 0
     while (sentence := _SENTENCE.match(paragraph, at)) is not None:
         said = sentence.group(0).strip()
         if not (
-            narrates_the_turn(said, product=product)
-            or _EARLIER_REPLY.match(straighten_apostrophes(said))
+            narrates_the_turn(said, product=chat.product)
+            or chat.earlier_reply(straighten_apostrophes(said))
         ):
             break
         at = sentence.end()
     return at
 
 
-def _narrates(paragraph: str, *, product: bool) -> bool:
-    """The whole paragraph narrates the turn: as one, or sentence by sentence."""
-    if narrates_the_turn(paragraph, product=product):
-        return True
-    at = _narrating_lead(paragraph, product=product)
-    return bool(at) and not paragraph[at:].strip()
+def _without_narration_in(paragraph: str, chat: _Chat) -> str:
+    """``paragraph`` without what narrates the turn in it: its narrating sentences when an
+    answer follows them ("…, so I give new points, not a recap. Bahir Dar has Lake Tana."),
+    all of it when it narrates as a whole and nothing of its own follows; "" when nothing is
+    left."""
+    at = _narrating_lead(paragraph, chat)
+    rest = paragraph[at:].strip()
+    if at:
+        return rest
+    return "" if narrates_the_turn(paragraph, product=chat.product) else paragraph
 
 
-def _without_narrating_lead(paragraph: str, *, product: bool) -> str:
-    """``paragraph`` without the sentences at its start that narrate the turn, when the
-    answer follows them in it; as it was otherwise."""
-    at = _narrating_lead(paragraph, product=product)
-    rest = paragraph[at:].lstrip()
-    return rest if at and rest else paragraph
-
-
-def without_narration(text: str, asked: str = "") -> str:
+def without_narration(text: str, asked: Sequence[str | None] = ()) -> str:
     """``text`` without its opening paragraphs that narrate the turn, and with "Memory says"
     off a sentence that speaks to the person; as it was when nothing would be left.
-    ``asked`` is the user's message."""
-    product = _ABOUT_A_PRODUCT.search(asked) is not None
+    ``asked`` is the user's message, then the ones just before it."""
+    chat = _Chat.of(asked)
     rest = text.lstrip()
     for _ in range(_MOST_PARAGRAPHS):
-        plan, gap, after = rest.partition("\n\n")
-        if not (gap and after.strip() and plan.strip() and _narrates(plan, product=product)):
+        if rest.startswith(("```", "~~~")):
             break
-        rest = after.lstrip("\n")
-    if not rest.startswith(("```", "~~~")):
-        first, gap, after = rest.partition("\n\n")
-        rest = _without_narrating_lead(first, product=product) + gap + after
+        plan, gap, after = rest.partition("\n\n")
+        if not (gap and after.strip() and plan.strip()):
+            # The reply's only paragraph: its narrating lead goes when an answer follows.
+            kept = _without_narration_in(plan, chat)
+            rest = kept + gap + after if kept else rest
+            break
+        kept = _without_narration_in(plan, chat)
+        if kept == plan:
+            break
+        rest = kept + gap + after if kept else after.lstrip("\n")
+        if kept:
+            break
     rest = _without_memory_leads(rest)
     return text if rest == text.lstrip() else rest
 

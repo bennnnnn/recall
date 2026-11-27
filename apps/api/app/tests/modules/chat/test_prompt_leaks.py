@@ -462,6 +462,99 @@ def test_a_paragraph_that_speaks_to_them_stays_whole() -> None:
     assert drop_prompt_leaks(reply, "explain photosynthesis") == reply
 
 
+# The narration and the answer in one paragraph, a second paragraph after it: only the
+# narrating sentences go (review of #2609: the whole paragraph went, the answer with it).
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "The user asks what Bahir Dar has, a follow-up to the size question, so I give new "
+            "points, not a recap. Bahir Dar has Lake Tana and the Blue Nile Falls.\n\n"
+            "## More to see",
+            "Bahir Dar has Lake Tana and the Blue Nile Falls.\n\n## More to see",
+        ),
+        (
+            f"{_BAHIR_DAR_PLAN} Bahir Dar has Lake Tana.\n\n## More to see\n\n1. **Markets**",
+            "Bahir Dar has Lake Tana.\n\n## More to see\n\n1. **Markets**",
+        ),
+        (
+            "The user is a student, so I keep the answer simple. Plants make sugar from light."
+            "\n\n## How it works",
+            "Plants make sugar from light.\n\n## How it works",
+        ),
+        (
+            "The user prefers brief replies, so I keep it short. Paris is the capital.\n\nDone.",
+            "Paris is the capital.\n\nDone.",
+        ),
+    ],
+)
+def test_the_answer_sharing_the_narrations_paragraph_stays(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "tell me more") == kept
+
+
+# A self-label and a "Memory says" further down: both go, in that order (review of #2609).
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "This is a current-events question, so I'll check the latest headlines.\n\n"
+            "Memory says you're in Paris, so here are local stories.",
+            "You're in Paris, so here are local stories.",
+        ),
+        (
+            "This is a recipe request, so I'll keep it simple.\n\nMemory says you're vegetarian,"
+            " so here is dal.\n\n1. **Rinse the lentils**",
+            "You're vegetarian, so here is dal.\n\n1. **Rinse the lentils**",
+        ),
+    ],
+)
+def test_a_self_label_and_a_memory_lead_both_come_off(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "news near me") == kept
+
+
+# The chat is about a bot: a follow-up that does not name it keeps the guard (review of #2609).
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        (
+            ("and for late deliveries?", "how should my support bot handle refunds?"),
+            "The user asks where the order is, so I keep the reply short and give the tracking "
+            "link.\n\nIf it's over a week late, the bot offers a refund.",
+        ),
+        (
+            ("what about returns?", "write the replies my shop's chatbot should give"),
+            "The user asks to return a jacket, so I keep the reply short and send the label.\n\n"
+            "The label is good for 30 days.",
+        ),
+    ],
+)
+def test_a_follow_up_in_a_bots_design_chat_stays(asked: tuple[str, ...], reply: str) -> None:
+    assert drop_prompt_leaks(reply, *asked) == reply
+
+
+# "Your last reply" about the user's own correspondence is theirs (review of #2609).
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        (
+            "here's my thread with the client, what next?",
+            "Your last reply covered the pricing, so the client has the numbers. Send the "
+            "timeline next.",
+        ),
+        (
+            "I pasted my email exchange with Sam below, how should I respond?",
+            "Your last reply offered a Friday call, but Sam wants Monday. Suggest Monday at 10.",
+        ),
+        (
+            "is my reply to the landlord ok?",
+            "Your last reply mentioned the leak, so the landlord knows. Ask for a date too.",
+        ),
+    ],
+)
+def test_the_users_own_correspondence_stays(asked: str, reply: str) -> None:
+    assert drop_prompt_leaks(reply, asked) == reply
+
+
 @pytest.mark.parametrize(
     "reply",
     [
