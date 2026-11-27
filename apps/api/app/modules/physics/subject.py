@@ -328,7 +328,9 @@ class PhysicsFigure:
     (``draw``), and the ones a reply describes (an electric field's lines, a setup's scene).
 
     A solve that drew its picture (a scene, a circuit, rays, a wave) holds it (``shown``),
-    and a reply that holds one of the server's pictures gets no second one (``whole``). Any
+    and a reply gets no second picture of a kind it already holds (``adds_to``): a solve's
+    scene still gets the motion graphs asked for, and a reply that holds a scene and a graph
+    gets nothing more (``whole``). Any
     other physics question gets the picture the figure read names and the server checks
     (``scene_drawing.figure_read``), asked for or not, under the reply; the model's own
     sketch of it then goes (``without_substitutes``). On a physics message that asks to see

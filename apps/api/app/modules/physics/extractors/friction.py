@@ -8,6 +8,10 @@ from typing import Literal
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
+    COEFFICIENT_BETWEEN,
+    COEFFICIENT_LEADS,
+    FROM_REST_RE,
+    MU_SUBSCRIPT,
     has_cue,
 )
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
@@ -47,37 +51,28 @@ _FRICTION_FORCE_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 
-# "between the block and the plane": the two surfaces a coefficient is stated for, before
-# its value ("The coefficient of kinetic friction between the block and the plane is 0.20").
-_SURFACE_NAME = r"(?:the\s+)?[a-z]+(?:\s+[a-z]+)?"
-_BETWEEN = rf"(?:\s+between\s+{_SURFACE_NAME}\s+and\s+{_SURFACE_NAME})?"
-# "μₖ = 0.20", "mu_k = 0.20": a coefficient's symbol, its subscript written either way.
-_SUBSCRIPT = r"(?:_?[ks]|[\u2096\u209b])?"
-# What leads from a coefficient's name to its value: "of", "=", "is", a label's colon, and a
-# list's symbol after it ("Coefficient of kinetic friction: μₖ = 0.20").
-_LEADS = rf"\s*(?:of|=|is|:)?\s*(?:(?:\bmu|\u03bc){_SUBSCRIPT}\s*=\s*)?"
 
 _MU_RE = re.compile(
-    rf"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction{_BETWEEN}{_LEADS}"
+    rf"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction{COEFFICIENT_BETWEEN}{COEFFICIENT_LEADS}"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    rf"|\bmu{_SUBSCRIPT}\s+is\s+|\bmu{_SUBSCRIPT}\s*=\s*"
-    rf"|\u03bc{_SUBSCRIPT}\s+is\s+|\u03bc{_SUBSCRIPT}\s*=\s*)"
+    rf"|\bmu{MU_SUBSCRIPT}\s+is\s+|\bmu{MU_SUBSCRIPT}\s*=\s*"
+    rf"|\u03bc{MU_SUBSCRIPT}\s+is\s+|\u03bc{MU_SUBSCRIPT}\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_STATIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:s|\u209b)|"
-    rf"coefficient\s+of\s+static\s+friction{_BETWEEN}|static\s+(?:coefficient\s+of\s+)?friction|"
+    rf"coefficient\s+of\s+static\s+friction{COEFFICIENT_BETWEEN}|static\s+(?:coefficient\s+of\s+)?friction|"
     r"static\s+friction\s+coefficient)"
-    rf"{_LEADS}(-?\d+(?:\.\d+)?)",
+    rf"{COEFFICIENT_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_KINETIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:k|\u2096)|"
-    rf"coefficient\s+of\s+kinetic\s+friction{_BETWEEN}|kinetic\s+(?:coefficient\s+of\s+)?friction)"
-    rf"{_LEADS}(-?\d+(?:\.\d+)?)",
+    rf"coefficient\s+of\s+kinetic\s+friction{COEFFICIENT_BETWEEN}|kinetic\s+(?:coefficient\s+of\s+)?friction)"
+    rf"{COEFFICIENT_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
@@ -113,12 +108,33 @@ _MIN_FORCE_ASK_RE = re.compile(
 )
 
 _REST = re.compile(r"\b(?:rests|resting|stationary|at rest|equilibrium)\b", re.IGNORECASE)
-_INITIAL_REST = re.compile(
-    r"\b(?:initially\s+(?:at\s+rest|stationary)|released\s+from\s+rest|starts?\s+from\s+rest)\b",
-    re.IGNORECASE,
-)
 _UPHILL = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\s+up\b", re.IGNORECASE)
 _MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IGNORECASE)
+
+
+def stated_kinetic_and_static(text: str) -> tuple[float, float] | None:
+    """The kinetic and the static coefficient, when the question states both ("μₖ = 0.20 and
+    μₛ = 0.70"); None when it states at most one of them."""
+    kinetic, static = _MU_KINETIC_RE.search(text), _MU_STATIC_RE.search(text)
+    if kinetic is None or static is None:
+        return None
+    return float(kinetic.group(1)), float(static.group(1))
+
+
+def _by_role(op: str, cleaned: str, kinetic: float, static: float) -> float | None:
+    """The coefficient a law takes when both are stated: static to start a body moving (the
+    least force to move it), kinetic for a body the words say is sliding. A body only
+    released or at rest may stay put (μs against tan θ), so with both stated it is refused:
+    "released from rest on a 30° incline, μₖ = 0.20 and μₛ = 0.70" took 0.20 and slid at
+    3.21 m/s², though 0.70 holds it (review of #2613)."""
+    if op == "minimum_force":
+        return static
+    sliding = (
+        _MOVING.search(cleaned) is not None and _REST.search(FROM_REST_RE.sub(" ", cleaned)) is None
+    )
+    if op in ("incline_acceleration", "friction_force") and sliding:
+        return kinetic
+    return None
 
 
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
@@ -212,7 +228,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
             mu is None
             and angle != 0.0
             and _REST.search(cleaned) is not None
-            and _INITIAL_REST.search(cleaned) is None
+            and FROM_REST_RE.search(cleaned) is None
             and _MOVING.search(cleaned) is None
         )
         if mass is None or (mu is None and not held):
@@ -220,6 +236,13 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     else:
         return None
 
+    if mu is not None and not frictionless and op != "incline_sliding":
+        both = stated_kinetic_and_static(cleaned)
+        if both is not None:
+            # Both coefficients stated: the one the motion asked about, never the first.
+            mu = _by_role(op, cleaned, *both)
+            if mu is None:
+                return None
     params: dict[str, float] = {"angle": angle, "g": detect_gravity(cleaned)}
     units: dict[str, str] = {
         "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
@@ -242,7 +265,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
             params["static_equilibrium"] = 1.0
             units["static_equilibrium"] = ""
     if op in {"friction_force", "incline_acceleration"}:
-        initially_at_rest = _INITIAL_REST.search(cleaned) is not None
+        initially_at_rest = FROM_REST_RE.search(cleaned) is not None
         at_rest = _REST.search(cleaned) is not None and not initially_at_rest
         moving = _MOVING.search(cleaned) is not None
         kinetic = "kinetic" in lower

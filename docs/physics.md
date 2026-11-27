@@ -682,8 +682,9 @@ is, as one of the blocks a reply would describe: a scene, the question's arrows,
 one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
 question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`
 adds it under the reply once the reply is done, waiting at most `figure_wait_seconds`, so a
-picture never delays the first word. A solve that drew its own picture keeps it; a reply that
-holds one of the server's pictures gets no second one. With teaching figures on, a physics
+picture never delays the first word. A solve that drew its own picture keeps it, and a reply
+gets no second picture of a kind it already holds (a solve's scene still gets the motion
+graphs asked for). With teaching figures on, a physics
 question that asks to see nothing gets no setup contract in the reply's prompt: the read draws
 its setup. Three blocks are the read's own:
 - `forces` (`scene_drawing/forces.py`): the body and the forces on it, one word each. The server
@@ -693,8 +694,9 @@ its setup. Three blocks are the read's own:
   names (a ladder against a wall) and several diagrams of one body asked at once draw nothing;
   "a free-body diagram for each mass" of two masses over a pulley is the rig, each mass with
   its tension and weight. `"components": true` (on this block or on the incline scene) adds the
-  weight resolved along and into the slope, `mg sin 30° = 49.05 N` then `mg cos 30° = 84.96 N`,
-  sized from the reader's mass and g (`scene_drawing/weight_parts.py`).
+  weight resolved along and into the slope (`scene_drawing/weight_parts.py`): on the incline
+  scene sized from the reader's mass and g, `mg sin 30° = 49.05 N` then `mg cos 30° = 84.96 N`;
+  on the forces block in symbols, `mg sin 30°`; and with no angle stated, `mg sin θ`.
 - `beam` (`scene_drawing/beam.py`): a bar's marks left to right, each distance a length the
   question states (or the letter of one it asks for), each force a stated force with the
   direction its own clause gives it, or a hung mass (down), or an unknown's letter. Every force
@@ -726,8 +728,16 @@ The Atwood scene draws each mass's weight beside the tension, sized to each othe
 Beside a picture asked for and drawn, a reply's words about drawing it are false and come off
 (`chat/picture_talk.py`, from the owed-picture pass): a sentence about the app's pictures ("The
 app has no scene for a block sliding down an incline"), an offer to draw a kind of picture the
-reply shows ("I can draw the three graphs if you want them as pictures"), or "I can't draw
-diagrams". A reply with no picture keeps its words and gets the line that says none was drawn.
+reply shows ("I can draw the three graphs if you want them as pictures"), or "I can't draw" a
+kind it shows; what such a sentence goes on to say after "but" stays ("…, but v rises to 16
+m/s"), and words about a kind not drawn stay. A reply with no picture keeps its words and gets
+the line that says none was drawn.
+
+Two coefficients stated, kinetic and static, are each taken for their own motion: the least
+force to start a body moving takes μs, a body the words say slides takes μk, a level curve
+takes μs, and a body only released or at rest (it may not slide: μs against tan θ) is
+refused. A frictionless pulley says nothing about the surface: a block resting on a table, a
+level surface or a slope is never an Atwood machine's hanging mass.
 
 A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
 reply, picture or none (`sketches.without_sketches`), unless the user asked for one ("as ASCII

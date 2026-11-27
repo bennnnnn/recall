@@ -294,6 +294,109 @@ def test_a_pulley_with_a_body_on_each_side_is_a_pair() -> None:
     assert picture is not None and len(picture.spec.bodies) == 2
     # "on a pulley" names the pulley, which is no body of this picture.
     assert force_picture("Show the forces on a pulley.") is None
+    # A man pulling the other end of the rope is no second mass (review of #2613).
+    assert (
+        force_picture(
+            "A 10 kg bucket hangs on one side of a pulley; a man pulls the other end of the rope "
+            "down with 120 N. Draw the forces on the bucket."
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A ladder of mass 15 kg rests on rough ground against a smooth wall. Draw the forces "
+        "acting on both ends of the ladder.",
+        "Draw the forces acting on each wheel of a 1200 kg car.",
+    ],
+)
+def test_each_or_both_before_a_noun_points_back_to_nothing(question: str) -> None:
+    assert force_picture(question) is None
+
+
+# Both coefficients stated: each for its own motion, never the first one written; a body only
+# released or at rest may stay put, so it is refused (review of #2613).
+@pytest.mark.parametrize(
+    ("question", "op", "mu"),
+    [
+        (
+            "A 5 kg block is released from rest on a 30° incline. μₖ = 0.20 and μₛ = 0.70. "
+            "Find the acceleration.",
+            None,
+            None,
+        ),
+        (
+            "A 5 kg block is released from rest on a 30° incline. The coefficient of kinetic "
+            "friction between the block and the plane is 0.20 and the coefficient of static "
+            "friction is 0.70. Find the acceleration.",
+            None,
+            None,
+        ),
+        (
+            "A 5 kg block slides down a 30° incline. μₖ = 0.20 and μₛ = 0.70. Find the "
+            "acceleration.",
+            "incline_acceleration",
+            0.2,
+        ),
+        (
+            "A 10 kg crate rests on the floor. The coefficient of kinetic friction between the "
+            "crate and the floor is 0.3 and the coefficient of static friction is 0.5. Find the "
+            "minimum force needed to move it.",
+            "minimum_force",
+            0.5,
+        ),
+        (
+            "A car rounds a level curve of radius 50 m. The coefficient of kinetic friction is "
+            "0.4 and the coefficient of static friction is 0.8. What is the maximum speed?",
+            "level_curve_speed",
+            0.8,
+        ),
+    ],
+)
+def test_two_coefficients_are_each_taken_for_their_own_motion(
+    question: str, op: str | None, mu: float | None
+) -> None:
+    intent = extract_physics_intent(question)
+    if op is None:
+        assert intent is None or intent.physics_op != "incline_acceleration"
+        return
+    assert intent is not None and intent.physics_op == op
+    assert (intent.physics_params or {})["mu"] == pytest.approx(mu)
+
+
+def test_a_frictionless_pulley_leaves_the_table_a_table() -> None:
+    """The pulley's friction says nothing of the surface: a block on a smooth level surface is
+    the table pulley, a = m₂g/(m₁ + m₂) = 2.80 m/s², never an Atwood machine's 4.20."""
+    intent = extract_physics_intent(
+        "A 5 kg block on a smooth level surface is attached by a string over a frictionless "
+        "pulley to a hanging 2 kg mass. Find the acceleration."
+    )
+    assert intent is not None and intent.physics_op == "table_pulley"
+
+
+@pytest.mark.parametrize(
+    "start",
+    ["The block starts at rest", "The block starts from a standstill", "It is initially at rest"],
+)
+def test_every_way_of_starting_from_rest_sets_a_zero_start_speed_aside(start: str) -> None:
+    intent = extract_physics_intent(
+        f"A 10 kg block slides down a plane inclined at 30°. {start}. The coefficient of kinetic "
+        "friction is 0.20. Initial velocity: u = 0 m/s. Find the acceleration."
+    )
+    assert intent is not None and intent.physics_op == "incline_acceleration"
+
+
+def test_a_slope_with_no_stated_angle_resolves_its_weight_in_symbols() -> None:
+    question = (
+        "A block slides down a rough inclined plane. Draw its free-body diagram with the "
+        "weight's components."
+    )
+    forces = {"kind": "forces", "body": "block", "forces": ["weight", "normal", "friction"]}
+    (scene,) = _drawn(question, {**forces, "components": True})
+    assert [v["label"] for v in scene["vectors"]] == ["mg sin θ", "mg cos θ"]
+    assert [a["label"] for a in scene["angles"]] == ["θ"]
 
 
 def test_the_atwood_scene_shows_each_mass_s_weight_to_scale() -> None:

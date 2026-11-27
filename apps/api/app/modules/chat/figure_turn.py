@@ -31,7 +31,7 @@ from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.md_fence_scan import iter_fences
-from app.services.solving import SubjectName
+from app.services.solving import SubjectName, VerifiedPhysicsBlock, VerifiedSolveBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 from app.services.text_normalize import collapse_ws
 
@@ -157,13 +157,38 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
         return None
     solved_by = getattr(ctx.verified_subject, "subject", None)
     shown = _shown_already(ctx.verified_subject)
-    # A physics solve's scene leaves room for a picture of another kind it lacks, when one is
-    # asked for: a slope's motion graphs beside it (``_draw``).
-    if (shown and solved_by != "physics") or (ctx.instant_reply and ctx.verified_subject is None):
+    # A physics solve's scene leaves room only for the graphs of its motion it lacks, when
+    # they are asked for (``_draw``); one that drew them too covers every picture asked.
+    graphs_only = shown and solved_by == "physics"
+    if (shown and not graphs_only) or (graphs_only and solve_graphed(ctx.verified_subject)):
+        return None
+    if ctx.instant_reply and ctx.verified_subject is None:
         return None
     line = ctx.user_message_content or ""
     recent = list(ctx.recent_messages or [])
-    return asyncio.create_task(_draw(settings, ctx.live_read, line, recent, solved_by, shown))
+    task = _draw(settings, ctx.live_read, line, recent, solved_by, graphs_only=graphs_only)
+    return asyncio.create_task(task)
+
+
+# The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
+_TIME_GRAPH = "trajectory"
+# A graph named in the message: "plot its v-t graph", "velocity against time", "s-t". It only
+# gates the read's call beside a solve that drew its scene; the read says what to draw.
+_NAMES_A_GRAPH = re.compile(
+    r"\b(?:graphs?|plot(?:s|ted)?|charts?)\b|\b(?:against|versus|vs\.?)\s+time\b"
+    r"|\b[svad]\s*[-\u2013]\s*t\b",
+    re.IGNORECASE,
+)
+
+
+def solve_graphed(verified: VerifiedSolveBlock | None) -> bool:
+    """A physics solve's cards already draw a graph against time (a v-t or x-t trajectory)
+    beside its scene."""
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        return False
+    blocks = [verified, *verified.question_parts]
+    specs = [s for b in blocks for s in (b.canonical_fence, *b.canonical_fences) if s]
+    return any(spec.get("type") == _TIME_GRAPH for spec in specs)
 
 
 def _figure_wanted(
@@ -213,7 +238,8 @@ async def _draw(
     line: str,
     recent: Sequence[Any],
     solved_by: SubjectName | None = None,
-    shown: bool = False,
+    *,
+    graphs_only: bool = False,
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
     await asyncio.wait([read])
@@ -224,7 +250,7 @@ async def _draw(
     # it lacks).
     if wanted is None or figure is None or solved_by not in (None, wanted[0]):
         return None
-    if shown and wanted[1] != "asked":
+    if graphs_only and not _asks_for_graphs(read.result(), line):
         return None
     topic = await _topic(settings, read, line, recent)
     fence = await figure.draw(line, topic, settings, asked=wanted[1] == "asked")
@@ -244,6 +270,15 @@ async def _draw(
         len(topic),
     )
     return fence
+
+
+def _asks_for_graphs(decision: TurnDecision | None, line: str) -> bool:
+    """Beside a solve that drew its scene: the read asks for a graph, or the message names
+    one (the read names one picture, and "draw its free-body diagram and plot its v-t graph"
+    read as a diagram)."""
+    return decision is not None and (
+        decision.picture == "graph" or _NAMES_A_GRAPH.search(line) is not None
+    )
 
 
 async def _topic(

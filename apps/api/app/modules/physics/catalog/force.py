@@ -8,7 +8,7 @@ from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 _FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
 _BACKWARD = ("to the left", "left", "west", "westward", "backward", "backwards", "behind")
 # Where the other mass of a pulley pair rests instead of hanging.
-_RESTING_SIDE = (
+RESTING_SIDE = (
     "table",
     "horizontal surface",
     "level surface",
@@ -78,7 +78,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"m1", "m2"}),),
             cues=("pulley", "atwood"),
             # One mass on a table or a slope is not hanging: not an Atwood machine.
-            excludes=_RESTING_SIDE,
+            excludes=RESTING_SIDE,
             descending=("m1", "m2"),
         ),
     ),

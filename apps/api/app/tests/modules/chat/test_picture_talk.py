@@ -14,14 +14,15 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.chat.owed_picture import held_to_the_ask
-from app.modules.chat.picture_talk import without_picture_talk
+from app.modules.chat.owed_picture import drawn_kinds, held_to_the_ask
+from app.modules.chat.picture_talk import Kind, without_picture_talk
 from app.modules.chat.prompt_leaks import drop_draw_block_mentions, drop_prompt_leaks
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep import StreamContext
 
 _SCENE = '```simulation\n{"type":"incline"}\n```'
 _GRAPH = '```graph\n{"type":"trajectory"}\n```'
+_BOTH: frozenset[Kind] = frozenset({"graph", "diagram"})
 
 
 @pytest.mark.parametrize(
@@ -44,7 +45,7 @@ _GRAPH = '```graph\n{"type":"trajectory"}\n```'
 )
 def test_words_about_drawing_the_pictures_drawn_come_off(said: str, kept: str) -> None:
     text = f"The block slides at 3.21 m/s².\n\n{said}\n\n{_SCENE}\n\n{_GRAPH}\n"
-    out = without_picture_talk(text)
+    out = without_picture_talk(text, _BOTH)
     assert said not in out and _SCENE in out and _GRAPH in out
     assert out.startswith("The block slides at 3.21 m/s².")
     if kept:
@@ -64,12 +65,12 @@ def test_words_about_drawing_the_pictures_drawn_come_off(said: str, kept: str) -
 )
 def test_other_words_stay(said: str) -> None:
     text = f"The block slides.\n\n{said}\n\n{_SCENE}\n"
-    assert without_picture_talk(text) == text
+    assert without_picture_talk(text, drawn_kinds(text)) == text
 
 
 def test_a_reply_that_shows_no_picture_keeps_its_words() -> None:
     text = "The app has no scene for this setup, so here it is in words.\n"
-    assert without_picture_talk(text) == text
+    assert without_picture_talk(text, drawn_kinds(text)) == text
 
 
 def _ctx(line: str, read: TurnDecision) -> StreamContext:
@@ -127,8 +128,54 @@ def test_the_leak_net_and_the_picture_talk_net_each_cut_only_their_own() -> None
     def leaks(text: str) -> str:
         return drop_draw_block_mentions(drop_prompt_leaks(text, line, rules=frozenset()), line)
 
-    for out in (without_picture_talk(leaks(drawn)), leaks(without_picture_talk(drawn))):
+    for out in (
+        without_picture_talk(leaks(drawn), _BOTH),
+        leaks(without_picture_talk(drawn, _BOTH)),
+    ):
         for gone in (narration, block, talk, offer):
             assert gone not in out
         assert answer in out and "Friction acts up the slope." in out
         assert out.count(_SCENE) == 1 and out.count(_GRAPH) == 1
+
+
+_GRAPHS_ONLY: frozenset[Kind] = frozenset({"graph"})
+_DIAGRAM_ONLY: frozenset[Kind] = frozenset({"diagram"})
+_NOT_DRAWN = "I can't draw the v–t graph here, but v rises from 0 to 16 m/s over 5 s."
+
+
+@pytest.mark.parametrize(
+    ("said", "drawn", "after"),
+    [
+        # Only the free-body diagram was drawn: the graph sentence is true and its values stay.
+        (_NOT_DRAWN, _DIAGRAM_ONLY, _NOT_DRAWN),
+        # The graph was drawn: the refusal goes, what it goes on to say stays.
+        (_NOT_DRAWN, _GRAPHS_ONLY, "V rises from 0 to 16 m/s over 5 s."),
+        # Curly apostrophes, as models write them.
+        ("I can’t draw diagrams here.", _DIAGRAM_ONLY, ""),
+        ("I’ll plot the graphs if you want.", _GRAPHS_ONLY, ""),
+        # The app a graph is about is no app speaking of its pictures.
+        (
+            "The graph shows the app reaches 6,000 users.",
+            _GRAPHS_ONLY,
+            "The graph shows the app reaches 6,000 users.",
+        ),
+    ],
+)
+def test_only_words_about_a_kind_drawn_go(said: str, drawn: frozenset[Kind], after: str) -> None:
+    text = f"Para A.\n\n{said}\n\n{_SCENE}\n"
+    out = without_picture_talk(text, drawn)
+    expected = f"Para A.\n\n{after}\n\n{_SCENE}\n" if after else f"Para A.\n\n{_SCENE}\n"
+    assert out == expected
+
+
+def test_a_worked_block_is_no_diagram() -> None:
+    worked = "```worked\nGiven: m = 2 kg\n```"
+    assert drawn_kinds(f"{worked}\n\n{_GRAPH}\n") == {"graph"}
+    text = f"{worked}\n\nWould you like me to draw a free-body diagram too?\n\n{_GRAPH}\n"
+    assert without_picture_talk(text, drawn_kinds(text)) == text
+
+
+def test_a_paragraph_s_first_line_cut_keeps_the_paragraph_apart() -> None:
+    text = f"Para A.\n\nI cannot draw diagrams here.\nThe forces are W and N.\n\n{_SCENE}\n"
+    out = without_picture_talk(text, _DIAGRAM_ONLY)
+    assert out == f"Para A.\n\nThe forces are W and N.\n\n{_SCENE}\n"

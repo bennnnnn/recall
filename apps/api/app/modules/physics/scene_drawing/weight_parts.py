@@ -5,9 +5,12 @@ perpendicular to the incline" is what a textbook draws beside nearly every incli
 mg, N and f, and mg split into mg sin θ down the slope and mg cos θ into it. The slope's
 picture (``solvers.friction.incline_scene``) draws the forces; a read that says the question
 asks for the components (``"components": true``) adds the two parts, after the forces, the
-part along the slope first. Their sizes are the server's: mg sin θ and mg cos θ of the
-slope's own angle and, when the reader read them, the block's mass and g; with no mass the
-parts carry their symbols only. A picture of anything but a block on a slope gets none.
+part along the slope first. Each is drawn along its own direction at its share of mg (sin θ,
+cos θ of the slope's angle) and labelled with the stated angle; given the block's mass and g
+(the incline scene passes the reader's), with its size in newtons too. The forces block passes
+neither, so its parts carry symbols only, and a slope whose angle the question did not give
+(its arc lettered θ) gets "mg sin θ" and "mg cos θ" with no number. A picture of anything but a
+block on a slope gets none.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ _INCLINE = "incline"
 _ALONG = "mg sin"
 # ``SimulationVector.label``'s most characters.
 _LABEL_MAX = 24
+_THETA = "θ"
 
 
 def with_weight_parts(
@@ -34,6 +38,11 @@ def with_weight_parts(
     deg = abs(spec.incline_deg)
     theta = math.radians(deg)
     shown = f"{plain_number(deg, GIVEN_FIGURES)}°"
+    # A slope drawn at a stand-in angle (the question gave none) has its arc lettered θ: the
+    # parts carry θ and no number, never the stand-in's (review of #2613).
+    stated = any(angle.label == shown for angle in spec.angles)
+    if not stated:
+        shown, mass = _THETA, None
     weight = mass * g if mass and g else None
     # The slope falls to the right: down it is (cos θ, -sin θ), into it (-sin θ, -cos θ).
     parts = [
@@ -46,7 +55,7 @@ def with_weight_parts(
     for offset, (trig, share, (dx, dy)) in enumerate(parts):
         size = f" = {plain_number(weight * share)} N" if weight else ""
         # The longest label an arrow carries; past it, the size, then the angle, give way.
-        labels = (f"mg {trig} {shown}{size}", f"mg {trig} {shown}", f"mg {trig} θ")
+        labels = (f"mg {trig} {shown}{size}", f"mg {trig} {shown}", f"mg {trig} {_THETA}")
         vectors.append(
             SimulationVector(
                 anchor=[0.0, 0.0],

@@ -6,6 +6,7 @@ import re
 from functools import lru_cache
 from tokenize import TokenError
 
+from app.modules.physics.catalog.force import RESTING_SIDE
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import NO_FRICTION_RE, has_cue
@@ -80,8 +81,14 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
     if not has_cue(lower, (), _TENSION_CUE_RES):
         return None
     # "a frictionless pulley", "no friction": said to have none, the question has no friction.
+    # A body resting on a surface (a table, a smooth level surface, a slope) is no hanging
+    # mass, whatever its friction: "a 5 kg block on a smooth level surface ... over a
+    # frictionless pulley to a hanging 2 kg mass" is the table pulley, 2.80 m/s², never an
+    # Atwood machine's 4.20 (review of #2613).
     context = NO_FRICTION_RE.sub(" ", lower)
-    if any(word in context for word in _UNSUPPORTED_TENSION_CONTEXT):
+    if any(word in context for word in _UNSUPPORTED_TENSION_CONTEXT) or any(
+        word in lower for word in RESTING_SIDE
+    ):
         return None
     if has_equation(strip_param_assignments(cleaned)):
         return None

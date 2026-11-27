@@ -25,13 +25,15 @@ from app.modules.physics.schemas import (
 from app.modules.physics.solvers.friction import incline_scene
 
 _PULLEY = re.compile(r"\bpulleys?\b|\batwood\b", re.IGNORECASE)
-# Two bodies on the rope: "two blocks", "masses", "m1 and m2", "a bucket on one side and a
-# sandbag on the other".
+# Two bodies on the rope: "two blocks", "masses", "m1 and m2".
 _PAIR = re.compile(
-    r"\b(?:two|both|pair\s+of)\b|\b(?:masses|blocks|boxes|weights|objects)\b|\bm_?1\b|m₁|\batwood\b"
-    r"|\bon\s+(?:one|each|either)\s+sides?\b",
+    r"\b(?:two|both|pair\s+of)\b|\b(?:masses|blocks|boxes|weights|objects)\b|\bm_?1\b|m₁|\batwood\b",
     re.IGNORECASE,
 )
+# "a 3 kg bucket on one side and a 5 kg sandbag on the other": a pair only with a mass stated
+# for each side; a man pulling the other end of the rope is no second mass (review of #2613).
+_SIDES = re.compile(r"\bon\s+(?:one|each|either)\s+sides?\b", re.IGNORECASE)
+_MASS = re.compile(r"\d(?:[\d.]*)\s*(?:kg|g|kilograms?)\b", re.IGNORECASE)
 _ON_TABLE = re.compile(
     r"\b(?:table|desk|bench|counter|shelf|floor|horizontal\s+surface)\b", re.IGNORECASE
 )
@@ -83,7 +85,8 @@ def _pulley(text: str, friction: bool) -> RigPicture | None:
         return None
     if _ON_TABLE.search(text) is not None:
         return _table_pulley(friction)
-    if _PAIR.search(text) is not None:
+    sides = _SIDES.search(text) is not None and len(_MASS.findall(text)) >= 2
+    if _PAIR.search(text) is not None or sides:
         return _atwood()
     return None
 

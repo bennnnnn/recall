@@ -62,8 +62,14 @@ _ROLLING = re.compile(r"\broll(?:s|ed|ing)?\b", re.I)
 # this file draws one, which would say only part of it.
 _SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
 # What "forces ... on" names when it is no body this file draws: a ladder against a wall, a
-# beam, a bridge. A pronoun points back to the body named before it ("the forces on each").
-_POINTS_BACK = re.compile(r"\s*(?:it|them|this|that|him|her|each|both)\b", re.IGNORECASE)
+# beam, a bridge. A pronoun points back to the body named before it, and so do "each" and
+# "both" standing alone ("the forces on each and graph ..."), never before a noun ("both ends
+# of the ladder", "each wheel").
+_POINTS_BACK = re.compile(
+    r"\s*(?:it|them|this|that|him|her)\b"
+    r"|\s*(?:each|both)\b(?=\s*(?:[.,;:?!]|$|(?:and|or|of\s+(?:them|these|those))\b))",
+    re.IGNORECASE,
+)
 # The noun phrase straight after "on": up to "of", "with", "that", "which", a comma or a stop.
 _NOUN_PHRASE = re.compile(
     r"[^.,;:?!]{0,40}?(?=\s+(?:of|with|that|which|who|resting|leaning|against|on|in|at|if"
