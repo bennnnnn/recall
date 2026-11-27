@@ -4,6 +4,19 @@ from __future__ import annotations
 
 import re
 
+# Words that say a question has no friction: "a frictionless pulley", "no friction",
+# "ignore friction". The word "friction" inside them names no friction to read.
+NO_FRICTION_RE = re.compile(
+    r"\b(?:frictionless|without\s+friction|no\s+friction|"
+    r"(?:ignore|ignoring|neglect|neglecting)\s+friction)\b",
+    re.IGNORECASE,
+)
+# Words that start a body from rest: "released from rest", "starts from rest", "initially at
+# rest". A stated starting speed of 0 says it again.
+FROM_REST_RE = re.compile(
+    r"\b(?:from|initially\s+at)\s+rest\b|\bstarts?\s+(?:from\s+)?rest\b", re.IGNORECASE
+)
+
 
 def _has_cue_either_case(
     cleaned: str,

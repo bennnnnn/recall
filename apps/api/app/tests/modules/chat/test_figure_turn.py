@@ -604,20 +604,67 @@ async def test_a_chemistry_solve_with_no_structure_still_gets_its_compound_s(
     assert "```smiles\nglucose" in text and stand_in.modes == [False]
 
 
-@pytest.mark.parametrize(
-    "verified",
-    [
-        _chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C"),
-        VerifiedPhysicsBlock(text="", canonical_fence={"type": "free_body"}),
-    ],
-    ids=["chemistry-drew-the-structure", "physics-scene"],
-)
-async def test_a_solve_that_draws_its_own_picture_reads_none(verified: Any) -> None:
+async def test_a_solve_that_draws_its_own_picture_reads_none() -> None:
+    verified = _chemistry_solve("CN1C=NC2=C1C(=O)N(C(=O)N2C)C")
     ctx = _ctx(live_read=_read(subject="chemistry", picture="none"), verified_subject=verified)
     assert figure_turn.start_figure(_settings(), ctx) is None
 
 
 _SCENE = '```simulation\n{"type":"free_body"}\n```'
+_GRAPH = '```graph\n{"type":"trajectory","title":"v–t","points":[[0,0],[1,2]]}\n```'
+_SOLVED_SCENE = VerifiedPhysicsBlock(text="", canonical_fence={"type": "free_body"})
+
+
+async def test_a_physics_solve_s_scene_gets_no_picture_unasked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A physics solve that drew its scene, on a message that asks to see nothing: no read,
+    no second picture."""
+    stand_in = _Figure(_SCENE)
+    physics = figure_turn._figure("physics")
+    assert physics is not None
+    monkeypatch.setattr(physics, "draw", stand_in.draw)
+    ctx = _ctx(live_read=_read(subject="physics", picture="none"), verified_subject=_SOLVED_SCENE)
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    reply = f"It slides at 3.21 m/s².\n\n{_SCENE}\n"
+    assert await figure_turn.attach_figure(_state(ctx, reply)) == reply
+    assert stand_in.modes == []
+
+
+async def test_a_physics_solve_s_scene_gets_the_graphs_asked_for(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A block's slide, solved and drawn, asked for with its v-t graph (live, 2026-11-27: the
+    solve's scene stood and the graph asked for was drawn by no one): the read's graph is
+    added and its second scene left out."""
+    stand_in = _Figure(f"{_SCENE}\n\n{_GRAPH}")
+    physics = figure_turn._figure("physics")
+    assert physics is not None
+    monkeypatch.setattr(physics, "draw", stand_in.draw)
+    solved = '```simulation\n{"type":"incline","arrow_labels":{"gravity":"mg = 49 N"}}\n```'
+    ctx = _ctx(live_read=_read(subject="physics", picture="diagram"), verified_subject=_SOLVED_SCENE)
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    assert ctx.figure is not None
+    text = await figure_turn.attach_figure(_state(ctx, f"It slides.\n\n{solved}\n"))
+    assert text.count("```simulation") == 1 and solved in text
+    assert text.rstrip().endswith(_GRAPH) and stand_in.modes == [True]
+
+
+async def test_a_physics_scene_goes_above_the_graphs_the_reply_ends_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reply drew the motion's graphs itself and the read drew the free-body diagram: the
+    diagram of the situation comes first, then the graphs of its motion."""
+    stand_in = _Figure(_SCENE)
+    physics = figure_turn._figure("physics")
+    assert physics is not None
+    monkeypatch.setattr(physics, "draw", stand_in.draw)
+    ctx = _ctx(live_read=_read(subject="physics", picture="diagram"))
+    ctx.figure = figure_turn.start_figure(_settings(), ctx)
+    text = await figure_turn.attach_figure(_state(ctx, f"The masses move.\n\n{_GRAPH}\n"))
+    assert text.index("```simulation") < text.index("```graph")
+    assert text.startswith("The masses move.")
 
 
 async def test_a_physics_solve_that_drew_nothing_gets_the_read_s_picture(

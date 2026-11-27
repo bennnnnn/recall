@@ -19,6 +19,7 @@ import math
 import re
 from dataclasses import dataclass
 
+from app.modules.physics.extractors.cues import NO_FRICTION_RE
 from app.modules.physics.force_rigs import ANGLE, ROUND_BODY, SLOPE, listed, rig_picture
 from app.modules.physics.schemas import (
     SimulationAngle,
@@ -61,8 +62,8 @@ _ROLLING = re.compile(r"\broll(?:s|ed|ing)?\b", re.I)
 # this file draws one, which would say only part of it.
 _SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
 # What "forces ... on" names when it is no body this file draws: a ladder against a wall, a
-# beam, a bridge. A pronoun points back to the body named before it.
-_POINTS_BACK = re.compile(r"\s*(?:it|them|this|that|him|her)\b", re.IGNORECASE)
+# beam, a bridge. A pronoun points back to the body named before it ("the forces on each").
+_POINTS_BACK = re.compile(r"\s*(?:it|them|this|that|him|her|each|both)\b", re.IGNORECASE)
 # The noun phrase straight after "on": up to "of", "with", "that", "which", a comma or a stop.
 _NOUN_PHRASE = re.compile(
     r"[^.,;:?!]{0,40}?(?=\s+(?:of|with|that|which|who|resting|leaning|against|on|in|at|if"
@@ -85,11 +86,7 @@ _SURFACE = re.compile(
 _PULLED = re.compile(r"\b(?:pull(?:s|ed|ing)?|tow(?:s|ed|ing)?|drag(?:s|ged|ging)?)\b", re.I)
 _PUSHED = re.compile(r"\bpush(?:es|ed|ing)?\b|\bshov(?:e|es|ed|ing)\b", re.IGNORECASE)
 _FRICTION = re.compile(r"\b(?:friction|rough|kinetic|static|coefficient)\b|μ", re.IGNORECASE)
-_NO_FRICTION = re.compile(
-    r"\b(?:frictionless|smooth|without\s+friction|no\s+friction|"
-    r"(?:ignore|ignoring|neglect|neglecting)\s+friction)\b",
-    re.IGNORECASE,
-)
+_NO_FRICTION = re.compile(rf"\bsmooth\b|{NO_FRICTION_RE.pattern}", re.IGNORECASE)
 # A body pushed, pulled or sliding on a real surface rubs against it: "A book is placed
 # on a table and pushed" and "a body sliding on an inclined plane" had no friction drawn
 # (2026-10-30, a Class 8 book, whose chapter on friction draws it). Only "smooth",
@@ -175,13 +172,16 @@ def force_picture(text: str, *, asked: bool = True) -> ForcePicture | None:
     the question's picture is its forces (``scene_drawing.forces``)."""
     if len(text) > 600 or (asked and _ASKS.search(text) is None) or _BODY.search(text) is None:
         return None
-    if _SEVERAL.search(text) is not None or _on_something_else(text):
+    if _on_something_else(text):
         return None
     friction = _FRICTION.search(text) is not None and _NO_FRICTION.search(text) is None
     rig = rig_picture(text, friction)
-    if rig is not None:
+    several = _SEVERAL.search(text) is not None
+    # A rig of several bodies draws each with its own forces: the "free-body diagram for each
+    # mass" an Atwood machine is asked for. One body asked for in several diagrams is not.
+    if rig is not None and (not several or len(rig[0].bodies) > 1):
         return ForcePicture(*rig)
-    if _TOO_MANY.search(text) is not None:
+    if several or rig is not None or _TOO_MANY.search(text) is not None:
         return None
     # At rest, or sliding at a constant velocity with nothing driving it: a lone friction
     # arrow would leave the picture's forces unbalanced.

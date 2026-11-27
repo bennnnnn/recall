@@ -302,9 +302,20 @@ _PICTURE_LANGS = frozenset({"simulation", "graph", "geometry"})
 
 def holds_a_picture(text: str) -> bool:
     """The reply holds one of the server's pictures."""
+    return bool(_picture_kinds(text))
+
+
+# The kinds a physics figure draws: a scene (or diagram), and a motion's graph.
+_SCENE_AND_GRAPH = frozenset({"simulation", "graph"})
+
+
+def _picture_kinds(text: str) -> set[str]:
+    """The kinds of the server's pictures ``text`` holds: "simulation", "graph", "geometry"."""
     from app.services.md_fence_scan import iter_fences
 
-    return any(fence.closed and fence.lang in _PICTURE_LANGS for fence in iter_fences(text))
+    return {
+        fence.lang for fence in iter_fences(text) if fence.closed and fence.lang in _PICTURE_LANGS
+    }
 
 
 def self_enabled(settings: Settings) -> bool:
@@ -344,10 +355,14 @@ class PhysicsFigure:
         return any(holds_a_picture(card) for card in PhysicsFence().cards(verified))
 
     def whole(self, text: str) -> bool:
-        return holds_a_picture(text)
+        # A scene and a graph: the figure draws no other kind (a solve's scene alone leaves
+        # room for the motion's graphs it was asked for).
+        return _SCENE_AND_GRAPH <= _picture_kinds(text)
 
     def adds_to(self, text: str, fence: str) -> bool:
-        return not holds_a_picture(text)
+        # A picture of a kind the reply does not show: a slope's graphs beside its scene.
+        kinds = _picture_kinds(fence)
+        return bool(kinds) and not kinds & _picture_kinds(text)
 
     def without_substitutes(self, text: str, fence: str, user_text: str = "") -> str:
         from app.modules.physics.sketches import without_model_drawings

@@ -79,7 +79,7 @@ def _tip(vector: SimulationVector) -> tuple[float, float]:
 
 
 def _atwood_scene(
-    m1: float, m2: float, accel: float, tension: float | None = None
+    m1: float, m2: float, accel: float, tension: float | None = None, g: float | None = None
 ) -> list[SimulationBlockSpec]:
     """Two masses on one rope over a pulley, the heavy one descending.
 
@@ -106,17 +106,35 @@ def _atwood_scene(
     heavy = [[-wheel, round(reach - 0.2 - s, 4)] for s in fall]
     light = [[wheel, round(reach - 0.2 - drop + s, 4)] for s in fall]
     vectors: list[SimulationVector] = []
+    # Each mass's free-body diagram: the tension up and its weight down, sized to each other
+    # (the heavier weight longest); without g, the tension alone.
+    largest = m1 * g if g else None
     if tension is not None:
         shown = f"T = {plain_number(tension)} N"
+        up = tension / largest if largest else 1.0
         vectors += [
             SimulationVector(
-                anchor=[0.0, heavy_size], dx=0.0, dy=1.0, label=shown, role="result", body=0
+                anchor=[0.0, heavy_size], dx=0.0, dy=up, label=shown, role="result", body=0
             ),
             # One rope, one tension: the second arrow says "T" and leaves the
             # number to the first, so the light side is not a stack of text.
             SimulationVector(
-                anchor=[0.0, light_size], dx=0.0, dy=1.0, label="T", role="result", body=1
+                anchor=[0.0, light_size], dx=0.0, dy=up, label="T", role="result", body=1
             ),
+        ]
+    weighed = tension is not None and bool(g)
+    if tension is not None and g:
+        vectors += [
+            SimulationVector(
+                anchor=[0.0, -size],
+                dx=0.0,
+                dy=-mass / m1,
+                label=f"{symbol} = {plain_number(mass * g)} N",
+                body=body,
+            )
+            for body, (symbol, mass, size) in enumerate(
+                (("m₁g", m1, heavy_size), ("m₂g", m2, light_size))
+            )
         ]
     if accel > 0:
         shown_a = f"a = {plain_number(accel)} m/s²"
@@ -162,6 +180,7 @@ def _atwood_scene(
                 f"Masses of {heavy_label} and {light_label} on a rope over a pulley; "
                 f"the {heavy_label} one falls"
                 + (f" at {plain_number(accel)} m/s²." if accel > 0 else ".")
+                + (" Each hangs from the tension T, with its weight down." if weighed else "")
             ),
         )
     ]

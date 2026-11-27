@@ -690,7 +690,11 @@ its setup. Three blocks are the read's own:
   reads the situation itself (`force_pictures.py`) and draws its free-body diagram only when the
   forces it reads are the ones named: a ball "held on a slope ... let go" reads as held to the
   server and sliding to the read, and draws nothing. Forces said to act on a thing no body word
-  names (a ladder against a wall) and several diagrams asked at once draw nothing.
+  names (a ladder against a wall) and several diagrams of one body asked at once draw nothing;
+  "a free-body diagram for each mass" of two masses over a pulley is the rig, each mass with
+  its tension and weight. `"components": true` (on this block or on the incline scene) adds the
+  weight resolved along and into the slope, `mg sin 30° = 49.05 N` then `mg cos 30° = 84.96 N`,
+  sized from the reader's mass and g (`scene_drawing/weight_parts.py`).
 - `beam` (`scene_drawing/beam.py`): a bar's marks left to right, each distance a length the
   question states (or the letter of one it asks for), each force a stated force with the
   direction its own clause gives it, or a hung mass (down), or an unknown's letter. Every force
@@ -699,6 +703,32 @@ its setup. Three blocks are the read's own:
 - arrows by their components (`scene_drawing/components.py`): `{"name":"A","components":"[4
   5]"}`, held to a vector the question writes, number for number, in a unit of the picture's
   quantity or none; every written vector of that kind is drawn.
+
+A question that asks for several pictures (a free-body diagram and s–t, v–t and a–t graphs)
+gets a block for each, in the order asked (at most three), and each picture is added unless
+the reply already shows one of its kind; a solve that drew its scene still gets the graphs
+asked for, and a setup's scene goes above graphs the reply ended on. A question in many
+parts (live, 2026-11-27: a block on a 30° slope and an Atwood machine, ten parts each, drew
+nothing) is read for its pictures as the statement before its first part
+(`services/question_parts.statement_before_parts`, numbered lines or lettered parts) when the
+whole question, its asks, times and distances, reads as no one scene; a value listed again
+as a symbol's ("Given: m = 10 kg" after "a block of mass 10 kg") and a starting speed of 0
+beside "from rest" are the same values said twice. The motion of a block sliding down a
+slope or of an Atwood machine from rest is its own motion block, `{"kind":"motion","of":
+"incline","graphs":["displacement","velocity","acceleration"],"time":"5 s"}`
+(`scene_drawing/setup_motion.py`): the span is a time the question states, the words start
+the body from rest, and the acceleration is the scene's solver's, from the reader's reading
+of the setup; each graph is drawn from rest (s = ½at², v = at, a), an Atwood machine's two
+masses one graph each, upward positive, titled with the mass. A block its friction holds,
+equal masses, a block moving at the start or a span the question does not give draw no graph.
+The Atwood scene draws each mass's weight beside the tension, sized to each other.
+
+Beside a picture asked for and drawn, a reply's words about drawing it are false and come off
+(`chat/picture_talk.py`, from the owed-picture pass): a sentence about the app's pictures ("The
+app has no scene for a block sliding down an incline"), an offer to draw a kind of picture the
+reply shows ("I can draw the three graphs if you want them as pictures"), or "I can't draw
+diagrams". A reply with no picture keeps its words and gets the line that says none was drawn.
+
 A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
 reply, picture or none (`sketches.without_sketches`), unless the user asked for one ("as ASCII
 art") and no server picture stands in for it; a data table in characters stays whatever its

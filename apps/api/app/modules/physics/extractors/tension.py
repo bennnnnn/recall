@@ -8,9 +8,7 @@ from tokenize import TokenError
 
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
-from app.modules.physics.extractors.cues import (
-    has_cue,
-)
+from app.modules.physics.extractors.cues import NO_FRICTION_RE, has_cue
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     ordered_values,
@@ -81,7 +79,9 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, (), _TENSION_CUE_RES):
         return None
-    if any(word in lower for word in _UNSUPPORTED_TENSION_CONTEXT):
+    # "a frictionless pulley", "no friction": said to have none, the question has no friction.
+    context = NO_FRICTION_RE.sub(" ", lower)
+    if any(word in context for word in _UNSUPPORTED_TENSION_CONTEXT):
         return None
     if has_equation(strip_param_assignments(cleaned)):
         return None

@@ -47,27 +47,37 @@ _FRICTION_FORCE_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "between the block and the plane": the two surfaces a coefficient is stated for, before
+# its value ("The coefficient of kinetic friction between the block and the plane is 0.20").
+_SURFACE_NAME = r"(?:the\s+)?[a-z]+(?:\s+[a-z]+)?"
+_BETWEEN = rf"(?:\s+between\s+{_SURFACE_NAME}\s+and\s+{_SURFACE_NAME})?"
+# "μₖ = 0.20", "mu_k = 0.20": a coefficient's symbol, its subscript written either way.
+_SUBSCRIPT = r"(?:_?[ks]|[\u2096\u209b])?"
+# What leads from a coefficient's name to its value: "of", "=", "is", a label's colon, and a
+# list's symbol after it ("Coefficient of kinetic friction: μₖ = 0.20").
+_LEADS = rf"\s*(?:of|=|is|:)?\s*(?:(?:\bmu|\u03bc){_SUBSCRIPT}\s*=\s*)?"
+
 _MU_RE = re.compile(
-    r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
+    rf"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction{_BETWEEN}{_LEADS}"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    r"|\bmu(?:_?[ks])?\s+is\s+|\bmu(?:_?[ks])?\s*=\s*"
-    r"|\u03bc(?:_?[ks])?\s+is\s+|\u03bc(?:_?[ks])?\s*=\s*)"
+    rf"|\bmu{_SUBSCRIPT}\s+is\s+|\bmu{_SUBSCRIPT}\s*=\s*"
+    rf"|\u03bc{_SUBSCRIPT}\s+is\s+|\u03bc{_SUBSCRIPT}\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_STATIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:s|\u209b)|"
-    r"coefficient\s+of\s+static\s+friction|static\s+(?:coefficient\s+of\s+)?friction|"
+    rf"coefficient\s+of\s+static\s+friction{_BETWEEN}|static\s+(?:coefficient\s+of\s+)?friction|"
     r"static\s+friction\s+coefficient)"
-    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    rf"{_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_KINETIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:k|\u2096)|"
-    r"coefficient\s+of\s+kinetic\s+friction|kinetic\s+(?:coefficient\s+of\s+)?friction)"
-    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    rf"coefficient\s+of\s+kinetic\s+friction{_BETWEEN}|kinetic\s+(?:coefficient\s+of\s+)?friction)"
+    rf"{_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 

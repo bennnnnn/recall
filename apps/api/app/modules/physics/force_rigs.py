@@ -25,9 +25,11 @@ from app.modules.physics.schemas import (
 from app.modules.physics.solvers.friction import incline_scene
 
 _PULLEY = re.compile(r"\bpulleys?\b|\batwood\b", re.IGNORECASE)
-# Two bodies on the rope: "two blocks", "masses", "m1 and m2".
+# Two bodies on the rope: "two blocks", "masses", "m1 and m2", "a bucket on one side and a
+# sandbag on the other".
 _PAIR = re.compile(
-    r"\b(?:two|both|pair\s+of)\b|\b(?:masses|blocks|boxes|weights|objects)\b|\bm_?1\b|m₁|\batwood\b",
+    r"\b(?:two|both|pair\s+of)\b|\b(?:masses|blocks|boxes|weights|objects)\b|\bm_?1\b|m₁|\batwood\b"
+    r"|\bon\s+(?:one|each|either)\s+sides?\b",
     re.IGNORECASE,
 )
 _ON_TABLE = re.compile(

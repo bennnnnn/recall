@@ -30,6 +30,7 @@ from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.drawn_picture import DRAWN_PICTURES, answered_read
 from app.modules.chat.figure_turn import shows_it
 from app.modules.chat.finalize_subjects import fallback_text
+from app.modules.chat.picture_talk import without_picture_talk
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.turn_reading.diagrams import is_mermaid_question
@@ -229,7 +230,9 @@ def held_to_the_ask(
     emptied = not out.strip() and (out != text or ctx.drawing is not None or dropped is not None)
     kind = owed_kind(decision, ctx) or ((dropped or "diagram") if emptied else None)
     if shows_a_picture(out):
-        return out
+        # Drawn as asked: the reply's words about drawing it ("the app has no scene for
+        # this", "I can draw the graphs if you want") are false beside it (``picture_talk``).
+        return without_picture_talk(out) if owed_kind(decision, ctx) is not None else out
     if kind is None:
         # A picture nobody asked for, taken out: a lead that presented it ("Here's its
         # structure:") would point at nothing, so the line takes its place; with no such

@@ -71,6 +71,23 @@ def part_named(text: str, label: str) -> str | None:
     return dict(zip(labels, parts, strict=True)).get(label.strip("()").lower())
 
 
+# "1. Draw a free-body diagram", "2) Calculate the weight": a numbered part at a line's start,
+# after any list or emphasis marks ("**1.**", "> 2.").
+_NUMBERED_PART = re.compile(r"^[ \t>*#]*\(?(\d{1,2})[.)](?!\d)", re.MULTILINE)
+
+
+def statement_before_parts(text: str) -> str | None:
+    """The statement a question in parts sets out before its first part: what the question
+    is about, without the asks of its parts. Parts are numbered lines starting at 1 ("1.
+    Draw ...", "2. Calculate ...") or labelled ones ("(a)", "b)"). None for a question not in
+    parts, or one whose first part comes first."""
+    numbered = list(_NUMBERED_PART.finditer(text))
+    if len(numbered) >= 2 and [int(m.group(1)) for m in numbered[:2]] == [1, 2]:
+        return text[: numbered[0].start()].strip() or None
+    stem, parts = labelled_part_texts(text)
+    return (stem or None) if parts else None
+
+
 # A part's label as a line or a read names it: "b", "(b)", "part b", "(ii)".
 _NAMED_LABEL = re.compile(r"^(?:part\s+)?\(?([a-h]|i{1,3}|iv|vi{0,3})\)?$", re.IGNORECASE)
 

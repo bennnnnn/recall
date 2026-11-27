@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.core.readings import reading
+from app.modules.physics.extractors.cues import FROM_REST_RE
 from app.modules.physics.extractors.surface_gravity import detect_gravity
 from app.modules.physics.givens import PHYSICS_UNITS
 from app.services.latex_markup import without_markup
@@ -35,6 +36,9 @@ _WORD = re.compile(r"[a-z]{3,}", re.IGNORECASE)
 # is 12.5 m/s", "Explain why the horizontal component is 21.7 m/s"): its value is the
 # answer to a part, never a given of the setup a scene must use.
 _CLAIMED = re.compile(r"\b(?:show|verify|prove)\s+that\b|\bexplain\s+why\b", re.IGNORECASE)
+# "m = 10 kg", "θ = 30°", "μₖ = 0.20": a value written as a symbol's, as a list of givens
+# writes the values the words stated already.
+_ASSIGNED = re.compile(r"(?<![\w.])[^\W\d_]{1,3}(?:_?[\w\u2080-\u209c]{1,2})?\s*=\s*$")
 # The values a stated g takes: Earth's, as a school question rounds it.
 _GRAVITY = (9.8, 9.81, 9.807, 9.80665, 10.0)
 
@@ -122,6 +126,8 @@ class Stated:
         for given in self.left:
             if self._restated(given) or _CLAIMED.search(self.sentence(given)):
                 continue
+            if self._listed_again(given) or self._at_rest(given):
+                continue
             if given.dimension == time and self._asks(given):
                 continue
             if given.dimension in spare:
@@ -129,6 +135,22 @@ class Stated:
                 continue
             return True
         return False
+
+    def _listed_again(self, given: Given) -> bool:
+        """``given`` is a symbol's value in a list of givens ("Mass: m = 10 kg") that a part
+        took where the words stated it ("A block of mass 10 kg"): one value, written twice."""
+        before = self.text[max(0, given.start - 12) : given.start]
+        listed = _ASSIGNED.search(before) is not None
+        return listed and any(_same(used, given) for used in self.taken)
+
+    def _at_rest(self, given: Given) -> bool:
+        """A starting speed of 0 beside words that start the body from rest ("released from
+        rest ... u = 0 m/s"): the scenes that start from rest draw it."""
+        return (
+            given.dimension == dimension_of("m/s")
+            and given.value == 0
+            and starts_from_rest(self.text)
+        )
 
     def restated(self, given: Given) -> bool:
         """``given`` names again a value one of the scene's parts took ("the 8 N force")."""
@@ -173,6 +195,12 @@ class Stated:
         start = max((m.end() for m in _SENTENCE_END.finditer(self.text, 0, given.start)), default=0)
         end_match = _SENTENCE_END.search(self.text, given.end)
         return self.text[start : end_match.start() if end_match else len(self.text)]
+
+
+def starts_from_rest(text: str) -> bool:
+    """The words start the body from rest ("released from rest", "Both masses start from
+    rest")."""
+    return FROM_REST_RE.search(_plain(text)) is not None
 
 
 def _one_noun(word: str, name: str) -> bool:
