@@ -466,10 +466,13 @@ permission. Changing any of it is a native change (bump `version`, new build).
 - **Not declared:** Face ID, Always location and Android media read access
   (`READ_MEDIA_*`; saving to the gallery is write-only and the photo picker needs
   none), plus WebRTC's `SYSTEM_ALERT_WINDOW` and `BLUETOOTH`
-  (`android.blockedPermissions`). `NSMotionUsageDescription` stays, saying the
-  app does not use motion: `expo-location` links Core Motion, and App Store
-  Connect rejects an upload whose binary uses an API without its purpose string
-  (ITMS-90683).
+  (`android.blockedPermissions`). No motion and no temporary precise location:
+  `expo-location`'s `motionUsagePermission: false` compiles its Core Motion code
+  out (`EXPO_LOCATION_DISABLE_MOTION`), so the binary uses no motion API and needs
+  no `NSMotionUsageDescription` (ITMS-90683 does not apply).
+- **Translated prompts:** each usage description is in every app language
+  (`app.json` `locales`, `locales/<lang>.json`, written to `<lang>.lproj/InfoPlist.strings`
+  by prebuild); `lib/__tests__/appStoreConfig.test.ts` holds every file to every key.
 - **Export compliance:** `ios.config.usesNonExemptEncryption: false` (HTTPS
   only), so App Store Connect does not ask on every build.
 - **Privacy manifest:** `ios.privacyManifests` in `app.json`, which `expo prebuild`
@@ -498,9 +501,11 @@ permission. Changing any of it is a native change (bump `version`, new build).
       plan sheet's buy buttons stay disabled (`features/billing/components/UpgradeSheet.tsx`),
       and a paywall that cannot buy is rejected.
 - [ ] **App Review notes:** sign in with Apple (or Google). The line under the
-      sign-in buttons says "By continuing, you agree to the Terms and Privacy
-      Policy", with both links in it; the Privacy Policy describes the third-party
-      AI processing of chats and voice. The server records that tap as the
+      sign-in buttons says "By continuing, you agree that your messages, files and
+      voice are answered by outside AI and search services, such as OpenAI and
+      Anthropic through OpenRouter, and to the Terms and Privacy Policy", with both
+      links in it; the Privacy Policy describes the third-party AI processing of
+      chats and voice. The server records that tap as the
       account's AI-data consent with the sign-in. Chat, memory, to-dos
       and the maths scanner work on Free. Voice input, read-aloud and Live Talk
       need Pro: start the free trial or buy it with the sandbox account (no
@@ -640,8 +645,9 @@ background, and runs the new code from the next launch.
 - [ ] Every account agrees once, before anything goes to outside AI services
       (`users.ai_data_consent_at`, migration `0112`). On the phone it is recorded with
       the sign-in: the sign-in page's line under its buttons (`login.agree_line`, "By
-      continuing, you agree to the Terms and Privacy Policy.", the user's wording) with the
-      Terms and Privacy links, and every sign-in sends `ai_data_consent: true`. An account
+      continuing, you agree that your messages, files and voice are answered by outside AI
+      and search services, such as OpenAI and Anthropic through OpenRouter, and to the
+      Terms and Privacy Policy.", owner-approved 2026-11-27) with the Terms and Privacy links, and every sign-in sends `ai_data_consent: true`. An account
       without it (from before, or a client that sends no flag:
       an older phone, web slice 1) is asked on the consent screen (phone `/consent`, the web's own) and agrees
       with `PATCH /auth/me`. Change that line, the consent screen and the policy together.

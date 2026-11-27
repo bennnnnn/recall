@@ -395,7 +395,7 @@
   "gallery.title": "Library",
   "gallery.use_in_chat": "Use in chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} of {{count}}",
-  "login.agree_line": "By continuing, you agree to the <terms>Terms</terms> and <privacy>Privacy Policy</privacy>.",
+  "login.agree_line": "By continuing, you agree that your messages, files and voice are answered by outside AI and search services, such as OpenAI and Anthropic through OpenRouter, and to the <terms>Terms</terms> and <privacy>Privacy Policy</privacy>.",
   "login.apple": "Continue with Apple",
   "login.dev": "Continue as bini",
   "login.dev_expo_hint": "Google Sign-In needs a dev build. Dev login works in Expo Go.",

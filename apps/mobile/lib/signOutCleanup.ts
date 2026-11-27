@@ -3,6 +3,7 @@ import { deleteAccountFiles } from "@/lib/accountFiles";
 import { clearCachedModels } from "@/lib/cachedModels";
 import { signOutGoogle } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
+import { deviceLanguage } from "@/lib/i18n/deviceLanguage";
 import { clearImageCaches } from "@/lib/images/imageCaches";
 import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
@@ -18,9 +19,9 @@ import { forgetSyncRecords } from "@/lib/syncRecords";
  * is cleared here or scoped to the session (`lib/__tests__/accountState.test.ts`).
  * Backend session revocation is separate, so an offline server never holds logout UI. */
 export async function clearSignedOutAccount(userId: string | undefined): Promise<void> {
-  // The sign-in screen is drawn in English, as a launch with no account is: the language
-  // was the account's. The next account's own comes with it (contexts/AuthContext.tsx).
-  void ensureLocale("en");
+  // The sign-in screen is drawn in the phone's language, as a launch with no account is: the
+  // language was the account's. The next account's own comes with it (contexts/AuthContext.tsx).
+  void ensureLocale(deviceLanguage());
   resetComposerDraftsForAccount();
   clearQuizAttempts();
   clearCalculatorPositions();

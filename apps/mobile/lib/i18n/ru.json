@@ -409,7 +409,7 @@
   "gallery.title": "Библиотека",
   "gallery.use_in_chat": "Использовать в чате",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} из {{count}}",
-  "login.agree_line": "Продолжая, вы принимаете <terms>Условия</terms> и <privacy>Политику конфиденциальности</privacy>.",
+  "login.agree_line": "Продолжая, вы соглашаетесь, что на ваши сообщения, файлы и голос отвечают внешние сервисы ИИ и поиска, такие как OpenAI и Anthropic через OpenRouter, и принимаете <terms>Условия</terms> и <privacy>Политику конфиденциальности</privacy>.",
   "login.apple": "Продолжить с Apple",
   "login.dev": "Продолжить как Dev-пользователь",
   "login.dev_expo_hint": "Вход через Google требует dev-сборку. Dev-вход работает в Expo Go.",
