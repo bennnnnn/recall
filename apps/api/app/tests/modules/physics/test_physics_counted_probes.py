@@ -102,9 +102,11 @@ PROBES: list[tuple[str, str | None]] = [
         "Two resistors, R1 = 10 Ω and R2 = 20 Ω, each rated 2 W, are connected in series across 12 V. Find the current.",
         "0.40 A",
     ),
+    # "each" after a value says it is each item's, whatever the clause goes on with (review of
+    # #2604: "20 N each act as a couple" was one force): each resistor is 10 Ω, and costs $3.
     (
         "Two resistors of 10 Ω each cost $3 and are connected in parallel across 5 V. Find the total current.",
-        None,
+        "1 A",
     ),
     (
         "Each resistor is 10 Ω. Two of them are connected in parallel across 5 V. Find the total current.",

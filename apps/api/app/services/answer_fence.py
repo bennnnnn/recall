@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001 -- a card writes a minus sign as replies do.
 """The answer-card protocol: which ```answer fence the server vouches for.
 
 The phone draws the green check on an ```answer fence only when the fence body
@@ -487,8 +488,45 @@ def _boxed_as_answer(text: str) -> str:
     return "\n".join([*lines[:first], _HEADING_LINE, f"${value}$", *lines[last + 1 :]])
 
 
+# A value in bold in a sentence: a number and its unit, "**2.03 mm**", "**4.62%**",
+# "**0.24 W**". A direction or a word in bold is no value.
+_BOLD_QUANTITY = re.compile(
+    r"\*\*\s*(?P<number>[-−]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)"
+    r"(?:\s*(?P<unit>[^*\s](?:[^*\n]*[^*\s])?))?\s*\*\*"
+)
+_BOLD = re.compile(r"\*\*[^*\n]+\*\*")
+# The Answer heading a line opens with, its value after it: "**Answer:** The rate is ...".
+_HEADING_ON_LINE = re.compile(r"^\s*(?:#{1,4}\s+)?\*\*[^*\n]*\*\*:?")
+
+
+def bold_quantity(sentence: str) -> str | None:
+    """The one value a sentence sets in bold, as a card's maths ("2.03\\,\\mathrm{mm}"); None
+    when it bolds no value, or more than a value and its unit (a speed and a direction)."""
+    bolds = _BOLD.findall(sentence)
+    found = _BOLD_QUANTITY.fullmatch(bolds[0]) if len(bolds) == 1 else None
+    if found is None:
+        return None
+    number, unit = found["number"].replace("−", "-"), found["unit"]
+    if not unit:
+        return number
+    if unit == "%":
+        return f"{number}\\%"
+    # The bold holds a value and its unit, nothing more: "**5 m/s north**", "**2.03 mm
+    # high**" and "**6.02e23 atoms**" are no unit a card can draw (review of #2604).
+    from app.services.law_binding.units import dimension_of
+
+    if dimension_of(unit.replace("·", "*").replace("⋅", "*")) is None:
+        return None
+    return f"{number}\\,\\mathrm{{{unit}}}"
+
+
 def land_answer_card(
-    text: str, verified_body: str | None, *, above: str | None = None, verified: bool = True
+    text: str,
+    verified_body: str | None,
+    *,
+    above: str | None = None,
+    verified: bool = True,
+    school: bool = False,
 ) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
@@ -505,8 +543,11 @@ def land_answer_card(
     """
     text = _boxed_as_answer(text)
     lines = text.split("\n")
+    written_lines = list(lines)
     fences, inside = _scan(lines)
     heading, same_line = _last_answer_heading(lines, inside)
+    if same_line:
+        written_lines[heading] = _HEADING_ON_LINE.sub("", written_lines[heading], count=1)
     said = ""
     values: list[tuple[int, str]] = []
     if heading < 0:
@@ -547,11 +588,21 @@ def land_answer_card(
                 value = ", ".join(" ".join(part.split()) for part in parts)
         if value.startswith("\\[") and value.endswith("\\]"):
             value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
-        # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays.
+        # A sentence that bolds its one value ("The height is approximately **2.03 mm**.")
+        # answers with that value: it is the card, and the sentence stays under it.
+        # A card draws maths; "Paris" under a quiz's Answer, a paragraph or a sentence stays,
+        # but a sentence that bolds its one value ("The height is approximately **2.03
+        # mm**.") answers with that value: it is the card, and the sentence stays under it.
         if not maths and (
             ("$" not in value and "=" not in approx_as_equals(value)) or wordy(value)
         ):
-            return text
+            written = written_lines[values[shown][0]] if len(parts) == 1 and values else ""
+            # Only on a school question: a quiz's "about **6 years**" or a recipe's "**2 cups**"
+            # is no worked card, under any heading (review of #2604).
+            bolded = bold_quantity(written) if school and "$" not in written else None
+            if bolded is None:
+                return text
+            value, said = bolded, " ".join(written.split())
         card = f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card_maths(value)}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
     while steps and not steps[-1].strip():

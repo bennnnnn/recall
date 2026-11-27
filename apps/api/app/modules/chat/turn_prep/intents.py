@@ -37,6 +37,7 @@ from app.modules.chat.turn_prep.problems import problem_clauses
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import extract_image_lookup_query
 from app.modules.todos import is_reminder_request
+from app.modules.turn_reading.answer_form import orders_the_answer
 from app.modules.turn_reading.plan import (
     HANDLED_KINDS,
     PartKind,
@@ -137,7 +138,10 @@ def _keeps_cut(
     stands for a request another path owns, or an open question after one ("switch to
     dark mode and tell me a joke"). Two open questions need a sentence or comma between
     them and a later one that stands on its own words: "what should I pack" and "who
-    scored the goals" lean on the question before."""
+    scored the goals" lean on the question before. An order about the answer ("Give your
+    answer in m/s") asks nothing: it is the question's before it (``answer_form``)."""
+    if orders_the_answer(request_body(clause.text)):
+        return False
     if clause.cut == Cut.STRONG:
         return True
     if clause.topics & last.topics or _continues_solve(

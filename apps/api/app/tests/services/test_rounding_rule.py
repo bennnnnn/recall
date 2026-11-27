@@ -100,3 +100,49 @@ def test_a_message_that_asks_more_than_a_precision(said: str) -> None:
     from app.services.rounding_rule import precision_only
 
     assert precision_only(said) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A trolley travels a distance of 4.345 m in a time of 1.2 s. What is its average "
+        "speed? Give the answer to the correct number of significant figures.",
+        "1. A trolley travels 4.345 m in 1.20 s. Give it to an appropriate number of sig figs.",
+    ],
+)
+def test_the_data_s_precision_is_asked_and_left_to_the_solver(question: str) -> None:
+    """Which figures are the data's is the solver's to say (review of #2604: a list's "1."
+    read as data showed a checked 3.62 m/s as "4 m/s")."""
+    from app.services.rounding_rule import RULE, data_precision
+
+    asked = asked_precision(question)
+    assert asked == Precision(data=True)
+    assert data_precision(asked, 2) == Precision(figures=2)
+    assert data_precision(asked, 0) == RULE
+
+
+@pytest.mark.parametrize(
+    ("digits", "figures"), [("1.20", 3), ("0.050", 2), ("12", 2), ("3000", 0), ("4.345", 4)]
+)
+def test_a_number_is_written_to_its_figures(digits: str, figures: int) -> None:
+    from app.services.rounding_rule import written_figures
+
+    assert written_figures(digits) == figures
+
+
+@pytest.mark.parametrize(
+    ("digits", "figures"),
+    [
+        # Its sign and its power of ten are no figures (review of #2604).
+        ("2.0e-6", 2),
+        ("3.50e4", 3),
+        ("-5.0", 2),
+        ("2e3", 1),
+        ("−7.10", 3),
+        ("+0.0050", 2),
+    ],
+)
+def test_a_number_s_figures_are_its_mantissa_s(digits: str, figures: int) -> None:
+    from app.services.rounding_rule import written_figures
+
+    assert written_figures(digits) == figures

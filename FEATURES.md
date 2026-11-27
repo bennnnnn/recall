@@ -601,7 +601,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   units of each equation must agree, SymPy solves, and the answer is put back. Finalize waits at
   most 2 s; a reply whose final value differs gets the server's card (in 36 measured
   disagreements the server was right every time), with a line in the reply's language and the
-  card marked "not checked". On 120 translated questions, Free's replies go from 86% to 98%
+  card marked "not checked", unless the reply's own arithmetic works its card out: the server
+  never stamps its value over a worked answer (owner's rule, 2026-11-26). On 120 translated questions, Free's replies go from 86% to 98%
   right. See [docs/FORMAL_READER.md](./docs/FORMAL_READER.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction and deterministic
   solvers, one module per topic for each, share one species model: formula, composition,
