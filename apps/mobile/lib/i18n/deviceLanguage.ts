@@ -4,14 +4,14 @@
  * starts in it (the sign-in sends it). A language the user chose wins over it: the one the
  * cached account last used (`lib/launchPrefs.ts`) and the profile's (`contexts/AuthContext.tsx`).
  */
+import { readPhoneLocalization } from "@/lib/phoneLocalization";
+
 import { LANGUAGES } from "./languages";
 
 const SUPPORTED: ReadonlySet<string> = new Set(LANGUAGES.map((language) => language.code));
 
 /** What this file reads of a locale expo-localization returns. */
 type PhoneLocale = { languageCode?: string | null; languageTag?: string | null };
-
-type LocalizationModule = { getLocales: () => PhoneLocale[] };
 
 /** The first supported language among the phone's, in its order; "en" for none. */
 export function firstSupportedLanguage(locales: readonly PhoneLocale[]): string {
@@ -25,24 +25,10 @@ export function firstSupportedLanguage(locales: readonly PhoneLocale[]): string 
   return "en";
 }
 
-/**
- * The phone's preferred languages, read from expo-localization's native module when this
- * build has it (`requireOptionalNativeModule`: the package's own JS throws on import in a
- * binary without it). Empty when it cannot be read.
- */
+/** The phone's preferred languages, in its order; empty when this build cannot read them. */
 function phoneLocales(): PhoneLocale[] {
-  try {
-    const { requireOptionalNativeModule } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: Node tests have no native modules
-      require("expo-modules-core") as typeof import("expo-modules-core");
-    const module = requireOptionalNativeModule<LocalizationModule>("ExpoLocalization");
-    const locales = module?.getLocales();
-    return Array.isArray(locales) ? locales : [];
-  } catch {
-    // The launch goes on in English; say so, the failure has no other trace.
-    console.warn("[i18n] the phone's languages could not be read");
-    return [];
-  }
+  const locales: unknown = readPhoneLocalization((module) => module.getLocales(), []);
+  return Array.isArray(locales) ? (locales as PhoneLocale[]) : [];
 }
 
 /** The phone's first supported language now ("en" when it has none or cannot say). */

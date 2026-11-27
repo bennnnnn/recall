@@ -17,6 +17,7 @@ from app.core.validation import (
     normalize_avatar_url,
     normalize_display_name,
     normalize_locale_code,
+    supported_locale_code,
 )
 from app.models.model_removal import current_choices, requested_choice
 from app.models.schemas.common import (
@@ -291,8 +292,8 @@ class UserUpdate(BaseModel):
         # custom_instructions blank-clears behavior.
         if not value.strip():
             return None
-        code = normalize_locale_code(value)
-        if code not in LOCALE_NAMES:
+        code = supported_locale_code(value)
+        if code is None:
             supported = ", ".join(sorted(LOCALE_NAMES))
             raise ValueError(f"Unsupported locale code. Supported: {supported}.")
         return code
@@ -335,10 +336,7 @@ class SignInRequest(DeviceSessionIn):
     @field_validator("locale")
     @classmethod
     def _supported_locale(cls, value: str | None) -> str | None:
-        if value is None or not value.strip():
-            return None
-        code = normalize_locale_code(value.strip())
-        return code if code in LOCALE_NAMES else None
+        return supported_locale_code(value)
 
 
 class GoogleAuthRequest(SignInRequest):

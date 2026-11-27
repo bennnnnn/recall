@@ -158,6 +158,18 @@ def normalize_locale_code(locale: str | None) -> str:
     return locale.split("-")[0].lower()
 
 
+def supported_locale_code(value: str | None) -> str | None:
+    """The app language ``value`` names ("pt" for " pt-BR "), or None when it names none.
+
+    The one rule for a language a client sends: a blank is None, as is a code Recall has
+    no strings for. Sign-in drops a None; a profile save refuses one that was not blank.
+    """
+    if value is None or not value.strip():
+        return None
+    code = normalize_locale_code(value.strip())
+    return code if code in LOCALE_NAMES else None
+
+
 # Straight + curly quotes models often wrap titles with.
 _TITLE_QUOTES = "\"'" + "\u201c\u201d\u2018\u2019"
 # Trailing sentence punctuation that can sit outside the closing quote, in every script a

@@ -11,13 +11,14 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import User
 from app.models.schemas import AuthResponse
-from app.models.schemas.auth import GoogleAuthRequest
+from app.models.schemas.auth import GoogleAuthRequest, UserUpdate
 from app.modules.account import service as auth_service
 from app.repositories import users
 
@@ -113,3 +114,19 @@ def test_sign_in_request_keeps_only_a_supported_language(
     sent: str | None, kept: str | None
 ) -> None:
     assert GoogleAuthRequest(id_token="tok", locale=sent).locale == kept
+
+
+@pytest.mark.parametrize("sent", ["fr", "pt-BR", " ES ", "  hi  "])
+def test_sign_in_and_a_profile_save_read_a_language_alike(sent: str) -> None:
+    """One rule (``supported_locale_code``): " ES " is Spanish on sign-in and on PATCH."""
+    signed_in = GoogleAuthRequest(id_token="tok", locale=sent).locale
+    saved = UserUpdate(locale=sent).locale
+    assert saved is not None
+    assert saved == signed_in
+
+
+@pytest.mark.parametrize("sent", ["de", "klingon"])
+def test_a_language_recall_lacks_is_dropped_on_sign_in_and_refused_on_save(sent: str) -> None:
+    assert GoogleAuthRequest(id_token="tok", locale=sent).locale is None
+    with pytest.raises(ValidationError):
+        UserUpdate(locale=sent)
