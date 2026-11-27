@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getSessionGeneration } from "@/lib/auth";
 import {
-  ensureNotificationPermission,
+  askNotificationPermission,
   getNotificationPermissionGranted,
   registerRemotePushToken,
   unregisterRemotePushToken,
@@ -63,16 +63,14 @@ export function usePushNotificationToggle({
 
   const value = optimisticValue ?? (serverEnabled && permissionGranted === true);
 
-  const setDenied = useCallback(async () => {
-    if (isCurrent()) {
-      setPermissionGranted(false);
-      setOptimisticValue(false);
-      onPermissionDenied();
-    }
-    if (serverEnabled && sameAccount()) {
-      await updatePreference(false);
-    }
-  }, [isCurrent, onPermissionDenied, sameAccount, serverEnabled, updatePreference]);
+  // The switch shows off, and the account's switch stays as it was: allowing notifications
+  // later in the phone's Settings brings reminders back on the next return to the app.
+  const setDenied = useCallback(() => {
+    if (!isCurrent()) return;
+    setPermissionGranted(false);
+    setOptimisticValue(false);
+    onPermissionDenied();
+  }, [isCurrent, onPermissionDenied]);
 
   const toggle = useCallback(async (enabled: boolean) => {
     if (!token || !isCurrent()) return;
@@ -87,18 +85,19 @@ export function usePushNotificationToggle({
         return;
       }
 
-      const granted = await ensureNotificationPermission();
-      if (!sameAccount()) return;
-      if (!granted) {
-        await setDenied();
+      // Recall says why, then the phone asks. Not now to Recall only puts the switch back.
+      const answer = await askNotificationPermission();
+      if (!sameAccount() || answer === "not_now") return;
+      if (answer === "denied") {
+        setDenied();
         return;
       }
 
       if (isCurrent()) setPermissionGranted(true);
       const registration = await registerRemotePushToken(token, true);
       if (!sameAccount()) return;
-      if (registration === "disabled_permission") {
-        await setDenied();
+      if (registration === "no_permission") {
+        setDenied();
         return;
       }
       await updatePreference(true);

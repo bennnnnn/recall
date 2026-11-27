@@ -1,10 +1,11 @@
-import { useCallback, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 
 import type { RereadProfile } from "@/contexts/profileReread";
 import { api, type User } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import { writeCachedUser } from "@/lib/cachedUser";
 import { FOREGROUND_STALE_MS, useOnForeground } from "@/lib/foregroundRefresh";
+import { onReconnect } from "@/lib/reconnectRefresh";
 import { zoneReportSettled } from "@/lib/zoneReport";
 
 type Options = {
@@ -101,5 +102,20 @@ export function useProfileReread({
     })();
   }, [tokenRef, userRef, revisionRef, isCurrent, markRead, setCurrentUser]);
   useOnForeground(() => reread(FOREGROUND_STALE_MS.profile), signedIn);
+  // Back after an outage (lib/reconnectRefresh.ts, what useReconnectRefresh runs for a screen;
+  // this sits above the navigator, so it is not tied to a screen's focus): an offline launch
+  // painted the cached account and its /auth/me failed, and nothing read it again until a
+  // return from the background, so the profile stayed unconfirmed (no push or zone sync). Only
+  // a profile the server has not confirmed this run is read: a confirmed one is read on the
+  // usual returns, and every phone an outage refused need not ask for it again at once. Tries
+  // that failed while the API was down do not count.
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    return onReconnect(() => {
+      if (readAtRef.current !== null) return;
+      triedAt.current = null;
+      reread(0);
+    });
+  }, [signedIn, reread]);
   return { reread, markRead, readAtRef, savesWaitingRef };
 }

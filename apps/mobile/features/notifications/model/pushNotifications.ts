@@ -15,6 +15,7 @@ import {
   TONE_ANDROID_CHANNELS,
 } from "@/features/notifications/model/notificationChannels";
 import { reportRecoverableWarning } from "@/lib/reportRecoverableError";
+import { confirmDialog } from "@/ui/overlay/dialogs";
 import { reportFailure } from "@/lib/sentry";
 import { devicePushTokenFingerprint } from "@/features/notifications/model/devicePushToken";
 import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
@@ -32,15 +33,41 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
   return status === "granted";
 }
 
-export async function ensureNotificationPermission(): Promise<boolean> {
+/**
+ * What asking for notifications came to: allowed; refused by the phone, so only Settings can
+ * turn it on; or `not_now`, the user's answer to Recall's explanation, with the phone's own
+ * prompt still unspent.
+ */
+type NotificationAsk = "granted" | "denied" | "not_now";
+
+/**
+ * Asks for notifications on the user's own step (a reminder saved, the Notifications switch
+ * turned on, a trial reminder), never at launch. iOS shows its prompt once, so Recall says
+ * why first (`confirmDialog`) and the phone asks only on Continue. Granted already, or
+ * refused for good (`canAskAgain` false), asks nothing.
+ */
+export async function askNotificationPermission(): Promise<NotificationAsk> {
   await ensureReminderChannel();
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  if (existing === "granted") return true;
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.status === "granted") return "granted";
+  if (existing.canAskAgain === false) return "denied";
+  const proceed = await confirmDialog({
+    title: i18n.t("permissions.notifications_ask_title"),
+    message: i18n.t("permissions.notifications_ask_body"),
+    cancelLabel: i18n.t("common.not_now"),
+    confirmLabel: i18n.t("permissions.notifications_ask_continue"),
+  });
+  if (!proceed) return "not_now";
   const { status } = await Notifications.requestPermissionsAsync();
   trackProductEvent("push_permission", {
     status: status === "granted" ? "granted" : "denied",
   });
-  return status === "granted";
+  return status === "granted" ? "granted" : "denied";
+}
+
+/** `askNotificationPermission`, for a caller that needs only whether alerts can show. */
+export async function ensureNotificationPermission(): Promise<boolean> {
+  return (await askNotificationPermission()) === "granted";
 }
 
 /** The reminders channel push and local reminders share, created once per run. */
@@ -111,19 +138,21 @@ async function resolveExpoPushToken(
   }
 }
 
-type PushRegisterResult = "registered" | "skipped" | "disabled_permission";
+type PushRegisterResult = "registered" | "skipped" | "no_permission";
 
 /** Register Expo push token with the backend for remote notifications.
  *
  * Gated on ``pushNotificationsEnabled`` (the user's ``push_notifications_enabled``
  * pref): when the user has disabled push, we must NOT register the token —
  * without this gate, the backend would hold a live push token for a user who
- * opted out and keep sending them notifications. The OS-level permission
- * prompt is separate (and still required); this gate is the user-level opt-out.
+ * opted out and keep sending them notifications.
  *
- * If the pref is on but the OS denies permission, flip the server pref off so
- * Settings and local/catch-up delivery agree (remote + local both fail on iOS
- * without permission; the pref lie is what froze recurring catch-up).
+ * It never asks for the OS permission: that is `askNotificationPermission`, on the user's own
+ * step. Without the permission it registers nothing and leaves the account's switch alone
+ * (`no_permission`): a cold prompt at launch spent iOS's one ask, and a "Don't allow" there
+ * turned reminders off on the server, so allowing them later in Settings brought nothing
+ * back. The server skips a user with no device token (todos/due_reminders.py), and the next
+ * sync after a grant registers.
  */
 export async function registerRemotePushToken(
   apiToken: string,
@@ -134,11 +163,10 @@ export async function registerRemotePushToken(
     setRemotePushRegistered(false);
     return "skipped";
   }
-  const granted = await ensureNotificationPermission();
-  if (!granted) {
+  await ensureReminderChannel();
+  if (!(await getNotificationPermissionGranted())) {
     setRemotePushRegistered(false);
-    await api.updateMe(apiToken, { push_notifications_enabled: false });
-    return "disabled_permission";
+    return "no_permission";
   }
 
   const expoPushToken = await resolveExpoPushToken(feedback);
@@ -226,11 +254,13 @@ export async function clearPushSyncRecord(): Promise<void> {
  * made for this sign-in. Another account signing in on this device rebinds the
  * token, so a sync never counts across sign-ins. `feedback` shows a push token
  * failure that is not routine (see reportPushTokenFailure).
+ *
+ * It never prompts: without the permission it registers nothing, and a return to the app
+ * after the user allowed notifications (in Settings, or a reminder's ask) registers then.
  */
 export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
-  onPushPrefChange?: (enabled: boolean) => void,
   account?: string,
   feedback?: ActionFeedbackApi | null,
 ): () => void {
@@ -239,6 +269,11 @@ export function attachPushForegroundSync(
 
   const syncNow = async () => {
     const enabled = pushNotificationsEnabled;
+    // Not allowed (yet): nothing to register, and nothing to ask the push service for.
+    if (enabled && !(await getNotificationPermissionGranted())) {
+      lastPushSync = null;
+      return setRemotePushRegistered(false);
+    }
     // The saved record's key: the setting and the token it registered, so a
     // token the push service rolled since registers again.
     let savedKey: string | null = null;
@@ -253,8 +288,8 @@ export function attachPushForegroundSync(
     if (pushSyncIsFresh(session, account, enabled)) {
       // Turning the permission off in Settings must still reach the server.
       if (!enabled) return setRemotePushRegistered(false);
-      // A sync an earlier launch made: the server still holds this token.
-      if (await getNotificationPermissionGranted()) return setRemotePushRegistered(true);
+      // A sync an earlier launch made, and still allowed (read above): the server holds this token.
+      return setRemotePushRegistered(true);
     }
     lastPushSync = null;
     const remember = () => {
@@ -265,9 +300,7 @@ export function attachPushForegroundSync(
       if (account && savedKey !== null) void recordSync("push", account, savedKey, at);
     };
     if (enabled) {
-      const result = await registerRemotePushToken(apiToken, true, feedback);
-      if (result === "registered") remember();
-      if (result === "disabled_permission") onPushPrefChange?.(false);
+      if ((await registerRemotePushToken(apiToken, true, feedback)) === "registered") remember();
     } else if (await unregisterRemotePushToken(apiToken, feedback)) {
       remember();
     }

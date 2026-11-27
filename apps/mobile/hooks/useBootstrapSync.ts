@@ -116,15 +116,12 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       // Gate push registration on user.push_notifications_enabled — without
       // this, the backend holds a live push token for a user who opted out
       // and keeps sending them notifications. When disabled, the sync
-      // unregisters the token instead of registering it.
+      // unregisters the token instead of registering it. It never asks for the OS
+      // permission (a reminder's save or the Notifications switch does, after saying why),
+      // and without it leaves the account's switch on: allowing later registers.
       cleanup = attachPushForegroundSync(
         token,
         pushEnabled,
-        (enabled) => {
-          if (cancelled || generation !== getSessionGeneration()) return;
-          setUser((current) => current?.id === userId
-            ? { ...current, push_notifications_enabled: enabled } : current);
-        },
         // Hourly token refreshes and cold starts re-attach; one sync per account
         // every 12 hours is enough.
         userId,
@@ -135,7 +132,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cancelled = true;
       cleanup?.();
     };
-  }, [signedIn, userId, pushEnabled, setUser, feedback, tokenRef]);
+  }, [signedIn, userId, pushEnabled, feedback, tokenRef]);
 
   // RevenueCat is set up once per signed-in user; the plan sync reads the newest token.
   useEffect(() => {

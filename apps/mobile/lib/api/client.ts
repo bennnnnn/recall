@@ -15,7 +15,8 @@ import { newRequestId, REQUEST_ID_HEADER, responseRequestId } from "@/lib/api/re
 import { isRefusedApiPath } from "@/lib/api/path";
 import { appVersionHeaders } from "@/lib/api/appVersionHeader";
 import { shareRefresh } from "@/lib/api/refreshFlight";
-import { accessTokenNeedsRefresh } from "@/lib/api/tokenExpiry";
+import { accessTokenIssuedAtMs, accessTokenNeedsRefresh } from "@/lib/api/tokenExpiry";
+import { noteServerDateHeader, noteServerTime } from "@/lib/api/serverClock";
 import { CONSENT_REQUIRED_CODE, notifyConsentRequired } from "@/lib/api/consentRefusal";
 import type { AuthResult, User } from "@/lib/api/types";
 import { deviceSessionFields } from "@/lib/deviceSession";
@@ -76,7 +77,9 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
     ...appVersionHeaders(),
   };
   try {
-    return await fetch(url, { ...init, headers, signal: controller.signal });
+    const response = await fetch(url, { ...init, headers, signal: controller.signal });
+    noteServerDateHeader(responseHeader(response, "date"));
+    return response;
   } catch (error) {
     if (isAbortError(cancelAsAbort(error, controller.signal))) throw serverUnreachableError();
     throw error;
@@ -141,7 +144,54 @@ function replacedToken(token: string, generation: number): string | null {
 function renewedToken(token: string, generation: number): Promise<string | null> {
   const replaced = replacedToken(token, generation);
   if (replaced && !accessTokenNeedsRefresh(replaced)) return Promise.resolve(replaced);
-  return refreshAccessToken();
+  // The last refresh's token already looked expired on arrival: the clock is not to be
+  // trusted, so until the wait ends the token goes out as it is, and the server judges it
+  // (a 401 still refreshes, once per request: `clockHoldsRefresh`).
+  if (clockHoldsRefresh(token, generation)) return Promise.resolve(replaced ?? token);
+  const held = clockDoubt?.generation === generation ? clockDoubt : null;
+  return refreshAccessToken().then((fresh) => {
+    if (generation === getSessionGeneration()) noteRefreshedToken(fresh, generation, held);
+    return fresh;
+  });
+}
+
+/**
+ * A refresh asked for by the clock (a token that looks expired) whose new token looked expired
+ * too: the phone's clock is off by more than the server's time told (no `Date` header, no
+ * `iat`). Each such refresh doubles the wait before the clock may ask for another, from a
+ * minute up to half an hour, so a bad clock can never loop against the server's refresh limit.
+ * A token that looks good again clears it.
+ */
+const CLOCK_DOUBT_FIRST_WAIT_MS = 60_000;
+const CLOCK_DOUBT_MAX_WAIT_MS = 30 * 60_000;
+let clockDoubt: { generation: number; at: number; waitMs: number } | null = null;
+
+function waitEnded(doubt: { at: number; waitMs: number }, now: number = Date.now()): boolean {
+  const elapsed = now - doubt.at;
+  // A clock moved back since makes the time negative: the wait is over.
+  return elapsed < 0 || elapsed >= doubt.waitMs;
+}
+
+/** `renewedToken(token)` would send `token` (or the last one issued) as it is, refreshing
+ * nothing: a request that gets a 401 for it may still refresh once. */
+function clockHoldsRefresh(token: string, generation: number): boolean {
+  const replaced = replacedToken(token, generation);
+  if (replaced && !accessTokenNeedsRefresh(replaced)) return false;
+  const held = clockDoubt?.generation === generation ? clockDoubt : null;
+  return held !== null && !waitEnded(held);
+}
+
+function noteRefreshedToken(
+  fresh: string | null,
+  generation: number,
+  held: { waitMs: number } | null,
+): void {
+  if (!fresh || !accessTokenNeedsRefresh(fresh)) {
+    clockDoubt = null;
+    return;
+  }
+  const waitMs = held ? Math.min(held.waitMs * 2, CLOCK_DOUBT_MAX_WAIT_MS) : CLOCK_DOUBT_FIRST_WAIT_MS;
+  clockDoubt = { generation, at: Date.now(), waitMs };
 }
 
 /** One POST /auth/refresh: the new pair, or null when the server refused the token (401).
@@ -194,6 +244,9 @@ async function refreshAccessToken(): Promise<string | null> {
       refreshRejected = generation;
       return null;
     }
+    // The token was issued a moment ago: its `iat` is the server's clock now.
+    const issuedAt = accessTokenIssuedAtMs(data.access_token);
+    if (issuedAt !== null) noteServerTime(issuedAt);
     const saved = await setTokenPair(data.access_token, data.refresh_token, generation);
     requireSession(generation);
     if (!saved) throw new SessionChangedError();
@@ -276,6 +329,7 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
       ...appVersionHeaders(),
     };
     const response = await fetch(apiUrl(path), { ...init, headers });
+    noteServerDateHeader(responseHeader(response, "date"));
     status = response.status;
     unreachable = UNAVAILABLE_STATUSES.has(response.status);
     answered = response.ok || response.status === 304;
@@ -423,7 +477,7 @@ export async function requestRaw(
     // A refresh another request started keeps running for it; this one waits only
     // as long as its own deadline and its caller allow (code-health audit NET-17).
     if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
-      refreshAttempted = true;
+      refreshAttempted = !clockHoldsRefresh(effectiveToken, generation);
       const refreshed = await untilAborted(renewedToken(effectiveToken, generation), controller.signal);
       requireSession(generation);
       requireNotAborted(controller.signal);
@@ -473,7 +527,7 @@ export async function authorizeNativeTransfer(
   let effectiveToken = token;
   let refreshAttempted = false;
   if (effectiveToken && allowRefresh && accessTokenNeedsRefresh(effectiveToken)) {
-    refreshAttempted = true;
+    refreshAttempted = !clockHoldsRefresh(effectiveToken, generation);
     const refreshed = await renewedToken(effectiveToken, generation);
     requireSession(generation);
     if (refreshed) effectiveToken = refreshed;

@@ -107,6 +107,8 @@ const SCOPED_TO_SESSION = [
   "features/chat/model/pageReads.ts#pageReads",
   "features/memory/model/memoryDocumentsCache.ts#resource",
   "features/todos/model/todoMutationState.ts#current",
+  // A refresh the clock asked for whose token still looked expired, keyed to the session.
+  "lib/api/client.ts#clockDoubt",
   "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
   "lib/api/client.ts#refreshRefused",
@@ -196,7 +198,10 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/speechRate.ts#ratePref",
   "features/speech/model/ttsPreference.ts#ttsModelPref",
   "features/todos/model/optimisticTodo.ts#optimisticTodoSeq",
+  "features/todos/model/reminderAlerts.ts#saidNotNow",
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
+  // The offset between the server's clock and the phone's: the phone's, not an account's.
+  "lib/api/serverClock.ts#offsetMs",
   "lib/accentPrefs.ts#accentPref",
   "lib/accentRuntime.ts#accent",
   // This build's version and native build: the same for every account.

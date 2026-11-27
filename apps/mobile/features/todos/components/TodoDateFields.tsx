@@ -17,7 +17,6 @@ import {
   REMINDER_LEAD_OPTIONS,
 } from "@/features/todos/model/reminderTiming";
 import type { RemindAt } from "@/features/todos/hooks/useRemindAt";
-import { ensureNotificationPermission } from "@/features/todos/model/todoReminders";
 import { IconSize } from "@/ui/icons/sizes";
 import { useTheme } from "@/lib/theme";
 import { alertDialog } from "@/ui/overlay/dialogs";
@@ -91,10 +90,10 @@ export function TodoDateFields({
   const dateLabel = due ? formatDate(due.date, "monthDayYear") : t("todos.add_date");
   const timeLabel = due?.hasTime ? formatDate(due.date, "time") : "—";
 
-  // Opening a picker changes nothing; a time, which brings a reminder, asks for alerts first.
+  // Opening a picker changes nothing, and asks nothing: saving a time, which brings a reminder,
+  // asks for alerts then, after saying why (useTodosActions.askForAlerts).
   const openPanel = (panel: SchedulePanel) => {
     Keyboard.dismiss();
-    if (panel === "time" && !due?.hasTime) void ensureNotificationPermission().catch(() => undefined);
     onOpen(panel);
   };
 

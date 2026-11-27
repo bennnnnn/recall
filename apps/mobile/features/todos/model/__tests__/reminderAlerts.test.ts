@@ -3,9 +3,15 @@ import {
   resetAlertsOffNoticeForTest,
   shouldTellAlertsOff,
 } from "@/features/todos/model/reminderAlerts";
-import { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
+import {
+  askNotificationPermission,
+  getNotificationPermissionGranted,
+} from "@/features/notifications/model/pushNotifications";
 
-jest.mock("@/features/notifications/model/pushNotifications", () => ({ ensureNotificationPermission: jest.fn() }));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
+  askNotificationPermission: jest.fn(),
+  getNotificationPermissionGranted: jest.fn(async () => false),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -13,15 +19,27 @@ beforeEach(() => {
 });
 
 it.each([
-  [true, "on"],
-  [false, "off"],
-])("permission %s means alerts are %s", async (granted, alerts) => {
-  jest.mocked(ensureNotificationPermission).mockResolvedValue(granted);
+  ["granted", "on"],
+  ["denied", "off"],
+  ["not_now", "not_now"],
+] as const)("an ask that comes to %s means alerts are %s", async (answer, alerts) => {
+  jest.mocked(askNotificationPermission).mockResolvedValue(answer);
   await expect(allowReminderAlerts()).resolves.toBe(alerts);
 });
 
+it("after Not now, the next save this launch does not explain again", async () => {
+  jest.mocked(askNotificationPermission).mockResolvedValue("not_now");
+  await allowReminderAlerts();
+  await expect(allowReminderAlerts()).resolves.toBe("not_now");
+  expect(askNotificationPermission).toHaveBeenCalledTimes(1);
+  // Allowed in Settings meanwhile: on, still without asking.
+  jest.mocked(getNotificationPermissionGranted).mockResolvedValue(true);
+  await expect(allowReminderAlerts()).resolves.toBe("on");
+  expect(askNotificationPermission).toHaveBeenCalledTimes(1);
+});
+
 it("a failed ask counts as off, never as an error", async () => {
-  jest.mocked(ensureNotificationPermission).mockRejectedValue(new Error("native"));
+  jest.mocked(askNotificationPermission).mockRejectedValue(new Error("native"));
   await expect(allowReminderAlerts()).resolves.toBe("off");
 });
 

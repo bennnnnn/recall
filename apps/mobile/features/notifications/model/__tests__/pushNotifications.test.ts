@@ -73,11 +73,18 @@ jest.mock("react-native", () => ({
   },
 }));
 
+// Recall's explanation before the phone's prompt: Continue (true) or Not now (false).
+const mockConfirm = jest.fn(async (_options: unknown) => true);
+jest.mock("@/ui/overlay/dialogs", () => ({
+  confirmDialog: (options: unknown) => mockConfirm(options),
+}));
+
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import { api } from "@/lib/api";
 import {
+  askNotificationPermission,
   attachPushForegroundSync,
   clearPushSyncRecord,
   ensureNotificationPermission,
@@ -98,6 +105,7 @@ describe("push gating on user.push_notifications_enabled", () => {
     registerMock.mockClear();
     unregisterMock.mockClear();
     updateMeMock.mockClear();
+    mockConfirm.mockClear();
     (api.recordProductEvents as jest.Mock).mockClear();
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
     (Notifications.requestPermissionsAsync as jest.Mock).mockReset();
@@ -153,13 +161,35 @@ describe("push gating on user.push_notifications_enabled", () => {
     expect(updateMeMock).not.toHaveBeenCalled();
   });
 
-  it("registerRemotePushToken flips the server pref off when OS permission is denied", async () => {
-    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
-    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+  it("registerRemotePushToken never asks, and a denial leaves the account's switch on", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
 
-    await expect(registerRemotePushToken("tok", true)).resolves.toBe("disabled_permission");
+    await expect(registerRemotePushToken("tok", true)).resolves.toBe("no_permission");
     expect(registerMock).not.toHaveBeenCalled();
-    expect(updateMeMock).toHaveBeenCalledWith("tok", { push_notifications_enabled: false });
+    expect(updateMeMock).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+  });
+
+  it("explains before the phone asks, and Not now leaves the phone's prompt unspent", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "undetermined", canAskAgain: true });
+    mockConfirm.mockResolvedValueOnce(false);
+    await expect(askNotificationPermission()).resolves.toBe("not_now");
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+
+    mockConfirm.mockResolvedValueOnce(true);
+    await expect(askNotificationPermission()).resolves.toBe("granted");
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(updateMeMock).not.toHaveBeenCalled();
+  });
+
+  it("asks nothing when allowed already, or refused for good", async () => {
+    await expect(askNotificationPermission()).resolves.toBe("granted");
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
+    await expect(askNotificationPermission()).resolves.toBe("denied");
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 
   it("getNotificationPermissionGranted is read-only and does not prompt", async () => {
@@ -207,13 +237,14 @@ describe("push gating on user.push_notifications_enabled", () => {
     cleanupOff();
   });
 
-  it("attachPushForegroundSync notifies when permission denial disables the pref", async () => {
-    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
-    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
-    const onPref = jest.fn();
-    const cleanup = attachPushForegroundSync("tok", true, onPref);
+  it("attachPushForegroundSync never prompts at launch and leaves the switch alone", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "undetermined", canAskAgain: true });
+    const cleanup = attachPushForegroundSync("tok", true);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    expect(onPref).toHaveBeenCalledWith(false);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(updateMeMock).not.toHaveBeenCalled();
+    expect(registerMock).not.toHaveBeenCalled();
     cleanup();
   });
 
@@ -306,7 +337,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   });
 
   it("re-registers at most twice a day, not on every return to the app", async () => {
-    const cleanup = attachPushForegroundSync("tok", true, undefined, account);
+    const cleanup = attachPushForegroundSync("tok", true, account);
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(tokenMock).toHaveBeenCalledTimes(1);
@@ -326,24 +357,24 @@ describe("push re-sync on launch, token refresh and foreground", () => {
   });
 
   it("does not register again when the hourly token refresh re-attaches", async () => {
-    attachPushForegroundSync("tok", true, undefined, account)();
+    attachPushForegroundSync("tok", true, account)();
     await settle();
-    attachPushForegroundSync("tok-refreshed", true, undefined, account)();
+    attachPushForegroundSync("tok-refreshed", true, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
   });
 
   it("registers again after another account signs in on this device", async () => {
-    attachPushForegroundSync("tok-a", true, undefined, account)();
+    attachPushForegroundSync("tok-a", true, account)();
     await settle();
     // Another account's sign-in rebinds the device token to that account.
-    attachPushForegroundSync("tok-b", true, undefined, `${account}-other`)();
+    attachPushForegroundSync("tok-b", true, `${account}-other`)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not register again on a cold start within 12 hours (NET-19)", async () => {
-    attachPushForegroundSync("tok", true, undefined, account)();
+    attachPushForegroundSync("tok", true, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
     // A new process: module memory is gone, the file is not.
@@ -351,46 +382,63 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     jest.isolateModules(() => {
       reloaded = jest.requireActual<typeof import("@/features/notifications/model/pushNotifications")>("@/features/notifications/model/pushNotifications");
     });
-    reloaded.attachPushForegroundSync("tok", true, undefined, account)();
+    reloaded.attachPushForegroundSync("tok", true, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(tokenMock).toHaveBeenCalledTimes(1);
   });
 
   it("registers again after sign-out, which forgets the device's token on the server", async () => {
-    attachPushForegroundSync("tok", true, undefined, account)();
+    attachPushForegroundSync("tok", true, account)();
     await settle();
     await clearPushSyncRecord();
-    attachPushForegroundSync("tok-again", true, undefined, account)();
+    attachPushForegroundSync("tok-again", true, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not let a sync that ends after sign-out vouch for the next sign-in", async () => {
     registerMock.mockImplementationOnce(async () => { mockGeneration += 1; });
-    attachPushForegroundSync("tok", true, undefined, account)();
+    attachPushForegroundSync("tok", true, account)();
     await settle();
     expect(mockSyncRecords.size).toBe(0);
-    attachPushForegroundSync("tok-next", true, undefined, account)();
+    attachPushForegroundSync("tok-next", true, account)();
     await settle();
     expect(registerMock).toHaveBeenCalledTimes(2);
   });
 
-  it("still notices a permission turned off in Settings on return", async () => {
-    const onPref = jest.fn();
-    const cleanup = attachPushForegroundSync("tok", true, onPref, account);
+  it("still notices a permission turned off in Settings on return, without touching the switch", async () => {
+    const { remotePushRegistered } =
+      jest.requireActual<typeof import("@/features/notifications/model/pushRegistration")>("@/features/notifications/model/pushRegistration");
+    const cleanup = attachPushForegroundSync("tok", true, account);
     await settle();
-    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
-    (Notifications.requestPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied" });
+    expect(remotePushRegistered()).toBe(true);
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
     await foreground();
-    expect(onPref).toHaveBeenCalledWith(false);
-    expect(updateMeMock).toHaveBeenCalledWith("tok", { push_notifications_enabled: false });
+    expect(remotePushRegistered()).toBe(false);
+    expect(updateMeMock).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("registers on a return after the user allowed notifications in Settings", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
+    const cleanup = attachPushForegroundSync("tok", true, account);
+    await settle();
+    expect(registerMock).not.toHaveBeenCalled();
+    await foreground();
+    expect(registerMock).not.toHaveBeenCalled();
+
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    await foreground();
+    expect(registerMock).toHaveBeenCalledTimes(1);
+    expect(updateMeMock).not.toHaveBeenCalled();
     cleanup();
   });
 
   it("retries on the next return after a failed sync", async () => {
     registerMock.mockRejectedValueOnce(new Error("offline"));
-    const cleanup = attachPushForegroundSync("tok", true, undefined, account);
+    const cleanup = attachPushForegroundSync("tok", true, account);
     await settle();
     await foreground();
     expect(registerMock).toHaveBeenCalledTimes(2);
@@ -399,7 +447,7 @@ describe("push re-sync on launch, token refresh and foreground", () => {
 
   it("unregisters once for a user who turned push off, and retries a failure", async () => {
     unregisterMock.mockRejectedValueOnce(new Error("offline"));
-    const cleanup = attachPushForegroundSync("tok", false, undefined, account);
+    const cleanup = attachPushForegroundSync("tok", false, account);
     await settle();
     await foreground();
     await foreground();
@@ -429,7 +477,7 @@ describe("push sync across a cold start", () => {
     } else {
       run.notifications.getDevicePushTokenAsync.mockResolvedValue({ type: "ios", data: deviceToken });
     }
-    run.push.attachPushForegroundSync("tok", enabled, undefined, account, null)();
+    run.push.attachPushForegroundSync("tok", enabled, account, null)();
     await settle();
     return run;
   }
@@ -533,7 +581,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   it("warns once per app run when push is off for no routine reason", async () => {
     const { push, notifications, report } = load();
     notifications.getExpoPushTokenAsync.mockRejectedValue(tokenError("ERR_NOTIFICATIONS_SERVER_ERROR"));
-    const cleanup = push.attachPushForegroundSync("tok", true, undefined, "u1", feedback);
+    const cleanup = push.attachPushForegroundSync("tok", true, "u1", feedback);
     await settle();
     // A failed sync retries on every return to the app; the warning does not.
     await foreground();
@@ -550,7 +598,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
   it("warns when the token for turning push off cannot be read either", async () => {
     const { push, notifications, report } = load();
     notifications.getExpoPushTokenAsync.mockRejectedValue(new Error("E_REGISTRATION_FAILED"));
-    push.attachPushForegroundSync("tok", false, undefined, "u1", feedback)();
+    push.attachPushForegroundSync("tok", false, "u1", feedback)();
     await settle();
     expect(report).toHaveBeenCalledWith(feedback, UNAVAILABLE);
   });
@@ -569,7 +617,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
     arrange(loaded);
     loaded.notifications.getExpoPushTokenAsync.mockRejectedValue(error);
     // Unregister reads the token whatever the permission says.
-    loaded.push.attachPushForegroundSync("tok", false, undefined, "u1", feedback)();
+    loaded.push.attachPushForegroundSync("tok", false, "u1", feedback)();
     await settle();
     expect(loaded.notifications.getExpoPushTokenAsync).toHaveBeenCalled();
     expect(loaded.report).not.toHaveBeenCalled();
@@ -581,7 +629,7 @@ describe("push token failures are reported, routine states stay quiet", () => {
     const config = constants.default.expoConfig;
     constants.default.expoConfig = {};
     try {
-      loaded.push.attachPushForegroundSync("tok", true, undefined, "u1", feedback)();
+      loaded.push.attachPushForegroundSync("tok", true, "u1", feedback)();
       await settle();
     } finally {
       constants.default.expoConfig = config;

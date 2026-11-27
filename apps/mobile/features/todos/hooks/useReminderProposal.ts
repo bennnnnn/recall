@@ -63,7 +63,7 @@ export function useReminderProposal(proposal: ReminderProposal) {
     else notifySuccess();
     // Ask before the rows land, so the reminder sync that follows may schedule its alert.
     if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
-      setAlertsOff((await allowReminderAlerts()) === "off");
+      setAlertsOff((await allowReminderAlerts()) !== "on");
     }
     // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
     // another device saved first sends none, and the list is read again.

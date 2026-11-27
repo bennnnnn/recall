@@ -56,8 +56,9 @@ type AuthContextValue = {
   user: User | null;
   token: string | null;
   loading: boolean;
-  /** The user came from the server this run (sign-in, /auth/me or a profile
-   * write), not only the launch cache, whose plan always reads "free". */
+  /** The user came from the server this run (sign-in, /auth/me or a profile write), not
+   * only the launch cache: its settings are the last ones this phone saw, and the fields it
+   * does not keep (push and reminder switches, Location, personal details) are placeholders. */
   profileValidated: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
