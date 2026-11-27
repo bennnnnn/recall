@@ -32,7 +32,8 @@ product-free code goes to `lib/<domain>/`; a reusable control goes to `ui/` (cat
    Nested stacks share `nestedStackScreenOptions` and `useStackHeaderOptions`
    (`lib/stackHeader.ts`).
 4. Screen state that must not outlive the account or the visit uses
-   `useAccountViewOwner()` (`key` remounts it, `isCurrent()` guards late callbacks).
+   `useAccountViewOwner()` (`key` remounts it for another account, never on a blur and
+   return; `isCurrent()` guards a visit's late callbacks).
 
 ## An API call
 

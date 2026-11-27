@@ -15,6 +15,7 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosHeader } from "@/features/todos/hooks/useTodosHeader";
 import { useTodoReveal } from "@/features/todos/hooks/useTodoReveal";
+import { useTodosFocusRefresh } from "@/features/todos/hooks/useTodosFocusRefresh";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +43,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     todos,
     setTodos,
     loading,
+    loaded,
     error,
     refresh,
     markSeenIds,
@@ -86,6 +88,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const openedHighlight = useRef<string | null>(null);
   const highlightId = routeServerId(Array.isArray(highlight) ? highlight[0] : highlight);
+  useTodosFocusRefresh({ refresh, todos, loaded, highlightId: highlightId ?? null });
   useEffect(() => {
     if (!highlightId || openedHighlight.current === highlightId || !isCurrentView()) return;
     const todo = todos.find((item) => item.id === highlightId);

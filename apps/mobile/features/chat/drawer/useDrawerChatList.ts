@@ -252,8 +252,9 @@ type RereadDeps = {
 
 /**
  * When the drawer reads its list again, besides its own edits: its first open (with the
- * spinner), a later open only once this phone changed a chat since the last read (a turn it
- * finished, a title, a pin or archive: `noteChatListChanged`), each return from the background
+ * spinner), a later open once this phone changed a chat since the last read (a turn it
+ * finished, a title, a pin or archive: `noteChatListChanged`) or once the rows are past their
+ * stale window (`CHAT_LIST_STALE_MS`), each return from the background
  * once the rows are stale (another device may have started or renamed a chat), and the API back
  * after an outage while it is open. A read behind the rows warns of nothing when it fails, as
  * the closed drawer's warm-up: the user did not ask for it, and the rows stay. Returns whether
@@ -281,7 +282,12 @@ function useListRereads({ isDrawerOpen, account, load, hydrateFromCache, hasLoad
     if (mode === "full") void load();
     // The rows held are the list unless this phone changed a chat since it was read; then the
     // read is forced (the change is newer than any fresh copy), with its ETag as the safety net.
-    else if (mode === "revalidate" && chatListChangedSinceRead()) readBehind(true);
+    // Past its stale window (20 s) it is read behind the rows too: a chat started or renamed on
+    // another device showed only after a pull or a return from the background.
+    else if (mode === "revalidate") {
+      if (chatListChangedSinceRead()) readBehind(true);
+      else if (!isChatListFresh()) readBehind(false);
+    }
   }, [isDrawerOpen, account, load, readBehind, hydrateFromCache, hasLoadedOnceRef]);
   useOnForeground(rereadStale, Boolean(account));
   // The API back after an outage: the open drawer's chats, read as opening it reads them.

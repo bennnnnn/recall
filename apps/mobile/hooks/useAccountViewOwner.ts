@@ -5,7 +5,13 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ViewOwner = { session: number; visit: number; signedIn: boolean };
 
-/** Dialogs and screen callbacks belong to one focused account visit. */
+/**
+ * Dialogs and screen callbacks belong to one focused account visit. `key` names the account
+ * only: another sign-in remounts the screen, a blur and return does not (a visit in the key
+ * remounted Memory, To-do and Notifications on every return: the scroll went back to the top,
+ * the page flickered and read twice). `isCurrent` still ends with the visit, so an answer that
+ * lands after a blur changes nothing on the page.
+ */
 export function useAccountViewOwner() {
   // Subscribe here: context changes can rerender a child without its wrapper.
   const { token } = useAuth();
@@ -27,5 +33,5 @@ export function useAccountViewOwner() {
   }, [session, signedIn]));
   const isCurrent = useCallback(() => owner !== null && owner.signedIn && active.current === owner &&
     owner.session === getSessionGeneration(), [owner]);
-  return { key: `${session}:${signedIn}:${owner?.visit ?? 0}`, isCurrent };
+  return { key: `${session}:${signedIn}`, isCurrent };
 }

@@ -14,6 +14,7 @@ import {
   seedChatListCacheForTest,
 } from "@/features/chat/model/chatListCache";
 import { readStoredChatList } from "@/features/chat/model/chatListFile";
+import { CHAT_LIST_STALE_MS } from "@/features/chat/drawer/drawerChatList";
 import { allChatsFromGroups, emptyChatList } from "@/features/chat/model/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/features/chat/drawer/drawer";
 import { emitAppEvent } from "@/lib/appEvents";
@@ -203,17 +204,37 @@ describe("a chat started on another device", () => {
   afterEach(() => jest.restoreAllMocks());
 
   // 2026-11-08 feature test: every open read the list again, ten GET /chats in one run,
-  // nearly all 304. An open shows the rows held unless this phone changed a chat since.
-  it("is not read for again when the drawer opens with no chat changed, however old the list", async () => {
+  // nearly all 304. An open within the list's stale window (20 s) shows the rows held.
+  it("is not read for again when the drawer opens with no chat changed within the stale window", async () => {
     seedChatListCacheForTest(initial);
     const view = await render(<Probe open={false} />);
-    later(10 * 60_000);
+    later(CHAT_LIST_STALE_MS - 1_000);
     for (let open = 0; open < 3; open += 1) {
       await act(async () => { await view.rerender(<Probe open />); });
       await act(async () => { await view.rerender(<Probe open={false} />); });
     }
     expect(api.listChats).not.toHaveBeenCalled();
     expect(current.allChats).toEqual([chat]);
+  });
+
+  // Pre-launch review 2026-11-27: past the stale window the drawer read nothing on open, and a
+  // chat started on the laptop showed only after a pull or a return from the background.
+  it("is read once behind the rows on the first open past the stale window, then not again", async () => {
+    seedChatListCacheForTest(initial);
+    const view = await render(<Probe open={false} />);
+    later(10 * 60_000);
+    (api.listChats as jest.Mock).mockResolvedValueOnce(phone);
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(1);
+    // Behind the rows: no spinner over the chats shown.
+    expect(current.loading).toBe(false);
+    await act(async () => { await Promise.resolve(); });
+    expect(current.allChats.map((row) => row.id)).toEqual(["phone", "old"]);
+    for (let open = 0; open < 3; open += 1) {
+      await act(async () => { await view.rerender(<Probe open={false} />); });
+      await act(async () => { await view.rerender(<Probe open />); });
+    }
+    expect(api.listChats).toHaveBeenCalledTimes(1);
   });
 
   it("is read behind the rows on the open after this phone changed a chat, and not on the next", async () => {
@@ -248,7 +269,8 @@ describe("a chat started on another device", () => {
     for (let open = 0; open < 4; open += 1) {
       await act(async () => { await view.rerender(<Probe open />); });
       await act(async () => { await view.rerender(<Probe open={false} />); });
-      later(21_000 * (open + 1));
+      // Within the list's stale window: only the missing title reads it.
+      later(4_000);
     }
     expect(api.listChats).toHaveBeenCalledTimes(2);
     expect(getCachedChat("new")?.title).toBe("Late title");
@@ -263,8 +285,13 @@ describe("a chat started on another device", () => {
     await act(async () => { await view.rerender(<Probe open />); });
     await act(async () => { await view.rerender(<Probe open={false} />); });
     later(2 * 60_000 + 1);
+    // The list is past its stale window: this open reads it once, as any open would.
     await act(async () => { await view.rerender(<Probe open />); });
-    expect(api.listChats).toHaveBeenCalledTimes(1);
+    await act(async () => { await view.rerender(<Probe open={false} />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
+    // The title still missing no longer reads it on each open.
+    await act(async () => { await view.rerender(<Probe open />); });
+    expect(api.listChats).toHaveBeenCalledTimes(2);
   });
 
   it.each([
