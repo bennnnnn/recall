@@ -3,7 +3,8 @@
  * (apps/api modules/account/api.py delete_me), so every delete the phone sends carries the
  * confirmation, spelled as the API reads it.
  */
-import { ACCOUNT_DELETE_CONFIRMATION, accountApi } from "@/features/account/api";
+import { accountApi } from "@/features/account/api";
+import { DELETE_CONFIRMATION } from "@/lib/api/confirmedDelete";
 import { request } from "@/lib/api/client";
 
 jest.mock("@/lib/api/client", () => ({
@@ -33,6 +34,6 @@ it.each([
 });
 
 it("spells the confirmation as the API reads it", () => {
-  const source = readFileSync(join(__dirname, "../../../../api/app/models/schemas/auth.py"), "utf8");
-  expect(source).toContain(`ACCOUNT_DELETE_CONFIRMATION = "${ACCOUNT_DELETE_CONFIRMATION}"`);
+  const source = readFileSync(join(__dirname, "../../../../api/app/core/delete_confirmation.py"), "utf8");
+  expect(source).toContain(`DELETE_CONFIRMATION = "${DELETE_CONFIRMATION}"`);
 });

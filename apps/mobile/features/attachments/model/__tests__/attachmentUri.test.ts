@@ -12,6 +12,18 @@ it("builds one canonical API path with a configured base path and trailing slash
     .toBe("https://api.test/v1/attachments/abc/file?w=300");
 });
 
+// An id is one segment of its path: it can neither climb to another route nor add a query.
+it.each([
+  ["../../chats", "https://api.test/v1/attachments/..%2F..%2Fchats/file"],
+  ["a?w=1#x", "https://api.test/v1/attachments/a%3Fw%3D1%23x/file"],
+])("keeps the attachment id %j one segment", (attachmentId, uri) => {
+  expect(resolveAttachmentUri({ attachmentId })).toBe(uri);
+});
+
+it.each(["..", "."])("names no file for the attachment id %j", (attachmentId) => {
+  expect(resolveAttachmentUri({ attachmentId })).toBeNull();
+});
+
 it("caps a thumbnail width at what the API accepts (a tablet tile asks for more)", () => {
   expect(MAX_ATTACHMENT_THUMB_WIDTH).toBe(512);
   expect(attachmentThumbWidth(900)).toBe(512);

@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Recall कैमरे का इस्तेमाल करता है, ताकि आप चैट में जोड़ने के लिए फ़ोटो ले सकें और अपने नोट्स या वर्कशीट से गणित के सवाल स्कैन कर सकें।",
+    "NSMicrophoneUsageDescription": "Recall माइक्रोफ़ोन का इस्तेमाल करता है, ताकि आप बोलकर संदेश लिख सकें और Live talk में Recall से बात कर सकें।",
+    "NSPhotoLibraryUsageDescription": "चैट में तस्वीरें जोड़ने के लिए Recall को आपकी फ़ोटो तक पहुँच चाहिए।",
+    "NSPhotoLibraryAddUsageDescription": "जब आप डाउनलोड करें पर टैप करते हैं, तो Recall बनाई गई और चैट की तस्वीरें आपकी फ़ोटो लाइब्रेरी में सहेजता है।",
+    "NSLocationWhenInUseUsageDescription": "Recall स्थानीय समय के लिए और आप कहाँ हैं इसका जवाब देने के लिए आपकी लोकेशन का इस्तेमाल करता है।"
+  }
+}

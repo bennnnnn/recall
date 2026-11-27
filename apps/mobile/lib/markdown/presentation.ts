@@ -21,7 +21,7 @@ import { holdBackPendingTableHeader } from "@/lib/markdown/streamTableHold";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 import { currencyDollarAt } from "@/lib/math/proseDollars";
 import { unfinishedFormulaAt } from "@/lib/math/streaming";
-import { isServerMessageId } from "@/lib/serverMessageId";
+import { isServerId } from "@/lib/serverId";
 
 /**
  * Assistant rows saved from this instant on were presented by the API with
@@ -44,7 +44,7 @@ export function isServerPresentedRow(row: {
   id: string;
   created_at: string;
 }): boolean {
-  if (!isServerMessageId(row.id)) return false;
+  if (!isServerId(row.id)) return false;
   const created = Date.parse(row.created_at);
   return Number.isFinite(created) && created >= SERVER_PRESENTATION_CUTOVER;
 }

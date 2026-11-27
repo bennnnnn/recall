@@ -12,11 +12,13 @@ from pydantic import (
     field_validator,
 )
 
+from app.core.delete_confirmation import DeleteConfirmation
 from app.core.validation import (
     LOCALE_NAMES,
     normalize_avatar_url,
     normalize_display_name,
     normalize_locale_code,
+    supported_locale_code,
 )
 from app.models.model_removal import current_choices, requested_choice
 from app.models.schemas.common import (
@@ -291,8 +293,8 @@ class UserUpdate(BaseModel):
         # custom_instructions blank-clears behavior.
         if not value.strip():
             return None
-        code = normalize_locale_code(value)
-        if code not in LOCALE_NAMES:
+        code = supported_locale_code(value)
+        if code is None:
             supported = ", ".join(sorted(LOCALE_NAMES))
             raise ValueError(f"Unsupported locale code. Supported: {supported}.")
         return code
@@ -328,6 +330,14 @@ class SignInRequest(DeviceSessionIn):
     # page), so the tap is the agreement and the sign-in records ``ai_data_consent_at``.
     # Absent (an older phone, the web): consent is asked after sign-in, as before.
     ai_data_consent: bool = False
+    # The language the sign-in page was shown in (the phone's own, when Recall has it).
+    # Only a new account takes it; one it cannot use is dropped, never a refused sign-in.
+    locale: str | None = None
+
+    @field_validator("locale")
+    @classmethod
+    def _supported_locale(cls, value: str | None) -> str | None:
+        return supported_locale_code(value)
 
 
 class GoogleAuthRequest(SignInRequest):
@@ -392,14 +402,9 @@ class LogoutRequest(BaseModel):
     expo_push_token: str | None = Field(default=None, min_length=8, max_length=512)
 
 
-# What a delete request says to mean it (``DELETE /auth/me``): the phone's confirm dialog
-# sends it, so a bearer token alone, replayed or sent by mistake, deletes nothing.
-ACCOUNT_DELETE_CONFIRMATION = "delete"
-
-
-class AccountDeleteRequest(BaseModel):
-    # ``ACCOUNT_DELETE_CONFIRMATION``, or the request is refused 400 ``confirm_required``.
-    confirm: str | None = Field(default=None, max_length=32)
+class AccountDeleteRequest(DeleteConfirmation):
+    # ``confirm`` says it means it (core/delete_confirmation.py): the phone's confirm dialog
+    # sends it, so a bearer token alone, replayed or sent by mistake, deletes nothing.
     # A fresh Sign in with Apple code (Apple-linked accounts on iOS); the
     # server trades it for the user's Apple token and revokes that.
     apple_authorization_code: str | None = Field(default=None, max_length=2048)

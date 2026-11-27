@@ -213,7 +213,6 @@ const NO_ACCOUNT_DATA = [
   "lib/datetime/format.ts#formatters",
   "lib/datetime/format.ts#phoneClock",
   "lib/datetime/format.ts#wallClockFormatters",
-  "lib/datetime/phoneClock.ts#localization",
   "lib/fence/registry.ts#BY_ID",
   "lib/fence/registry.ts#BY_LANG",
   "lib/foregroundRefresh.ts#away",
@@ -234,6 +233,9 @@ const NO_ACCOUNT_DATA = [
   "lib/math/svgMath.ts#rendererPromise",
   "lib/preview/previewPageFile.ts#pageFiles",
   "lib/networkProbe.ts#netInfoConfigured",
+  // The phone's localization module and whether its failure was said: the same for every account.
+  "lib/phoneLocalization.ts#failureSaid",
+  "lib/phoneLocalization.ts#localization",
   "lib/productAnalytics.ts#flushOnBackground",
   "lib/productAnalytics.ts#flushTimer",
   "features/billing/model/purchases.ts#purchasesModule",

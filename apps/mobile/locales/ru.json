@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Recall использует камеру, чтобы вы могли делать фото для чата и сканировать задачи по математике из конспектов или рабочих листов.",
+    "NSMicrophoneUsageDescription": "Recall использует микрофон, чтобы вы могли диктовать сообщения и говорить с Recall в Live talk.",
+    "NSPhotoLibraryUsageDescription": "Recall нужен доступ к вашим фото, чтобы вы могли прикреплять изображения в чате.",
+    "NSPhotoLibraryAddUsageDescription": "Recall сохраняет созданные изображения и изображения из чата в вашу медиатеку, когда вы нажимаете «Скачать».",
+    "NSLocationWhenInUseUsageDescription": "Recall использует ваше местоположение для местного времени и чтобы ответить, где вы находитесь."
+  }
+}

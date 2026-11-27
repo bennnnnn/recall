@@ -11,7 +11,7 @@ import { useMessageFeedback } from "@/features/chat/hooks/useMessageFeedback";
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/fence/scan";
 import type { EmailDraft } from "@/lib/richBlocks";
-import { isServerMessageId } from "@/lib/serverMessageId";
+import { isServerId } from "@/lib/serverId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { useLatestRef } from "@/lib/latestRef";
@@ -69,7 +69,7 @@ export function useChatActions({
 
   const handleSaveEmailDraft = useCallback(
     (messageId: string, draft: EmailDraft): Promise<boolean> => {
-      if (!token || !chatId || !isServerMessageId(messageId)) return Promise.resolve(false);
+      if (!token || !chatId || !isServerId(messageId)) return Promise.resolve(false);
       const fenceBody = fullEmailText(draft);
       const message = messagesRef.current.find((m) => m.id === messageId);
       if (!message || message.role !== "assistant" ||

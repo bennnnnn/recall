@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Recall, sohbete eklemek için fotoğraf çekebilmen ve notlarından ya da çalışma kâğıtlarından matematik sorularını tarayabilmen için kamerayı kullanır.",
+    "NSMicrophoneUsageDescription": "Recall, mesajlarını sesle yazdırabilmen ve Live talk'ta Recall ile konuşabilmen için mikrofonu kullanır.",
+    "NSPhotoLibraryUsageDescription": "Recall, sohbete görsel ekleyebilmen için fotoğraflarına erişmek ister.",
+    "NSPhotoLibraryAddUsageDescription": "Recall, İndir'e dokunduğunda oluşturulan ve sohbetteki görselleri fotoğraf arşivine kaydeder.",
+    "NSLocationWhenInUseUsageDescription": "Recall, yerel saat için ve nerede olduğunu yanıtlamak için konumunu kullanır."
+  }
+}

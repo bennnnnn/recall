@@ -21,7 +21,7 @@ let mockList: {
   onRefresh: () => Promise<void>; refreshing: boolean; rows: TodoListRow[];
   onOpen: (row: { id: string; content: string }) => void; onSelect: (row: { id: string }) => void;
   completedOpen: boolean; onToggleCompleted: () => void; revealId?: string | null; onRevealed?: () => void;
-  onShowOlder?: () => void;
+  onShowOlder?: () => void; highlight?: string;
 };
 let mockHeader: { onRetry: () => void; showEmpty: boolean; allDone?: boolean };
 let mockOlderCompleted = false;
@@ -236,24 +236,38 @@ it("opens on one list of every to-do, overdue first and completed last, folded",
   expect(mockList.completedOpen).toBe(false);
 });
 
+/** A to-do the server made: a notification or link names it by this id. */
+const DUE_ID = "0d4f6a52-91b3-4c1e-a7e2-3f5b8c9d1e20";
+
 it("opens the reminder a due notification points at, and brings its row on screen for the way back", async () => {
-  const due = todoAt("todo-1", 0);
+  const due = todoAt(DUE_ID, 0);
   mockTodos = [todoAt("other", null), due];
-  mockRouteParams = { highlight: "todo-1" };
+  mockRouteParams = { highlight: DUE_ID };
   await render(<TodosScreen />);
   expect(mockOpenTodo).toHaveBeenCalledWith(due);
-  expect(mockList.revealId).toBe("todo-1");
+  expect(mockList.highlight).toBe(DUE_ID);
+  expect(mockList.revealId).toBe(DUE_ID);
   expect(mockList.completedOpen).toBe(false);
   await act(() => { mockList.onRevealed?.(); });
   expect(mockList.revealId).toBeNull();
 });
 
 it("opens Completed first when the reminder it points at is done", async () => {
-  mockTodos = [todoAt("todo-1", -1, true)];
-  mockRouteParams = { highlight: "todo-1" };
+  mockTodos = [todoAt(DUE_ID, -1, true)];
+  mockRouteParams = { highlight: DUE_ID };
   await render(<TodosScreen />);
   expect(mockList.completedOpen).toBe(true);
-  expect(mockList.revealId).toBe("todo-1");
+  expect(mockList.revealId).toBe(DUE_ID);
+});
+
+// A link can carry any text: only a server id opens a to-do (pre-launch review B1).
+it.each(["todo-1", "../todos", "..%2Ftodos", `${DUE_ID}/x`])("opens nothing for the link highlight %s", async (highlight) => {
+  mockTodos = [todoAt(highlight, 0), todoAt(DUE_ID, 0)];
+  mockRouteParams = { highlight };
+  await render(<TodosScreen />);
+  expect(mockOpenTodo).not.toHaveBeenCalled();
+  // And no row is lit for it, the row whose id is that text included.
+  expect(mockList.highlight).toBeUndefined();
 });
 
 // A to-do added on Today that Today hid switched the list to another view and said so; in one

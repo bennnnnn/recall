@@ -3,6 +3,7 @@ import { clientGeoWsFields } from "@/features/chat/model/clientGeo";
 import { markChatTtftTransport } from "@/features/chat/model/latency";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { requestSse } from "@/lib/api/client";
+import { apiPath } from "@/lib/api/path";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { responseRequestId } from "@/lib/api/requestId";
 import { parseChatWsPayload } from "@/features/chat/model/socketReduce";
@@ -160,7 +161,7 @@ export function parseSseChunk(buffer: string): { events: ChatSsePayload[]; rest:
 export async function streamChatMessageSse(
   options: StreamChatMessageOptions,
 ): Promise<void> {
-  await streamChatSseRequest(`/chats/${options.chatId}/messages/stream`, options, {
+  await streamChatSseRequest(apiPath`/chats/${options.chatId}/messages/stream`, options, {
     content: options.content,
     attachment_ids: options.attachmentIds ?? [],
     ...(options.clientMessageId ? { client_message_id: options.clientMessageId } : {}),
@@ -170,5 +171,5 @@ export async function streamChatMessageSse(
 export async function streamChatRegenerateSse(
   options: StreamChatSseClient,
 ): Promise<void> {
-  await streamChatSseRequest(`/chats/${options.chatId}/regenerate/stream`, options);
+  await streamChatSseRequest(apiPath`/chats/${options.chatId}/regenerate/stream`, options);
 }

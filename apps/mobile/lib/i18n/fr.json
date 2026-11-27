@@ -402,7 +402,7 @@
   "gallery.title": "Bibliothèque",
   "gallery.use_in_chat": "Utiliser dans le chat",
   "gallery.viewer_image_a11y": "{{name}}, {{index}} sur {{count}}",
-  "login.agree_line": "En continuant, vous acceptez les <terms>Conditions</terms> et la <privacy>Politique de confidentialité</privacy>.",
+  "login.agree_line": "En continuant, vous acceptez que des services externes d'IA et de recherche, comme OpenAI et Anthropic via OpenRouter, répondent à vos messages, fichiers et voix, ainsi que les <terms>Conditions</terms> et la <privacy>Politique de confidentialité</privacy>.",
   "login.apple": "Continuer avec Apple",
   "login.dev": "Continuer en tant que Dev",
   "login.dev_expo_hint": "Google Sign-In nécessite une build de développement. La connexion Dev fonctionne dans Expo Go.",
