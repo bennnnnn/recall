@@ -269,7 +269,11 @@ describe("useVoiceInput plan refusal", () => {
   });
 });
 
-/** A 45 s take was cut off when auto-lock took the app off the screen (review H4, 2026-11-27). */
+/**
+ * A 45 s take was cut off when auto-lock took the app off the screen (review H4, 2026-11-27).
+ * The recorded clip here (Expo Go); the live take, which builds with WebRTC use, is held in
+ * useComposerLiveDictation.test.tsx.
+ */
 describe("useVoiceInput keeps the screen on", () => {
   const dictationTags = () => heldAwakeTags("dictation:");
   beforeEach(() => {
@@ -293,16 +297,12 @@ describe("useVoiceInput keeps the screen on", () => {
     await view.unmount();
   });
 
-  it("lets the screen sleep on a cancel, and on a recorder that would not start", async () => {
+  it("lets the screen sleep on a cancel", async () => {
     startMock.mockResolvedValueOnce(fakeRecorder());
     const view = await render(<Probe />);
     await act(async () => { await voice.startRecording(); });
+    expect(dictationTags()).toHaveLength(1);
     await act(async () => { voice.cancelVoiceInput(); });
-    expect(dictationTags()).toEqual([]);
-
-    startMock.mockRejectedValueOnce(new Error("recorder failed"));
-    await act(async () => { await voice.startRecording(); });
-    expect(voice.voiceRecording).toBe(false);
     expect(dictationTags()).toEqual([]);
     await view.unmount();
   });

@@ -86,18 +86,28 @@ describe("live talk keeps the screen on", () => {
     await view.unmount();
   });
 
-  it("lets the screen sleep when the call fails to start", async () => {
-    jest.mocked(createRealtimeVoiceSession).mockRejectedValueOnce(new Error("webrtc_unavailable"));
+  it("holds the screen on while the call connects, and lets it sleep when it fails", async () => {
+    let fail!: (error: Error) => void;
+    jest.mocked(createRealtimeVoiceSession).mockImplementationOnce(
+      () => new Promise((_resolve, reject) => { fail = reject; }),
+    );
     const view = await render(<Probe />);
+    let opening!: Promise<void>;
     await act(async () => {
-      await live.open();
+      opening = live.open();
+    });
+    // The sheet is up and WebRTC still connecting: the screen is held already.
+    expect(live.visible).toBe(true);
+    expect(liveTalkTags()).toHaveLength(1);
+    const [tag] = liveTalkTags();
+
+    await act(async () => {
+      fail(new Error("webrtc_unavailable"));
+      await opening;
     });
     expect(live.visible).toBe(false);
+    expect(deactivateKeepAwake).toHaveBeenCalledWith(tag);
     expect(liveTalkTags()).toEqual([]);
-    // A hold the start took is given back, never left behind.
-    expect(jest.mocked(activateKeepAwakeAsync).mock.calls.length).toBe(
-      jest.mocked(deactivateKeepAwake).mock.calls.length,
-    );
     await view.unmount();
   });
 

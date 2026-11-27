@@ -154,7 +154,9 @@ jestGlobals.mock("expo-haptics", () => ({
 }));
 
 // expo-keep-awake is a native module; live talk, dictation and a picture's wait hold it
-// (lib/keepAwake.ts). Tests that check the holds mock it themselves.
+// (lib/keepAwake.ts). The component tests that check the holds read this mock's calls
+// (lib/__tests__/support/screenAwake.ts); only the lib project, which loads no setup file,
+// mocks it itself (signOutCleanup.test.ts).
 jestGlobals.mock("expo-keep-awake", () => ({
   activateKeepAwakeAsync: jestGlobals.fn(async () => undefined),
   deactivateKeepAwake: jestGlobals.fn(async () => undefined),
