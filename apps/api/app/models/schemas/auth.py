@@ -12,6 +12,7 @@ from pydantic import (
     field_validator,
 )
 
+from app.core.delete_confirmation import DeleteConfirmation
 from app.core.validation import (
     LOCALE_NAMES,
     normalize_avatar_url,
@@ -392,14 +393,9 @@ class LogoutRequest(BaseModel):
     expo_push_token: str | None = Field(default=None, min_length=8, max_length=512)
 
 
-# What a delete request says to mean it (``DELETE /auth/me``): the phone's confirm dialog
-# sends it, so a bearer token alone, replayed or sent by mistake, deletes nothing.
-ACCOUNT_DELETE_CONFIRMATION = "delete"
-
-
-class AccountDeleteRequest(BaseModel):
-    # ``ACCOUNT_DELETE_CONFIRMATION``, or the request is refused 400 ``confirm_required``.
-    confirm: str | None = Field(default=None, max_length=32)
+class AccountDeleteRequest(DeleteConfirmation):
+    # ``confirm`` says it means it (core/delete_confirmation.py): the phone's confirm dialog
+    # sends it, so a bearer token alone, replayed or sent by mistake, deletes nothing.
     # A fresh Sign in with Apple code (Apple-linked accounts on iOS); the
     # server trades it for the user's Apple token and revokes that.
     apple_authorization_code: str | None = Field(default=None, max_length=2048)

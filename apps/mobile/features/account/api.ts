@@ -4,9 +4,6 @@ import { apiPath, withQuery } from "@/lib/api/path";
 import type { AuthSession, User } from "@/lib/api/types";
 import type { PaidPlanId } from "@/lib/plan";
 
-/** What a delete says to mean it (apps/api models/schemas/auth.py ACCOUNT_DELETE_CONFIRMATION). */
-export const ACCOUNT_DELETE_CONFIRMATION = DELETE_CONFIRMATION;
-
 type SettingsProposalApplied = {
   field: string;
   value: string;
@@ -39,7 +36,7 @@ export const accountApi = {
   exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
   /**
    * Called only after the user confirmed it, and says so: the server deletes nothing without
-   * `confirm` (apps/api account/api.py delete_me). With a fresh Sign in with Apple code, the
+   * `confirm` (apps/api core/delete_confirmation.py). With a fresh Sign in with Apple code, the
    * server also revokes the Apple grant.
    */
   deleteAccount: (token: string, appleAuthorizationCode?: string | null) =>
@@ -49,7 +46,7 @@ export const accountApi = {
       {
         method: "DELETE",
         body: JSON.stringify({
-          confirm: ACCOUNT_DELETE_CONFIRMATION,
+          confirm: DELETE_CONFIRMATION,
           ...(appleAuthorizationCode ? { apple_authorization_code: appleAuthorizationCode } : {}),
         }),
       },

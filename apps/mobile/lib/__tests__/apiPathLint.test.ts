@@ -34,6 +34,9 @@ describe("API path lint", () => {
     "export const a = requestRevalidated(`/todos/${id}`, token);",
     'export const a = request("/chats/" + id, token);',
     "export const path = `/chats/${id}/messages`;",
+    // After an origin: the template starts with a value, the path comes after it.
+    "export const url = `${token}/attachments/${id}/file`;",
+    "export const url = `${token}${token}/ws/chats/${id}`;",
   ])("flags the raw path in %s", (body) => {
     expect(flagged(body)).toBe(true);
   });
@@ -47,7 +50,9 @@ describe("API path lint", () => {
     "export const a = request(apiPath`/chats/${id}`, token);",
     'export const a = request(withQuery(apiPath`/chats/${id}`, { if_empty: true }), token);',
     'export const a = request(withQuery("/link-preview", { url: id }), token);',
-    // Not one of our paths: a cache file, a label.
+    "export const url = `${token}${apiPath`/attachments/${id}/file`}`;",
+    // A path with no value after it, and what is not one of our paths: a cache file.
+    "export const url = `${token}/health`;",
     "export const file = `${id}.json`;",
   ])("allows %s", (body) => {
     expect(flagged(body)).toBe(false);

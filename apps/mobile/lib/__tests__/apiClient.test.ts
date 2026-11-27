@@ -12,6 +12,8 @@ import {
   setTokenRefreshHandler,
   setUnauthorizedHandler,
 } from "@/lib/api/client";
+import { apiPath } from "@/lib/api/path";
+import { chatsApi } from "@/features/chat/api";
 
 jest.mock("@/lib/config", () => ({
   getApiUrl: () => "http://test.local",
@@ -744,5 +746,27 @@ describe("revalidated reads (NET-16)", () => {
     mockFetch.mockResolvedValueOnce(withEtag({ items: ["b"] }, 'W/"b"'));
     await expect(requestRevalidated("/chats?who", "access")).resolves.toEqual({ items: ["b"] });
     expect(mockFetch.mock.calls[1][1].headers["If-None-Match"]).toBeUndefined();
+  });
+});
+
+// A path apiPath built from a value that cannot be a segment (`..` resolves as a climb, encoded
+// or not) is refused unsent, as a 404: a chat link's `..` once made DELETE /chats (review B1).
+describe("refused paths (B1)", () => {
+  const climb = "..";
+
+  it.each([
+    ["request", () => request(apiPath`/chats/${climb}`, "access", { method: "DELETE" })],
+    ["requestRevalidated", () => requestRevalidated(apiPath`/chats/${climb}/messages`, "access")],
+    ["requestSse", () => requestSse(apiPath`/chats/${climb}/messages/stream`, "access", {})],
+  ])("%s sends nothing for it and answers 404 not_found", async (_name, call) => {
+    const refused = await call().then(() => null, (error: unknown) => error);
+    expect(refused).toBeInstanceOf(ApiRequestError);
+    expect(refused).toMatchObject({ status: 404, code: "not_found" });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["..", ".", ""])("the empty-chat tidy for the chat %j sends nothing", async (chat) => {
+    await expect(chatsApi.deleteChatIfEmpty("access", chat)).rejects.toMatchObject({ status: 404 });
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

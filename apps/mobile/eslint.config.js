@@ -247,12 +247,14 @@ const recallRules = {
               context.report({ node: path, messageId: "raw" });
             }
           },
-          // A path built ahead of its call (`const path = \`/chats/${id}\``) is as raw.
+          // A path built ahead of its call (`const path = \`/chats/${id}\``) is as raw, and so is
+          // one after an origin (`\`${getApiUrl()}/attachments/${id}/file\``): any part that
+          // starts like one of our paths and has a value after it.
           TemplateLiteral(node) {
-            if (node.parent.type === "TaggedTemplateExpression" || node.expressions.length === 0) return;
-            if (API_PATH_START.test(node.quasis[0].value.cooked ?? "")) {
-              context.report({ node, messageId: "raw" });
-            }
+            if (node.parent.type === "TaggedTemplateExpression") return;
+            const raw = node.quasis.some((quasi, index) =>
+              index < node.expressions.length && API_PATH_START.test(quasi.value.cooked ?? ""));
+            if (raw) context.report({ node, messageId: "raw" });
           },
         };
       },

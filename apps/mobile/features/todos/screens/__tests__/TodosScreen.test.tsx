@@ -21,7 +21,7 @@ let mockList: {
   onRefresh: () => Promise<void>; refreshing: boolean; rows: TodoListRow[];
   onOpen: (row: { id: string; content: string }) => void; onSelect: (row: { id: string }) => void;
   completedOpen: boolean; onToggleCompleted: () => void; revealId?: string | null; onRevealed?: () => void;
-  onShowOlder?: () => void;
+  onShowOlder?: () => void; highlight?: string;
 };
 let mockHeader: { onRetry: () => void; showEmpty: boolean; allDone?: boolean };
 let mockOlderCompleted = false;
@@ -245,6 +245,7 @@ it("opens the reminder a due notification points at, and brings its row on scree
   mockRouteParams = { highlight: DUE_ID };
   await render(<TodosScreen />);
   expect(mockOpenTodo).toHaveBeenCalledWith(due);
+  expect(mockList.highlight).toBe(DUE_ID);
   expect(mockList.revealId).toBe(DUE_ID);
   expect(mockList.completedOpen).toBe(false);
   await act(() => { mockList.onRevealed?.(); });
@@ -265,6 +266,8 @@ it.each(["todo-1", "../todos", "..%2Ftodos", `${DUE_ID}/x`])("opens nothing for 
   mockRouteParams = { highlight };
   await render(<TodosScreen />);
   expect(mockOpenTodo).not.toHaveBeenCalled();
+  // And no row is lit for it, the row whose id is that text included.
+  expect(mockList.highlight).toBeUndefined();
 });
 
 // A to-do added on Today that Today hid switched the list to another view and said so; in one
