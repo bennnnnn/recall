@@ -5,7 +5,7 @@
  * their SVG renderers so densified point dumps never become a wall of JSON;
  * those load on first use, as in the rich renderer, so the chat screen never
  * loads them (or Skia) at launch through this fallback.
- * Sources, places, answers, and heavy visuals degrade to a short summary.
+ * Sources, answers, and heavy visuals degrade to a short summary.
  */
 import { useMemo } from "react";
 import Markdown, {
@@ -130,13 +130,11 @@ function renderFallbackFence(
       </View>
     );
   }
-  if (classified.kind === "sources" || classified.kind === "places") {
+  if (classified.kind === "sources") {
     if (classified.items.length === 0) return null;
     return (
       <View key={node.key} style={calloutStyles.wrap}>
-        {classified.kind === "sources" ? (
-          <Text style={calloutStyles.label}>{t("rich.source")}</Text>
-        ) : null}
+        <Text style={calloutStyles.label}>{t("rich.source")}</Text>
         {classified.items.map((item, index) => (
           <Text key={`${item.title}-${index}`} style={calloutStyles.body} selectable>
             {item.url ? `${item.title} (${item.url})` : item.title}

@@ -268,7 +268,6 @@ def turn_record(
             solver=_solver(ctx),
             money=_money(ctx),
             search_hits=len(ctx.search_sources),
-            local_places=ctx.local_places,
             recalled=ctx.recalled_count,
             summarized=ctx.context_summarized,
             prior_messages=ctx.prior_count,

@@ -84,7 +84,6 @@ class ClientGeoContext:
     has_geo_fix: bool
     geo_query: bool
     ambiguous_nearby: bool
-    local_places: bool
     # When the phone saved ``user_location``, for a place the turn read from the profile
     # that is no longer current (``saved_place``); None when it is.
     place_as_of: datetime | None = None
@@ -142,10 +141,7 @@ def resolve_client_geo(
     client_lat = client_coordinates[0] if client_coordinates else None
     client_lng = client_coordinates[1] if client_coordinates else None
     has_geo_fix = bool(user_location) or client_coordinates is not None
-    local_places = web_search_service.is_places_list_query(content)
     ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
-    if ambiguous_nearby:
-        local_places = False
     return ClientGeoContext(
         user_location=user_location,
         client_lat=client_lat,
@@ -153,6 +149,5 @@ def resolve_client_geo(
         has_geo_fix=has_geo_fix,
         geo_query=geo_query or location_question,
         ambiguous_nearby=ambiguous_nearby,
-        local_places=local_places,
         place_as_of=place_as_of,
     )

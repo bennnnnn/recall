@@ -1,0 +1,35 @@
+{
+  "about": "Where a name the reply marks to look up, [Name](check \"City\"), opens when no search result is its own site: a Google Maps search for the name and its city when it gives one, else a Google search for the name. The server places it when the reply is saved (apps/api/app/modules/chat/name_links.py, test_reply_links.py); the phone opens a marked name the same way while the reply streams (apps/mobile/lib/markdown/replyLinks.ts, lib/__tests__/replyLinks.test.ts). Each address is encoded as encodeURIComponent encodes it.",
+  "cases": [
+    {
+      "id": "restaurant-with-city",
+      "name": "Zuni Café",
+      "city": "San Francisco",
+      "url": "https://www.google.com/maps/search/?api=1&query=Zuni%20Caf%C3%A9%2C%20San%20Francisco"
+    },
+    {
+      "id": "ampersand-and-apostrophe",
+      "name": "Ben & Jerry's",
+      "city": "Burlington, VT",
+      "url": "https://www.google.com/maps/search/?api=1&query=Ben%20%26%20Jerry's%2C%20Burlington%2C%20VT"
+    },
+    {
+      "id": "book-no-city",
+      "name": "Atomic Habits",
+      "city": "",
+      "url": "https://www.google.com/search?q=Atomic%20Habits"
+    },
+    {
+      "id": "product-with-symbols",
+      "name": "Pixel 9a (128 GB)",
+      "city": "",
+      "url": "https://www.google.com/search?q=Pixel%209a%20(128%20GB)"
+    },
+    {
+      "id": "amharic-place",
+      "name": "ቶሞካ ቡና",
+      "city": "Addis Ababa",
+      "url": "https://www.google.com/maps/search/?api=1&query=%E1%89%B6%E1%88%9E%E1%8A%AB%20%E1%89%A1%E1%8A%93%2C%20Addis%20Ababa"
+    }
+  ]
+}

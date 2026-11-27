@@ -7,8 +7,7 @@ import type { MdImgStyles, StyleMap } from "@/components/markdown/markdownConten
 import { TapToLoadImage } from "@/components/markdown/TapToLoadImage";
 import { imageLoadPolicy } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { openPlaceLink } from "@/lib/places/openPlaceLink";
-import { isGenericSearchUrl } from "@/lib/places/placesList";
+import { replyLinkUrl } from "@/lib/markdown/replyLinks";
 
 export function linkRules(mdImg: MdImgStyles) {
   return {
@@ -43,21 +42,17 @@ export function linkRules(mdImg: MdImgStyles) {
       styles: StyleMap,
     ) => {
       const href = node.attributes?.href ?? "";
-      const label = astText(node);
+      const title = node.attributes?.title ?? "";
       return (
         <Text
           key={node.key}
           style={styles.link}
           accessibilityRole="link"
           onPress={() => {
-            // Reject javascript:/data:/file:/etc. before handing to the OS link
-            // handler — model-emitted markdown can include arbitrary URLs and
-            // Linking.openURL executes the payload on some platforms.
-            if (isGenericSearchUrl(href)) {
-              void openPlaceLink(href, label);
-            } else {
-              void openAllowedUrl(href);
-            }
+            // A name still marked to look up (the reply is streaming) opens Maps or a
+            // search (`replyLinks.ts`). The scheme guard rejects javascript:/data:/file:
+            // before the OS link handler: Linking.openURL runs the payload on some platforms.
+            void openAllowedUrl(replyLinkUrl(href, astText(node), title));
           }}
           suppressHighlighting
         >

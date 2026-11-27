@@ -7,7 +7,6 @@ restaurants in Addis Ababa" lost the venue lists under its headings to one (2026
 
 from __future__ import annotations
 
-import json
 from uuid import uuid4
 
 from app.core.config import Settings
@@ -18,7 +17,6 @@ from app.modules.chat.finalize_text import add_search_sources
 from app.modules.chat.quality import detect_quality_issues
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
-from app.services.md_fence_scan import iter_closed_fences
 from app.tests.modules.chat.chat_test_support import turn_deps
 
 _ARTICLES = [
@@ -49,7 +47,6 @@ def _state(reply: str) -> FinalizeState:
         reserved_tokens=0,
         max_output_tokens=0,
         search_sources=list(_ARTICLES),
-        local_places=True,
     )
     return FinalizeState(
         deps=turn_deps(web_search=web_search_service),
@@ -93,47 +90,3 @@ def test_the_venue_lists_under_the_headings_stay() -> None:
     assert "1. **Yod Abyssinia**" in prose
     assert "2. **Sishu** — burgers in Bole" in prose
     assert "```places" not in out
-
-
-def test_a_card_keeps_only_the_addresses_its_pages_give() -> None:
-    card = [
-        {
-            "name": "Copra",
-            "url": "https://www.google.com/maps/search/?api=1&query=Copra%2C+725+Columbus+Avenue",
-            "note": "Indian, Japantown",
-            "address": "725 Columbus Avenue, San Francisco, CA 94133",
-        },
-        {"name": "Zuni Café", "url": "https://zunicafe.com", "address": "1658 Market St"},
-    ]
-    reply = f"The top pick near you is Copra.\n\n```places\n{json.dumps(card)}\n```\n\nEnjoy!"
-    pages = [
-        WebSearchHit(
-            title="Zuni Café",
-            url="https://zunicafe.com",
-            snippet="Zuni Café, 1658 Market St, San Francisco. Open since 1979.",
-        ),
-        WebSearchHit(
-            title="The best restaurants in San Francisco right now",
-            url="https://www.timeout.com/sf",
-            snippet=(
-                "Copra. Indian. Japantown. 1700 Post St. Srijith Gopinathan's South Indian "
-                "cooking is the most talked-about in town. Book weeks ahead for the tasting "
-                "menu. Liguria Bakery. Focaccia only, sold until it runs out. "
-                "725 Columbus Avenue."
-            ),
-        ),
-    ]
-    state = _state(reply)
-    state.ctx.search_sources = pages
-    out = add_search_sources(state)
-    [(_start, _end, body)] = list(iter_closed_fences(out, "places"))
-    copra, zuni = json.loads(body)
-    assert "address" not in copra
-    assert copra["note"] == "Indian, Japantown"
-    # The Maps link searched the borrowed address; it now finds the name in its town.
-    assert "Columbus" not in copra["url"]
-    assert "Copra%2C%20San%20Francisco%2C%20CA%2094133" in copra["url"]
-    assert zuni["address"] == "1658 Market St"
-    # The card stays where the model wrote it.
-    assert out.startswith("The top pick near you is Copra.\n\n```places\n")
-    assert "\n```\n\nEnjoy!" in out

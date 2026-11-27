@@ -56,7 +56,6 @@ def test_the_prompt_gives_an_old_place_as_the_last_report_and_a_current_one_plai
             has_geo_fix=True,
             geo_query=True,
             ambiguous_nearby=False,
-            local_places=False,
             place_as_of=as_of,
         )
 

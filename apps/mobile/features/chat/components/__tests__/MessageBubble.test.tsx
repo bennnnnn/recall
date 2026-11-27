@@ -46,9 +46,6 @@ jest.mock("@/features/chat/components/SettingsProposalCard", () => ({
 jest.mock("@/features/todos/components/ReminderProposalCard", () => ({
   ReminderProposalCard: () => null,
 }));
-jest.mock("@/components/rich/PlacesListBlock", () => ({
-  PlacesListBlock: () => null,
-}));
 jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({
   ChatMessageImageStrip: () => null,
 }));

@@ -39,7 +39,7 @@ _REFUSAL_PATTERNS = (
 # one-word / empty-ish replies to rich turns.
 _MIN_RICH_REPLY_CHARS = 40
 
-_JSON_FENCE_LANGS = frozenset({"graph", "geometry", "places", "sources"})
+_JSON_FENCE_LANGS = frozenset({"graph", "geometry", "sources"})
 # A line of a worked reply's working: one formula alone ("$v = 15\\,\\mathrm{km/h}$").
 _WORKING_LINE = re.compile(r"[^\S\n]*\$[^$\n]+\$[^\S\n]*")
 # The heading a card sits under: "**Answer**", "**Answer (a)**".

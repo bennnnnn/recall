@@ -151,7 +151,7 @@ _FLOWCHART = (
 
 async def test_conflict_8_flowchart_kept_for_a_ray_diagram() -> None:
     """A ray diagram asked for, nothing drawn by the server: the model's flowchart is the
-    only picture (``mermaid_and_places`` sanitizes it; nothing asks whether it answers)."""
+    only picture (``chart_and_mermaid`` sanitizes it; nothing asks whether it answers)."""
     route, saved = await _finalize(
         "Draw a ray diagram for an object placed between F and 2F of a convex lens.", _FLOWCHART
     )

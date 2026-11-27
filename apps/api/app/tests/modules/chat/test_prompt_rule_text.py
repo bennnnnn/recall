@@ -158,10 +158,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION);
 # then its second round: the reader note deferring to the tap card too, the self-talk rule
 # banning sentences about an earlier reply, never its point said again
-# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence.
-_RULES = 230
-_RULE_GRAMS = 20992
-_RULE_GRAMS_SHA = "69203f4038170530"
+# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence; then a
+# recommended name written as a link the server places, in the rules and beside the message
+# (NAME_LINK_RULE, NAME_LINK_NOTE), and the "near me" places card's layout hint gone
+# (LOCAL_PLACES_FORMAT_HINT; the owner, 2026-11-27).
+_RULES = 232
+_RULE_GRAMS = 21078
+_RULE_GRAMS_SHA = "609b1c4dfc05c821"
 
 
 def _rules() -> list[str]:

@@ -69,6 +69,25 @@ function proseWords(text: string): number {
   return (text.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length;
 }
 
+/** Something a formula is made of, in any script; "$–$$" (a price range) holds none. */
+const FORMULA_CHAR = /[\p{L}\p{N}\\∞]/u;
+
+/** A dollar beside another is part of a price tier ("Burmese, $–$$"), never a span's closer. */
+function inDollarRun(text: string, dollar: number): boolean {
+  return text[dollar + 1] === "$" || text[dollar - 1] === "$";
+}
+
+/** A lone `$` that opens a price range, `$–$$` or `$ - $$`: it opens no formula either. */
+export function startsPriceRange(text: string, dollar: number): boolean {
+  if (text[dollar] !== "$" || inDollarRun(text, dollar)) return false;
+  let at = dollar + 1;
+  while (text[at] === " " || text[at] === "\t") at += 1;
+  if (!"-–—".includes(text[at] ?? "x")) return false;
+  at += 1;
+  while (text[at] === " " || text[at] === "\t") at += 1;
+  return text[at] === "$";
+}
+
 /** A complete, explicit math span. Currency and escaped dollars stay literal,
  * and a pair never reaches across an inline code span: markdown-it cuts the
  * code out first, so `$` on either side of it are two lone dollars. */
@@ -94,9 +113,10 @@ export function readInlineMathSpan(
   const closer = opener === "\\(" ? "\\)" : opener === "\\[" ? "\\]" : opener;
   let end = text.indexOf(closer, start + opener.length);
   while (end >= 0 && escapedAt(text, end)) end = text.indexOf(closer, end + closer.length);
-  if (end < 0) return null;
+  // A run of dollars ends the hope of a span: it is a price tier, never a closer.
+  if (end < 0 || (opener === "$" && inDollarRun(text, end))) return null;
   const value = text.slice(start + opener.length, end);
-  if (!value.trim() || (opener === "$" && value.includes("\n"))) return null;
+  if (!value.trim() || (opener === "$" && (value.includes("\n") || !FORMULA_CHAR.test(value)))) return null;
   if (codeSpanOpensWithin(text, start + opener.length, end)) return null;
   // "$5 and $10" contains two prices, not a math span ending before "10".
   if (opener === "$" && dollarOpensPrice(text, end, value)) return null;

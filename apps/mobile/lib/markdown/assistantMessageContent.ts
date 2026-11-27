@@ -10,7 +10,6 @@ import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLin
 import type { SearchSource } from "@/lib/api";
 
 import { isLocationQuestion } from "@/lib/places/localPlacesQuery";
-import { tagPlacesJsonFences } from "@/lib/places/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
 import { parseFenceLang } from "@/lib/codeHighlight";
@@ -57,7 +56,8 @@ export type AssistantMessageContent = {
 
 /**
  * Stored chats may still contain retired product fences (the language-learning
- * cards and the Google Calendar event proposal). Drop the JSON.
+ * cards, the Google Calendar event proposal, and the places card a reply's linked names
+ * replaced, 2026-11-27). Drop the JSON.
  */
 const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "vocab_quiz",
@@ -65,6 +65,7 @@ const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "learning_launch",
   "job-results",
   "calendar_proposal",
+  "places",
 ]);
 
 /** One empty list, so a frozen reply's sources keep their identity flush to flush. */
@@ -90,8 +91,7 @@ function stripRetiredFences(text: string): string {
 }
 
 /**
- * The reply's markdown, its control fences stripped. A ```places list stays where the
- * model wrote it, streaming and settled alike: RichFence draws it there.
+ * The reply's markdown, its control fences stripped.
  */
 function buildMarkdownContent(options: {
   content: string;
@@ -112,8 +112,7 @@ function buildMarkdownContent(options: {
   text = stripReminderFences(text);
   text = stripSettingsProposalFences(text);
   text = stripReminderProposalFences(text);
-  text = stripTodoLinkFences(text);
-  return tagPlacesJsonFences(text);
+  return stripTodoLinkFences(text);
 }
 
 /** Pure assistant reply display model — fences stripped, rich blocks resolved. */

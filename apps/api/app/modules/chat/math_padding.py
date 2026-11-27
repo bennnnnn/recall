@@ -20,9 +20,11 @@ from app.modules.chat.inline_code import (
 )
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
-# The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
-# a body that opens with an amount and goes on in words is one, and two words of three
-# letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
+# The phone's rules (inlineMath.ts): a dollar beside another closes nothing (a tier, "$$"),
+# a body with no letter, digit or command is no formula, a digit or a spaced amount after
+# the closer is a price, a body that opens with an amount and goes on in words is one, and
+# two words of three letters or more (outside a sub- or superscript) are prose. A TeX
+# command makes it maths.
 # An exclamation mark is a factorial only where the span ends or maths goes on (`$4!$`,
 # `$4! + 3!$`); followed by a number, a word, a dollar or a bracket it ends a price's clause.
 _PRICE_LEAD = re.compile(
@@ -35,6 +37,9 @@ _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min",
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
 _LABEL = re.compile(r"[_^]\{[^{}]*\}")
 _LONG_WORD = re.compile(r"[A-Za-z]{3,}")
+# Something a formula is made of, in any script; a body of dashes and spaces ("$-$$", a price
+# range "Burmese, $-$$") is no formula (``display_dollars._FORMULA_CHAR``).
+_FORMULA_CHAR = re.compile(r"[^\W_]|[\\∞]")
 
 
 def without_math_padding(text: str) -> str:
@@ -105,14 +110,20 @@ def maths_pair_end(line: str, start: int) -> int | None:
     end = line.find("$", start + 1)
     while end >= 0 and escaped_at(line, end):
         end = line.find("$", end + 1)
-    if end < 0:
+    # A run of dollars ends the hope of a span: it is a price tier, never a closer.
+    if end < 0 or _in_dollar_run(line, end):
         return None
     body = line[start + 1 : end]
-    if not body.strip() or code_span_opens_within(line, start + 1, end):
+    if not _FORMULA_CHAR.search(body) or code_span_opens_within(line, start + 1, end):
         return None
     if _opens_price(line, end, body) or _price_body(body):
         return None
     return end + 1
+
+
+def _in_dollar_run(line: str, dollar: int) -> bool:
+    """A dollar beside another is part of a price tier ("$-$$"), never a span's closer."""
+    return line[dollar + 1 : dollar + 2] == "$" or line[dollar - 1 : dollar] == "$"
 
 
 def _opens_price(line: str, dollar: int, body: str) -> bool:

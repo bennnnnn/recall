@@ -118,7 +118,6 @@ def prompt_bundle(**fields: Any) -> TurnPromptBundle:
         "prompt_messages": [],
         "stats": PromptStats(),
         "instant_reply": None,
-        "local_places": False,
         "max_out": 100,
         "fallback_models": [],
         "lightweight": False,

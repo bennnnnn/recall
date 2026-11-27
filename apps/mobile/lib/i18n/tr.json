@@ -580,8 +580,6 @@
   "picker.today": "Bugün",
   "picker.use_clock": "Kadrandan seçin",
   "picker.use_keyboard": "Saati yazın",
-  "places.open_in_maps": "Haritalar'da aç",
-  "places.show_details_a11y": "{{name}}, ayrıntıları göster",
   "preview.code_tab": "Kod",
   "preview.empty_sandbox": "Bu önizlemede henüz görünür bir şey yok. Sayfa hâlâ boş görünüyorsa Paylaş'ı deneyin.",
   "preview.expo_go_banner": "Bu sayfa JavaScript kullanıyor — canlı önizleme için geliştirme derlemesiyle Çalıştır'a geçin veya Safari'de açmak için Paylaşın.",

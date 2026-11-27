@@ -75,7 +75,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "clarify_card",
         "recipient_placeholders",
         "prose",
-        "mermaid_and_places",
+        "chart_and_mermaid",
         "proper_case",
         "request_sections",
         "presentation",

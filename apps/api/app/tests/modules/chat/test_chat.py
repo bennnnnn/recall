@@ -183,7 +183,6 @@ def test_resolve_client_geo_a_question_naming_its_place_is_not_about_the_user(
         user, content, client_location=None, client_latitude=None, client_longitude=None, now=_NOW
     )
     assert geo.geo_query is near_the_user
-    assert geo.local_places is near_the_user
 
 
 def test_estimate_tokens_minimum():

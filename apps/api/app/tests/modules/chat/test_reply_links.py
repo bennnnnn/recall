@@ -1,0 +1,217 @@
+"""Every link a reply shows opens what the server can stand behind (T5.11), and a name the
+reply marks to look up opens its own site, Maps or a search (the owner, 2026-11-27)."""
+
+import json
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.gateways.web_search_gateway import WebSearchHit
+from app.modules.chat.finalize_passes import FinalizeState
+from app.modules.chat.name_links import is_a_name, name_target, own_site
+from app.modules.chat.reply_links import link_reply_names
+from app.modules.chat.turn_outcome import TurnOutcome
+from app.modules.chat.turn_prep import StreamContext
+from app.modules.chat.untrusted_media import neutralize_untrusted_media
+
+FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "name_links.json"
+NAME_CASES = json.loads(FIXTURE.read_text(encoding="utf-8"))["cases"]
+
+_HITS = [
+    WebSearchHit(title="Reuters", url="https://www.reuters.com/world/lisbon-2026", snippet="s"),
+    WebSearchHit(title="BBC", url="https://bbc.com/news/123/", snippet="s"),
+]
+_RESTAURANT_HITS = [
+    WebSearchHit(
+        title="The 38 essential SF restaurants", url="https://www.eater.com/sf-38", snippet="s"
+    ),
+    WebSearchHit(title="Zuni Café", url="https://zunicafe.com/menu", snippet="s"),
+    WebSearchHit(title="Nopa", url="https://www.nopasf.com/", snippet="s"),
+    WebSearchHit(title="Nopalito", url="https://nopalitosf.com/", snippet="s"),
+]
+_MAPS = "https://www.google.com/maps/search/?api=1&query="
+_SEARCH = "https://www.google.com/search?q="
+
+
+def _state(
+    reply: str, *, hits: list[WebSearchHit] | None = None, message: str = "q"
+) -> FinalizeState:
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="qwen-3.7-flash",
+        prompt_messages=[{"role": "user", "content": message}],
+        run_title=False,
+        user_message_content=message,
+        reserved_tokens=0,
+        max_output_tokens=0,
+        search_sources=_HITS if hits is None else hits,
+    )
+    return FinalizeState(
+        deps=None,  # type: ignore[arg-type]  # these passes read no dependency
+        settings=Settings(),
+        ctx=ctx,
+        raw=reply,
+        text=reply,
+        usage={},
+        outcome=TurnOutcome(),
+        was_cancelled=False,
+        should_cancel=None,
+    )
+
+
+def test_a_made_up_page_that_names_nothing_keeps_only_its_words() -> None:
+    reply = (
+        "According to [Reuters](https://reuters.com/world/lisbon-2026), it rained. "
+        "See also [the city's page](https://lisbon-weather-facts.example/2026)."
+    )
+    out = link_reply_names(_state(reply))
+    assert "[Reuters](https://reuters.com/world/lisbon-2026)" in out
+    assert "lisbon-weather-facts.example" not in out
+    assert "See also the city's page." in out
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        # The same page, written another way.
+        "[BBC](http://www.bbc.com/news/123)",
+        # The home page of a site a result came from.
+        "[Reuters](https://www.reuters.com/)",
+        # A map search or directions for a place, and a web search: searches, not claims.
+        "[Café](https://www.google.com/maps/search/?api=1&query=Cafe+Lisboa)",
+        "[Walking directions](https://www.google.com/maps/dir/?api=1&destination=Belem)",
+        "[Atomic Habits](https://www.google.com/search?q=Atomic+Habits)",
+        # Not a web page.
+        "[mail us](mailto:hi@example.com)",
+    ],
+)
+def test_links_that_are_not_made_up_stay(link: str) -> None:
+    reply = f"Details: {link}."
+    assert link_reply_names(_state(reply)) == reply
+
+
+def test_the_users_own_link_stays_but_not_one_in_their_file() -> None:
+    message = "summarise https://example.org/report-2026 for me and search for reactions"
+    reply = "The [report](https://example.org/report-2026) says rents rose."
+    assert link_reply_names(_state(reply, message=message)) == reply
+    attached = "summarise this\n[File: notes.txt]\nsee https://evil.example/leak"
+    leaked = "The [notes](https://evil.example/leak) say so."
+    assert link_reply_names(_state(leaked, message=attached)) == "The notes say so."
+
+
+def test_code_is_copied_as_written() -> None:
+    reply = (
+        "Use `[x](https://made-up.example)` or `[Zuni](check)` in markdown.\n\n"
+        '```md\n[Zuni Café](check "San Francisco")\n```'
+    )
+    assert link_reply_names(_state(reply)) == reply
+
+
+def test_a_bare_url_as_the_words_becomes_the_site_name() -> None:
+    reply = "Source: [https://made-up.example/a](https://made-up.example/a)"
+    assert link_reply_names(_state(reply)) == "Source: made-up.example"
+
+
+def test_a_model_address_with_no_search_opens_a_search_for_its_name() -> None:
+    """With nothing searched, a site the model wrote from memory is no address the server
+    stands behind: the name opens a search, and a link naming nothing keeps its words."""
+    reply = (
+        "Try [Duolingo](https://www.duolingo-app.example/learn) or "
+        "[the docs](https://docs.python.org/3/library/json.html)."
+    )
+    out = link_reply_names(_state(reply, hits=[]))
+    assert out == f"Try [Duolingo]({_SEARCH}Duolingo) or the docs."
+
+
+def test_a_model_image_turned_into_a_link_stays_a_link() -> None:
+    """untrusted_media runs first and makes the image a tap-to-open link; it is not a source."""
+    state = _state(
+        "Here it is: ![a tram](https://img.example/tram.jpg) and [fake](https://x.example/p)"
+    )
+    state.text = neutralize_untrusted_media(state)
+    out = link_reply_names(state)
+    assert "[a tram](https://img.example/tram.jpg)" in out
+    assert "x.example" not in out and "and fake" in out
+
+
+def test_marked_names_open_their_own_site_or_maps() -> None:
+    reply = (
+        "## Best Restaurants in San Francisco\n"
+        '1. **[Zuni Café](check "San Francisco")** — Californian, $$$\n'
+        '2. **[Nopa](check "San Francisco")** — late dinners, $$\n'
+        '3. **[La Taqueria](check "San Francisco")** — tacos, $\n'
+        "4. **[Atomic Habits](check)** — a book\n"
+        "5. [State Bird Provisions](check:San Francisco) — dim sum carts"
+    )
+    out = link_reply_names(_state(reply, hits=_RESTAURANT_HITS))
+    assert "[Zuni Café](https://zunicafe.com/)" in out
+    assert "[Nopa](https://www.nopasf.com/)" in out
+    assert f"[La Taqueria]({_MAPS}La%20Taqueria%2C%20San%20Francisco)" in out
+    assert f"[Atomic Habits]({_SEARCH}Atomic%20Habits)" in out
+    assert f"[State Bird Provisions]({_MAPS}State%20Bird%20Provisions%2C%20San%20Francisco)" in out
+    assert "check" not in out
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # A heading names what follows; it is no item to tap.
+        ("## [Zuni Café](check)\nGreat food.", "## Zuni Café\nGreat food."),
+        # A kind of thing, not a name.
+        ("Find [a taqueria](check) nearby.", "Find a taqueria nearby."),
+        ("Look for [budget phones](check).", "Look for budget phones."),
+    ],
+)
+def test_what_never_gets_a_link_keeps_its_words(reply: str, kept: str) -> None:
+    assert link_reply_names(_state(reply, hits=[])) == kept
+
+
+@pytest.mark.parametrize(
+    ("words", "name"),
+    [
+        ("Zuni Café", True),
+        ("**Burma Superstar**", True),
+        ("iPhone 16", True),
+        ("CS50", True),
+        ("ቶሞካ ቡና", True),
+        ("a taqueria", False),
+        ("the city's page", False),
+        ("—", False),
+        ("Read the full guide to every one of the city's best places here", False),
+    ],
+)
+def test_is_a_name(words: str, name: bool) -> None:
+    assert is_a_name(words) is name
+
+
+def test_own_site_is_a_host_that_names_it() -> None:
+    assert own_site("Zuni Café", _RESTAURANT_HITS) == "https://zunicafe.com/"
+    # "nopalitosf" is another restaurant's, not Nopa's with a city after it.
+    assert own_site("Nopa", _RESTAURANT_HITS[3:]) is None
+    # A list article that mentions it is not its site.
+    assert own_site("La Taqueria", _RESTAURANT_HITS) is None
+    assert own_site(
+        "The House of Prime Rib", [WebSearchHit("H", "https://houseofprimerib.net/", "")]
+    ) == ("https://houseofprimerib.net/")
+    assert own_site("CS50", [WebSearchHit("CS50", "https://cs50.harvard.edu/x/", "")]) == (
+        "https://cs50.harvard.edu/"
+    )
+
+
+@pytest.mark.parametrize("case", NAME_CASES, ids=[case["id"] for case in NAME_CASES])
+def test_name_target_matches_the_phone(case: dict[str, str]) -> None:
+    assert name_target(case["name"], case["city"], []) == case["url"]
+
+
+def test_a_name_is_linked_the_first_time_only() -> None:
+    reply = (
+        "1. **[Python Crash Course](check)** — projects.\n"
+        "2. **[Automate the Boring Stuff](check)** — scripts.\n\n"
+        "Start with **[Python Crash Course](check)**."
+    )
+    out = link_reply_names(_state(reply, hits=[]))
+    assert out.count("Python%20Crash%20Course") == 1
+    assert out.endswith("Start with **Python Crash Course**.")

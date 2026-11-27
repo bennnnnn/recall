@@ -21,14 +21,13 @@ from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
 
 def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]:
-    """Layout and location for a nearby, distance or local-weather question."""
+    """What to ask, the directions rule and the location for a nearby, distance or local-weather
+    question; a list of places is laid out as any list is, its names linked (``NAME_LINK_RULE``)."""
     if not query_text:
         return []
     parts: list[str] = []
     if web_search_service.is_ambiguous_local_places_query(query_text):
         parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
-    elif web_search_service.is_places_list_query(query_text):
-        parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
     elif web_search_service.is_distance_query(query_text):
         parts.append(web_search_service.GEO_DISTANCE_HINT)
     if prompt_location and web_search_service.is_geo_query(query_text):

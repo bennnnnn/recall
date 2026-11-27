@@ -1,4 +1,4 @@
-import { StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Linking, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -361,6 +361,36 @@ describe("markdown render rules", () => {
       <MarkdownContent content={"See [the docs](https://example.com/docs)"} />,
     );
     expect(getByRole("link", { name: /the docs/ })).toBeOnTheScreen();
+  });
+
+  it("draws every link one way: the text's colour, dotted underline (2026-11-27)", async () => {
+    const { getByText } = await render(
+      <MarkdownContent
+        content={'1. **[Zuni Café](check "San Francisco")** — Californian\n2. See [the docs](https://example.com/docs).'}
+      />,
+    );
+    for (const words of ["Zuni Café", "the docs"]) {
+      const style = StyleSheet.flatten(getByText(words).props.style);
+      expect(style).toMatchObject({
+        color: lightTheme.text,
+        textDecorationLine: "underline",
+        textDecorationStyle: "dotted",
+        textDecorationColor: lightTheme.textSecondary,
+      });
+    }
+  });
+
+  it("opens a name still marked while streaming on Maps with its city", async () => {
+    const open = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+    const { getByText } = await render(
+      <MarkdownContent content={'1. **[Zuni Café](check "San Francisco")** — Californian'} />,
+    );
+    fireEvent.press(getByText("Zuni Café"));
+    await Promise.resolve();
+    expect(open).toHaveBeenCalledWith(
+      "https://www.google.com/maps/search/?api=1&query=Zuni%20Caf%C3%A9%2C%20San%20Francisco",
+    );
+    open.mockRestore();
   });
 
   it("renders a preview card for a standalone markdown link", async () => {
@@ -1458,10 +1488,8 @@ describe("reply rhythm", () => {
     expect(StyleSheet.flatten(getByText("code").props.style).color).toBe(
       lightTheme.textSecondary,
     );
-    // A link keeps its own color inside the quote.
-    expect(StyleSheet.flatten(getByText("a link").props.style).color).toBe(
-      lightTheme.primary,
-    );
+    // A link keeps its own look inside the quote.
+    expect(StyleSheet.flatten(getByText("a link").props.style).textDecorationStyle).toBe("dotted");
   });
 
   it("outlines a quote card with a visible border and keeps its quote in body ink", async () => {

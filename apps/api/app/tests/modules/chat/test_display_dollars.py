@@ -21,6 +21,7 @@ from app.modules.chat.display_dollars import (
 )
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.markdown_regions import display_math_lines
+from app.modules.chat.math_padding import maths_pair_end
 from app.modules.chat.notation_spans import code_notation
 from app.tests.behavior.latex_check import _maths_and_prose
 
@@ -124,6 +125,13 @@ PRICE_IDS = [case["id"] for case in PRICES]
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
 def test_display_dollars_inline_boundaries_leave_a_price(case: dict[str, object]) -> None:
     assert repair_inline_token_boundaries(str(case["text"])) == case["text"]
+
+
+@pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
+def test_display_dollars_inline_reader_finds_no_maths_in_a_price(case: dict[str, object]) -> None:
+    # "Burmese, $-$$" drew "-$": `$-$` paired as maths and left one dollar (2026-11-27).
+    text = str(case["text"])
+    assert [i for i in range(len(text)) if maths_pair_end(text, i) is not None] == []
 
 
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)

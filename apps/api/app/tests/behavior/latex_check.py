@@ -40,10 +40,12 @@ _MATH_FENCES = {"math", "latex", "tex", "answer"}
 # Display dollars are read first, as every reader reads them (``chat.display_dollars``).
 _SPAN = re.compile(
     r"\\\((.+?)\\\)|\\\[(.+?)\\\]"
-    r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$",
+    # A dollar beside another closes nothing: "$-$$" is a price range (math_padding).
+    r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$(?!\$)",
     re.DOTALL,
 )
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
+_FORMULA_CHAR = re.compile(r"[^\W_]|[\\\u221e]")
 _TEX_IN_PROSE = re.compile(r"\\[A-Za-z]+|[\^_]\{")
 _COMMAND = re.compile(r"\\([A-Za-z]+)")
 _WORD_GROUP = re.compile(r"\\(?:text|textrm|mathrm|mbox|operatorname)\s*\{")
@@ -112,7 +114,11 @@ def _maths_and_prose(reply: str) -> tuple[list[str], list[str]]:
     prose.append(reply[last:])
 
     def take(span: re.Match[str]) -> str:
-        maths.append(next(group for group in span.groups() if group is not None))
+        body = next(group for group in span.groups() if group is not None)
+        # A body with no letter, digit or command ("$ - $") is no formula (math_padding).
+        if span.group(0).startswith("$") and _FORMULA_CHAR.search(body) is None:
+            return span.group(0)
+        maths.append(body)
         return " "
 
     return maths, [

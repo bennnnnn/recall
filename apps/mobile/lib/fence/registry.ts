@@ -55,7 +55,6 @@ type FallbackKind =
   | "graph"
   | "answer"
   | "sources"
-  | "places"
   | "visual";
 
 /**
@@ -73,7 +72,7 @@ type FencePlainText = "drop" | "chart" | "diagram";
 export type FencePlainReader = "worked" | "quiz" | "clarify" | "array";
 
 /** A card shown in a shared document (Share, PDF) as a one-line label (`lib/markdown/document.ts`). */
-export type FenceDocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator" | "places";
+export type FenceDocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator";
 
 type FenceSpecRow = {
   id: string;
@@ -321,16 +320,6 @@ const FENCE_TABLE = [
     fallback: "visual",
     plainText: "diagram",
     inDocument: "molecule",
-  },
-  {
-    id: "places",
-    langs: ["places"],
-    structured: true,
-    neverCodeBlock: true,
-    owner: "model", body: "data",
-    fallback: "places",
-    plainText: "drop",
-    inDocument: "places",
   },
   {
     id: "callout",

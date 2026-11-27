@@ -364,7 +364,7 @@ CONVERSATION_MESSAGES = _ConversationMessages()
 
 
 class WebSearchFences(Protocol):
-    """Source chips and the places card under a searched reply."""
+    """Source chips under a searched reply."""
 
     def strip_sources_from_text(self, text: str) -> str: ...
 
@@ -373,10 +373,6 @@ class WebSearchFences(Protocol):
     def sources_payload(self, hits: list[WebSearchHit]) -> list[web_search.SearchSource]: ...
 
     def format_sources_fence(self, hits: list[WebSearchHit]) -> str: ...
-
-    def keep_given_addresses(
-        self, text: str, pages: list[WebSearchHit], *, json_asked: bool = False
-    ) -> str: ...
 
 
 @dataclass(frozen=True)

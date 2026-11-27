@@ -5,7 +5,8 @@ docs/fixtures/display_math_cases.json holds the two to one answer. remark-math's
 reader reads a price list:
 
 - a delimiter is a run of exactly two unescaped dollars: three or more (``$$$``) are a price
-  tier, never maths, and so is one in brackets (``($$)``);
+  tier, never maths, and so is one in brackets (``($$)``) or one that ends a range
+  (``$-$$``);
 - at the start of a line (after its indent, a quote mark or a list marker) it opens a formula
   that runs on over the lines below to the next ``$$``;
 - mid-line it is maths as ``$$x$$``, nothing between the dollars and the formula, or as a
@@ -136,6 +137,31 @@ def _bracketed_tier(line: str, start: int, end: int) -> bool:
     while after < len(line) and line[after].isspace():
         after += 1
     return before >= 0 and line[before] == "(" and after < len(line) and line[after] == ")"
+
+
+# A dash that joins two price tiers ("$-$$", "$$-$$$"), en and em dashes included.
+_RANGE_DASHES = "-\u2013\u2014"
+
+
+def _range_end(line: str, start: int) -> bool:
+    """The run of two at ``start`` ends a price range, ``$-$$`` or ``$ - $$``: a dash before it
+    and a dollar before the dash, with no blank between unless that dollar stands alone (a lone
+    ``$`` is never a delimiter). "Burmese, $-$$" at a line's end opened a formula there
+    (2026-11-27)."""
+    at = start - 1
+    while at >= 0 and line[at] in " \t":
+        at -= 1
+    spaced = at < start - 1
+    if at < 0 or line[at] not in _RANGE_DASHES:
+        return False
+    at -= 1
+    dash = at
+    while at >= 0 and line[at] in " \t":
+        at -= 1
+    if at < 0 or line[at] != "$":
+        return False
+    alone = line[at - 1 : at] != "$"
+    return alone or (not spaced and at == dash)
 
 
 def _prose_words(text: str) -> int:
@@ -286,7 +312,12 @@ def scan_display_line(
         if char == "$" and slashes % 2 == 0:
             end = _run_end(line, at)
             index, slashes = end, 0
-            if end - at == 2 and closer != "\\]" and not _bracketed_tier(line, at, end):
+            if (
+                end - at == 2
+                and closer != "\\]"
+                and not _bracketed_tier(line, at, end)
+                and not _range_end(line, at)
+            ):
                 closer, index = _dollar_mark(read, at, end, closer, emit)
             continue
         if brackets and char == "\\" and slashes % 2 == 0:

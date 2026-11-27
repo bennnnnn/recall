@@ -2,10 +2,8 @@ import { ReactNode } from "react";
 
 import i18n from "@/lib/i18n";
 
-import { PlacesListBlock } from "@/components/rich/PlacesListBlock";
 import { CalculatorBlock } from "@/components/rich/CalculatorBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
-import { parsePlacesJson } from "@/lib/places/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { ArrayBlock } from "@/components/rich/ArrayBlock";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
@@ -93,11 +91,6 @@ export function renderRichFenceById(
       return <LazyFunctionGraphBlock key={key} content={content} />;
     case "simulation":
       return <LazySimulationBlock key={key} content={content} />;
-    case "places": {
-      const places = parsePlacesJson(content);
-      if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
-      return null;
-    }
     case "clock":
       return <LazyCircularClockBlock key={key} content={content} />;
     case "callout":

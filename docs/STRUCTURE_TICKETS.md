@@ -450,7 +450,7 @@ callback, Redis or the database, or a model call. 10 passes are effects (`untrus
 status), `settings_card`, `money_card`, `search_sources`, `instant_usage`, `clarify_card`), 30
 are text. 12 passes declare contracts: `control_tokens` first; `drop_cut_reminder_fence` before
 `close_fences`; `prepare_model_reply` and `answer_labels` before the passes that land a card;
-`untrusted_media` before the server's photo, picture and chips; `search_links` after
+`untrusted_media` before the server's photo, picture and chips; `reply_links` after
 `untrusted_media`; `reply_picture` after `answer_photo`; `formula_charts` after `math_fences`;
 `claim_check` before `search_sources`; `close_fences` after the passes that read the model's
 fences; `clarify_card` after `close_fences`; `prose` after all fence enrichment (the fence

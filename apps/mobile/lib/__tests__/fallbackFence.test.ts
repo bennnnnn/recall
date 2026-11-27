@@ -40,7 +40,7 @@ describe("classifyFallbackFence", () => {
     });
   });
 
-  it("summarizes sources and places instead of dumping JSON", () => {
+  it("summarizes sources instead of dumping JSON", () => {
     expect(
       classifyFallbackFence(
         "sources",
@@ -49,12 +49,6 @@ describe("classifyFallbackFence", () => {
     ).toEqual({
       kind: "sources",
       items: [{ title: "Docs", url: "https://example.com" }],
-    });
-    expect(classifyFallbackFence("places", '[{"name":"Cafe"}]')).toEqual({
-      kind: "places",
-      items: [
-        expect.objectContaining({ title: "Cafe" }),
-      ],
     });
   });
 

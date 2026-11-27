@@ -598,8 +598,6 @@
   "picker.today": "Сегодня",
   "picker.use_clock": "Выбрать на циферблате",
   "picker.use_keyboard": "Ввести время с клавиатуры",
-  "places.open_in_maps": "Открыть в Картах",
-  "places.show_details_a11y": "{{name}}, показать подробности",
   "preview.code_tab": "Код",
   "preview.empty_sandbox": "В этом превью пока ничего не видно. Попробуйте «Поделиться», если страница всё ещё выглядит пустой.",
   "preview.expo_go_banner": "На этой странице есть JavaScript — переключитесь на Запуск с dev-сборкой для живого превью или Поделитесь, чтобы открыть в Safari.",

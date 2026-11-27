@@ -74,7 +74,6 @@ describe("streaming open-fence math dispatch", () => {
     ],
     ["array", '```array\n{"values":[2,7,11,15],"highlight":[0]}\n```\n'],
     ["steps", "```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`.\n2. Save it\n```\n"],
-    ["places", '```places\n[{"name":"Blue Bottle","url":"https://example.com","note":"0.4 mi"}]\n```\n'],
     ["keyvalue", "```kv\nName: Ada\nRole: Engineer\n```\n"],
     ["comparison", "```pros\nPros:\n- fast\nCons:\n- costly\n```\n"],
   ])("streams an open ```%s fence as a quiet placeholder, never raw source", (_id, reply) => {

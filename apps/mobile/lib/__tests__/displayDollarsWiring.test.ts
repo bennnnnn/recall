@@ -7,6 +7,7 @@
  */
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
+import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
 import { presentStreamTail } from "@/lib/markdown/presentation";
@@ -62,6 +63,11 @@ describe("every $$ reader leaves a price tier as written", () => {
       expect(presentStreamTail(`${text} Try **brunch**now.`)).toContain("**brunch** now.");
     },
   );
+
+  it.each(PRICES)("%s: the inline reader finds no maths in it", (_id, text) => {
+    // "Burmese, $–$$" drew "—$": `$–$` paired as maths and left one dollar (2026-11-27).
+    expect(splitInlineMath(text).filter((part) => part.type === "math")).toEqual([]);
+  });
 
   it.each(PRICES)("%s: the user bubble's compact maths", (_id, text) => {
     expect(displayMathToInline(text)).toBe(text);

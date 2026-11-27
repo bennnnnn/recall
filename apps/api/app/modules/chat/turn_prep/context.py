@@ -101,7 +101,6 @@ class StreamContext:
     history_size: tuple[int, int] | None = None
     instant_reply: str | None = None
     search_sources: list[WebSearchHit] = field(default_factory=list)
-    local_places: bool = False
     skip_memory_jobs: bool = False
     prior_count: int = 0
     # The chat's last messages as this turn read them (``turn_load``), its user's
@@ -206,7 +205,6 @@ class TurnPromptBundle:
     prompt_messages: list[dict[str, str]]
     stats: PromptStats
     instant_reply: str | None
-    local_places: bool
     max_out: int
     fallback_models: list[str]
     lightweight: bool
@@ -283,7 +281,6 @@ def stream_context_from_bundle(
         ordinary_prompt=bundle.stats.ordinary,
         steps_open=bundle.stats.steps_open,
         instant_reply=bundle.instant_reply,
-        local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
         prior_count=prior_count,
         recent_messages=bundle.recent_messages,
@@ -411,7 +408,6 @@ def _bundle(
         prompt_messages=augmented.prompt_messages,
         stats=stats,
         instant_reply=instant_reply,
-        local_places=identity.geo.local_places,
         # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
         # prompt guidance, not a hard token cap. Capping by style truncated large
         # deliverables (HTML pages, graph JSON) mid-fence.

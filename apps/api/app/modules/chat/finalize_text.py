@@ -15,11 +15,9 @@ from app.modules.chat.clock_denial import model_denies_clock
 from app.modules.chat.drawn_picture import app_draws_the_picture
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formula_fences import unfence_formulas, unwrap_code_maths
-from app.modules.chat.json_output import is_json_request
 from app.modules.chat.math_padding import without_math_padding
 from app.modules.chat.maths_money import money_out_of_maths
 from app.modules.chat.mermaid_sanitize import sanitize_mermaid_fences
-from app.modules.chat.places_sanitize import sanitize_places_fences
 from app.modules.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 from app.modules.chat.proper_case import restore_proper_case
 from app.modules.chat.prose_normalizer import (
@@ -64,14 +62,7 @@ async def attach_answer_photo(state: FinalizeState) -> str:
 
 
 def add_search_sources(state: FinalizeState) -> str:
-    """Source chips for the pages a searched reply used, and a places card's addresses kept
-    to all of its pages.
-
-    The places card is the model's alone. The pages are never made into one: a page is a
-    list article as often as a venue, and a card of them showed "RECOMMENDED: 📍 The best
-    things to do…" and "Image 86: A plate of food…" (2026-11-08); the venue list it
-    replaced was cut from under the reply's headings.
-    """
+    """Source chips for the pages a searched reply used."""
     ctx = state.ctx
     text = state.text
     if not ctx.search_sources:
@@ -80,9 +71,6 @@ def add_search_sources(state: FinalizeState) -> str:
     # The chips name the sources, so a bracket crediting one of them goes.
     text = web_search.drop_source_credits(
         web_search.strip_sources_from_text(text), ctx.search_sources
-    )
-    text = web_search.keep_given_addresses(
-        text, ctx.search_sources, json_asked=is_json_request(ctx.user_message_content)
     )
     chips = _chip_pages(state)
     if state.outcome is not None:
@@ -137,7 +125,7 @@ def normalize_prose(state: FinalizeState) -> str:
 
 
 def sanitize_fences(state: FinalizeState) -> str:
-    text = sanitize_places_fences(sanitize_mermaid_fences(sanitize_chart_fences(state.text)))
+    text = sanitize_mermaid_fences(sanitize_chart_fences(state.text))
     return repair_quiz_fences(text)
 
 

@@ -141,13 +141,6 @@ def is_geo_query(text: str) -> bool:
     )
 
 
-def is_places_list_query(text: str) -> bool:
-    """Render the native ```places card (find venues near the user, not mileage-only answers)."""
-    if is_ambiguous_local_places_query(text):
-        return False
-    return finds_places_near_the_user(text)
-
-
 def is_ambiguous_local_places_query(text: str) -> bool:
     """Nearby intent but missing sale/rent/address/etc. — ask before web search."""
     cleaned = text.strip()
