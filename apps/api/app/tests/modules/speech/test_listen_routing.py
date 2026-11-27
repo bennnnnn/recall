@@ -230,18 +230,20 @@ def test_the_reply_voice_picker_matches_the_shared_fixture(language: str) -> Non
 def test_reply_voice_defaults_and_swaps_match_the_shared_fixture() -> None:
     for case in _fixture()["defaults"]:
         alias = model_catalog.read_aloud_aliases(case["language"])[0]
-        heard = voice_for(alias, case["language"], case["reply_voice"], case["live_voice"])
+        heard = voice_for(alias, case["language"], case["reply_voice"])
         assert heard == case["plays"], case
 
 
 def test_a_picked_reply_voice_is_the_one_heard_and_tts1_has_no_live_only_voice() -> None:
     kokoro, openai = "speech-tts-kokoro-model", "speech-tts-model"
-    assert voice_for(kokoro, "en", "bm_george", "marin") == "bm_george"
-    assert voice_for(openai, "ru", "onyx", "marin") == "onyx"
+    assert voice_for(kokoro, "en", "bm_george") == "bm_george"
+    assert voice_for(openai, "ru", "onyx") == "onyx"
     # Kokoro failed on an English clip: tts-1 reads it in a voice of the same gender.
-    assert voice_for(openai, "en", "bm_george", None) == "ash"
-    for live in ("marin", "cedar", "ballad", "verse"):
-        assert voice_for(openai, "ru", None, live) in {v.id for v in picker_voices("ru")}
+    assert voice_for(openai, "en", "bm_george") == "ash"
+    # Never picked: the list's first voice, whatever the live talk voice is (no "Same as
+    # live talk", owner 2026-11-27).
+    assert voice_for(kokoro, "en", None) == "af_heart"
+    assert voice_for(openai, "ru", None) == picker_voices("ru")[0].id
 
 
 def _response(content: bytes, content_type: str, status: int = 200) -> MagicMock:
@@ -301,11 +303,11 @@ async def test_other_languages_and_unclear_text_play_through_tts1(text: str) -> 
     openai = _client(_response(b"ID3tts1", "audio/mpeg"))
     played: list[ListenClip] = []
     with patch(_OPENROUTER, return_value=openrouter), patch(_OPENAI, return_value=openai):
-        result = await synthesize_speech(_keys(), text, voice="cedar", on_played=played.append)
+        result = await synthesize_speech(_keys(), text, on_played=played.append)
     assert result == (b"ID3tts1", "audio/mpeg")
     openrouter.post.assert_not_called()
     body = openai.post.call_args.kwargs["json"]
-    assert (body["model"], body["voice"]) == ("tts-1", "ash")
+    assert (body["model"], body["voice"]) == ("tts-1", "coral")  # never picked: the first voice
     (clip,) = played
     assert clip.usd == pytest.approx(len(text) * 15.0 / 1_000_000)
     assert clip.reply_language == UNSURE  # the rest of the reply stays on tts-1
@@ -479,8 +481,8 @@ def test_the_spend_recorded_is_what_the_service_reports() -> None:
 @pytest.mark.parametrize(
     "locale, picked, live, heard",
     [
-        ("en", None, "cedar", "am_michael"),
-        ("ru", None, "marin", "coral"),
+        ("en", None, "cedar", "af_heart"),
+        ("ru", None, "verse", "coral"),
         ("es", "af_heart", None, "ef_dora"),
         ("en", "af_heart", "cedar", "af_heart"),
     ],
@@ -488,7 +490,8 @@ def test_the_spend_recorded_is_what_the_service_reports() -> None:
 def test_the_account_sends_the_pick_and_the_voice_heard(
     locale: str, picked: str | None, live: str | None, heard: str
 ) -> None:
-    """The phone ticks the pick (null: follow live talk) and names the voice heard."""
+    """The phone ticks the pick and names the voice heard; never picked, the list's first
+    voice, whatever the live talk voice is."""
     out = UserOut.model_validate(api_user(locale=locale, reply_voice=picked, tts_voice=live))
     body = out.model_dump()
     assert (body["reply_voice"], body["reply_voice_heard"]) == (picked, heard)
