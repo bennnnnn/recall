@@ -3,6 +3,7 @@
 import { splitAnswerNotation } from "@/lib/answerNotation";
 import { spokenAnswerValue } from "@/lib/math/answerLayout";
 import { closesFence, readFenceMarker } from "@/lib/fence/scan";
+import { displayDollarPairEnd } from "@/lib/markdown/displayDollars";
 import {
   type FencePlainReader,
   fenceIdForLang,
@@ -293,14 +294,17 @@ function rewriteInlineMath(text: string, convert: (latex: string) => string): st
   let i = 0;
   while (i < text.length) {
     if (text.startsWith("$$", i)) {
-      const close = text.indexOf("$$", i + 2);
-      if (close < 0) {
-        out += text[i];
-        i += 1;
+      // `$$` pairs as every reader pairs it (displayDollars.ts): "$$–$$$" is a price range.
+      const end = displayDollarPairEnd(text, i);
+      if (end == null) {
+        let run = i;
+        while (text[run] === "$") run += 1;
+        out += text.slice(i, run);
+        i = run;
         continue;
       }
-      out += convert(text.slice(i + 2, close));
-      i = close + 2;
+      out += convert(text.slice(i + 2, end - 2));
+      i = end;
       continue;
     }
     if (text[i] !== "$") {

@@ -4,6 +4,7 @@
  * streams at ~30 flushes a second. Prints the time, the preprocess calls and
  * the characters they read. Off by default: `STREAM_BENCH=1 pnpm jest
  * streamFlushBench`. The counts are deterministic; the times are this machine's.
+ * The characters preprocessed are held to a budget on every run (CI's unit tests).
  */
 import { cleanup, render } from "@testing-library/react-native";
 
@@ -56,6 +57,24 @@ bench("streaming flush benchmark (20k chars, 30-char flushes)", () => {
         chunkDrops: stats.chunkDrops,
       }),
     );
+  });
+});
+
+/**
+ * The characters preprocessed while a reply streams, as a multiple of its length: a count,
+ * not a time, so it is the same on every machine. A reply cut into parts preprocesses each
+ * part about once; a construct that stops the cuts (a chart, `<details>`, an indented fence,
+ * a `$$` left open) preprocesses the rest of the reply again on every flush, 100–200 times
+ * its length. CI fails past this.
+ */
+const REPROCESS_BUDGET = 8;
+
+describe("the characters a streaming reply preprocesses (CI budget)", () => {
+  it.each(Object.keys(BENCH_REPLIES))("%s stays within the budget", (name) => {
+    const reply = BENCH_REPLIES[name as keyof typeof BENCH_REPLIES];
+    mockCalls.preprocessChars = 0;
+    streamReply(reply);
+    expect(mockCalls.preprocessChars / reply.length).toBeLessThanOrEqual(REPROCESS_BUDGET);
   });
 });
 

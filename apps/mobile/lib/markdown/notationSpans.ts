@@ -8,6 +8,7 @@
  * holds both to the same output.
  */
 import { applyOutsideFences } from "@/lib/fence/scan";
+import { mathSpans } from "@/lib/markdown/displayDollars";
 
 const CHARSET = /^[A-Za-z0-9@+\-[\]()=#%/\\.]+$/;
 const LETTERS = /[A-Za-z]+/g;
@@ -16,8 +17,9 @@ const LETTERS = /[A-Za-z]+/g;
 // as well as "Bb" made a long run of "Bb" take exponential time (CodeQL js/redos).
 const ATOMS = /^(?:[A-Z][a-z]|[BCNOPSFIKH](?![a-z])|[bcnops])+$/;
 const RING_ATOM = /(?:[A-Z][a-z]?|[cnosp])(\d)/g;
-// Inline code and maths are left as they are; prose between them is read.
-const PROTECTED = /(`+[^`\n]*`+|\$\$[\s\S]*?\$\$|\$[^$\n]+\$)/;
+// Inline code and maths are left as they are; prose between them is read. `$$` maths is the
+// shared reader's (displayDollars.ts): a price tier ("Zuni – $$.") protects nothing.
+const PROTECTED = /`+[^`\n]*`+|\$[^$\n]+\$/g;
 const TOKEN = /[^\s`$]+/g;
 const TRAILING = ".,;:!?";
 const MIN_LENGTH = 6;
@@ -57,11 +59,13 @@ function codeToken(raw: string): string {
 }
 
 function codeProse(prose: string): string {
-  // split() keeps the protected spans at odd indexes.
-  return prose
-    .split(PROTECTED)
-    .map((part, index) => (index % 2 ? part : part.replace(TOKEN, codeToken)))
-    .join("");
+  let out = "";
+  let last = 0;
+  for (const { start, end } of mathSpans(prose, PROTECTED)) {
+    out += prose.slice(last, start).replace(TOKEN, codeToken) + prose.slice(start, end);
+    last = end;
+  }
+  return out + prose.slice(last).replace(TOKEN, codeToken);
 }
 
 /** Wrap each SMILES string in prose as inline code; fences, code and maths stay. */

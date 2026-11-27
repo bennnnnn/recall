@@ -28,6 +28,25 @@ describe("markdown headings", () => {
     expect(screen.queryByRole("header", { name: "Do it." })).toBeNull();
   });
 
+  // B2 (2026-11-27 review): "C# fast" and "F# a bit" drew as two large headings.
+  it.each([
+    ["C# and F#", "How do I learn C# fast? I know Java and F# a bit."],
+    ["a sharp key", "The piece is in A# minor."],
+    ["a keypad key", "Then press # to confirm."],
+    ["a table cell", "| Language | Use |\n| --- | --- |\n| C# | Games |\n| F# | Data |"],
+    ["inline code", "Write `x = 1  # set x` and run it."],
+    ["a list item", "1. C# basics\n2. F# next"],
+  ])("draws no heading in a reply for %s", async (_name, content) => {
+    await render(<MarkdownContent content={content} />);
+    expect(screen.queryAllByRole("header")).toHaveLength(0);
+    expect(screen.getAllByText(/[CFA]#|press #|# set x/).length).toBeGreaterThan(0);
+  });
+
+  it("still breaks a heading glued onto a finished sentence", async () => {
+    await render(<MarkdownContent content={"Here is the plan. ## Next steps\n\nDo it."} />);
+    expect(screen.getByRole("header", { name: "Next steps" })).toBeOnTheScreen();
+  });
+
   it("leaves a heading that holds a link open, so the link can still be focused", async () => {
     await render(<MarkdownContent content={"## [Docs](https://example.com)\n\nEnd."} />);
 

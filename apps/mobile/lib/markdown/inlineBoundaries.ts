@@ -5,6 +5,7 @@
  * Fenced code, indented code, blockquotes, URLs, and math bodies stay intact.
  */
 
+import { displayDollarPairEnd } from "@/lib/markdown/displayDollars";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { isRatio } from "@/lib/markdown/inlineMath";
 import { leaveProseLine, PRICE_TIER } from "@/lib/markdown/markdownRegions";
@@ -101,10 +102,11 @@ function bareNumber(body: string, next: string | undefined): boolean {
 function readMath(text: string, index: number): number | null {
   if (escapedAt(text, index)) return null;
   if (text.startsWith("$$", index)) {
-    const close = text.indexOf("$$", index + 2);
-    if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
-    if (codeSpanOpensWithin(text, index + 2, close)) return null;
-    return close + 2;
+    // `$$` pairs as every reader pairs it (displayDollars.ts), on its own line here.
+    const end = displayDollarPairEnd(text, index);
+    if (end == null || text.slice(index, end).includes("\n")) return null;
+    if (codeSpanOpensWithin(text, index + 2, end - 2)) return null;
+    return end;
   }
   if (text[index] !== "$" || (index > 0 && text[index - 1] === "$")) return null;
   let from = index + 1;

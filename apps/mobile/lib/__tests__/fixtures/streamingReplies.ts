@@ -299,7 +299,123 @@ export const MID_REFERENCES_REPLY = [
   "",
 ].join("\n");
 
+/** #2601's layout: numbered main items, members nested under each (cut from item 2). */
+export const NUMBERED_GROUPS_REPLY = [
+  "Here are the flats that fit what you asked for.",
+  "",
+  ...Array.from({ length: 8 }, (_, i) =>
+    [
+      `${i + 1}. **Flat ${i + 1}** — two rooms near the station, ready next month`,
+      "   - Rent: about the same as the last one, bills on top",
+      `   - Why pick it: ${LONG_SENTENCE}`,
+      "   - Watch for: the contract's notice period and the deposit scheme",
+    ].join("\n"),
+  ),
+  "",
+  `Tell me which ones to book. ${LONG_SENTENCE.repeat(3)}`,
+  "",
+].join("\n");
+
+/** Price tiers, a shell's `$$` and C#: no maths card, no heading (B2, B3). */
+export const PRICE_TIERS_REPLY = [
+  "Places worth a look, and how to learn C# on the way there:",
+  "",
+  "1. **Nopa** – Californian, $$–$$$, open late.",
+  "2. **Zuni** – $$.",
+  "3. **Tartine** – bakery, $$.",
+  "",
+  `Book ahead for Nopa. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "| Place | Price | Language |",
+  "| --- | --- | --- |",
+  "| Nopa | $$ | C# |",
+  "| Zuni | $$$ | F# |",
+  "",
+  `Run \`echo $$\` to see the shell's PID. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "$$",
+  "x = \\frac{1}{2}",
+  "$$",
+  "",
+  `The area is $$\\pi r^2$$ for a circle. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+].join("\n");
+
+/**
+ * Review #2606: a block whose inner lines look like a table row or a list item, a `$$` that
+ * ends a sentence's line, and two price tiers paragraphs apart with a SMILES string between.
+ */
+export const DISPLAY_LOOKALIKES_REPLY = [
+  "Zuni – $$.",
+  "",
+  `Its smell is CC(=O)O. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "Tartine – $$.",
+  "",
+  `Now the maths. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "$$",
+  "|x - 3| < 5",
+  "$$",
+  "",
+  `The determinant next. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "$$",
+  "\\begin{aligned}",
+  "2x + 5 &= 11",
+  "- 3x &= -6",
+  "\\end{aligned}",
+  "$$",
+  "",
+  "Therefore: $$",
+  "x = 2",
+  "$$",
+  "Next, we find y:",
+  "$$",
+  "y = 3",
+  "$$",
+  "",
+  `<Details>`,
+  "",
+  `Hidden. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "</Details>",
+  "",
+  `The last paragraph. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+].join("\n");
+
+/** A chart, a closed `<details>` and a fence indented four spaces: the parts after each are cut. */
+export const SCOPED_GUARDS_REPLY = [
+  "Here is the chart.",
+  "",
+  "```json",
+  '{ "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "bar" }',
+  "```",
+  "",
+  `It shows the totals. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "<details><summary>Why</summary>Because it reads well.</details>",
+  "",
+  `After the note. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "Run it:",
+  "",
+  "    ```bash",
+  "    npm test",
+  "    ```",
+  "",
+  `After the command. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  `The last paragraph. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+].join("\n");
+
 export const STREAMING_REPLIES: Record<string, string> = {
+  numberedGroups: NUMBERED_GROUPS_REPLY,
+  priceTiers: PRICE_TIERS_REPLY,
+  scopedGuards: SCOPED_GUARDS_REPLY,
+  displayLookalikes: DISPLAY_LOOKALIKES_REPLY,
   codeSteps: CODE_STEPS_REPLY,
   bulletCodeSteps: BULLET_CODE_STEPS_REPLY,
   midReferences: MID_REFERENCES_REPLY,
