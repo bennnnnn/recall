@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF003 -- the module reads × and − as replies write them.
+# ruff: noqa: RUF002, RUF003 -- the module reads × and − as replies write them.
 """The reply's own answer cards held to the server's values, card to card.
 
 Each ```answer card the reply ends a part on is read as a quantity (its number and unit,
@@ -28,7 +28,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
-from app.modules.chat.card_numbers import worked_value
 from app.modules.chat.card_walk import answer_cards, is_card
 from app.services.answer_check import read_verified_value
 from app.services.answer_fence import UNCHECKED_ANSWER_MARKER
@@ -91,30 +90,61 @@ def reply_cards(text: str) -> list[ReplyCard]:
             places=number.places,
             label=read.label or "",
         )
-        cards.append(replace(card_read, worked=_worked_to(card_read, above)))
+        cards.append(replace(card_read, worked=_worked_to(card_read, above, text)))
     return cards
 
 
-# A line of working that works something out: numbers joined by an operation ("2 × 20 ×
-# 0.1", "\frac{8.04}{0.2}", "10 - 1.96"). A value stated alone ("R = 32.4 m") works nothing.
-_ARITHMETIC = re.compile(
-    r"\d\s*(?:\\times|\\cdot|\\div|[×·*/+\-−^÷])\s*[\d(\\{]|\\(?:frac|sqrt|dfrac)\b"
-)
+# The sides of a line of working: "a = \frac{8.04}{0.2} \approx 40.2 m/s^2" has three.
+_SIDES = re.compile(r"=|\\approx(?![A-Za-z])|≈")
 _INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
+# A number on its own once read, a power of ten included: "40.2", "(3e-6)". It works nothing.
+_ONE_NUMBER = re.compile(r"\(*[-+]?\d*\.?\d+(?:e[-+]?\d+)?\)*")
 
 
-def _worked_to(card: ReplyCard, above: str) -> bool:
-    """The working above the card works its value out: it ends on the card's value, within
-    the card's rounding and in a unit of the card's kind, below a line of arithmetic."""
-    worked = worked_value(above)
-    if worked is None or not any(_ARITHMETIC.search(line) for line in _INLINE_MATHS.findall(above)):
-        return False
-    kinds = [_kind(unit) for unit in (worked.unit, card.unit) if unit]
-    if len(kinds) == 2 and None not in kinds and kinds[0] != kinds[1]:
-        return False
-    reached = abs(float(worked.value))
-    slack = max(_rounding(card), _ROUNDING * reached)
-    return abs(reached - abs(card.value)) <= slack
+def _worked_to(card: ReplyCard, above: str, text: str) -> bool:
+    """The working above the card works its value out: its last line of arithmetic, the
+    numbers put into a formula ("2 × 20 × 0.1", "\\frac{10 - 0.2 × 9.8}{0.2} ≈ 40.2"), comes
+    to the card's value within the card's rounding. A formula in symbols, a value stated
+    alone and a power of ten work nothing out (review of #2604: "R = \\frac{v^2 \\sin
+    2θ}{g}" over "R = 32.4 m" let a slip stand over the server's 31.07). So does arithmetic
+    on a number the reply holds nowhere else: "R = 220/0.27" took a current of 0.2727 A
+    rounded too soon (``_held``)."""
+    from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
+
+    for line in reversed(_INLINE_MATHS.findall(above)):
+        for side in reversed(_SIDES.split(line)):
+            plain = plain_arithmetic(side.strip())
+            if plain is None or _ONE_NUMBER.fullmatch(plain):
+                continue
+            reached = evaluate(plain)
+            if reached is None:
+                continue
+            slack = max(_rounding(card), _ROUNDING * abs(reached))
+            near = abs(abs(reached) - abs(card.value)) <= slack
+            return near and _held(plain, written_numbers(text.replace(line, " ", 1)))
+    return False
+
+
+_PLAIN_NUMBER = re.compile(r"\d*\.?\d+(?:e[-+]?\d+)?")
+# A small whole number is a count or a factor of a formula ("2 × F × r", "½"): held anywhere.
+_FACTOR = 12
+_SCALES = tuple(10.0**power for power in range(-9, 10))
+
+
+def _held(plain: str, elsewhere: Sequence[float]) -> bool:
+    """Each number of the arithmetic is one the reply writes elsewhere, in any unit of ten
+    (200 g is 0.2 kg, 10 cm 0.1 m), or a small whole factor."""
+    for spelling in _PLAIN_NUMBER.findall(plain):
+        number = float(spelling)
+        if number == int(number) and abs(number) <= _FACTOR:
+            continue
+        if not any(
+            math.isclose(number, other * scale, rel_tol=1e-9)
+            for other in elsewhere
+            for scale in _SCALES
+        ):
+            return False
+    return True
 
 
 # A value's other form in brackets after it, opened after a space: "0.840 (84.0 percent)".

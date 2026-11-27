@@ -339,7 +339,8 @@ def check_working(state: FinalizeState) -> str:
     text = state.text
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
-    if ctx.solver_unverified is True or is_worked_solution(text) or boxes_its_answer(text):
+    worked = is_worked_solution(text, school=school_question(ctx))
+    if ctx.solver_unverified is True or worked or boxes_its_answer(text):
         # A decimal given for an exact value is the server's to get right.
         text = corrected_approximations(text)
         # A wrong number in a step is put right, and the lines built on it after it; a step
@@ -363,6 +364,22 @@ def check_working(state: FinalizeState) -> str:
         if note:
             text = with_closing_note(text, note)
     return text
+
+
+def school_question(ctx: object) -> bool:
+    """The turn's reading calls its message a school question: maths, physics or chemistry,
+    as the read decided it, else as the pool read its subject."""
+    from app.core.aio import settled_result
+    from app.modules.chat.decider_read import READ_SUBJECTS
+    from app.modules.turn_reading.turn import current_turn_reading
+
+    read = getattr(ctx, "live_read", None)
+    decision = settled_result(read) if read is not None and read.done() else None
+    subject = getattr(decision, "subject", None)
+    if subject is not None:
+        return subject in READ_SUBJECTS
+    reading = current_turn_reading()
+    return reading is not None and reading.subject is not None
 
 
 def reply_writes_decimal_comma(ctx: object) -> bool:

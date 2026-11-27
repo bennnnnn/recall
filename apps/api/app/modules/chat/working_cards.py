@@ -266,8 +266,23 @@ def _said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: boo
 _COMPONENT = re.compile(r"(?P<sign>[-+−]?)\s*(?P<number>\d+(?:\.\d+)?)\s*\\hat\s*\{?\s*[ijk]\b")
 # A number on a card, and whether an angle's mark follows it.
 _CARD_NUMBER = re.compile(
-    r"(?<![\w.^_{])(?P<number>\d+(?:\.\d+)?)(?P<angle>\s*(?:\^\s*\{?\s*\\circ|°))?"
+    r"(?<![\w.^_{])(?P<number>\d+(?:\.\d+)?)"
+    r"(?P<angle>\s*(?:\\[,; ]\s*)?(?:\^\s*\{?\s*\\circ|°|\\degree\b))?"
 )
+# A script's or a unit's power, whose digits are no value: "s^{-1}", "m^2", "h^{-1}".
+_SCRIPT = re.compile(r"[\^_]\s*(?:\{[^{}]*\}|[-−]?\d+)")
+# A unit written in a group after a value: "\,\mathrm{m/s}".
+_UNIT_AFTER = re.compile(r"\s*(?:\\[,; ]\s*)?\\(?:mathrm|text)\s*\{([^{}]*)\}")
+
+
+def _unscripted(value: str) -> str:
+    """``value`` with every script and power blanked, each character kept in place."""
+    return _SCRIPT.sub(lambda found: " " * len(found.group()), value)
+
+
+def _unit_at(value: str, at: int) -> str | None:
+    found = _UNIT_AFTER.match(value, at)
+    return None if found is None else re.sub(r"\s", "", found.group(1))
 
 
 def _last_vector(above: str) -> list[float] | None:
@@ -292,9 +307,15 @@ def _rounds_to(value: float, written: str) -> bool:
 _MOMENT_UNIT = re.compile(r"\bN\s*(?:·|⋅|\\cdot|\{\\cdot\}|\\,|\\ |\s)?\s*c?m\b")
 # The sense a card says a moment turns in, with the brackets or words around it:
 # "(clockwise)", "\text{ anticlockwise}", "counter-clockwise".
-_SENSE = re.compile(
-    r"\s*(?:\\text\{\s*)?\(?\s*(?:anti-?|counter-?)?clockwise\s*\)?(?:\s*\})?", re.IGNORECASE
-)
+_SENSE_WORD = r"\(?\s*(?:anti-?|counter-?)?clockwise\s*\)?"
+# The sense of turning a card claims, as a group of its own ("\ \text{clockwise}",
+# "\text{ anticlockwise}") or as words inside the unit's group or after it ("\text{N·m
+# (clockwise)}", "(clockwise)"). A group of its own goes whole, with the space before it;
+# words inside a group go and the group stays closed (review of #2604).
+_SENSE_GROUP = re.compile(rf"(?:\s|\\[,; ])*\\text\s*\{{\s*{_SENSE_WORD}\s*\}}", re.IGNORECASE)
+_SENSE = re.compile(rf"\s*{_SENSE_WORD}", re.IGNORECASE)
+# What a card's value may not end on once its sense is gone: a TeX space or a comma.
+_LEFT_OVER = re.compile(r"(?:\s|\\[,; ]|\\$|,)+$")
 
 
 def without_unbacked_senses(text: str) -> str:
@@ -308,7 +329,7 @@ def without_unbacked_senses(text: str) -> str:
         headers, value = answer_header_and_value(body)
         if VERIFIED_ANSWER_MARKER in headers or not _MOMENT_UNIT.search(value):
             continue
-        bare = _SENSE.sub("", value).rstrip()
+        bare = _LEFT_OVER.sub("", _SENSE.sub("", _SENSE_GROUP.sub("", value)))
         if bare != value and any(character.isdigit() for character in bare):
             at = answer.fence.body_start + body.rfind(value)
             text = f"{text[:at]}{bare}{text[at + len(value) :]}"
@@ -327,10 +348,20 @@ def held_vector_sizes(text: str) -> str:
         components = _last_vector(text[answer.since_card : answer.fence.start])
         if VERIFIED_ANSWER_MARKER in headers or not value or components is None:
             continue
-        numbers = [match for match in _CARD_NUMBER.finditer(value) if not match["angle"]]
+        plain = _unscripted(value)
+        numbers = [match for match in _CARD_NUMBER.finditer(plain) if not match["angle"]]
         count = len(components)
         listed = zip(components, numbers, strict=False)
         if len(numbers) != count + 1 or not all(_rounds_to(c, m["number"]) for c, m in listed):
+            continue
+        # The size carries the components' unit: "12.30 m/s" after "-9.04 m/s, 8.70 m/s",
+        # or after "(-9.04 î + 8.70 ĵ) m/s"; a number with no unit of theirs is no size.
+        size_unit = _unit_at(plain, numbers[count].end())
+        units = [unit for m in numbers[:count] if (unit := _unit_at(plain, m.end()))]
+        their = (
+            units[-1] if units else _unit_at(plain, plain.find(")", numbers[count - 1].end()) + 1)
+        )
+        if size_unit is None or size_unit != their:
             continue
         size = math.sqrt(sum(component**2 for component in components))
         shown = numbers[count]["number"]

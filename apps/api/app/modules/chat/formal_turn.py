@@ -40,10 +40,11 @@ from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formal_cards import held_to_server
+from app.modules.chat.formal_lines import SERVER_VALUE_LINES
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.formal.answer import FormalAnswer, StatedConflict
-from app.services.rounding_rule import asked_precision
+from app.services.rounding_rule import asked_precision, data_precision
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -53,16 +54,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Above a card the server's value replaced, in the language of the reply.
-_LINES = {
-    "en": "Worked out again from the values in the question:",
-    "es": "Calculado de nuevo con los valores de la pregunta:",
-    "fr": "Recalculé à partir des valeurs de la question :",
-    "pt": "Recalculado a partir dos valores da pergunta:",
-    "ru": "Пересчитано по данным задачи:",
-    "tr": "Sorudaki değerlerden yeniden hesaplandı:",
-    "am": "ከጥያቄው እሴቶች እንደገና የተሰላ፦",
-    "hi": "प्रश्न के मानों से फिर से गणना की गई:",
-}
+_LINES = SERVER_VALUE_LINES
 # A relation the question's values break ({meaning} is the setup's words, {sides} maths).
 _CONFLICTS = {
     "en": "These values can't all be right: {meaning}, but here {sides}.",
@@ -169,7 +161,8 @@ async def attach_formal(state: FinalizeState) -> str:
         text = stated_conflicts(state.text, answer.conflicts, language)
     else:
         line = _LINES.get(language, _LINES["en"])
-        asked = asked_precision(ctx.user_message_content or "")
+        # No solver read the question's values: the data's figures are unknown here.
+        asked = data_precision(asked_precision(ctx.user_message_content or ""), 0)
         text = held_to_server(state.text, answer.values, line, asked)
     if text != state.text:
         # Committed, so a later pass that falls back keeps the server's value.

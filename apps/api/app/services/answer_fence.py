@@ -491,8 +491,7 @@ def _boxed_as_answer(text: str) -> str:
 # A value in bold in a sentence: a number and its unit, "**2.03 mm**", "**4.62%**",
 # "**0.24 W**". A direction or a word in bold is no value.
 _BOLD_QUANTITY = re.compile(
-    r"\*\*\s*(?P<number>[-−]?\d+(?:\.\d+)?)\s*(?P<unit>%|°|[A-Za-zµΩ°][A-Za-zµΩ°/·⋅^²³⁻¹\d]*"
-    r"(?:\s[A-Za-zµΩ][A-Za-zµΩ/·⋅^²³⁻¹\d]*)?)?\s*\*\*"
+    r"\*\*\s*(?P<number>[-−]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*(?P<unit>[^*\n]*?)\s*\*\*"
 )
 _BOLD = re.compile(r"\*\*[^*\n]+\*\*")
 # The Answer heading a line opens with, its value after it: "**Answer:** The rate is ...".
@@ -501,7 +500,7 @@ _HEADING_ON_LINE = re.compile(r"^\s*(?:#{1,4}\s+)?\*\*[^*\n]*\*\*:?")
 
 def bold_quantity(sentence: str) -> str | None:
     """The one value a sentence sets in bold, as a card's maths ("2.03\\,\\mathrm{mm}"); None
-    when it bolds no value, or more than one thing (a speed and a direction)."""
+    when it bolds no value, or more than a value and its unit (a speed and a direction)."""
     bolds = _BOLD.findall(sentence)
     found = _BOLD_QUANTITY.fullmatch(bolds[0]) if len(bolds) == 1 else None
     if found is None:
@@ -509,7 +508,15 @@ def bold_quantity(sentence: str) -> str | None:
     number, unit = found["number"].replace("−", "-"), found["unit"]
     if not unit:
         return number
-    return f"{number}\\%" if unit == "%" else f"{number}\\,\\mathrm{{{unit}}}"
+    if unit == "%":
+        return f"{number}\\%"
+    # The bold holds a value and its unit, nothing more: "**5 m/s north**", "**2.03 mm
+    # high**" and "**6.02e23 atoms**" are no unit a card can draw (review of #2604).
+    from app.services.law_binding.units import dimension_of
+
+    if dimension_of(unit.replace("·", "*").replace("⋅", "*")) is None:
+        return None
+    return f"{number}\\,\\mathrm{{{unit}}}"
 
 
 def land_answer_card(

@@ -248,3 +248,66 @@ def test_an_unchecked_moment_card_claims_no_sense(card: str, kept: str) -> None:
 
     text = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
     assert without_unbacked_senses(text) == f"**Answer**\n\n```answer\nverified: false\n{kept}\n```"
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # A unit's power is no size (review of #2604: read as 1, it became s^{-13}).
+        "(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m\\,s^{-1}}",
+        "(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m\\,h^{-1}}",
+        # An angle, however it is written, is no size.
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $43.9\\,^\\circ$",
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $43.9\\degree$",
+        # A number in no unit of the components' is no size either.
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $12.30\\,\\mathrm{s}$",
+    ],
+)
+def test_a_vector_card_with_no_size_of_its_own_stands(card: str) -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = (
+        "$\\vec{v}_f = -9.0435\\hat{i} + 8.6957\\hat{j}\\,\\mathrm{m/s}$\n\n**Answer**\n\n"
+        f"```answer\nverified: false\n{card}\n```\n\n1 m/s is 1."
+    )
+    assert held_vector_sizes(text) == text
+
+
+@pytest.mark.parametrize(
+    ("card", "kept"),
+    [
+        ("2.05\\,\\text{N·m (clockwise)}", "2.05\\,\\text{N·m}"),
+        ("2.05\\,\\text{N m clockwise}", "2.05\\,\\text{N m}"),
+        ("2.05\\ \\text{N·m}\\ \\text{clockwise}", "2.05\\ \\text{N·m}"),
+        ("$2.05\\,\\mathrm{N·m}$ (Counter-Clockwise)", "$2.05\\,\\mathrm{N·m}$"),
+    ],
+)
+def test_a_sense_goes_with_its_group_never_half_of_it(card: str, kept: str) -> None:
+    """Review of #2604: "\\text{N·m" was left open, and a "\\" escaped the closing "$"."""
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert without_unbacked_senses(text) == f"**Answer**\n\n```answer\nverified: false\n{kept}\n```"
+
+
+def test_check_working_holds_a_vector_size_and_drops_an_unbacked_sense() -> None:
+    """The wiring: both card checks run in the working check (review of #2604)."""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.chat.finalize_passes import FinalizeState
+    from app.modules.chat.finalize_subjects import check_working
+
+    moment = "**Answer (a)**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{N·m}$ (clockwise)\n```"
+    reply = f"**Solution**\n\n$M = 5 \\times 0.41$\n\n{moment}\n\n" + _JUNCTION
+    state = SimpleNamespace(
+        text=reply,
+        server_text=False,
+        was_cancelled=False,
+        ctx=SimpleNamespace(
+            verified_subject=None, solver_unverified=True, user_message_content="", worked=None
+        ),
+    )
+    text = check_working(cast(FinalizeState, state))
+    assert "(clockwise)" not in text
+    assert "12.55\\,\\mathrm{m/s}" in text

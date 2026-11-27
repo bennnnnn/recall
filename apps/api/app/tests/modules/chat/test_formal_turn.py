@@ -2,7 +2,8 @@
 
 Measured (docs/FORMAL_READER.md, 2026-11-16): in 36 disagreements between the server's
 answer and the reply model's, the server was right every time. So a card that states
-another value gets the server's; one that states the same value in any unit of its kind,
+another value gets the server's, unless the reply's own arithmetic works it out (the owner's
+rule: the server never stamps its value over a worked answer); one that states the same value in any unit of its kind,
 for any standard value of a constant (g as 10), stands; no card is ever added; and a
 question whose values cannot all hold opens with a line saying so (G8 round, 2026-11-18).
 """
@@ -569,8 +570,15 @@ def test_a_last_card_left_open_is_held_to_the_server_s_value() -> None:
         # the weight out (textbook round, 2026-11-26).
         (
             _value(50.0, "m/s^2", uses=(10.0, 200.0)),
-            "$F = 10\\,\\mathrm{N}$, $m = 200\\,\\mathrm{g}$\n\n"
+            "$F = 10\\,\\mathrm{N}$, $m = 200\\,\\mathrm{g}$, $g = 9.8$\n\n"
             "$a = \\frac{10 - 0.2 \\times 9.8}{0.2}$\n\n$a = 40.2\\,\\mathrm{m/s^2}$",
+            "40.2\\,\\mathrm{m/s^2}",
+        ),
+        # The same working with its value after "\\approx", as models often write it.
+        (
+            _value(50.0, "m/s^2", uses=(10.0, 200.0)),
+            "$F = 10\\,\\mathrm{N}$, $m = 200\\,\\mathrm{g}$, $g = 9.8$\n\n"
+            "$a = \\frac{10 - 0.2 \\times 9.8}{0.2} \\approx 40.2\\,\\mathrm{m/s^2}$",
             "40.2\\,\\mathrm{m/s^2}",
         ),
         # A couple is F times the distance between its forces: 2 x 20 N x 0.1 m.
@@ -581,7 +589,7 @@ def test_a_last_card_left_open_is_held_to_the_server_s_value() -> None:
             "4\\,\\mathrm{N\\cdot m}",
         ),
     ],
-    ids=["rocket-weight", "couple-arm"],
+    ids=["rocket-weight", "rocket-approx", "couple-arm"],
 )
 def test_a_card_its_own_working_reaches_stands_against_the_server(
     server: FormalValue, working: str, card: str
@@ -593,3 +601,24 @@ def test_a_card_its_own_working_reaches_stands_against_the_server(
 
     reply = f"{working}\n\n**Answer**\n\n{_card(card)}"
     assert held_to_server(reply, (server,), "Worked out again:") == reply
+
+
+@pytest.mark.parametrize(
+    "working",
+    [
+        # A formula in symbols, then the value stated: nothing worked out (review of #2604).
+        "$v = 18$ m/s, $\\theta = 35°$\n\n$R = \\frac{v^2\\sin 2\\theta}{g}$\n\n"
+        "$R = 32.4\\,\\mathrm{m}$",
+        # A power of ten is a number, not arithmetic.
+        "$v = 18$ m/s at 35°\n\n$R = 3.24 \\times 10^{1}\\,\\mathrm{m}$",
+        # Arithmetic that does not come to the card.
+        "$v = 18$ m/s at 35°\n\n$R = 18 \\times 1.75$",
+    ],
+    ids=["formula", "power-of-ten", "elsewhere"],
+)
+def test_a_card_no_arithmetic_reaches_is_the_server_s(working: str) -> None:
+    from app.modules.chat.formal_cards import held_to_server
+
+    reply = f"{working}\n\n**Answer**\n\n{_card('32.4\\,\\mathrm{m}')}"
+    held = held_to_server(reply, _RANGE.values, "Worked out again:")
+    assert "31.07" in held and "32.4\\,\\mathrm{m}\n```" not in held

@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002, RUF003 -- the point of this module is × and superscripts.
+# ruff: noqa: RUF002, RUF003 -- the point of this module is × and superscripts.
 """How an answer card shows its number, for every subject: the one rule (owner, 2026-11-18).
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
@@ -55,6 +55,9 @@ class Precision:
     figures: int = 0
     places: int = -1
     unrounded: bool = False
+    # "To the correct number of significant figures": the data's own precision, which only
+    # the values a solver read can say (``data_precision``); unresolved, it is the rule.
+    data: bool = False
 
 
 RULE = Precision()
@@ -102,25 +105,23 @@ _DATA_FIGURES = re.compile(
     r"(?:significant\s+(?:figures?|digits?)|sig(?:nificant)?\.?\s*figs?|s\.\s?f\.?)",
     re.IGNORECASE,
 )
-# A power of ten after a mantissa, whose digits are no measurement: "× 10^{5}", "x 10⁻³".
-_POWER_OF_TEN = re.compile(
-    r"\s*(?:×|x|\*|\\times|\\cdot)\s*10\s*"
-    r"(?:\^\s*\{?\s*[-−+]?\d+\s*\}?|[⁻⁺]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)"
-)
-_STATED_NUMBER = re.compile(r"(?<![\w.^_{])(\d+(?:\.\d+)?)(?![\w])(?!\.\d)")
 
 
-def data_figures(text: str) -> int:
-    """The fewest significant figures a value ``text`` states is written to, 0 for none: "a
-    distance of 4.345 m in 1.2 s" is 2. A whole number ending in zeros (3000 feet, 10
-    minutes) says no precision, its zeros maybe only holding places, and limits nothing."""
-    counts = []
-    for match in _STATED_NUMBER.finditer(_POWER_OF_TEN.sub(" ", text)):
-        digits = match.group(1)
-        if "." not in digits and digits != digits.rstrip("0"):
-            continue
-        counts.append(len(digits.replace(".", "").lstrip("0")) or 1)
-    return min(counts, default=0)
+def written_figures(digits: str) -> int:
+    """The significant figures a number is written to, 0 when it says none: "1.20" is 3,
+    "0.050" 2, "12" 2; a whole number ending in zeros (3000, 10) may hold places only."""
+    if "." not in digits and digits != digits.rstrip("0"):
+        return 0
+    return len(digits.replace(".", "").lstrip("0")) or 1
+
+
+def data_precision(precision: Precision, figures: int) -> Precision:
+    """``precision`` with the data's figures in place of its "the correct number of
+    significant figures": ``figures`` from the values a solver read, 0 when no solver read
+    any, and then the rule's places."""
+    if not precision.data:
+        return precision
+    return Precision(figures=min(figures, MOST_DIGITS)) if figures > 0 else RULE
 
 
 def asked_precision(text: str) -> Precision:
@@ -129,12 +130,14 @@ def asked_precision(text: str) -> Precision:
 
     "Give the answer to the correct number of significant figures" asks the precision of the
     data: a trolley going 4.345 m in 1.2 s is 3.6 m/s, and its card read 3.62 m/s, verified
-    (textbook round, 2026-11-26)."""
+    (textbook round, 2026-11-26). Which figures those are is the solver's to say, from the
+    values it read, never from any number written (a list's "1." is no datum):
+    ``data_precision`` resolves it."""
     if _UNROUNDED.search(text):
         return Precision(unrounded=True)
     figures, places, _span = asked_rounding(text)
     if figures == 0 and places < 0 and _DATA_FIGURES.search(text):
-        figures = min(data_figures(_DATA_FIGURES.sub(" ", text)), MOST_DIGITS)
+        return Precision(data=True)
     if figures == 0 and places < 0:
         return precision_only(text) or RULE
     return Precision(figures=min(figures, MOST_DIGITS), places=min(places, MOST_DIGITS))

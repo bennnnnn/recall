@@ -531,3 +531,17 @@ def test_a_sentence_that_bolds_its_one_value_is_carded(answer: str, card: str) -
 def test_a_sentence_that_bolds_no_one_value_stays(answer: str) -> None:
     reply = f"$h = 2 \\times 3$\n\n{answer}"
     assert land_answer_card(reply, None) == reply
+
+
+@pytest.mark.parametrize(
+    "bolded",
+    [
+        "It moves at **5 m/s north**.",  # a direction is no unit (review of #2604)
+        "The column is **2.03 mm high**.",
+        "There are **6.02e23 atoms**.",
+    ],
+)
+def test_a_bold_that_holds_more_than_a_value_and_its_unit_is_no_card(bolded: str) -> None:
+    from app.services.answer_fence import bold_quantity
+
+    assert bold_quantity(bolded) is None

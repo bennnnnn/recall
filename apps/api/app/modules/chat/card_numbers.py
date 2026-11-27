@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.card_lists import known_value, listed_values
 from app.modules.chat.card_walk import answer_cards
+from app.modules.chat.formal_lines import server_valued
 from app.modules.chat.written_numbers import (
     WRITTEN_NUMBER,
     any_numbers,
@@ -51,6 +52,7 @@ from app.services.rounding_rule import (
     SMALL_BELOW,
     Precision,
     asked_precision,
+    data_precision,
     number_latex,
     number_parts,
 )
@@ -72,10 +74,16 @@ def format_card_numbers(state: FinalizeState) -> str:
     """The reply with each card's numbers by the rule (the module docstring). A solver that
     writes its cards to its subject's own precision (chemistry's significant figures of the
     data) keeps them, unless the question asks for another."""
-    precision = asked_precision(state.ctx.user_message_content or "")
+    asked = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
+    if asked.data and verified is not None and verified.cards_keep_precision:
+        # Chemistry's checked card already keeps its data's figures (``chemistry.sig_figs``):
+        # one rule of the data's figures, its own, so the model's cards follow the rule.
+        asked = RULE
+    precision = data_precision(asked, verified.data_figures if verified is not None else 0)
+    laid_out = getattr(state.ctx, "worked", None) is not None
     if verified is None or not verified.cards_keep_precision:
-        return card_numbers(state.text, precision)
+        return card_numbers(state.text, precision, model_cards=not laid_out)
     # A photo read uncertainly unchecks the solver's card; it is still the solver's, and is
     # known by its numbers. The model's own card there follows the rule.
     unchecked: frozenset[str] = frozenset()
@@ -93,12 +101,14 @@ def card_numbers(
     *,
     keep_checked: bool = False,
     solver_numbers: frozenset[str] = frozenset(),
+    model_cards: bool = True,
 ) -> str:
     """``keep_checked``: a card the server checked keeps its solver's precision, and takes a
     precision the question asks for only when the working knows the value to it (a card of
     2.4 is no 2.400). ``solver_numbers``: the solver's answers' numbers, which an unchecked
     card that is the solver's (a photo read uncertainly) holds. The model's own unchecked
-    card on that turn follows the rule."""
+    card on that turn follows the rule. ``model_cards``: the unchecked cards are the model's
+    own writing, not the worked layout's (``_written_digits``)."""
     changes: list[tuple[int, int, str]] = []
     for card in answer_cards(text):
         fence = card.fence
@@ -106,7 +116,7 @@ def card_numbers(
         if keep_checked and _solver_card(body, solver_numbers):
             if precision == RULE or not _known_to(body, above, precision):
                 continue
-        shown = _shown(body, above, precision)
+        shown = _shown(body, above, precision, model=model_cards and not server_valued(above))
         if shown is not None and shown != body:
             changes.append((fence.body_start, fence.body_end, shown))
     for start, end, body in reversed(changes):
@@ -169,7 +179,7 @@ def _known_to(body: str, above: str, precision: Precision) -> bool:
 
 def _exactly_whole(card: Number, above: str) -> bool:
     """A whole card the working above it reached as the same whole number."""
-    worked = worked_value(above)
+    worked = _worked(above)
     return (
         card.places == 0
         and worked is not None
@@ -207,20 +217,20 @@ def plain_numbers(body: str) -> tuple[list[str], str, VerifiedValue] | None:
     return headers, value, read
 
 
-def _shown(body: str, above: str, precision: Precision) -> str | None:
+def _shown(body: str, above: str, precision: Precision, *, model: bool = True) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
     decimals = measured_fractions(body, precision)
     if decimals != body:
-        return _shown(decimals, above, precision) or decimals
+        return _shown(decimals, above, precision, model=model) or decimals
     plain = plain_numbers(body)
     if plain is None:
-        return _listed_shown(body, above, precision)
+        return _listed_shown(body, above, precision, model=model)
     headers, value, read = plain
     numbers = list(read.numbers)
     written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
-    unchecked = UNCHECKED_ANSWER_MARKER in headers
+    unchecked = model and UNCHECKED_ANSWER_MARKER in headers
     for match, number, worked in zip(written, numbers, each, strict=True):
         known = worked or _known(match, value, above, unchecked=unchecked)
         own = (
@@ -254,8 +264,8 @@ def measured_fractions(body: str, precision: Precision = RULE) -> str:
     does any card that already gives the decimal, a pure number (x = 1/3 is maths' exact
     answer) and money."""
     headers, value = answer_header_and_value(body)
-    if UNCHECKED_ANSWER_MARKER not in headers or ROUNDED_TO.search(value):
-        return body
+    if precision.unrounded or UNCHECKED_ANSWER_MARKER not in headers or ROUNDED_TO.search(value):
+        return body  # "the exact value" asks for the fraction
     units = [group for group in _UNIT_RUN.findall(value) if _measured(group.replace("·", "*"))]
     if not value or not units or _KEPT.search(value) or _FRACTION.search(value) is None:
         return body
@@ -315,7 +325,7 @@ def _known(
     return None if found is None else Number(Fraction(repr(found)), None)
 
 
-def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
+def _listed_shown(body: str, above: str, precision: Precision, *, model: bool = True) -> str | None:
     """A card of several values no single reading takes, each a number standing as a value: a
     vector's components ("(-9.0434 î + 8.6956 ĵ) m/s"), a magnitude, an angle and its
     direction. Each decimal number is written by the rule; a whole number, a script, a
@@ -325,7 +335,7 @@ def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
         return None
     if not listed_values(_without_label(value)):
         return None
-    unchecked = UNCHECKED_ANSWER_MARKER in headers
+    unchecked = model and UNCHECKED_ANSWER_MARKER in headers
     pieces, at = [], 0
     for match in WRITTEN_NUMBER.finditer(value):
         number = match.group("number")
@@ -411,7 +421,7 @@ def _money(unit: str) -> bool:
     return bool(unit) and MONEY.names_currency(unit)
 
 
-def worked_value(above: str) -> Number | None:
+def _worked(above: str) -> Number | None:
     """The one value the working above a card ends on: its last line of maths, the side
     after its last "="."""
     lines = _INLINE_MATHS.findall(above)
@@ -460,7 +470,7 @@ def _unrounded_each(numbers: list[Number], above: str) -> list[Number | None]:
 def _unrounded(card: Number, above: str) -> Number | None:
     """The value the working above the card reached, when the card's value is a rounding
     of it in the same unit."""
-    worked = worked_value(above)
+    worked = _worked(above)
     if worked is None or not rounding_of(card, worked):
         return None
     return _signed_as(card, worked)

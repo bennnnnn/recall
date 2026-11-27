@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001 -- a question writes its minus sign as a Unicode minus too.
 """Counted items: "two 10 Ω resistors", "two heaters, each rated 2 kW", "two 5 kg blocks".
 
 A value stated once for several items is that value in each. Read as one item, two 10 Ω
@@ -50,11 +51,11 @@ _LATER_NOUN_RE = re.compile(
 # "each" before a value; not "each other" (toward each other at 20 m/s), and not an "each"
 # that closes a value of its own ("1 µC each are 1 m apart").
 _EACH_BEFORE = re.compile(r"\beach\b(?!\s+other\b)[^\d.;:?!\n]{0,60}\Z", re.IGNORECASE)
-# "10 Ω each", then the clause goes on: "each, ...", "each are connected". Not "3 hours each
-# day": that is a rate, not items.
+# "10 Ω each", whatever the clause goes on with: "each, ...", "each are connected", "each act
+# as a couple" (review of #2604: "act" was no verb the list knew, and τ = 2 N·m verified for
+# 4). Not "each other", and not "3 hours each day": that is a rate, not items.
 _EACH_AFTER = re.compile(
-    r"\s*each\b(?=\s*(?:[.,;:?!)]|\Z|(?:are|is|were|was|and|in|on|at|connected|placed|"
-    r"joined|wired|arranged)\b))",
+    r"\s*each\b(?!\s+(?:other|day|night|week|month|year|hour|minute|second|time)\b)",
     re.IGNORECASE,
 )
 # A plural noun ("each of the resistors has 4 Ω"); not "across".
@@ -103,10 +104,8 @@ def _count(word: str) -> int:
 
 # "Two forces of 20 N", "two lamps of 6 Ω": a value "of" the items counted.
 _OF_EACH = re.compile(r"\s+of\s+")
-# "each" right after the value: "of 2 µC each" is each one's.
-_EACH_SAID = re.compile(r"\s*each\b", re.IGNORECASE)
 # Another value listed after it: "two resistors of 10 Ω and 20 Ω" give one value each.
-_ANOTHER_LISTED = re.compile(r"\s*(?:,|and|or)\s*\d")
+_ANOTHER_LISTED = re.compile(r"\s*(?:,|and|or)\s*[-+−]?\.?\d")
 
 
 def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
@@ -114,14 +113,14 @@ def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
     each item's or all of theirs is unsaid ("two lamps of 6 Ω"), so a solve that reads it
     once is refused: a couple's "two forces of 20 N" was one force, carded τ = 2 N·m,
     verified, for 4 N·m (textbook round, 2026-11-26). A list of values after it ("of 10 Ω
-    and 20 Ω", "of 4 and 6 ohms") gives each item its own, and "each" after it ("of 2 µC
-    each") says it is each one's."""
+    and 20 Ω", "of 4 and 6 ohms", "of 3 µC and -5 µC") gives each item its own, and "each"
+    after it ("of 2 µC each") says it is each one's: ``each``, held to every item."""
     joined = _OF_EACH.match(text, end)
     given = next((g for g in givens if joined and g.start == joined.end()), None)
     if given is None:
         return ()
     after = _unit_end(text, given)
-    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or _EACH_SAID.match(
+    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or _EACH_AFTER.match(
         text, after
     ):
         return ()

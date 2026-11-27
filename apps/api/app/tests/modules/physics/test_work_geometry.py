@@ -110,3 +110,92 @@ def test_a_walk_in_feet_answers_in_the_unit_asked() -> None:
     assert intent is not None
     result = solve_physics(intent).quantities[0]
     assert result.unit == "m/s" and result.value == pytest.approx(1.524)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The reviewer's input (round 1 of #2604), then the same pull in other words and case.
+        "A man pulls the rope with 75 N at 50° above the horizontal and raises the box 1.5 m. "
+        "Find the work done on the box.",
+        "A box is lifted 1.5 m by a rope pulled with a force of 75 N at 50° to the Horizontal. "
+        "How much work is done?",
+        "A force of 75 N, applied at an angle of 50 degrees with the ground, hoists a crate "
+        "vertically through 1.5 m. Calculate the work done.",
+        "Raising the load 1.5 m, the worker pulls with 75 N at an angle of 50° to the "
+        "HORIZONTAL. What work does he do?",
+        "Pulling with 75 N at 50° below the horizontal, a man lifts a load 1.5 m. Work done?",
+        "A rope at 40° to the vertical drags a sled horizontally 20 m with a force of 40 N. "
+        "Find the work done.",
+    ],
+)
+def test_an_angle_from_another_line_than_the_motion_is_refused(question: str) -> None:
+    assert angle_from_another_line(question)
+    assert extract_physics_intent(question) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "value"),
+    [
+        # The same pulls along the angle's own line: answered by W = Fs cos θ.
+        (
+            "A man pulls a box along the floor with 75 N at 50° above the horizontal for 1.5 m. "
+            "Find the work done.",
+            72.31,
+        ),
+        (
+            "A force of 40 N at an angle of 30 degrees with the ground pulls a sled 20 m across "
+            "the floor. Work done?",
+            692.82,
+        ),
+    ],
+)
+def test_an_angle_from_the_motion_s_own_line_is_answered(question: str, value: float) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    assert solve_physics(intent).quantities[0].value == pytest.approx(value, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The reviewer's input: "each", then a verb no list knew (round 1 of #2604).
+        "Two forces of 20 N each act as a couple. The forces act at a distance of 10 cm from "
+        "the centre of rotation. What is the torque produced by the couple?",
+        "A couple is made of two forces of 20 N each, applied 10 cm from the centre. Find the "
+        "torque of the couple.",
+        "Two 20 N forces act as a couple, each 10 cm from the pivot. Calculate the torque.",
+        "TWO FORCES, EACH OF 20 N, FORM A COUPLE 10 cm FROM THE CENTRE. WHAT IS THE TORQUE?",
+        "Each of two forces is 20 N; they form a couple 10 cm either side of the axis. Find the "
+        "torque.",
+        "Two forces of 20 N each are applied as a couple at 10 cm from the centre of rotation. "
+        "Determine the torque.",
+    ],
+)
+def test_a_value_each_of_several_items_is_never_read_once(question: str) -> None:
+    """τ = F d read one 20 N force: 2 N·m, checked, for the couple's 4 N·m."""
+    intent = extract_physics_intent(question)
+    assert intent is None or solve_physics(intent).quantities[0].value == pytest.approx(4.0)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Two charges of 3 µC and -5 µC are 0.2 m apart. Find the force between them.",
+        "Two charges of 3 µC and +5 µC are 0.2 m apart. Find the force between them.",
+    ],
+)
+def test_two_values_listed_are_one_each(question: str) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None and intent.physics_op == "electric_force"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A car rounds a turn at 15 m/s with a driving force of 2000 N. What is the power?",
+        "A 50-turn coil carries a motor that does 1200 J of work in 60 s. What is the power?",
+    ],
+)
+def test_a_turn_named_as_a_thing_is_no_amount_turned(question: str) -> None:
+    assert not states_a_turn(question)

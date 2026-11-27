@@ -350,3 +350,56 @@ def test_a_measured_card_s_fractions_are_decimals(card: str, shown: str) -> None
 def test_a_named_vector_card_follows_the_rule() -> None:
     reply = _card("\\vec{a} = 0.298\\hat{i}\\ \\text{m/s}^2")
     assert card_numbers(reply, Precision()) == _card("\\vec{a} = 0.30\\hat{i}\\ \\text{m/s}^2")
+
+
+_DATA_ASKED = (
+    "1. A trolley travels 4.345 m in 1.2 s. What is its average speed? Give the answer to the "
+    "correct number of significant figures."
+)
+
+
+@pytest.mark.parametrize(("figures", "shown"), [(2, "3.6"), (3, "3.62"), (0, "3.62")])
+def test_the_data_s_figures_are_the_solver_s(figures: int, shown: str) -> None:
+    """The solver's bound values say the figures; none read leaves the rule (review of
+    #2604: a list's "1." showed a checked 3.62 m/s as "4 m/s")."""
+    from typing import cast
+
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.modules.chat.finalize_passes import FinalizeState
+    from app.services.solving import VerifiedPhysicsBlock
+
+    block = VerifiedPhysicsBlock(text="", subject="physics", data_figures=figures)
+    card = _card("3.620833\\,\\mathrm{m/s}", "true")
+    state = _state(card, _DATA_ASKED, block if figures else None)
+    assert format_card_numbers(cast(FinalizeState, state)) == _card(
+        f"{shown}\\,\\mathrm{{m/s}}", "true"
+    )
+
+
+def test_a_chemistry_card_keeps_its_own_data_figures() -> None:
+    """Chemistry's solver already writes the data's figures (``chemistry.sig_figs``): one rule
+    of the data's figures, never a second count of the question's numbers (review of #2604)."""
+    from typing import cast
+
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.modules.chat.finalize_passes import FinalizeState
+
+    question = "What is the mass of 2.00 mol of NaCl?"
+    verified = _chemistry(question)
+    card = _card(verified.canonical_answer or "", "true")
+    line = f"{question} Give it to the correct number of significant figures."
+    state = _state(card, line, verified)
+    assert format_card_numbers(cast(FinalizeState, state)) == card
+
+
+def test_an_exact_value_asked_keeps_the_fraction() -> None:
+    card = _card("v = \\frac{7}{9}\\,\\mathrm{m/s}")
+    assert card_numbers(card, Precision(unrounded=True)) == card
+
+
+def test_the_server_s_own_unchecked_card_keeps_its_zeros() -> None:
+    """The formal reader's 2.50 A is the server's value, known to its zeros (review of #2604)."""
+    reply = "Worked out again from the values in the question:\n\n" + _card("2.50\\ \\mathrm{A}")
+    assert card_numbers(reply, Precision()) == reply
+    laid_out = "$I = 2.5$\n\n" + _card("2.50\\,\\mathrm{A}")
+    assert card_numbers(laid_out, Precision(), model_cards=False) == laid_out

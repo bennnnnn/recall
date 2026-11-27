@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001 -- a question writes its minus sign as a Unicode minus too.
 """What a straight-line law of a force's work (W = Fs cos θ, P = W/t, P = Fv) cannot model.
 
 Two shapes of question it was certified for, wrongly (textbook round, 2026-11-26):
@@ -18,27 +19,55 @@ from __future__ import annotations
 import re
 
 from app.services.law_binding.spec import FormulaSpec
-from app.services.law_binding.words import angle_to, word_pattern
 from app.services.number_text import NUMBER_WORDS
 
-_AMOUNT = "|".join(
-    sorted((*NUMBER_WORDS, "an?", "half", "quarter", "third", "several", "many"), key=len)[::-1]
+_NUMBER_WORD = "|".join(
+    sorted((*NUMBER_WORDS, "half", "quarter", "third", "several", "many"), key=len)[::-1]
 )
-# An amount of turning: "half a turn", "through 3 revolutions", "two full rotations",
-# "through π rad". A rate ("3 revolutions per second", "rad/s") is no amount turned.
+# An amount of turning, after a word of turning through it: "turns it through half a turn",
+# "over a half turn", "rotates 3 revolutions", "makes two full rotations", "through π rad".
+# A turn named as a thing ("rounds a turn", "a 50-turn coil") is no amount turned, and a rate
+# ("3 revolutions per second", "rad/s", "20 rad s^-1") none either (review of #2604).
+_TURNING = (
+    r"(?:through|over|by|of|turns?|turned|turning|rotates?|rotated|rotating|spins?|spun"
+    r"|revolves?|makes?|made|completes?|completed)"
+)
+_AMOUNT = (
+    rf"(?:an?\s+)?(?:(?<![\d.])\d+(?:\.\d+)?|{_NUMBER_WORD})(?:[\s-]+an?)?[\s-]+"
+    r"(?:(?:full|complete|whole)\s+)?(?:turns?|revolutions?|rotations?|revs?)\b"
+    r"|an?\s+(?:full|complete|whole)\s+(?:turn|revolution|rotation)\b"
+    r"|(?:(?<![\d.])\d+(?:\.\d+)?|π|\\pi|\bpi)\s*(?:rad|radians?)\b"
+)
 _TURNED = re.compile(
-    rf"(?:\b(?:(?<![\d.])\d+(?:\.\d+)?|{_AMOUNT})(?:[\s-]+an?)?[\s-]+(?:(?:full|complete|whole)\s+)?"
-    r"(?:turns?|revolutions?|rotations?|revs?)\b"
-    r"|(?:(?<![\d.])\d+(?:\.\d+)?|π|\\pi|\bpi)\s*(?:rad|radians?)\b)"
-    r"(?!\s*(?:/|per\b|each\b|every\b|an?\s+(?:second|minute|hour)\b))",
+    rf"\b{_TURNING}\s+(?:(?:it|the\s+\w+|its\s+\w+)\s+)?(?:through\s+)?(?:{_AMOUNT})"
+    r"(?!\s*(?:/|per\b|each\b|every\b|an?\s+(?:second|minute|hour)\b|[a-z]+\s*\^\s*\{?\s*[-−]))",
     re.IGNORECASE,
 )
 # The kinds of input a force's work is written with.
 _FORCE_OR_WORK = frozenset({"newton", "joule"})
 _ENERGY_OR_POWER = frozenset({"joule", "watt"})
 
-_FROM_HORIZONTAL = word_pattern(angle_to(r"horizontal\b"))
-_FROM_VERTICAL = word_pattern(angle_to(r"vertical\b"))
+# The line an angle is measured from, as the question states it, in any case: "50° above the
+# horizontal", "50° to the Horizontal", "an angle of 50 degrees with the ground", "at an
+# angle to the vertical of 25°". A ground, a floor and the level are the horizontal; a wall
+# and the upright the vertical.
+_LINES = {
+    "horizontal": "horizontal",
+    "ground": "horizontal",
+    "floor": "horizontal",
+    "level": "horizontal",
+    "vertical": "vertical",
+    "upright": "vertical",
+    "wall": "vertical",
+}
+_LINE = "|".join(_LINES)
+_FROM = r"(?:to|from|with|off|above|below|over|under|relative\s+to)"
+_ANGLE_LINE = re.compile(
+    rf"(?<![\d.])\d+(?:\.\d+)?\s*(?:°|º|deg(?:rees?)?\b)\s*,?\s*(?:(?:an?\s+)?angle\s+)?"
+    rf"(?:measured\s+)?{_FROM}\s+(?:the\s+)?(?P<line>{_LINE})\b"
+    rf"|\bangle\s+(?:of\s+)?{_FROM}\s+(?:the\s+)?(?P<late>{_LINE})\s+of\s+\d",
+    re.IGNORECASE,
+)
 # A motion said to be up or down: the words the lifting laws' bindings read ("raise",
 # "lift", "hoist", "climb"), and "vertically".
 _VERTICAL_MOTION = re.compile(
@@ -48,7 +77,7 @@ _VERTICAL_MOTION = re.compile(
 )
 # A motion said to be along the level: "horizontally", "along the floor", "a level road".
 _LEVEL_MOTION = re.compile(
-    r"\b(?:horizontally|along\s+(?:a|an|the)\s+(?:level\s+|horizontal\s+|flat\s+)?"
+    r"\b(?:horizontally|(?:along|across)\s+(?:a|an|the)\s+(?:level\s+|horizontal\s+|flat\s+)?"
     r"(?:floor|ground|road|track|table|surface|corridor)|(?:a|the)\s+(?:level|flat|horizontal)"
     r"\s+(?:floor|ground|road|track|table|surface))\b",
     re.IGNORECASE,
@@ -69,16 +98,14 @@ def states_a_turn(text: str) -> bool:
 
 
 def angle_from_another_line(text: str) -> bool:
-    """The question's angle is measured from the horizontal while the motion is vertical,
-    or from the vertical while the motion is along the level: it is no angle between the
-    force and the displacement."""
-    from_horizontal = _FROM_HORIZONTAL.search(text)
-    if from_horizontal is not None:
-        rest = text[: from_horizontal.start()] + " " + text[from_horizontal.end() :]
-        if _VERTICAL_MOTION.search(rest) is not None:
+    """The question's angle is measured from a line (``_ANGLE_LINE``) that is not the line the
+    body moves along: from the horizontal while it is raised, from the vertical while it moves
+    along the level. Then it is no angle between the force and the displacement. A motion
+    the question gives no line for is read as the textbook does, along the angle's line."""
+    for found in _ANGLE_LINE.finditer(text):
+        line = _LINES[(found["line"] or found["late"]).lower()]
+        rest = text[: found.start()] + " " + text[found.end() :]
+        moves = _VERTICAL_MOTION if line == "horizontal" else _LEVEL_MOTION
+        if moves.search(rest) is not None:
             return True
-    from_vertical = _FROM_VERTICAL.search(text)
-    if from_vertical is not None:
-        rest = text[: from_vertical.start()] + " " + text[from_vertical.end() :]
-        return _LEVEL_MOTION.search(rest) is not None
     return False

@@ -103,18 +103,28 @@ def test_a_message_that_asks_more_than_a_precision(said: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("question", "figures"),
+    "question",
     [
-        # 4.345 m in 1.2 s: the time's two figures (textbook round, 2026-11-26: 3.62 m/s).
-        (
-            "A trolley travels a distance of 4.345 m in a time of 1.2 s. What is its average "
-            "speed? Give the answer to the correct number of significant figures.",
-            2,
-        ),
-        ("2.0 × 10^{5} Pa and 0.0500 m: give it to an appropriate number of sig figs", 2),
-        # A whole number ending in zeros says no precision: nothing limits the answer.
-        ("3000 feet in 10 minutes, to the correct number of significant figures", 0),
+        "A trolley travels a distance of 4.345 m in a time of 1.2 s. What is its average "
+        "speed? Give the answer to the correct number of significant figures.",
+        "1. A trolley travels 4.345 m in 1.20 s. Give it to an appropriate number of sig figs.",
     ],
 )
-def test_the_data_s_precision_is_asked(question: str, figures: int) -> None:
-    assert asked_precision(question) == Precision(figures=figures)
+def test_the_data_s_precision_is_asked_and_left_to_the_solver(question: str) -> None:
+    """Which figures are the data's is the solver's to say (review of #2604: a list's "1."
+    read as data showed a checked 3.62 m/s as "4 m/s")."""
+    from app.services.rounding_rule import RULE, data_precision
+
+    asked = asked_precision(question)
+    assert asked == Precision(data=True)
+    assert data_precision(asked, 2) == Precision(figures=2)
+    assert data_precision(asked, 0) == RULE
+
+
+@pytest.mark.parametrize(
+    ("digits", "figures"), [("1.20", 3), ("0.050", 2), ("12", 2), ("3000", 0), ("4.345", 4)]
+)
+def test_a_number_is_written_to_its_figures(digits: str, figures: int) -> None:
+    from app.services.rounding_rule import written_figures
+
+    assert written_figures(digits) == figures
