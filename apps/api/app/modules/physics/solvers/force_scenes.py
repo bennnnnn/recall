@@ -78,6 +78,45 @@ def _tip(vector: SimulationVector) -> tuple[float, float]:
     return x + vector.dx / length, y + vector.dy / length
 
 
+def _atwood_forces(
+    masses: tuple[float, float],
+    sizes: tuple[float, float],
+    tension: float | None,
+    g: float | None,
+) -> list[SimulationVector]:
+    """Each mass's free-body diagram: the tension up and its weight down, sized to each other
+    (the heavier weight longest); without g, the tension alone. ``masses``, heavier first."""
+    if tension is None:
+        return []
+    heavy, _light = masses
+    up = tension / (heavy * g) if g else 1.0
+    vectors = [
+        SimulationVector(
+            anchor=[0.0, sizes[0]],
+            dx=0.0,
+            dy=up,
+            label=f"T = {plain_number(tension)} N",
+            role="result",
+            body=0,
+        ),
+        # One rope, one tension: the second arrow says "T" and leaves the
+        # number to the first, so the light side is not a stack of text.
+        SimulationVector(anchor=[0.0, sizes[1]], dx=0.0, dy=up, label="T", role="result", body=1),
+    ]
+    if not g:
+        return vectors
+    return vectors + [
+        SimulationVector(
+            anchor=[0.0, -size],
+            dx=0.0,
+            dy=-mass / heavy,
+            label=f"{symbol} = {plain_number(mass * g)} N",
+            body=body,
+        )
+        for body, (symbol, mass, size) in enumerate(zip(("m₁g", "m₂g"), masses, sizes, strict=True))
+    ]
+
+
 def _atwood_scene(
     m1: float, m2: float, accel: float, tension: float | None = None, g: float | None = None
 ) -> list[SimulationBlockSpec]:
@@ -105,37 +144,8 @@ def _atwood_scene(
     heavy_size, light_size = 0.36, 0.36 * (m2 / m1) ** (1 / 3)
     heavy = [[-wheel, round(reach - 0.2 - s, 4)] for s in fall]
     light = [[wheel, round(reach - 0.2 - drop + s, 4)] for s in fall]
-    vectors: list[SimulationVector] = []
-    # Each mass's free-body diagram: the tension up and its weight down, sized to each other
-    # (the heavier weight longest); without g, the tension alone.
-    largest = m1 * g if g else None
-    if tension is not None:
-        shown = f"T = {plain_number(tension)} N"
-        up = tension / largest if largest else 1.0
-        vectors += [
-            SimulationVector(
-                anchor=[0.0, heavy_size], dx=0.0, dy=up, label=shown, role="result", body=0
-            ),
-            # One rope, one tension: the second arrow says "T" and leaves the
-            # number to the first, so the light side is not a stack of text.
-            SimulationVector(
-                anchor=[0.0, light_size], dx=0.0, dy=up, label="T", role="result", body=1
-            ),
-        ]
+    vectors = _atwood_forces((m1, m2), (heavy_size, light_size), tension, g)
     weighed = tension is not None and bool(g)
-    if tension is not None and g:
-        vectors += [
-            SimulationVector(
-                anchor=[0.0, -size],
-                dx=0.0,
-                dy=-mass / m1,
-                label=f"{symbol} = {plain_number(mass * g)} N",
-                body=body,
-            )
-            for body, (symbol, mass, size) in enumerate(
-                (("m₁g", m1, heavy_size), ("m₂g", m2, light_size))
-            )
-        ]
     if accel > 0:
         shown_a = f"a = {plain_number(accel)} m/s²"
         vectors += [

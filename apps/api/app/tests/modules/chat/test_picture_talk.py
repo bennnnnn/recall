@@ -94,7 +94,9 @@ def _read(**fields: Any) -> TurnDecision:
 
 async def test_the_owed_picture_pass_takes_them_off_only_beside_a_picture_asked() -> None:
     offer = "I can draw the graphs if you want them as pictures."
-    asked = _ctx("Draw its free-body diagram and its graphs.", _read(subject="physics", picture="diagram"))
+    asked = _ctx(
+        "Draw its free-body diagram and its graphs.", _read(subject="physics", picture="diagram")
+    )
     drawn = f"It slides.\n\n{offer}\n\n{_SCENE}\n"
     assert offer not in held_to_the_ask(drawn, asked, "en")
     # Nothing drawn: the words stay, and the line says the picture was not drawn.

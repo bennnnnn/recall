@@ -643,7 +643,9 @@ async def test_a_physics_solve_s_scene_gets_the_graphs_asked_for(
     assert physics is not None
     monkeypatch.setattr(physics, "draw", stand_in.draw)
     solved = '```simulation\n{"type":"incline","arrow_labels":{"gravity":"mg = 49 N"}}\n```'
-    ctx = _ctx(live_read=_read(subject="physics", picture="diagram"), verified_subject=_SOLVED_SCENE)
+    ctx = _ctx(
+        live_read=_read(subject="physics", picture="diagram"), verified_subject=_SOLVED_SCENE
+    )
     ctx.figure = figure_turn.start_figure(_settings(), ctx)
     assert ctx.figure is not None
     text = await figure_turn.attach_figure(_state(ctx, f"It slides.\n\n{solved}\n"))

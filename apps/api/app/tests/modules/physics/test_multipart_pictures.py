@@ -281,7 +281,9 @@ def test_free_body_diagrams_for_each_mass_of_a_pulley_draw_the_rig() -> None:
     )
     assert picture is not None and len(picture.spec.bodies) == 2
     # Several diagrams of one body (at several moments) are still none this file draws.
-    assert force_picture("Draw free-body diagrams of a ball at the start and end of its fall.") is None
+    assert (
+        force_picture("Draw free-body diagrams of a ball at the start and end of its fall.") is None
+    )
 
 
 def test_a_pulley_with_a_body_on_each_side_is_a_pair() -> None:
@@ -305,7 +307,13 @@ def test_the_atwood_scene_shows_each_mass_s_weight_to_scale() -> None:
 def test_the_figure_read_may_name_several_pictures() -> None:
     assert _blocks(None) == [] and _blocks({"kind": "none"}) == []
     assert _blocks({"kind": "forces"}) == [{"kind": "forces"}]
-    many = [{"kind": "forces"}, {"kind": "motion"}, {"kind": None}, {"kind": "beam"}, {"kind": "x"}]
+    many: list[dict[str, Any]] = [
+        {"kind": "forces"},
+        {"kind": "motion"},
+        {"kind": None},
+        {"kind": "beam"},
+        {"kind": "x"},
+    ]
     assert [b["kind"] for b in _blocks(many)] == ["forces", "motion", "beam"]
     flagged = normalized({"kind": "incline", "angle": "30°", "components": True})
     assert flagged["components"] is True and "components" not in flagged["values"]
