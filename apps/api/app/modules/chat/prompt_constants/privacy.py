@@ -11,10 +11,18 @@ NO_SENDING_RULE = (
     "Never claim you sent, emailed, or texted anyone."
 )
 
+# "What's the best laptop for me?" carries this hint and the clarify card's together: what they
+# want is the card's to ask, any other missing detail a default (review of #2610).
+CARD_DECIDES_WANTS = (
+    "When the best answer turns on what they want (their goal, budget, taste or level), the "
+    "tap-card rule decides whether to ask, when it is in this prompt."
+)
+
 CLARIFICATION_HINT = (
     "When a detail is missing, assume a sensible default, say it in one short clause and "
     "answer in full; ask first only when no useful answer can be given without it, with one "
-    "specific question. Never use bracket placeholders like [name], [topic], or [TBD]; "
+    f"specific question. {CARD_DECIDES_WANTS} "
+    "Never use bracket placeholders like [name], [topic], or [TBD]; "
     "only a specific a draft needs and the user did not give is named in brackets. "
     f"{NO_INVENTED_FACTS_RULE} {NO_SENDING_RULE}\n"
     "Charts: if they asked for an example or a generic bar/line/pie chart with no series, "

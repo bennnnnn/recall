@@ -106,6 +106,7 @@ from app.modules.turn_reading.walkthrough import is_walkthrough_request
 from app.modules.turn_reading.writing import draft_followup
 from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
+from app.services.draft_fences import has_draft
 
 
 def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str | None:
@@ -198,6 +199,8 @@ class StyleTurn:
     chart_data: str | None = None
     # Memory says they are partway through this subject: the reply asks where to pick up.
     resuming: bool = False
+    # The last reply holds a send-ready draft: "Hindi" may change it (review of #2610).
+    draft_in_play: bool = False
     # Rendered for ordinary chat (``ordinary_prompt``): the short layout guide in place of the
     # format packs, and no draft, clarification or maths-ink rules.
     ordinary: bool = False
@@ -261,6 +264,14 @@ def _style_turn(
         after_card=last_reply_card(prior_messages) is not None,
         picks=answers_last_card(query_text, prior_messages),
         chart_data=None if multi else chart_followup_data(query, prior_messages),
+        draft_in_play=has_draft(_last_reply(prior_messages)),
+    )
+
+
+def _last_reply(prior_messages: Sequence[tuple[str, str]] | None) -> str | None:
+    """The assistant's last message before this one, when there is one."""
+    return next(
+        (content for role, content in reversed(prior_messages or ()) if role == "assistant"), None
     )
 
 
@@ -456,13 +467,15 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
     # Only on a turn that may hold a draft: a message the writing reader names, a draft's
-    # revision or several requests. Any other turn's non-draft hint says the fence in a line;
-    # the whole contract there cost ~470 tokens on every maths, physics and everyday turn.
+    # revision, several requests, or any message after a reply that holds a draft ("Hindi"
+    # after an ```email, which names no draft itself: review of #2610). Any other turn's
+    # non-draft hint says the fence in a line; the whole contract there cost ~470 tokens on
+    # every maths, physics and everyday turn.
     PromptRule(
         lambda t: (
             not t.ordinary
             and (bool(t.revision_fence) or t.writing_kind not in {"translation", "prose"})
-            and (bool(t.revision_fence) or t.writing_kind is not None or t.multi)
+            and (bool(t.revision_fence) or t.writing_kind is not None or t.multi or t.draft_in_play)
         ),
         _hints(COPY_DELIVERABLE_HINT),
         name="copy_deliverable",
@@ -500,9 +513,8 @@ def _exclusive_pack(
     if not query_text:
         return None
     if is_capabilities_question(query_text):
-        # FORMAT_CONTRACT / COPY_DELIVERABLE / CLARIFICATION all teach
-        # ```email. A "what can you do" list then opens a draft card and
-        # swallows the rest of the reply.
+        # COPY_DELIVERABLE_HINT teaches ```email: a "what can you do" list then opened a
+        # draft card and swallowed the rest of the reply, so this pack has no draft rules.
         return [
             PRIVACY_HINT,
             UNIVERSAL_FORMAT_BASELINE,

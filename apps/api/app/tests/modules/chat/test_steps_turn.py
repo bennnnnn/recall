@@ -182,10 +182,66 @@ async def test_a_pending_read_is_waited_for_when_only_the_steps_are_at_stake() -
     ctx = _turn(None)
     pending: asyncio.Future[Any] = loop.create_future()
     loop.call_later(0.05, pending.set_result, _read(True))
+    turn_decision.note_steps_asked(pending, turn_decision.StepsAsked(True))
     ctx.live_read = pending  # type: ignore[assignment]
     ctx.auto_routed = False
     await decide_from_the_read(ctx, _SETTINGS)
     assert _beside_the_message(ctx) == STEPS_FORMAT_HINT
+
+
+@pytest.mark.asyncio
+async def test_a_read_that_asks_no_steps_question_is_not_waited_for_on_its_account() -> None:
+    """After a cut-off reply, or with the Decider's breaker open, the read carries no steps
+    answer: Auto off and nothing else at stake, the reply does not wait for it (review)."""
+    begin_turn_trace("new")
+    ctx = _turn(None)
+    pending: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+    turn_decision.note_steps_asked(pending, turn_decision.StepsAsked(False))
+    ctx.live_read = pending  # type: ignore[assignment]
+    ctx.auto_routed = False
+    await asyncio.wait_for(decide_from_the_read(ctx, _SETTINGS), 0.5)
+    assert all(STEPS_FORMAT_HINT not in str(m["content"]) for m in ctx.prompt_messages)
+    pending.cancel()
+
+
+@pytest.mark.asyncio
+async def test_an_open_decider_breaker_marks_the_steps_question_unasked(
+    _reads: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.models.routing_lanes import ROUTING
+    from app.services import model_health
+
+    breakers = model_health.Breakers(cooling=frozenset({ROUTING.decider}), half_open=frozenset())
+    monkeypatch.setattr(model_health, "read_breakers", AsyncMock(return_value=breakers))
+    asked = turn_decision.StepsAsked(True)
+    await turn_decision.read_decision(_SETTINGS, "how to tie a tie", earlier=[], asked=asked)
+    assert asked.asked is False
+    _reads.assert_not_awaited()
+
+
+def test_a_started_read_records_whether_it_asks_the_steps_question() -> None:
+    assert turn_decision.asks_steps(None) is False
+
+    async def started(steps: bool) -> bool:
+        settings = _SETTINGS.model_copy(update={"live_read_enabled": True})
+        task = turn_decision.start_turn_decision(settings, "hi", recent=None, steps=steps)
+        assert task is not None
+        task.cancel()
+        return turn_decision.asks_steps(task)
+
+    assert asyncio.run(started(True)) is True
+    assert asyncio.run(started(False)) is False
+
+
+def test_a_calculation_in_a_subject_gets_no_card_when_the_work_answer_was_late() -> None:
+    """A physics question with a value, the steps call yes and the work call late: the worked
+    layout's, never both layouts (review of #2605)."""
+    read = _read(True, subject="physics")
+    assert read.work is None
+    ctx = _turn(read, user_message_content="A ball falls 20 m. How do I find its speed?")
+    assert not gives_the_steps_card(ctx, read)
+    method = _read(True, subject="chemistry")
+    assert gives_the_steps_card(_turn(method), method)
 
 
 @pytest.mark.asyncio
@@ -223,8 +279,11 @@ def _reads(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     ("kwargs", "asked"),
     [
         ({}, True),
-        # After a lesson's cards, a lesson step or a cut-off reply: its layout is that one's.
+        # After a lesson's cards or a lesson step: its layout is that one's.
         ({"lesson": {"goes_on": {"type": "noul", "instructions": "next?"}}}, False),
+        # After a cut-off reply only: "how do I change a flat tire" still gets its card
+        # (review of #2610).
+        ({"lesson": dict(decider_read.RESUME_QUESTION)}, True),
         # The composer's picture check reads only the picture.
         ({"steps": False}, False),
     ],
@@ -245,3 +304,74 @@ async def test_the_composers_picture_check_reads_no_steps(monkeypatch: pytest.Mo
     monkeypatch.setattr(picture_ask, "start_turn_decision", start)
     assert await picture_ask.read_picture_ask(_SETTINGS, "draw a cat", []) is None
     assert start.call_args.kwargs["steps"] is False
+
+
+def _open(query: str, **kwargs: Any) -> bool:
+    from app.modules.chat.prompt_format import layout_is_open
+
+    return layout_is_open(
+        query_text=query, is_day_plan=False, minimal_personal_context=False, **kwargs
+    )
+
+
+def test_a_plain_how_to_leaves_its_layout_open() -> None:
+    assert _open("how do I tie a tie")
+
+
+@pytest.mark.parametrize(
+    ("query", "kwargs"),
+    [
+        # A length cap: one sentence is no card.
+        ("how do I tie a tie in one sentence", {}),
+        ("briefly, how do I tie a tie?", {}),
+        # Several requests: each part's shape is the multi-part contract's.
+        ("how do I tie a tie", {"multi": True}),
+        # A kind of turn that allows nothing else (``_exclusive_pack``).
+        ("what can you do?", {}),
+        ("I work at Uber as a backend engineer", {}),
+        # A layout of its own.
+        ("compare the features of python vs java", {}),
+        ("give me a packing checklist for a beach trip", {}),
+        ("give me a famous quote about courage", {}),
+        # Asked for as steps in words: the prompt gives the card itself.
+        ("install node on mac step by step", {}),
+        # A greeting, a day plan, a lesson.
+        ("good morning!", {"compact": True}),
+        ("how do I tie a tie", {"is_day_plan": True}),
+        ("teach me photosynthesis", {}),
+    ],
+)
+def test_a_turn_with_a_shape_of_its_own_leaves_no_layout_open(
+    query: str, kwargs: dict[str, Any]
+) -> None:
+    if "is_day_plan" in kwargs:
+        from app.modules.chat.prompt_format import layout_is_open
+
+        assert not layout_is_open(query_text=query, minimal_personal_context=False, **kwargs)
+        return
+    assert not _open(query, **kwargs)
+
+
+def test_a_brief_length_alone_closes_the_layout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``turn.length == "brief"`` is its own gate beside the brevity request: with the brevity
+    reader saying no, a brief length still closes it."""
+    from app.modules.chat import prompt_format
+
+    query = "how do I tie a tie in one sentence"
+    monkeypatch.setattr(prompt_format, "is_brevity_request", lambda _text: False)
+    assert (
+        prompt_format._style_turn(
+            query,
+            lesson=None,
+            prior_messages=None,
+            is_day_plan=False,
+            minimal_personal_context=False,
+            compact=False,
+            image_generation_enabled=False,
+            image_search_enabled=False,
+        ).length
+        == "brief"
+    )
+    assert not _open(query)
+    monkeypatch.setattr(prompt_format, "reply_length", lambda _text: "balanced")
+    assert _open(query)

@@ -12,7 +12,7 @@ from app.modules.turn_reading.clarify import names_its_purpose
 
 # A "best X for Y" question, answered without asking: the picks as a list, not paragraphs.
 RANKING_FORMAT_HINT = (
-    "This asks for the best picks for a purpose it names. Answer now and ask nothing: at "
+    "Give the best picks for the purpose the message names now, and ask nothing: at "
     "most one short lead line, then a numbered list of the 5-8 strongest picks, best "
     "first, each opening with its **bold name**, then a dash and one or two short "
     "sentences on why it fits that purpose. Group the picks under 2-3 short ### headings "

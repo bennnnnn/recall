@@ -168,7 +168,7 @@ HINTS: dict[str, str] = {
     "reply_missed": REPLY_MISSED_HINT,
     # "A" under a question with lettered options: the option it picks, by its words.
     "option_pick": OPTION_PICK_MARK,
-    # "The user is asking for a personal recommendation": tastes shape the pick.
+    # A personal recommendation: the known facts' tastes shape the pick.
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,

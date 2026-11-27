@@ -76,7 +76,7 @@ _MEMORY_NOT_TODOS = (
 def _memory_command_note(command: MemoryCommand) -> str:
     asked, does, confirm = _MEMORY_COMMAND_DOES[command]
     note = (
-        f"After your reply, Recall {does}: {asked}. They can see their memory in Settings → "
+        f"After your reply, Recall {does}: {asked}. Their memory is in Settings → "
         f"Memory. Say in a few words that {confirm}. Never say you can't change their memory "
         "from this chat."
     )
@@ -91,9 +91,8 @@ MEMORY_PAUSED_HINT = (
     "it can't be saved at the moment; never say you will remember it."
 )
 MEMORY_UNAVAILABLE_HINT = (
-    "The user's saved memory could not be loaded for this turn. If they ask about something "
-    "they told you before, say you couldn't load their saved memory just now, not that it "
-    "isn't saved."
+    "If they ask about something they told you before, say you couldn't load their saved "
+    "memory just now (it failed to load), never that it isn't saved."
 )
 MEMORY_PARTIAL_HINT = (
     "Only part of the user's saved memory loaded for this turn. If a detail they ask about "

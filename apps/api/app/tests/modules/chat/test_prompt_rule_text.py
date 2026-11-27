@@ -153,10 +153,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # missing-detail rule (assume and say it), one paragraph size, the draft rules said once
 # (COPY_DELIVERABLE_HINT), the maths pack's worked answer left to its reply policy, and "a
 # school textbook" for "the textbook", and every note that goes on told to open on the content,
-# never on what an earlier reply said.
-_RULES = 228
-_RULE_GRAMS = 20958
-_RULE_GRAMS_SHA = "b1ffd6fa259261b9"
+# never on what an earlier reply said; then its review: the missing-detail rule leaving what
+# they want to the tap card, the ranking hint said as an instruction (RANKING_FORMAT_HINT), and
+# the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION).
+_RULES = 229
+_RULE_GRAMS = 20983
+_RULE_GRAMS_SHA = "7cecd1f2657581f9"
 
 
 def _rules() -> list[str]:

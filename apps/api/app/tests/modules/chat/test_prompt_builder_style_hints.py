@@ -875,3 +875,51 @@ def test_a_lesson_turn_restates_its_shape_beside_the_message(
     _, nearby = _turn_prompt(query)
     for name in ("LESSON_CONTRACT", "TEACH_CONTRACT"):
         assert (getattr(teaching, name) in nearby) is (name == contract)
+
+
+_EMAIL_REPLY = "```email\nSubject: Heater\n\nHi Dana,\n\nThe heater in 4B stopped working.\n```"
+
+
+@pytest.mark.parametrize(
+    ("prior", "copy"),
+    [
+        # "Hindi" after an ```email: the draft is in play, and its drafting rules stand with
+        # the change note (review of #2610: the contract went missing).
+        (
+            [
+                ("user", "write an email to my landlord about the heater"),
+                ("assistant", _EMAIL_REPLY),
+            ],
+            True,
+        ),
+        # The same word after a reply with no draft: no draft is in play.
+        ([("user", "how do I say thank you in Hindi?"), ("assistant", "**Dhanyavaad**.")], False),
+    ],
+)
+def test_the_copy_contract_follows_a_draft_in_play(
+    prior: list[tuple[str, str]], copy: bool
+) -> None:
+    from app.modules.chat.prompt_constants import COPY_DELIVERABLE_HINT
+
+    hints = _style_format_hints(
+        query_text="Hindi",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=prior,
+    )
+    assert (COPY_DELIVERABLE_HINT in hints) is copy
+
+
+def test_a_missing_detail_leaves_wants_to_the_tap_card_rule() -> None:
+    """ "What's the best laptop for me?" gets the clarify card's rule and the missing-detail
+    rule together: the second defers to the first on what they want (review of #2610)."""
+    from app.modules.chat.prompt_constants import CLARIFICATION_HINT, CLARIFY_CARD_HINT
+    from app.modules.chat.prompt_constants.privacy import CARD_DECIDES_WANTS
+
+    hints = _style_format_hints(
+        query_text="What's the best laptop for me?",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert CLARIFY_CARD_HINT in hints and CLARIFICATION_HINT in hints
+    assert CARD_DECIDES_WANTS in CLARIFICATION_HINT

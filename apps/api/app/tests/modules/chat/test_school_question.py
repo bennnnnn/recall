@@ -10,6 +10,7 @@ import pytest
 
 from app.modules.chat.message_notes import message_notes
 from app.modules.chat.prompt_constants.school_question import (
+    _CHOICE_NOTE,
     FACTUAL_QUESTION_NOTE,
     SCHOOL_QUESTION_NOTE,
     question_hint,
@@ -125,7 +126,8 @@ def test_anyone_elses_question_is_no_exercise(query: str) -> None:
 )
 def test_parts_are_not_options(query: str) -> None:
     hint = school_question_hint(query)
-    assert hint is not None and "It asks you to choose" not in hint
+    # The choice note's own text: its words changed once and this check passed on anything.
+    assert hint is not None and _CHOICE_NOTE not in hint
 
 
 def _user() -> SimpleNamespace:

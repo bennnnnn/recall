@@ -248,8 +248,8 @@ def read_math_request(
         return MathReading(user_content, intent=intent)
     if has_image_attachment:
         lines = [
-            "The user attached an image that may contain a math problem. "
-            "Extract the equation as lhs/rhs only if the notation and measures are legible. "
+            "Read a maths problem from the attached image only if its notation and measures "
+            "are legible, the equation as lhs/rhs. "
             "Do NOT claim SymPy verification unless a verified system block is present. "
             "Use $...$ for formulas. Do not emit ```geometry / ```graph. "
             "Never invent measures.",
@@ -267,8 +267,8 @@ def read_math_request(
         return MathReading(
             user_content,
             note=(
-                "The message chains equalities (a=b=c). Ask which single "
-                "equation to solve. Do not collapse the chain or claim a "
+                "Ask which single equation of the chained equalities (a=b=c) to "
+                "solve. Do not collapse the chain or claim a "
                 "verified answer.\n\n"
                 f"{MATH_REPLY_POLICY}"
             ),

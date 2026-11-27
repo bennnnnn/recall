@@ -11,6 +11,7 @@ import pytest
 
 from app.tests.behavior.cases import CASES, CATEGORIES, Case
 from app.tests.behavior.harness import HINTS, mismatches, route_case
+from app.tests.modules.chat.test_hints_name_no_turn import prompt_descriptions, prompt_labels
 
 
 def _param(case: Case) -> object:
@@ -24,6 +25,10 @@ async def test_battery_routes_each_prompt(case: Case, thread_sympy_executor: Non
     route = await route_case(case)
     problems = mismatches(case.expect, route)
     assert not problems, f"{case.prompt!r} → {route.summary()}: " + "; ".join(problems)
+    # No hint or note the turn's prompt sends names its kind (``test_hints_name_no_turn``).
+    assert prompt_labels(route.system_prompt) == [], case.id
+    # Nor describes the user or the message: every note is an instruction to the writer.
+    assert prompt_descriptions(route.system_prompt) == [], case.id
 
 
 def test_battery_cases_are_well_formed() -> None:

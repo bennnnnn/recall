@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import patch
 
 import pytest
@@ -558,7 +559,7 @@ async def test_chained_equality_skips_llm_extract(monkeypatch: pytest.MonkeyPatc
     )
     assert verified is None
     assert note is not None
-    assert "chains equalities" in note
+    assert "chained equalities" in note
     assert not note.startswith("Math note:")
 
 
@@ -2301,6 +2302,31 @@ async def test_graph_inequality_builds_number_line_fence() -> None:
     # The prompt describes the number-line rendering (no longer says "NOT a
     # 1D number line" — that contradicted the emitted type:"number_line").
     assert "number line" in verified.text.lower()
+
+
+# What the maths pack forbids the model to draw itself (``GRAPH_NO_SUBSTITUTE_CLAUSE``): a
+# graph, a number line, a shape. A block that told it "Draw the one-variable inequality as a
+# number line" beside that rule gave it two that contradict (review of #2605).
+_DRAW_ORDER = re.compile(
+    r"(?:^|[.:;]\s+)(?:draw|plot|sketch|shade)\b[^.]*\b(?:number line|graph|curve|shape)\b",
+    re.IGNORECASE,
+)
+
+
+@pytest.mark.parametrize("text", ["graph x > 3", "graph y < 2x + 1", "plot y = x^2"])
+@pytest.mark.asyncio
+async def test_a_graph_block_never_orders_what_the_maths_pack_forbids(text: str) -> None:
+    from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
+
+    # The clause this guards still forbids each kind of picture the pattern names.
+    forbidden = GRAPH_NO_SUBSTITUTE_CLAUSE.split(" yourself", 1)[0].lower()
+    assert all(kind in forbidden for kind in ("graph", "number line", "shape"))
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert _DRAW_ORDER.search(verified.text) is None, verified.text
 
 
 @pytest.mark.asyncio

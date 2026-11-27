@@ -20,9 +20,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.prompt_constants.format import STEPS_FORMAT_HINT
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
+from app.modules.chat.worked_turn import states_a_quantity
 
 if TYPE_CHECKING:
     from app.modules.chat.turn_decision import TurnDecision
@@ -42,6 +44,11 @@ def gives_the_steps_card(ctx: StreamContext, read: TurnDecision | None) -> bool:
     if worked or ctx.solver_unverified or ctx.instant_reply:
         return False
     if read.subject == "money" or read.work is True:
+        return False
+    # A maths, physics or chemistry question with a value is a calculation, the worked
+    # layout's (``decided_turn._worked_layout``), even when the read's work answer was late.
+    content = ctx.user_message_content or ""
+    if READ_SUBJECTS.get(read.subject or "") is not None and states_a_quantity(content):
         return False
     return read.picture is None or read.picture in _STEPS_PICTURES
 

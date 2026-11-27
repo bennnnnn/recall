@@ -69,8 +69,8 @@ WEB_SEARCH_HINT = (
 NEWEST_SOURCE_RULE = (
     "When these pages disagree about something that changes (a table or standings, a "
     "price or rate, a count or toll, the latest version), go by the most recent one, by "
-    "its date or by how far along it is; do not blend them or give the older figure. The "
-    'user does not see this list: name the page\'s source ("Coinbase shows …"), never '
+    "its date or by how far along it is; do not blend them or give the older figure. "
+    'Name the page\'s source, since this list is never shown ("Coinbase shows …"), never '
     '"these results" or "these pages".'
 )
 
@@ -150,8 +150,8 @@ LOCAL_PLACES_FORMAT_HINT = (
 )
 
 AMBIGUOUS_NEARBY_HINT = (
-    "The user's nearby request is underspecified (e.g. 'nearest house' without sale vs rent "
-    "vs a specific address). Do NOT web-search or guess listings yet. Ask 1-3 concise "
+    "Before answering a nearby request that leaves its kind open ('nearest house' without "
+    "sale vs rent vs a specific address), do NOT web-search or guess listings. Ask 1-3 concise "
     "clarifying questions — e.g. homes for sale near their location, rentals, or nearest to "
     "a specific address. No ```places fence and no listing links until they clarify."
 )
@@ -176,8 +176,8 @@ GEO_DISTANCE_HINT = (
 )
 
 GEO_ACTIVE_LOCATION_HINT = (
-    "The user's location for this nearby/distance query is shown above: the phone's, or "
-    "the place it last reported when marked so. Use that location in your answer — do not "
+    "Use the location shown above for this nearby or distance question (the phone's, or "
+    "the place it last reported when marked so) in your answer — do not "
     "substitute another city from memory or profile. When it is the phone's last report, "
     "say which place the answer is for."
 )
