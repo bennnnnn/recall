@@ -44,8 +44,7 @@ if TYPE_CHECKING:
 
 # A line that added to the open problem ("3", "the area"): the problem it completes.
 PIECED_PROBLEM_NOTE = (
-    "The user's last message adds to their earlier ones; read together, the problem this "
-    "turn answers is: "
+    "Read the last message together with the earlier ones it adds to: the problem to answer is: "
 )
 
 _HINTS = SubjectHints(

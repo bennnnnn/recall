@@ -44,27 +44,27 @@ MEMORY_OFF_HINT = (
 # Nothing told the model: "Remember that I want to try cacio e pepe again" was saved, and
 # the reply called it a to-do (live chat, 2026-10-25); "Forget my favorite drink" was
 # deleted, and the reply said it couldn't remove saved memories from chat (2026-11-02).
-# Each is (what the user asked, what Recall does, what the reply confirms).
+# Each is (what the message asks, what Recall does, what the reply confirms).
 _MEMORY_COMMAND_DOES: dict[MemoryCommand, tuple[str, str, str]] = {
     "keep": (
-        "The user asked you to remember something",
+        "what this message asks you to remember",
         "saves it to their memory",
         "you'll remember it",
     ),
     "forget": (
-        "The user asked you to forget something",
+        "what this message asks you to forget",
         "deletes it from their saved memory",
         "you've forgotten it",
     ),
     "mute": (
-        "The user asked you to stop bringing something up",
+        "what this message asks you to stop bringing up",
         "keeps it saved but stops using it",
         "you won't bring it up",
     ),
     # Correction words ("actually I", "not anymore") are loose: this note is conditional.
     "correct": (
-        "The user may be correcting something they told you about themselves before",
-        "updates their saved memory if so",
+        "anything this message corrects that they told you about themselves before",
+        "updates their saved memory",
         "you've noted the change, if it is one",
     ),
 }
@@ -76,7 +76,7 @@ _MEMORY_NOT_TODOS = (
 def _memory_command_note(command: MemoryCommand) -> str:
     asked, does, confirm = _MEMORY_COMMAND_DOES[command]
     note = (
-        f"{asked}. After your reply, Recall {does}; they can see their memory in Settings → "
+        f"After your reply, Recall {does}: {asked}. Their memory is in Settings → "
         f"Memory. Say in a few words that {confirm}. Never say you can't change their memory "
         "from this chat."
     )
@@ -91,9 +91,8 @@ MEMORY_PAUSED_HINT = (
     "it can't be saved at the moment; never say you will remember it."
 )
 MEMORY_UNAVAILABLE_HINT = (
-    "The user's saved memory could not be loaded for this turn. If they ask about something "
-    "they told you before, say you couldn't load their saved memory just now, not that it "
-    "isn't saved."
+    "If they ask about something they told you before, say you couldn't load their saved "
+    "memory just now (it failed to load), never that it isn't saved."
 )
 MEMORY_PARTIAL_HINT = (
     "Only part of the user's saved memory loaded for this turn. If a detail they ask about "

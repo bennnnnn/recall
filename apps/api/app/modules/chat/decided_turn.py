@@ -323,7 +323,8 @@ def _layout_at_stake(ctx: StreamContext) -> bool:
 def _steps_at_stake(ctx: StreamContext) -> bool:
     """The turn's words left its layout open and its read asks whether the answer is one
     procedure, drawn as a ```steps card (``steps_turn``); a read that asks nothing of it
-    (after a cut-off reply, the Decider's breaker open) is not waited for on its account. A
+    (after a lesson's cards or step, the Decider's breaker open) is not waited for on its
+    account, nor is "Continue" after a cut-off reply, which keeps that reply's layout. A
     turn that offers the reply a search has waited for the read already
     (``reply_calls.search_the_live_read``)."""
     return (
@@ -331,6 +332,7 @@ def _steps_at_stake(ctx: StreamContext) -> bool:
         and ctx.instant_reply is None
         and not _worked(ctx)
         and asks_steps(ctx.live_read)
+        and not resumes_a_cut_off_reply(ctx.user_message_content, ctx.recent_messages)
     )
 
 
@@ -623,7 +625,7 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
     # an answer that does ask for one ("Italian" to "What cuisine?").
     if read.follow in _ANSWERS_THE_REPLY and (question := _answered_question(ctx, messages)):
-        note = f'{note} The question it answers: "{question}"'
+        note = f'{note} Your question it answers: "{question}"'
     if read.follow != "accept":
         # The word rules' yes ("Carry out that offer now") is the read's to say: "pls" after
         # a reply that offered nothing asks for more, and the rule had it redo the last one.

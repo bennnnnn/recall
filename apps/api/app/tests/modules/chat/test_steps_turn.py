@@ -191,7 +191,7 @@ async def test_a_pending_read_is_waited_for_when_only_the_steps_are_at_stake() -
 
 @pytest.mark.asyncio
 async def test_a_read_that_asks_no_steps_question_is_not_waited_for_on_its_account() -> None:
-    """After a cut-off reply, or with the Decider's breaker open, the read carries no steps
+    """After a lesson's cards, or with the Decider's breaker open, the read carries no steps
     answer: Auto off and nothing else at stake, the reply does not wait for it (review)."""
     begin_turn_trace("new")
     ctx = _turn(None)
@@ -231,6 +231,52 @@ def test_a_started_read_records_whether_it_asks_the_steps_question() -> None:
 
     assert asyncio.run(started(True)) is True
     assert asyncio.run(started(False)) is False
+
+
+def _cut_off_tire_reply() -> list[Any]:
+    from types import SimpleNamespace
+
+    return [
+        SimpleNamespace(role="user", content="how do I change a tire", completion=None),
+        SimpleNamespace(
+            role="assistant",
+            content="1. **Loosen the nuts**\nTurn each one half a turn.\n2. **Jack up",
+            completion="interrupted",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("line", "resumes", "card"),
+    [
+        # The phone's Continue, and the read's own word on another way to say it: the reply
+        # goes on in the layout it was cut off in, never starts over as a card (review of #2610).
+        ("Continue", None, False),
+        ("keep going", True, False),
+        ("sigue", True, False),
+        # A new question after the cut is its own turn.
+        ("how do I tie a tie", False, True),
+    ],
+)
+def test_a_continuation_keeps_the_layout_of_the_reply_it_continues(
+    line: str, resumes: bool | None, card: bool
+) -> None:
+    read = _read(True, resumes=resumes)
+    ctx = _turn(read, user_message_content=line, recent_messages=_cut_off_tire_reply())
+    assert gives_the_steps_card(ctx, read) is card
+
+
+@pytest.mark.asyncio
+async def test_continue_after_a_cut_off_reply_waits_for_no_steps_answer() -> None:
+    """A user-picked model is not held for the read on every Continue (review of #2610)."""
+    begin_turn_trace("new")
+    ctx = _turn(None, user_message_content="Continue", recent_messages=_cut_off_tire_reply())
+    pending: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+    ctx.live_read = pending  # type: ignore[assignment]
+    turn_decision.note_steps_asked(pending, turn_decision.StepsAsked(True))
+    ctx.auto_routed = False
+    await asyncio.wait_for(decide_from_the_read(ctx, _SETTINGS), 0.5)
+    pending.cancel()
 
 
 def test_a_calculation_in_a_subject_gets_no_card_when_the_work_answer_was_late() -> None:
@@ -279,8 +325,11 @@ def _reads(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     ("kwargs", "asked"),
     [
         ({}, True),
-        # After a lesson's cards, a lesson step or a cut-off reply: its layout is that one's.
+        # After a lesson's cards or a lesson step: its layout is that one's.
         ({"lesson": {"goes_on": {"type": "noul", "instructions": "next?"}}}, False),
+        # After a cut-off reply only: "how do I change a flat tire" still gets its card
+        # (review of #2610).
+        ({"lesson": dict(decider_read.RESUME_QUESTION)}, True),
         # The composer's picture check reads only the picture.
         ({"steps": False}, False),
     ],

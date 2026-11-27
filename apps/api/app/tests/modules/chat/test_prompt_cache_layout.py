@@ -218,17 +218,18 @@ async def test_the_users_own_text_first_then_the_turns_steadiest_parts_first() -
     stable, rules = messages[0]["content"], messages[1]["content"]
     users_own = (_IDENTITY, TONE_FORMAT_GUARD, UNCLEAR_MESSAGE_HINT, "Keep it upbeat.", "code: es")
     assert [stable.index(t) for t in users_own] == sorted(stable.index(t) for t in users_own)
-    # The rules: length, style pack, lookups, profile, summary.
+    # The rules: style pack, the length line ("in detail" changes it alone, so it follows the
+    # rules every turn of a kind shares), lookups, profile, summary.
     turns = (
-        STYLE_HINTS["balanced"],
         CLARIFICATION_HINT,
         FACT_GROUNDING_HINT,
+        STYLE_HINTS["balanced"],
         WEB_SEARCH_HINT,
         PHOTO_LOOKUP_HINT,
         "- Job: Designer",
         "Lalibela",
     )
-    assert rules.startswith(STYLE_HINTS["balanced"])
+    assert rules.startswith(CLARIFICATION_HINT)
     assert [rules.index(text) for text in turns] == sorted(rules.index(t) for t in turns)
     # After the history: the clock, memory and schedule.
     context = messages[-2]["content"]

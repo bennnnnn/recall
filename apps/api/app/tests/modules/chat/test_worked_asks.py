@@ -397,7 +397,7 @@ def test_a_question_in_lettered_parts_names_them_beside_the_contract() -> None:
     prompt = [{"role": "user", "content": question}]
     with_note = with_worked_contract(prompt, _layout(question))
     note = with_note[-2]["content"]
-    assert note.startswith("This question is in lettered parts: (a) The altitude; (b) The")
+    assert note.startswith("Answer the question's lettered parts: (a) The altitude; (b) The")
     assert "exactly 3 `part` records" in note
     assert without_worked_contract(with_note) == prompt
     assert len(with_worked_contract(prompt, WorkedLayout())) == 2

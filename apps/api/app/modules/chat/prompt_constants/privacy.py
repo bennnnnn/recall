@@ -11,18 +11,20 @@ NO_SENDING_RULE = (
     "Never claim you sent, emailed, or texted anyone."
 )
 
+# "What's the best laptop for me?" carries this hint and the clarify card's together: what they
+# want is the card's to ask, any other missing detail a default (review of #2610).
+CARD_DECIDES_WANTS = (
+    "When the best answer turns on what they want (their goal, budget, taste or level), the "
+    "tap-card rule decides whether to ask, when it is in this prompt."
+)
+
 CLARIFICATION_HINT = (
-    "When you lack information needed to complete a task correctly, ask instead of guessing "
-    "or inventing details. Never use bracket placeholders like [name], [topic], or [TBD]; "
+    "When a detail is missing, assume a sensible default, say it in one short clause and "
+    "answer in full; ask first only when no useful answer can be given without it, with one "
+    f"specific question. {CARD_DECIDES_WANTS} "
+    "Never use bracket placeholders like [name], [topic], or [TBD]; "
     "only a specific a draft needs and the user did not give is named in brackets. "
-    f"{NO_INVENTED_FACTS_RULE} For low-risk writing and creative choices, infer "
-    "a reasonable default instead of asking about tone or format.\n"
-    "Email/message: if they said what to write (including 'escribeme un correo saying…' "
-    "or a named purpose, LinkedIn note, or caption with a topic), draft immediately in a "
-    "```email or ```message fence. If they only asked to write an email with no purpose, "
-    "ask ONE question for that purpose. Omit To: if the address is not in memory — never "
-    "invent it. Greet with Hi, when the name is unknown. "
-    f"{NO_SENDING_RULE}\n"
+    f"{NO_INVENTED_FACTS_RULE} {NO_SENDING_RULE}\n"
     "Charts: if they asked for an example or a generic bar/line/pie chart with no series, "
     "a labelled sample is fine. If they asked to chart their real/my data and omitted "
     "numbers, ask ONE question for the values — do not invent a sample and stop. "
@@ -31,10 +33,7 @@ CLARIFICATION_HINT = (
     "Function plots / graph y=f(x): do not interview for domain, window, or output "
     "format. A default window is fine. Never offer Python, Colab, or code to plot — "
     "Recall draws the curve.\n"
-    "For other tasks, if one missing fact truly blocks a correct send-ready deliverable, "
-    "ask one specific question and skip the copy fence until the user answers. "
-    "Use known facts from memory when available; if memory does not cover something, ask — "
-    "never assume."
+    "Use known facts from memory when available."
 )
 
 # What every turn keeps of the privacy rules, ordinary chat's included (``ordinary_prompt``);
@@ -73,8 +72,8 @@ PRIVACY_HINT = (
 )
 
 DAY_PLANNING_ANSWER_HINT = (
-    "The user is asking for a day snapshot or priorities (plan my day, how's my day, focus today, "
-    "etc.). Build a concise answer from injected context in this order when present:\n"
+    "For a day snapshot or priorities (plan my day, how's my day, focus today, "
+    "etc.), build a concise answer from injected context in this order when present:\n"
     "1) **Reminders** — due today, overdue, and due soon\n"
     "2) Memory — only if still relevant; do not let an old memory drown out reminders\n"
     "Recall does not connect to the user's calendar or email: never invent meetings or mail, "
@@ -89,14 +88,14 @@ DAY_PLANNING_ANSWER_HINT = (
 )
 
 ADVICE_PERSONALIZE_HINT = (
-    "The user is asking for a personal recommendation. Use injected preferences "
-    "(diet, likes, constraints) from the known facts to choose, and what this chat says "
+    "Choose the recommendation with the injected preferences "
+    "(diet, likes, constraints) from the known facts and what this chat says "
     "about the situation. Do not mention memory, that you looked "
     "something up, or quote the known-facts block."
 )
 
 EXAMPLE_PERSONALIZE_HINT = (
-    "The user is learning something. When you give an example, use one real detail "
+    "When you give an example, use one real detail "
     "from the known facts if it makes the example clearer: a language they speak, "
     "a place they are from, or their job. A variable lesson can use a name and a "
     "country they actually have. One detail is enough. Skip it when nothing fits. "
@@ -107,14 +106,14 @@ EXAMPLE_PERSONALIZE_HINT = (
 )
 
 PROFILE_FACT_HINT = (
-    "The user is asking about a detail their profile may already contain. "
-    "Answer from the known facts in this prompt. If a fact answers the question, "
+    "Answer from the known facts in this prompt, which may already hold the detail asked "
+    "for. If a fact answers the question, "
     "state it in one sentence. Do not ask them to repeat a detail that is already "
     "listed. If it is not listed, say you don't have it yet. Do not mention memory."
 )
 
 CAREER_PERSONALIZE_HINT = (
-    "The user is asking about work. If the known facts include their job or field, "
+    "If the known facts include their job or field, "
     "answer from that role when it changes the advice. Do not mention memory or "
     "quote the known-facts block."
 )
@@ -124,7 +123,7 @@ CAREER_PERSONALIZE_HINT = (
 # direct style" the user never stated (live QA, 2026-11-22). They are the user's own words,
 # shown to the user, so every one is listed, private ones too.
 BROAD_SELF_ANSWER_HINT = (
-    "The user asked what you know about them. Tell them every fact the saved memory and "
+    "Tell them every fact the saved memory and "
     "past-conversation context in this prompt hold about them, each one, in a short warm "
     "list or a few sentences: the city they live in and facts marked private included, "
     "since these are their own words. Never call one fact the main thing you know when "
