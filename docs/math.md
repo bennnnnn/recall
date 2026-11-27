@@ -345,11 +345,50 @@ The server then recomputes the working (`modules/chat/working_check.py`):
   a given and is not carried; a short number ("38") is carried only to its restatements. A
   step that cannot be put right in place (two exact forms that differ) gets one line under
   the reply, "Check this step: …", and nothing after it is changed.
-- **What it leaves alone:** variables, unit conversions, prefix steps (≈ 4.5 MJ), percents,
+- **What it leaves alone:** variables, a prefix step after a number (≈ 4.5 MJ), percents,
   a sine with no degree sign past a full turn, "e^2" alone (a name squared), every fence
-  and the server's cards.
+  and the server's cards. A power of ten between two worked forms is no prefix step and is
+  held (`\frac{70}{50000 + 240000}` for 70/290 is a slip). A given's conversion it reads
+  with Pint, so "r = 9.00 cm = 0.09 m" is exact.
 - **Measured:** on 5,896 corpus replies it raised no false alarm, and it caught every slip
   injected into server-written working.
+
+### The card held to its working's chain
+
+After the line check, each unchecked card is held to the value its own working reaches
+(`working_chain.py`, `chain_cards.py`, `working_claims.py`, run by `working_pass.py` in the
+SymPy pool):
+
+- **A chain** is a name and its forms over one line or several ("e = …", "e = …", "e ≈ 1.041 m").
+  Its first form of numbers is its method; every later form must keep the method's value
+  within its own rounding and the reach of the method's rounded inputs. The value is worked at
+  full precision: a rounded result or card number of an earlier chain is that chain's whole
+  value, a number put into a formula for a name is that name's value when it rounds it, and a
+  standard value written rounded (0.8660 for cos 30°, of the reply's own angles and roots,
+  three figures or more; `working_exact.py`) is exact. Only the question's numbers are exact as
+  written. A wrong form is a slip; later lines that use the wrong number or form get the right
+  one: the reply's own method with the arithmetic redone, never another law.
+- **A card** states the chain it names, or the working's last maths before it. One that misses
+  the chain by more than its rounding takes the chain's value and a closing "Corrected: …"
+  line; one that holds it more coarsely (56.6 for 56.58) takes it with no line, so the rule
+  rounds it once. A card stands when it states another value of its part (the largest of
+  several), its size without the sign, a count, the server's value, or a value right on the
+  rounded numbers its own working wrote.
+- **Units, only where certain** (`working_units.py`): a run of unit groups is one unit
+  (`\mathrm{km}\,\mathrm{h}^{-1}`). An angle, a count of turns (rad, °, rev, rpm), a
+  temperature in degrees (°C, °F) and a percentage are never converted or held to another
+  unit: 250 rev/min is 26.18 rad/s and 400 K is 126.85 °C, and Pint cannot tell either. Two
+  units differ only when both are read; a card whose unit is not read stands unless its chain
+  writes the same unit. A card ten or a thousand times off its chain is a slip only when both
+  write a unit read for certain; with no unit on the chain, only within a factor of 1.5.
+- **Also read:** an equation solved for one name (`21250 = 241.67\theta`); a value stated, or
+  put into a formula, a power of ten off the working's own value of it in its SI unit (632.8
+  nm put in as 632.8 × 10⁻⁹ is right); a claim in names its own values contradict, worked with
+  their units (½mv² with m = 10 kg and v = 5.66 m/s is 160 J, not 405.5 J; an equation solved
+  for its unknown is no claim); a slip no card carries, named with "Check this step".
+- **Measured:** 134 right worked replies across every unit kind above
+  (`test_working_units_corpus.py`) change in nothing; on the 300 saved textbook replies no card
+  judged right turns wrong.
 
 ## STEM sweep
 

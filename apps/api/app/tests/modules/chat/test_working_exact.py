@@ -41,7 +41,8 @@ def test_a_rounded_standard_value_is_read_as_the_value(
 @pytest.mark.parametrize(
     ("tex", "unit"),
     [
-        ("250\\,\\mathrm{rev/min}", "1 / minute"),
+        ("72\\,\\mathrm{km}\\,\\mathrm{h}^{-1}", "kilometer / hour"),
+        ("632.8\\,\\mathrm{nm}", "nanometer"),
         ("3\\,\\text{m/s}^2", "meter / second ** 2"),
         ("400\\,\\mathrm{W/(m·K)}", "watt / kelvin / meter"),
         ("4\\,\\mathrm{\\Omega}", "ohm"),
@@ -53,7 +54,16 @@ def test_a_unit_the_working_writes_is_read(tex: str, unit: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "tex", ["100\\,^\\circ\\mathrm{C}", "30^\\circ", "2.5\\,\\mathrm{rad}", "5"]
+    "tex",
+    [
+        "100\\,^\\circ\\mathrm{C}",
+        "30^\\circ",
+        "2.5\\,\\mathrm{rad}",
+        "5",
+        "250\\,\\mathrm{rev/min}",
+        "26.18\\,\\mathrm{rad/s}",
+        "12\\,\\%",
+    ],
 )
 def test_a_temperature_an_angle_or_no_unit_is_not_read(tex: str) -> None:
     assert quantity_unit(unit_after(tex)) is None

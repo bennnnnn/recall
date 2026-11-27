@@ -12,15 +12,16 @@ it once (``card_numbers``).
 
 A card stands when it states any value its part worked out (the largest of five
 accelerations is no slip of the last), when it is the value's size without its sign, when it
-is a count rounded as asked (4 buses for 3.75), or when it is the server's. A card ten, a
-thousand or a million times off its chain is a slip only when the working slipped or both
-write the same unit: it may be the value in a prefixed unit the working never named.
+is a count rounded as asked (4 buses for 3.75), or when it is the server's.
 
-A card in another unit than its chain gets the chain's value in its own unit, when Pint
-reads both. A chain that writes no unit is given one only when it is certain: its method is
-its formula with each name a given put in, every given read with its unit, and no number of
-the formula's own that could be a conversion ("ω = 2πN" with N = 250 rev/min is 26.18 rad/s,
-never 1570.80; "2πN/60" is left alone).
+When in doubt, nothing changes. A card's unit not read for certain (°C, °, rad/s, %) leaves
+the card alone unless its chain writes the very same unit: 126.85 °C under a chain in K is
+right. A card ten or a thousand times off its chain is a slip only when both write a unit read
+for certain; with no unit on the chain, a card more than 1.5 times off may be the value in a
+unit the working never named (3.6, 60, 1000), and stands. A card in another unit than its
+chain gets the chain's value in its own unit when Pint reads both, and a chain that writes no
+unit is given one only when every given put into its formula is read with its unit and the
+formula has no number of its own that could be a conversion ("2πN/60" is left alone).
 
 The card stays unchecked: the server checked arithmetic, not the method.
 """
@@ -46,7 +47,13 @@ from app.modules.chat.working_chain import (
 )
 from app.modules.chat.working_claims import Claim
 from app.modules.chat.working_numbers import shown_number
-from app.modules.chat.working_units import converted, quantity_unit, unit_after
+from app.modules.chat.working_units import (
+    converted,
+    quantity_unit,
+    read_for_certain,
+    unit_after,
+    with_units,
+)
 from app.services.rounding_rule import RULE, Precision, number_latex
 from app.services.units import get_unit_registry
 
@@ -71,6 +78,8 @@ class Corrected:
     slip: str
     # Where the card's fence body ends.
     body_end: int
+    # The reply's last card: the lines after it are its closing summary, nobody's working.
+    last: bool = False
 
 
 @dataclass(frozen=True)
@@ -102,7 +111,8 @@ def _corrected(card: CardRead, reading: Reading, precision: Precision) -> Correc
     chain = card.chain
     if chain is None or card.server:
         return None
-    value, kind = _in_card_unit(chain, unit_after(card.unit_tex), reading)
+    card_unit = unit_after(card.unit_tex)
+    value, kind = _in_card_unit(chain, card_unit, reading)
     if value is None:
         return None
     plain = plain_arithmetic(card.number.replace("−", "-"))
@@ -126,15 +136,46 @@ def _corrected(card: CardRead, reading: Reading, precision: Precision) -> Correc
     if kind == DRIFT and chain.written is not None and _holds(shown, *chain.written):
         # Right on the rounded numbers the working wrote: rounding carried, no slip.
         return None
-    if _ten_fold(shown[0], value) and kind == DRIFT and not chain.unit:
+    if not _units_certain(chain.unit, card_unit) and not _near(shown[0], value):
+        # One side writes no unit: a card ten, sixty or 3.6 times off may be the value in a
+        # unit the working never named, so only a slip within a factor of 1.5 is certain.
         return None
     return _fix(card, chain, new, kind, slip)
+
+
+# How far a card may be off a chain with no unit and still be a slip of its own: beyond
+# this it may be the value in another unit (×3.6, ×60, ×100, ×1000).
+_NEAR = 1.5
+
+
+def _near(shown: float, value: float) -> bool:
+    if shown == 0 or value == 0 or (shown < 0) != (value < 0):
+        return False
+    ratio = abs(shown / value)
+    return 1 / _NEAR <= ratio <= _NEAR
+
+
+def _units_certain(chain_unit: str, card_unit: str) -> bool:
+    """The chain and the card both write a unit, and both are read for certain (or are the
+    same text): a card a power of ten off is then a slip, not a prefix."""
+    if not chain_unit or not card_unit:
+        return False
+    return chain_unit == card_unit or (read_for_certain(chain_unit) and read_for_certain(card_unit))
 
 
 def _fix(card: CardRead, chain: Chain, new: str, kind: str, slip: str) -> Corrected:
     name = chain.label or chain.name
     return Corrected(
-        name, card.start, card.end, card.number, new, card.unit_tex, kind, slip, card.body_end
+        name,
+        card.start,
+        card.end,
+        card.number,
+        new,
+        card.unit_tex,
+        kind,
+        slip,
+        card.body_end,
+        card.last,
     )
 
 
@@ -179,18 +220,23 @@ def _slip_before(chains: list[Chain], chain: Chain, since: int) -> str:
 
 def _in_card_unit(chain: Chain, card_unit: str, reading: Reading) -> tuple[float | None, str]:
     """The chain's value in the card's unit, and UNIT when a conversion the working left out
-    was put in; None when the units are not one kind or cannot be read."""
+    was put in; None when the two are not one kind, or either unit is not read for certain
+    (126.85 °C under a chain in K, 30° under one in rad) and they are not written alike."""
     target = quantity_unit(card_unit) if card_unit else None
     derived = _substituted(chain, reading.givens) if target is not None else None
     if derived is not None and target is not None:
         value = _magnitude_in(derived, target)
         if value is not None and not math.isclose(value, chain.value, rel_tol=1e-9):
             return value, UNIT
-    if not card_unit or not chain.unit:
+    if card_unit == chain.unit or not card_unit:
+        return chain.value, ""
+    if not read_for_certain(card_unit):
+        return None, ""
+    if not chain.unit:
         return chain.value, ""
     source = quantity_unit(chain.unit)
     if source is None or target is None:
-        return (chain.value, "") if card_unit == chain.unit else (None, "")
+        return None, ""
     return converted(chain.value, source, target), ""
 
 
@@ -215,12 +261,14 @@ def _ten_fold(shown: float, value: float) -> bool:
 
 def _applied(text: str, fix: Corrected) -> str:
     """``text`` with the card's number written again, and the wrong value said again in the
-    closing lines after it said as the right one: only a number of three figures, never one
-    the working wrote before the card too (which mention is the card's is unknown)."""
+    closing lines after the reply's last card said as the right one: only a number of three
+    figures, never one the working wrote before the card too (which mention is the card's is
+    unknown)."""
     text = f"{text[: fix.start]}{fix.shown}{text[fix.end :]}"
     plain = plain_arithmetic(fix.said.replace("−", "-")) or fix.said
     figures = len(plain.strip("()-").partition("e")[0].replace(".", "").strip("0"))
-    if not fix.kind or figures < CARRIED_FIGURES:
+    if not fix.kind or not fix.last or figures < CARRIED_FIGURES:
+        # Only after the reply's last card: after any other the next part's working starts.
         return text
     wrong = repeats({fix.said, plain})
     if wrong.search(text[: fix.start]) is not None:
@@ -252,47 +300,7 @@ def _substituted(chain: Chain, givens: dict[str, tuple[str, str]]) -> Any:
         tree = ast.parse(plain, mode="eval")
     except SyntaxError:
         return None
-    return _with_units(tree.body, plain, quantities)
-
-
-def _with_units(node: ast.AST, plain: str, quantities: dict[str, Any]) -> Any:
-    """``node`` worked out with each given as its quantity; None for anything but numbers,
-    pi, the four operations, a whole power and a square root."""
-    registry = get_unit_registry()
-    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
-        written = ast.get_source_segment(plain, node) or ""
-        number = registry.Quantity(float(node.value), registry.dimensionless)
-        return quantities.get(written, number)
-    if isinstance(node, ast.Name) and node.id == "pi":
-        return registry.Quantity(math.pi, registry.dimensionless)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-        inner = _with_units(node.operand, plain, quantities)
-        return None if inner is None else -inner
-    if isinstance(node, ast.BinOp):
-        left = _with_units(node.left, plain, quantities)
-        right = _with_units(node.right, plain, quantities)
-        return None if left is None or right is None else _operated(node.op, left, right)
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sqrt":
-        inner = _with_units(node.args[0], plain, quantities) if len(node.args) == 1 else None
-        return None if inner is None else inner**0.5
-    return None
-
-
-def _operated(op: ast.operator, left: Any, right: Any) -> Any:
-    try:
-        if isinstance(op, ast.Add):
-            return left + right
-        if isinstance(op, ast.Sub):
-            return left - right
-        if isinstance(op, ast.Mult):
-            return left * right
-        if isinstance(op, ast.Div):
-            return left / right
-        if isinstance(op, ast.Pow) and right.dimensionless and float(right.magnitude).is_integer():
-            return left ** int(right.magnitude)
-    except (PintError, TypeError, ValueError, ArithmeticError):
-        return None
-    return None
+    return with_units(tree.body, plain, quantities)
 
 
 def _corrected_note(fixes: list[Corrected]) -> str | None:

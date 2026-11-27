@@ -15,14 +15,26 @@ a formula. Pure: no IO; nothing is eval-ed.
 
 from __future__ import annotations
 
+import ast
 import itertools
+import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
-from app.modules.chat.tex_arithmetic import evaluate, math_statement_spans, plain_arithmetic
+from pint.errors import PintError
+
+from app.modules.chat.tex_arithmetic import math_statement_spans, plain_arithmetic
 from app.modules.chat.working_check import NAME, statement_parts
 from app.modules.chat.working_numbers import shown_number
+from app.modules.chat.working_units import (
+    quantity,
+    quantity_unit,
+    read_for_certain,
+    unit_after,
+    with_units,
+)
 
 # The Greek letters a name may be; any other command (\frac, \times, \sqrt) is maths.
 _GREEK = frozenset(
@@ -51,14 +63,23 @@ class Claim:
     value: float
 
 
-def claims_in(parts: list[str], known: Callable[[str], float | None]) -> list[Claim]:
+# A name's value and the unit it was written in (Pint text), as the working has them.
+Known = Callable[[str], tuple[float, str] | None]
+# Numbers that stand in for the names while the side is worked with units: no reply writes them.
+_PLACEHOLDER = 7_000_003
+
+
+def claims_in(parts: list[str], known: Known, unit_after_maths: str = "") -> list[Claim]:
     """Each side of a statement written in names said to equal the number after it, when
-    the working's values of every name (``known``) make it another number."""
+    the working's values of every name (``known``), worked with their units, make it another
+    number in the said side's unit (inside the maths, else ``unit_after_maths``: "405.5$ J").
+    A name with no unit, or a unit not read for certain, makes no claim."""
     found: list[Claim] = []
     for left, right in itertools.pairwise(parts):
         said_plain = plain_arithmetic(right.strip())
         said = shown_number(said_plain) if said_plain is not None else None
-        value = _in_names(left.strip(), known)
+        unit = unit_after(right.strip()) or (unit_after_maths if right is parts[-1] else "")
+        value = _in_names(left.strip(), known, unit)
         if said is None or value is None:
             continue
         slack = max(said[1], _CLAIM_SLACK * max(abs(value), abs(said[0])))
@@ -67,24 +88,51 @@ def claims_in(parts: list[str], known: Callable[[str], float | None]) -> list[Cl
     return found
 
 
-def _in_names(tex: str, known: Callable[[str], float | None]) -> float | None:
-    """A side written in names worked out with the working's one value of each; None when
-    it holds no name, a name with no single value, a number of its own, a unit or a word."""
-    if _NUMBER_THEN_LETTER.search(tex) or _UPRIGHT.search(tex):
+def _in_names(tex: str, known: Known, said_unit: str) -> float | None:
+    """A side written in names worked out with the working's one value of each, in
+    ``said_unit`` (SI base units when it says none); None when it holds no name, a name with
+    no single value or no unit read for certain, a number of its own, a unit or a word."""
+    if _NUMBER_THEN_LETTER.search(tex) or _UPRIGHT.search(tex) or not read_for_certain(said_unit):
         return None
     names = names_in(tex)
     if not names or any(not _pure(number) for number in _NUMBER.findall(_without(tex, names))):
         return None
     pieces: list[str] = []
+    quantities: dict[str, Any] = {}
     at = 0
-    for match in names:
-        value = known(plain_name(match.group(0)))
+    for index, match in enumerate(names):
+        read = known(plain_name(match.group(0)))
+        if read is None or not read[1]:
+            return None
+        placeholder = str(_PLACEHOLDER + index)
+        value = quantity(read[0], read[1])
         if value is None:
             return None
-        pieces += [tex[at : match.start()], f"({value!r})"]
+        quantities[placeholder] = value
+        pieces += [tex[at : match.start()], f"({placeholder})"]
         at = match.end()
     plain = plain_arithmetic("".join([*pieces, tex[at:]]))
-    return evaluate(plain) if plain is not None else None
+    if plain is None:
+        return None
+    try:
+        worked = with_units(ast.parse(plain, mode="eval").body, plain, quantities)
+    except SyntaxError:
+        return None
+    return _magnitude(worked, said_unit)
+
+
+def _magnitude(worked: Any, unit: str) -> float | None:
+    """A worked quantity's size in ``unit``, or in SI base units for none; None for no one
+    kind."""
+    if worked is None:
+        return None
+    target = quantity_unit(unit) if unit else None
+    try:
+        result = worked.to(target) if target is not None else worked.to_base_units()
+    except (PintError, TypeError, ValueError):
+        return None
+    number = float(result.magnitude)
+    return number if math.isfinite(number) else None
 
 
 def solved_for(reply: str) -> set[str]:

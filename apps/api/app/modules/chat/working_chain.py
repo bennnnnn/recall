@@ -33,14 +33,26 @@ from dataclasses import dataclass, field
 
 from app.modules.chat.card_walk import answer_cards
 from app.modules.chat.formula_inputs import aligned_names
-from app.modules.chat.tex_arithmetic import evaluate, math_statement_spans, plain_arithmetic
+from app.modules.chat.tex_arithmetic import (
+    evaluate,
+    is_unit_word,
+    math_statement_spans,
+    plain_arithmetic,
+)
 from app.modules.chat.tex_spread import half_place, spread
 from app.modules.chat.working_cards import card_value
 from app.modules.chat.working_check import NAME, OPERATOR, statement_parts
 from app.modules.chat.working_claims import Claim, claims_in, names_in, plain_name, solved_for
 from app.modules.chat.working_exact import standard_values
 from app.modules.chat.working_numbers import shown_number
-from app.modules.chat.working_units import converted, quantity_unit, same_unit, unit_after
+from app.modules.chat.working_units import (
+    converted,
+    in_base_units,
+    quantity_unit,
+    read_for_certain,
+    same_unit,
+    unit_after,
+)
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
 
 # A number in a plain side: 50.56, 1.0874e-3, 290000.
@@ -60,7 +72,7 @@ _CARD_NUMBER = re.compile(
 )
 # What may follow the number on a card: spacing and one unit group.
 _ONLY_UNIT = re.compile(
-    r"^(?:\\[,; !]|\\ |\s|~)*(?:\^\s*\{?\s*\\circ\s*\}?|°)?\s*"
+    r"^(?:\\[,; !]|\s|~)*(?:\^\s*\{?\s*\\circ\s*\}?|°)?\s*"
     r"(?:\\(?:mathrm|text|textrm|rm)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?)?\s*$"
 )
 
@@ -113,6 +125,8 @@ class CardRead:
     body_end: int = 0
     # The card stands below the formal reader's line: the server's value, not the model's.
     server: bool = False
+    # The reply's last card: only the lines after it are its closing summary.
+    last: bool = False
 
 
 @dataclass
@@ -121,12 +135,15 @@ class _Env:
 
     question: frozenset[str]
     standard: dict[str, float]
-    numbers: dict[str, float] = field(default_factory=dict)
+    # A carried number's value and the figures it was written to.
+    numbers: dict[str, tuple[float, int]] = field(default_factory=dict)
     clashed: set[str] = field(default_factory=set)
     forms: list[tuple[re.Pattern[str], float]] = field(default_factory=list)
     names: dict[str, list[float]] = field(default_factory=dict)
     # Number keys whose written digits are the value itself: a given, an exact result.
     exact: set[str] = field(default_factory=set)
+    # The last chain of each name, and the unit each name was last written in.
+    chains: dict[str, Chain] = field(default_factory=dict)
 
     def carry(self, written: str, value: float) -> None:
         """``written`` stands for ``value`` from now on, unless it is a given or another
@@ -134,18 +151,21 @@ class _Env:
         key = key_of(written)
         if key in self.question or key in self.clashed or not _carried(written):
             return
-        if key in self.numbers and not math.isclose(self.numbers[key], value, rel_tol=1e-9):
+        if key in self.numbers and not math.isclose(self.numbers[key][0], value, rel_tol=1e-9):
             del self.numbers[key]
             self.clashed.add(key)
             return
-        self.numbers[key] = value
+        self.numbers[key] = (value, figures(written))
 
     def value_of(self, written: str) -> float | None:
+        """The whole value ``written`` stands for: only a number written to as many figures
+        as the carried one ("2.00" for 1.998 never makes the 2 of ½ or of 2gh 1.998)."""
         key = key_of(written)
         if key in self.question:
             return None
         if key in self.numbers:
-            return self.numbers[key]
+            value, carried = self.numbers[key]
+            return value if figures(written) >= carried else None
         return self.standard.get(written)
 
     def known_name(self, name: str) -> float | None:
@@ -164,9 +184,14 @@ def key_of(written: str) -> str:
         return written
 
 
-def _carried(written: str) -> bool:
+def figures(written: str) -> int:
+    """Significant figures as written: "2.00" has 3, "2" and "200" have 1, "0.0417" has 3."""
     digits = written.strip("()-+−").lower().partition("e")[0].replace(".", "").lstrip("0")
-    return len(digits.rstrip("0") if "." not in written else digits) >= CARRIED_FIGURES
+    return len(digits.rstrip("0") if "." not in written else digits)
+
+
+def _carried(written: str) -> bool:
+    return figures(written) >= CARRIED_FIGURES
 
 
 def question_numbers(question: str) -> frozenset[str]:
@@ -233,15 +258,35 @@ def read_chains(reply: str, question: str = "") -> Reading:
                 reading.chains.append(walk.current)
                 env.names.setdefault(walk.current.name, []).append(walk.current.value)
             else:
-                reading.claims += claims_in(parts, lambda n: _known(env, n, unknowns))
+                after = _unit_word(reply[at + len(segment) : at + len(segment) + _AFTER])
+                reading.claims += claims_in(parts, lambda n: _known(env, n, unknowns), after)
         else:
             _statement(name, parts, starts, follows, env, reading, walk)
     reading.cards += [_card_chain(card, reading.chains, walk, env) for card in cards]
     return reading
 
 
-def _known(env: _Env, name: str, unknowns: set[str]) -> float | None:
-    return None if name in unknowns else env.known_name(name)
+def _known(env: _Env, name: str, unknowns: set[str]) -> tuple[float, str] | None:
+    """A name's one value and the unit it was written in, for a claim."""
+    value = None if name in unknowns else env.known_name(name)
+    source = env.chains.get(name)
+    if value is None or source is None:
+        return None
+    return value, source.unit
+
+
+# How far past the maths a claim's unit may be written: "= 405.5$ J".
+_AFTER = 16
+_WORD_AFTER = re.compile(r"\$?\s*([A-Za-zΩµ]{1,4})\b")
+
+
+def _unit_word(after: str) -> str:
+    """The unit written in words right after the maths ("$ J,"), as Pint text, or ""; a word
+    that is no unit's symbol ("so", "the", "in") is no unit."""
+    word = _WORD_AFTER.match(after)
+    if word is None or not is_unit_word(word[1]) or word[1] == "in":
+        return ""
+    return word[1] if quantity_unit(word[1]) is not None else ""
 
 
 def _statement(
@@ -274,8 +319,10 @@ def _statement(
             reading.chains.append(chain)
     if chain is not None:
         env.names.setdefault(name, []).append(chain.value)
+        env.chains[name] = chain
         if chain.given and chain is not current:
-            reading.givens[name] = (key_of(plain_arithmetic(chain.method) or ""), chain.unit)
+            unit = unit_after(chain.method)
+            reading.givens[name] = (key_of(plain_arithmetic(chain.method) or ""), unit)
     walk.current = chain
 
 
@@ -323,18 +370,22 @@ def _void_stated(chain: Chain, chains: list[Chain], env: _Env) -> None:
         if earlier.name != chain.name or not earlier.given or written is None:
             continue
         key = key_of(written)
-        if key in env.question or not _carried(written) or chain.unit not in ("", earlier.unit):
+        certain = read_for_certain(earlier.unit) and earlier.unit != ""
+        if key in env.question or not _carried(written) or not certain:
+            continue
+        if chain.unit not in ("", earlier.unit):
             # A given of the question, a small count, or the value in another unit.
             continue
         if not _ten_fold(earlier.value, chain.value):
             # Another value of a name used twice ("t = 205 s", then t of another event).
             continue
-        env.numbers[key] = chain.value
+        env.numbers[key] = (chain.value, figures(written))
         env.clashed.discard(key)
         earlier.slip = earlier.method
         # Its value is void: the name has the worked one only.
         values = env.names.get(chain.name, [])
         env.names[chain.name] = [v for v in values if not math.isclose(v, earlier.value)]
+        earlier.value = chain.value
 
 
 def _ten_fold(first: float, second: float) -> bool:
@@ -415,9 +466,12 @@ def _start(name: str, part: str, unit: str, at: int, env: _Env, formula: str) ->
     sides = _resolved(part, env, named)
     if sides is None:
         alias = env.known_name(_name_of(part))
-        if alias is None:
+        source = env.chains.get(_name_of(part))
+        if alias is None or source is None:
             return None
-        return Chain(name, alias, unit, at, at + len(part), part, 0.0)
+        chain = Chain(name, alias, unit or source.unit, at, at + len(part), part, source.reach)
+        chain.written = source.written
+        return chain
     written, whole, placed = sides
     value = evaluate(whole)
     if value is None:
@@ -427,7 +481,10 @@ def _start(name: str, part: str, unit: str, at: int, env: _Env, formula: str) ->
     chain.slip = part if misput else ""
     if not _worked(written):
         chain.given, chain.reach, chain.shown = True, 0.0, part
-        env.exact.add(key_of(written))
+        if key_of(written) in env.question:
+            # Only the question's own numbers are exact as written; a value the reply states
+            # (1.309 rad for 75°) stands for its rounding.
+            env.exact.add(key_of(written))
     return chain
 
 
@@ -447,17 +504,26 @@ def _named_inputs(formula: str, method: str, env: _Env) -> tuple[dict[str, float
         value = env.known_name(name)
         if value is None or not _carried(number) or key_of(number) in env.question:
             continue
-        if abs(abs(value) - float(number)) <= half_place(number) * (1 + 1e-9):
-            found[key_of(number)] = abs(value)
-        elif _ten_fold(abs(value), float(number)):
-            found[key_of(number)] = abs(value)
-            misput = True
+        source = env.chains.get(name)
+        unit = source.unit if source is not None else ""
+        si = in_base_units(abs(value), unit)
+        for whole in (abs(value), si):
+            if whole is not None and abs(whole - float(number)) <= half_place(number) * (1 + 1e-9):
+                found[key_of(number)] = whole
+                break
+        else:
+            # 632.8 nm put in as 632.8 × 10⁻⁹ is the value in metres; a power of ten off is a
+            # slip only where the value's own unit is its SI one (6.245e7 for 6.245e6 Pa).
+            if si is not None and math.isclose(si, abs(value)) and _ten_fold(si, float(number)):
+                found[key_of(number)] = si
+                misput = True
     return found, misput
 
 
 def _hold(chain: Chain, part: str, unit: str, env: _Env) -> None:
     """Hold one more form or number of ``chain`` to its value (the module docstring)."""
     if unit != chain.unit and unit and chain.unit:
+        # A unit not read for certain (rad, rev/min, °C, %) is never held to another.
         if not _convert(chain, unit):
             chain.broken = True
             return
@@ -561,7 +627,9 @@ def _cards(reply: str) -> list[tuple[int, CardRead, str]]:
     from app.modules.chat.formal_lines import server_valued
 
     found: list[tuple[int, CardRead, str]] = []
-    for answer in answer_cards(reply):
+    every = list(answer_cards(reply))
+    last_start = every[-1].fence.start if every else -1
+    for answer in every:
         body = answer.body(reply)
         read = card_value(body)
         if read is None or VERIFIED_ANSWER_MARKER in body:
@@ -584,6 +652,7 @@ def _cards(reply: str) -> list[tuple[int, CardRead, str]]:
             None,
             answer.fence.body_end,
             server,
+            answer.fence.start == last_start,
         )
         found.append((answer.fence.start, card, plain_name(symbol)))
     return found
@@ -617,4 +686,5 @@ def _card_chain(
         chain,
         read.body_end,
         read.server,
+        read.last,
     )

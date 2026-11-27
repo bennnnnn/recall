@@ -24,7 +24,9 @@ _TEX_TOKEN = re.compile(rf"{NAME.pattern}|\d+(?:\.\d+)?(?:e[-+]?\d+)?|\S")
 _SCIENTIFIC = re.compile(
     r"(\d+(?:\.\d+)?)\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*(?:\{\s*([-+−]?\d+)\s*\}|([-+−]?\d+))"
 )
-_NO_MATHS = frozenset({"\\times", "\\cdot", "*", "×", "\\,", "\\;", "\\left", "\\right"})
+_NO_MATHS = frozenset({"\\times", "\\cdot", "*", "×", "\\left", "\\right"})
+# TeX spacing: no part of the maths ("2\\pi\\,(250)" is 2π times 250).
+_SPACING = re.compile(r"\\[,;:! ]")
 
 
 def aligned_names(formula: str, method: str) -> dict[str, str] | None:
@@ -53,7 +55,7 @@ def aligned_names(formula: str, method: str) -> dict[str, str] | None:
 
 
 def _tokens(tex: str) -> list[str]:
-    return [token for token in _TEX_TOKEN.findall(tex) if token not in _NO_MATHS]
+    return [token for token in _TEX_TOKEN.findall(_SPACING.sub(" ", tex)) if token not in _NO_MATHS]
 
 
 def _pure(token: str) -> bool:
