@@ -4,7 +4,7 @@
  * presentation passes on both sides walk a reply the same way.
  */
 
-import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
+import { scanDisplayLine, type DisplayCloser } from "@/lib/markdown/displayDollars";
 import { closesFence, readFenceMarker, type OpenFence } from "@/lib/fence/scan";
 
 /** Restaurant price tiers, ($) to ($$$$), are not maths. */
@@ -69,48 +69,19 @@ export function leaveProseLine(line: string): boolean {
  * Which lines belong to a display formula left open across lines. A `$$` or
  * `\[` that a line leaves open makes every line up to its closer one formula,
  * which the phone draws as one maths block: none of them is a prose line to
- * lay out. Inline code and price tiers hold no maths.
+ * lay out. Dollars are read as every reader reads them (`displayDollars.ts`):
+ * inline code, price tiers and a `$$` that opens nothing hold no maths.
  */
 export function displayMathLines(lines: string[]): boolean[] {
-  const priceTiers = new RegExp(PRICE_TIER.source, "g");
-  let closer: string | null = null;
+  let closer: DisplayCloser = null;
   return lines.map((line) => {
-    const after = displayCloser(line.replace(priceTiers, ""), closer);
-    const kept = closer != null || after != null;
+    // A list item or table row that ends a formula left open is no line of it.
+    let dropped = false;
+    const after = scanDisplayLine(line, closer, true, (kind) => {
+      if (kind === "drop") dropped = true;
+    });
+    const kept = (closer != null && !dropped) || after != null;
     closer = after;
     return kept;
   });
-}
-
-/** The display closer (`$$` or `\]`) still awaited after `line`. */
-function displayCloser(line: string, open: string | null): string | null {
-  let closer = open;
-  let index = 0;
-  // The backslashes just before `index`, counted as the scan passes them: an odd run
-  // escapes the character there (`escapedAt` counted back from every index, which was
-  // quadratic in a run of backslashes).
-  let slashes = 0;
-  while (index < line.length) {
-    const codeEnd = closer == null ? readInlineCodeSpan(line, index) : null;
-    if (codeEnd != null) {
-      index = codeEnd;
-      slashes = 0;
-    } else if (slashes % 2 === 0 && line.startsWith("$$", index)) {
-      if (closer == null || closer === "$$") closer = closer == null ? "$$" : null;
-      index += 2;
-      slashes = 0;
-    } else if (slashes % 2 === 0 && line.startsWith("\\[", index) && closer == null) {
-      closer = "\\]";
-      index += 2;
-      slashes = 0;
-    } else if (slashes % 2 === 0 && line.startsWith("\\]", index) && closer === "\\]") {
-      closer = null;
-      index += 2;
-      slashes = 0;
-    } else {
-      slashes = line[index] === "\\" ? slashes + 1 : 0;
-      index += 1;
-    }
-  }
-  return closer;
 }

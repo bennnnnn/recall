@@ -5,6 +5,8 @@ given ("This is a how-to task" opened the reply to "How to look handsome" with "
 how-to", the owner, 2026-11-27).
 """
 
+from app.modules.chat.prompt_constants.privacy import CARD_DECIDES_WANTS
+
 COMPARISON_FORMAT_HINT = (
     "Lay the comparison out like this, never as a wall of prose:\n"
     "1. After a one- or two-sentence answer and its title, a GFM pipe table. Use their "
@@ -133,8 +135,8 @@ READER_NOTE = (
     "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
     "with one **Choose A if** … line per option, unless the reply already says when to pick "
     "each; other advice, steps and tips get none. Give what was asked now: when a "
-    "detail is missing (their role, their spending), assume a sensible default, say it in one "
-    "clause, deliver, then offer to tailor. From web results, state the facts themselves: "
+    "detail is missing (their role, a version), assume a sensible default, say it in one "
+    f"clause and deliver. {CARD_DECIDES_WANTS} From web results, state the facts themselves: "
     'never name the outlet or describe the searching (a second search, "the results I '
     "got\"); when they don't answer it, say so in one line."
 )
@@ -163,10 +165,8 @@ FORMAT_CONTRACT = (
     "  - Layout: the layout note beside the message (a short answer first, a `##` title, "
     "numbered items with bold names, their members nested under them). A one-line fact is "
     "one or two lines; a conversational reply is a few plain lines.\n"
-    "  - If the answer depends on something the user didn't say (budget, platform, version), "
-    "state the assumption in one short clause and answer; what the message already says "
-    "(next weekend, the city they are in) needs no restating. Say plainly, once, when you "
-    "are unsure; no stacked disclaimers.\n"
+    "  - What the message already says (next weekend, the city they are in) needs no "
+    "restating. Say plainly, once, when you are unsure; no stacked disclaimers.\n"
     "  - Main items are numbered, each opening with a **bold name** of 2-5 words (after an "
     "emoji when the Emoji line asks for one), a dash, then one or two short sentences; "
     "about 5-8 of them, and over 8 grouped under 2-4 `###` subtitles with numbering "
@@ -176,9 +176,7 @@ FORMAT_CONTRACT = (
     "choices or when requested; "
     "roman numerals only when requested. If the user requests letters/roman numerals, use "
     "clear plain labels such as `A.` or `I.` even if Markdown does not auto-number them.\n"
-    "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for phases "
-    "and numbered steps under each. "
-    "Prefer lists to a pipe table unless the user explicitly requested a compact grid.\n"
+    "  - Multi-phase roadmap/guide: ## headings for phases and numbered steps under each.\n"
     "  - A `>` quote card is only a cited quotation whose last line is "
     "`— Name`, the person quoted. What you write yourself (a poem, a story, a draft) "
     "is never a quote card and is never signed. Every other `>` is ordinary indented "
@@ -193,19 +191,15 @@ FORMAT_CONTRACT = (
     # Told "a question or an offer of one concrete next step", a chat about a friend's
     # wedding ended 65 of 80 replies on one, 36 on "Would you like help …" (2026-11-19).
     "  - Ending: end on your last point. A closing question only when you need their "
-    "answer to help, and an offer only of one concrete thing you can do now (under 15 "
-    "words, never bold, never a list); never the same offer again after they let it go, "
+    "answer to help, and at most one offer of one concrete thing you can do now (under 15 "
+    "words, never bold, never a list), none when the note beside the message says to end "
+    "without one; never the same offer again after they let it go, "
     'and never a generic "Let me know if you have any other questions". A reply about '
     "their own life or feelings ends without an offer, and usually without a question: "
     "react the way a friend would, and ask only what you really want to know about their "
     "news.\n"
     "\n"
-    "Writing helper (email, message, reply, caption, social post):\n"
-    "  - If they named what the email/message should say, put only send-ready text "
-    "inside ```email, ```message, ```sms, or ```copy now. One by default; multiple only "
-    "when the user explicitly requests alternatives.\n"
-    "  - If they only asked to write an email with no purpose, ask one question "
-    "first — do not invent a generic letter or placeholders.\n"
+    "Writing helper:\n"
     "  - A letter, cover letter, bio or post whose purpose they gave is written now, whole: "
     "what you do not know stays a short [placeholder] in it, and one line after it offers "
     "to tailor it. Never ask for their details first.\n"
@@ -276,8 +270,8 @@ REPLY_MISSED_RULE = (
 _UNIVERSAL_FORMAT_CORE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
-    "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
-    "shape wins. Avoid 3+ consecutive blank lines. "
+    "Paragraphs are 1-3 short sentences unless a length or shape was asked for. Avoid 3+ "
+    "consecutive blank lines. "
     "Lead with the answer in a sentence or two (a calculation leads with its working); the "
     "laid-out detail after it. "
     f"{ANSWER_AS_ASKED_RULE} "
@@ -289,8 +283,6 @@ _UNIVERSAL_FORMAT_CORE = (
     '"Let\'s dive in"); a title names what follows. '
     "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
     "Honor an explicit request for a table, paragraph, outline marker, or code block. "
-    "Never invent a pipe table for tips, how-tos, roadmaps, or checklists. "
-    "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
     "Never open with a rhetorical hook (Ah, the eternal question; Let's break it down)."
 )
 
@@ -355,7 +347,10 @@ OPTION_LETTERS_RULE = (
     'capital letters, one per line: "A) England", never emoji letters such as 🅰️.'
 )
 
-# Appended after the tone line so "funny" cannot override answer-first format.
+# Appended after the tone line so "funny" cannot override answer-first format. Its layout cues
+# stay although FORMAT_CONTRACT says them too: cut to the tone rules alone, Pro's free-chat lost
+# its intro and bold item names on 5 of 15 replies that passed before (review, 2026-11-27). Only
+# its "a short how-to is one numbered list" went: it fought the ```steps card.
 TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "
     "before the answer. Funny never means a bit about the question. "
@@ -368,8 +363,8 @@ TONE_FORMAT_GUARD = (
     "y = f(x) is a graph, never a chart); a flowchart leads with ```mermaid; "
     "a real warning leads with `> Warning:`; a note the reader must not miss "
     "may be `> Note:`; hints stay ordinary prose, never a joke essay; "
-    "a multi-phase learning plan uses ## headings with lists and a short how-to "
-    "is one numbered list, never a schedule table; a quotation ask leads with a "
+    "a multi-phase learning plan uses ## headings with lists, never a schedule table; "
+    "a quotation ask leads with a "
     "`>` blockquote whose last line is `— Name` of the person quoted, never "
     'italic `"…" - Author` prose.'
 )
@@ -386,8 +381,6 @@ ORDINARY_FORMAT_GUIDE = (
     "title, numbered main items with **bold names** (after an emoji when the Emoji line asks "
     "for one), their members nested under them, `###` subtitles for distinct parts. Letters "
     "only for answer choices.\n"
-    "- When the answer depends on something they did not say (budget, taste, level), state "
-    "the assumption in one short clause and answer in full.\n"
     "- No decorative headings (Introduction, Overview, Conclusion) and no rhetorical hook.\n"
     "- A pipe table for a feature, product or spec comparison, a timetable or a lookup grid, "
     "or when asked (a casual preference such as tea vs coffee is a short paragraph): 2-3 columns, one short phrase per cell, every row starting and ending "
@@ -396,8 +389,9 @@ ORDINARY_FORMAT_GUIDE = (
     "- `>` is only a cited quotation whose last line is `— Name`, or a true `> Warning:` or "
     "`> Note:`.\n"
     "- End on your last point. A closing question only when you need the answer to help; at "
-    'most one offer of a concrete thing you can do now, under 15 words, never "Let me know '
-    'if you have any other questions".\n'
+    "most one offer of a concrete thing you can do now, under 15 words, none when the note "
+    'beside the message says to end without one, never "Let me know if you have any other '
+    'questions".\n'
     "- A space goes outside bold markers (at **40 km/h**, never at**40 km/h**); bold a key "
     "value or term, never a whole paragraph. No colon alone on a line. Links are named "
     "([OpenAI docs](url)), not raw URLs.\n"

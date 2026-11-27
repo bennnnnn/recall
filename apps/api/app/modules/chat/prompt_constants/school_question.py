@@ -59,22 +59,24 @@ MATCHED_DEPTH = (
     "receptors, diseases, molecular mechanisms) it did not ask for; one in specialist words "
     "may get a specialist's. No side claim you are unsure of."
 )
+# "A school textbook", never "the textbook": told "as the textbook expects", a reply guessed
+# which book it was ("likely Hewitt or similar", textbook round, 2026-11-25). The user named
+# no book, so the note names none.
 SCHOOL_QUESTION_NOTE = (
-    "Answer the question as the textbook expects, for the "
-    "student who asked, at the level the question is written, from what the textbook "
-    "teaches: open with the answer itself in plain words, using "
-    "the textbook's terms, then a short reason or two to four everyday examples. "
+    "Answer the question as a school textbook would, for the "
+    "student who asked, at the level the question is written: open with the answer itself "
+    "in plain words, using a textbook's terms, then a short reason or two to four everyday "
+    "examples. "
     + WORK_FIRST
     + " "
     + TEXTBOOK_DEPTH
     + " No history or regional trivia it did not ask for. Take the question as written: "
-    "never call it a trick or a riddle, never dispute its wording, its options or the "
-    "textbook, and never ask "
-    "where it came from. Answer every part it asks, in order. End when the answer is "
+    "never call it a trick or a riddle, never dispute its wording or its options, never "
+    "name or guess the book it is from, and never ask where it came from. Answer every part it asks, in order. End when the answer is "
     "complete, with no offer of more."
 )
 _CHOICE_NOTE = (
-    " It asks you to choose: name the one correct option, its label and words, first, "
+    " Name the one correct option of its choices, its label and words, first, "
     "then one or two lines on why; never change the option partway, name two, or say "
     "none is correct."
 )
@@ -86,9 +88,7 @@ FACTUAL_QUESTION_NOTE = (
     + WORK_FIRST
     + " "
     + MATCHED_DEPTH
-    + " Take the question as written: "
-    "never open by disputing it, correcting its wording or calling it a trick, and keep to "
-    "what it asks. End when the answer is complete, with no offer of more."
+    + " Keep to what it asks. End when the answer is complete, with no offer of more."
 )
 
 

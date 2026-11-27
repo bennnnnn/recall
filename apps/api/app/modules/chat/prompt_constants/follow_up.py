@@ -12,9 +12,10 @@ from app.services.text_normalize import collapse_ws
 
 _QUOTE_CHARS = 200
 
+# Said as what to answer about, never as what the message is: told "This message follows up
+# …", a small model opened its reply with the same description of the turn (2026-11-27).
 FOLLOW_UP_NOTE = (
-    "This message follows up {where}{part}. Answer it about {target}, never about another "
-    "message of this chat."
+    "Answer this message about {where}{part}, never about another message of this chat."
 )
 
 
@@ -39,8 +40,7 @@ def follow_up_note(
         where = f'the earlier message "{_quoted(text)}"'
     named = ""
     if part_text:
-        named = f', and asks about its part {part}: "{_quoted(part_text)}"'
+        named = f', its part {part}: "{_quoted(part_text)}"'
     elif part:
-        named = f', and asks about "{_quoted(part)}" in it'
-    target = "that part of that message" if part else "that message"
-    return FOLLOW_UP_NOTE.format(where=where, part=named, target=target)
+        named = f', "{_quoted(part)}" in it'
+    return FOLLOW_UP_NOTE.format(where=where, part=named)

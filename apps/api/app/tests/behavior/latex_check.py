@@ -25,6 +25,7 @@ import re
 from functools import cache
 from pathlib import Path
 
+from app.modules.chat.display_dollars import display_dollar_pair_end
 from app.modules.chat.inline_code import escaped_at
 from app.modules.chat.markdown_regions import PRICE_TIER
 from app.modules.chat.math_padding import maths_pair_end
@@ -36,8 +37,9 @@ FIXTURE = Path(__file__).resolve().parents[5] / "docs" / "fixtures" / "latex_com
 _FENCE = re.compile(r"^(`{3,}|~{3,})([^\n]*)\n(.*?)^\1[ \t]*$", re.DOTALL | re.MULTILINE)
 _MATH_FENCES = {"math", "latex", "tex", "answer"}
 # Inline maths may hold an escaped dollar (``$C = \\$0.90$``): the phone reads it as the sign.
+# Display dollars are read first, as every reader reads them (``chat.display_dollars``).
 _SPAN = re.compile(
-    r"\$\$(.+?)\$\$|\\\((.+?)\\\)|\\\[(.+?)\\\]"
+    r"\\\((.+?)\\\)|\\\[(.+?)\\\]"
     r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$",
     re.DOTALL,
 )
@@ -48,7 +50,7 @@ _WORD_GROUP = re.compile(r"\\(?:text|textrm|mathrm|mbox|operatorname)\s*\{")
 # What may open a brace inside a word group: an unescaped script mark, or a command.
 _OPENS_A_GROUP = re.compile(r"(?:(?<!\\)[_^]|\\[A-Za-z]+)\s*$")
 # Display maths and bracketed inline maths, which the phone pairs before any lone dollar.
-_DISPLAY = re.compile(r"\$\$.+?\$\$|\\\(.+?\\\)|\\\[.+?\\\]", re.DOTALL)
+_DISPLAY = re.compile(r"\\\(.+?\\\)|\\\[.+?\\\]", re.DOTALL)
 # A dollar shaped as a formula's closer, after its last digit, letter or bracket and before
 # a space or a mark ("3: 4: 5$ ratio"). A price's ("$5", "US$5"), a sign named in words
 # ("the $ sign"), a variable ("$HOME", "$Z") and "($M)" are none.
@@ -113,7 +115,31 @@ def _maths_and_prose(reply: str) -> tuple[list[str], list[str]]:
         maths.append(next(group for group in span.groups() if group is not None))
         return " "
 
-    return maths, [_SPAN.sub(take, _INLINE_CODE.sub("", part)) for part in prose]
+    return maths, [
+        _SPAN.sub(take, _without_display_dollars(_INLINE_CODE.sub("", part), maths))
+        for part in prose
+    ]
+
+
+def _without_display_dollars(prose: str, maths: list[str] | None = None) -> str:
+    """``prose`` with each ``$$`` formula blanked; its text goes to ``maths``."""
+    out: list[str] = []
+    last = 0
+    start = prose.find("$$")
+    while start >= 0:
+        end = display_dollar_pair_end(prose, start)
+        if end is None:
+            while start < len(prose) and prose[start] == "$":
+                start += 1
+            start = prose.find("$$", start)
+            continue
+        out.append(prose[last:start])
+        if maths is not None:
+            maths.append(prose[start + 2 : end - 2])
+        out.append(" ")
+        last = end
+        start = prose.find("$$", end)
+    return "".join([*out, prose[last:]])
 
 
 def _shown_dollars(prose: str) -> list[str]:
@@ -121,14 +147,16 @@ def _shown_dollars(prose: str) -> list[str]:
     found: list[str] = []
     # Code, a restaurant's price tier ("($$)") and display maths hold no lone dollar.
     plain = PRICE_TIER.sub(" ", _INLINE_CODE.sub(" ", prose))
-    for line in _DISPLAY.sub(" ", plain).split("\n"):
+    for line in _DISPLAY.sub(" ", _without_display_dollars(plain)).split("\n"):
         index = 0
         while index < len(line):
             if line[index] != "$":
                 index += 1
                 continue
             if line.startswith("$$", index):
-                index += 2
+                # A price tier ("$$", "$$$") left once display maths is read: no lone dollar.
+                while index < len(line) and line[index] == "$":
+                    index += 1
                 continue
             end = maths_pair_end(line, index)
             if end is not None:

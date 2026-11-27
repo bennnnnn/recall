@@ -277,7 +277,7 @@ def drop_prompt_leaks(
     style = _STYLE_RULE.search(text) is not None and not any(
         line and _ASKED_ABOUT_STYLE.search(line) for line in asked
     )
-    text = _without_self_label(text)
+    text = _without_self_label(text, asked)
     quoted = quotes_the_prompt(text)
     if not text or not (
         _PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style or quoted
@@ -303,26 +303,27 @@ def drop_prompt_leaks(
     return result if result.strip() else text
 
 
-def _without_self_label(text: str) -> str:
-    """``text`` without an opening sentence that labels the message and announces the plan;
-    as it was when that sentence is the whole reply."""
+def _without_self_label(text: str, asked: tuple[str | None, ...] = ()) -> str:
+    """``text`` without its narration (``narration``: planning about the person or memory,
+    to nobody), then without an opening sentence that labels the message and announces the
+    plan; the two compose, in that order (review of #2609: a "Memory says" paragraph further
+    down left the label in). As it was when nothing would be left."""
     stripped = text.lstrip()
     if stripped.startswith(_SKIPPED_STARTS) or stripped.startswith(("```", "~~~")):
         return text
-    # Planning about the person or memory, to nobody (``narration``).
-    spoken = without_narration(stripped)
-    if spoken != stripped:
-        return spoken
-    label = _SELF_LABEL.match(straighten_apostrophes(stripped))
+    spoken = without_narration(stripped, asked)
+    label = _SELF_LABEL.match(straighten_apostrophes(spoken))
     if label is None:
-        return text
-    rest = stripped[label.end() :].lstrip(" \t")
+        return text if spoken == stripped else spoken
+    rest = spoken[label.end() :].lstrip(" \t")
     # What follows must start a sentence: a stop inside one ("e.g. one per mass", "Fig. 2")
     # would leave a fragment, so the reply stays as written.
     if rest and not (rest[0] == "\n" or rest[0].isupper() or rest[0] in "*_#>[`$(\"'-|"):
-        return text
+        return text if spoken == stripped else spoken
     rest = rest[1:].lstrip("\n") if rest.startswith("\n") else rest
-    return rest if rest.strip() else text
+    if rest.strip():
+        return rest
+    return text if spoken == stripped else spoken
 
 
 def _asked_about(asked: tuple[str | None, ...]) -> bool:

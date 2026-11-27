@@ -12,7 +12,7 @@ from app.modules.turn_reading.clarify import names_its_purpose
 
 # A "best X for Y" question, answered without asking: the picks as a list, not paragraphs.
 RANKING_FORMAT_HINT = (
-    "This asks for the best picks for a purpose it names. Answer now and ask nothing: at "
+    "Give the best picks for the purpose the message names now, and ask nothing: at "
     "most one short lead line, then a numbered list of the 5-8 strongest picks, best "
     "first, each opening with its **bold name**, then a dash and one or two short "
     "sentences on why it fits that purpose. Group the picks under 2-3 short ### headings "
@@ -67,9 +67,9 @@ CLARIFY_CARD_HINT = (
 # The turn after a card: the phone sends the card's request, "Label: pick." for each
 # question, then its closing, as one message.
 CLARIFY_PICKS_HINT = (
-    "The user's message answers the clarify card your last reply ended on: their request, "
-    "each question's label with what they picked, and what the answer should cover. Now "
-    "give the full answer, built around those picks. Open with a direct recommendation in "
+    "Read this message as the answers to the clarify card your last reply ended on: their "
+    "request, each question's label with what they picked, and what the answer should "
+    "cover. Now give the full answer, built around those picks. Open with a direct recommendation in "
     "one or two sentences: the best fit for them and why, tied to their picks and to what "
     "memory says about them when it fits. Then the complete answer the message asks for, "
     "strongest options first; a flag or fitting emoji may lead each option, an exception to "

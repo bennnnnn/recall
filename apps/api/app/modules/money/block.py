@@ -41,7 +41,7 @@ MONEY_WORKED_RULES = (
     "chart or market-rate note, and do not state any average or market rate yourself."
 )
 MONEY_FOLLOW_UP = (
-    "This message changes the user's earlier request: {changes}. The inputs and results "
+    "Answer for the earlier request with this change: {changes}. The inputs and results "
     "below already include the change and are this turn's answer; never work the change "
     "out yourself or carry numbers over from an earlier reply."
 )
@@ -58,22 +58,22 @@ MONEY_RATE_CHANGED = (
 )
 # A bare amount beside a price, read as the down payment or the loan (``purchase``).
 MONEY_GUESSED = (
-    "The amount the user gave was taken as the {what} on the {price} price. The app writes "
+    "Take the amount given as the {what} on the {price} price. The app writes "
     "a note saying so under the reply; do not repeat it."
 )
 # A turn about the chat's loan with no card of its own (``standing``): a header of its own,
 # since the turn is no money turn (no card, no note, a sum it asks is still solved).
 MONEY_STANDING_HEADER = "Money discussed earlier, worked by the app"
 MONEY_STANDING = (
-    "The user's earlier {kind} is still being discussed; these are its figures, worked by "
-    "the app. If your reply states a payment, interest or total for it, copy them from "
+    "Use these figures, worked by the app, for the earlier {kind} still under discussion. "
+    "If your reply states a payment, interest or total for it, copy them from "
     "here exactly; never compute one yourself. For a term or rate not listed here, say the "
     "calculator card on the earlier reply gives it with its sliders; do not estimate it. "
     "Do not repeat the figures unless the message asks about them."
 )
 MONEY_RATE_MISSING = (
-    "The user gave no interest rate and no current average was found. Ask one short "
-    "question for the rate their lender or card quoted; do not guess one."
+    "Ask one short question for the interest rate their lender or card quoted: none was "
+    "given and no current average was found. Do not guess one."
 )
 # A request read from the chat missing more than its rate (``read_check``).
 MONEY_AMOUNT_MISSING = (

@@ -46,7 +46,7 @@ def turn(message: str, **fields: Any) -> Any:
     return SimpleNamespace(**(values | fields))
 
 
-PLACE_LINE = f"The user's location: {PLACE}. {USE_THE_LOCATION}"
+PLACE_LINE = f"Their location: {PLACE}. {USE_THE_LOCATION}"
 
 
 @pytest.mark.parametrize(
@@ -58,7 +58,7 @@ def test_a_slim_turn_states_the_users_place_whatever_the_wording(message: str) -
 
 def test_a_slim_turn_prefers_the_fix_the_turn_carries() -> None:
     parts = slim_geo_hints(turn("Can I walk?", prompt_location="Jack London Square, Oakland"))
-    assert parts[0].startswith("The user's location: Jack London Square, Oakland. ")
+    assert parts[0].startswith("Their location: Jack London Square, Oakland. ")
 
 
 def test_a_slim_turn_states_no_place_without_one() -> None:

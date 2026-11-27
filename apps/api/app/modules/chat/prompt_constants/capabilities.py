@@ -30,7 +30,7 @@ SETTINGS_ASK_REMINDER = (
 
 
 CAPABILITIES_FORMAT_HINT = (
-    "The user asked what Recall can help with. Give an overview of what it can do; "
+    "Give an overview of what Recall can help with; "
     "draft, chart, quiz or draw nothing.\n"
     "Shape like a ChatGPT capabilities list:\n"
     "  - One short opener, then 6-10 tight bullets. Each bullet starts with a "

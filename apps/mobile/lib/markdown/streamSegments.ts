@@ -24,8 +24,13 @@
  * - the step repair (`dedentMisindentedMarkdownSteps`) reads the open list across
  *   blank lines to tell a misplaced step from the list's own member: no cut before
  *   an indented line while a list item is open (a line at the margin starts afresh);
- * - `<details>`, bare Vega JSON and molecule pairs are read across the whole
- *   reply: a reply with any of them is not cut at all.
+ * - `<details>` pairs with the next `</details>`: no cut while one waits for it;
+ * - a fence indented 4 spaces or more is code to strict readers and a fence to
+ *   loose ones: no cut until it closes (a marker inside it the readers read two
+ *   ways stops the cuts);
+ * - bare Vega JSON and molecule pairs are read across the whole reply: a reply
+ *   with either is not cut from there on. A chart's `"$schema"` inside a ```
+ *   fence is that fence's text, read with it alone.
  *
  * A cut that passes those guards is still checked: the open part and the text
  * after the cut must preprocess the same apart as together.
@@ -54,6 +59,10 @@ export type SegmentScanState = {
   /** A construct some pass reads across the whole reply: no more cuts. */
   poisoned: boolean;
   fence: OpenFence | null;
+  /** A fence indented 4 spaces or more, which readers read two ways: no cut until it closes. */
+  looseFence: { char: "`" | "~"; len: number } | null;
+  /** `<details>` tags still awaiting their `</details>`: no cut while one waits. */
+  detailsOpen: number;
   /** Where the prose region began: after the last fence no pass rewrites. */
   regionStart: number;
   /** The region has a bold Given or Required label… */
@@ -85,10 +94,18 @@ export type SegmentScanState = {
 
 /** An Answer heading looks up to 6 lines ahead for its card; keep a margin. */
 const ANSWER_LOOKAHEAD_LINES = 12;
-const POISON_RE = /<details|"\$schema"|molecule3d/i;
+/** Molecule pairs are read across the whole reply wherever they are. */
+const POISON_RE = /molecule3d/i;
+/** Bare Vega JSON is wrapped by a scan that reads the whole reply; inside a ``` fence it is
+ * the fence's text (`retagVegaFences` reads that fence alone). */
+const VEGA_SCHEMA_RE = /"\$schema"/;
+/** `<details>` pairs with the next `</details>` across lines (`convertDetailsBlocks`). */
+const DETAILS_TAG_RE = /<(\/?)details\b/gi;
 /** A fence marker every pass reads alike: at most 3 spaces in (4 or more is code to strict
  * readers and a fence to loose ones), and no tick or tilde after it. */
 const CLEAN_FENCE_RE = /^( {0,3})(`{3,}|~{3,})([^`~]*)$/;
+/** A fence marker indented 4 spaces or more: a fence to loose readers, code to strict ones. */
+const INDENTED_FENCE_RE = /^(?: {4,}|[ ]*\t[ \t]*)(`{3,}|~{3,})([^`~]*)$/;
 /** A line that opens with "Answer", or holds an Answer heading a pass may break out of it. */
 const ANSWER_OPENING_RE = new RegExp(String.raw`^[\s#*]*(?:${ANSWER_WORDS_SOURCE})`, "iu");
 const ANSWER_HEADING_IN_LINE_RE = new RegExp(String.raw`#{1,6}[ \t]*(?:\*\*)?(?:${ANSWER_WORDS_SOURCE})`, "iu");
@@ -108,6 +125,8 @@ export function emptySegmentScan(): SegmentScanState {
     segmentStart: 0,
     poisoned: false,
     fence: null,
+    looseFence: null,
+    detailsOpen: 0,
     regionStart: 0,
     regionWorked: false,
     regionLawHeading: false,
@@ -173,6 +192,8 @@ function guardsAllowCut(state: SegmentScanState, line: string): boolean {
   return (
     !state.poisoned &&
     state.fence === null &&
+    state.looseFence === null &&
+    state.detailsOpen === 0 &&
     (state.prevBlank || (state.prevListLine && LIST_ITEM_RE.test(line))) &&
     !(state.listOpen && INDENTED_RE.test(line)) &&
     !state.regionWorked &&
@@ -188,8 +209,24 @@ function guardsAllowCut(state: SegmentScanState, line: string): boolean {
 /** Fold a line that holds a fence marker; false for any other line. `next` is where the next line starts. */
 function foldFenceLine(state: SegmentScanState, line: string, next: number): boolean {
   if (!line.includes("```") && !line.includes("~~~")) return false;
+  const deep = INDENTED_FENCE_RE.exec(line);
+  if (state.looseFence) {
+    // Only its own closer, indented as it was, ends it; any other marker the readers
+    // read two ways (a loose reader closes it at a margin ```, a strict one opens one there).
+    const closes = deep && deep[1]![0] === state.looseFence.char &&
+      deep[1]!.length >= state.looseFence.len && !(deep[2] ?? "").trim();
+    if (closes) state.looseFence = null;
+    else state.poisoned = true;
+    return true;
+  }
   const match = CLEAN_FENCE_RE.exec(line);
   if (!match) {
+    // An indented fence at the top level: code to strict readers, a fence to loose ones. Both
+    // read its lines as code and agree again once it closes.
+    if (deep && !state.fence) {
+      state.looseFence = { char: deep[1]![0] as "`" | "~", len: deep[1]!.length };
+      return true;
+    }
     state.poisoned = true;
     return true;
   }
@@ -240,26 +277,44 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
 }
 
 /** Fold one complete raw line into the state. */
+/** Follow `<details>` tags on a line no clean fence holds (the passes pair them in its prose). */
+function foldDetailsTags(state: SegmentScanState, line: string): void {
+  if (!/details/i.test(line)) return;
+  for (const tag of line.matchAll(DETAILS_TAG_RE)) {
+    state.detailsOpen = tag[1] ? Math.max(0, state.detailsOpen - 1) : state.detailsOpen + 1;
+  }
+}
+
+/** A chart's `"$schema"` inside a ``` fence is that fence's text; anywhere else it may be bare
+ * Vega JSON, which a pass reads across the whole reply. */
+function schemaReadsWholeReply(state: SegmentScanState, line: string): boolean {
+  if (!VEGA_SCHEMA_RE.test(line)) return false;
+  const fence = state.fence;
+  return !(fence && fence.char === "`" && fence.len === 3);
+}
+
 function foldLine(state: SegmentScanState, line: string, next: number, hooks: SegmentHooks): void {
-  if (POISON_RE.test(line)) state.poisoned = true;
+  if (POISON_RE.test(line) || schemaReadsWholeReply(state, line)) state.poisoned = true;
+  if (!state.fence) foldDetailsTags(state, line);
   // A step line inside a maths fence (or one the passes may make maths): they close it there
   // (closeInterruptedMathFences), so its closer below would read as an opener to them.
   if (state.fence?.mathLike && isMathFenceInterruptLine(line)) state.poisoned = true;
   const blank = line.trim() === "";
   const fenceLine = foldFenceLine(state, line, next);
-  if (!fenceLine && !state.fence && !blank) foldProseLine(state, line, hooks);
+  const inLooseFence = state.looseFence !== null;
+  if (!fenceLine && !state.fence && !inLooseFence && !blank) foldProseLine(state, line, hooks);
   const compact = line.replace(/\*/g, "").trim().toLowerCase();
   if (compact.startsWith("you can check")) state.inCheck = true;
   else if (line.trim().startsWith("#")) state.inCheck = false;
   if (fenceLine) state.answerLookahead = 0;
-  else if (!state.fence && (ANSWER_OPENING_RE.test(line) || ANSWER_HEADING_IN_LINE_RE.test(line))) state.answerLookahead = ANSWER_LOOKAHEAD_LINES;
+  else if (!state.fence && !inLooseFence && (ANSWER_OPENING_RE.test(line) || ANSWER_HEADING_IN_LINE_RE.test(line))) state.answerLookahead = ANSWER_LOOKAHEAD_LINES;
   else if (!blank) state.answerLookahead = Math.max(0, state.answerLookahead - 1);
-  const prose = !blank && !fenceLine && !state.fence;
+  const prose = !blank && !fenceLine && !state.fence && !inLooseFence;
   state.prevListLine = prose && (LIST_ITEM_RE.test(line) || INDENTED_RE.test(line));
   if (prose && ANY_LIST_ITEM_RE.test(line)) state.listOpen = true;
   else if (prose && !INDENTED_RE.test(line)) state.listOpen = false;
   if (!blank) {
-    state.prevBoldLabel = !state.fence && !fenceLine && BOLD_LABEL_RE.test(line);
+    state.prevBoldLabel = !state.fence && !inLooseFence && !fenceLine && BOLD_LABEL_RE.test(line);
     // Only labels before the first Given: a part after it is preprocessed as worked already.
     if (state.prevBoldLabel && !state.replyWorked) state.replyBoldLabel = true;
     state.lastNonBlank = line;
@@ -273,7 +328,15 @@ function foldLine(state: SegmentScanState, line: string, next: number, hooks: Se
  * construct some pass reads across the whole reply.
  */
 export function readsBackAcrossCuts(text: string): boolean {
-  return text.split("\n").some((line) => WORKED_RE.test(line) || POISON_RE.test(line));
+  return text
+    .split("\n")
+    .some(
+      (line) =>
+        WORKED_RE.test(line) ||
+        POISON_RE.test(line) ||
+        VEGA_SCHEMA_RE.test(line) ||
+        /<\/?details\b/i.test(line),
+    );
 }
 
 /** A new open part starts at `start`: what was read about the old one no longer applies. */

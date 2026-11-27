@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chat.display_dollars import display_dollar_pair_end
 from app.modules.chat.inline_code import (
     code_span_opens_within,
     escaped_at,
@@ -120,12 +121,13 @@ def _read_math(text: str, index: int) -> int | None:
     if escaped_at(text, index):
         return None
     if text.startswith("$$", index):
-        close = text.find("$$", index + 2)
-        if close < 0 or "\n" in text[index + 2 : close] or close == index + 2:
+        # ``$$`` pairs as every reader pairs it (``display_dollars``), on its own line here.
+        end = display_dollar_pair_end(text, index)
+        if end is None or "\n" in text[index:end]:
             return None
-        if code_span_opens_within(text, index + 2, close):
+        if code_span_opens_within(text, index + 2, end - 2):
             return None
-        return close + 2
+        return end
     if text[index] != "$" or (index > 0 and text[index - 1] == "$"):
         return None
     start = index + 1

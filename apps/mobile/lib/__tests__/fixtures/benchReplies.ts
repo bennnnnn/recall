@@ -39,6 +39,23 @@ const PROSE = [
 const STEP = (n: number) =>
   `- Install part ${n} and check the version it reports:\n\n  ${FENCE}bash\n  npm install left-pad@${n}.0.0\n  npx left-pad --version\n  ${FENCE}\n\n  The command prints the version it installed. If it prints an older one, clear the cache and run it again.`;
 
+/** #2601's layout: a heading, then numbered main items with their members nested under each. */
+const NUMBERED = (n: number) =>
+  [
+    `### Option ${n}`,
+    "",
+    ...Array.from({ length: 6 }, (_, i) =>
+      [
+        `${i + 1}. **Flat ${n}.${i + 1}** — two rooms near the station, ready next month`,
+        "   - Rent: about the same as the last one, bills on top",
+        "   - Why pick it: it suits a small budget and a short walk to work",
+        "   - Watch for: the contract's notice period and the deposit scheme",
+      ].join("\n"),
+    ),
+    "",
+    "Each of these can be viewed this week; ask the agent for a time that suits you.",
+  ].join("\n");
+
 export const BENCH_REPLIES = {
   /** MX-1: one price dollar in the first line holds every later paragraph unstable. */
   price: fill("You will need a $300 deposit to hold the flat, paid by bank transfer.\n\n", PROSE),
@@ -51,6 +68,36 @@ export const BENCH_REPLIES = {
   steps: fill(
     "Here is how to set it up.\n\n",
     Array.from({ length: 99 }, (_, i) => STEP(i + 1)),
+  ),
+  /** Numbered main items (#2601), cut from item 2 once the number column is reserved. */
+  numbered: fill(
+    "Here are the flats that fit what you asked for.\n\n",
+    Array.from({ length: 40 }, (_, i) => NUMBERED(i + 1)),
+  ),
+  /** A chart, a `<details>` and a fence indented four spaces near the top: none holds the rest. */
+  poisons: fill(
+    [
+      "Here is the chart.",
+      "",
+      "```json",
+      '{ "$schema": "https://vega.github.io/schema/vega-lite/v5.json", "mark": "bar" }',
+      "```",
+      "",
+      "<details><summary>Why</summary>Because it reads well.</details>",
+      "",
+      "Run it:",
+      "",
+      "    ```bash",
+      "    npm test",
+      "    ```",
+      "",
+    ].join("\n"),
+    PROSE,
+  ),
+  /** Price tiers and a shell's `$$` early on: no maths opens, nothing waits for a closer. */
+  prices: fill(
+    "1. **Nopa** – Californian, $$–$$$, open late.\n2. **Zuni** – $$.\n\nCheck the PID with `echo $$` first.\n\n",
+    PROSE,
   ),
   /** MX-3: a link reference definition near the top. */
   references: fill("See the guide [1] before you start.\n\n[1]: https://example.com/guide\n\n", PROSE),
