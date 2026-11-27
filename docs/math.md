@@ -370,25 +370,29 @@ SymPy pool):
   one: the reply's own method with the arithmetic redone, never another law.
 - **A card** states the chain it names, or the working's last maths before it. One that misses
   the chain by more than its rounding takes the chain's value and a closing "Corrected: …"
-  line; one that holds it more coarsely (56.6 for 56.58) takes it with no line, so the rule
-  rounds it once. A card stands when it states another value of its part (the largest of
-  several), its size without the sign, a count, the server's value, or a value right on the
-  rounded numbers its own working wrote.
-- **Units, only where certain** (`working_units.py`): a run of unit groups is one unit
-  (`\mathrm{km}\,\mathrm{h}^{-1}`). An angle, a count of turns (rad, °, rev, rpm), a
-  temperature in degrees (°C, °F) and a percentage are never converted or held to another
-  unit: 250 rev/min is 26.18 rad/s and 400 K is 126.85 °C, and Pint cannot tell either. Two
-  units differ only when both are read; a card whose unit is not read stands unless its chain
-  writes the same unit. A card ten or a thousand times off its chain is a slip only when both
-  write a unit read for certain; with no unit on the chain, only within a factor of 1.5.
+  line. One that holds it more coarsely (56.6 for 56.58) takes it with no line, so the rule
+  rounds it once, but only under the rule's own precision and when the chain knows the value
+  more finely than the card. A card stands when it states another value of its part (the
+  largest of several), its size without the sign, a count, the server's value, or a value
+  right on the rounded numbers its own working wrote.
+- **Units, never converted** (`working_units.py`). A card and its chain are compared only
+  when the card writes exactly the unit the chain last wrote on one of its own parts (same unit,
+  same prefix), read for certain, or neither writes one. A card in kJ under a chain in J, in
+  °C under one in K, or in rad/s, %, rpm or °, stands; so does a card under a chain whose unit
+  is written outside the maths ("$m = 250$ g"). Each part's unit is its own: a chain that goes
+  on in another unit ends there, and a part that names a unit the chain has not ("375 kJ" after
+  "½ × 1200 × 25²") ends it too unless it is within a factor of 1.5 of the chain's value or of
+  the part before it. With no unit on either side, a card more than 1.5 times off stands.
 - **Also read:** an equation solved for one name (`21250 = 241.67\theta`); a value stated, or
-  put into a formula, a power of ten off the working's own value of it in its SI unit (632.8
-  nm put in as 632.8 × 10⁻⁹ is right); a claim in names its own values contradict, worked with
-  their units (½mv² with m = 10 kg and v = 5.66 m/s is 160 J, not 405.5 J; an equation solved
-  for its unknown is no claim); a slip no card carries, named with "Check this step".
-- **Measured:** 134 right worked replies across every unit kind above
-  (`test_working_units_corpus.py`) change in nothing; on the 300 saved textbook replies no card
-  judged right turns wrong.
+  put into a formula, a power of ten off the working's own value of it in a written SI unit;
+  a claim in names its own values contradict, only in SI's own units (½mv² with m = 10 kg and
+  v = 5.66 m/s is 160 J, not 405.5 J; a name in g or km, or an equation solved for its unknown,
+  makes no claim); a slip no card carries, named with "Check this step".
+- **Measured:** 210 right worked replies (563 lines) across every unit kind above, units
+  written outside the maths, multi-part replies in different units, values carried to two,
+  three and four figures and questions that ask for significant figures
+  (`test_working_units_corpus.py`) change in nothing. On the 300 saved textbook replies no
+  card judged right changes.
 
 ## STEM sweep
 

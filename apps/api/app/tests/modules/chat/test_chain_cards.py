@@ -35,7 +35,8 @@ _WIRE = (
     "$e \\approx 1.041\\,\\mathrm{m}$"
     + _card("1.04\\,\\mathrm{m}")
     + "\n\n**Substitution**  \n$U = \\frac{1}{2} \\times 4.905 \\times \\frac{3.27}{\\pi}$  \n"
-    "$U \\approx 1.278\\,\\mathrm{J}$" + _card("1.28\\,\\mathrm{J}")
+    "$U = \\frac{8.024625}{2\\pi}$  \n$U \\approx 1.278\\,\\mathrm{J}$"
+    + _card("1.28\\,\\mathrm{J}")
 )
 # A rate per minute put in for one per second (u6-01).
 _FLYWHEEL = (
@@ -51,12 +52,13 @@ _FLYWHEEL = (
         (_HEAT + _card("2.41 \\times 10^{-4}\\,\\mathrm{W}"), "", "0.24\\,\\mathrm{W}", "slips at"),
         # A last expression worked in the head: 171.5 / √3 is 99.02 (u7-08).
         (
-            "$N_{wall} = \\frac{686}{4\\sqrt{3}}$  \n$N_{wall} = \\frac{171.5}{\\sqrt{3}}$\n\n"
+            "$N_{wall} = \\frac{686}{4\\sqrt{3}}$  \n"
+            "$N_{wall} = \\frac{171.5}{\\sqrt{3}} = 99.04\\,\\mathrm{N}$\n\n"
             "Taking moments about the foot removes the floor's forces."
             + _card("99.04\\,\\mathrm{N}"),
             "",
             "99.02\\,\\mathrm{N}",
-            "without rounding",
+            "slips at",
         ),
         # A slip in one term carried into the sum (u6-19): 30.11 on its own inputs, not 30.09.
         (
@@ -64,11 +66,11 @@ _FLYWHEEL = (
             "$\\omega = \\frac{4.55}{0.09}$  \n$\\omega = 50.56\\,\\mathrm{rad/s}$  \n"
             "$K_{trans} = \\frac{1}{2}(7.27)(4.55)^2$  \n$K_{trans} = 75.25\\,\\mathrm{J}$  \n"
             "$K_{rot} = \\frac{1}{2}(\\frac{2}{5})(7.27)(0.09)^2(50.56)^2$  \n"
-            "$K_{rot} = 30.09\\,\\mathrm{J}$  \n$K_{total} = 75.25 + 30.09$"
+            "$K_{rot} = 30.09\\,\\mathrm{J}$  \n$K_{total} = 75.25 + 30.09 = 105.32\\,\\mathrm{J}$"
             + _card("105.32\\,\\mathrm{J}"),
             "A 7.27 kg ball with radius 9.00 cm rolls at 4.55 m/s.",
             "105.36\\,\\mathrm{J}",
-            "K_{rot} = 30.09",
+            "slips at",
         ),
     ],
 )
@@ -352,3 +354,83 @@ def test_a_card_that_is_not_the_last_chains_own_stands(reply: str) -> None:
     text, notes = held_to_chains(reply, "")
     assert text == reply
     assert notes.corrected is None
+
+
+@pytest.mark.parametrize(
+    ("reply", "question"),
+    [
+        # A given's unit outside the maths is no unit the check knows (review 2 of #2612).
+        (
+            "$m = 250$ g  \n$V = 200$ cm³\n\n$\\rho = \\frac{m}{V}$\n\n**Substitution**  \n"
+            "$\\rho = \\frac{0.250}{2.00 \\times 10^{-4}} = 1250\\,\\mathrm{kg/m^3}$"
+            + _card("1250\\,\\mathrm{kg/m^3}"),
+            "A 250 g block of volume 200 cm³.",
+        ),
+        # 375 kJ after ½ × 1200 × 25² is the value in kJ.
+        (
+            "$E = \\frac{1}{2} \\times 1200 \\times 25^2 = 375\\,\\mathrm{kJ}$"
+            + _card("375\\,\\mathrm{kJ}"),
+            "",
+        ),
+        # The chain knows 13.2 only to 3.3's two figures: 13.33 is no coarser rounding of it.
+        (
+            "$a = \\frac{10}{3} = 3.3\\,\\mathrm{m/s^2}$  \n$v = 3.3 \\times 4$"
+            + _card("13.33\\,\\mathrm{m/s}"),
+            "",
+        ),
+        # The question's own precision: 3.6, never 3.62.
+        (
+            "$v = \\frac{4.345}{1.2}$" + _card("3.6\\,\\mathrm{m/s}"),
+            "4.345 m in 1.2 s; give the speed to the correct number of significant figures.",
+        ),
+        # 3184 cm after 31.84 m: another unit ends the chain.
+        (
+            "$t = \\frac{25}{9.81} = 2.548\\,\\mathrm{s}$  \n"
+            "$d = \\frac{1}{2} \\times 9.81 \\times 2.548^2 = 31.84\\,\\mathrm{m} = 3184\\,\\mathrm{cm}$"
+            + _card("3184\\,\\mathrm{cm}"),
+            "",
+        ),
+        # A card in kW under a chain in W is never converted.
+        ("$P = \\frac{600}{2} = 300\\,\\mathrm{W}$" + _card("0.31\\,\\mathrm{kW}"), ""),
+    ],
+)
+def test_a_card_in_a_unit_the_check_is_not_sure_of_stands(reply: str, question: str) -> None:
+    from app.services.rounding_rule import asked_precision
+
+    text, notes = held_to_chains(reply, question, asked_precision(question))
+    assert text == reply
+    assert notes.corrected is None
+
+
+def test_a_claim_in_units_that_are_not_si_is_no_claim() -> None:
+    reply = (
+        "$d = 120\\,\\mathrm{km}$  \n$t = 1.5\\,\\mathrm{h}$\n\n"
+        "Then $\\frac{d}{t} = 80$, so the car averages 80 km/h."
+    )
+    assert held_to_chains(reply, "")[1].claim is None
+
+
+def test_a_slip_note_never_writes_a_unit_it_does_not_read() -> None:
+    reply = "$\\omega = \\frac{10}{4} = 2.75\\,\\mathrm{rad/s}$"
+    note = held_to_chains(reply, "")[1].slip
+    assert note is not None
+    assert "?" not in note
+    assert note.endswith("worked again, $\\omega = 2.50$.")
+
+
+def test_the_closing_prose_keeps_its_own_notation() -> None:
+    reply = (
+        "$t = \\frac{1}{8000}\\,\\mathrm{s}$"
+        + _card("0.000135\\,\\mathrm{s}")
+        + "\n\nThe pulse lasts 0.000135 s."
+    )
+    text, _notes = held_to_chains(reply, "")
+    assert text.endswith("The pulse lasts 0.000125 s.")
+
+
+def test_a_wrong_form_never_matches_the_start_of_a_longer_number() -> None:
+    from app.modules.chat.working_chain import read_chains
+
+    reply = "$x = \\frac{6.54}{2} \\times 2 = \\frac{3.27}{1} \\times 2$  \n$y = 3.27 \\times 25$"
+    chains = {chain.name: chain for chain in read_chains(reply, "").chains}
+    assert abs(chains["y"].value - 81.75) < 1e-9

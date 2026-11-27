@@ -142,10 +142,11 @@ def in_base_units(value: float, unit: str) -> float | None:
         return None
 
 
-def same_unit(first: Unit, second: Unit) -> bool:
-    """The two units are one size: "m/s^2" and "m s^-2", "N·m" and "J"."""
-    factor = converted(1.0, first, second)
-    return factor is not None and math.isclose(factor, 1.0, rel_tol=1e-12)
+def coherent_si(unit: str) -> bool:
+    """``unit`` is read for certain and is its own SI size: kg, m/s, J, N·m, not g, km, cm³
+    or kJ."""
+    base = in_base_units(1.0, unit) if unit else None
+    return base is not None and math.isclose(base, 1.0, rel_tol=1e-12)
 
 
 def conversions(values: list[str]) -> list[float | None]:

@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF003 -- the module reads × and − as replies write them.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as replies write them.
 """Each value the working works out, worked again from its own method at full precision.
 
 A working names a value and works it out over one line or several ("$e = \\frac{4.905
@@ -19,8 +19,10 @@ Either way the chain keeps the method's value, and a later chain that uses the w
 or a wrong form of it ("\\frac{3.27}{\\pi}"), gets the right one: the reply's own method with
 the arithmetic redone, never another law.
 
-Units are read where Pint can read them (``working_units``): "r = 9.00 cm = 0.09 m" is one
-value in two units, and a chain that goes on in another unit is converted, never a slip.
+Units are never converted. Each part's unit is the one written on it; a chain that goes on
+in another unit ends there, and a part that names a unit the chain has not ("375 kJ" after
+"½ × 1200 × 25²") is held only when it is within a slip's reach of the chain's value or
+follows the part before it. Nothing after an ended chain is held.
 
 Nothing is eval-ed (``tex_arithmetic.evaluate``). Pure: no IO.
 """
@@ -46,11 +48,9 @@ from app.modules.chat.working_claims import Claim, claims_in, names_in, plain_na
 from app.modules.chat.working_exact import standard_values
 from app.modules.chat.working_numbers import shown_number
 from app.modules.chat.working_units import (
-    converted,
     in_base_units,
     quantity_unit,
     read_for_certain,
-    same_unit,
     unit_after,
 )
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
@@ -107,6 +107,8 @@ class Chain:
     label: str = ""
     # The method worked on the digits it writes, and how far their rounding reaches.
     written: tuple[float, float] | None = None
+    # What the last part was worth as written: a part that follows it carries its slip.
+    last: float | None = None
 
 
 @dataclass(frozen=True)
@@ -220,8 +222,6 @@ class Reading:
     chains: list[Chain]
     cards: list[CardRead]
     claims: list[Claim]
-    # Each given's number as written (a key) and its unit (Pint text), by name.
-    givens: dict[str, tuple[str, str]]
 
 
 @dataclass
@@ -237,7 +237,7 @@ def read_chains(reply: str, question: str = "") -> Reading:
     own values contradict (the module docstring)."""
     env = _Env(question_numbers(question), standard_values(reply, question))
     unknowns = solved_for(reply)
-    reading = Reading([], [], [], {})
+    reading = Reading([], [], [])
     cards = _cards(reply)
     walk = _Walk()
     for segment, follows, at in math_statement_spans(reply):
@@ -302,7 +302,7 @@ def _statement(
     current = walk.current
     going_on = current is not None and follows and current.name == name and not current.shown
     chain = current if going_on and current is not None and not current.broken else None
-    units = _units_ahead(parts)
+    units = [unit_after(part.strip()) for part in parts]
     for index in range(1, len(parts)):
         part = parts[index].strip()
         if chain is not None:
@@ -320,9 +320,6 @@ def _statement(
     if chain is not None:
         env.names.setdefault(name, []).append(chain.value)
         env.chains[name] = chain
-        if chain.given and chain is not current:
-            unit = unit_after(chain.method)
-            reading.givens[name] = (key_of(plain_arithmetic(chain.method) or ""), unit)
     walk.current = chain
 
 
@@ -408,16 +405,6 @@ def _name_of(head: str) -> str:
     return plain_name(compact)
 
 
-def _units_ahead(parts: list[str]) -> list[str]:
-    """Each part's unit: its own, else the next part's that writes one, else ""."""
-    units = [unit_after(part.strip()) for part in parts]
-    ahead = ""
-    for index in range(len(parts) - 1, -1, -1):
-        ahead = units[index] or ahead
-        units[index] = ahead
-    return units
-
-
 def _resolved(
     tex: str, env: _Env, named: dict[str, float] | None = None
 ) -> tuple[str, str, set[str]] | None:
@@ -478,6 +465,7 @@ def _start(name: str, part: str, unit: str, at: int, env: _Env, formula: str) ->
         return None
     chain = Chain(name, value, unit, at, at + len(part), part, _reach(whole, env, placed))
     chain.written = _written_value(chain, env)
+    chain.last = evaluate(written)
     chain.slip = part if misput else ""
     if not _worked(written):
         chain.given, chain.reach, chain.shown = True, 0.0, part
@@ -506,7 +494,7 @@ def _named_inputs(formula: str, method: str, env: _Env) -> tuple[dict[str, float
             continue
         source = env.chains.get(name)
         unit = source.unit if source is not None else ""
-        si = in_base_units(abs(value), unit)
+        si = in_base_units(abs(value), unit) if quantity_unit(unit) is not None else None
         for whole in (abs(value), si):
             if whole is not None and abs(whole - float(number)) <= half_place(number) * (1 + 1e-9):
                 found[key_of(number)] = whole
@@ -522,13 +510,6 @@ def _named_inputs(formula: str, method: str, env: _Env) -> tuple[dict[str, float
 
 def _hold(chain: Chain, part: str, unit: str, env: _Env) -> None:
     """Hold one more form or number of ``chain`` to its value (the module docstring)."""
-    if unit != chain.unit and unit and chain.unit:
-        # A unit not read for certain (rad, rev/min, °C, %) is never held to another.
-        if not _convert(chain, unit):
-            chain.broken = True
-            return
-    elif unit and not chain.unit:
-        chain.unit = unit
     sides = _resolved(part, env)
     if sides is None:
         return
@@ -536,6 +517,19 @@ def _hold(chain: Chain, part: str, unit: str, env: _Env) -> None:
     value = evaluate(whole)
     if value is None:
         return
+    as_written = evaluate(written)
+    if unit != chain.unit:
+        if unit and chain.unit:
+            # Another unit: never converted, so nothing after it is held.
+            chain.broken = True
+            return
+        if not near(value, chain.value) and not _follows(chain, as_written):
+            # One side names a unit the other does not: 375 kJ after ½ × 1200 × 25² is the
+            # value in kJ, not a slip, and 7200 after "2 h" is in seconds.
+            chain.broken = True
+            return
+        chain.unit = unit or chain.unit
+    chain.last = as_written
     if not _worked(written):
         _hold_number(chain, part, written, env)
         return
@@ -545,7 +539,7 @@ def _hold(chain: Chain, part: str, unit: str, env: _Env) -> None:
     pattern = _form_pattern(part)
     if pattern is not None:
         env.forms.append((pattern, chain.value))
-    as_written, raw = evaluate(written), chain.written
+    raw = chain.written
     if as_written is not None and raw is not None:
         if abs(as_written - raw[0]) <= raw[1] + _reach(written, env, set()):
             # Right on the rounded numbers the method wrote ("\\tan 10° ≈ 0.1763"): drift.
@@ -592,19 +586,25 @@ def _written_value(chain: Chain, env: _Env) -> tuple[float, float] | None:
     return value, reach
 
 
-def _convert(chain: Chain, unit: str) -> bool:
-    """``chain`` goes on in ``unit``: its value converted, when Pint reads both units."""
-    before, after = quantity_unit(chain.unit), quantity_unit(unit)
-    if before is None or after is None:
+# How far a part may be off its chain and still be a slip of its own when one of the two
+# names a unit and the other none: beyond this it may be the value in that unit (×3.6, ×60).
+_NEAR = 1.5
+
+
+def near(first: float, second: float) -> bool:
+    """The two are within a factor of 1.5, with one sign."""
+    if first == 0 or second == 0:
+        return first == second
+    if (first < 0) != (second < 0):
         return False
-    value = converted(chain.value, before, after)
-    if value is None:
-        return False
-    if not same_unit(before, after):
-        chain.reach = abs(converted(chain.reach, before, after) or 0.0)
-        chain.value = value
-    chain.unit = unit
-    return True
+    return 1 / _NEAR <= abs(first / second) <= _NEAR
+
+
+def _follows(chain: Chain, value: float | None) -> bool:
+    """``value`` is near what the part before it was worth as written: it carries that part's
+    arithmetic ("e ≈ 1.041 m" after "e = 3.27/π"), not a conversion into the unit it names
+    (a conversion moves it by 3.6, 60 or a power of ten)."""
+    return value is not None and chain.last is not None and near(value, chain.last)
 
 
 def _form_pattern(part: str) -> re.Pattern[str] | None:
@@ -618,7 +618,8 @@ def _form_pattern(part: str) -> re.Pattern[str] | None:
     tokens = [token for token in _TOKEN.findall(part) if token not in _SPACING]
     if len(tokens) < CARRIED_FIGURES:
         return None
-    return re.compile(r"(?:\s|\\[,;: !])*".join(re.escape(token) for token in tokens))
+    body = r"(?:\s|\\[,;: !])*".join(re.escape(token) for token in tokens)
+    return re.compile(rf"(?<![\d.]){body}(?![\d.])")
 
 
 def _cards(reply: str) -> list[tuple[int, CardRead, str]]:

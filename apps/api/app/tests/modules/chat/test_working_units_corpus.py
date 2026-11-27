@@ -266,6 +266,166 @@ def _pressures() -> Iterator[tuple[str, str]]:
         )
 
 
+def _figures(value: float, count: int) -> str:
+    """``value`` to ``count`` significant figures, written in full."""
+    if value == 0:
+        return "0"
+    places = max(count - 1 - math.floor(math.log10(abs(value))), 0)
+    return f"{round(value, places):.{places}f}"
+
+
+def _outside_units() -> Iterator[tuple[str, str]]:
+    """Units written after the maths, as replies often do: "$m = 250$ g"."""
+    for grams, cm3 in ((250, 200), (540, 200), (89, 10), (1930, 100), (27, 10), (113, 10)):
+        rho = (grams / 1000) / (cm3 * 1e-6)
+        yield (
+            f"**Given**  \n$m = {grams}$ g  \n$V = {cm3}$ cm³\n\n"
+            "**Formula**  \n$\\rho = \\frac{m}{V}$\n\n**Substitution**  \n"
+            f"$\\rho = \\frac{{{grams / 1000}}}{{{cm3} \\times 10^{{-6}}}}$  \n"
+            f"$\\rho = {_tex(rho)}\\,\\mathrm{{kg/m^3}}$" + _card(rho, "\\,\\mathrm{kg/m^3}"),
+            f"A {grams} g block of volume {cm3} cm³.",
+        )
+        yield (
+            f"$t = {grams / 100}$ h, so $t = {grams / 100} \\times 3600 = {_tex(grams * 36)}$ s."
+            + _card(grams * 36, "\\,\\mathrm{s}"),
+            f"Write {grams / 100} h in seconds.",
+        )
+
+
+def _prefixed_cards() -> Iterator[tuple[str, str]]:
+    """Cards in kJ, MJ, kW, mA, µC, km/h, %, rpm: the working's own units."""
+    for mass, speed in ((1200, 25), (900, 30), (1500, 20), (60, 12), (2000, 15)):
+        energy = 0.5 * mass * speed**2
+        yield (
+            _reply(
+                f"E = \\frac{{1}}{{2}} \\times {mass} \\times {speed}^2 = {_tex(energy / 1000)}\\,\\mathrm{{kJ}}",
+                card=(energy / 1000, "\\,\\mathrm{kJ}"),
+            ),
+            f"A {mass} kg car at {speed} m/s.",
+        )
+        yield (
+            _reply(
+                f"E = {mass} \\times 9.81 \\times {speed * 100} = {_tex(mass * G * speed * 100 / 1e6)}\\,\\mathrm{{MJ}}",
+                card=(mass * G * speed * 100 / 1e6, "\\,\\mathrm{MJ}"),
+            ),
+            f"Raise {mass} kg by {speed * 100} m.",
+        )
+    for volts, ohms in ((12, 48), (9, 36), (5, 220), (1.5, 10), (230, 1000)):
+        current = volts / ohms
+        yield (
+            _reply(
+                f"I = \\frac{{{volts}}}{{{ohms}}} = {_tex(current)}\\,\\mathrm{{A}} = {_tex(current * 1000)}\\,\\mathrm{{mA}}",
+                card=(current * 1000, "\\,\\mathrm{mA}"),
+            ),
+            f"{volts} V across {ohms} Ω.",
+        )
+        charge = current * 1e-3
+        yield (
+            _reply(
+                f"Q = {_tex(current)} \\times 10^{{-3}} \\times 10^6",
+                f"Q = {_tex(charge * 1e6)}\\,\\mu\\mathrm{{C}}",
+                card=(charge * 1e6, "\\,\\mu\\mathrm{C}"),
+            ),
+            f"{volts} V across {ohms} Ω for a millisecond.",
+        )
+        power = volts * current
+        yield (
+            _reply(
+                f"P = {volts} \\times {_tex(current)} = {_tex(power)}\\,\\mathrm{{W}}",
+                f"P = {_tex(power / 1000)}\\,\\mathrm{{kW}}",
+                card=(power / 1000, "\\,\\mathrm{kW}"),
+            ),
+            f"{volts} V across {ohms} Ω.",
+        )
+    for km, hours in ((120, 1.5), (300, 4), (45, 0.75), (90, 2)):
+        yield (
+            _reply(
+                f"v = \\frac{{{km}}}{{{hours}}} = {_tex(km / hours)}\\,\\mathrm{{km/h}}",
+                card=(km / hours, "\\,\\mathrm{km/h}"),
+            ),
+            f"{km} km in {hours} h.",
+        )
+    for share, whole in ((18, 24), (7, 20), (150, 600)):
+        yield (
+            _reply(
+                f"p = \\frac{{{share}}}{{{whole}}} \\times 100 = {_tex(share / whole * 100)}\\,\\%",
+                card=(share / whole * 100, "\\,\\%"),
+            ),
+            f"{share} of {whole} as a percentage.",
+        )
+    for turns, seconds in ((50, 12), (300, 60), (45, 9)):
+        rpm = turns / seconds * 60
+        yield (
+            _reply(
+                f"N = \\frac{{{turns}}}{{{seconds}}} \\times 60 = {_tex(rpm)}\\,\\mathrm{{rpm}}",
+                card=(rpm, "\\,\\mathrm{rpm}"),
+            ),
+            f"{turns} turns in {seconds} s.",
+        )
+
+
+def _parts() -> Iterator[tuple[str, str]]:
+    """Replies in parts, each in its own unit."""
+    for mass, height in ((2.0, 5.0), (65, 4), (0.5, 12), (1200, 30)):
+        joules = mass * G * height
+        speed = math.sqrt(2 * G * height)
+        reply = (
+            "**(a)**  \n"
+            + f"$E = {mass} \\times 9.81 \\times {height} = {_tex(joules)}\\,\\mathrm{{J}}$"
+            + _card(joules, "\\,\\mathrm{J}")
+            + "\n\n**(b)**  \n"
+            + f"$E = {_tex(joules / 1000)}\\,\\mathrm{{kJ}}$"
+            + _card(joules / 1000, "\\,\\mathrm{kJ}")
+            + "\n\n**(c)**  \n"
+            + f"$v = \\sqrt{{2 \\times 9.81 \\times {height}}} = {_tex(speed)}\\,\\mathrm{{m/s}}$"
+            + _card(speed, "\\,\\mathrm{m/s}")
+            + "\n\n**(d)**  \n"
+            + f"$v = {_tex(speed)} \\times 3.6 = {_tex(speed * 3.6)}\\,\\mathrm{{km/h}}$"
+            + _card(speed * 3.6, "\\,\\mathrm{km/h}")
+        )
+        yield reply, f"A {mass} kg mass falls {height} m."
+
+
+def _carried() -> Iterator[tuple[str, str]]:
+    """Values carried with two, three or four figures."""
+    for height in (19.6, 4.9, 44.1, 78.4, 12.0):
+        t = math.sqrt(2 * height / 9.8)
+        for written in (f"{t:.2g}" if t < 10 else f"{t:.0f}", f"{t:.3g}", f"{t:.4g}"):
+            later = 0.5 * 9.8 * float(written) ** 2
+            yield (
+                _reply(
+                    f"t = \\sqrt{{\\frac{{2 \\times {height}}}{{9.8}}}} = {written}\\,\\mathrm{{s}}",
+                    f"v = 9.8 \\times {written}",
+                    f"v = {_tex(9.8 * t)}\\,\\mathrm{{m/s}}",
+                    f"h = \\frac{{1}}{{2}} \\times 9.8 \\times {written}^2 = {_tex(later)}\\,\\mathrm{{m}}",
+                    card=(9.8 * t, "\\,\\mathrm{m/s}"),
+                ),
+                f"A stone falls {height} m.",
+            )
+
+
+def _significant() -> Iterator[tuple[str, str]]:
+    """Questions that ask for the data's figures: the card keeps them."""
+    for metres, seconds in ((4.345, 1.2), (12.5, 3.25), (100.0, 9.58), (2.0, 0.37), (45.6, 7.0)):
+        speed = metres / seconds
+        figures = min(
+            len(str(metres).replace(".", "").lstrip("0")),
+            len(str(seconds).replace(".", "").lstrip("0")),
+        )
+        yield (
+            _reply(f"v = \\frac{{{metres}}}{{{seconds}}}", card=(0.0, "")).replace(
+                "0\n```", f"{_figures(speed, figures)}\\,\\mathrm{{m/s}}\n```"
+            ),
+            f"{metres} m in {seconds} s; give the speed to the correct number of significant figures.",
+        )
+        yield (
+            _reply(f"v = \\frac{{{metres}}}{{{seconds}}}", card=(0.0, "")).replace(
+                "0\n```", f"{_figures(speed, 3)}\\,\\mathrm{{m/s}}\n```"
+            ),
+            f"{metres} m in {seconds} s; give the speed to 3 significant figures.",
+        )
+
+
 _CORPUS = [
     *_angular(),
     *_wavelengths(),
@@ -276,16 +436,26 @@ _CORPUS = [
     *_lengths_and_masses(),
     *_times_and_energies(),
     *_pressures(),
+    *_outside_units(),
+    *_prefixed_cards(),
+    *_parts(),
+    *_carried(),
+    *_significant(),
 ]
 
 
 def test_the_corpus_is_large() -> None:
     lines = sum(reply.count("$") // 2 for reply, _question in _CORPUS)
-    assert len(_CORPUS) >= 100
-    assert lines >= 150
+    assert len(_CORPUS) >= 200
+    assert lines >= 300
 
 
 @pytest.mark.parametrize(("reply", "question"), _CORPUS)
 def test_right_working_in_any_unit_is_left_as_it_is(reply: str, question: str) -> None:
+    from app.modules.chat.chain_cards import held_to_chains
+    from app.services.rounding_rule import asked_precision
+
     text = checked_working(reply, question, school=True, laid_out=False, decimal_comma=False)
+    _held, notes = held_to_chains(reply, question, asked_precision(question))
+    assert (notes.corrected, notes.slip, notes.claim) == (None, None, None)
     assert text == reply

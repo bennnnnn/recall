@@ -29,9 +29,9 @@ from app.modules.chat.tex_arithmetic import math_statement_spans, plain_arithmet
 from app.modules.chat.working_check import NAME, statement_parts
 from app.modules.chat.working_numbers import shown_number
 from app.modules.chat.working_units import (
+    coherent_si,
     quantity,
     quantity_unit,
-    read_for_certain,
     unit_after,
     with_units,
 )
@@ -73,7 +73,8 @@ def claims_in(parts: list[str], known: Known, unit_after_maths: str = "") -> lis
     """Each side of a statement written in names said to equal the number after it, when
     the working's values of every name (``known``), worked with their units, make it another
     number in the said side's unit (inside the maths, else ``unit_after_maths``: "405.5$ J").
-    A name with no unit, or a unit not read for certain, makes no claim."""
+    Only in SI's own units: a name or a said unit in g, km or kJ, with no unit, or with one
+    not read for certain, makes no claim."""
     found: list[Claim] = []
     for left, right in itertools.pairwise(parts):
         said_plain = plain_arithmetic(right.strip())
@@ -92,7 +93,11 @@ def _in_names(tex: str, known: Known, said_unit: str) -> float | None:
     """A side written in names worked out with the working's one value of each, in
     ``said_unit`` (SI base units when it says none); None when it holds no name, a name with
     no single value or no unit read for certain, a number of its own, a unit or a word."""
-    if _NUMBER_THEN_LETTER.search(tex) or _UPRIGHT.search(tex) or not read_for_certain(said_unit):
+    if _NUMBER_THEN_LETTER.search(tex) or _UPRIGHT.search(tex):
+        return None
+    if said_unit and not coherent_si(said_unit):
+        # Compared only in the SI units the working wrote: "80" after d in km and t in h is
+        # km/h, never 22.22 m/s.
         return None
     names = names_in(tex)
     if not names or any(not _pure(number) for number in _NUMBER.findall(_without(tex, names))):
@@ -102,7 +107,7 @@ def _in_names(tex: str, known: Known, said_unit: str) -> float | None:
     at = 0
     for index, match in enumerate(names):
         read = known(plain_name(match.group(0)))
-        if read is None or not read[1]:
+        if read is None or not coherent_si(read[1]):
             return None
         placeholder = str(_PLACEHOLDER + index)
         value = quantity(read[0], read[1])

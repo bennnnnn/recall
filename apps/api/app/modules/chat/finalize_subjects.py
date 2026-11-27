@@ -14,6 +14,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures.process import BrokenProcessPool
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
@@ -338,13 +339,16 @@ async def check_working(state: FinalizeState) -> str:
         laid_out=getattr(ctx, "worked", None) is not None,
         decimal_comma=reply_writes_decimal_comma(ctx),
     )
-    if sympy_executor.get_sympy_executor().free_slots() == 0:
+    if sympy_executor.get_sympy_executor().can_start_now() is False:
         return job(text, question)
     try:
         return await sympy_executor.run_sympy(
             job, text, question, timeout=state.settings.stem_solve_timeout_seconds
         )
-    except sympy_executor.WorkerBusyError:
+    except (TimeoutError, BrokenProcessPool, OSError):
+        # A busy pool (``WorkerBusyError`` is a ``TimeoutError``), a job past its deadline or
+        # a worker that died: the reply still gets its check, here.
+        logger.warning("working check ran inline: the SymPy pool could not run it")
         return job(text, question)
 
 
