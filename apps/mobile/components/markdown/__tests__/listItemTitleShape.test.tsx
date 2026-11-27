@@ -13,6 +13,8 @@ import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { STREAM_CARET } from "@/components/StreamingCursor";
+import { streamReply } from "@/lib/__tests__/support/streamBench";
+import { markdownItInstance } from "@/lib/markdown/parser";
 
 jest.mock("@/components/LinkPreviewCard", () => ({ LinkPreviewCard: "LinkPreviewCard" }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
@@ -81,6 +83,7 @@ const ITEMS = [
   ["**Monarchy**", "a king or queen rules."],
   ["🏛️ **Republic**", "the head of state is elected, not born to the role, for a fixed term."],
   ["👑 **Oligarchy**", "a few rule."],
+  ["**Theocracy:**", "religious leaders rule, as in Vatican City."],
 ] as const;
 
 const REPLY = [
@@ -140,12 +143,57 @@ describe("a list's main items draw alike", () => {
     }
   });
 
-  it("never shows a bold name's asterisks while it is typed", async () => {
-    for (let end = 1; end <= REPLY.length; end += 1) {
+  // Every flush of the stream, one character at a time, as the row's pipeline draws it.
+  // Rendering each of them (~450 screens) took 2.6 s here and passed 5 s on CI's slower
+  // runner (review round 2, 2026-11-27); markdown-it reads the same pieces the screen draws.
+  it("never shows an asterisk at any point of the stream", () => {
+    streamReply(REPLY, 1, undefined, (pieces, sent) => {
+      const text = pieces.map(plainText).join("");
+      if (text.includes("*")) throw new Error(`"*" drawn after ${JSON.stringify(sent)}: ${text}`);
+    });
+  });
+
+  it("never shows an asterisk on screen while a name is typed", async () => {
+    for (let end = 1; end <= REPLY.length; end += 9) {
       const view = await render(<MarkdownContent content={REPLY.slice(0, end)} streaming />);
       const drawn = allText(view);
       await view.unmount();
       if (drawn.includes("*")) throw new Error(`"*" drawn at ${end}: ${JSON.stringify(REPLY.slice(0, end))}`);
     }
-  });
+  }, 30_000);
+});
+
+/** The text markdown-it draws for a piece, its code left out. */
+function plainText(markdown: string): string {
+  return markdownItInstance
+    .parse(markdown, {})
+    .filter((token) => token.type === "inline")
+    .flatMap((token) => token.children ?? [])
+    .filter((child) => child.type === "text")
+    .map((child) => child.content)
+    .join("");
+}
+
+describe("a lesson step's heading while it types", () => {
+  const STEP = [
+    "**1. Subtract 4 from both sides** — Subtraction property of equality",
+    "$x + 4 - 4 = 9 - 4$",
+    "$x = 5$",
+    "",
+  ].join("\n");
+
+  // Closed early, "**1. Subtract 4" drew a step badge, lost it when its reason came, and
+  // drew it again with the formula (review round 2). Until its line ends it is text.
+  it("draws no step badge or numbered list until its line has ended", async () => {
+    const heading = STEP.indexOf("\n");
+    for (let end = 1; end <= heading; end += 4) {
+      const view = await render(<MarkdownContent content={STEP.slice(0, end)} streaming />);
+      expect(view.queryByTestId("step-badge")).toBeNull();
+      expect(view.queryByTestId("md-ordered-list")).toBeNull();
+      await view.unmount();
+    }
+    const settled = await render(<MarkdownContent content={STEP} />);
+    expect(settled.getByTestId("step-badge")).toBeTruthy();
+    await settled.unmount();
+  }, 30_000);
 });
