@@ -4,7 +4,7 @@ import { useAssistantMessageId, useEmailDraftSave } from "@/features/drafts/cont
 import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import type { EmailDraft } from "@/lib/richBlocks";
-import { isServerMessageId } from "@/lib/serverMessageId";
+import { isServerId } from "@/lib/serverId";
 import { useLatestRef } from "@/lib/latestRef";
 
 const EMAIL_DRAFT_PERSIST_DEBOUNCE_MS = 600;
@@ -19,7 +19,7 @@ export function useEmailCardPersist(currentDraft: EmailDraft, editing: boolean) 
   const persistNow = useCallback(
     (draft: EmailDraft): Promise<boolean> => {
       draftRef.current = draft;
-      if (!save || !messageId || !isServerMessageId(messageId)) return Promise.resolve(true);
+      if (!save || !messageId || !isServerId(messageId)) return Promise.resolve(true);
       if (inFlightRef.current) return inFlightRef.current;
       const saving = (async () => {
         // Include edits made while a previous request is pending. Flush must

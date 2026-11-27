@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_redis
@@ -71,6 +72,9 @@ def test_archive_all_chats():
     archive.assert_awaited_once()
 
 
+_EVERYTHING = {"confirm": "delete"}
+
+
 def test_delete_all_chats():
     user = api_user()
     app = app_with_user(user)
@@ -79,7 +83,9 @@ def test_delete_all_chats():
         AsyncMock(return_value=2),
     ) as delete:
         client = TestClient(app)
-        r = client.delete("/chats", headers={"Authorization": "Bearer tok"})
+        r = client.request(
+            "DELETE", "/chats", headers={"Authorization": "Bearer tok"}, json=_EVERYTHING
+        )
     assert r.status_code == 204
     delete.assert_awaited_once()
 
@@ -92,9 +98,35 @@ def test_delete_all_memories():
         AsyncMock(return_value=5),
     ) as clear:
         client = TestClient(app)
-        r = client.delete("/memories", headers={"Authorization": "Bearer tok"})
+        r = client.request(
+            "DELETE", "/memories", headers={"Authorization": "Bearer tok"}, json=_EVERYTHING
+        )
     assert r.status_code == 204
     clear.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "path, deleter",
+    [
+        ("/chats", "app.modules.chat.api.chats_service.delete_all_chats"),
+        ("/memories", "app.modules.memory.crud.delete_all_memories"),
+    ],
+)
+@pytest.mark.parametrize(
+    "body",
+    [None, {}, {"confirm": None}, {"confirm": "yes"}, {"confirm": "DELETE"}],
+    ids=["no-body", "empty", "null", "yes", "upper"],
+)
+def test_delete_everything_refuses_without_confirmation(path, deleter, body):
+    """A token alone deletes nothing: a crafted link reached these by a path (review B1)."""
+    app = app_with_user(api_user())
+    with patch(deleter, AsyncMock(return_value=3)) as delete:
+        r = TestClient(app).request(
+            "DELETE", path, headers={"Authorization": "Bearer tok"}, json=body
+        )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "confirm_required"
+    delete.assert_not_awaited()
 
 
 def test_list_sessions():

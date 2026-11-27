@@ -41,7 +41,10 @@ product-free code goes to `lib/<domain>/`; a reusable control goes to `ui/` (cat
    timeouts, the account fence and 401/403 handling live there, and a request that finds no
    API, no answer or a 502/503/504, asks the connection check to look
    (`lib/api/connectionFailures.ts`); `requestRaw` and `requestSse` for bodies and streams).
-   No raw `fetch` to our API anywhere else.
+   No raw `fetch` to our API anywhere else. A path that carries a value is built with
+   ``apiPath`/chats/${id}` `` and `withQuery` (`lib/api/path.ts`), which encode each value;
+   the lint rule `recall/api-path` refuses a raw template. An id read from a route or a link
+   is taken only through `routeServerId` (`lib/serverId.ts`).
 2. A new slice is spread into `api` in the `lib/api.ts` barrel. Screens and hooks call
    `api.<method>`; tests mock `@/lib/api`.
 3. Response types go in the feature's `types.ts`, or `lib/api/types.ts` when several

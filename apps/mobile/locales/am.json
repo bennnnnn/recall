@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Recall በውይይት ውስጥ የሚያያይዟቸውን ፎቶዎች እንዲያነሱ እና ከማስታወሻዎችዎ ወይም ከመልመጃ ወረቀቶችዎ የሂሳብ ጥያቄዎችን እንዲቃኙ ካሜራውን ይጠቀማል።",
+    "NSMicrophoneUsageDescription": "Recall መልዕክቶችን በድምጽ እንዲጽፉ እና በLive talk ከRecall ጋር እንዲነጋገሩ ማይክሮፎኑን ይጠቀማል።",
+    "NSPhotoLibraryUsageDescription": "Recall በውይይት ውስጥ ምስሎችን እንዲያያይዙ ፎቶዎችዎን ማግኘት ያስፈልገዋል።",
+    "NSPhotoLibraryAddUsageDescription": "አውርድን ሲነኩ Recall የተፈጠሩ እና የውይይት ምስሎችን በፎቶ ቤተ-መጽሐፍትዎ ውስጥ ያስቀምጣል።",
+    "NSLocationWhenInUseUsageDescription": "Recall ለአካባቢ ሰዓት እና የት እንዳሉ ለመመለስ አካባቢዎን ይጠቀማል።"
+  }
+}

@@ -4,6 +4,8 @@
  */
 import type { Calendar } from "expo-localization";
 
+import { readPhoneLocalization } from "@/lib/phoneLocalization";
+
 export type HourCycle = "h12" | "h23";
 
 /** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
@@ -16,32 +18,6 @@ export type PhoneClock = {
   /** The phone's First Day of Week; absent when this build cannot read it. */
   weekStart?: Weekday;
 };
-
-/** The parts of expo-localization's native module this file uses. */
-type LocalizationModule = {
-  getCalendars: () => Calendar[];
-  addListener: (event: string, listener: () => void) => { remove: () => void };
-};
-
-let localization: LocalizationModule | null | undefined;
-
-/**
- * expo-localization's native module, when this build has it. Read through
- * `requireOptionalNativeModule`: an over-the-air update can reach a binary built
- * before the module was added, and the package's own JS throws on import there.
- */
-function loadLocalization(): LocalizationModule | null {
-  if (localization !== undefined) return localization;
-  try {
-    const { requireOptionalNativeModule } =
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: Node tests have no native modules
-      require("expo-modules-core") as typeof import("expo-modules-core");
-    localization = requireOptionalNativeModule<LocalizationModule>("ExpoLocalization");
-  } catch {
-    localization = null;
-  }
-  return localization;
-}
 
 /** ICU's name for a zone it could not find out; no formatter accepts it (RangeError). */
 const UNKNOWN_ZONE = "Etc/Unknown";
@@ -78,11 +54,7 @@ export function localeUses24HourClock(locale?: string): boolean {
 
 /** The phone's calendar settings, or null when this build cannot read them. */
 function phoneCalendar(): Partial<Calendar> | null {
-  try {
-    return loadLocalization()?.getCalendars()[0] ?? null;
-  } catch {
-    return null;
-  }
+  return readPhoneLocalization<Partial<Calendar> | null>((module) => module.getCalendars()[0] ?? null, null);
 }
 
 /**
@@ -110,14 +82,13 @@ export function readPhoneClock(): PhoneClock {
 
 /** Calls `listener` when the OS says the locale, the clock or week setting, or the zone changed. */
 export function onPhoneClockChange(listener: () => void): () => void {
-  const module = loadLocalization();
-  if (!module) return () => {};
-  try {
-    // iOS sends both on a locale change or a significant time change (a new zone,
-    // midnight, daylight saving); Android sends both on a configuration change.
-    const subscription = module.addListener("onCalendarSettingsChanged", listener);
-    return () => subscription.remove();
-  } catch {
-    return () => {};
-  }
+  // iOS sends both on a locale change or a significant time change (a new zone,
+  // midnight, daylight saving); Android sends both on a configuration change.
+  return readPhoneLocalization(
+    (module) => {
+      const subscription = module.addListener("onCalendarSettingsChanged", listener);
+      return () => subscription.remove();
+    },
+    () => {},
+  );
 }

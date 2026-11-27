@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Recall utilise l'appareil photo pour que vous puissiez prendre des photos à joindre dans le chat et scanner des problèmes de maths dans vos notes ou fiches d'exercices.",
+    "NSMicrophoneUsageDescription": "Recall utilise le micro pour que vous puissiez dicter des messages et parler avec Recall dans Live talk.",
+    "NSPhotoLibraryUsageDescription": "Recall a besoin d'accéder à vos photos pour que vous puissiez joindre des images dans le chat.",
+    "NSPhotoLibraryAddUsageDescription": "Recall enregistre les images générées et celles du chat dans votre photothèque lorsque vous touchez Télécharger.",
+    "NSLocationWhenInUseUsageDescription": "Recall utilise votre position pour l'heure locale et pour vous dire où vous êtes."
+  }
+}

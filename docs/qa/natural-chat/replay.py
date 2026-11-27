@@ -54,10 +54,10 @@ def _fresh_account(run: battery.Battery, email: str) -> dict[str, str]:
     headers = run._headers(True)
     run.client.post("/auth/me/pro-dev", headers=headers).raise_for_status()
     run.client.patch("/auth/me", headers=headers, json=SETTINGS).raise_for_status()
-    run.client.delete("/chats", headers=headers).raise_for_status()
+    battery.delete_everything(run.client, "/chats", headers).raise_for_status()
     battery._jobs_settled(60)
     for _ in range(30):
-        cleared = run.client.delete("/memories", headers=headers)
+        cleared = battery.delete_everything(run.client, "/memories", headers)
         if cleared.status_code != 409:
             cleared.raise_for_status()
             break

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import get_db
+from app.core.delete_confirmation import DeleteConfirmation, require_delete_confirmation
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.dev_guards import require_dev_privilege_access
 from app.core.etag import conditional_json
@@ -100,10 +101,12 @@ async def bulk_chats(
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_chats(
+    body: DeleteConfirmation | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
+    require_delete_confirmation(body, "Confirm the deletion to delete every chat.")
     await chats_service.delete_all_chats(session, user, settings=settings)
 
 

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 
 import { api } from "@/lib/api";
-import { isServerMessageId } from "@/lib/serverMessageId";
+import { isServerId } from "@/lib/serverId";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { reportFailure } from "@/lib/sentry";
@@ -23,7 +23,7 @@ export function useMessageFeedback({ token, chatId, editThread, t }: Options) {
     (messageId: string, next: "up" | "down" | null) => {
       // A reply the server has not saved yet (one stopped before its id came) cannot keep a
       // rating: the thumb filled and the rating never left the phone. It stays as it was, and says so.
-      if (!token || !chatId || !isServerMessageId(messageId)) {
+      if (!token || !chatId || !isServerId(messageId)) {
         reportRecoverableError(feedback, t("chat.feedback_failed"));
         return;
       }

@@ -77,7 +77,7 @@
   "lib/datetime/calendarGrid.ts": 1,
   "lib/datetime/clockDial.ts": 1,
   "lib/datetime/format.ts": 1,
-  "lib/datetime/phoneClock.ts": 4,
+  "lib/datetime/phoneClock.ts": 1,
   "lib/deviceLocation.ts": 3,
   "lib/deviceSession.ts": 1,
   "lib/expoRuntime.ts": 2,
