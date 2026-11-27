@@ -146,10 +146,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27), the steps
 # card for one procedure in order only, not for tips or ways, and one card even when the steps
 # differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT), and no other hint
-# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities).
+# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities); then
+# a scene's own motion from rest, a slope's weight components and an Atwood machine's
+# free-body diagrams in the physics draw contract, and no word about the app's pictures or
+# an offer to draw one asked for (DESCRIBED_PICTURE_SPEECH; live, 2026-11-27).
 _RULES = 228
-_RULE_GRAMS = 21394
-_RULE_GRAMS_SHA = "784197569c4bcf0a"
+_RULE_GRAMS = 21524
+_RULE_GRAMS_SHA = "cdf62a1fde818d19"
 
 
 def _rules() -> list[str]:

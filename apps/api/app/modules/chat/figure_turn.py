@@ -153,16 +153,13 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     A reply the server made without a solve (the time in Tokyo, a settings line, a plan's
     limit) answers no maths question, so it never waits at finalize for a read that could
     only say "no picture" (it waited 1.7 s for one, 2026-11-13)."""
+    if ctx.live_read is None or not settings.figure_read_enabled:
+        return None
     solved_by = getattr(ctx.verified_subject, "subject", None)
     shown = _shown_already(ctx.verified_subject)
-    if (
-        ctx.live_read is None
-        or not settings.figure_read_enabled
-        # A physics solve's scene leaves room for a picture of another kind it lacks, when
-        # one is asked for: a slope's motion graphs beside it (``_draw``).
-        or (shown and solved_by != "physics")
-        or (ctx.instant_reply and ctx.verified_subject is None)
-    ):
+    # A physics solve's scene leaves room for a picture of another kind it lacks, when one is
+    # asked for: a slope's motion graphs beside it (``_draw``).
+    if (shown and solved_by != "physics") or (ctx.instant_reply and ctx.verified_subject is None):
         return None
     line = ctx.user_message_content or ""
     recent = list(ctx.recent_messages or [])
