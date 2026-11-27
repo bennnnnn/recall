@@ -114,8 +114,8 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
     """
     if drafted:
         return (
-            "This turn changes the draft you wrote earlier in this conversation. "
-            "Apply the requested change (what it says, tone, length, wording, a point added or "
+            "Change the draft you wrote earlier in this conversation: "
+            "apply the requested change (what it says, tone, length, wording, a point added or "
             "removed, the language, or the form, such as a text made into an email) and keep "
             "every name, date, number, and commitment the "
             f"user did not change. Return the whole revised draft in one ```{fence} fence, not "

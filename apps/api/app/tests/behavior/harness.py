@@ -142,7 +142,7 @@ HINTS: dict[str, str] = {
     # "Do not create an email, message ... fence": the turn is no draft.
     "no_draft": NON_DRAFT_TURN_HINT,
     # The draft asked for earlier, written or changed on this turn.
-    "draft_revision": "This turn changes the draft you wrote earlier",
+    "draft_revision": "Change the draft you wrote earlier in this conversation",
     "draft_now": "and this turn says what it should say or how to change it",
     "brevity": pc.BREVITY_REQUEST_HINT,
     "capabilities": pc.CAPABILITIES_FORMAT_HINT,

@@ -119,9 +119,9 @@ def _verified_block_graph(
         lines.append(
             f"Shaded region for {line_spec.expr} on the number line: "
             "open circle = endpoint not included, filled circle = included. "
-            "Draw the one-variable inequality as a number line "
-            '(type "number_line"): shade the solution '
-            "interval, do not plot a y=f(x) curve."
+            "The app draws the one-variable inequality on a number line "
+            '(type "number_line"), the solution '
+            "interval shaded, never as a y=f(x) curve."
         )
         return _diagram_block(lines, line_spec)
 
@@ -139,8 +139,8 @@ def _verified_block_graph(
         )
         lines.append(
             f"Verified shaded half-plane: {region.expr}. Boundary is {boundary}. "
-            "Shade the side satisfying the inequality; this is a two-dimensional region, "
-            "not a number line or only a function curve."
+            "The app shades the side that satisfies the inequality: a two-dimensional "
+            "region, not a number line or only a function curve."
         )
         return _diagram_block(lines, region)
     sample = math_solve.sample_function(

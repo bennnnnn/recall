@@ -85,7 +85,7 @@ from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.referent_read import asks_for_a_referent
 from app.modules.chat.steps_turn import lay_out_the_steps
-from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
+from app.modules.chat.turn_decision import TurnDecision, asks_steps, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
 from app.modules.chat.worked_turn import (
@@ -147,8 +147,16 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # First, before any note or hint is added or taken: the swap needs the rules as built.
     _take_the_ordinary_prompt(ctx, read)
     _settle_the_photo(ctx, read)
-    # One procedure done in order: the ```steps card beside the message (``steps_turn``).
+    await _apply_the_read(ctx, settings, read, deadline)
+    # Last, once the worked layout is settled: one procedure done in order gets the ```steps
+    # card beside the message, and a calculation laid out never does (``steps_turn``).
     lay_out_the_steps(ctx, read)
+
+
+async def _apply_the_read(
+    ctx: StreamContext, settings: Settings, read: TurnDecision | None, deadline: float
+) -> None:
+    """The read's picture, follow-up, lane, thinking, lesson, card and worked layout."""
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
     _leave_the_picture(ctx, settings, read)
@@ -313,10 +321,17 @@ def _layout_at_stake(ctx: StreamContext) -> bool:
 
 
 def _steps_at_stake(ctx: StreamContext) -> bool:
-    """The turn's words left its layout open: the read says whether its answer is one
-    procedure, drawn as a ```steps card (``steps_turn``). A turn that offers the reply a
-    search has waited for the read already (``reply_calls.search_the_live_read``)."""
-    return ctx.steps_open and ctx.instant_reply is None and not _worked(ctx)
+    """The turn's words left its layout open and its read asks whether the answer is one
+    procedure, drawn as a ```steps card (``steps_turn``); a read that asks nothing of it
+    (after a cut-off reply, the Decider's breaker open) is not waited for on its account. A
+    turn that offers the reply a search has waited for the read already
+    (``reply_calls.search_the_live_read``)."""
+    return (
+        ctx.steps_open
+        and ctx.instant_reply is None
+        and not _worked(ctx)
+        and asks_steps(ctx.live_read)
+    )
 
 
 def _worked(ctx: StreamContext) -> bool:

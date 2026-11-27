@@ -136,7 +136,7 @@
   "write an email to my landlord asking to fix the heater by Friday",
   "write a tweet",
   "translate 'the variance is 4' into French",
-  "\n\nThis turn changes the draft you wrote earlier in this conversation. Apply the requested change (what it says, tone, length, wording, a point added or removed, the language, or the form, such as a text made into an email) and keep every name, date, number, and commitment the user did not change. Return the whole revised draft in one ```email fence, not a list of edits or a diff. No explanation before it and at most one short line after it. Several versions only when the user asked for them.\n\n",
+  "\n\nChange the draft you wrote earlier in this conversation: apply the requested change (what it says, tone, length, wording, a point added or removed, the language, or the form, such as a text made into an email) and keep every name, date, number, and commitment the user did not change. Return the whole revised draft in one ```email fence, not a list of edits or a diff. No explanation before it and at most one short line after it. Several versions only when the user asked for them.\n\n",
   "write an email to my landlord asking to fix the heater",
   "```email\nSubject: Heater repair\n\nHi Sam,\n\nThe heater in my flat stopped working. Could you arrange a repair this week?\n\nThanks,\nBini\n```",
   "make it more polite",
