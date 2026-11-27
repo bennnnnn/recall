@@ -50,7 +50,7 @@ _HERE = Path(__file__).parent
 # the capital of France" on the real turn path: the rules every turn shares, this kind of
 # turn's rules, and the context after the history (the clock, to-dos, the notes beside the
 # message). The prompt review cut the turn's rules from 5,297 (the same measure the day before).
-STABLE_TOKENS = 1_688
+STABLE_TOKENS = 1_791
 TURN_RULES_TOKENS = 4_477
 CONTEXT_TOKENS = 1_600
 # Each fold adds its facts and topic lines; ``SUMMARY_MAX_CHARS`` (6000) holds it to ~1.5k.
