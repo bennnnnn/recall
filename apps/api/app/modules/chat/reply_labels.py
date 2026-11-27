@@ -69,10 +69,21 @@ def one_answer_label(text: str) -> str:
             labels.append(number)
     if not _is_worked(text) or any(_PART.match(lines[number]) for number in outside):
         return "\n".join(lines)
-    for number in labels[:-1]:
-        inline = _INLINE.match(lines[number])
-        lines[number] = _value(inline.group("value")) if inline else _DROP
+    # Each worked solution keeps its own last label: two laid-out ```worked blocks are two
+    # answers, and the first lost its Answer heading, so its card (review of #2602).
+    starts = [number for number in outside if _GIVEN_HEADING.match(lines[number])]
+    for number in labels:
+        section = sum(start <= number for start in starts)
+        if any(
+            sum(start <= later for start in starts) == section for later in labels if later > number
+        ):
+            inline = _INLINE.match(lines[number])
+            lines[number] = _value(inline.group("value")) if inline else _DROP
     return "\n".join(_without_dropped(lines))
+
+
+# A worked solution's opening heading: "**Given**", as each laid-out block starts.
+_GIVEN_HEADING = re.compile(r"^\s*\*\*Given:?\*\*\s*$")
 
 
 _DROP = "\x00"

@@ -22,6 +22,8 @@ export type ChatWsPayload = {
   detail?: string;
   /** On a `status` event: how long its phase had run when it was sent (`thinking`). */
   elapsed_ms?: number;
+  /** On a `status` event (`composing`): "none" when the reply takes no emoji at any setting. */
+  emoji?: string;
   reasoning?: string;
   final_content?: string;
   /** The turn changed the to-do list. */

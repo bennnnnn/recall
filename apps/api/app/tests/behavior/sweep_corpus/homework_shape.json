@@ -198,5 +198,29 @@
   "history": [],
   "reply": "Both are great:\n\n- 🏛️ **Rome** — history at every corner.\n- 🥐 **Paris** — art, cafés and food.",
   "expect": "answer"
+ },
+ {
+  "id": "hs-040",
+  "area": "emoji lookalike",
+  "prompt": "What temperature should chicken be cooked to?",
+  "history": [],
+  "reply": "Cook it until the thickest part reads:\n\n- 🌡️ **Inside:** 74 °C (165 °F)\n- 🍗 **Check:** a meat thermometer, not the colour",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-041",
+  "area": "emoji lookalike",
+  "prompt": "How do you get rust out of clothes?",
+  "history": [],
+  "reply": "Try these:\n\n- 🍋 **Lemon and salt:** rub in, leave in the sun\n- 🧴 **Vinegar:** soak for an hour, then wash",
+  "expect": "answer"
+ },
+ {
+  "id": "hs-042",
+  "area": "emoji lookalike",
+  "prompt": "Which plants are easy to grow indoors?",
+  "history": [],
+  "reply": "Easy ones:\n\n- 🪴 **Snake plant:** low light is fine\n- 🌿 **Pothos:** water when the soil is dry",
+  "expect": "answer"
  }
 ]

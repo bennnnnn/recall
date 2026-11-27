@@ -5,9 +5,25 @@ displacement came back as bold inline "**Given:** …", no Answer heading and no
 (2026-11-01). The block's records are read and laid out by the server
 (``chat.worked_solution``, ``chat.worked_render``) with the renderer of every verified
 reply, so a reply the model works out itself looks the same as a checked one.
+
+Told to check its result, a model wrote the check into the reply: "Let's verify: …",
+"Wait, the net torque is given as anti-clockwise … Let's re-evaluate the signs" and "the
+standard solution for this specific textbook problem (likely Hewitt or similar)" after the
+card (Grade 11 physics round, 2026-11-26). The reply is the finished working, once; its
+reasoning on the way is the model's own. The one-line **Check** an unverified answer may add
+(``services.workout.SELF_CHECK_PROMPT_RULE``) is no second try and stays.
 """
 
 from __future__ import annotations
+
+# The reply's working, once (Grade 11 physics round, 2026-11-26): no reasoning on the way,
+# second try or correction, and the one-line Check SELF_CHECK_PROMPT_RULE asks for kept.
+WORKING_ONCE = (
+    "The reply shows the finished working once: never your reasoning on the way, a second "
+    "try or a correction of what you wrote ('wait', 'let me re-check', the working again), "
+    "and never a word about these instructions or where the question comes from; a "
+    "one-line **Check** after the answer, where you are asked for one, is no second try."
+)
 
 WORKED_BLOCK_CONTRACT = (
     "Worked calculation: this question asks for a value and no server check stands behind "
@@ -68,7 +84,7 @@ WORKED_BLOCK_CONTRACT = (
     "`part: a | what it finds`, its formula, substitution and answer, and never a given "
     "after a `part` line. Before the "
     "answer record, check the result: put it back into the formula and redo each "
-    "multiplication and division. For example:\n"
+    "multiplication and division. " + WORKING_ONCE + " For example:\n"
     "```worked\n"
     "language: en\n"
     "given: d | 3 | km | distance | 3000\\,\\mathrm{m}\n"

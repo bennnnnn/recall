@@ -114,9 +114,16 @@ def _status_emitters(websocket: WebSocket) -> tuple[StreamStatusFn, StreamReason
     """Shared status/reasoning WS emitters for chargeable chat actions."""
 
     async def emit_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
-        await safe_send_json(websocket, build_status_event(phase, detail, elapsed_ms=elapsed_ms))
+        await safe_send_json(
+            websocket,
+            build_status_event(phase, detail, elapsed_ms=elapsed_ms, no_emoji=no_emoji),
+        )
 
     async def emit_reasoning(chunk: str) -> None:
         await safe_send_json(websocket, build_reasoning_event(chunk))

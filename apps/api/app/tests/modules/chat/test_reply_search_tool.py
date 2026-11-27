@@ -873,7 +873,11 @@ async def test_a_live_read_searches_its_query_before_the_reply(
     statuses: list[tuple[str, str | None]] = []
 
     async def on_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
         statuses.append((phase, detail))
 
@@ -907,7 +911,11 @@ async def test_a_read_still_running_shows_thinking(web_search_tool: dict[str, An
     statuses: list[tuple[str, str | None]] = []
 
     async def on_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
         statuses.append((phase, detail))
 

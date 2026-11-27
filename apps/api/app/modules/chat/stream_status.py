@@ -65,10 +65,17 @@ class StreamStatusFn(Protocol):
     """Status emitter; `detail` optionally carries turn context (e.g. the
     web-search query) so clients can render an activity-specific label, and
     `elapsed_ms` how long the phase had already run when it was sent, so a
-    client can count on from it."""
+    client can count on from it. `no_emoji` (on ``composing``) says the reply takes no
+    emoji at any setting, so the client's draft drops them as the saved reply will
+    (``emoji_placement.reply_takes_no_emoji``)."""
 
     def __call__(
-        self, phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        self,
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> Awaitable[None]: ...
 
 
