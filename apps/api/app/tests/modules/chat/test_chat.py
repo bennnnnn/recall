@@ -14,6 +14,7 @@ from app.modules.chat.prompt_constants.diagrams import MERMAID_FORMAT_HINT
 from app.modules.chat.prompt_constants.format import (
     COMPARISON_FORMAT_HINT,
     FORMAT_CONTRACT,
+    NAME_LINK_RULE,
 )
 from app.modules.chat.prompt_constants.privacy import (
     ADVICE_PERSONALIZE_HINT,
@@ -543,8 +544,7 @@ def test_universal_format_baseline_pins_answer_first_and_no_decoration():
     assert "Let's dive in" in UNIVERSAL_FORMAT_BASELINE
     # Emoji follow the user's setting (``response_tone.emoji_hint``), not a baseline ban.
     assert "emoji" not in UNIVERSAL_FORMAT_BASELINE.lower()
-    assert "[OpenAI docs](url)" in UNIVERSAL_FORMAT_BASELINE
-    assert "not raw URLs" in UNIVERSAL_FORMAT_BASELINE
+    assert NAME_LINK_RULE in UNIVERSAL_FORMAT_BASELINE
     for banned in ("No intro paragraph", "simplest structure", "just to look structured"):
         assert banned not in UNIVERSAL_FORMAT_BASELINE
     assert "layout note" in STYLE_HINTS["balanced"]

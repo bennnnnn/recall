@@ -40,8 +40,7 @@ _MATH_FENCES = {"math", "latex", "tex", "answer"}
 # Display dollars are read first, as every reader reads them (``chat.display_dollars``).
 _SPAN = re.compile(
     r"\\\((.+?)\\\)|\\\[(.+?)\\\]"
-    # A dollar beside another closes nothing: "$-$$" is a price range (math_padding).
-    r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$(?!\$)",
+    r"|(?<![\\$])\$(?!\$)((?:\\\$|[^$\n])+?)(?<!\\)\$",
     re.DOTALL,
 )
 _INLINE_CODE = re.compile(r"`[^`\n]*`")

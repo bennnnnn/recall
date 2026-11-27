@@ -85,7 +85,7 @@ async def test_a_turn_the_server_answered_gets_no_note(fields: dict[str, Any]) -
 
 @pytest.mark.asyncio
 async def test_a_ranking_layout_takes_the_note_too() -> None:
-    """"best restaurants in San Francisco" asks for a ranking, which its words lay out."""
+    """ "best restaurants in San Francisco" asks for a ranking, which its words lay out."""
     begin_turn_trace("new")
     ctx = _turn(_read(True), steps_open=False)
     link_the_names(ctx, _read(True))

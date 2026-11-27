@@ -72,7 +72,7 @@ function proseWords(text: string): number {
 /** Something a formula is made of, in any script; "$–$$" (a price range) holds none. */
 const FORMULA_CHAR = /[\p{L}\p{N}\\∞]/u;
 
-/** A dollar beside another is part of a price tier ("Burmese, $–$$"), never a span's closer. */
+/** A dollar beside another is part of a run of them ("$$", a tier). */
 function inDollarRun(text: string, dollar: number): boolean {
   return text[dollar + 1] === "$" || text[dollar - 1] === "$";
 }
@@ -113,8 +113,7 @@ export function readInlineMathSpan(
   const closer = opener === "\\(" ? "\\)" : opener === "\\[" ? "\\]" : opener;
   let end = text.indexOf(closer, start + opener.length);
   while (end >= 0 && escapedAt(text, end)) end = text.indexOf(closer, end + closer.length);
-  // A run of dollars ends the hope of a span: it is a price tier, never a closer.
-  if (end < 0 || (opener === "$" && inDollarRun(text, end))) return null;
+  if (end < 0) return null;
   const value = text.slice(start + opener.length, end);
   if (!value.trim() || (opener === "$" && (value.includes("\n") || !FORMULA_CHAR.test(value)))) return null;
   if (codeSpanOpensWithin(text, start + opener.length, end)) return null;

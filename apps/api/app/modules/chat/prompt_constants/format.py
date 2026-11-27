@@ -89,7 +89,7 @@ NAME_LINK_NOTE = (
     "Name each real thing you recommend to visit, buy, read, use or attend (a restaurant, "
     "hotel, shop, museum, product, book, app, website, course, event, service) as a link the "
     "first time: **[Python Crash Course](check)**, and for a place to walk into, its city in "
-    'quotes: **[Nopa](check "San Francisco")**. No link in a history, an explanation or a '
+    'quotes: **[A Brasileira](check "Lisbon")**. No link in a history, an explanation or a '
     "story."
 )
 NAME_LINK_RULE = (

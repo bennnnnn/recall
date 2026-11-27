@@ -164,7 +164,7 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (LOCAL_PLACES_FORMAT_HINT; the owner, 2026-11-27).
 _RULES = 232
 _RULE_GRAMS = 21078
-_RULE_GRAMS_SHA = "609b1c4dfc05c821"
+_RULE_GRAMS_SHA = "d905fedc21d1ed9a"
 
 
 def _rules() -> list[str]:
