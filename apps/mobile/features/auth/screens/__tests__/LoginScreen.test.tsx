@@ -13,15 +13,18 @@ import { setAccentSnapshot } from "@/lib/accentRuntime";
 import { lightTheme } from "@/lib/theme";
 import { touchTargetHeight } from "@/lib/__tests__/support/touchTarget";
 
-// The agreement line's links are marked inside its one translated sentence.
-jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) =>
-      key === "login.agree_line"
-        ? "By continuing, you agree to the <terms>Terms</terms> and <privacy>Privacy Policy</privacy>."
-        : key,
-  }),
-}));
+// The agreement line's links are marked inside its one translated sentence: the real English.
+jest.mock("react-i18next", () => {
+  const en = jest.requireActual("@/lib/i18n/en.json") as Record<string, string>;
+  return {
+    useTranslation: () => ({
+      t: (key: string) => (key === "login.agree_line" ? en[key] : key),
+    }),
+  };
+});
+const AGREE_START =
+  "By continuing, you agree that your messages, files and voice are answered by outside AI " +
+  "and search services, such as OpenAI and Anthropic through OpenRouter, and to the";
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   selection: jest.fn(),
@@ -86,11 +89,11 @@ describe("LoginScreen", () => {
     mockSignedIn = null;
   });
 
-  it("says in one sentence that continuing agrees, with Terms and Privacy Policy as its links", async () => {
+  it("says in one sentence that continuing agrees to the outside AI services, with Terms and Privacy Policy as its links", async () => {
     // The tap that signs in is the agreement (features/auth/api.ts sends it with the
-    // sign-in); the Privacy Policy the link opens says what the AI providers receive.
+    // sign-in), so the line names who answers; the Privacy Policy says what they receive.
     const { getByRole, getByText, queryByText, toJSON } = await render(<LoginScreen />);
-    expect(getByText("By continuing, you agree to the")).toBeOnTheScreen();
+    expect(getByText(AGREE_START)).toBeOnTheScreen();
     expect(getByRole("link", { name: "login.terms" })).toHaveTextContent("Terms");
     expect(getByRole("link", { name: "login.privacy" })).toHaveTextContent("Privacy Policy");
     expect(queryByText(/third-party/i)).toBeNull();
@@ -110,7 +113,7 @@ describe("LoginScreen", () => {
       const { getByTestId, getByLabelText, getByText, toJSON } = await render(<LoginScreen />);
       const footer = getByTestId("auth-scroll-footer");
       expect(footer).toContainElement(getByLabelText("login.google"));
-      expect(footer).toContainElement(getByText("By continuing, you agree to the"));
+      expect(footer).toContainElement(getByText(AGREE_START));
       // The screen's root is its gradient (mocked as a View that keeps its props).
       const root = toJSON() as unknown as { props: { colors: string[] } };
       expect(root.props.colors[0]).toBe(lightTheme.primaryLight);

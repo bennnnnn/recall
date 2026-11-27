@@ -395,7 +395,7 @@
   "gallery.title": "लाइब्रेरी",
   "gallery.use_in_chat": "चैट में इस्तेमाल करें",
   "gallery.viewer_image_a11y": "{{name}}, {{count}} में से {{index}}",
-  "login.agree_line": "जारी रखकर, आप <terms>शर्तें</terms> और <privacy>गोपनीयता नीति</privacy> स्वीकार करते हैं।",
+  "login.agree_line": "जारी रखकर, आप सहमत होते हैं कि आपके संदेशों, फ़ाइलों और आवाज़ का जवाब बाहरी AI और सर्च सेवाएँ देती हैं, जैसे OpenRouter के ज़रिए OpenAI और Anthropic, और आप <terms>शर्तें</terms> और <privacy>गोपनीयता नीति</privacy> स्वीकार करते हैं।",
   "login.apple": "Apple के साथ जारी रखें",
   "login.dev": "bini के रूप में जारी रखें",
   "login.dev_expo_hint": "Google साइन इन के लिए डेव बिल्ड चाहिए। Expo Go में डेव लॉग इन काम करता है।",

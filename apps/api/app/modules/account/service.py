@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,14 +42,23 @@ async def _signed_in(
     device_label: str | None,
     platform: str | None,
     ai_data_consent: bool,
+    locale: str | None,
 ) -> AuthResponse:
-    """Finish any sign-in: record an agreement made by the tap, welcome a new account,
-    then issue its token pair."""
+    """Finish any sign-in: record an agreement made by the tap, start a new account in the
+    language its sign-in page was shown in, welcome it, then issue its token pair."""
+    updates: dict[str, Any] = {}
     if ai_data_consent and user.ai_data_consent_at is None:
         # Before the tokens: the reply already carries the agreement, so no request the
         # app makes next meets ``consent_required``. An earlier agreement keeps its time.
-        agreed = profile.with_ai_data_consent({"ai_data_consent": True}, now=datetime.now(UTC))
-        user = await users_repo.update(session, user, **agreed)
+        updates.update(
+            profile.with_ai_data_consent({"ai_data_consent": True}, now=datetime.now(UTC))
+        )
+    if is_new_user and locale and locale != user.locale:
+        # The phone's language, which the sign-in page was read in. An existing account
+        # keeps the language it has: that is the user's, set in Settings or kept.
+        updates["locale"] = locale
+    if updates:
+        user = await users_repo.update(session, user, **updates)
     if is_new_user and settings.email_enabled:
         # Best-effort: never let a welcome email block signup.
         await enqueue_welcome_email(redis, user.id)
@@ -160,6 +170,7 @@ async def login_with_google(
     device_label: str | None = None,
     platform: str | None = None,
     ai_data_consent: bool = False,
+    locale: str | None = None,
 ) -> AuthResponse:
     payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
@@ -227,6 +238,7 @@ async def login_with_google(
         device_label=device_label,
         platform=platform,
         ai_data_consent=ai_data_consent,
+        locale=locale,
     )
 
 
@@ -241,6 +253,7 @@ async def login_with_apple(
     device_label: str | None = None,
     platform: str | None = None,
     ai_data_consent: bool = False,
+    locale: str | None = None,
 ) -> AuthResponse:
     # L1: validate the client-supplied display name (trim, collapse, length)
     name = normalize_display_name(name)
@@ -310,6 +323,7 @@ async def login_with_apple(
         device_label=device_label,
         platform=platform,
         ai_data_consent=ai_data_consent,
+        locale=locale,
     )
 
 
@@ -323,6 +337,7 @@ async def login_dev(
     device_label: str | None = None,
     platform: str | None = None,
     ai_data_consent: bool = False,
+    locale: str | None = None,
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise AuthenticationError("Dev auth is disabled", code="dev_auth_disabled")
@@ -356,4 +371,5 @@ async def login_dev(
         device_label=device_label,
         platform=platform,
         ai_data_consent=ai_data_consent,
+        locale=locale,
     )

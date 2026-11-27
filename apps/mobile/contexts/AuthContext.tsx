@@ -25,6 +25,7 @@ import { accessTokenNeedsRefresh, freshAccessToken, refreshedAccount } from "@/l
 import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
+import { deviceLanguage } from "@/lib/i18n/deviceLanguage";
 import { clearImageCaches } from "@/lib/images/imageCaches";
 import {
   clearOnboarded,
@@ -226,7 +227,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
           // Left by another account, or a sign-out whose delete failed. Its
           // language was applied before the first render (lib/launchPrefs.ts).
           void clearCachedUser();
-          void ensureLocale("en");
+          void ensureLocale(deviceLanguage());
         }
         if (read.corrupt) {
           // No retry can read it (it once left "error, Retry" for good, and the

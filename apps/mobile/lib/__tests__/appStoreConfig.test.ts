@@ -2,6 +2,7 @@ import type { ExpoConfig } from "expo/config";
 
 import appConfig from "../../app.config";
 import appJson from "../../app.json";
+import { LANGUAGES } from "../i18n/languages";
 
 /**
  * Store-review guards on app.json. Expo decides the order its config plugins write
@@ -11,7 +12,6 @@ import appJson from "../../app.json";
 const USAGE_DESCRIPTION_OPTIONS: Record<string, Record<string, string>> = {
   "expo-location": {
     locationWhenInUsePermission: "NSLocationWhenInUseUsageDescription",
-    motionUsagePermission: "NSMotionUsageDescription",
   },
   "expo-image-picker": {
     photosPermission: "NSPhotoLibraryUsageDescription",
@@ -43,6 +43,22 @@ function pluginOptions(name: string): Map<string, unknown> {
 
 const infoPlist = new Map<string, unknown>(Object.entries(appJson.expo.ios.infoPlist));
 
+/** The permissions the app asks for (camera, microphone, photos, saving photos, location). */
+const TRANSLATED_PERMISSIONS = [
+  "NSCameraUsageDescription",
+  "NSMicrophoneUsageDescription",
+  "NSPhotoLibraryUsageDescription",
+  "NSPhotoLibraryAddUsageDescription",
+  "NSLocationWhenInUseUsageDescription",
+] as const;
+
+/** One language's iOS strings, from its file under `locales/`. */
+function localeStrings(path: string): Record<string, string> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- a JSON file app.json names
+  const file = require(`../../${path.replace(/^\.\//, "")}`) as { ios?: Record<string, string> };
+  return file.ios ?? {};
+}
+
 describe("app store config", () => {
   it.each(Object.entries(USAGE_DESCRIPTION_OPTIONS))(
     "%s writes the same usage descriptions as ios.infoPlist",
@@ -60,12 +76,45 @@ describe("app store config", () => {
     const location = pluginOptions("expo-location");
     expect(location.get("locationAlwaysPermission")).toBe(false);
     expect(location.get("locationAlwaysAndWhenInUsePermission")).toBe(false);
+    // No temporary precise location and no motion: false also compiles expo-location's Core
+    // Motion code out (EXPO_LOCATION_DISABLE_MOTION), so the binary needs no motion text.
+    expect(location.get("locationFullAccuracyPermission")).toBe(false);
+    expect(location.get("motionUsagePermission")).toBe(false);
     for (const key of [
       "NSFaceIDUsageDescription",
       "NSLocationAlwaysUsageDescription",
       "NSLocationAlwaysAndWhenInUseUsageDescription",
+      "NSLocationTemporaryUsageDescriptionDictionary",
+      "NSMotionUsageDescription",
+      "NSSpeechRecognitionUsageDescription",
     ]) {
       expect(infoPlist.has(key)).toBe(false);
+    }
+  });
+
+  it("asks for each permission in every language the app speaks", () => {
+    // iOS reads <lang>.lproj/InfoPlist.strings, which prebuild writes from app.json `locales`.
+    const asked = [...infoPlist.keys()]
+      .filter((key) => key.endsWith("UsageDescription"))
+      // iOS shows no text of its own when it asks for notifications.
+      .filter((key) => key !== "NSUserNotificationsUsageDescription")
+      .sort();
+    expect(asked).toEqual([...TRANSLATED_PERMISSIONS].sort());
+    expect(Object.keys(appJson.expo.locales).sort()).toEqual(LANGUAGES.map(({ code }) => code).sort());
+    expect(infoPlist.get("CFBundleAllowMixedLocalizations")).toBe(true);
+    for (const [code, path] of Object.entries(appJson.expo.locales)) {
+      const strings = localeStrings(path);
+      expect({ code, keys: Object.keys(strings).sort() }).toEqual({
+        code,
+        keys: [...TRANSLATED_PERMISSIONS].sort(),
+      });
+      for (const key of TRANSLATED_PERMISSIONS) {
+        const text = strings[key];
+        expect(text).toEqual(expect.stringContaining("Recall"));
+        // English is the base Info.plist's text; every other language is translated.
+        if (code === "en") expect(text).toBe(infoPlist.get(key));
+        else expect({ code, key, text }).not.toEqual({ code, key, text: infoPlist.get(key) });
+      }
     }
   });
 
