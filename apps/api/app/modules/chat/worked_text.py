@@ -75,6 +75,43 @@ _GREEK["\u00b5"] = "mu"
 _UPRIGHT_OPEN = re.compile(r"\\(?:mathrm|textrm|text|operatorname|mbox)\s*\{")
 
 
+# A Greek letter's name a model typed without its backslash ("theta = 60^\circ",
+# "omega_0 = \frac{2\pi}{T}"), and a command run into the letter after it ("\DeltaP_h"):
+# TeX draws the first as five italic letters and refuses the second (textbook round,
+# 2026-11-26). Names of three letters or more: "mu" is also m times u (p = mu), and pi is
+# ``typed_signs``'. No command starts with one of these names, so a name run on is two.
+_GREEK_NAMES = (
+    "alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|rho|sigma|tau|upsilon"
+    "|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Sigma|Upsilon|Phi|Psi|Omega"
+)
+# psi after a number and a space is pounds per square inch ("32.1 psi"), the one name that is
+# also a unit; every other name there is still its letter ("0.5 rho v^2", "2 theta"). Reviews
+# of #2602.
+_UNIT_PSI = r"(?<!\d )(?<!\d\\,)(?<!\d~)psi"
+_TYPED_GREEK = re.compile(
+    rf"(?<![A-Za-z\\])({_UNIT_PSI}|{_GREEK_NAMES.replace('|psi|', '|')})(\d*)(?![A-Za-z])"
+)
+_RUN_ON_GREEK = re.compile(rf"\\({_GREEK_NAMES})(?=[A-Za-z])")
+
+
+def _greek_command_of(typed: re.Match[str]) -> str:
+    """``theta`` → ``\\theta``; ``theta1``, numbered, → ``\\theta_1``."""
+    return rf"\{typed[1]}_{{{typed[2]}}}" if typed[2] else rf"\{typed[1]}"
+
+
+def greek_names(tex: str) -> str:
+    """``theta_1`` → ``\\theta_1``, ``theta2`` → ``\\theta_{2}`` and ``\\DeltaP`` → ``\\Delta P``
+    in maths; words in a word group (``\\text{theta}``) left as written."""
+    if _TYPED_GREEK.search(tex) is None and _RUN_ON_GREEK.search(tex) is None:
+        return tex
+    return map_groups(
+        tex,
+        WORD_GROUP,
+        lambda maths: _RUN_ON_GREEK.sub(r"\\\1 ", _TYPED_GREEK.sub(_greek_command_of, maths)),
+        lambda opened, text: f"{opened.group(0)}{text}}}",
+    )
+
+
 def greek_as_commands(tex: str) -> str:
     """``ρ = \\frac{m}{V}`` → ``\\rho = \\frac{m}{V}``: each Greek letter in maths as its
     command, a unit's letters (``\\mathrm{μC}``) left as written."""
@@ -180,6 +217,7 @@ def tidy_tex(tex: str) -> str:
     after a number goes before it (``worked_units``), and a Greek letter is its command."""
     tex = word_scripts(_BOLD.sub(r"\1", typed_signs(tex)))
     tex = greek_as_commands(currency_first(with_times(_LONG_SUBSCRIPT.sub(r"_{\1}", tex))))
+    tex = greek_names(tex)
     # Braced, "v_Ai_mag" is two subscripts on v: one base takes one (``tex_form``).
     return well_formed(tex)
 
@@ -199,6 +237,20 @@ def is_prose(field: str) -> bool:
 def names_nothing(symbol: str) -> bool:
     """A "symbol" written in words ("length in cm", "a) in cm")."""
     return " " in symbol.strip() and is_prose(symbol)
+
+
+# One word set as a symbol ("graph", "equilibrium", "precision"), or an option's numeral
+# ("iii"): drawn in maths it read as italic letters, and "(a) $iii$" gave the answer away
+# (textbook round, 2026-11-26). Five letters or more, so "vmax" and "emf" stay symbols, and
+# only ii and iii of the numerals: "vi", "iv" and "ix" are also an initial velocity's
+# symbols (review of #2602).
+_WORD_SYMBOL = re.compile(r"[a-z]{5,}|iii?")
+
+
+def is_word_symbol(symbol: str) -> bool:
+    """A symbol that is one word, never a letter's name (``theta``)."""
+    bare = symbol.strip()
+    return _WORD_SYMBOL.fullmatch(bare) is not None and _TYPED_GREEK.fullmatch(bare) is None
 
 
 # Where a heading's own words end and a remark on them starts: a bracket, a colon, a

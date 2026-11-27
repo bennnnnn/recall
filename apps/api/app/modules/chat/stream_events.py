@@ -137,7 +137,11 @@ def build_token_event(content: str) -> dict[str, Any]:
 
 
 def build_status_event(
-    phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+    phase: str,
+    detail: str | None = None,
+    *,
+    elapsed_ms: int | None = None,
+    no_emoji: bool = False,
 ) -> dict[str, Any]:
     """Progress while the turn works (see stream_status.StreamStatusPhase).
 
@@ -149,6 +153,9 @@ def build_status_event(
         event["detail"] = detail
     if elapsed_ms is not None:
         event["elapsed_ms"] = max(0, elapsed_ms)
+    if no_emoji:
+        # The reply takes no emoji: the client's draft drops them as it streams.
+        event["emoji"] = "none"
     return event
 
 

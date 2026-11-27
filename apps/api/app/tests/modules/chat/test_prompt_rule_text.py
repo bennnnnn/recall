@@ -139,14 +139,16 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
 # title, a multi-part reply's headings as its titles, and a one-line fact kept one line
 # (review of #2601); then an arrow written by its components ("A [4 5] N") in
-# VECTORS_DRAW_CONTRACT (textbook round, 2026-11-25); then every layout and presentation hint
-# saying what to write, never what the turn is ("This is a how-to task" came back as "It's a
-# how-to", the owner, 2026-11-27), the steps card for one procedure in order only, not for
-# tips or ways, and one card even when the steps differ by country, device or version
-# (STEPS_FORMAT_HINT, STEPS_CONTRACT).
-_RULES = 227
-_RULE_GRAMS = 21344
-_RULE_GRAMS_SHA = "792960223b62f4fc"
+# VECTORS_DRAW_CONTRACT (textbook round, 2026-11-25); then the worked contract's working
+# shown once, with no second try, its one-line Check kept, and no emoji in a reply to a
+# school question (Grade 11 physics round and the owner, 2026-11-26; WORKING_ONCE, its own
+# rule); then every layout and presentation hint saying what to write, never what the turn is
+# ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27), the steps
+# card for one procedure in order only, not for tips or ways, and one card even when the steps
+# differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT).
+_RULES = 228
+_RULE_GRAMS = 21405
+_RULE_GRAMS_SHA = "5cb7d70c3f38bc90"
 
 
 def _rules() -> list[str]:

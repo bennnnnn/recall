@@ -256,11 +256,20 @@ def wrap_stream_status(
     if timing is None and on_status is None:
         return None
 
-    async def emit(phase: str, detail: str | None = None, *, elapsed_ms: int | None = None) -> None:
+    async def emit(
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
+    ) -> None:
         if timing is not None:
             timing.mark_phase(phase)
         if on_status is not None:
-            await on_status(phase, detail, elapsed_ms=elapsed_ms)
+            if no_emoji:
+                await on_status(phase, detail, elapsed_ms=elapsed_ms, no_emoji=True)
+            else:
+                await on_status(phase, detail, elapsed_ms=elapsed_ms)
 
     return emit
 

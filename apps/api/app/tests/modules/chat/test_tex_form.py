@@ -15,6 +15,12 @@ from app.modules.chat.tex_form import well_formed
         ("v_A_{vec}, v_B_{vec}", "v_{A,vec}, v_{B,vec}"),
         ("r_{frustum}_{top}", "r_{frustum,top}"),
         ("V_{small}_{cone}_{volume}", "V_{small,cone,volume}"),
+        # A second subscript written bare is a word to its end: v_A_mag names a magnitude,
+        # never v_{A,m} then "ag" (textbook round, 2026-11-26).
+        ("v_A_mag = 20", "v_{A,mag} = 20"),
+        ("F_g_radial = 750", "F_{g,radial} = 750"),
+        ("d_P_from_left", "d_{P,from,left}"),
+        ("h_A_cm - h_B_cm", "h_{A,cm} - h_{B,cm}"),
         ("x^2^3", "{x^2}^3"),
         ("x_a^b_c", "{x_a^b}_c"),
         # Inside a group as well (Claude on #2509).

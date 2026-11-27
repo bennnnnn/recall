@@ -324,7 +324,10 @@ Maths, physics and chemistry share one contract for a reply the model works out 
   name as a note beside the formula (`services/workout.py`, `formula_heading`).
 - **Self-check:** `SELF_CHECK_PROMPT_RULE` tells it to check the result before **Answer**: put it
   back into the formula, redo each multiplication, and check the units and size. It may add a
-  one-line **Check**, never a ✓.
+  one-line **Check**, never a ✓. That line is the only check a reply shows: the ```worked
+  contract asks for the working once, with no reasoning on the way, second try or correction
+  ("wait", "let me re-check"), and `chat/worked_again.py` cuts a working written again outside
+  the block (three sums or more; a one-line Check has one).
 
 The server then recomputes the working (`modules/chat/working_check.py`):
 - **What it checks:** every `$...$` equality whose two sides are plain numbers once units are

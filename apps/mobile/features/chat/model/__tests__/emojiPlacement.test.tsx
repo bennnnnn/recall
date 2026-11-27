@@ -6,9 +6,34 @@ import * as fenceScan from "@/lib/fence/scan";
 // streams is what will be saved, so nothing changes when the reply settles. A .tsx
 // test runs under the React Native Babel transform, as the app does: it once rewrote a
 // u-flag emoji class into one that matched nothing, which the plain project missed.
+// A case marked `homework` is a reply the server said takes no emoji (its `composing`
+// status): the phone is told, never reads the message for it.
+const everyday = cases.filter((c) => !("homework" in c && c.homework));
+const homework = cases.filter((c) => "homework" in c && c.homework);
+
 describe("placeEmoji, the twin of the server's emoji pass", () => {
-  it.each(cases.map((c) => [c.name, c] as const))("%s", (_name, c) => {
+  it.each(everyday.map((c) => [c.name, c] as const))("%s", (_name, c) => {
     expect(placeEmoji(c.text, c.level, c.user_wrote_emoji)).toBe(c.expected);
+  });
+
+  it.each(homework.map((c) => [c.name, c] as const))("%s, told by the server", (_name, c) => {
+    expect(placeLiveEmoji(c.text, c.level, "hi", true)).toBe(c.expected);
+  });
+});
+
+describe("a reply the server says takes no emoji", () => {
+  it("streams with none, at every setting, as it will be saved", () => {
+    const text = "## 🔥 Heat\n- ⚡ **Energy** moves from hot to cold 🌡️";
+    for (const level of ["off", "some", "more"]) {
+      for (let end = 1; end <= text.length; end += 3) {
+        const draft = text.slice(0, end);
+        expect(placeLiveEmoji(draft, level, "hi", true)).toBe(placeEmoji(draft, "off", false));
+      }
+    }
+  });
+
+  it("keeps the setting when the server said nothing", () => {
+    expect(placeLiveEmoji("## 🔥 Heat", "more", "hi")).toBe("## 🔥 Heat");
   });
 });
 
@@ -24,7 +49,7 @@ describe("placeLiveEmoji", () => {
   it("places every flush of a growing draft as placing the whole draft does (audit MX-4)", () => {
     const fenced = "Steps 🧠\n\n```js\nconst x = \"🚀 go\";\n```\n\n## 🎯 Goal\n- 🔥 **Fast** wins 🎉\n| a 🌟 | b |\n";
     const drafts = [
-      ...cases.map((c) => [c.text, c.level, c.user_wrote_emoji ? "hi 👋" : "hi"] as const),
+      ...everyday.map((c) => [c.text, c.level, c.user_wrote_emoji ? "hi 👋" : "hi"] as const),
       [`${fenced}Then a line Lesson 2 🎉\n### Lesson 2: Loops 🔁\nmore 😀`, "some", "hi"] as const,
       ["## Today's Lesson\n1. Intro 🎯\n##\nLesson 3 🔁", "some", "hi"] as const,
       [`${fenced}~~~\n\`\`\`\n🚀 inside\n~~~\nafter 🚀 Done`, "off", "hi"] as const,
