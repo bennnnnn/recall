@@ -78,7 +78,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...base,
     plugins,
     // Over-the-air JS updates (EAS Update). Which builds may take an update is
-    // decided by app.json's runtimeVersion: bump `version` with any native change.
+    // decided by app.json's runtimeVersion, the native fingerprint: any native change
+    // makes a new one, and needs a store build (docs/PRODUCTION.md, OTA updates).
     updates: updatesFrom ? { ...base.updates, url: updatesFrom } : base.updates,
     ios: {
       ...base.ios,
