@@ -86,11 +86,11 @@ from app.modules.turn_reading.checklist import is_checklist_request
 from app.modules.turn_reading.clarify import names_its_purpose
 from app.modules.turn_reading.diagrams import asks_for_a_visual
 from app.modules.turn_reading.format import (
+    asks_for_steps,
     is_callout_question,
     is_howto_question,
     is_quote_question,
     is_structured_comparison_question,
-    is_task_howto,
 )
 from app.modules.turn_reading.length import ReplyLength, is_brevity_request, reply_length
 from app.modules.turn_reading.personal import is_personal_disclosure_turn
@@ -150,8 +150,10 @@ def _layout_format_hint(query_text: str | None, *, picks: bool = False) -> str |
         return CALLOUT_FORMAT_HINT
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
-    # A solver owns the shape of "how do I solve 2x + 5 = 17".
-    if is_task_howto(query_text) and subject_of(query_text) is None:
+    # Steps asked for in words ("step by step", "walk me through"). A plain "how do I …" is
+    # the read's to call one procedure (``steps_turn``). A solver owns the shape of "solve
+    # 2x + 5 = 17 step by step".
+    if asks_for_steps(query_text) and subject_of(query_text) is None:
         return STEPS_FORMAT_HINT
     if ranking := ranking_layout(query_text):  # "the best countries for business": picks
         return ranking
@@ -280,7 +282,7 @@ def _present(text: str | None) -> list[str]:
 
 
 _DAY_REFLECTION_HINT = (
-    "This is an end-of-day reflection — keep reminders, lists, and loose ends as the main focus."
+    "Look back on the day with them: keep reminders, lists, and loose ends as the main focus."
 )
 
 
@@ -363,6 +365,34 @@ def _plain(turn: StyleTurn) -> bool:
     if shaped or not turn.query or mermaid_format_hint(turn.query):
         return False
     return _layout_format_hint(turn.query, picks=turn.picks) not in _SHAPED_LAYOUTS
+
+
+def _open_layout(turn: StyleTurn) -> bool:
+    """The turn's words give its reply no layout of their own: no draft, code, lesson, plan,
+    day plan, chart, picture, length cap, card answer or several requests, and no layout hint
+    (a comparison, a checklist, steps asked for in words, a quote, picks). Its reply takes the
+    scan layout unless the read calls it one procedure (``steps_turn``)."""
+    shaped = (
+        turn.compact
+        or turn.multi
+        or turn.is_day_plan
+        or turn.minimal_personal_context
+        or turn.writing
+        or turn.writing_kind
+        or turn.revision_fence
+        or turn.code_hint
+        or turn.learning_plan
+        or turn.teaching
+        or turn.walkthrough
+        or turn.lesson_hint
+        or turn.viz_intent
+        or turn.chart_data
+        or turn.resuming
+        or turn.after_card
+    )
+    if shaped or not turn.query or turn.length == "brief" or is_brevity_request(turn.query):
+        return False
+    return _layout_format_hint(turn.query, picks=turn.picks) is None
 
 
 HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
@@ -557,6 +587,40 @@ def _style_format_hints(
     if ordinary and _plain(turn):
         turn = replace(turn, ordinary=True)
     return render_rules(HINT_RULES, turn, table="hints")
+
+
+def layout_is_open(
+    *,
+    query_text: str | None,
+    is_day_plan: bool,
+    minimal_personal_context: bool,
+    compact: bool = False,
+    lesson: int | None = None,
+    outline_pick: bool = False,
+    lesson_after_gap: bool = False,
+    prior_messages: Sequence[tuple[str, str]] | None = None,
+    multi: bool = False,
+    resuming: bool = False,
+) -> bool:
+    """Whether the turn's words leave its layout open (``_open_layout``), so the read may give
+    its reply the ```steps card; the same turn ``_style_format_hints`` reads."""
+    if not query_text or multi or _exclusive_pack(query_text, lesson, outline_pick=outline_pick):
+        return False
+    turn = _style_turn(
+        query_text,
+        lesson=lesson,
+        outline_pick=outline_pick,
+        lesson_after_gap=lesson_after_gap,
+        prior_messages=prior_messages,
+        is_day_plan=is_day_plan,
+        minimal_personal_context=minimal_personal_context,
+        compact=compact,
+        image_generation_enabled=False,
+        image_search_enabled=False,
+        multi=multi,
+        resuming=resuming,
+    )
+    return _open_layout(turn)
 
 
 def without_confirmation_hints(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

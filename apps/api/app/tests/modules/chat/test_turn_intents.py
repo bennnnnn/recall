@@ -251,7 +251,13 @@ def test_each_part_gets_its_own_layout() -> None:
     plan = plan_turn("compare python and javascript, and how do I install node on mac?")
     shapes = [part_shape_hints(text) for text in plan.texts()]
     assert COMPARISON_FORMAT_HINT in shapes[0]
-    assert shapes[1] and (HOWTO_FORMAT_HINT in shapes[1] or STEPS_FORMAT_HINT in shapes[1])
+    # A plain "how do I …" part is no card by its words: the read calls a whole message one
+    # procedure (``steps_turn``), never a part of several, which keeps a numbered list.
+    assert HOWTO_FORMAT_HINT not in shapes[1] and STEPS_FORMAT_HINT not in shapes[1]
+    asked = plan_turn(
+        "compare python and javascript, and how do I install node on mac step by step?"
+    )
+    assert STEPS_FORMAT_HINT in part_shape_hints(asked.texts()[1])
     contract = multi_part_contract(plan, shapes)
     assert f"For request 1 only: {COMPARISON_FORMAT_HINT}" in contract
 

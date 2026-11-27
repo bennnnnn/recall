@@ -260,6 +260,10 @@ class TurnDecision(BaseModel):
     # (``decider_read.PHOTO_QUESTION``). The Decider's alone: None from the text read, and the
     # word rules offer the photo (``chat.answer_photo_offer``).
     seen: bool | None = None
+    # Whether the answer is one procedure carried out in order, drawn as a ```steps card
+    # (``decider_read.STEPS_QUESTION``). The Decider's alone: None from the text read, and the
+    # reply takes the scan layout's numbered list (``chat.steps_turn``).
+    steps: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -434,6 +438,7 @@ async def read_decision(
             earlier,
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
+            ask_steps=True,
             lesson=lesson,
             raw=earlier if raw is None else raw,
         )
@@ -451,6 +456,7 @@ async def _join(
     *,
     ask_work: bool = False,
     ask_photo: bool = False,
+    ask_steps: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
     raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
@@ -466,6 +472,7 @@ async def _join(
         seconds=settings.live_read_timeout_seconds,
         ask_work=ask_work,
         ask_photo=ask_photo,
+        ask_steps=ask_steps,
         lesson=lesson,
     )
     if decided is None:

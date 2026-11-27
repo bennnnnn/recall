@@ -12,6 +12,9 @@ the rules' (``model_routing.decided``):
   contract, as one the subject readers recognised does, when the readers missed it; a
   message the read says works nothing out loses the contract the readers gave it for its
   number ("Translate the algebraic expression 7x in different word phrases");
+- a message the read calls one procedure done in order, whose words left its layout open,
+  gets the ```steps card's layout beside it (``steps_turn``); tips and ways keep the scan
+  layout's numbered list;
 - a message the read calls an answer to the last reply, or a change to what the
   conversation is about, gets a note beside it saying so (``FOLLOW_NOTES``), whatever its
   subject: "the language" after "Python the language, or the snake?" was asked back on
@@ -81,6 +84,7 @@ from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.prompt_sections import with_problem_pictures
 from app.modules.chat.quiz_cards import PracticeCard, last_reply_cards, option_letter
 from app.modules.chat.referent_read import asks_for_a_referent
+from app.modules.chat.steps_turn import lay_out_the_steps
 from app.modules.chat.turn_decision import TurnDecision, turn_decision_result
 from app.modules.chat.turn_prep.reading import plan_of
 from app.modules.chat.turn_trace import note_decision, note_prompt_rule, note_route
@@ -143,6 +147,8 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     # First, before any note or hint is added or taken: the swap needs the rules as built.
     _take_the_ordinary_prompt(ctx, read)
     _settle_the_photo(ctx, read)
+    # One procedure done in order: the ```steps card beside the message (``steps_turn``).
+    lay_out_the_steps(ctx, read)
     # A maths picture the message asks to see: the reply describes it (``drawing_turn``).
     await ask_for_a_drawing(ctx, settings, read, deadline)
     _leave_the_picture(ctx, settings, read)
@@ -251,6 +257,7 @@ async def _the_read(ctx: StreamContext, settings: Settings) -> TurnDecision | No
     if not (
         _lane_may_move(ctx)
         or _layout_at_stake(ctx)
+        or _steps_at_stake(ctx)
         or _reads_the_cards(ctx)
         or _picture_at_stake(ctx, settings)
         or _photo_at_stake(ctx)
@@ -303,6 +310,13 @@ def _layout_at_stake(ctx: StreamContext) -> bool:
     """The readers gave the turn the ```worked contract for its number and nothing verified it:
     the read's ``work`` may take it away, whatever model or escalation the turn keeps."""
     return ctx.worked is not None and not _worked(ctx) and ctx.instant_reply is None
+
+
+def _steps_at_stake(ctx: StreamContext) -> bool:
+    """The turn's words left its layout open: the read says whether its answer is one
+    procedure, drawn as a ```steps card (``steps_turn``). A turn that offers the reply a
+    search has waited for the read already (``reply_calls.search_the_live_read``)."""
+    return ctx.steps_open and ctx.instant_reply is None and not _worked(ctx)
 
 
 def _worked(ctx: StreamContext) -> bool:

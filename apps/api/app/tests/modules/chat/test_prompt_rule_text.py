@@ -138,10 +138,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
 # 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
 # title, a multi-part reply's headings as its titles, and a one-line fact kept one line
-# (review of #2601).
+# (review of #2601); then every layout and presentation hint saying what to write, never what
+# the turn is ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27),
+# the steps card for one procedure in order only, not for tips or ways, and one card even when
+# the steps differ by country, device or version (STEPS_FORMAT_HINT,
+# STEPS_CONTRACT).
 _RULES = 227
-_RULE_GRAMS = 21389
-_RULE_GRAMS_SHA = "179ee587e604a028"
+_RULE_GRAMS = 21307
+_RULE_GRAMS_SHA = "64b61416676fcff3"
 
 
 def _rules() -> list[str]:

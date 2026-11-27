@@ -64,6 +64,7 @@ from app.modules.chat.prompt_constants.writing import (
 )
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.referent_read import ContinuationPick, ReferentPick, read_referent
+from app.modules.chat.steps_turn import gives_the_steps_card
 from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.tool_loop.reply_calls import offers_search
 from app.modules.chat.turn_decision import TurnDecision
@@ -405,10 +406,20 @@ def read_of(case: Case) -> TurnDecision | None:
     if case.read is not None:
         subject, picture = case.read
         return TurnDecision.model_validate(
-            {"live": False, "think": False, "subject": subject, "picture": picture}
+            {
+                "live": False,
+                "think": False,
+                "subject": subject,
+                "picture": picture,
+                "steps": case.steps,
+            }
         )
     if case.figure is not None:
         return TurnDecision(live=False, think=False, subject="maths", picture="diagram")
+    if case.steps is not None:
+        return TurnDecision(
+            live=False, think=False, subject="everyday", picture="none", steps=case.steps
+        )
     return None
 
 
@@ -583,8 +594,13 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     verified = bundle.verified_subject
     # A free-body picture with no result behind it is drawn, not solved.
     solved = verified is not None and not is_picture_only(verified)
+    # The read's steps card, beside the message as ``decided_turn`` puts it (``steps_turn``).
+    steps_note = [pc.STEPS_FORMAT_HINT] if gives_the_steps_card(ctx, decision) else []
     system = "\n\n".join(
-        str(m.get("content")) for m in bundle.prompt_messages if m.get("role") == "system"
+        [
+            *(str(m.get("content")) for m in bundle.prompt_messages if m.get("role") == "system"),
+            *steps_note,
+        ]
     )
     return Route(
         photo=photo,

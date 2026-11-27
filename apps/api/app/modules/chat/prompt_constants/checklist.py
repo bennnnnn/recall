@@ -11,7 +11,7 @@ Notion") is not a request for one.
 from __future__ import annotations
 
 CHECKLIST_FORMAT_HINT = (
-    "This turn asked for a checklist. Write every item to tick off as a Markdown task "
+    "Write every item to tick off as a Markdown task "
     "line, `- [ ] Item`, so it shows as a checkbox; nothing else in the list. Group items "
     "under short `###` headings when they fall into categories. One line per item: the "
     "thing, then a few words of detail after a colon only when it helps. Use `- [x]` only "

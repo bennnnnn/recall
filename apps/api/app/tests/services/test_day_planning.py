@@ -109,5 +109,5 @@ def test_reflection_style_hints_keep_reminders_and_loose_ends():
     )
     joined = "\n".join(parts)
     assert DAY_PLANNING_ANSWER_HINT in parts
-    assert "end-of-day reflection" in joined
+    assert "Look back on the day" in joined
     assert "keep reminders, lists, and loose ends" in joined
