@@ -52,9 +52,16 @@ describe("every $$ reader leaves a price tier as written", () => {
 
   it.each(PRICES)("%s: the live line shows it at once", (_id, text) => {
     expect(prepareStreamingMathText(text)).toEqual({ text, pending: false });
-    // A table row is held back until its header row comes (holdBackPendingTableHeader).
-    if (!text.startsWith("|")) expect(presentStreamTail(text)).toContain(text.slice(-12));
   });
+
+  it.each(PRICES.filter(([, text]) => !text.startsWith("|")))(
+    "%s: the stream tail presents the prose after a tier",
+    (_id, text) => {
+      // Read as an open formula, the tier held the rest of the tail raw: the glued bold after
+      // it kept no space (openMathStart, review #2606).
+      expect(presentStreamTail(`${text} Try **brunch**now.`)).toContain("**brunch** now.");
+    },
+  );
 
   it.each(PRICES)("%s: the user bubble's compact maths", (_id, text) => {
     expect(displayMathToInline(text)).toBe(text);
@@ -78,5 +85,21 @@ describe("a formula still reads as one", () => {
   it("holds the live line while a line-final $$ waits for its formula", () => {
     expect(prepareStreamingMathText("Therefore: $$").pending).toBe(true);
     expect(prepareStreamingMathText("Cafe – $$. Great brunch").pending).toBe(false);
+  });
+});
+
+describe("a line of many pairs is read once (review #2606 round 2)", () => {
+  it.each([
+    ["tight pairs", "$$x$$ ".repeat(5_000)],
+    ["price tiers", "Nopa – $$. ".repeat(5_000)],
+    ["padded pairs", "$$ x = 1 $$ and ".repeat(3_000)],
+  ])("%s", (_name, line) => {
+    const started = performance.now();
+    repairInlineTokenBoundaries(line);
+    layoutCalculations(line);
+    displayMathToInline(line);
+    markdownToCopyText(line);
+    // Each reader asked about every `$$`, and each question read the line from its start.
+    expect(performance.now() - started).toBeLessThan(2_000);
   });
 });

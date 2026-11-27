@@ -151,6 +151,15 @@ describe("advanceStreamBlocks", () => {
     expect(state.chunks[0]).toContain("$$x^2 = 4$$");
   });
 
+  // Review #2606: counted raw, "$$–$$$" and "$$." left a formula open, and no part after them
+  // was ever cut.
+  it("cuts after a list priced in $$ tiers: a tier opens no formula", () => {
+    const prepared = `1. Nopa – $$–$$$\n2. Zuni – $$.\n\n${PARA("Both take bookings.")}\n\n${PARA("More.")}\n\ntail`;
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+    expect(state.chunks.length).toBeGreaterThanOrEqual(1);
+    expect(state.chunks.join("")).toContain("Both take bookings.");
+  });
+
   it("never cuts inside an open fence/math even with the eager rich-block path", () => {
     const prepared = "```math\nx = 1\n\ny = 2\n```\n\ntail";
     const state = advanceStreamBlocks(null, prepared, prepared.length);

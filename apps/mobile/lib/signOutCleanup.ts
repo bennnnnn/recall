@@ -9,6 +9,7 @@ import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
 import { clearSvgMathCache } from "@/lib/math/svgMath";
 import { clearFenceScanMemo } from "@/lib/fence/scan";
+import { clearDisplayDollarsMemo } from "@/lib/markdown/displayDollars";
 import { clearSettledMarkdownMemo } from "@/lib/markdown/preprocessStream";
 import { publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import { forgetSyncRecords } from "@/lib/syncRecords";
@@ -29,6 +30,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   // The replies the markdown passes remembered, and the fences they read.
   clearSettledMarkdownMemo();
   clearFenceScanMemo();
+  clearDisplayDollarsMemo();
   publishStreamingDraft(null);
   await Promise.allSettled([
     deleteAccountFiles(),

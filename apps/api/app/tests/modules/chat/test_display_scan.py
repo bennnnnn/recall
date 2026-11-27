@@ -25,7 +25,12 @@ def _by_character(line: str, closer: Closer) -> Closer:
         closer = None
     if "$" not in line and "\\" not in line:
         return closer
-    table = line.lstrip().startswith("|")
+    read = display_dollars._Line(
+        line,
+        line.lstrip().startswith("|"),
+        display_dollars._line_starts(line),
+        display_dollars._last_text(line),
+    )
     index = 0
     slashes = 0
     while index < len(line):
@@ -41,7 +46,7 @@ def _by_character(line: str, closer: Closer) -> Closer:
                 and closer != "\\]"
                 and not display_dollars._bracketed_tier(line, index, end)
             ):
-                closer, index = display_dollars._dollar_mark(line, index, end, closer, table, None)
+                closer, index = display_dollars._dollar_mark(read, index, end, closer, None)
             else:
                 index = end
             slashes = 0

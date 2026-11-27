@@ -1,5 +1,5 @@
 {
-  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula, or as a padded $$ x = 1 $$ whose text holds a maths mark (= < > ^ _ \\ |) and at most one word, closed on its line, or as a $$ that ends a sentence's line, closed by a $$ that starts a line before a blank line; a $$ alone on its line, or with TeX after it, opens a block only its closer ends (a line inside it like |x| < 5 or - 3x &= 2 is maths), while one with words after it or in a list item reads as prose, which a list item or table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts) read every case with the reader, convertBlockMath and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines and the LaTeX check.",
+  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula (any script: $$π$$), or as a padded $$ x = 1 $$ whose text holds a maths mark (= < > ^ _ \\ |) and at most one word (\\text{…} groups and commands aside), closed on its line, or as a $$ that ends a sentence's line, whose formula lines run to a $$ that starts a line before a blank line (a line inside it like |x| < 5 or + 2x + 1 is maths); a $$ alone on its line, or with TeX after it, opens a block only its closer ends, while one with words after it or in a list item reads as prose, which a blank line, a list item or a table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts, displayDollarsWiring.test.ts) read every case with the reader, convertBlockMath, displayMathLines, the inline readers and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines, the inline-boundary and calculation readers and the LaTeX check.",
   "cases": [
     {
       "id": "price-range",
@@ -259,6 +259,121 @@
     {
       "id": "padded-price-legend",
       "text": "Nopa – $$ = moderate, and Zuni – $$ = pricey.",
+      "display": []
+    },
+    {
+      "id": "r2-line-final-abs-value",
+      "text": "The inequality becomes: $$\n|x - 3| < 5\n$$\nso x lies between -2 and 8.",
+      "display": [
+        "|x - 3| < 5"
+      ]
+    },
+    {
+      "id": "r2-line-final-plus-line",
+      "text": "Expanding: $$\n(x+1)^2 = x^2\n+ 2x + 1\n$$",
+      "display": [
+        "(x+1)^2 = x^2\n+ 2x + 1"
+      ]
+    },
+    {
+      "id": "r2-line-final-minus-line",
+      "text": "We get $$\n- 3x = 6\n$$\nso x = -2.",
+      "display": [
+        "- 3x = 6"
+      ]
+    },
+    {
+      "id": "r2-line-final-determinant",
+      "text": "The determinant: $$\n|A| = ad - bc\n$$",
+      "display": [
+        "|A| = ad - bc"
+      ]
+    },
+    {
+      "id": "r2-line-final-in-list-item",
+      "text": "1. Expand: $$\n   (x+1)^2\n   + 2x + 1\n   $$\n2. Simplify.",
+      "display": [
+        "(x+1)^2\n   + 2x + 1"
+      ]
+    },
+    {
+      "id": "r2-legend-then-formula",
+      "text": "- $$ = moderate\n- $$ = for two\n\nThe area is $$\\pi r^2$$ here.",
+      "display": [
+        "\\pi r^2"
+      ]
+    },
+    {
+      "id": "r2-legend-then-price",
+      "text": "- $$ = moderate\n\nZuni is $$.",
+      "display": []
+    },
+    {
+      "id": "r2-numbered-legend-then-block",
+      "text": "1. $$ means mid-range\n2. $$$ means pricey\n\n$$\nx = 1\n$$",
+      "display": [
+        "x = 1"
+      ]
+    },
+    {
+      "id": "r2-text-group-label",
+      "text": "The answer is $$ \\text{Total cost} = 12 $$.",
+      "display": [
+        "\\text{Total cost} = 12"
+      ]
+    },
+    {
+      "id": "r2-text-group-unit",
+      "text": "So $$ v = 20 \\text{ meters per second} $$ here",
+      "display": [
+        "v = 20 \\text{ meters per second}"
+      ]
+    },
+    {
+      "id": "r2-mathrm-unit",
+      "text": "Speed: $$ s = \\frac{d}{t} = 5\\,\\mathrm{m/s} $$ today.",
+      "display": [
+        "s = \\frac{d}{t} = 5\\,\\mathrm{m/s}"
+      ]
+    },
+    {
+      "id": "r2-text-group-word-label",
+      "text": "Then $$ \\text{area of the circle} = \\pi r^2 $$ follows.",
+      "display": [
+        "\\text{area of the circle} = \\pi r^2"
+      ]
+    },
+    {
+      "id": "r2-greek-pi",
+      "text": "the value $$π$$ is irrational",
+      "display": [
+        "π"
+      ]
+    },
+    {
+      "id": "r2-infinity",
+      "text": "it tends to $$∞$$ as x grows",
+      "display": [
+        "∞"
+      ]
+    },
+    {
+      "id": "r2-greek-sum",
+      "text": "where $$α + β = γ$$ always",
+      "display": [
+        "α + β = γ"
+      ]
+    },
+    {
+      "id": "r2-tight-then-space",
+      "text": "Then $$x = 1 $$ holds",
+      "display": [
+        "x = 1"
+      ]
+    },
+    {
+      "id": "r2-price-tight-then-space",
+      "text": "Nopa, $$, and Zuni $$.",
       "display": []
     }
   ]

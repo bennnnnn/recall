@@ -8,45 +8,54 @@ reader reads a price list:
   tier, never maths, and so is one in brackets (``($$)``);
 - at the start of a line (after its indent, a quote mark or a list marker) it opens a formula
   that runs on over the lines below to the next ``$$``;
-- mid-line it is maths as ``$$x$$``, nothing between the dollars and the formula, closed on
-  the same line ("Californian, $$-$$$" and "Cafe - $$." are prices), or as a ``$$`` that ends
-  a sentence's line ("Therefore: $$"), closed by a ``$$`` that starts a line before a blank
-  line;
+- mid-line it is maths as ``$$x$$``, nothing between the dollars and the formula, or as a
+  padded ``$$ x = 1 $$`` that reads as maths, closed on the same line ("Californian, $$-$$$"
+  and "Cafe - $$." are prices); or as a ``$$`` that ends a sentence's line ("Therefore: $$"),
+  closed by a ``$$`` that starts a line before a blank line;
 - a ``$$`` alone on its line, or with TeX after it, opens a block nothing but its closer ends:
   a line inside it that looks like a list item or a table row (``|x| < 5``, ``- 3x &= 2``) is
-  maths. One with words after it ("$$ = moderate") or in a list item reads as prose: a list
-  item or a table row ends it unclosed;
+  maths. One with words after it ("$$ = moderate") or in a list item reads as prose: a blank
+  line, a list item or a table row ends it unclosed;
 - a pair on a table row never spans a ``|``.
 
 Inline code holds no maths: outside a formula a code span is skipped. The line's start, list
-markers and bracketed tiers are read by loops, not patterns, so no run is read twice.
+markers and bracketed tiers are read by loops, not patterns, so no run is read twice; each
+line is read once, so a line of many pairs costs its length.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Literal
 
 from app.modules.chat.inline_code import escaped_at, read_inline_code_span
 
 # The closer a line leaves awaited, or none:
 # - "$$": a block nothing but its closer ends;
-# - "$$ ": a formula opened in prose; a list item or a table row ends it unclosed;
+# - "$$ ": a formula opened in prose; a blank line, a list item or a table row ends it
+#   unclosed;
 # - "$$\n": a formula opened at a line's end; only a ``$$`` that starts a line closes it, and
-#   a blank line, a list item or a table row ends it unclosed;
+#   a blank line ends it unclosed;
 # - "\\]": ``\[ … \]`` maths (read only when brackets are).
 Closer = Literal["$$", "$$ ", "$$\n", "\\]"] | None
 # What a scan reports: a formula opened, closed, or one left open dropped (offset -1).
 Emit = Callable[[str, int], None]
+StartKind = Literal["line", "item"] | None
 
 _DOLLARS = frozenset({"$$", "$$ ", "$$\n"})
-# Something a formula is made of; a dash or ", " between two dollar pairs is not one.
-_FORMULA_CHAR = re.compile(r"[A-Za-z0-9\\]")
+# Something a formula is made of, in any script ("π", "∞"); a dash or ", " is not one.
+_FORMULA_CHAR = re.compile(r"[^\W_]|[\\∞]")
 # Text after an opening ``$$`` that is TeX, not words.
 _TEX = re.compile(r"[\\^_{}]")
 # A mark only maths writes: a relation, a script, a command, a bar.
 _MATH_MARK = re.compile(r"[=<>^_\\|]")
+# A TeX group of words (``\text{Total cost}``, ``\mathrm{ m/s}``): a formula's unit or label.
+_WORD_GROUP = re.compile(
+    r"\\(?:text|textrm|textbf|textit|mathrm|mathbf|mathit|mbox|operatorname)\s*\{[^{}]*\}"
+)
+# A TeX command and the environment name after it (``\begin{aligned}``).
 _COMMAND = re.compile(r"\\[A-Za-z]+(?:\{[A-Za-z*]*\})?")
 _WORD = re.compile(r"[A-Za-z]{3,}")
 # What the scan stops at: a dollar, a backslash, or a backtick that may open code.
@@ -80,16 +89,29 @@ def _after_list_marker(text: str, at: int) -> int:
     return blanks if blanks > end else -1
 
 
-def _line_start(prefix: str) -> Literal["line", "item"] | None:
-    """Whether ``prefix`` (a line's text before a delimiter) is the line's start."""
-    at = _after_blanks(prefix)
-    while at < len(prefix) and prefix[at] == ">":
+def _line_starts(line: str) -> tuple[int, int]:
+    """Where a delimiter stands at ``line``'s start: after its indent and quote marks, and
+    after a list marker there too (-1 when there is none). Read once per line."""
+    at = _after_blanks(line)
+    while at < len(line) and line[at] == ">":
         at += 1
-        if at < len(prefix) and prefix[at] in " \t":
+        if at < len(line) and line[at] in " \t":
             at += 1
-    if at == len(prefix):
+    return at, _after_list_marker(line, at)
+
+
+def _start_kind(starts: tuple[int, int], index: int) -> StartKind:
+    if index == starts[0]:
         return "line"
-    return "item" if _after_list_marker(prefix, at) == len(prefix) else None
+    return "item" if index == starts[1] else None
+
+
+def _last_text(line: str) -> int:
+    """The last character of ``line`` that is not a blank, or -1."""
+    at = len(line) - 1
+    while at >= 0 and line[at].isspace():
+        at -= 1
+    return at
 
 
 def _starts_item_or_row(line: str) -> bool:
@@ -117,8 +139,10 @@ def _bracketed_tier(line: str, start: int, end: int) -> bool:
 
 
 def _prose_words(text: str) -> int:
-    """Words of three letters or more, TeX commands aside: "a night, and suites" holds two."""
-    return len(_WORD.findall(_COMMAND.sub(" ", text)))
+    """Words of three letters or more, TeX aside (word groups whatever they hold, commands and
+    their environment names): "a night, and suites" holds two, "v = 20 \\text{ meters per
+    second}" none."""
+    return len(_WORD.findall(_COMMAND.sub(" ", _WORD_GROUP.sub(" ", text))))
 
 
 def _padded_formula(body: str) -> bool:
@@ -129,12 +153,12 @@ def _padded_formula(body: str) -> bool:
 def _tight_closer(line: str, start: int, table: bool) -> int | None:
     """The closer of a mid-line pair whose opener ends at ``start``, on the same line.
 
-    Tight (``$$x$$``), any formula; padded (``$$ x = 1 $$``), only one that reads as maths,
-    not words ("Rooms are $$ a night, and suites $$ more.").
+    Tight on both sides (``$$x$$``, ``$$π$$``), any formula; padded on either side
+    (``$$ x = 1 $$``, ``$$x = 1 $$``), only one that reads as maths, not words ("Rooms are $$ a
+    night, and suites $$ more.", "$$, and Zuni $$").
     """
     if start >= len(line) or line[start] == "$":
         return None
-    padded = line[start].isspace()
     index = start
     slashes = 0
     while (found := _DOLLAR_OR_SLASH.search(line, index)) is not None:
@@ -159,7 +183,8 @@ def _tight_closer(line: str, start: int, table: bool) -> int | None:
         body = line[start:at]
         if not _FORMULA_CHAR.search(body) or _bracketed_tier(line, at, end):
             return None
-        if (not _padded_formula(body)) if padded else body[-1:].isspace():
+        padded = body[:1].isspace() or body[-1:].isspace()
+        if padded and not _padded_formula(body):
             return None
         if table and "|" in body:
             return None
@@ -174,19 +199,34 @@ def _line_opener(line: str, end: int, start: Literal["line", "item"]) -> Closer:
 
 
 def _ends_unclosed(line: str, closer: Closer) -> bool:
-    """Whether ``line`` ends a formula ``closer`` awaits, unclosed, before it is read."""
+    """Whether ``line`` ends a formula ``closer`` awaits, unclosed, before it is read.
+
+    One opened in prose ends at a blank line, a list item or a table row; one opened at a
+    line's end, whose formula lines may start like a row or an item ("|x - 3| < 5",
+    "+ 2x + 1"), at a blank line.
+    """
     if closer == "$$ ":
-        return _starts_item_or_row(line)
-    if closer == "$$\n":
         return not line.strip() or _starts_item_or_row(line)
+    if closer == "$$\n":
+        return not line.strip()
     return False
 
 
+@dataclass(slots=True)
+class _Line:
+    """What a scan knows of its line before reading any delimiter on it."""
+
+    text: str
+    table: bool
+    starts: tuple[int, int]
+    last: int
+
+
 def _dollar_mark(
-    line: str, at: int, end: int, closer: Closer, table: bool, emit: Emit | None
+    line: _Line, at: int, end: int, closer: Closer, emit: Emit | None
 ) -> tuple[Closer, int]:
     """Read the run of two dollars at ``at``: the closer after it and where the scan goes on."""
-    start = _line_start(line[:at])
+    start = _start_kind(line.starts, at)
     if awaits_dollars(closer):
         # A formula opened at a line's end closes only at a line's start.
         if closer != "$$\n" or start:
@@ -197,13 +237,13 @@ def _dollar_mark(
     if start:
         if emit:
             emit("open", at)
-        return _line_opener(line, end, start), end
-    if (close := _tight_closer(line, end, table)) is not None:
+        return _line_opener(line.text, end, start), end
+    if (close := _tight_closer(line.text, end, line.table)) is not None:
         if emit:
             emit("open", at)
             emit("close", close)
         return closer, close + 2
-    if not line[end:].strip():
+    if end > line.last:
         if emit:
             emit("open", at)
         return "$$\n", end
@@ -230,7 +270,7 @@ def scan_display_line(
             emit("drop", -1)
     if "$" not in line and not (brackets and "\\" in line):
         return closer
-    table = line.lstrip().startswith("|")
+    read = _Line(line, line.lstrip().startswith("|"), _line_starts(line), _last_text(line))
     index = 0
     # The backslashes just before ``index``: an odd run escapes the character there.
     slashes = 0
@@ -247,7 +287,7 @@ def scan_display_line(
             end = _run_end(line, at)
             index, slashes = end, 0
             if end - at == 2 and closer != "\\]" and not _bracketed_tier(line, at, end):
-                closer, index = _dollar_mark(line, at, end, closer, table, emit)
+                closer, index = _dollar_mark(read, at, end, closer, emit)
             continue
         if brackets and char == "\\" and slashes % 2 == 0:
             following = line[at + 1 : at + 2]
@@ -262,9 +302,17 @@ def scan_display_line(
     return closer
 
 
-def find_display_dollars(text: str) -> list[tuple[int, int]]:
-    """Each display formula in ``text`` (prose, no fences): its start and the end past its ``$$``."""
-    spans: list[tuple[int, int]] = []
+@dataclass(slots=True)
+class _Reading:
+    """What one read of a text found: each formula's end by its start."""
+
+    text: str
+    ends: dict[int, int] = field(default_factory=dict)
+
+
+def _read_text(text: str) -> _Reading:
+    """Read ``text`` (prose, no fences) once, line by line, carrying what each line leaves open."""
+    reading = _Reading(text)
     closer: Closer = None
     open_at = [-1]
     line_start = 0
@@ -274,11 +322,27 @@ def find_display_dollars(text: str) -> list[tuple[int, int]]:
             if kind == "open":
                 open_at[0] = offset + at
             elif kind == "close":
-                spans.append((open_at[0], offset + at + 2))
+                reading.ends[open_at[0]] = offset + at + 2
 
         closer = scan_display_line(line, closer, emit=heard)
         line_start += len(line) + 1
-    return spans
+    return reading
+
+
+# The last text read, kept while a reader asks about each of its ``$$`` in turn: an inline
+# reader asks once per delimiter, so one read serves a line of many pairs.
+_last_reading: list[_Reading] = []
+
+
+def _reading(text: str) -> _Reading:
+    if not _last_reading or _last_reading[0].text is not text:
+        _last_reading[:] = [_read_text(text)]
+    return _last_reading[0]
+
+
+def find_display_dollars(text: str) -> list[tuple[int, int]]:
+    """Each display formula in ``text`` (prose, no fences): its start and the end past its ``$$``."""
+    return list(_read_text(text).ends.items())
 
 
 def math_spans(text: str, others: re.Pattern[str]) -> list[tuple[int, int]]:
@@ -309,35 +373,10 @@ def math_spans(text: str, others: re.Pattern[str]) -> list[tuple[int, int]]:
 def display_dollar_pair_end(text: str, start: int) -> int | None:
     """The end of the ``$$`` formula whose opener is at ``start`` in ``text``.
 
-    The formula is read from its line's start, so code spans and earlier pairs on the line
-    are read as they are. None when no formula opens there, or it is not closed.
+    Read as the whole text reads, once for all its delimiters (an inline reader asks about
+    each in turn), so code spans and earlier pairs are read as they are. None when no formula
+    opens there, or it is not closed.
     """
     if not text.startswith("$", start) or escaped_at(text, start):
         return None
-    if start > 0 and text[start - 1] == "$" and not escaped_at(text, start - 1):
-        return None
-    line_start = text.rfind("\n", 0, start) + 1
-    closer: Closer = None
-    state = {"opened": False, "dropped": False}
-    found: list[int] = []
-    while True:
-        newline = text.find("\n", line_start)
-        offset = line_start
-        line = text[line_start : newline if newline >= 0 else len(text)]
-
-        def heard(kind: str, at: int, offset: int = offset) -> None:
-            if found or state["dropped"]:
-                return
-            if kind == "open" and not state["opened"]:
-                state["opened"] = offset + at == start
-            elif kind == "close" and state["opened"]:
-                found.append(offset + at + 2)
-            elif kind == "drop" and state["opened"]:
-                state["dropped"] = True
-
-        closer = scan_display_line(line, closer, emit=heard)
-        if found:
-            return found[0]
-        if state["dropped"] or not state["opened"] or closer is None or newline < 0:
-            return None
-        line_start = newline + 1
+    return _reading(text).ends.get(start)

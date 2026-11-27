@@ -13,7 +13,12 @@ from pathlib import Path
 import pytest
 
 from app.modules.chat.calculation_layout import layout_calculations
-from app.modules.chat.display_dollars import display_dollar_pair_end, find_display_dollars
+from app.modules.chat.display_dollars import (
+    Closer,
+    display_dollar_pair_end,
+    find_display_dollars,
+    scan_display_line,
+)
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.markdown_regions import display_math_lines
 from app.modules.chat.notation_spans import code_notation
@@ -65,6 +70,34 @@ def test_display_dollars_lines_match_the_phone(lines: list[str], expected: list[
 
 def test_display_dollars_price_range_is_no_formula() -> None:
     assert display_dollar_pair_end("Californian, $$-$$$, open late.", 13) is None
+
+
+@pytest.mark.parametrize("case", CASES, ids=IDS)
+def test_display_dollars_lines_cover_the_fixture_formulas(case: dict[str, object]) -> None:
+    """``display_math_lines`` marks every line a formula over several lines covers; with no
+    formula left open or ended unclosed, it marks no other."""
+    text = str(case["text"])
+    lines = text.split("\n")
+    marks = display_math_lines(lines)
+    starts = [0]
+    for line in lines:
+        starts.append(starts[-1] + len(line) + 1)
+
+    def line_of(offset: int) -> int:
+        return max(index for index, start in enumerate(starts) if start <= offset)
+
+    covered: set[int] = set()
+    for start, end in find_display_dollars(text):
+        first, last = line_of(start), line_of(end - 1)
+        if first != last:
+            covered |= set(range(first, last + 1))
+    assert all(marks[index] for index in covered)
+    heard: list[str] = []
+    closer: Closer = None
+    for line in lines:
+        closer = scan_display_line(line, closer, True, lambda kind, _at: heard.append(kind))
+    if closer is None and "drop" not in heard:
+        assert {index for index, mark in enumerate(marks) if mark} == covered
 
 
 @pytest.mark.parametrize("case", CASES, ids=IDS)

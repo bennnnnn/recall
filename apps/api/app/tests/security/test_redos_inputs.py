@@ -358,3 +358,25 @@ def test_display_dollars_read_runs_of_blanks_once(text):
     find_display_dollars(text)
     scan_display_line(text, "$$ ")
     scan_display_line(text, "$$\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "$$x$$ " * 5_000,
+        "Nopa – $$. " * 5_000,
+        "$$ x = 1 $$ and " * 3_000,
+        "a $$" + "x" * N,
+    ],
+)
+def test_display_dollars_a_line_of_many_pairs_is_read_once(line):
+    """Review #2606 round 2: each inline reader asked about every ``$$`` of a line, and each
+    question read the line again from its start (k² · n)."""
+    from app.modules.chat.calculation_layout import layout_calculations
+    from app.modules.chat.display_dollars import display_dollar_pair_end
+    from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
+
+    repair_inline_token_boundaries(line)
+    layout_calculations(line)
+    for index in range(0, len(line), 7):
+        display_dollar_pair_end(line, index)

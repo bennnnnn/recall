@@ -3,7 +3,13 @@
  * docs/fixtures/display_math_cases.json holds the cases both run (the server's test is
  * apps/api/app/tests/modules/chat/test_display_dollars.py).
  */
-import { displayDollarsAfter, findDisplayDollars, type DisplayCloser } from "@/lib/markdown/displayDollars";
+import {
+  displayDollarsAfter,
+  findDisplayDollars,
+  scanDisplayLine,
+  type DisplayCloser,
+} from "@/lib/markdown/displayDollars";
+import { displayMathLines } from "@/lib/markdown/markdownRegions";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { convertBlockMath } from "@/lib/markdown/preprocessMathBlocks";
 import { findStableMarkdownPrefixLen } from "@/lib/markdown/preprocessStream";
@@ -17,6 +23,32 @@ const bodies = (text: string) =>
   findDisplayDollars(text).map(({ start, end }) => text.slice(start + 2, end - 2).trim());
 
 describe("display dollars (docs/fixtures/display_math_cases.json)", () => {
+  it.each(CASES)("%s: displayMathLines marks the lines a formula over several lines covers", (_id, c) => {
+    const lines = c.text.split("\n");
+    const marks = displayMathLines(lines);
+    const starts = [0];
+    for (const line of lines) starts.push(starts[starts.length - 1]! + line.length + 1);
+    const lineOf = (offset: number) => starts.filter((start) => start <= offset).length - 1;
+    const covered = new Set<number>();
+    for (const { start, end } of findDisplayDollars(c.text)) {
+      const first = lineOf(start);
+      const last = lineOf(end - 1);
+      if (first !== last) for (let line = first; line <= last; line += 1) covered.add(line);
+    }
+    for (const line of covered) expect(marks[line]).toBe(true);
+    // With no formula left open or ended unclosed, no other line is maths.
+    let closer: DisplayCloser = null;
+    let dropped = false;
+    for (const line of lines) {
+      closer = scanDisplayLine(line, closer, true, (kind) => {
+        if (kind === "drop") dropped = true;
+      });
+    }
+    if (closer == null && !dropped) {
+      expect(marks.flatMap((mark, line) => (mark ? [line] : []))).toEqual([...covered].sort((a, b) => a - b));
+    }
+  });
+
   it.each(CASES)("%s: the reader finds its formulas", (_id, c) => {
     expect(bodies(c.text)).toEqual(c.display);
   });
