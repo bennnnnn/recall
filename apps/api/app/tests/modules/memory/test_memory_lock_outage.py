@@ -42,7 +42,9 @@ EDITS: dict[str, Callable[[TestClient], Any]] = {
     ),
     "delete a fact": lambda c: c.delete(f"/memories/{uuid4()}", headers=_AUTH),
     "delete a page": lambda c: c.delete("/memories/documents/preferences", headers=_AUTH),
-    "delete everything": lambda c: c.delete("/memories", headers=_AUTH),
+    "delete everything": lambda c: c.request(
+        "DELETE", "/memories", headers=_AUTH, json={"confirm": "delete"}
+    ),
     "ask in words": lambda c: c.post(
         "/memories/instruct", headers=_AUTH, json={"instruction": "Remember I like tea"}
     ),

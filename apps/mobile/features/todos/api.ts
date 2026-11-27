@@ -1,4 +1,5 @@
 import { request, requestRevalidated } from "@/lib/api/client";
+import { apiPath, withQuery } from "@/lib/api/path";
 import type { Page, RecurrenceRule, Todo } from "@/lib/api/types";
 
 /** Completed to-dos older than this stay on the server until the list asks for them. */
@@ -27,13 +28,15 @@ async function listTodos(
 ): Promise<TodoList> {
   const rows = new Map<string, Todo>();
   const visitedCursors = new Set<string>();
-  const window = options?.allCompleted ? "" : `&completed_days=${RECENT_COMPLETED_DAYS}`;
   let cursor: string | null = null;
   let olderCompleted = false;
   for (;;) {
-    const suffix: string = cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`;
     const page: TodoPage = await requestRevalidated<TodoPage>(
-      `/todos/page?limit=${TODO_PAGE_SIZE}${window}${suffix}`,
+      withQuery("/todos/page", {
+        limit: TODO_PAGE_SIZE,
+        completed_days: options?.allCompleted ? undefined : RECENT_COMPLETED_DAYS,
+        cursor,
+      }),
       token,
       { signal: options?.signal },
     );
@@ -87,12 +90,12 @@ export const todosApi = {
       >
     >,
   ) =>
-    request<Todo>(`/todos/${id}`, token, {
+    request<Todo>(apiPath`/todos/${id}`, token, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
   deleteTodo: (token: string, id: string) =>
-    request<void>(`/todos/${id}`, token, { method: "DELETE" }),
+    request<void>(apiPath`/todos/${id}`, token, { method: "DELETE" }),
   /**
    * The notify_at a to-do due at `dueAt` would get if it were saved now: the editor's
    * "Remind at" for a due time it has not saved. The server's lead time and quiet hours.
@@ -104,15 +107,14 @@ export const todosApi = {
     signal?: AbortSignal,
   ) =>
     request<{ notify_at: string | null }>(
-      `/todos/reminder-preview?due_at=${encodeURIComponent(dueAt)}${
-        recurrenceRule ? `&recurrence_rule=${recurrenceRule}` : ""}`,
+      withQuery("/todos/reminder-preview", { due_at: dueAt, recurrence_rule: recurrenceRule }),
       token,
       { signal },
     ),
   /** Save the reminder change a chat card offered. A second tap is a no-op. */
   confirmReminderProposal: (token: string, proposalId: string) =>
     request<ReminderProposalSaved>(
-      `/todos/proposals/${encodeURIComponent(proposalId)}/confirm`,
+      apiPath`/todos/proposals/${proposalId}/confirm`,
       token,
       { method: "POST" },
     ),

@@ -475,6 +475,11 @@ def _account_delete_unconfirmed() -> Any:
     return _client(_user()).delete("/auth/me", headers=_AUTH)
 
 
+def _delete_everything_unconfirmed(path: str) -> Any:
+    """DELETE /chats or /memories with a bearer token and no confirmation."""
+    return _client(_user()).delete(path, headers=_AUTH)
+
+
 def _bodies() -> dict[str, dict[str, Any]]:
     with (
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -501,6 +506,8 @@ def _bodies() -> dict[str, dict[str, Any]]:
         "consent_required": _refusal(consent),
         "account_exists": _refusal(exists),
         "account_delete_unconfirmed": _refusal(_account_delete_unconfirmed()),
+        "chats_delete_all_unconfirmed": _refusal(_delete_everything_unconfirmed("/chats")),
+        "memories_delete_all_unconfirmed": _refusal(_delete_everything_unconfirmed("/memories")),
         "todo_limit": _refusal(_todo_at_cap()),
         "todo_duplicate": _refusal(_todo_duplicate()),
         "presign_unsupported_type": _refusal(_presign("application/x-msdownload", 100)),

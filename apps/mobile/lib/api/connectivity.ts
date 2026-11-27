@@ -1,11 +1,12 @@
 import { getApiUrl } from "@/lib/config";
 
 import { apiUrl } from "@/lib/api/client";
+import { apiPath } from "@/lib/api/path";
 import { newRequestId, REQUEST_ID_HEADER } from "@/lib/api/requestId";
 
 export function chatWebSocketUrl(chatId: string) {
   const base = getApiUrl().replace(/^http/, "ws");
-  return `${base}/ws/chats/${chatId}`;
+  return `${base}${apiPath`/ws/chats/${chatId}`}`;
 }
 
 /**

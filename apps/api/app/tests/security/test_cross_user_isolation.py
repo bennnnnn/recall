@@ -84,7 +84,9 @@ async def test_chat_routes_answer_404_for_another_users_chat(world: World) -> No
 
     # Bulk routes only ever touch the caller's own chats.
     assert (await c.post("/chats/archive-all", headers=b.headers)).status_code == 204
-    assert (await c.delete("/chats", headers=b.headers)).status_code == 204
+    everything = {"confirm": "delete"}
+    deleted = await c.request("DELETE", "/chats", json=everything, headers=b.headers)
+    assert deleted.status_code == 204
     listed = (await c.get("/chats", headers=b.headers)).json()
     assert str(chat) not in json.dumps(listed)
 
@@ -162,7 +164,8 @@ async def test_memory_routes_answer_404_for_another_users_memory(world: World) -
         response = await c.request(method, path, json=body, headers=b.headers)
         assert response.status_code == 404, (method, path, response.text)
 
-    assert (await c.delete("/memories", headers=b.headers)).status_code == 204
+    cleared = await c.request("DELETE", "/memories", json={"confirm": "delete"}, headers=b.headers)
+    assert cleared.status_code == 204
     b_list = (await c.get("/memories", headers=b.headers)).json()
     b_docs = (await c.get("/memories/documents", headers=b.headers)).json()
     assert data.secret_word not in json.dumps(b_list)

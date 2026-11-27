@@ -10,6 +10,7 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
+import { apiPath } from "@/lib/api/path";
 import { getSessionGeneration } from "@/lib/auth";
 import { sanitizeDisplayName } from "@/lib/profile";
 import { discardProfilePhoto, pickProfilePhoto } from "@/features/account/model/profilePhoto";
@@ -161,7 +162,7 @@ export function useProfileEditor() {
         cancelUpload();
         return;
       }
-      const avatar = uploadedId ? { avatar_url: `/attachments/${uploadedId}/file` } : clearPhoto ? { avatar_url: null } : {};
+      const avatar = uploadedId ? { avatar_url: apiPath`/attachments/${uploadedId}/file` } : clearPhoto ? { avatar_url: null } : {};
       await updateUser({ name, ...avatar });
       if (isCurrent(revision)) dismiss();
     } catch {
