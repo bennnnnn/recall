@@ -94,6 +94,11 @@ class BoundedSympyExecutor:
         """Slots idle right now (None when the executor does not know)."""
         return None
 
+    def can_start_now(self, lane: SympyLane = "solve") -> bool | None:
+        """A job of ``lane`` would start at once, with no wait for a slot or for this user's
+        running job of that lane (None when the executor does not know)."""
+        return None
+
     def shutdown(self) -> None:
         pass
 
@@ -162,6 +167,12 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
 
     def free_slots(self) -> int | None:
         return self._max_workers if self._free is None else self._free.qsize()
+
+    def can_start_now(self, lane: SympyLane = "solve") -> bool | None:
+        user = current_log_ids().get("user_id") if self._per_user else None
+        if user is not None and self._owners.running.get(f"{user}:{lane}") is not None:
+            return False
+        return self._free is None or self._free.may_start(lane)
 
     def _free_queue(self) -> SlotPool:
         q = self._free

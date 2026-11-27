@@ -71,6 +71,11 @@ class SlotPool:
         self._free.append(slot)
         self._hand_out()
 
+    def may_start(self, lane: SympyLane) -> bool:
+        """A job of ``lane`` would take a slot at once: one is free that the lane may take,
+        and no job waits for one ahead of it."""
+        return bool(self._free) and self._may_take(lane) and not self._waiters
+
     def _may_take(self, lane: SympyLane) -> bool:
         return lane == "reading" or len(self._solves) < self._solve_cap
 
