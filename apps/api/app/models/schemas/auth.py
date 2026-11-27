@@ -328,6 +328,17 @@ class SignInRequest(DeviceSessionIn):
     # page), so the tap is the agreement and the sign-in records ``ai_data_consent_at``.
     # Absent (an older phone, the web): consent is asked after sign-in, as before.
     ai_data_consent: bool = False
+    # The language the sign-in page was shown in (the phone's own, when Recall has it).
+    # Only a new account takes it; one it cannot use is dropped, never a refused sign-in.
+    locale: str | None = None
+
+    @field_validator("locale")
+    @classmethod
+    def _supported_locale(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        code = normalize_locale_code(value.strip())
+        return code if code in LOCALE_NAMES else None
 
 
 class GoogleAuthRequest(SignInRequest):

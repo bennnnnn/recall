@@ -68,6 +68,7 @@ async def google_login(
             device_label=body.device_label,
             platform=body.platform,
             ai_data_consent=body.ai_data_consent,
+            locale=body.locale,
         )
     return web_session.auth_json_response(request, settings, auth)
 
@@ -93,6 +94,7 @@ async def apple_login(
             device_label=body.device_label,
             platform=body.platform,
             ai_data_consent=body.ai_data_consent,
+            locale=body.locale,
         )
     return web_session.auth_json_response(request, settings, auth)
 
@@ -130,6 +132,7 @@ async def dev_login(
             device_label=body.device_label,
             platform=body.platform,
             ai_data_consent=body.ai_data_consent,
+            locale=body.locale,
         )
     return web_session.auth_json_response(request, settings, auth)
 

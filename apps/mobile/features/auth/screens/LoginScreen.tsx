@@ -215,8 +215,8 @@ function SignInActions({ s, theme }: { s: Styles; theme: Theme }) {
         </>
       )}
 
-      {/* A tap agrees to the Terms and Privacy Policy (features/auth/api.ts sends it with
-          the sign-in); the Privacy Policy says what the AI providers receive. */}
+      {/* A tap agrees to what this line says: outside AI services answer, and the Terms and
+          Privacy Policy (features/auth/api.ts sends it with the sign-in). */}
       <AgreeLine style={s.consentLine} linkStyle={s.link} />
     </View>
   );

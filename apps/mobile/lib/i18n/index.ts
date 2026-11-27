@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next";
 
 import { DATE_FORMAT_CHANGED } from "@/lib/datetime/format";
 
+import { deviceLanguage } from "./deviceLanguage";
 import en from "./en.json";
 import { installPluralRules } from "./pluralRules";
 
@@ -33,7 +34,7 @@ function addLocale(lng: string): string {
   return code;
 }
 
-/** Boot English only. Other locales load when the user preference is not `en`. */
+/** Switches to `lng` ("en" for one Recall has no strings for), its bundle loaded first. */
 export async function ensureLocale(lng: string): Promise<void> {
   const code = addLocale(lng);
   // Already in it (the launch language, say): a change event would re-render
@@ -55,9 +56,20 @@ export function startLocale(lng: string): void {
 // Before init: i18next reads the plural rules when it first counts.
 installPluralRules();
 
+// The phone's language until a choice replaces it: the cached account's, before the first
+// render (`startLocale`), then the profile's. Only its bundle and English are loaded.
+const phoneLanguage = deviceLanguage();
+const launchBundle = LOCALE_BUNDLES[phoneLanguage] as (() => LocaleBundle) | undefined;
+const LAUNCH_LANGUAGE = launchBundle ? phoneLanguage : "en";
+const launchResources: Record<string, { translation: LocaleBundle }> = { en: { translation: en } };
+if (launchBundle) {
+  launchResources[LAUNCH_LANGUAGE] = { translation: launchBundle() };
+  loadedLocales.add(LAUNCH_LANGUAGE);
+}
+
 i18n.use(initReactI18next).init({
-  resources: { en: { translation: en } },
-  lng: "en",
+  resources: launchResources,
+  lng: LAUNCH_LANGUAGE,
   fallbackLng: {
     es: ["en"],
     fr: ["en"],
