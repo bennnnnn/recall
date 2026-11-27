@@ -73,6 +73,13 @@ jest.mock("react-native", () => ({
   },
 }));
 
+// The token this install last registered, kept on the device (a file, outliving a cold start).
+let mockRegisteredToken: string | null = null;
+jest.mock("@/features/notifications/model/registeredPushToken", () => ({
+  readRegisteredPushToken: async () => mockRegisteredToken,
+  rememberRegisteredPushToken: async (token: string | null) => { mockRegisteredToken = token; },
+}));
+
 // Recall's explanation before the phone's prompt: Continue (true) or Not now (false).
 const mockConfirm = jest.fn(async (_options: unknown) => true);
 jest.mock("@/ui/overlay/dialogs", () => ({
@@ -432,6 +439,43 @@ describe("push re-sync on launch, token refresh and foreground", () => {
     expect(updateMeMock).not.toHaveBeenCalled();
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
     cleanup();
+  });
+
+  // Review of #2614: A registers, turns notifications off in iOS Settings, comes back (the switch
+  // is no longer turned off), signs out. The sign-out must still hand the server A's token, or
+  // A's reminders reach this phone once notifications are allowed again.
+  it("hands sign-out the token this install registered, though notifications are now off", async () => {
+    const { devicePushToken } =
+      jest.requireActual<typeof import("@/features/notifications/model/pushNotifications")>("@/features/notifications/model/pushNotifications");
+    mockRegisteredToken = null;
+    const cleanup = attachPushForegroundSync("tok", true, account);
+    await settle();
+    expect(registerMock).toHaveBeenCalledTimes(1);
+    expect(mockRegisteredToken).toBe("ExponentPushToken[abc]");
+
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
+    tokenMock.mockClear();
+    await foreground();
+    expect(updateMeMock).not.toHaveBeenCalled();
+    await expect(devicePushToken()).resolves.toBe("ExponentPushToken[abc]");
+    // Read from the device, not asked of the push service without permission.
+    expect(tokenMock).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("hands sign-out nothing when this install never registered, or the server removed it", async () => {
+    const { devicePushToken } =
+      jest.requireActual<typeof import("@/features/notifications/model/pushNotifications")>("@/features/notifications/model/pushNotifications");
+    mockRegisteredToken = null;
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
+    await expect(devicePushToken()).resolves.toBeNull();
+
+    mockRegisteredToken = "ExponentPushToken[abc]";
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    await unregisterRemotePushToken("tok");
+    expect(mockRegisteredToken).toBeNull();
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });
+    await expect(devicePushToken()).resolves.toBeNull();
   });
 
   it("registers on a return after the user allowed notifications in Settings", async () => {

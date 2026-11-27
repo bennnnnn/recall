@@ -2,8 +2,9 @@
  * The server's clock as this phone last saw it. A token's expiry is the server's time, and the
  * phone judged it by its own clock: one set an hour fast took every new token for expired and
  * refreshed before each request, until the server's refresh limit (10 a minute) refused every
- * request for a minute. The offset between the two is read from each answer's `Date` header
- * and from a new token's `iat` at the moment it arrives, and expiry is judged on the server's
+ * request for a minute. The offset between the two is read from the `Date` header of an answer
+ * no HTTP cache can have kept (a POST, a 401: `client.ts`) and from a new token's `iat` at the
+ * moment it arrives, and expiry is judged on the server's
  * clock (`tokenExpiry.ts`). Before any answer the phone's own clock stands in (offset 0).
  *
  * It is the phone's clock, not the account's: nothing here is cleared at sign-out.

@@ -60,6 +60,18 @@ function requireNotAborted(signal?: AbortSignal | null): void {
   if (signal?.aborted) throw abortError();
 }
 
+/**
+ * The server's time from an answer that cannot have come from the phone's HTTP cache: a POST,
+ * PUT, PATCH or DELETE (the refresh and the sign-ins among them), or a 401. A GET may be a copy
+ * the cache kept for a day (an attachment's file), whose `Date` would set the clock back by its
+ * age and make an expired token look good.
+ */
+function noteServerDate(init: RequestInit, response: Response): void {
+  const method = (init.method ?? "GET").toUpperCase();
+  if ((method === "GET" || method === "HEAD") && response.status !== 401) return;
+  noteServerDateHeader(responseHeader(response, "date"));
+}
+
 export const AUTH_FETCH_TIMEOUT_MS = 15_000;
 
 /** A fetch outside a session (sign-in, sign-out) that gives up after 15 s without
@@ -78,7 +90,7 @@ export async function fetchWithTimeout(url: string, init: RequestInit): Promise<
   };
   try {
     const response = await fetch(url, { ...init, headers, signal: controller.signal });
-    noteServerDateHeader(responseHeader(response, "date"));
+    noteServerDate(init, response);
     return response;
   } catch (error) {
     if (isAbortError(cancelAsAbort(error, controller.signal))) throw serverUnreachableError();
@@ -329,7 +341,7 @@ async function fetchApi(path: string, init: RequestInit, generation: number): Pr
       ...appVersionHeaders(),
     };
     const response = await fetch(apiUrl(path), { ...init, headers });
-    noteServerDateHeader(responseHeader(response, "date"));
+    noteServerDate(init, response);
     status = response.status;
     unreachable = UNAVAILABLE_STATUSES.has(response.status);
     answered = response.ok || response.status === 304;

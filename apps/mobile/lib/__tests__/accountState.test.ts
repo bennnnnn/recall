@@ -227,6 +227,8 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/hapticsPrefs.ts#hapticsPref",
+  // The Expo push token this install last registered: the install's, the same for every account.
+  "features/notifications/model/registeredPushToken.ts#lastRegistered",
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",

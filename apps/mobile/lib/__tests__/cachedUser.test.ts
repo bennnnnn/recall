@@ -100,12 +100,18 @@ describe("cachedUser", () => {
     });
   });
 
-  it("does not paint a cache written before the settings were kept", async () => {
+  it("does not paint a cache written before the settings were kept, and clears it", async () => {
+    // An older build's file: this account's, or one another account's sign-out failed to delete.
+    const v1 = JSON.stringify({ id: "u1", name: "Alex", avatar_url: null, plan: "free", locale: "fr" });
     (getInfoAsync as jest.Mock).mockResolvedValue({ exists: true });
-    (readAsStringAsync as jest.Mock).mockResolvedValue(
-      JSON.stringify({ id: "u1", name: "Alex", avatar_url: null, plan: "free", locale: "en" }),
-    );
+    (readAsStringAsync as jest.Mock).mockResolvedValue(v1);
     await expect(readCachedUser()).resolves.toBeNull();
+    await clearCachedUser();
+    expect(deleteAsync).toHaveBeenCalledTimes(2);
+    // Its language is not drawn in the first frame either.
+    mockSyncFiles.set("/mock-cache/cached-user.json", v1);
+    expect(readCachedLocaleSync()).toBeNull();
+    mockSyncFiles.delete("/mock-cache/cached-user.json");
   });
 
   it("reads a setting of the wrong kind as unset, never as the bad value", async () => {

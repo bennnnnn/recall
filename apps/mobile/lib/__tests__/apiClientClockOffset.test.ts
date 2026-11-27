@@ -155,3 +155,89 @@ it("a token held back by a doubtful clock still refreshes once on a 401", async 
   expect(unauthorized).not.toHaveBeenCalled();
   expect(refreshCalls()).toBe(2);
 });
+
+describe("the back-off ends", () => {
+  // No Date header, no iat: only the back-off stands between a bad clock and the refresh limit.
+  const serverNowMs = 1_800_000_000_000;
+  let phoneNow = 0;
+  let next: () => string;
+  const stored = issuedAt(serverNowMs - 5 * 60_000, false);
+  const expiredLooking = () => issuedAt(serverNowMs, false);
+
+  beforeEach(() => {
+    phoneNow = serverNowMs + 2 * HOUR_MS;
+    jest.spyOn(Date, "now").mockImplementation(() => phoneNow);
+    next = expiredLooking;
+    mockFetch.mockImplementation(async (url: string) =>
+      url.endsWith("/auth/refresh")
+        ? answer({ access_token: next(), refresh_token: "r" }, null)
+        : answer({ ok: true }, null));
+  });
+
+  it("a token that looks good again clears it: the next expiry refreshes at once", async () => {
+    await request("/home", stored); // wait 60 s
+    phoneNow += 61_000;
+    await request("/home", stored); // wait 120 s
+    phoneNow += 121_000;
+    // This refresh's token looks good (a minute left by the phone's clock).
+    next = () => jwt({ exp: Math.floor((phoneNow + 60_000) / 1000) });
+    await request("/home", stored);
+    expect(refreshCalls()).toBe(3);
+    // 45 s on it looks expired: with the back-off cleared, it refreshes now.
+    phoneNow += 45_000;
+    next = expiredLooking;
+    await request("/home", stored);
+    expect(refreshCalls()).toBe(4);
+  });
+
+  it("stops doubling at half an hour", async () => {
+    let wait = 60_000;
+    await request("/home", stored);
+    for (let refreshes = 1; refreshes < 6; refreshes += 1) {
+      phoneNow += wait + 1_000;
+      await request("/home", stored);
+      wait = Math.min(wait * 2, 30 * 60_000);
+    }
+    expect(refreshCalls()).toBe(6);
+    // Uncapped, the next wait would be 32 minutes; it is 30.
+    phoneNow += 30 * 60_000 + 1_000;
+    await request("/home", stored);
+    expect(refreshCalls()).toBe(7);
+  });
+
+  it("a clock moved back ends the wait", async () => {
+    await request("/home", stored);
+    expect(refreshCalls()).toBe(1);
+    phoneNow -= 10_000;
+    await request("/home", stored);
+    expect(refreshCalls()).toBe(2);
+  });
+});
+
+describe("only an answer no HTTP cache kept sets the clock", () => {
+  const serverNowMs = 1_800_000_000_000;
+  // Expired ten minutes ago, by the server's clock and this phone's (it is right).
+  const expired = issuedAt(serverNowMs - 70 * 60_000);
+
+  beforeEach(() => {
+    jest.spyOn(Date, "now").mockReturnValue(serverNowMs);
+  });
+
+  it("ignores the Date of a GET answered 200, which the phone's cache may have kept a day", async () => {
+    mockFetch.mockResolvedValue(answer({ ok: true }, serverNowMs - 24 * HOUR_MS));
+    await request("/attachments/a1/file", issuedAt(serverNowMs));
+    expect(accessTokenNeedsRefresh(expired)).toBe(true);
+  });
+
+  it("takes the Date of a POST, and of a 401", async () => {
+    mockFetch.mockResolvedValueOnce(answer({ ok: true }, serverNowMs - HOUR_MS));
+    await request("/todos", issuedAt(serverNowMs), { method: "POST", body: "{}" });
+    // The server says it is an hour earlier: the token has fifty minutes left.
+    expect(accessTokenNeedsRefresh(expired)).toBe(false);
+
+    resetServerClockForTest();
+    mockFetch.mockResolvedValueOnce(answer({ detail: "expired" }, serverNowMs - HOUR_MS, 401));
+    await request("/home", issuedAt(serverNowMs), undefined, false).catch(() => undefined);
+    expect(accessTokenNeedsRefresh(expired)).toBe(false);
+  });
+});

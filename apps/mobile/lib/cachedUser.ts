@@ -121,7 +121,13 @@ export async function readCachedUser(): Promise<CachedUser | null> {
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown> | null;
-    if (!parsed || typeof parsed.id !== "string" || parsed.v !== CACHE_VERSION) return null;
+    if (!parsed || typeof parsed.id !== "string") return null;
+    if (parsed.v !== CACHE_VERSION) {
+      // An older build's file, this account's or one another left: never painted, and gone, as
+      // a file another account left is (its language was not drawn: readCachedLocaleSync).
+      void cachedUserFile.clear();
+      return null;
+    }
     return {
       id: parsed.id,
       name: isString(parsed.name) ? parsed.name : null,
@@ -136,13 +142,15 @@ export async function readCachedUser(): Promise<CachedUser | null> {
 }
 
 /** The cached account's language, read before the first render so the first
- * frame is drawn in it (`lib/launchPrefs.ts`); null without one. */
+ * frame is drawn in it (`lib/launchPrefs.ts`); null without one, or from an older build's file,
+ * which `readCachedUser` clears (it may be another account's). */
 export function readCachedLocaleSync(): string | null {
   const raw = cachedUserFile.readSync();
   if (raw === null) return null;
   try {
-    const parsed = JSON.parse(raw) as { locale?: unknown } | null;
-    const locale = parsed?.locale;
+    const parsed = JSON.parse(raw) as { locale?: unknown; v?: unknown } | null;
+    if (parsed?.v !== CACHE_VERSION) return null;
+    const locale = parsed.locale;
     return typeof locale === "string" && locale.trim() ? locale.trim() : null;
   } catch {
     return null;

@@ -1,3 +1,8 @@
+// The token this install last registered (a device file): none here.
+jest.mock("@/features/notifications/model/registeredPushToken", () => ({
+  readRegisteredPushToken: async () => null,
+  rememberRegisteredPushToken: async () => undefined,
+}));
 /**
  * Push and local reminders post to one Android channel. Creating it is a native call,
  * made once per run whichever of them asks first.

@@ -347,7 +347,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   useEffect(() => {
     if (user?.locale) void ensureLocale(user.locale);
   }, [user?.locale]);
-  useCachedUserWriter(profileValidated ? user : null);
+  useCachedUserWriter(profileValidated ? user : null, savesWaitingRef);
 
   // The launch cache keeps no push, email or reminder switch, nor Location: running bootstrap
   // on their placeholders would unregister push and overwrite local reminders.

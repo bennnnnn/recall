@@ -20,6 +20,7 @@ import { reportFailure } from "@/lib/sentry";
 import { devicePushTokenFingerprint } from "@/features/notifications/model/devicePushToken";
 import { forgetSyncRecords, recentSyncAt, recordSync } from "@/lib/syncRecords";
 import { setRemotePushRegistered } from "@/features/notifications/model/pushRegistration";
+import { readRegisteredPushToken, rememberRegisteredPushToken } from "@/features/notifications/model/registeredPushToken";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -204,14 +205,19 @@ export async function registerRemotePushToken(
     ...(Platform.OS === "android" ? { android_channels: TONE_ANDROID_CHANNELS } : {}),
   });
   setRemotePushRegistered(true);
+  void rememberRegisteredPushToken(expoPushToken);
   return "registered";
 }
 
-/** This device's Expo push token, for sign-out to hand the server; null when this device
- * cannot have registered one (Expo Go, no notification permission). */
+/**
+ * This device's Expo push token, for sign-out to hand the server: the current one while
+ * notifications are allowed, else the one this install last registered (`registeredPushToken.ts`),
+ * which the server may still hold though the phone has since turned notifications off. Null when
+ * this install never registered one (Expo Go, never allowed).
+ */
 export async function devicePushToken(): Promise<string | null> {
-  if (!(await getNotificationPermissionGranted())) return null;
-  return resolveExpoPushToken();
+  const current = (await getNotificationPermissionGranted()) ? await resolveExpoPushToken() : null;
+  return current ?? readRegisteredPushToken();
 }
 
 /** Unregister the Expo push token from the backend.
@@ -231,6 +237,8 @@ export async function unregisterRemotePushToken(
   if (!expoPushToken) return false;
   try {
     await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
+    // The server holds it no more: a sign-out has nothing of it to hand over.
+    void rememberRegisteredPushToken(null);
     return true;
   } catch (error) {
     reportFailure("push_unregister", error);

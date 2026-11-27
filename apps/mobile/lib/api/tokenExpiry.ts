@@ -1,18 +1,5 @@
 import { serverNow } from "@/lib/api/serverClock";
-
-/** A JWT's claims, or null for an opaque or unreadable token. */
-function tokenClaims(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3 || parts.some((part) => !part)) return null;
-    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
-    const claims: unknown = JSON.parse(atob(padded));
-    return typeof claims === "object" && claims !== null ? (claims as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
-}
+import { tokenClaims } from "@/lib/tokenSubject";
 
 function numericClaim(token: string, name: "exp" | "iat"): number | null {
   const value = tokenClaims(token)?.[name];
