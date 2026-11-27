@@ -622,3 +622,47 @@ def test_a_card_no_arithmetic_reaches_is_the_server_s(working: str) -> None:
     reply = f"{working}\n\n**Answer**\n\n{_card('32.4\\,\\mathrm{m}')}"
     held = held_to_server(reply, _RANGE.values, "Worked out again:")
     assert "31.07" in held and "32.4\\,\\mathrm{m}\n```" not in held
+
+
+_LAMP = _answer(_value(806.67, "ohm", uses=(60.0, 220.0)))
+
+
+@pytest.mark.parametrize(
+    "working",
+    [
+        # The reviewer's input (round 2 of #2604): 0.27 is the current rounded too soon.
+        "$I = \\frac{60}{220} \\approx 0.27\\,\\mathrm{A}$\n\n"
+        "$R = \\frac{220}{0.27} \\approx 814.8\\,\\Omega$",
+        "$I = 60/220 = 0.27\\,\\mathrm{A}$\n\n$R = 220/0.27 = 814.8\\,\\Omega$",
+        "$I = \\dfrac{60}{220} ≈ 0.27$ A\n\n$R = \\dfrac{220}{0.27} ≈ 814.8$ Ω",
+        "\\[ I = \\frac{60}{220} \\approx 0.27 \\]\n\n\\[ R = \\frac{220}{0.27} \\approx 814.8 \\]",
+        "$$\nI = \\frac{60}{220} \\approx 0.27\\,\\mathrm{A}\n$$\n\n"
+        "$$\nR = \\frac{220}{0.27} \\approx 814.8\\,\\Omega\n$$",
+    ],
+    ids=["approx", "equals", "dfrac", "brackets", "dollars"],
+)
+def test_a_value_rounded_too_soon_is_a_slip_the_server_corrects(working: str) -> None:
+    from app.modules.chat.formal_cards import held_to_server
+
+    reply = f"60 W at 220 V\n\n{working}\n\n**Answer**\n\n{_card('814.8\\,\\Omega')}"
+    held = held_to_server(reply, _LAMP.values, "Worked out again:")
+    assert "806.67" in held
+
+
+@pytest.mark.parametrize(
+    "working",
+    [
+        "\\[ a = \\frac{10 - 0.2 \\times 9.8}{0.2} = 40.2 \\]",
+        "$$\na = \\frac{10 - 0.2 \\times 9.8}{0.2}\n$$\n\n$$\na = 40.2\\,\\mathrm{m/s^2}\n$$",
+    ],
+    ids=["brackets", "dollars"],
+)
+def test_right_working_in_display_maths_stands(working: str) -> None:
+    from app.modules.chat.formal_cards import held_to_server
+
+    reply = (
+        "$F = 10\\,\\mathrm{N}$, $m = 200\\,\\mathrm{g}$, $g = 9.8$\n\n"
+        f"{working}\n\n**Answer**\n\n{_card('40.2\\,\\mathrm{m/s^2}')}"
+    )
+    server = _value(50.0, "m/s^2", uses=(10.0, 200.0))
+    assert held_to_server(reply, (server,), "Worked out again:") == reply

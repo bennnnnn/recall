@@ -403,3 +403,17 @@ def test_the_server_s_own_unchecked_card_keeps_its_zeros() -> None:
     assert card_numbers(reply, Precision()) == reply
     laid_out = "$I = 2.5$\n\n" + _card("2.50\\,\\mathrm{A}")
     assert card_numbers(laid_out, Precision(), model_cards=False) == laid_out
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # A mixed number is left as written: its fraction alone read 30.75 m (round 2, #2604).
+        "L = 3\\frac{3}{4}\\,\\mathrm{m}",
+        "L = 3 3/4\\,\\mathrm{m}",
+        "L = 3\\tfrac{3}{4}\\,\\mathrm{m}",
+        "3 \\frac{1}{2}\\,\\mathrm{s}",
+    ],
+)
+def test_a_mixed_number_is_left_as_written(card: str) -> None:
+    assert card_numbers(_card(card), Precision()) == _card(card)

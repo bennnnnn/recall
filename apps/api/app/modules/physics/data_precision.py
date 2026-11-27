@@ -29,11 +29,13 @@ def bound_figures(intent: PhysicsIntent | None, question: str) -> int:
     for given in scan_givens(text):
         if not given.unit or given.si is None:
             continue
+        # By size: a solve stores a direction as a sign ("decelerates at 2.0 m/s²" is -2.0),
+        # as the bound-value check does (``accounting._bound``).
         if not any(
             dimension == given.dimension
             and si is not None
             and given.si is not None
-            and math.isclose(si, given.si, rel_tol=1e-9, abs_tol=1e-15)
+            and math.isclose(abs(si), abs(given.si), rel_tol=1e-9, abs_tol=1e-15)
             for dimension, si in bound
         ):
             continue

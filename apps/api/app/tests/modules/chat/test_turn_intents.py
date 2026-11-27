@@ -410,6 +410,11 @@ def test_a_multi_part_turn_is_never_offered_a_turn_ending_photo_tool() -> None:
         "per second.",
         "What is 3/4 + 1/8? Give your answer as a fraction.",
         "What is 3/4 + 1/8? Give your answer as a mixed number.",
+        # Asked politely or after "also": the order read on the request's own words.
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Can you give your "
+        "answer in metres per second?",
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Also, give your "
+        "answer in m/s.",
     ],
 )
 def test_an_order_about_the_answer_is_the_question_s_own(message: str) -> None:

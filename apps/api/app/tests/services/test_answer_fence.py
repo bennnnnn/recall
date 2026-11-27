@@ -516,7 +516,7 @@ def test_a_boxed_value_that_is_not_the_closing_answer_is_left(reply: str) -> Non
     ],
 )
 def test_a_sentence_that_bolds_its_one_value_is_carded(answer: str, card: str) -> None:
-    landed = land_answer_card(f"$h = 2 \\times 3$\n\n{answer}", None)
+    landed = land_answer_card(f"$h = 2 \\times 3$\n\n{answer}", None, school=True)
     assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
     assert landed.rstrip().endswith("**.")  # the sentence stays under the card
 
@@ -545,3 +545,19 @@ def test_a_bold_that_holds_more_than_a_value_and_its_unit_is_no_card(bolded: str
     from app.services.answer_fence import bold_quantity
 
     assert bold_quantity(bolded) is None
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # The reviewer's input (round 2 of #2604): a bare heading over a quiz's answer.
+        "**Answer**\nThe war lasted about **6 years**.",
+        "**Answer**\n\nYou need **2 cups** of flour.",
+        "**Answer:** It lasted about **6 years**.",
+        "## Answer\nThe trip takes **3 hours**.",
+    ],
+)
+def test_a_bold_value_off_a_school_question_is_no_card(answer: str) -> None:
+    reply = f"Some lines first.\n\n{answer}"
+    assert "```answer" not in land_answer_card(reply, None)
+    assert "```answer" in land_answer_card(reply, None, school=True)

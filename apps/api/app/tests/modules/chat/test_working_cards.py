@@ -319,3 +319,49 @@ def test_a_size_half_a_percent_off_is_no_rounding() -> None:
 
     text = _JUNCTION.replace("12.30", "12.60")
     assert "$12.55\\,\\mathrm{m/s}$" in held_vector_sizes(text)
+
+
+_WALK = "$\\vec{d} = 3\\hat{i} + 4\\hat{j}\\,\\mathrm{m}$\n\n**Answer**\n\n"
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # The reviewer's input (round 2 of #2604): 7 m is the distance walked, not |d|.
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, 7\\,\\mathrm{m}",
+        "3\\hat{i} + 4\\hat{j}\\,\\mathrm{m}; distance 7\\,\\mathrm{m}",
+        "\\begin{pmatrix}3\\\\4\\end{pmatrix}\\,\\mathrm{m}, 7\\,\\mathrm{m}",
+    ],
+)
+def test_a_number_beside_a_whole_vector_is_no_size_unless_named(card: str) -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = f"{_WALK}```answer\nverified: false\n{card}\n```\n\nIt took 7 s to walk 7 m."
+    assert held_vector_sizes(text) == text
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, |\\vec{d}| = 7\\,\\mathrm{m}",
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, magnitude 7\\,\\mathrm{m}",
+        "$3\\,\\mathrm{m}$, $4\\,\\mathrm{m}$, $7\\,\\mathrm{m}$",
+    ],
+)
+def test_a_named_size_is_the_components_size(card: str) -> None:
+    """Named as the size, or the one scalar after bare components: 5 m, and the closing line's
+    7 m with it, but never its 7 s."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = f"{_WALK}```answer\nverified: false\n{card}\n```\n\nIt took 7 s to walk 7 m."
+    held = held_vector_sizes(text)
+    assert "5\\,\\mathrm{m}" in held and held.endswith("It took 7 s to walk 5 m.")
+
+
+@pytest.mark.parametrize("sense", ["counter clockwise", "anti clockwise", "Counter-Clockwise"])
+def test_a_sense_written_in_two_words_goes_whole(sense: str) -> None:
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{{N·m}}$ ({sense})\n```"
+    kept = "**Answer**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{N·m}$\n```"
+    assert without_unbacked_senses(text) == kept

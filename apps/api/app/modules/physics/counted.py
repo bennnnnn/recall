@@ -72,8 +72,10 @@ def accounts_for_counted_items(intent: PhysicsIntent, text: str) -> bool:
     for item in counted_items(text):
         if item.noun.lower() in _UNVALUED:
             return False
-        if any(_bound_times(params, given) for given in item.said_of):
-            return False  # "two lamps of 6 Ω": each one's or both, unsaid
+        if any(0 < _bound_times(params, given) < (item.count or 2) for given in item.said_of):
+            # "two forces of 20 N" read once: each one's or both, unsaid. Read once per item
+            # ("two spheres of 1000 kg", m1 = m2) it is each one's, and accounted for.
+            return False
         for given in item.each:
             bound = _bound_times(params, given)
             if bound and (item.count is None or bound < item.count):

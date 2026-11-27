@@ -58,3 +58,23 @@ def test_a_solved_question_gives_its_data_s_figures(question: str, figures: int)
 
 def test_no_solve_no_data_figures() -> None:
     assert bound_figures(None, _TROLLEY) == 0
+
+
+_FIGURES = " Give the answer to the correct number of significant figures."
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The reviewer's input (round 2 of #2604): the solve stores a = -2.0, the scan +2.0.
+        "A car at 25.0 m/s decelerates at 2.0 m/s² for 4.00 s. What is its final speed?",
+        "A car moving at 25.0 m/s slows down at 2.0 m/s² for 4.00 s. Find its final speed.",
+        "A train at 25.0 m/s has an acceleration of -2.0 m/s² for 4.00 s. What is its final "
+        "velocity?",
+        "A cyclist going 25.0 m/s brakes with a deceleration of 2.0 m/s² for 4.00 s. How fast "
+        "is she going then?",
+    ],
+)
+def test_a_value_stored_with_its_direction_s_sign_still_counts(question: str) -> None:
+    question += _FIGURES
+    assert bound_figures(extract_physics_intent(question), question) == 2  # 2.0 m/s²

@@ -78,4 +78,5 @@ def whole_unit(text: str, end: int) -> tuple[str, str] | None:
 
 
 def _dimension(unit: str) -> tuple[str, float, float] | None:
-    return unit_dimension(unit_readings(unit)[-1])
+    readings = unit_readings(unit)
+    return unit_dimension(readings[-1]) if readings else None

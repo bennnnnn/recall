@@ -340,7 +340,8 @@ def check_working(state: FinalizeState) -> str:
     text = state.text
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
-    worked = is_worked_solution(text, school=school_question(ctx))
+    school = school_question(ctx)
+    worked = is_worked_solution(text, school=school)
     if ctx.solver_unverified is True or worked or boxes_its_answer(text):
         # A decimal given for an exact value is the server's to get right.
         text = corrected_approximations(text)
@@ -351,7 +352,7 @@ def check_working(state: FinalizeState) -> str:
         text, carried_note = put_right(text, question)
         note = carried_note or working_note(text, question)
         # A reply in parts gets a card under each part's Answer heading.
-        text = land_part_answer_cards(text) or land_answer_card(text, None)
+        text = land_part_answer_cards(text) or land_answer_card(text, None, school=school)
         # The card is the working's last step: an expression left unworked and a card that
         # is not its value (``working_cards``).
         text, card_note = held_cards(text, ctx.user_message_content or "")

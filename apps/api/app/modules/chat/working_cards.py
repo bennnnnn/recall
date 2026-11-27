@@ -307,7 +307,7 @@ def _rounds_to(value: float, written: str) -> bool:
 _MOMENT_UNIT = re.compile(r"\bN\s*(?:·|⋅|\\cdot|\{\\cdot\}|\\,|\\ |\s)?\s*c?m\b")
 # The sense a card says a moment turns in, with the brackets or words around it:
 # "(clockwise)", "\text{ anticlockwise}", "counter-clockwise".
-_SENSE_WORD = r"\(?\s*(?:anti-?|counter-?)?clockwise\s*\)?"
+_SENSE_WORD = r"\(?\s*(?:(?:anti|counter)[\s-]?)?clockwise\s*\)?"
 # The sense of turning a card claims, as a group of its own ("\ \text{clockwise}",
 # "\text{ anticlockwise}") or as words inside the unit's group or after it ("\text{N·m
 # (clockwise)}", "(clockwise)"). A group of its own goes whole, with the space before it;
@@ -336,12 +336,42 @@ def without_unbacked_senses(text: str) -> str:
     return text
 
 
+# A card's words or marks naming a value the size of a vector: "|v| =", "\\lvert", "magnitude".
+_SIZE_NAMED = re.compile(
+    r"\||\\[lr]?vert|\\[lr]Vert|\b(?:magnitude|size|speed|resultant|modulus)\b", re.IGNORECASE
+)
+# A vector written whole on the card: "î", "\\hat{i}", a column.
+_VECTOR_FORM = re.compile(r"\\hat|[îĵ]|k\u0302|\\begin\{[pb]matrix\}")
+
+
+def _states_the_size(value: str, start: int, end: int) -> bool:
+    """The number at ``start`` is the vector's size: named so ("|v| = ", "magnitude"), or the
+    one scalar after components the card writes as bare numbers ("-9.04 m/s, 8.70 m/s,
+    12.30 m/s"). After a vector written whole, a number with no such name may be another
+    quantity: "(3î + 4ĵ) m, 7 m" walked 7 m and moved 5 (review of #2604)."""
+    if _SIZE_NAMED.search(value, end, start) is not None:
+        return True
+    return _VECTOR_FORM.search(value) is None
+
+
+def _said_again_with_unit(closing: str, shown: str, said: str, unit: str) -> str:
+    """The closing lines with the wrong size said as the right one, only where its unit follows
+    it: "after 7 s" is no 7 m (review of #2604)."""
+    spellings = {shown, shown.rstrip("0").rstrip(".") if "." in shown else shown}
+    digits = "|".join(re.escape(number) for number in sorted(spellings, key=len, reverse=True))
+    letters = re.escape(unit)
+    pattern = re.compile(
+        rf"(?<![\d.,])(?:{digits})(?![\d]|[.,]\d)(?=\s*(?:\$|\\[,; ])?\s*(?:\\(?:mathrm|text)\s*\{{)?\s*{letters})"
+    )
+    return pattern.sub(said, closing)
+
+
 def held_vector_sizes(text: str) -> str:
     """Each unchecked card that lists a vector's components, as the working reached them,
     then its size, with the size the components give: "−9.04 m/s, 8.70 m/s, 12.30 m/s"
     under a working of −9.0435 î + 8.6957 ĵ is 12.55 m/s (textbook round, 2026-11-26: no
-    working line wrote the size, so no check read it). The size said again after the card
-    follows it."""
+    working line wrote the size, so no check read it). Only a number the card states as the
+    size (``_states_the_size``); said again after the card with its unit, it follows."""
     for answer in reversed(list(answer_cards(text))):
         body = answer.body(text)
         headers, value = answer_header_and_value(body)
@@ -363,6 +393,8 @@ def held_vector_sizes(text: str) -> str:
         )
         if size_unit is None or size_unit != their:
             continue
+        if not _states_the_size(plain, numbers[count].start(), numbers[count - 1].end()):
+            continue
         size = math.sqrt(sum(component**2 for component in components))
         shown = numbers[count]["number"]
         # Within the card's rounding of the size: 12.60 for 12.546 is a slip, not a rounding
@@ -374,7 +406,6 @@ def held_vector_sizes(text: str) -> str:
             continue
         said = shown_like(size, shown)
         closing = _closing_end(text, answer.fence.body_end)
-        wrong = _repeats({shown, shown.rstrip("0").rstrip(".") if "." in shown else shown})
-        tail = _said_again(text[answer.fence.body_end : closing], wrong, said, dropped=False)
+        tail = _said_again_with_unit(text[answer.fence.body_end : closing], shown, said, size_unit)
         text = f"{text[:at]}{said}{text[at + len(shown) : answer.fence.body_end]}{tail}{text[closing:]}"
     return text

@@ -76,10 +76,8 @@ def format_card_numbers(state: FinalizeState) -> str:
     data) keeps them, unless the question asks for another."""
     asked = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
-    if asked.data and verified is not None and verified.cards_keep_precision:
-        # Chemistry's checked card already keeps its data's figures (``chemistry.sig_figs``):
-        # one rule of the data's figures, its own, so the model's cards follow the rule.
-        asked = RULE
+    # Only a physics solve says its data's figures; chemistry's checked card keeps its own
+    # (``chemistry.sig_figs``), so the data's precision there is the rule's for every card.
     precision = data_precision(asked, verified.data_figures if verified is not None else 0)
     laid_out = getattr(state.ctx, "worked", None) is not None
     if verified is None or not verified.cards_keep_precision:
@@ -272,7 +270,10 @@ def measured_fractions(body: str, precision: Precision = RULE) -> str:
 
     def decimal(match: re.Match[str]) -> str:
         top, bottom = match["top"] or match["num"], match["bottom"] or match["den"]
-        if int(bottom) in (0, 1):
+        # A mixed number ("3\\frac{3}{4}", "3 3/4") is left as written: its fraction alone
+        # read 30.75 m (review of #2604).
+        whole_before = value[: match.start()].rstrip()[-1:].isdigit()
+        if int(bottom) in (0, 1) or whole_before:
             return match[0]
         sign = "-" if match["sign"] else ""
         return sign + number_latex(Fraction(int(top), int(bottom)), precision)

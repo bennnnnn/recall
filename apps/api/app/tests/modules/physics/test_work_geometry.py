@@ -199,3 +199,63 @@ def test_two_values_listed_are_one_each(question: str) -> None:
 )
 def test_a_turn_named_as_a_thing_is_no_amount_turned(question: str) -> None:
     assert not states_a_turn(question)
+
+
+@pytest.mark.parametrize(
+    ("question", "value"),
+    [
+        # The reviewer's input (round 2 of #2604): an identical pair, m1 = m2, read per item.
+        ("Two spheres of 1000 kg are 2 m apart. Find the gravitational force.", 1.669e-5),
+        ("Two masses of 50 kg are 1 m apart. Find the gravitational force between them.", 1.669e-7),
+        (
+            "Two identical spheres of 1000 kg are 2 m apart. What is the gravitational attraction?",
+            1.669e-5,
+        ),
+        ("Two charges of 3 µC and -5 µC are 0.2 m apart. Find the force between them.", 3.37),
+        ("Two resistors of 4 and 6 ohms in series, what is the total resistance?", 10.0),
+    ],
+)
+def test_a_value_read_once_per_item_is_answered(question: str, value: float) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    assert solve_physics(intent).quantities[0].value == pytest.approx(value, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The reviewer's input (round 2 of #2604): ", 10 cm" is no second force.
+        "Two forces of 20 N, 10 cm from the centre of rotation, act as a couple. What is the "
+        "torque?",
+        "Two equal and opposite forces of 20 N act 10 cm from the centre of rotation. Find the "
+        "torque of the couple.",
+        "Two forces of 20 N, 0.1 m from the pivot, form a couple. Calculate the torque.",
+        "Two Forces Of 20 N, 10 cm From The Axis, Act As A Couple. Find The Torque.",
+        "Two equal and opposite forces of 20 N, each 10 cm from the centre, make a couple. "
+        "What torque do they give?",
+    ],
+)
+def test_a_couple_s_force_is_never_read_once(question: str) -> None:
+    intent = extract_physics_intent(question)
+    assert intent is None or solve_physics(intent).quantities[0].value == pytest.approx(4.0)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "A force of 50 N at an angle of 0.5 rad to the horizontal pulls a box 10 m along the "
+        "floor. How much work is done?",
+        "A motor with a coil of 200 turns does 1200 J of work in 60 s. What is its power?",
+    ],
+)
+def test_an_angle_in_radians_or_a_coil_s_turns_is_no_turning(question: str) -> None:
+    assert not states_a_turn(question)
+    assert extract_physics_intent(question) is not None
+
+
+def test_an_asked_unit_no_table_reads_is_no_error() -> None:
+    """Review of #2604: "megametres per second" raised an IndexError out of the reading."""
+    question = (
+        "A car travels 3 km in 1.5 s. What is its speed? Give your answer in megametres per second."
+    )
+    assert extract_physics_intent(question) is not None

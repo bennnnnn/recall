@@ -94,35 +94,71 @@ def reply_cards(text: str) -> list[ReplyCard]:
     return cards
 
 
-# The sides of a line of working: "a = \frac{8.04}{0.2} \approx 40.2 m/s^2" has three.
+# The sides of a line of working: "a = \\frac{8.04}{0.2} \\approx 40.2 m/s^2" has three.
 _SIDES = re.compile(r"=|\\approx(?![A-Za-z])|≈")
-_INLINE_MATHS = re.compile(r"\$([^$\n]+)\$")
 # A number on its own once read, a power of ten included: "40.2", "(3e-6)". It works nothing.
 _ONE_NUMBER = re.compile(r"\(*[-+]?\d*\.?\d+(?:e[-+]?\d+)?\)*")
+# A decimal the arithmetic puts in, which may be an earlier value rounded too soon.
+_DECIMAL = re.compile(r"(?<![\d.])\d+\.\d+(?![\d.])")
+
+
+def _arithmetic(line: str) -> list[tuple[str, float]]:
+    """Each side of a line that works something out, as plain arithmetic, with its value."""
+    from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
+
+    sides = []
+    for side in _SIDES.split(line):
+        plain = plain_arithmetic(side.strip())
+        if plain is None or _ONE_NUMBER.fullmatch(plain):
+            continue
+        reached = evaluate(plain)
+        if reached is not None:
+            sides.append((plain, reached))
+    return sides
 
 
 def _worked_to(card: ReplyCard, above: str, text: str) -> bool:
-    """The working above the card works its value out: its last line of arithmetic, the
-    numbers put into a formula ("2 × 20 × 0.1", "\\frac{10 - 0.2 × 9.8}{0.2} ≈ 40.2"), comes
-    to the card's value within the card's rounding. A formula in symbols, a value stated
-    alone and a power of ten work nothing out (review of #2604: "R = \\frac{v^2 \\sin
-    2θ}{g}" over "R = 32.4 m" let a slip stand over the server's 31.07). So does arithmetic
-    on a number the reply holds nowhere else: "R = 220/0.27" took a current of 0.2727 A
-    rounded too soon (``_held``)."""
-    from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
+    """The working above the card works its value out, and right: its last line of
+    arithmetic, the numbers put into a formula ("2 × 20 × 0.1", "\\frac{10 - 0.2 × 9.8}{0.2}
+    ≈ 40.2"), inline or in display maths, comes to the card's value within the card's
+    rounding, on numbers the reply holds (``_held``), and still does with every earlier value
+    it rounded put back unrounded. A formula in symbols, a value stated alone and a power of
+    ten work nothing out ("R = \\frac{v^2 \\sin 2θ}{g}" over "R = 32.4 m"); "I = 60/220 ≈
+    0.27", then "R = 220/0.27 = 814.8" is a slip, 806.67 unrounded (review of #2604). The
+    owner's rule keeps a right working; it never keeps a slip."""
+    from app.modules.chat.tex_arithmetic import evaluate, maths_lines
 
-    for line in reversed(_INLINE_MATHS.findall(above)):
-        for side in reversed(_SIDES.split(line)):
-            plain = plain_arithmetic(side.strip())
-            if plain is None or _ONE_NUMBER.fullmatch(plain):
-                continue
-            reached = evaluate(plain)
-            if reached is None:
-                continue
-            slack = max(_rounding(card), _ROUNDING * abs(reached))
-            near = abs(abs(reached) - abs(card.value)) <= slack
-            return near and _held(plain, written_numbers(text.replace(line, " ", 1)))
+    lines = maths_lines(above)
+    for index in range(len(lines) - 1, -1, -1):
+        sides = _arithmetic(lines[index])
+        if not sides:
+            continue
+        plain, reached = sides[-1]
+        slack = max(_rounding(card), _ROUNDING * abs(reached))
+        if abs(abs(reached) - abs(card.value)) > slack:
+            return False
+        if not _held(plain, written_numbers(text.replace(lines[index], " ", 1))):
+            return False
+        earlier = [value for line in lines[:index] for _plain, value in _arithmetic(line)]
+        unrounded = evaluate(_unrounded_inputs(plain, earlier))
+        return unrounded is None or abs(abs(unrounded) - abs(card.value)) <= slack
     return False
+
+
+def _unrounded_inputs(plain: str, earlier: Sequence[float]) -> str:
+    """The arithmetic with each decimal that rounds an earlier value put back as that value:
+    0.27 after "60/220" is 0.272727."""
+
+    def unrounded(match: re.Match[str]) -> str:
+        written = match.group()
+        places = len(written.partition(".")[2])
+        number = float(written)
+        for value in reversed(earlier):
+            if value != number and round(abs(value), places) == number:
+                return repr(abs(value))
+        return written
+
+    return _DECIMAL.sub(unrounded, plain)
 
 
 _PLAIN_NUMBER = re.compile(r"\d*\.?\d+(?:e[-+]?\d+)?")

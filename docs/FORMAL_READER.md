@@ -91,7 +91,8 @@ The 36 are the model's own slips: a projectile's range (28.6, 31.7, 32.4 or 54.7
 is the same answer: the first run's grading counted 14 such replies as different, and they
 are counted as the same here.
 
-So the server is right in every disagreement, and finalize overwrites (below).
+So the server is right in every disagreement, and finalize overwrites a card no right working
+reaches (below): a card the reply's own arithmetic works out stands.
 
 **Arabic and Hindi** (the kept experiment's questions, 40 each, `formal_corpus/translated/`,
 one run): Free's replies go from 72% to 85% right in Arabic and 60% to 85% in Hindi, paid's
@@ -249,4 +250,7 @@ What stays:
 
 - No wording lists, in any language: a miss is fixed in the engine or the prompt for every
   question at once (a constant in the table, a unit pint reads), never with a phrase.
-- No number a student sees comes from the model's arithmetic when the server's disagrees.
+- No number a student sees comes from the model's arithmetic when the server's disagrees,
+  unless that arithmetic is right on its own numbers (the owner's rule: the server never
+  stamps its value over a right worked answer; a slip, such as a value rounded too soon, is
+  the server's to correct).

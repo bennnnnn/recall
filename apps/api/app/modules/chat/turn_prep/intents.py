@@ -140,7 +140,7 @@ def _keeps_cut(
     them and a later one that stands on its own words: "what should I pack" and "who
     scored the goals" lean on the question before. An order about the answer ("Give your
     answer in m/s") asks nothing: it is the question's before it (``answer_form``)."""
-    if orders_the_answer(clause.text):
+    if orders_the_answer(request_body(clause.text)):
         return False
     if clause.cut == Cut.STRONG:
         return True

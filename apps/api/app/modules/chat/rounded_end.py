@@ -32,7 +32,7 @@ from app.modules.chat.card_numbers import (
     rounding_of,
 )
 from app.modules.chat.card_walk import answer_cards
-from app.modules.chat.tex_arithmetic import INLINE_MATH
+from app.modules.chat.tex_arithmetic import DISPLAY_MATH, INLINE_MATH
 from app.modules.chat.working_cards import only_headings, without_closing_headings
 from app.modules.chat.written_numbers import WRITTEN_NUMBER, in_tex
 from app.services.answer_check import Number, read_verified_value
@@ -40,7 +40,6 @@ from app.services.answer_check import Number, read_verified_value
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
 
-_DISPLAY_MATH = re.compile(r"\$\$(?P<dollars>.+?)\$\$|\\\[(?P<brackets>.+?)\\\]", re.DOTALL)
 # What may close the line after its maths: a full stop or a comma.
 _CLOSING_MARK = re.compile(r"[ \t]*[.,]")
 # What may stand before the line's number: its sign.
@@ -88,12 +87,12 @@ def _last_maths(above: str) -> tuple[int, int] | None:
     working = without_closing_headings(above)
     spans = [
         (match.start(group), match.end(group), match.end())
-        for match in _DISPLAY_MATH.finditer(working)
+        for match in DISPLAY_MATH.finditer(working)
         for group in ("dollars", "brackets")
         if match.group(group) is not None
     ]
     # Display maths blanked, so its "$$" is never read as two inline lines.
-    blanked = _DISPLAY_MATH.sub(lambda match: " " * len(match.group(0)), working)
+    blanked = DISPLAY_MATH.sub(lambda match: " " * len(match.group(0)), working)
     spans += [
         (match.start(1), match.end(1), match.end()) for match in INLINE_MATH.finditer(blanked)
     ]

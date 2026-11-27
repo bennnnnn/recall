@@ -521,7 +521,12 @@ def bold_quantity(sentence: str) -> str | None:
 
 
 def land_answer_card(
-    text: str, verified_body: str | None, *, above: str | None = None, verified: bool = True
+    text: str,
+    verified_body: str | None,
+    *,
+    above: str | None = None,
+    verified: bool = True,
+    school: bool = False,
 ) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
@@ -592,7 +597,9 @@ def land_answer_card(
             ("$" not in value and "=" not in approx_as_equals(value)) or wordy(value)
         ):
             written = written_lines[values[shown][0]] if len(parts) == 1 and values else ""
-            bolded = bold_quantity(written) if "$" not in written else None
+            # Only on a school question: a quiz's "about **6 years**" or a recipe's "**2 cups**"
+            # is no worked card, under any heading (review of #2604).
+            bolded = bold_quantity(written) if school and "$" not in written else None
             if bolded is None:
                 return text
             value, said = bolded, " ".join(written.split())

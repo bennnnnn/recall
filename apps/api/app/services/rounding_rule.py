@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002, RUF003 -- the point of this module is × and superscripts.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the point of this module is × and superscripts.
 """How an answer card shows its number, for every subject: the one rule (owner, 2026-11-18).
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
@@ -107,12 +107,22 @@ _DATA_FIGURES = re.compile(
 )
 
 
+def mantissa_figures(literal: str) -> int:
+    """The figures a typed number's mantissa holds, its sign and exponent aside: "2.0e-6" is
+    2, "-5.0" 2, "0.0050" 2, "200" 3 (chemistry's count, ``chemistry.sig_figs``)."""
+    mantissa = re.split(r"[eE]", literal.strip().lstrip("+-−"))[0]
+    return max(len(mantissa.replace(".", "").lstrip("0")), 1)
+
+
 def written_figures(digits: str) -> int:
     """The significant figures a number is written to, 0 when it says none: "1.20" is 3,
-    "0.050" 2, "12" 2; a whole number ending in zeros (3000, 10) may hold places only."""
-    if "." not in digits and digits != digits.rstrip("0"):
+    "0.050" 2, "12" 2, "2.0e-6" 2, "-5.0" 2; a whole number ending in zeros with no power of
+    ten (3000, 10) may hold places only."""
+    literal = digits.strip().lstrip("+-−")
+    mantissa = re.split(r"[eE]", literal)[0]
+    if "." not in mantissa and mantissa == literal and mantissa != mantissa.rstrip("0"):
         return 0
-    return len(digits.replace(".", "").lstrip("0")) or 1
+    return mantissa_figures(literal)
 
 
 def data_precision(precision: Precision, figures: int) -> Precision:

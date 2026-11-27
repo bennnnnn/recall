@@ -29,7 +29,7 @@ _NUMBER_WORD = "|".join(
 # A turn named as a thing ("rounds a turn", "a 50-turn coil") is no amount turned, and a rate
 # ("3 revolutions per second", "rad/s", "20 rad s^-1") none either (review of #2604).
 _TURNING = (
-    r"(?:through|over|by|of|turns?|turned|turning|rotates?|rotated|rotating|spins?|spun"
+    r"(?:through|over|turns?|turned|turning|rotates?|rotated|rotating|spins?|spun"
     r"|revolves?|makes?|made|completes?|completed)"
 )
 _AMOUNT = (
@@ -39,7 +39,7 @@ _AMOUNT = (
     r"|(?:(?<![\d.])\d+(?:\.\d+)?|π|\\pi|\bpi)\s*(?:rad|radians?)\b"
 )
 _TURNED = re.compile(
-    rf"\b{_TURNING}\s+(?:(?:it|the\s+\w+|its\s+\w+)\s+)?(?:through\s+)?(?:{_AMOUNT})"
+    rf"\b{_TURNING}\s+(?:(?:it|the\s+\w+|its\s+\w+)\s+)?(?:(?:through|by|over)\s+)?(?:{_AMOUNT})"
     r"(?!\s*(?:/|per\b|each\b|every\b|an?\s+(?:second|minute|hour)\b|[a-z]+\s*\^\s*\{?\s*[-−]))",
     re.IGNORECASE,
 )

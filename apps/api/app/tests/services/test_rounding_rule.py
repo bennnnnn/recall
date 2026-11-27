@@ -128,3 +128,21 @@ def test_a_number_is_written_to_its_figures(digits: str, figures: int) -> None:
     from app.services.rounding_rule import written_figures
 
     assert written_figures(digits) == figures
+
+
+@pytest.mark.parametrize(
+    ("digits", "figures"),
+    [
+        # Its sign and its power of ten are no figures (review of #2604).
+        ("2.0e-6", 2),
+        ("3.50e4", 3),
+        ("-5.0", 2),
+        ("2e3", 1),
+        ("−7.10", 3),
+        ("+0.0050", 2),
+    ],
+)
+def test_a_number_s_figures_are_its_mantissa_s(digits: str, figures: int) -> None:
+    from app.services.rounding_rule import written_figures
+
+    assert written_figures(digits) == figures

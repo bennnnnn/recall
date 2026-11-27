@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 -- a question writes its minus sign as a Unicode minus too.
 """Counted items: "two 10 Ω resistors", "two heaters, each rated 2 kW", "two 5 kg blocks".
 
 A value stated once for several items is that value in each. Read as one item, two 10 Ω
@@ -25,7 +24,8 @@ _COUNT = (
     rf"{_DOZEN}|{count_word_pattern(low=2, high=20)}"
     r"|(?<![\d.,])(?:[2-9]|[1-9]\d)(?![\d.,])"
 )
-_SAME = r"(?:(?:identical|equal|similar)\s+)?"
+# "two identical heaters", "two equal and opposite forces" (a couple, review of #2604).
+_SAME = r"(?:(?:identical|equal|similar)\s+(?:and\s+opposite\s+)?)?"
 # "two resistors", "each of the three lamps", "two identical heaters", "a pair of cells",
 # "both capacitors", "two of them". The noun is a plural word, or "of them".
 _COUNT_RE = re.compile(
@@ -111,9 +111,9 @@ def _count(word: str) -> int:
 
 
 # "Two forces of 20 N", "two lamps of 6 Ω": a value "of" the items counted.
-_OF_EACH = re.compile(r"\s+of\s+")
-# Another value listed after it: "two resistors of 10 Ω and 20 Ω" give one value each.
-_ANOTHER_LISTED = re.compile(r"\s*(?:,|and|or)\s*[-+−]?\.?\d")
+_OF_EACH = re.compile(r"\s+of\s+", re.IGNORECASE)
+# What joins a list of values: "10 Ω and 20 Ω", "3 µC, -5 µC".
+_LIST_JOIN = re.compile(r"\s*(?:,|and|or)\s*")
 
 
 def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
@@ -128,9 +128,25 @@ def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
     if given is None:
         return ()
     after = _unit_end(text, given)
-    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or each_after(text, after):
+    if _another_listed(text, given, givens) or each_after(text, after):
         return ()
     return (given,)
+
+
+def _another_listed(text: str, given: Given, givens: list[Given]) -> bool:
+    """A second value of the same kind is listed after ``given``: "of 10 Ω and 20 Ω", "of 4
+    and 6 ohms", "of 3 µC and -5 µC". A value of another kind after a comma is no item's:
+    "two forces of 20 N, 10 cm from the centre" (review of #2604)."""
+    for at in (given.end, _unit_end(text, given)):
+        joined = _LIST_JOIN.match(text, at)
+        if joined is None or joined.end() == at:
+            continue
+        following = next((g for g in givens if joined.end() <= g.start <= joined.end() + 2), None)
+        if following is not None and (
+            following.dimension == given.dimension or not following.unit or not given.unit
+        ):
+            return True
+    return False
 
 
 def _unit_end(text: str, given: Given) -> int:
