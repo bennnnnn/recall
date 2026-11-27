@@ -42,9 +42,9 @@ DEFAULT_EMOJI_USE: EmojiUse = "some"
 # Where an emoji never goes, whatever the setting: it would break what is read there.
 # "No emoji in homework" (owner, 2026-11-26): the server holds it too (``emoji_placement``).
 _EMOJI_NEVER = (
-    "Never in a number, maths, code, a fenced card, a reply to a school question (homework, "
-    "a maths, physics or chemistry question, explanations included), a draft the user will "
-    "send, or a reply "
+    "Never in a number, maths, code, a fenced card, a worked maths, physics or chemistry "
+    "solution or any other reply to a school question (homework, a maths, physics or "
+    "chemistry question, explanations included), a draft the user will send, or a reply "
     "about something painful, frightening or urgent (danger, an injury, an emergency, "
     "grief), even at the user's setting."
 )

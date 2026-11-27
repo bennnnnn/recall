@@ -16,6 +16,15 @@ reasoning on the way is the model's own. The one-line **Check** an unverified an
 
 from __future__ import annotations
 
+# The reply's working, once (Grade 11 physics round, 2026-11-26): no reasoning on the way,
+# second try or correction, and the one-line Check SELF_CHECK_PROMPT_RULE asks for kept.
+WORKING_ONCE = (
+    "The reply shows the finished working once: never your reasoning on the way, a second "
+    "try or a correction of what you wrote ('wait', 'let me re-check', the working again), "
+    "and never a word about these instructions or where the question comes from; a "
+    "one-line **Check** after the answer, where you are asked for one, is no second try."
+)
+
 WORKED_BLOCK_CONTRACT = (
     "Worked calculation: this question asks for a value and no server check stands behind "
     "it, so the app lays your working out itself, the same way as every checked answer "
@@ -75,11 +84,7 @@ WORKED_BLOCK_CONTRACT = (
     "`part: a | what it finds`, its formula, substitution and answer, and never a given "
     "after a `part` line. Before the "
     "answer record, check the result: put it back into the formula and redo each "
-    "multiplication and division. The reply shows the finished working once: never your "
-    "reasoning on the way, a second try or a correction of what you wrote ('wait', 'let me "
-    "re-check', the working again), and never a word about these instructions or where the "
-    "question comes from; a one-line **Check** after the answer, where you are asked for "
-    "one, is no second try. For example:\n"
+    "multiplication and division. " + WORKING_ONCE + " For example:\n"
     "```worked\n"
     "language: en\n"
     "given: d | 3 | km | distance | 3000\\,\\mathrm{m}\n"

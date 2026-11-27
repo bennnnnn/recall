@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT
+from app.modules.chat.prompt_constants.worked import WORKED_BLOCK_CONTRACT, WORKING_ONCE
 from app.modules.chat.worked_answers import answer_lines
 from app.modules.chat.worked_asks import fitted
 from app.modules.chat.worked_render import WorkedLayout, render_worked
 from app.modules.chat.worked_solution import Answer, Given, assemble, read_record
 from app.modules.chat.worked_text import is_word_symbol, tidy_symbol, tidy_tex
+from app.services.workout import SELF_CHECK_PROMPT_RULE
 
 PHYSICS = WorkedLayout(law_heading=True)
 
@@ -201,5 +202,5 @@ def test_an_answer_of_only_a_placeholder_leaves_no_answer_heading() -> None:
 def test_the_worked_contract_keeps_the_one_line_check() -> None:
     # The unverified answer's rule asks for a one-line **Check**; the contract's silent
     # working must not forbid it (review of #2602).
-    assert "never the check itself" not in WORKED_BLOCK_CONTRACT
-    assert "a one-line **Check** after the answer" in WORKED_BLOCK_CONTRACT
+    assert WORKING_ONCE in WORKED_BLOCK_CONTRACT
+    assert "**Check**" in WORKING_ONCE and "**Check**" in SELF_CHECK_PROMPT_RULE
