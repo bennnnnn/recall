@@ -1,9 +1,11 @@
 import { fetchExportText, request, requestRevalidated } from "@/lib/api/client";
+import { DELETE_CONFIRMATION } from "@/lib/api/confirmedDelete";
+import { apiPath, withQuery } from "@/lib/api/path";
 import type { AuthSession, User } from "@/lib/api/types";
 import type { PaidPlanId } from "@/lib/plan";
 
 /** What a delete says to mean it (apps/api models/schemas/auth.py ACCOUNT_DELETE_CONFIRMATION). */
-export const ACCOUNT_DELETE_CONFIRMATION = "delete";
+export const ACCOUNT_DELETE_CONFIRMATION = DELETE_CONFIRMATION;
 
 type SettingsProposalApplied = {
   field: string;
@@ -26,12 +28,12 @@ export const accountApi = {
     }),
   confirmSettingsProposal: (token: string, proposalId: string) =>
     request<SettingsConfirmResult>(
-      `/auth/me/settings-proposals/${proposalId}/confirm`,
+      apiPath`/auth/me/settings-proposals/${proposalId}/confirm`,
       token,
       { method: "POST" },
     ),
   devUpgradePro: (token: string, plan: PaidPlanId = "pro") =>
-    request<User>(`/auth/me/pro-dev?plan=${plan}`, token, { method: "POST" }),
+    request<User>(withQuery("/auth/me/pro-dev", { plan }), token, { method: "POST" }),
   syncSubscription: (token: string) =>
     request<User>("/auth/me/sync-subscription", token, { method: "POST" }),
   exportDataText: (token: string, signal?: AbortSignal) => fetchExportText(token, true, signal),
@@ -58,7 +60,7 @@ export const accountApi = {
   listSessions: (token: string) =>
     requestRevalidated<{ sessions: AuthSession[] }>("/auth/sessions", token),
   revokeSession: (token: string, sessionId: string) =>
-    request<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, token, {
+    request<void>(apiPath`/auth/sessions/${sessionId}`, token, {
       method: "DELETE",
     }),
   logoutAll: (token: string) =>

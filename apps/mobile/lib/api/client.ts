@@ -12,6 +12,7 @@ import {
 
 import { reportConnectionAnswered, reportConnectionFailure } from "@/lib/api/connectionFailures";
 import { newRequestId, REQUEST_ID_HEADER, responseRequestId } from "@/lib/api/requestId";
+import { isRefusedApiPath } from "@/lib/api/path";
 import { appVersionHeaders } from "@/lib/api/appVersionHeader";
 import { shareRefresh } from "@/lib/api/refreshFlight";
 import { accessTokenNeedsRefresh } from "@/lib/api/tokenExpiry";
@@ -389,6 +390,8 @@ export async function fetchExportText(
   });
 }
 
+const NO_SUCH_ITEM = JSON.stringify({ detail: { code: "not_found", message: "Not found." } });
+
 /** Single authenticated fetch boundary for JSON, downloads, and SSE. Raw
  * responses keep their bodies unread; auth recovery always happens here. */
 export async function requestRaw(
@@ -399,6 +402,8 @@ export async function requestRaw(
   timeoutMs = 30_000,
   retainStreamAbort = false,
 ): Promise<Response> {
+  // An id that cannot be a path segment names no such item: refused here, never sent (path.ts).
+  if (isRefusedApiPath(path)) throw new ApiRequestError(404, NO_SUCH_ITEM);
   if (token) requireTokenSession(token);
   const generation = getSessionGeneration();
   const controller = new AbortController();

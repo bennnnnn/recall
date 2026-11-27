@@ -20,6 +20,7 @@ import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import { buildTodoListRows } from "@/features/todos/model/todoListRows";
+import { routeServerId } from "@/lib/serverId";
 import { useTheme } from "@/lib/theme";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 import { SheetCover } from "@/ui/overlay/Sheet";
@@ -84,7 +85,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }, []);
 
   const openedHighlight = useRef<string | null>(null);
-  const highlightId = Array.isArray(highlight) ? highlight[0] : highlight;
+  // A to-do link names one server id, or nothing to open (`routeServerId`).
+  const highlightId = routeServerId(Array.isArray(highlight) ? highlight[0] : highlight);
   useEffect(() => {
     if (!highlightId || openedHighlight.current === highlightId || !isCurrentView()) return;
     const todo = todos.find((item) => item.id === highlightId);
@@ -227,7 +229,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
           listHeader={listHeader}
           refreshing={pullRefreshing}
           onRefresh={onPullRefresh}
-          highlight={highlight}
+          highlight={highlightId}
           busyTodoIds={actions.busyTodoIds}
           onToggle={actions.handleToggle}
           onOpen={openTodo}
