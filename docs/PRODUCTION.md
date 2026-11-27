@@ -601,12 +601,15 @@ background, and runs the new code from the next launch.
     `apps/mobile/package.json`, so a lockfile refresh cannot move native code
     quietly (`lib/__tests__/nativeVersionsPinned.test.ts` fails on a range).
   - **Publish app update** checks, before it publishes, that the update's
-    fingerprint is the one the channel's newest finished build has
+    fingerprint is the one the channel's newest finished build has, on each
+    platform the channel has a build for
     (`apps/mobile/scripts/check-update-runtime.cjs`, under the channel's EAS
-    environment, so the config resolves as on the build worker). When it is
-    not, the run fails and says so: ship a store build first (`deploy.yml`),
-    then the update. `eas fingerprint:compare --build-id <id>` shows what
-    changed.
+    environment, so the config resolves as on the build worker). A platform
+    with no build on the channel is skipped, with a note in the log (a preview
+    channel may have an iPhone build only); a channel with no build at all
+    fails. When a platform's fingerprint differs, the run fails and says so:
+    ship a store build first (`deploy.yml`), then the update.
+    `eas fingerprint:compare --build-id <id>` shows what changed.
   - The fingerprint comes from the config `app.config.ts` resolves, so the
     values it reads must be the same for the build and the update: keep
     `SENTRY_ORG`, `SENTRY_PROJECT` and every `EXPO_PUBLIC_*` value **Plain

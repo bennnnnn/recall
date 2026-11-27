@@ -6,8 +6,9 @@ name: Publish app update
 # need a store build from deploy.yml: the runtime version is the native fingerprint
 # (apps/mobile/app.json, policy "fingerprint"), and a build only takes updates with
 # its own. Before publishing, this checks that the update's fingerprint is the one
-# the channel's newest build has (scripts/check-update-runtime.cjs), so an update
-# that would reach no phone fails here, saying a store build must ship first.
+# the channel's newest build has, on each platform the channel has a build for
+# (scripts/check-update-runtime.cjs; a platform with none is skipped with a note), so
+# an update that would reach no phone fails here, saying a store build must ship first.
 #
 # With EXPO_PUBLIC_SENTRY_DSN set in the channel's EAS environment, the update's
 # source maps go to Sentry after it is published, matched to crashes by Debug ID.
@@ -116,7 +117,7 @@ jobs:
 
       # eas env:exec loads the channel's EAS environment variables, as the publish
       # below does, so app.config.ts resolves to the config the build was made with.
-      - name: Native code matches the channel's newest build
+      - name: Native code matches the channel's newest builds
         env:
           RECALL_UPDATE_PROFILE: ${{ inputs.channel }}
           UPDATE_CHANNEL: ${{ inputs.channel }}

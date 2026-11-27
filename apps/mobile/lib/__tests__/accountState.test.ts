@@ -244,6 +244,7 @@ const NO_ACCOUNT_DATA = [
   "lib/reduceMotion.ts#knownReduceMotion",
   "features/scanner/model/switchCue.ts#cueEpoch",
   "features/scanner/model/switchCue.ts#preparing",
+  "lib/sentry.ts#failedStarts",
   "lib/sentry.ts#sdk",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",

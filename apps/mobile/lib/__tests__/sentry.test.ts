@@ -213,6 +213,59 @@ describe("error-boundary capture", () => {
     mod.initMobileSentry();
     expect(sdk().captureException).toHaveBeenCalledTimes(10);
   });
+
+  it("starts the SDK as lib/sentryStart.ts loads", () => {
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    jest.resetModules();
+    jest.requireActual("@/lib/sentryStart");
+    expect(jest.requireMock<SdkMock>("@sentry/react-native").init).toHaveBeenCalledTimes(1);
+  });
+
+  /** Long enough for the idle retry (a 1 ms timer where there is no requestIdleCallback). */
+  const idle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  it("tries a start that threw once more when idle, then sends what waited", async () => {
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { mod, sdk } = freshSentry();
+    sdk().init.mockImplementationOnce(() => {
+      throw new Error("native module not ready");
+    });
+    mod.initMobileSentry();
+    const early = new Error("render failed at launch");
+    mod.reportBoundaryError("screen", early, null, "index");
+    expect(sdk().captureException).not.toHaveBeenCalled();
+
+    await idle();
+    expect(sdk().init).toHaveBeenCalledTimes(2);
+    expect(sdk().captureException).toHaveBeenCalledWith(early, expect.anything());
+    warn.mockRestore();
+  });
+
+  it("gives up after the second failure, and keeps nothing waiting for a start that never comes", async () => {
+    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { mod, sdk } = freshSentry();
+    sdk().init.mockImplementation(() => {
+      throw new Error("broken build");
+    });
+    mod.initMobileSentry();
+    mod.reportBoundaryError("markdown", new Error("before the retry"), null);
+    await idle();
+    expect(sdk().init).toHaveBeenCalledTimes(2);
+
+    // No third try, and a report made now is dropped at once, not queued.
+    mod.reportBoundaryError("markdown", new Error("after giving up"), null);
+    mod.initMobileSentry();
+    await idle();
+    expect(sdk().init).toHaveBeenCalledTimes(2);
+    expect(sdk().captureException).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
 });
 
 describe("a stored sign-in cleared at launch", () => {

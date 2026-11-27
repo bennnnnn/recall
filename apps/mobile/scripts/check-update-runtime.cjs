@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * The over-the-air update gate (mobile-update.yml): an update may go out only when its
- * native fingerprint is the one the channel's newest finished build was made with.
+ * native fingerprint is the one the channel's newest finished build was made with, on
+ * each platform the channel has a build for (one with none is skipped, with a note).
  *
  * app.json's runtimeVersion policy is "fingerprint": the runtime version is a hash of
  * everything native (packages with native code and their versions, config plugins, the
@@ -18,15 +19,40 @@ const { execFileSync } = require("node:child_process");
 
 const PLATFORMS = ["ios", "android"];
 
+/**
+ * The gate's verdict on each platform: `{ platform, update, build }` is this update's
+ * runtime version and the channel's newest finished build there (or null). A platform
+ * with no build on the channel is skipped with a note (a preview channel may have an
+ * iPhone build only): no phone of it can take the update either way. A platform with a
+ * build must match it, and at least one platform must have a build.
+ */
+function gateUpdate(channel, platforms) {
+  const notes = [];
+  const problems = [];
+  for (const { platform, update, build } of platforms) {
+    if (!build) {
+      notes.push(
+        `${platform}: skipped, no finished build listens on the "${channel}" channel, so no ` +
+          `${platform} phone takes this update.`,
+      );
+      continue;
+    }
+    const problem = runtimeMismatch(platform, channel, update, build);
+    if (problem) problems.push(problem);
+    else notes.push(`${platform}: fingerprint ${update} matches the newest "${channel}" build.`);
+  }
+  if (platforms.every(({ build }) => !build)) {
+    problems.push(
+      `No finished build listens on the "${channel}" channel on any platform, so no phone ` +
+        "would take this update. Ship a store build (deploy.yml) before an update.",
+    );
+  }
+  return { notes, problems };
+}
+
 /** What is wrong with publishing `update` over `build` (both runtime versions), or null. */
 function runtimeMismatch(platform, channel, update, build) {
   if (!update) return `${platform}: could not work out this update's runtime version.`;
-  if (!build) {
-    return (
-      `${platform}: no finished build listens on the "${channel}" channel yet. ` +
-      "Ship a store build (deploy.yml) before an update."
-    );
-  }
   if (build.runtimeVersion !== update) {
     return (
       `${platform}: this update's native fingerprint is ${update}, but the newest ` +
@@ -75,17 +101,19 @@ function main() {
     console.error("Usage: node scripts/check-update-runtime.cjs <channel>");
     process.exit(2);
   }
-  const problems = [];
-  for (const platform of PLATFORMS) {
-    const update = updateRuntimeVersion(platform);
-    const problem = runtimeMismatch(platform, channel, update, newestBuild(platform, channel));
-    if (problem) problems.push(problem);
-    else console.log(`${platform}: fingerprint ${update} matches the newest "${channel}" build.`);
-  }
-  for (const problem of problems) console.log(`::error title=Native code changed::${problem}`);
+  const { notes, problems } = gateUpdate(
+    channel,
+    PLATFORMS.map((platform) => ({
+      platform,
+      update: updateRuntimeVersion(platform),
+      build: newestBuild(platform, channel),
+    })),
+  );
+  for (const note of notes) console.log(note);
+  for (const problem of problems) console.log(`::error title=Update gate::${problem}`);
   if (problems.length > 0) process.exit(1);
 }
 
 if (require.main === module) main();
 
-module.exports = { runtimeMismatch };
+module.exports = { gateUpdate };

@@ -7,7 +7,9 @@
  * first import), before the first render: a crash in a module's first run, or in the
  * first seconds after a bad update, is reported, and the native SDK's crash handler is
  * on from then. Without a DSN the SDK is never loaded. A report made before the start
- * waits in a short queue and is sent once the SDK is up.
+ * waits in a short queue and is sent once the SDK is up. A start that throws is tried
+ * once more when the launch is idle; when that fails too, Sentry stays off for the
+ * session and the queue is dropped.
  */
 
 import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
@@ -16,11 +18,16 @@ import { isServerUnreachable } from "@/lib/api/deadline";
 import { isRequestId } from "@/lib/api/requestId";
 import type { FenceId } from "@/lib/fence/registry";
 import type { FenceRefusal, FenceReportName } from "@/lib/fence/reports";
+import { scheduleIdleTask } from "@/lib/scheduleIdle";
 
 type SentrySdk = typeof import("@sentry/react-native");
 
 /** The SDK once `init` has run. */
 let sdk: SentrySdk | null = null;
+
+/** A start that throws is tried once more when the launch is idle, then given up. */
+const MAX_STARTS = 2;
+let failedStarts = 0;
 
 /** A crash loop before init keeps only the first few; a minor report takes at most half. */
 const MAX_EARLY_REPORTS = 10;
@@ -148,7 +155,7 @@ function buildChannel(): string | null {
  */
 export function initMobileSentry(): void {
   const dsn = configuredDsn();
-  if (!dsn || sdk) return;
+  if (!dsn || sdk || failedStarts >= MAX_STARTS) return;
   try {
     /* eslint-disable @typescript-eslint/no-require-imports -- loaded only with a DSN, and
        at once: an import() starts it a turn later, after the modules it should watch */
@@ -172,9 +179,17 @@ export function initMobileSentry(): void {
     sdk = Sentry;
     for (const report of earlyReports.splice(0)) report(Sentry);
   } catch (error) {
-    // The SDK could not load (a dev bundle offline): the app goes on without it, and the
-    // next init tries again. There is no Sentry to tell, so the console is told.
+    // The app goes on without it. There is no Sentry to tell, so the console is told.
+    failedStarts += 1;
     console.warn("Sentry could not start", error);
+    if (failedStarts < MAX_STARTS) {
+      // One more try once the launch is idle (a native module not ready yet), and the
+      // queued reports go then.
+      scheduleIdleTask(initMobileSentry);
+    } else {
+      // Off for this session: the queued reports have nowhere to go, and none queue now.
+      earlyReports.length = 0;
+    }
   }
 }
 
@@ -256,7 +271,8 @@ function report(capture: (sentry: SentrySdk) => void, minor = false): void {
     return;
   }
   const room = minor ? MAX_EARLY_MINOR_REPORTS : MAX_EARLY_REPORTS;
-  if (!configuredDsn() || earlyReports.length >= room) return;
+  // Nothing waits once the start has been given up: it would never be sent.
+  if (!configuredDsn() || failedStarts >= MAX_STARTS || earlyReports.length >= room) return;
   earlyReports.push(capture);
 }
 
