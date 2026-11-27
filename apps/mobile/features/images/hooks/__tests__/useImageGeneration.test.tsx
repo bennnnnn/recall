@@ -8,7 +8,7 @@ import { ApiRequestError } from "@/lib/api/client";
 import { notifyWarning } from "@/lib/haptics";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { onAppEvent } from "@/lib/appEvents";
-import { heldScreenAwakeTags } from "@/lib/keepAwake";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 
 jest.mock("@/lib/api", () => ({ api: { generateImage: jest.fn() } }));
 jest.mock("@/lib/api/client", () => ({
@@ -463,7 +463,7 @@ describe("image generation under the composer's painted bubble", () => {
 
 /** A picture takes 30 s to 2 minutes; auto-lock left the user a dark screen (review H4, 2026-11-27). */
 describe("a picture's wait keeps the screen on", () => {
-  const pictureTags = () => heldScreenAwakeTags().filter((tag) => tag.startsWith("picture:"));
+  const pictureTags = () => heldAwakeTags("picture:");
   beforeEach(() => jest.clearAllMocks());
 
   async function waitFor(outcome: "drawn" | "failed") {

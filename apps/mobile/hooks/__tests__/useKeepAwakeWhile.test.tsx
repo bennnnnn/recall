@@ -2,7 +2,8 @@ import { act, render } from "@testing-library/react-native";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 import { useKeepAwakeWhile } from "@/hooks/useKeepAwakeWhile";
-import { heldScreenAwakeTags, releaseAllScreenAwake } from "@/lib/keepAwake";
+import { releaseAllScreenAwake } from "@/lib/keepAwake";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 import { reportFailure } from "@/lib/sentry";
 
 jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
@@ -29,11 +30,11 @@ describe("useKeepAwakeWhile", () => {
     expect(activate).toHaveBeenCalledTimes(1);
     const tag = activate.mock.calls[0]![0]!;
     expect(tag).toMatch(/^live-talk:/);
-    expect(heldScreenAwakeTags()).toEqual([tag]);
+    expect(heldAwakeTags()).toEqual([tag]);
 
     await view.rerender(<Owner name="live-talk" on={false} />);
     expect(deactivate).toHaveBeenCalledWith(tag);
-    expect(heldScreenAwakeTags()).toEqual([]);
+    expect(heldAwakeTags()).toEqual([]);
   });
 
   it("lets the screen sleep when its owner unmounts", async () => {
@@ -41,7 +42,7 @@ describe("useKeepAwakeWhile", () => {
     const tag = activate.mock.calls[0]![0]!;
     await view.unmount();
     expect(deactivate).toHaveBeenCalledWith(tag);
-    expect(heldScreenAwakeTags()).toEqual([]);
+    expect(heldAwakeTags()).toEqual([]);
   });
 
   it("gives each owner its own tag: one ending keeps the other's hold", async () => {
@@ -52,7 +53,7 @@ describe("useKeepAwakeWhile", () => {
 
     await talk.rerender(<Owner name="live-talk" on={false} />);
     expect(deactivate.mock.calls).toEqual([[talkTag]]);
-    expect(heldScreenAwakeTags()).toEqual([pictureTag]);
+    expect(heldAwakeTags()).toEqual([pictureTag]);
     await picture.unmount();
   });
 
@@ -63,11 +64,11 @@ describe("useKeepAwakeWhile", () => {
         <Owner name="picture" on />
       </>,
     );
-    expect(heldScreenAwakeTags()).toHaveLength(2);
+    expect(heldAwakeTags()).toHaveLength(2);
 
     releaseAllScreenAwake();
     expect(deactivate).toHaveBeenCalledTimes(2);
-    expect(heldScreenAwakeTags()).toEqual([]);
+    expect(heldAwakeTags()).toEqual([]);
 
     await view.unmount();
     expect(deactivate).toHaveBeenCalledTimes(2);
@@ -80,6 +81,6 @@ describe("useKeepAwakeWhile", () => {
     await act(() => new Promise((done) => setTimeout(done, 0)));
     expect(reportFailure).toHaveBeenCalledWith("keep_awake", expect.any(Error));
     await view.unmount();
-    expect(heldScreenAwakeTags()).toEqual([]);
+    expect(heldAwakeTags()).toEqual([]);
   });
 });

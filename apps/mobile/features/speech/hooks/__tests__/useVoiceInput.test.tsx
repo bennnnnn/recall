@@ -7,7 +7,7 @@ import { ApiRequestError } from "@/lib/api/errorBody";
 import { readAloudSession, startReadAloud } from "@/features/speech/model/readAloudSession";
 import { deleteVoiceRecording, startVoiceRecording, type VoiceRecorder } from "@/lib/speech/voiceAudio";
 import { useVoiceInput } from "@/features/speech/hooks/useVoiceInput";
-import { heldScreenAwakeTags } from "@/lib/keepAwake";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 
 jest.mock("@/lib/api", () => ({ transcribeSpeech: jest.fn() }));
 // The recorded path: a build without WebRTC (live takes: useComposerLiveDictation.test.tsx).
@@ -271,7 +271,7 @@ describe("useVoiceInput plan refusal", () => {
 
 /** A 45 s take was cut off when auto-lock took the app off the screen (review H4, 2026-11-27). */
 describe("useVoiceInput keeps the screen on", () => {
-  const dictationTags = () => heldScreenAwakeTags().filter((tag) => tag.startsWith("dictation:"));
+  const dictationTags = () => heldAwakeTags("dictation:");
   beforeEach(() => {
     jest.clearAllMocks();
   });

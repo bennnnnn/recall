@@ -30,8 +30,3 @@ export function releaseScreenAwake(tag: string): void {
 export function releaseAllScreenAwake(): void {
   for (const tag of [...held]) releaseScreenAwake(tag);
 }
-
-/** The tags held now, for tests. */
-export function heldScreenAwakeTags(): string[] {
-  return [...held];
-}

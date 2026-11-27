@@ -4,7 +4,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 
 import { useLiveTalk } from "@/features/speech/hooks/useLiveTalk";
 import { createRealtimeVoiceSession } from "@/features/speech/model/realtimeVoice";
-import { heldScreenAwakeTags } from "@/lib/keepAwake";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 
 jest.mock("@/contexts/DrawerContext", () => ({
   useDrawerControls: () => ({ open: jest.fn(), close: jest.fn(), isOpenNow: () => false }),
@@ -57,7 +57,7 @@ function callSession() {
   return { callId: "call-1", maxDurationSeconds: 600, setMuted: jest.fn(), cancelResponse: jest.fn(), close: jest.fn() };
 }
 
-const liveTalkTags = () => heldScreenAwakeTags().filter((tag) => tag.startsWith("live-talk:"));
+const liveTalkTags = () => heldAwakeTags("live-talk:");
 
 /** A hands-free call hung up when auto-lock took the app off the screen (review H4, 2026-11-27). */
 describe("live talk keeps the screen on", () => {

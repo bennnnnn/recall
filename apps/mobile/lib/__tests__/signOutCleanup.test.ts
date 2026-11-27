@@ -15,7 +15,8 @@ import { clearSavedComposerDrafts } from "@/features/chat/model/composerDraftFil
 import { Image } from "expo-image";
 import { ensureLocale } from "@/lib/i18n";
 import { resetShareGuard } from "@/lib/share/file";
-import { heldScreenAwakeTags, holdScreenAwake } from "@/lib/keepAwake";
+import { holdScreenAwake } from "@/lib/keepAwake";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 import { deactivateKeepAwake } from "expo-keep-awake";
 
 const mockFiles: Record<string, string[]> = {};
@@ -114,7 +115,7 @@ it("lets the screen sleep: a call, take or picture of the account's keeps it on 
   holdScreenAwake("live-talk:a");
   holdScreenAwake("picture:b");
   await clearSignedOutAccount("user-1");
-  expect(heldScreenAwakeTags()).toEqual([]);
+  expect(heldAwakeTags()).toEqual([]);
   expect(jest.mocked(deactivateKeepAwake).mock.calls).toEqual([["live-talk:a"], ["picture:b"]]);
 });
 
