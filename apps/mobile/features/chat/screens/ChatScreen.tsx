@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { AndroidBackScreen } from "@/ui/overlay/useAndroidBack";
 import { useTheme } from "@/lib/theme";
 import { useLatestRef } from "@/lib/latestRef";
+import { routeServerId } from "@/lib/serverId";
 import { ChatScreenBody } from "@/features/chat/components/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/features/chat/components/ChatScreenMenuSheets";
 import { chatMenuSheetProps } from "@/features/chat/components/chatMenuSheetProps";
@@ -51,12 +52,15 @@ import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGenera
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import type { FirstReply } from "@/features/chat/model/chatTurnCore";
 
-/** The route's chat and the message a search hit opens it at; anything but one id names none. */
+/**
+ * The route's chat and the message a search hit opens it at; anything but one server id names
+ * none, so a crafted link (`recall://?chatId=..%2Fchats`) opens a fresh chat (`routeServerId`).
+ */
 function useChatRouteParams() {
   const params = useLocalSearchParams<{ chatId?: string; highlightMessage?: string }>();
   return {
-    routeChatId: typeof params.chatId === "string" ? params.chatId : undefined,
-    routeHighlightMessage: typeof params.highlightMessage === "string" ? params.highlightMessage : undefined,
+    routeChatId: routeServerId(params.chatId),
+    routeHighlightMessage: routeServerId(params.highlightMessage),
   };
 }
 

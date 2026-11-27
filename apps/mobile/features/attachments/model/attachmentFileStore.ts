@@ -2,6 +2,7 @@ import { CryptoDigestAlgorithm, digestStringAsync } from "expo-crypto";
 import { cacheDirectory, deleteAsync, getInfoAsync, readDirectoryAsync } from "expo-file-system/legacy";
 
 import { recallAttachmentPath } from "@/features/attachments/model/attachmentUri";
+import { apiPath } from "@/lib/api/path";
 
 /** Only this store writes att-* files. Basenames only: never a directory or a path. */
 const ATTACHMENT_FILE = /^att-[\w.-]+$/;
@@ -68,7 +69,7 @@ export async function listAttachmentFiles(): Promise<string[]> {
 
 /** The cache files of one Recall attachment, whichever run wrote them. */
 export async function listRecallAttachmentFiles(attachmentId: string): Promise<string[]> {
-  const prefix = await filePrefix(`/attachments/${attachmentId}/file`);
+  const prefix = await filePrefix(apiPath`/attachments/${attachmentId}/file`);
   return (await listAttachmentFiles()).filter((path) => path.slice(path.lastIndexOf("/") + 1).startsWith(prefix));
 }
 

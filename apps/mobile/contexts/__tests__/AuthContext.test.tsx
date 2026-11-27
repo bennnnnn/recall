@@ -39,6 +39,8 @@ jest.mock("@/lib/cachedUser", () => ({
 }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({ bg: "white", primary: "blue" }) }));
 jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn() }));
+// The phone's language, which a launch with no account of its own is drawn in.
+jest.mock("@/lib/i18n/deviceLanguage", () => ({ deviceLanguage: () => "pt" }));
 jest.mock("@/hooks/useBootstrapSync", () => ({ useBootstrapSync: jest.fn() }));
 jest.mock("@/lib/apple-auth", () => ({ signInWithAppleCredentials: jest.fn() }));
 jest.mock("@/lib/google-auth", () => ({ signInWithGoogleIdToken: jest.fn(), signOutGoogle: jest.fn() }));
@@ -451,21 +453,23 @@ describe("launch restore", () => {
 });
 
 describe("a cache that is not this sign-in's", () => {
+  // Its language goes with it, back to the phone's ("pt" here), never to English.
   it("is cleared, and its language with it, when nobody is signed in", async () => {
     (getToken as jest.Mock).mockResolvedValueOnce(null);
-    (readCachedUser as jest.Mock).mockResolvedValue({ ...userA, locale: "fr" });
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userA, locale: "es" });
     await mount();
     expect(clearCachedUser).toHaveBeenCalled();
-    expect(ensureLocale).toHaveBeenCalledWith("en");
+    expect(ensureLocale).toHaveBeenCalledWith("pt");
+    expect(ensureLocale).not.toHaveBeenCalledWith("en");
     expect(current.user).toBeNull();
   });
 
   it("is cleared when it belongs to another account than the stored token", async () => {
     (cachedUserMatchesToken as jest.Mock).mockReturnValueOnce(false);
-    (readCachedUser as jest.Mock).mockResolvedValue({ ...userB, locale: "fr" });
+    (readCachedUser as jest.Mock).mockResolvedValue({ ...userB, locale: "es" });
     await mount();
     expect(clearCachedUser).toHaveBeenCalled();
-    expect(ensureLocale).toHaveBeenCalledWith("en");
+    expect(ensureLocale).toHaveBeenCalledWith("pt");
     expect(current.user?.id).toBe(userA.id);
   });
 
@@ -475,7 +479,7 @@ describe("a cache that is not this sign-in's", () => {
     (api.me as jest.Mock).mockResolvedValue(french);
     await mount();
     expect(clearCachedUser).not.toHaveBeenCalled();
-    expect(ensureLocale).not.toHaveBeenCalledWith("en");
+    expect(ensureLocale).not.toHaveBeenCalledWith("pt");
   });
 });
 

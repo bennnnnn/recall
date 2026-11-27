@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.consent import get_consented_user
 from app.core.db import get_db
+from app.core.delete_confirmation import DeleteConfirmation, require_delete_confirmation
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.etag import conditional_json
 from app.core.rate_limit import allow_request_unless_down
@@ -140,9 +141,11 @@ async def instruct_memory(
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_all_memories(
+    body: DeleteConfirmation | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
+    require_delete_confirmation(body, "Confirm the deletion to delete every memory.")
     await crud.delete_all_memories(session, user.id)
 
 

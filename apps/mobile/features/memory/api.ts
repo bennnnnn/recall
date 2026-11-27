@@ -1,4 +1,6 @@
 import { request, requestRevalidated } from "@/lib/api/client";
+import { confirmedDelete } from "@/lib/api/confirmedDelete";
+import { apiPath } from "@/lib/api/path";
 import type { Memory } from "@/lib/api/types";
 import type { MemoryDocuments, MemoryInstructResult } from "@/features/memory/types";
 
@@ -20,7 +22,7 @@ export const memoriesApi = {
   listMemoryDocuments: (token: string) =>
     requestRevalidated<MemoryDocuments>("/memories/documents", token),
   deleteMemoryDocument: (token: string, key: string) =>
-    request<void>(`/memories/documents/${encodeURIComponent(key)}`, token, { method: "DELETE" }),
+    request<void>(apiPath`/memories/documents/${key}`, token, { method: "DELETE" }),
   /** Edit memory in plain words ("keep lists under five things"). */
   instructMemory: (token: string, instruction: string, topic?: string) =>
     request<MemoryInstructResult>(
@@ -34,12 +36,12 @@ export const memoriesApi = {
       INSTRUCT_TIMEOUT_MS,
     ),
   updateMemory: (token: string, memoryId: string, patch: string | MemoryPatch) =>
-    request<Memory>(`/memories/${memoryId}`, token, {
+    request<Memory>(apiPath`/memories/${memoryId}`, token, {
       method: "PATCH",
       body: JSON.stringify(typeof patch === "string" ? { text: patch } : patch),
     }),
   deleteMemory: (token: string, memoryId: string) =>
-    request<void>(`/memories/${memoryId}`, token, { method: "DELETE" }),
-  clearMemories: (token: string) =>
-    request<void>("/memories", token, { method: "DELETE" }),
+    request<void>(apiPath`/memories/${memoryId}`, token, { method: "DELETE" }),
+  /** Called only after the user confirmed it, and says so (`confirmedDelete`). */
+  clearMemories: (token: string) => request<void>("/memories", token, confirmedDelete()),
 };

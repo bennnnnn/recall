@@ -13,7 +13,7 @@ from __future__ import annotations
 def subject_photo_hint(subject: str) -> str:
     """The photo rule for this turn's one subject; the model judges if it is worth seeing."""
     return (
-        f'This turn asks about "{subject}". If that is something people would want to see (a '
+        f'The message asks about "{subject}". If that is something people would want to see (a '
         "place, landmark, animal, plant, person, food, product, vehicle or artwork), open the "
         f"reply with ```photo\n{subject}\n```, then answer as usual. An idea, a word, a feeling, "
         "or a process or concept from science, history or economics gets no photo, even when "

@@ -1,4 +1,5 @@
 import { request } from "@/lib/api/client";
+import { withQuery } from "@/lib/api/path";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { getToken } from "@/lib/auth";
 
@@ -87,7 +88,7 @@ export function fetchLinkPreview(url: string): Promise<LinkPreview> {
   const promise = inTurn(async () => {
     const token = await getToken();
     if (!token) throw new Error("preview failed");
-    return request<LinkPreview>(`/link-preview?url=${encodeURIComponent(url)}`, token);
+    return request<LinkPreview>(withQuery("/link-preview", { url }), token);
   });
   const loading: Entry = { state: "loading", promise };
   remember(url, loading);

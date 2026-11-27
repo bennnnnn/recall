@@ -30,7 +30,7 @@ from app.modules.chat.prompt_constants.teaching import (
     LESSON_PROCESS_SHAPE,
     LESSON_WORDS_SHAPE,
 )
-from app.modules.chat.prompt_format import _style_format_hints
+from app.modules.chat.prompt_format import _style_format_hints, layout_is_open
 from app.modules.conversation import chats_repository, messages_repository
 from app.modules.turn_reading.lesson_flow import (
     active_lesson_step,
@@ -430,7 +430,6 @@ def test_an_explicit_learning_plan_is_not_crushed_to_short_prose():
     "query",
     [
         "How to install python step by step",
-        "how do I set up my new printer",
         "how to make jollof rice step by step",
         "receta de pan paso a paso",
     ],
@@ -440,6 +439,25 @@ def test_procedure_gets_numbered_steps_not_a_plan(query: str):
     assert STEPS_FORMAT_HINT in hints
     assert HOWTO_FORMAT_HINT not in hints
     assert TEACHING_HINT not in hints
+
+
+# "How to look handsome" got its six tips in the steps card (the owner, 2026-11-27): a plain
+# "how to …" is the read's to call one procedure (``steps_turn``), never the words'. The
+# prompt leaves its layout open, and gives no card of its own.
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How to look handsome",
+        "how to save money",
+        "how do I set up my new printer",
+        "how to tie a tie",
+    ],
+)
+def test_a_plain_how_to_gets_no_card_from_its_words(query: str) -> None:
+    hints = _hints(query)
+    assert STEPS_FORMAT_HINT not in hints
+    assert steps_contract(hints) == []
+    assert layout_is_open(query_text=query, is_day_plan=False, minimal_personal_context=False)
 
 
 def test_walk_me_through_procedure_is_steps_not_an_interactive_lesson():
@@ -726,6 +744,8 @@ def test_the_turn_after_a_lesson_never_shows_its_card_again() -> None:
     assert "never show its card again" in hint and "Never work the practice out" in hint
 
 
+# A task to learn is no lesson: its layout stays open for the read, which calls it one
+# procedure (``steps_need_corpus.json``: "teach me how to balance an equation", 0.99).
 @pytest.mark.parametrize(
     "query",
     [
@@ -736,10 +756,10 @@ def test_the_turn_after_a_lesson_never_shows_its_card_again() -> None:
         "how do I do long division",
     ],
 )
-def test_a_task_to_learn_gets_its_steps_as_a_flow(query: str) -> None:
+def test_a_task_to_learn_is_left_to_the_read(query: str) -> None:
     hints = _hints(query)
-    assert STEPS_FORMAT_HINT in hints
     assert TEACHING_HINT not in hints
+    assert layout_is_open(query_text=query, is_day_plan=False, minimal_personal_context=False)
 
 
 @pytest.mark.parametrize(
@@ -749,13 +769,16 @@ def test_a_skill_or_a_topic_to_learn_stays_a_lesson(query: str) -> None:
     hints = _hints(query)
     assert TEACHING_HINT in hints
     assert STEPS_FORMAT_HINT not in hints
+    assert not layout_is_open(query_text=query, is_day_plan=False, minimal_personal_context=False)
 
 
 @pytest.mark.parametrize(
     ("query", "card"),
     [
-        ("how do I balance a chemical equation", True),
-        ("teach me how to make tea", True),
+        ("walk me through balancing a chemical equation", True),
+        ("make tea step by step", True),
+        # Not asked in words: the read's card, said beside the message (``steps_turn``).
+        ("how do I balance a chemical equation", False),
         # A plan, a lesson or a reply to an offer: the card is the how-to's alone (review,
         # 2026-11-14: "yes" to a study plan came back as a dated plan in the card 3 of 3).
         ("yes", False),

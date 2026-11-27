@@ -284,7 +284,11 @@ sends the same prompts to the running API and writes the replies to `tmp/battery
 (`SCAN_LAYOUT` in `modules/chat/prompt_constants/format.py`, said beside the message): a short
 answer first, a `##` title, numbered items with **bold** names, each item's members as a nested
 list, `###` subtitles for distinct parts. A steps card or a comparison table takes the list's
-place under the answer and the title; a message with several requests puts each under its own
+place under the answer and the title; the steps card (boxes joined by arrows) is only for one
+procedure done in order, when the turn's read says so (`modules/chat/steps_turn.py`,
+`decider_read.STEPS_QUESTION`, measured on `steps_need_corpus.json`) or the message asks for
+steps in words ("step by step"); tips and ways ("how to look handsome") keep the numbered list,
+and no hint names the kind of turn, which a reply repeats ("It's a how-to"; `test_hints_name_no_turn.py`); a message with several requests puts each under its own
 `###` heading (`prompt_constants/multi_part.py`); a lesson lays out its own sections. A one-line
 fact stays a line or two; a conversation stays plain lines; a maths, physics or chemistry
 working keeps its worked layout.

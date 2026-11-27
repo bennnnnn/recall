@@ -197,6 +197,16 @@ const WORKLET_DEPS_ARGUMENT = new Map([
   ["useAnimatedReaction", 2],
 ]);
 
+/**
+ * The client's request functions (lib/api/client.ts). Their path is a literal or comes from
+ * apiPath / withQuery (lib/api/path.ts), which encode each value: the pre-launch review
+ * (B1, 2026-11-27) found a chat link's id `../chats` pasted into a DELETE that Android sent
+ * as DELETE /chats.
+ */
+const API_REQUESTS = new Set(["request", "requestRaw", "requestSse", "requestRevalidated"]);
+/** A template that starts like one of our paths: `/chats/…`, `/ws/chats/…`. */
+const API_PATH_START = /^\/[a-z]/;
+
 const recallRules = {
   rules: {
     "no-worklet-deps": {
@@ -214,6 +224,37 @@ const recallRules = {
             if (at !== undefined && node.arguments.length > at) {
               context.report({ node: node.arguments[at], messageId: "deps" });
             }
+          },
+        };
+      },
+    },
+    "api-path": {
+      meta: {
+        type: "problem",
+        messages: {
+          raw: "Build an API path with apiPath`/chats/${id}` and withQuery from @/lib/api/path: a raw value can climb out of its route (`../chats` made DELETE /chats).",
+        },
+        schema: [],
+      },
+      create(context) {
+        const isBuilt = (node) =>
+          (node.type === "TemplateLiteral" && node.expressions.length > 0) ||
+          (node.type === "BinaryExpression" && node.operator === "+");
+        return {
+          CallExpression(node) {
+            const path = node.arguments[0];
+            if (node.callee.type === "Identifier" && API_REQUESTS.has(node.callee.name) && path && isBuilt(path)) {
+              context.report({ node: path, messageId: "raw" });
+            }
+          },
+          // A path built ahead of its call (`const path = \`/chats/${id}\``) is as raw, and so is
+          // one after an origin (`\`${getApiUrl()}/attachments/${id}/file\``): any part that
+          // starts like one of our paths and has a value after it.
+          TemplateLiteral(node) {
+            if (node.parent.type === "TaggedTemplateExpression") return;
+            const raw = node.quasis.some((quasi, index) =>
+              index < node.expressions.length && API_PATH_START.test(quasi.value.cooked ?? ""));
+            if (raw) context.report({ node, messageId: "raw" });
           },
         };
       },
@@ -246,6 +287,11 @@ module.exports = defineConfig([
     files: ["**/*.{ts,tsx}"],
     plugins: { recall: recallRules },
     rules: { "recall/no-worklet-deps": "error" },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    ignores: TEST_FILES,
+    rules: { "recall/api-path": "error" },
   },
   {
     files: ["**/*.{ts,tsx}"],

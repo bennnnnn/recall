@@ -14,6 +14,7 @@ import { getCachedChatList, subscribeChatList } from "@/features/chat/model/chat
 import { lastChat } from "@/features/chat/model/lastChat";
 import { tap } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
+import { routeServerId } from "@/lib/serverId";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
@@ -29,7 +30,7 @@ export function LastChatCard() {
   const router = useRouter();
   const { chatId } = useLocalSearchParams<{ chatId?: string }>();
   const list = useSyncExternalStore(subscribeChatList, getCachedChatList, getCachedChatList);
-  const chat = useMemo(() => lastChat(list, typeof chatId === "string" ? chatId : null), [list, chatId]);
+  const chat = useMemo(() => lastChat(list, routeServerId(chatId) ?? null), [list, chatId]);
   if (!chat) return null;
 
   return (

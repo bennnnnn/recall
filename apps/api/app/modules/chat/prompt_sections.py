@@ -74,6 +74,7 @@ from app.modules.chat.prompt_format import (
     _layout_format_hint,
     _style_format_hints,
     code_question_layout,
+    layout_is_open,
 )
 from app.modules.chat.prompt_memory import memory_notes, memory_status_note
 from app.modules.chat.prompt_profile import (
@@ -169,6 +170,12 @@ class PromptTurn:
         """The layout and writing hints (``prompt_format``), worked out once per turn."""
         return [] if self.lightweight else _style_hints(self)
 
+    @cached_property
+    def steps_open(self) -> bool:
+        """The turn's words give its reply no layout of their own, so the read may give it
+        the ```steps card (``steps_turn``)."""
+        return not self.lightweight and layout_is_open(**_style_turn_args(self))
+
     @property
     def length_hint(self) -> str:
         # No account-wide length: each message says how long it wants ("briefly",
@@ -205,7 +212,8 @@ def _profile(turn: PromptTurn) -> list[str]:
     ]
 
 
-def _style_hints(turn: PromptTurn) -> list[str]:
+def _style_turn_args(turn: PromptTurn) -> dict[str, Any]:
+    """What the style hints read about the turn (``prompt_format``)."""
     query = turn.query
     lesson = active_lesson_step(turn.exchange)
     outline_pick = not lesson and outline_awaits_pick(turn.exchange)
@@ -216,19 +224,25 @@ def _style_hints(turn: PromptTurn) -> list[str]:
     compact = not (lesson or outline_pick) and bool(
         query and (is_bare_writing_line(query) or is_social_opener(query))
     )
+    return {
+        "query_text": turn.query_text,
+        "is_day_plan": bool(query and is_day_planning_question(query)),
+        "minimal_personal_context": turn.minimal_personal_context,
+        "compact": compact,
+        "lesson": lesson,
+        "outline_pick": outline_pick,
+        "lesson_after_gap": after_gap,
+        "prior_messages": exchange_pairs(turn.exchange),
+        "multi": turn.multi,
+        "resuming": resumes_course(query, turn.memory_block),
+    }
+
+
+def _style_hints(turn: PromptTurn) -> list[str]:
     return _style_format_hints(
-        query_text=turn.query_text,
-        is_day_plan=bool(query and is_day_planning_question(query)),
-        minimal_personal_context=turn.minimal_personal_context,
-        compact=compact,
+        **_style_turn_args(turn),
         image_generation_enabled=turn.settings.image_generation_enabled,
         image_search_enabled=turn.settings.image_search_enabled,
-        lesson=lesson,
-        outline_pick=outline_pick,
-        lesson_after_gap=after_gap,
-        prior_messages=exchange_pairs(turn.exchange),
-        multi=turn.multi,
-        resuming=resumes_course(query, turn.memory_block),
         ordinary=turn.ordinary,
     )
 
@@ -536,7 +550,7 @@ NEARBY_CONTRACTS: tuple[PromptSection, ...] = (
         lambda t: _present(programming_lesson_contract(t.query)),
         name="programming_lesson_contract",
     ),
-    # Beside the message too: a lesson's shape, a how-to's steps card, the chat's earlier cards.
+    # Beside the message too: a lesson's shape, steps asked for in words, the chat's earlier cards.
     PromptSection(_always, lambda t: lesson_contract(t.style_hints), name="lesson_contract"),
     PromptSection(_always, lambda t: steps_contract(t.style_hints), name="steps_contract"),
     PromptSection(_always, lambda t: practice_asked_notes(t.asked_practice), name="practice_asked"),

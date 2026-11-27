@@ -41,7 +41,8 @@ async def read_picture_ask(
     """``photo`` or ``image`` when the read says ``text`` asks for one, else None."""
     labels: asyncio.Future[dict[UUID, ShownPicture]] = asyncio.get_running_loop().create_future()
     labels.set_result(dict(pictures or {}))
-    task = start_turn_decision(settings, text, recent=list(recent), pictures=labels)
+    # Only the picture is read here: the steps question's answer would go unused.
+    task = start_turn_decision(settings, text, recent=list(recent), pictures=labels, steps=False)
     if task is None:
         return None
     try:

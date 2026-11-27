@@ -13,7 +13,7 @@ import { onAppEvent } from "@/lib/appEvents";
 import { getSessionGeneration } from "@/lib/auth";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
-import { isServerMessageId } from "@/lib/serverMessageId";
+import { isServerId } from "@/lib/serverId";
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { shouldSkipSilentChatRefetch } from "@/features/chat/model/foregroundRefetch";
 import { hasPendingPhoto } from "@/features/chat/model/latePhoto";
@@ -74,8 +74,12 @@ function mutateDisk(mutation: () => Promise<void>): Promise<void> {
   return diskWrites;
 }
 
-function cachePath(chatId: string): string {
-  return `${CACHE_DIR}${chatId}.json`;
+/**
+ * The chat's page file, or none: only a server id names a file. A chat link's id
+ * (`..%2F..%2Fcached-user`) was once a path out of this folder (pre-launch review B1).
+ */
+function cachePath(chatId: string): string | null {
+  return cacheDirectory && isServerId(chatId) ? `${CACHE_DIR}${chatId}.json` : null;
 }
 
 async function ensureDir(): Promise<void> {
@@ -95,12 +99,13 @@ export function cachedChatPageFetchedAt(
 }
 
 export async function readCachedChatMessages(chatId: string): Promise<CachedChatPage | null> {
-  if (!cacheDirectory) return null;
+  const path = cachePath(chatId);
+  if (!path) return null;
   const isCurrent = cacheIsCurrent(chatId);
   try {
-    const info = await getInfoAsync(cachePath(chatId));
+    const info = await getInfoAsync(path);
     if (!info.exists) return null;
-    const raw = await readAsStringAsync(cachePath(chatId));
+    const raw = await readAsStringAsync(path);
     const parsed = JSON.parse(raw) as CachedChatPage;
     if (!isCurrent() || !Array.isArray(parsed.messages)) return null;
     return parsed;
@@ -141,7 +146,8 @@ export async function writeCachedChatMessages(
   hasMore: boolean,
   cachedAt = new Date().toISOString(),
 ): Promise<void> {
-  if (!cacheDirectory) return;
+  const path = cachePath(chatId);
+  if (!path) return;
   // Once per run, before the first write: earlier runs' pages are bounded here.
   if (!swept) {
     swept = true;
@@ -157,7 +163,7 @@ export async function writeCachedChatMessages(
       has_more: hasMore,
       cached_at: cachedAt,
     };
-    await writeAsStringAsync(cachePath(chatId), JSON.stringify(payload));
+    await writeAsStringAsync(path, JSON.stringify(payload));
   });
 }
 
@@ -171,7 +177,8 @@ export async function patchCachedChatMessage(
     const messages = kept.page.messages.map((m) => (m.id === messageId ? { ...m, ...patch } : m));
     kept.page = { ...kept.page, messages };
   }
-  if (!cacheDirectory) return;
+  const path = cachePath(chatId);
+  if (!path) return;
   const isCurrent = cacheIsCurrent(chatId);
   return mutateDisk(async () => {
     if (!isCurrent()) return;
@@ -180,7 +187,7 @@ export async function patchCachedChatMessage(
     const messages = cached.messages.map((m) =>
       m.id === messageId ? { ...m, ...patch } : m,
     );
-    await writeAsStringAsync(cachePath(chatId), JSON.stringify({ ...cached, messages }));
+    await writeAsStringAsync(path, JSON.stringify({ ...cached, messages }));
   });
 }
 
@@ -188,9 +195,10 @@ export async function clearCachedChatMessages(chatId: string): Promise<void> {
   chatClearGenerations.set(chatId, (chatClearGenerations.get(chatId) ?? 0) + 1);
   keptPages.delete(chatId);
   unsavedChats.delete(chatId);
-  if (!cacheDirectory) return;
+  const path = cachePath(chatId);
+  if (!path) return;
   return mutateDisk(async () => {
-    await deleteAsync(cachePath(chatId), { idempotent: true });
+    await deleteAsync(path, { idempotent: true });
   });
 }
 
@@ -279,15 +287,15 @@ export function markCachedChatPagesStale(): void {
 /** Every row is one the server holds: a saved row, or a sent message its saved reply confirms. */
 export function isSettledThread(messages: Message[]): boolean {
   return messages.length > 0 && messages.every((message, index) => {
-    if (isServerMessageId(message.id)) return true;
+    if (isServerId(message.id)) return true;
     const next = messages[index + 1];
-    return message.role === "user" && next?.role === "assistant" && isServerMessageId(next.id);
+    return message.role === "user" && next?.role === "assistant" && isServerId(next.id);
   });
 }
 
 /** A row as the cache holds it: no list key, and no local preview on a saved row (its server copy draws it). */
 function cachedRow(message: Message): Message {
-  const saved = isServerMessageId(message.id);
+  const saved = isServerId(message.id);
   const hasPreview = message.local_image_uri != null || message.local_file_uri != null ||
     message.local_file_name != null || message.local_file_content_type != null;
   if (message.renderKey === undefined && !(saved && hasPreview)) return message;
@@ -305,7 +313,7 @@ function cachedRow(message: Message): Message {
 /** The newest page of a thread. It starts on a saved row, so "Load earlier" has a cursor. */
 function newestPage(messages: Message[]): { rows: Message[]; cut: boolean } {
   let start = Math.max(0, messages.length - MESSAGE_PAGE_SIZE);
-  while (start > 0 && !isServerMessageId(messages[start].id)) start -= 1;
+  while (start > 0 && !isServerId(messages[start].id)) start -= 1;
   return { rows: messages.slice(start).map(cachedRow), cut: start > 0 };
 }
 

@@ -59,6 +59,7 @@ jest.mock("expo-image", () => ({
   Image: { clearMemoryCache: jest.fn(async () => true), clearDiskCache: jest.fn(async () => true) },
 }));
 jest.mock("@/lib/i18n", () => ({ ensureLocale: jest.fn(async () => undefined) }));
+jest.mock("@/lib/i18n/deviceLanguage", () => ({ deviceLanguage: () => "fr" }));
 
 beforeEach(() => {
   mockDeleted.length = 0;
@@ -103,9 +104,9 @@ it("forgets the account's photos, which expo-image keeps in memory and on disk",
   expect(Image.clearDiskCache).toHaveBeenCalledTimes(1);
 });
 
-it("draws the sign-in screen in English, as a launch with no account does", async () => {
+it("draws the sign-in screen in the phone's language, as a launch with no account does", async () => {
   await clearSignedOutAccount("user-1");
-  expect(ensureLocale).toHaveBeenCalledWith("en");
+  expect(ensureLocale).toHaveBeenCalledWith("fr");
 });
 
 it("deletes the account's export, previews, read-aloud audio and PDFs, and nothing else", async () => {

@@ -2,7 +2,7 @@
 fenced."""
 
 CHEMISTRY_PRESENTATION_HINT = (
-    "This is a chemistry answer. Keep species, amounts, and units easy to scan. "
+    "Keep species, amounts, and units easy to scan. "
     "Write species with Unicode sub- and superscripts (H₂O, Fe³⁺, SO₄²⁻), reactions with → "
     "or ⇌, and never put a bare species or unit in LaTeX. "
     "When you calculate, follow the calculation layout: one reasoning state per row."
@@ -15,7 +15,7 @@ def chemistry_prompt_hints(short: bool) -> tuple[str, ...]:
 
 
 CHEMISTRY_FENCE_HINT = (
-    "This turn is chemistry. Molecular structures: ```smiles (alias ```chemistry) "
+    "Molecular structures: ```smiles (alias ```chemistry) "
     "with a plain SMILES string — never geometry, graph, mermaid, HTML/SVG, "
     "`$...$`, or ```math. One molecule per fence; optional caption above the SMILES. "
     "Use verified SMILES from the system block verbatim when present. "

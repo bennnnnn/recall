@@ -1,11 +1,12 @@
 import { request, requestRaw } from "@/lib/api/client";
+import { apiPath, withQuery } from "@/lib/api/path";
 import type { AttachmentListResponse } from "@/features/attachments/types";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
 
 async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
   const generation = getSessionGeneration();
-  await request<void>(`/attachments/${attachmentId}`, token, {
+  await request<void>(apiPath`/attachments/${attachmentId}`, token, {
     method: "DELETE",
   });
   try {
@@ -46,7 +47,7 @@ export const attachmentsApi = {
   /** Composer cancel of an unlinked upload — same DELETE as Library delete. */
   cancelAttachment: deleteAttachment,
   confirmAttachment: (token: string, attachmentId: string) =>
-    request<void>(`/attachments/${attachmentId}/confirm`, token, {
+    request<void>(apiPath`/attachments/${attachmentId}/confirm`, token, {
       method: "POST",
     }),
   getAttachmentUrl: (token: string, attachmentId: string) =>
@@ -58,7 +59,7 @@ export const attachmentsApi = {
       created_at: string;
       indexed?: boolean;
       original_filename?: string | null;
-    }>(`/attachments/${attachmentId}/url`, token),
+    }>(apiPath`/attachments/${attachmentId}/url`, token),
   listAttachments: (
     token: string,
     params: {
@@ -70,17 +71,14 @@ export const attachmentsApi = {
       cursor?: string;
     } = {},
   ) => {
-    const search = new URLSearchParams();
-    if (params.category) search.set("category", params.category);
-    if (params.source) search.set("source", params.source);
-    if (params.q) search.set("q", params.q);
-    if (params.limit !== undefined) search.set("limit", String(params.limit));
-    if (params.cursor) search.set("cursor", params.cursor);
-    const qs = search.toString();
-    return request<AttachmentListResponse>(
-      qs ? `/attachments?${qs}` : "/attachments",
-      token,
-    );
+    const query = withQuery("/attachments", {
+      category: params.category || undefined,
+      source: params.source || undefined,
+      q: params.q || undefined,
+      limit: params.limit,
+      cursor: params.cursor || undefined,
+    });
+    return request<AttachmentListResponse>(query, token);
   },
 };
 
@@ -90,7 +88,7 @@ export async function attachmentRecordExists(
   attachmentId: string,
 ): Promise<boolean | null> {
   try {
-    await request(`/attachments/${attachmentId}/url`, token);
+    await request(apiPath`/attachments/${attachmentId}/url`, token);
     return true;
   } catch (error) {
     if (
@@ -119,7 +117,7 @@ export async function uploadAttachmentBytes(
   const headers = { "Content-Type": contentType, ...target.headers };
   let response: Response;
   if (target.api_upload) {
-    response = await requestRaw(`/attachments/${target.attachment_id}/upload`, token, {
+    response = await requestRaw(apiPath`/attachments/${target.attachment_id}/upload`, token, {
       method: "PUT", headers, body: bytes,
     }, true, ATTACHMENT_UPLOAD_TIMEOUT_MS);
   } else {

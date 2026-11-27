@@ -55,6 +55,8 @@ _GOES_ON_AT = 0.5
 _RESUMES_AT = 0.5
 # A photo above the answer (``PHOTO_QUESTION``): picked on the photo-need corpus.
 SEEN_AT = 0.65
+# One procedure carried out in order (``STEPS_QUESTION``): picked on the steps-need corpus.
+STEPS_AT = 0.6
 # How long the turn's read waits for the work question's call once its own is in: both
 # start together and answer in about 0.33 s. The cards' call is waited for as long as the
 # read's own budget allows (and the reply waits no longer than ``live_read_wait_seconds``
@@ -234,6 +236,32 @@ PHOTO_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
                 "the assistant itself, the user or their own life, small talk, advice or "
                 "how-to, health, a word, an idea, a feeling, a process or concept from "
                 "science, history or economics, maths, code, or writing a message."
+            ),
+        }
+    }
+)
+
+
+# Whether the answer is one procedure the user carries out in order, which the phone draws as
+# a ```steps card of boxes joined by arrows (``chat.steps_turn``), asked in a call of its own
+# beside the turn's, as the work question is. A word rule gave every "how to …" the card:
+# "How to look handsome" got six independent tips in it, the reply opening "It's a how-to"
+# (the owner, 2026-11-27). Tips, ways and advice take the scan layout's numbered list.
+# Measured on ``steps_need_corpus.json`` (``tests/behavior/steps_need_eval.py``).
+STEPS_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "steps": {
+            "type": "noul",
+            "instructions": (
+                "Is the answer to the user's last message one procedure the user will carry "
+                "out, its steps done in a fixed order, each after the one before: a task "
+                "(tie a tie, renew a passport, change a tire, install or set up something, "
+                "make bread, boil an egg, jump-start a car) or a method to follow (balance a "
+                "chemical equation, long division), or does the message ask for steps? Not "
+                "tips, habits or several independent ways to reach a goal (look good, save "
+                "money, sleep better, make friends, get fit, be confident), advice, a choice "
+                "or decision to weigh, how something works, a plan over weeks, a list, a "
+                "fact, a problem to work out, writing, or chat."
             ),
         }
     }
@@ -457,6 +485,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "resumes": _yes(get("resumes", "noul"), _RESUMES_AT),
         # None (unasked or late): the word rules offer the photo.
         "seen": _yes(get("seen", "noul"), SEEN_AT),
+        # None (unasked or late): the scan layout's numbered list, never the steps card.
+        "steps": _yes(get("steps", "noul"), STEPS_AT),
     }
 
 
@@ -468,12 +498,13 @@ async def decide_turn(
     seconds: float,
     ask_work: bool = False,
     ask_photo: bool = False,
+    ask_steps: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
-    ``ask_work`` the work and the asks questions, with ``ask_photo`` the photo question, and
-    with ``lesson`` the questions about the last reply's cards (``lesson_questions``), go in
-    calls of their own begun beside it: the
+    ``ask_work`` the work and the asks questions, with ``ask_photo`` the photo question, with
+    ``ask_steps`` the steps question, and with ``lesson`` the questions about the last reply's
+    cards (``lesson_questions``), go in calls of their own begun beside it: the
     Decider weighs one call's questions together. Each ends when the read does, whatever ends it (an answer,
     a failure, the reply's wait, a Stop)."""
     from app.gateways.decider_gateway import decide
@@ -491,6 +522,7 @@ async def decide_turn(
             # Only a message with a number in it gets a verified result to fall short of.
             (ASKS_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
             (PHOTO_QUESTION if ask_photo else None, _WORK_GRACE_SECONDS),
+            (STEPS_QUESTION if ask_steps else None, _WORK_GRACE_SECONDS),
             (lesson or None, None),
         )
         for questions, grace in calls:

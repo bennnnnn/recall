@@ -165,7 +165,7 @@
         "NSPhotoLibraryAddUsageDescription": "Recall saves generated and chat images to your photo library when you tap Download.",
         "NSCameraUsageDescription": "Recall uses the camera so you can take photos to attach in chat and scan math problems from your notes or worksheets.",
         "NSMicrophoneUsageDescription": "Recall uses the microphone so you can dictate messages and talk with Recall in Live Talk.",
-        "NSMotionUsageDescription": "Recall does not use motion or fitness data and never asks for it.",
+        "CFBundleAllowMixedLocalizations": true,
         "LSApplicationQueriesSchemes": [
           "googlegmail",
           "gmail",
@@ -269,7 +269,8 @@
           "locationWhenInUsePermission": "Recall uses your location for local time and to answer where you are.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
-          "motionUsagePermission": "Recall does not use motion or fitness data and never asks for it."
+          "locationFullAccuracyPermission": false,
+          "motionUsagePermission": false
         }
       ],
       [
@@ -354,6 +355,16 @@
         }
       ]
     ],
+    "locales": {
+      "en": "./locales/en.json",
+      "es": "./locales/es.json",
+      "fr": "./locales/fr.json",
+      "pt": "./locales/pt.json",
+      "ru": "./locales/ru.json",
+      "tr": "./locales/tr.json",
+      "am": "./locales/am.json",
+      "hi": "./locales/hi.json"
+    },
     "experiments": {
       "typedRoutes": true
     }

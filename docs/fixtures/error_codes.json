@@ -63,6 +63,20 @@
    "message": "Confirm the deletion to delete the account."
   }
  },
+ "chats_delete_all_unconfirmed": {
+  "status": 400,
+  "detail": {
+   "code": "confirm_required",
+   "message": "Confirm the deletion to delete every chat."
+  }
+ },
+ "memories_delete_all_unconfirmed": {
+  "status": 400,
+  "detail": {
+   "code": "confirm_required",
+   "message": "Confirm the deletion to delete every memory."
+  }
+ },
  "todo_limit": {
   "status": 409,
   "detail": {

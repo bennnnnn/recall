@@ -18,7 +18,6 @@ from app.modules.turn_reading.plan import TurnPlan
 from app.modules.turn_reading.teaching import (
     TeachingReason,
     is_teaching_request,
-    teaching_reason,
 )
 from app.services.text_normalize import SENTENCE_BREAK
 
@@ -122,15 +121,6 @@ def is_homework(text: str) -> bool:
 
 def _same_line(left: str, right: str) -> bool:
     return left.split() == right.split()
-
-
-def teaching_reason_of(text: str) -> TeachingReason:
-    """Why ``text`` asks to be taught or not ("procedure": a task to do), from the turn's own
-    reading when ``text`` is the turn's message, as ``teaching_of``."""
-    kept = current_turn_reading()
-    if kept is not None and kept.text == text:
-        return kept.teaching_reason
-    return teaching_reason(text)
 
 
 def teaching_of(text: str) -> bool:

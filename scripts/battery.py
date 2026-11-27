@@ -42,11 +42,19 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
+from app.core.delete_confirmation import DELETE_CONFIRMATION  # noqa: E402
 from app.models.model_catalog import estimate_cost_usd  # noqa: E402
 from app.modules.turn_reading.lesson_flow import lesson_step  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
 TIMEZONE = "Africa/Nairobi"
+
+
+def delete_everything(client: httpx.Client, path: str, headers: dict[str, str]) -> httpx.Response:
+    """``DELETE /chats`` or ``DELETE /memories``: each deletes nothing without its confirmation."""
+    return client.request("DELETE", path, headers=headers, json={"confirm": DELETE_CONFIRMATION})
+
+
 # The API allows 30 chat messages a minute per user; stay under it.
 PACE_SECONDS = 2.2
 TURN_TIMEOUT = 180.0
@@ -202,8 +210,8 @@ class Battery:
         self.location[pro] = None
         # A fresh start: last run's chats go, and what they taught memory. A
         # saved "teach me by asking questions" reshaped later cooking answers.
-        self.client.delete("/chats", headers=headers).raise_for_status()
-        self.client.delete("/memories", headers=headers).raise_for_status()
+        delete_everything(self.client, "/chats", headers).raise_for_status()
+        delete_everything(self.client, "/memories", headers).raise_for_status()
 
     def _clear_memory(self, pro: bool) -> None:
         """Each case starts with no saved memory, as a new user would.
@@ -220,7 +228,7 @@ class Battery:
             self.queue_unreadable_noted = True
             print("  (the job queue can't be read; memory is cleared without waiting for it)")
         for _ in range(30):
-            response = self.client.delete("/memories", headers=self._headers(pro))
+            response = delete_everything(self.client, "/memories", self._headers(pro))
             if response.status_code != 409:
                 response.raise_for_status()
                 return
