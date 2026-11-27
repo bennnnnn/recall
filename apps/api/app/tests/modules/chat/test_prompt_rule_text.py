@@ -138,10 +138,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
 # 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
 # title, a multi-part reply's headings as its titles, and a one-line fact kept one line
-# (review of #2601).
+# (review of #2601); then an arrow written by its components ("A [4 5] N") in
+# VECTORS_DRAW_CONTRACT (textbook round, 2026-11-25).
 _RULES = 227
-_RULE_GRAMS = 21389
-_RULE_GRAMS_SHA = "179ee587e604a028"
+_RULE_GRAMS = 21426
+_RULE_GRAMS_SHA = "3bb182d0b8386db6"
 
 
 def _rules() -> list[str]:

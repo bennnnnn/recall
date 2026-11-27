@@ -10,10 +10,13 @@ in place of the figure read's picture of that kind (``figure_turn``) and of any 
 Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
-Physics describes its pictures the same way: on a physics message no solve drew a picture
-for, the reply gets physics' contract, its setup's scene (``physics.scene_drawing``: a
-projectile, an incline, an Atwood machine, ...) and an electric field's lines
-(``physics.field_lines``), and physics checks and draws what it describes. The field
+Physics describes its pictures the same way: on a physics message that asks to see a picture
+no solve drew, the reply gets physics' contract (its setup's scene, ``physics.scene_drawing``:
+a projectile, an incline, an Atwood machine, ...; an electric field's lines,
+``physics.field_lines``), and physics checks and draws what it describes. A problem that asks
+to see nothing gets its setup from physics' figure read beside the reply (``figure_turn``,
+``physics.scene_drawing.figure_read``); only with teaching figures off is the reply asked to
+describe it (``_setup_of``). The field
 questions of a GCSE set came back as ASCII art (live, 2026-11-16), and 29 of 30 hard
 problems in parts had no picture at all: no solver reads a question in parts.
 """
@@ -208,10 +211,15 @@ def _described_by(ctx: StreamContext, read: TurnDecision) -> SubjectName | None:
     return "physics" if read.subject == "physics" and read.picture == "diagram" else "math"
 
 
-def _setup_of(read: TurnDecision) -> SubjectName | None:
+def _setup_of(read: TurnDecision, settings: Settings) -> SubjectName | None:
     """Physics' scene is its setup's picture: a problem whose read asks to see nothing gets
-    it too, as maths' teaching figure does, when no solve drew one (never a picture asked
-    for, which ``_described_by`` holds to the read's asks check)."""
+    it too, when no solve drew one (never a picture asked for, which ``_described_by`` holds
+    to the read's asks check). With teaching figures on, physics' figure read draws it beside
+    the reply (``figure_turn``), and the reply is asked for no description: the fast reply
+    models left it out of 61 of 66 textbook problems, and one wrote "Here is the ```draw
+    block" into its reply (2026-11-25)."""
+    if settings.figure_read_enabled and settings.teaching_figures_enabled:
+        return None
     return "physics" if read.subject == "physics" and read.picture == "none" else None
 
 
@@ -267,7 +275,7 @@ async def ask_for_a_drawing(
     asked: Literal["read", "words"] | None = None
     subject: SubjectName | None = None
     if read is not None and read.subject is not None and read.picture is not None:
-        subject = _described_by(ctx, read) or _setup_of(read)
+        subject = _described_by(ctx, read) or _setup_of(read, settings)
         asked = "read" if subject is not None else None
     elif _asks_in_words(ctx):
         subject = _words_subject(ctx)
@@ -324,7 +332,7 @@ def _physics_graph(read: TurnDecision | None, question: str, settings: Settings)
     return physics.figure.contract_for(question, True, graph=True)
 
 
-def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
+def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing, settings: Settings) -> bool:
     """A contract asked for on the message's words holds only if the read, in by now, does
     not say otherwise."""
     if drawing.asked == "read":
@@ -334,7 +342,7 @@ def _still_wanted(ctx: StreamContext, drawing: ReplyDrawing) -> bool:
         return True
     # A setup's scene the read would ask for too ("none": a problem's own picture) stands,
     # unless the read says the message works nothing out ("just explain").
-    setup = _setup_of(decision) if decision.work is not False else None
+    setup = _setup_of(decision, settings) if decision.work is not False else None
     return drawing.subject in (_described_by(ctx, decision), setup)
 
 
@@ -477,7 +485,7 @@ async def attach_drawing(state: FinalizeState) -> str:
     if drawing is None or figure is None or state.was_cancelled:
         return text
     descriptions = list(dict.fromkeys([*drawing.descriptions, *written]))
-    if not descriptions or not _still_wanted(ctx, drawing):
+    if not descriptions or not _still_wanted(ctx, drawing, state.settings):
         return text
     line = ctx.user_message_content or ""
     texts = [line, *earlier_user_lines(ctx.recent_messages, line)]

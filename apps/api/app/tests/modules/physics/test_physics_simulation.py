@@ -836,13 +836,21 @@ def test_potential_energy_shows_the_height_it_multiplies() -> None:
     assert "5 m" in (height.label or "")
 
 
-def test_work_shows_the_distance_the_force_acted_over() -> None:
-    scene = _scene("find the work done by a force of 10 N over a distance of 3 m")
-    force, distance = scene.vectors
-
-    assert force.dx > 0 and force.role == "result"
-    assert distance.role == "measure"
-    assert distance.dx == pytest.approx(3.0)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "find the work done by a force of 10 N over a distance of 3 m",
+        "The man pulls the rope with a force of 75 N at an angle of 50° to the horizontal. "
+        "The man raises the box 1.5 m. Find the work done on the box.",
+    ],
+)
+def test_work_draws_no_box_pushed_along_the_ground(text: str) -> None:
+    """W = F d cos θ says the angle between the force and the displacement, never which way
+    either points: a box raised by a rope was drawn moving sideways (textbook round,
+    2026-11-25). The solve draws nothing; the figure read draws what the question says."""
+    intent = extract_physics_intent(text)
+    assert isinstance(intent, PhysicsIntent)
+    assert solve_physics(intent).simulation_specs == []
 
 
 @pytest.mark.parametrize(

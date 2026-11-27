@@ -19,7 +19,7 @@ from redis.asyncio import Redis
 
 from app.core import readings
 from app.core.config import Settings
-from app.core.readings import keep_for_turn
+from app.core.readings import LIVE_READ, keep_for_turn
 from app.exceptions import ChatNotFoundError, QuotaExceededError
 from app.gateways.mcp.base import TavilyBudget
 from app.models.orm import Attachment, Chat, User
@@ -28,7 +28,7 @@ from app.modules.attachments.markers import image_attachment_ids_from_text
 from app.modules.billing import plan as plan_service
 from app.modules.chat import shown_pictures, turn_decision
 from app.modules.chat.chart_turn import start_chart, stop_chart
-from app.modules.chat.figure_turn import LIVE_READ, start_figure, stop_figure
+from app.modules.chat.figure_turn import start_figure, stop_figure
 from app.modules.chat.formal_turn import start_formal, stop_formal
 from app.modules.chat.model_routing.thinking import thinking_level
 from app.modules.chat.posed_read import start_posed_read, stop_posed_read

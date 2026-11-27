@@ -650,7 +650,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   compound ("What is ibuprofen?", "the molar mass of glucose") gets its structure: a read
   names the compound in the user's own words, PubChem gives the structure and RDKit holds it
   to one molecule worth drawing (a salt, a mixture or a one-atom molecule draws nothing).
-  Physics already draws its scene with every answer it solves. Measured on
+  A physics question gets the picture it is taught from: its solve's scene, or, when the solve
+  drew none or nothing solved it, the one a read beside the reply names (a scene, the
+  question's vectors, the forces on one body, a bar's moments, a motion's graph), every value
+  held to the question by the server, and nothing when they do not hold
+  (`physics/scene_drawing/figure_read.py`, docs/physics.md#pictures). Measured on
   `app/tests/behavior/teaching_pictures_corpus.json` (`teaching_pictures_eval.py`): over four
   runs, maths 59 of 60 figures, chemistry 44 of 44 structures, no picture for any of the 108
   look-alikes. Each picture waits at most 2 s after the reply's text.

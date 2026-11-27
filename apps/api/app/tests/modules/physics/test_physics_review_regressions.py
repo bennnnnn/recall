@@ -158,7 +158,6 @@ def test_vertical_and_microscopic_motion_remain_drawable() -> None:
     "question",
     [
         "Find the potential energy of a 2 kg object at a height of 10 m.",
-        "A 10 N force moves a block 5 m in the direction of the force. Find the work done.",
         "What is the resultant of a 3 N and a 10 N force at 150 degrees to each other?",
     ],
 )

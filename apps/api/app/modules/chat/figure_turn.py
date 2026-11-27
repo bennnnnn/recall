@@ -23,6 +23,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.aio import settled_result
 from app.core.config import Settings
+
+# The turn's read is kept for the turn under the one key ``core.readings`` owns (the stream
+# keeps it, every module asks it there).
+from app.core.readings import LIVE_READ
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
@@ -50,7 +54,12 @@ _TOPIC = 6
 # molecule gets it from its solve, else (a follow-up: "can u show me a picture" after a mass
 # of KClO3) its compound's structure; one that asks for nothing gets that structure too,
 # when it helps teach the question.
-_FIGURES: dict[str, SubjectName] = {"maths": "math", "chemistry": "chemistry"}
+# A physics question gets the picture it is taught from (the forces on a body, its vectors,
+# its setup, a bar's moments), asked for or not, when no solve drew one (owner, 2026-11-25:
+# "Diagrams must be drawn"; 66 of 77 textbook questions that needed one drew nothing).
+_FIGURES: dict[str, SubjectName] = {"maths": "math", "chemistry": "chemistry", "physics": "physics"}
+# The pictures a physics question may ask to see that its figure draws.
+_PHYSICS_ASKED = frozenset({"diagram", "graph"})
 _Wanted = tuple[SubjectName, Literal["asked", "teach"]]
 
 
@@ -82,10 +91,6 @@ def earlier_user_lines(recent: Sequence[Any] | None, line: str, most: int = _EAR
     return list(reversed(texts))[:most]
 
 
-# The turn's read, kept for the turn (``core.readings.keep_for_turn``) by the stream.
-LIVE_READ = "live_read"
-
-
 async def will_draw(settings: Settings) -> bool:
     """Whether this turn's figure path will draw, as the prep must know before it leaves a
     shape to it: the turn's read, waited on for at most its usual wait, names a subject
@@ -97,7 +102,9 @@ async def will_draw(settings: Settings) -> bool:
     if not settings.figure_read_enabled or not isinstance(read, asyncio.Task):
         return False
     await asyncio.wait([read], timeout=settings.live_read_wait_seconds)
-    return _figure_wanted(read, teaching=settings.teaching_figures_enabled) is not None
+    wanted = _figure_wanted(read, teaching=settings.teaching_figures_enabled)
+    # Physics' figure leaves no shape of the prep's: its follow-ups stay physics' own.
+    return wanted is not None and wanted[0] != "physics"
 
 
 # What the read calls a request to see what the chat is about, whatever its words.
@@ -170,6 +177,14 @@ def _figure_wanted(
     subject = _FIGURES.get(decision.subject or "") if decision is not None else None
     if decision is None or subject is None:
         return None
+    if subject == "physics":
+        # Asked: a diagram or a graph, or the chat's problem ("draw it"). Not asked: the
+        # problem's own picture, unless the read says the message works nothing out ("why
+        # does a feather fall slower?") or asks for a photo or a painting.
+        if decision.picture in _PHYSICS_ASKED or shows_it(decision):
+            return subject, "asked"
+        teach = teaching and decision.picture in _UNASKED and decision.work is not False
+        return (subject, "teach") if teach else None
     # A request to see the chemistry problem the chat worked on is asked, whatever picture
     # the read names of it: its picture is its compound. A maths one that names none stays
     # the teaching figure's, which draws nothing for a remainder (review, 2026-11-22: asked,
@@ -397,7 +412,7 @@ async def attach_figure(state: FinalizeState) -> str:
     if not figure.adds_to(_without(reply, drawn), fence):
         logger.info("figure left out: the reply already shows it")
         return state.text
-    text = figure.without_substitutes(reply, fence).rstrip()
+    text = figure.without_substitutes(reply, fence, ctx.user_message_content or "").rstrip()
     text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
