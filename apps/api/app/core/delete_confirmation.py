@@ -9,7 +9,8 @@ refuses 400 ``confirm_required`` without it. This is the one check.
 
 from __future__ import annotations
 
-from fastapi import status
+from http import HTTPStatus
+
 from pydantic import BaseModel, Field
 
 from app.exceptions import DomainError
@@ -27,5 +28,5 @@ def require_delete_confirmation[Confirmed: DeleteConfirmation](
 ) -> Confirmed:
     """The body, when it confirms the delete; else refused. ``message`` names what it deletes."""
     if body is None or body.confirm != DELETE_CONFIRMATION:
-        raise DomainError(message, status_code=status.HTTP_400_BAD_REQUEST, code="confirm_required")
+        raise DomainError(message, status_code=HTTPStatus.BAD_REQUEST, code="confirm_required")
     return body
