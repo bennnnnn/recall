@@ -1,33 +1,89 @@
 /**
  * `$$` display maths, as every reader on the phone reads it: the conversion to a maths
  * card (`convertBlockMath`), the presentation passes (`displayMathLines`), the inline
- * readers (`readInlineMathSpan`) and the streaming scanners. The API's twin is
+ * readers (`readInlineMathSpan`), the passes that leave maths alone (`codeNotation`,
+ * `normalizeImplicitMath`) and the streaming scanners. The API's twin is
  * apps/api/app/modules/chat/display_dollars.py; docs/fixtures/display_math_cases.json holds
  * the two to one answer.
  *
  * remark-math's rule, as a reader reads a price list:
  * - a delimiter is a run of exactly two unescaped dollars: three or more ("$$$") are a
  *   price tier, never maths, and so is one in brackets ("($$)");
- * - it opens display maths at the start of a line (after its indent, a quote mark or a
- *   list marker), and the formula may run on over the lines below to the next `$$`;
- * - mid-line it is maths only as `$$x$$`, nothing between the dollars and the formula,
- *   closed on the same line ("Californian, $$–$$$" and "Cafe – $$." are prices);
- * - a formula never reaches across a list item or a table row, and a pair on a table
- *   row never spans a `|`.
+ * - at the start of a line (after its indent, a quote mark or a list marker) it opens a
+ *   formula that runs on over the lines below to the next `$$`;
+ * - mid-line it is maths as `$$x$$`, nothing between the dollars and the formula, closed
+ *   on the same line ("Californian, $$–$$$" and "Cafe – $$." are prices), or as a `$$`
+ *   that ends a sentence's line ("Therefore: $$"), closed by a `$$` that starts a line
+ *   before a blank line;
+ * - a `$$` alone on its line, or with TeX after it, opens a block nothing but its closer
+ *   ends: a line inside it that looks like a list item or a table row (`|x| < 5`,
+ *   `- 3x &= 2`) is maths. One with words after it ("$$ = moderate") or in a list item
+ *   reads as prose: a list item or a table row ends it unclosed.
+ * - a pair on a table row never spans a `|`.
  *
  * Inline code holds no maths: outside a formula a code span is skipped.
  */
 import { escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 
-/** The closer a line leaves awaited: `$$`, `\]` (only when brackets are read), or none. */
-export type DisplayCloser = "$$" | "\\]" | null;
+/**
+ * The closer a line leaves awaited, or none:
+ * - `$$`: a block nothing but its closer ends;
+ * - `$$ `: a formula opened in prose; a list item or a table row ends it unclosed;
+ * - `$$\n`: a formula opened at a line's end; only a `$$` that starts a line closes it, and
+ *   a blank line, a list item or a table row ends it unclosed;
+ * - `\]`: `\[ … \]` maths (read only when brackets are).
+ */
+export type DisplayCloser = "$$" | "$$ " | "$$\n" | "\\]" | null;
 
-/** A line's text before a delimiter that still counts as the line's start. */
-const LINE_START_RE = /^[ \t]*(?:>[ \t]?)*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?$/;
-/** A line that starts a list item or a table row: an open formula ends before it. */
-const ENDS_FORMULA_RE = /^[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]|\|)/;
 /** Something a formula is made of; "–" or ", " between two dollar pairs is not one. */
 const FORMULA_CHAR_RE = /[A-Za-z0-9\\]/;
+/** Text after an opening `$$` that is TeX, not words. */
+const TEX_RE = /[\\^_{}]/;
+
+/** Awaiting a `$$` closer, of any kind. */
+function awaitsDollars(closer: DisplayCloser): boolean {
+  return closer === "$$" || closer === "$$ " || closer === "$$\n";
+}
+
+/** After `text`'s spaces and tabs from `at`. A loop, so no pattern reads a run twice. */
+function afterBlanks(text: string, at = 0): number {
+  while (text[at] === " " || text[at] === "\t") at += 1;
+  return at;
+}
+
+/** After a list marker at `at` and the blanks it needs: `-`, `*`, `+`, `1.`, `1)`; or -1. */
+function afterListMarker(text: string, at: number): number {
+  let end = at;
+  if (text[end] === "-" || text[end] === "*" || text[end] === "+") end += 1;
+  else {
+    while (end - at < 9 && text[end]! >= "0" && text[end]! <= "9") end += 1;
+    if (end === at || (text[end] !== "." && text[end] !== ")")) return -1;
+    end += 1;
+  }
+  const blanks = afterBlanks(text, end);
+  return blanks > end ? blanks : -1;
+}
+
+/**
+ * Whether `prefix` (a line's text before a delimiter) is the line's start: its indent,
+ * quote marks and a list marker. "item" when the list marker is there.
+ */
+function readLineStart(prefix: string): false | "line" | "item" {
+  let at = afterBlanks(prefix);
+  while (prefix[at] === ">") {
+    at += 1;
+    if (prefix[at] === " " || prefix[at] === "\t") at += 1;
+  }
+  if (at === prefix.length) return "line";
+  const marker = afterListMarker(prefix, at);
+  return marker === prefix.length ? "item" : false;
+}
+
+/** A list item or a table row: a formula opened in prose ends before it. */
+function startsItemOrRow(line: string): boolean {
+  const at = afterBlanks(line);
+  return line[at] === "|" || afterListMarker(line, at) > 0;
+}
 
 function isTableRow(line: string): boolean {
   return line.trimStart().startsWith("|");
@@ -42,7 +98,11 @@ function runEnd(text: string, at: number): number {
 
 /** A price tier in brackets, "( $$ )": no delimiter. */
 function bracketedTier(line: string, start: number, end: number): boolean {
-  return /\(\s*$/.test(line.slice(0, start)) && /^\s*\)/.test(line.slice(end));
+  let before = start - 1;
+  while (before >= 0 && /\s/.test(line[before]!)) before -= 1;
+  let after = end;
+  while (after < line.length && /\s/.test(line[after]!)) after += 1;
+  return line[before] === "(" && line[after] === ")";
 }
 
 /**
@@ -76,10 +136,23 @@ function tightCloser(line: string, from: number, table: boolean): number | null 
 /** What a scan reports: a formula opened, closed, or one left open dropped (`at` -1). */
 type DisplayEvent = (kind: "open" | "close" | "drop", at: number) => void;
 
+/** The formula a `$$` at the start of a line opens: a block, or one read as prose. */
+function lineOpener(line: string, end: number, start: "line" | "item"): DisplayCloser {
+  const rest = line.slice(end).trim();
+  return start === "line" && (!rest || TEX_RE.test(rest)) ? "$$" : "$$ ";
+}
+
+/** Whether `line` ends a formula `closer` awaits, unclosed, before it is read. */
+function endsUnclosed(line: string, closer: DisplayCloser): boolean {
+  if (closer === "$$ ") return startsItemOrRow(line);
+  if (closer === "$$\n") return !line.trim() || startsItemOrRow(line);
+  return false;
+}
+
 /**
  * The closer still awaited after `line`, given the one awaited before it. With `brackets`,
  * `\[ … \]` is read too (a `$$` inside one is its text). `emit` hears each `$$` delimiter
- * by its offset in the line, and a formula a list item or table row ended unclosed.
+ * by its offset in the line, and a formula a line ended unclosed.
  */
 export function scanDisplayLine(
   line: string,
@@ -88,7 +161,7 @@ export function scanDisplayLine(
   emit?: DisplayEvent,
 ): DisplayCloser {
   let closer = before;
-  if (closer === "$$" && ENDS_FORMULA_RE.test(line)) {
+  if (endsUnclosed(line, closer)) {
     closer = null;
     emit?.("drop", -1);
   }
@@ -109,11 +182,15 @@ export function scanDisplayLine(
     if (char === "$" && slashes % 2 === 0) {
       const end = runEnd(line, index);
       if (end - index === 2 && closer !== "\\]" && !bracketedTier(line, index, end)) {
-        if (closer === "$$") {
-          closer = null;
-          emit?.("close", index);
-        } else if (LINE_START_RE.test(line.slice(0, index))) {
-          closer = "$$";
+        const start = readLineStart(line.slice(0, index));
+        if (awaitsDollars(closer)) {
+          // A formula opened at a line's end closes only at a line's start.
+          if (closer !== "$$\n" || start) {
+            closer = null;
+            emit?.("close", index);
+          }
+        } else if (start) {
+          closer = lineOpener(line, end, start);
           emit?.("open", index);
         } else {
           const close = tightCloser(line, end, table);
@@ -123,6 +200,10 @@ export function scanDisplayLine(
             index = close + 2;
             slashes = 0;
             continue;
+          }
+          if (!line.slice(end).trim()) {
+            closer = "$$\n";
+            emit?.("open", index);
           }
         }
       }
@@ -151,9 +232,9 @@ export function scanDisplayLine(
   return closer;
 }
 
-/** Whether a `$$` formula is still open after `line`, given whether one was before it. */
-export function dollarDisplayOpenAfter(line: string, open: boolean): boolean {
-  return scanDisplayLine(line, open ? "$$" : null) === "$$";
+/** The `$$` formula awaited after `line`, given the one awaited before it (null: none). */
+export function displayDollarsAfter(line: string, before: DisplayCloser): DisplayCloser {
+  return scanDisplayLine(line, before);
 }
 
 /** Each display formula in `text` (prose, no fences): from its opening to past its closing `$$`. */
@@ -177,6 +258,30 @@ export function findDisplayDollars(text: string): { start: number; end: number }
 }
 
 /**
+ * The maths a pass leaves alone in `text`: each `$$` formula, and each match of `others`
+ * (a global pattern: code, `$…$`, `\(…\)`), left to right, none inside another.
+ */
+export function mathSpans(text: string, others: RegExp): { start: number; end: number }[] {
+  const dollars = findDisplayDollars(text);
+  const spans: { start: number; end: number }[] = [];
+  let at = 0;
+  let next = 0;
+  while (at <= text.length) {
+    while (next < dollars.length && dollars[next]!.start < at) next += 1;
+    others.lastIndex = at;
+    const match = others.exec(text);
+    const dollar = dollars[next];
+    if (!match && !dollar) break;
+    const span = dollar && (!match || dollar.start <= match.index)
+      ? dollar
+      : { start: match!.index, end: match!.index + Math.max(1, match![0].length) };
+    spans.push(span);
+    at = span.end;
+  }
+  return spans;
+}
+
+/**
  * The end of the `$$` formula whose opener is at `start` in `text` (an inline reader's
  * question: a table cell, a card's text, the streaming line). The formula is read from its
  * line's start, so code spans and earlier pairs on the line are read as they are. Null when
@@ -190,6 +295,7 @@ export function displayDollarPairEnd(text: string, start: number): number | null
  * Whether the dollars at `start` in a reply still streaming may yet open a formula: one
  * opened there and not closed, a `$$x` whose line is still being written, or a run of one
  * or two dollars that ends the text so far (it may grow into a delimiter or a price tier).
+ * "Cafe – $$. Great" and "$$–$$$" are prices: nothing waits for them.
  */
 export function displayDollarsMayOpen(text: string, start: number): boolean {
   if (!runStartsAt(text, start)) return false;
@@ -198,7 +304,7 @@ export function displayDollarsMayOpen(text: string, start: number): boolean {
   if (end - start !== 2) return false;
   if (readFormulaAt(text, start).open) return true;
   // A `$$x` on the line still being written may find its closer.
-  return text.indexOf("\n", end) < 0 && !/\s/.test(text[end]!) && !LINE_START_RE.test(lineBefore(text, start));
+  return text.indexOf("\n", end) < 0 && FORMULA_CHAR_RE.test(text[end]!) && !readLineStart(lineBefore(text, start));
 }
 
 function runStartsAt(text: string, start: number): boolean {

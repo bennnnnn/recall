@@ -90,6 +90,8 @@ describe("stream segment cuts", () => {
     const text = "<details><summary>Why</summary>\nBecause.\n\n</details>\n\nLater.\n\nMore.\n";
     expect(cutLines(text)).toEqual(["Later.", "More."]);
     expect(cutLines("<details>\n\nOpen still.\n\nMore.\n")).toEqual([]);
+    // The passes read the tags in any case (review #2606).
+    expect(cutLines("<Details>\n\nA.\n\nB.\n\n</Details>\n\nLater.\n")).toEqual(["Later."]);
   });
 
   it("holds the cuts only while a fence indented four spaces is open", () => {

@@ -49,7 +49,7 @@ describe("classifyOpenStreamTail", () => {
     expect(
       classifyOpenStreamTail("```ts\nconst x = 1\n", {
         openFence: { char: "`", len: 3 },
-        dollarOpen: false,
+        dollarOpen: null,
         bracketDepth: 0,
       }),
     ).toEqual({ kind: "fence", lang: "ts", body: "const x = 1\n" });
@@ -59,7 +59,7 @@ describe("classifyOpenStreamTail", () => {
     expect(
       classifyOpenStreamTail("$$\nE=mc^2\n", {
         openFence: null,
-        dollarOpen: true,
+        dollarOpen: "$$",
         bracketDepth: 0,
       }),
     ).toEqual({ kind: "math", body: "E=mc^2\n" });
@@ -69,7 +69,7 @@ describe("classifyOpenStreamTail", () => {
     expect(
       classifyOpenStreamTail("still typing", {
         openFence: null,
-        dollarOpen: false,
+        dollarOpen: null,
         bracketDepth: 0,
       }),
     ).toEqual({ kind: "other", text: "still typing" });

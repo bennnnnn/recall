@@ -5,7 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
-import { dollarDisplayOpenAfter } from "@/lib/markdown/displayDollars";
+import { displayDollarsAfter, type DisplayCloser } from "@/lib/markdown/displayDollars";
 import { pairLazily } from "@/lib/markdown/streamSegments";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
@@ -73,13 +73,13 @@ export function findStableMarkdownPrefixLen(content: string): number {
 
 /** `$`, `$$`, `\[`, and `\(` inside a code fence are code, not math. */
 function mathMarkersOutsideFences(text: string): {
-  dollarOpen: boolean;
+  dollarOpen: DisplayCloser;
   bracketOpen: boolean;
   parenOpen: boolean;
   fenceOpen: boolean;
 } {
   let openFence: OpenFence | null = null;
-  let dollarOpen = false;
+  let dollarOpen: DisplayCloser = null;
   let bracketOpen = false;
   let parenOpen = false;
   let pos = 0;
@@ -132,15 +132,15 @@ function hasUnclosedStreamingStructure(text: string): boolean {
  */
 function lineMathMarkers(
   line: string,
-  dollarOpen: boolean,
+  dollarOpen: DisplayCloser,
   bracketOpen: boolean,
   parenOpen: boolean,
-): { dollarOpen: boolean; bracketOpen: boolean; parenOpen: boolean } {
-  if (!line.includes("$") && !line.includes("\\") && !(dollarOpen && line.trim())) {
+): { dollarOpen: DisplayCloser; bracketOpen: boolean; parenOpen: boolean } {
+  if (!line.includes("$") && !line.includes("\\") && !dollarOpen) {
     return { dollarOpen, bracketOpen, parenOpen };
   }
   return {
-    dollarOpen: dollarDisplayOpenAfter(line, dollarOpen),
+    dollarOpen: displayDollarsAfter(line, dollarOpen),
     bracketOpen: pairLazily(line, bracketOpen, "\\[", "\\]"),
     parenOpen: pairLazily(line, parenOpen, "\\(", "\\)"),
   };
@@ -186,8 +186,8 @@ type StableScanState = {
    * lines): a ``` line inside a ~~~ block is that block's content (audit DUP-03).
    */
   openFence: OpenFence | null;
-  /** Parity of `$$` occurrences seen so far (true = inside block math). */
-  dollarOpen: boolean;
+  /** The `$$` formula open at `scannedLen` (`displayDollars.ts`), or null. */
+  dollarOpen: DisplayCloser;
   /** 1 inside \[...\] block math, paired lazily (`lineMathMarkers`), else 0. */
   bracketDepth: number;
   /** 1 inside \(...\) inline math, which may span lines, paired lazily, else 0. */
@@ -213,7 +213,8 @@ type StableScanState = {
  * every line of the fence, every tick, for as long as it stays open.
  *
  * This function instead scans `content` forward line by line exactly once,
- * maintaining running parity/state for fences, `$$` math, and callouts as it
+ * maintaining running state for fences, `$$` math (read by the shared
+ * `displayDollars.ts` reader, so a price tier opens nothing), and callouts as it
  * goes (folding in each line is O(1)), and remembers the last line boundary
  * where all three were "closed". Given a previous call's returned state, a
  * later call for grown (append-only) `content` resumes from
@@ -222,11 +223,11 @@ type StableScanState = {
  * previous call, not by how much of the message is still open.
  *
  * Why resuming is safe: `scannedLen` is always a full-line boundary (0 or
- * right after a `\n`), and the fence/`$$` parity + callout state cached at
+ * right after a `\n`), and the fence/`$$` + callout state cached at
  * that boundary are exactly the running state a whole-prefix scan of
  * `content.slice(0, scannedLen)` would have computed. Appending more text
  * cannot retroactively change whether that earlier text closed its
- * fences/math/callouts (its own parity/chain state is a closed fact once
+ * fences/math/callouts (its own state is a closed fact once
  * written), so the cached state stays valid — only the newly appended lines
  * need to be folded in. (This mirrors why `findStableMarkdownPrefixLen`'s
  * own answer never needs to re-examine text before a boundary it already
@@ -248,7 +249,7 @@ function scanStableMarkdownPrefix(
   }
 
   let openFence: OpenFence | null = null;
-  let dollarOpen = false;
+  let dollarOpen: DisplayCloser = null;
   let bracketDepth = 0;
   let parenDepth = 0;
   let calloutOpen = false;

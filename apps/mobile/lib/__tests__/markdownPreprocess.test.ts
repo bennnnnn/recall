@@ -574,6 +574,18 @@ $)
     expect(breakMidlineAtxHeadings("All set. ## Next steps")).toBe("All set.\n\n## Next steps");
   });
 
+  it.each([
+    ["Hindi", "यह योजना है। ## अगले कदम", "यह योजना है।"],
+    ["Hindi double danda", "पूरा हुआ॥ ## आगे", "पूरा हुआ॥"],
+    ["Amharic", "ይህ እቅዱ ነው። ## ቀጣይ", "ይህ እቅዱ ነው።"],
+    ["Chinese", "这是计划。## 下一步", "这是计划。"],
+    ["a full-width question", "准备好了吗？## 开始", "准备好了吗？"],
+    ["a full-width colon", "步骤如下：## 第一步", "步骤如下："],
+    ["an ellipsis", "And then… ## Later", "And then…"],
+  ])("breakMidlineAtxHeadings: breaks a heading out after a %s sentence end", (_name, line, before) => {
+    expect(breakMidlineAtxHeadings(line).split("\n\n")[0]).toBe(before);
+  });
+
   // B2 (2026-11-27 review): any "# " split the line, so "C# fast" drew a heading.
   it.each([
     ["C# and F#", "How do I learn C# fast? I know Java and F# a bit."],

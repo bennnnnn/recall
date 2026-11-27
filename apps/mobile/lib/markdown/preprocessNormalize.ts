@@ -186,8 +186,9 @@ export function stripBoldListLabelContinuationColons(content: string): string {
   return out.join("\n");
 }
 
-/** A sentence ends before a glued heading: its mark, then any closing bold, quote or bracket. */
-const SENTENCE_END_RE = /[.!?:][*_)\]"'”’]*$/;
+/** A sentence ends before a glued heading: its mark (Latin, Devanagari, Ethiopic, CJK), then
+ * any closing bold, quote or bracket. */
+const SENTENCE_END_RE = /[.!?:।॥።፧…。！？：][*_)\]"'”’」』]*$/;
 /** A glued heading: two to six hashes, a space, then its words. */
 const GLUED_HEADING_RE = /^#{2,6}[ \t]+\S/;
 

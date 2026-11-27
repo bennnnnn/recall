@@ -279,7 +279,7 @@ function foldProseLine(state: SegmentScanState, line: string, hooks: SegmentHook
 /** Fold one complete raw line into the state. */
 /** Follow `<details>` tags on a line no clean fence holds (the passes pair them in its prose). */
 function foldDetailsTags(state: SegmentScanState, line: string): void {
-  if (!line.includes("details")) return;
+  if (!/details/i.test(line)) return;
   for (const tag of line.matchAll(DETAILS_TAG_RE)) {
     state.detailsOpen = tag[1] ? Math.max(0, state.detailsOpen - 1) : state.detailsOpen + 1;
   }

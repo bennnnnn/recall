@@ -6,6 +6,7 @@ import { bracePowers, bracketRuns } from "@/lib/math/gluedBrackets";
 import { readGroup } from "@/lib/math/latexGroups";
 import { applyOutsideInlineMath, priceDollarBefore, priceSymbolsAsText } from "@/lib/math/proseDollars";
 import { applyOutsideFences } from "@/lib/fence/scan";
+import { mathSpans } from "@/lib/markdown/displayDollars";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 // Line-start ``` fences are skipped via applyOutsideFences (a following
@@ -15,7 +16,8 @@ const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 // Display math (`$$...$$`, `\[...\]`) and `\(...\)` stay protected: without
 // that, the bracket reader (gluedBrackets.ts) reads the bare `(`/`)` inside `\(...\)` and
 // wrapInlineLatexCommands shatters `\left(\frac{5}{7}\right)^2`.
-const DISPLAY_MATH_SPAN_RE = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
+// `$$` maths is the shared reader's (displayDollars.ts): a price tier protects nothing.
+const DISPLAY_MATH_SPAN_RE = /\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
 
 // A LaTeX command (\frac, \sqrt, \boxed, ...) embedded mid-sentence with no
 // $...$ wrap at all — e.g. "simplifying\frac{8!}{6!}?" — is distinct from
@@ -451,21 +453,19 @@ function normalizeOutsideDisplayMath(
   text: string,
   format?: (expr: string) => string,
 ): string {
-  DISPLAY_MATH_SPAN_RE.lastIndex = 0;
   const chunks: string[] = [];
   let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = DISPLAY_MATH_SPAN_RE.exec(text)) !== null) {
-    if (match.index > last) {
+  for (const { start, end } of mathSpans(text, DISPLAY_MATH_SPAN_RE)) {
+    if (start > last) {
       // These edge lines abut protected math, so they are fragments rather
       // than standalone equations (e.g. the ") = " in "Mean (\\(mu\\)) = …").
-      chunks.push(normalizeImplicitMathInProse(text.slice(last, match.index), format, {
+      chunks.push(normalizeImplicitMathInProse(text.slice(last, start), format, {
         first: last > 0,
         last: true,
       }));
     }
-    chunks.push(match[0]);
-    last = match.index + match[0].length;
+    chunks.push(text.slice(start, end));
+    last = end;
   }
   chunks.push(normalizeImplicitMathInProse(text.slice(last), format, { first: last > 0 }));
   return chunks.join("");

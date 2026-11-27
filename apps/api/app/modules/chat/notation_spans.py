@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chat.display_dollars import math_spans
 from app.modules.chat.markdown_regions import map_prose_outside_fences
 
 _CHARSET = re.compile(r"[A-Za-z0-9@+\-\[\]()=#%/\\.]+")
@@ -26,7 +27,9 @@ _LETTERS = re.compile(r"[A-Za-z]+")
 _ATOMS = re.compile(r"(?:[A-Z][a-z]|[BCNOPSFIKH](?![a-z])|[bcnops])+")
 _RING_ATOM = re.compile(r"(?:[A-Z][a-z]?|[cnosp])(\d)")
 # Inline code and maths are left as they are; prose between them is read.
-_PROTECTED = re.compile(r"(`+[^`\n]*`+|\$\$[\s\S]*?\$\$|\$[^$\n]+\$)")
+# Code and ``$…$`` maths; ``$$`` maths is the shared reader's (``display_dollars``): a price
+# tier ("Zuni - $$.") protects nothing.
+_PROTECTED = re.compile(r"`+[^`\n]*`+|\$[^$\n]+\$")
 _TOKEN = re.compile(r"[^\s`$]+")
 _TRAILING = ".,;:!?"
 _MIN_LENGTH = 6
@@ -57,11 +60,14 @@ def _code_token(match: re.Match[str]) -> str:
 
 
 def _code_prose(prose: str) -> str:
-    parts = _PROTECTED.split(prose)
-    # split() keeps the protected spans at odd indexes.
-    return "".join(
-        part if index % 2 else _TOKEN.sub(_code_token, part) for index, part in enumerate(parts)
-    )
+    out: list[str] = []
+    last = 0
+    for start, end in math_spans(prose, _PROTECTED):
+        out.append(_TOKEN.sub(_code_token, prose[last:start]))
+        out.append(prose[start:end])
+        last = end
+    out.append(_TOKEN.sub(_code_token, prose[last:]))
+    return "".join(out)
 
 
 def code_notation(text: str) -> str:

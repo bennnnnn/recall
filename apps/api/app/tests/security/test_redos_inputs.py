@@ -337,3 +337,24 @@ def test_a_bold_value_reads_a_run_of_spaces_once() -> None:
 
     assert bold_quantity("**0.0e0" + " " * N) is None
     assert bold_quantity("**2.03 mm**") == "2.03\\,\\mathrm{mm}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "(" * 2_000 + SPACES + "$$x$$",
+        "a $$" + SPACES + ")",
+        "( " * (N // 2) + "$$",
+        "\t" * N + "- $$ = moderate",
+        "\t" * N + "x",
+        ">" * N + "$$",
+        "1" * N + ". $$",
+    ],
+)
+def test_display_dollars_read_runs_of_blanks_once(text):
+    """CodeQL 287/288 (#2606): the bracketed tier and the line's start, read by loops."""
+    from app.modules.chat.display_dollars import find_display_dollars, scan_display_line
+
+    find_display_dollars(text)
+    scan_display_line(text, "$$ ")
+    scan_display_line(text, "$$\n")

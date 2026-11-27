@@ -3,63 +3,25 @@
 Read a character at a time in Python, a reply of 200,000 dots spent 0.14 s per pass in it,
 and two passes read each line (``lead_lines`` joined ``math_padding``): CI ran the 0.5 s
 presentation test past its limit (2026-11-13). The character scan below is the phone's
-(apps/mobile/lib/markdown/displayDollars.ts, ``scanDisplayLine``) line for line.
+(apps/mobile/lib/markdown/displayDollars.ts, ``scanDisplayLine``) line for line; the rules
+for one run of dollars are the module's own, so this holds the jumping, not the rule.
 """
 
 from __future__ import annotations
 
 import itertools
 import random
-import re
 
 import pytest
 
+from app.modules.chat import display_dollars
 from app.modules.chat.display_dollars import Closer, scan_display_line
 from app.modules.chat.inline_code import read_inline_code_span
-
-_LINE_START = re.compile(r"[ \t]*(?:>[ \t]?)*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]+)?")
-_ENDS_FORMULA = re.compile(r"[ \t]*(?:(?:[-*+]|[0-9]{1,9}[.)])[ \t]|\|)")
-
-
-def _run_end(line: str, at: int) -> int:
-    while at < len(line) and line[at] == "$":
-        at += 1
-    return at
-
-
-def _tier(line: str, start: int, end: int) -> bool:
-    return bool(re.search(r"\(\s*\Z", line[:start])) and bool(re.match(r"\s*\)", line[end:]))
-
-
-def _tight(line: str, start: int, table: bool) -> int | None:
-    if start >= len(line) or line[start].isspace() or line[start] == "$":
-        return None
-    slashes = 0
-    index = start
-    while index < len(line):
-        if line[index] == "$" and slashes % 2 == 0:
-            end = _run_end(line, index)
-            if end - index != 2:
-                if end - index > 2:
-                    return None
-                index, slashes = end, 0
-                continue
-            body = line[start:index]
-            if (
-                body[-1:].isspace()
-                or not re.search(r"[A-Za-z0-9\\]", body)
-                or _tier(line, index, end)
-            ):
-                return None
-            return None if table and "|" in body else index
-        slashes = slashes + 1 if line[index] == "\\" else 0
-        index += 1
-    return None
 
 
 def _by_character(line: str, closer: Closer) -> Closer:
     """The phone's scan, one character at a time, counting backslashes as it passes them."""
-    if closer == "$$" and _ENDS_FORMULA.match(line):
+    if display_dollars._ends_unclosed(line, closer):
         closer = None
     if "$" not in line and "\\" not in line:
         return closer
@@ -73,16 +35,16 @@ def _by_character(line: str, closer: Closer) -> Closer:
             index, slashes = code_end, 0
             continue
         if char == "$" and slashes % 2 == 0:
-            end = _run_end(line, index)
-            if end - index == 2 and closer != "\\]" and not _tier(line, index, end):
-                if closer == "$$":
-                    closer = None
-                elif _LINE_START.fullmatch(line[:index]):
-                    closer = "$$"
-                elif (close := _tight(line, end, table)) is not None:
-                    index, slashes = close + 2, 0
-                    continue
-            index, slashes = end, 0
+            end = display_dollars._run_end(line, index)
+            if (
+                end - index == 2
+                and closer != "\\]"
+                and not display_dollars._bracketed_tier(line, index, end)
+            ):
+                closer, index = display_dollars._dollar_mark(line, index, end, closer, table, None)
+            else:
+                index = end
+            slashes = 0
             continue
         if char == "\\" and slashes % 2 == 0:
             following = line[index + 1 : index + 2]
@@ -115,7 +77,7 @@ _PIECES = [
     ")",
     "|",
 ]
-_CLOSERS: list[Closer] = [None, "$$", "\\]"]
+_CLOSERS: list[Closer] = [None, "$$", "$$ ", "$$\n", "\\]"]
 
 
 def test_every_short_line_of_marks_ends_as_the_character_scan() -> None:

@@ -64,13 +64,12 @@ export function presentAssistantMarkdown(text: string, workedAbove = false): str
  * code span, so it is a lone dollar. */
 function openMathStart(prose: string): number | null {
   let inline = false;
-  let display = false;
   let paren = false;
   let bracket = false;
   let openAt = -1;
   let i = 0;
   while (i < prose.length) {
-    if (prose[i] === "`" && !display && !paren && !bracket) {
+    if (prose[i] === "`" && !paren && !bracket) {
       const codeEnd = readInlineCodeSpan(prose, i);
       if (codeEnd != null) {
         inline = false;
@@ -83,11 +82,8 @@ function openMathStart(prose: string): number | null {
       // `$$` as every reader reads it (displayDollars.ts): a closed formula is whole, one
       // that may still open waits, and a price tier ("$$–$$$", "Cafe – $$.") opens nothing.
       const end = displayDollarPairEnd(prose, i);
-      if (end == null && displayDollarsMayOpen(prose, i)) {
-        display = true;
-        openAt = i;
-        break;
-      }
+      // Nothing before it is open, so it is where the open maths starts.
+      if (end == null && displayDollarsMayOpen(prose, i)) return i;
       let next = end ?? i;
       while (end == null && prose[next] === "$") next += 1;
       i = next;
@@ -107,7 +103,7 @@ function openMathStart(prose: string): number | null {
           : prose.startsWith("\\]", i)
             ? "bracket-close"
             : null;
-    if (pair === "paren" && !inline && !display && !paren && !bracket) {
+    if (pair === "paren" && !inline && !paren && !bracket) {
       paren = true;
       openAt = i;
       i += 2;
@@ -119,7 +115,7 @@ function openMathStart(prose: string): number | null {
       i += 2;
       continue;
     }
-    if (pair === "bracket" && !inline && !display && !paren && !bracket) {
+    if (pair === "bracket" && !inline && !paren && !bracket) {
       bracket = true;
       openAt = i;
       i += 2;
@@ -131,7 +127,7 @@ function openMathStart(prose: string): number | null {
       i += 2;
       continue;
     }
-    if (prose[i] === "$" && !display && !paren && !bracket) {
+    if (prose[i] === "$" && !paren && !bracket) {
       if (inline) {
         inline = false;
         openAt = -1;
@@ -152,7 +148,7 @@ function openMathStart(prose: string): number | null {
     }
     i += 1;
   }
-  return inline || display || paren || bracket ? openAt : null;
+  return inline || paren || bracket ? openAt : null;
 }
 
 /** Same island wrap the settled preprocess uses, outside fences and finished

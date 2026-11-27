@@ -3,7 +3,7 @@
  * docs/fixtures/display_math_cases.json holds the cases both run (the server's test is
  * apps/api/app/tests/modules/chat/test_display_dollars.py).
  */
-import { findDisplayDollars, dollarDisplayOpenAfter } from "@/lib/markdown/displayDollars";
+import { displayDollarsAfter, findDisplayDollars, type DisplayCloser } from "@/lib/markdown/displayDollars";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { convertBlockMath } from "@/lib/markdown/preprocessMathBlocks";
 import { findStableMarkdownPrefixLen } from "@/lib/markdown/preprocessStream";
@@ -41,12 +41,12 @@ describe("display dollars (docs/fixtures/display_math_cases.json)", () => {
 
   it.each(CASES)("%s: the stream holds the text back only while a formula is open", (_id, c) => {
     const lines = c.text.split("\n");
-    let open = false;
-    for (const line of lines) open = dollarDisplayOpenAfter(line, open);
+    let open: DisplayCloser = null;
+    for (const line of lines) open = displayDollarsAfter(line, open);
     const text = `${c.text}\n`;
     const stable = findStableMarkdownPrefixLen(text);
     // A table row holds the stream back of its own (it may still grow).
-    if (!/\|\s*$/.test(c.text)) expect(stable === text.length).toBe(!open);
+    if (!/\|\s*$/.test(c.text)) expect(stable === text.length).toBe(open == null);
   });
 });
 

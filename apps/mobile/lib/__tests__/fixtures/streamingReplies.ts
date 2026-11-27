@@ -341,6 +341,50 @@ export const PRICE_TIERS_REPLY = [
   "",
 ].join("\n");
 
+/**
+ * Review #2606: a block whose inner lines look like a table row or a list item, a `$$` that
+ * ends a sentence's line, and two price tiers paragraphs apart with a SMILES string between.
+ */
+export const DISPLAY_LOOKALIKES_REPLY = [
+  "Zuni – $$.",
+  "",
+  `Its smell is CC(=O)O. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "Tartine – $$.",
+  "",
+  `Now the maths. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "$$",
+  "|x - 3| < 5",
+  "$$",
+  "",
+  `The determinant next. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "$$",
+  "\\begin{aligned}",
+  "2x + 5 &= 11",
+  "- 3x &= -6",
+  "\\end{aligned}",
+  "$$",
+  "",
+  "Therefore: $$",
+  "x = 2",
+  "$$",
+  "Next, we find y:",
+  "$$",
+  "y = 3",
+  "$$",
+  "",
+  `<Details>`,
+  "",
+  `Hidden. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+  "</Details>",
+  "",
+  `The last paragraph. ${LONG_SENTENCE.repeat(4)}`,
+  "",
+].join("\n");
+
 /** A chart, a closed `<details>` and a fence indented four spaces: the parts after each are cut. */
 export const SCOPED_GUARDS_REPLY = [
   "Here is the chart.",
@@ -371,6 +415,7 @@ export const STREAMING_REPLIES: Record<string, string> = {
   numberedGroups: NUMBERED_GROUPS_REPLY,
   priceTiers: PRICE_TIERS_REPLY,
   scopedGuards: SCOPED_GUARDS_REPLY,
+  displayLookalikes: DISPLAY_LOOKALIKES_REPLY,
   codeSteps: CODE_STEPS_REPLY,
   bulletCodeSteps: BULLET_CODE_STEPS_REPLY,
   midReferences: MID_REFERENCES_REPLY,
