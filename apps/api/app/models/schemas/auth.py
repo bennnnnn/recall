@@ -18,6 +18,7 @@ from app.core.validation import (
     normalize_avatar_url,
     normalize_display_name,
     normalize_locale_code,
+    supported_locale_code,
 )
 from app.models.model_removal import current_choices, requested_choice
 from app.models.schemas.common import (
@@ -292,8 +293,8 @@ class UserUpdate(BaseModel):
         # custom_instructions blank-clears behavior.
         if not value.strip():
             return None
-        code = normalize_locale_code(value)
-        if code not in LOCALE_NAMES:
+        code = supported_locale_code(value)
+        if code is None:
             supported = ", ".join(sorted(LOCALE_NAMES))
             raise ValueError(f"Unsupported locale code. Supported: {supported}.")
         return code
@@ -329,6 +330,14 @@ class SignInRequest(DeviceSessionIn):
     # page), so the tap is the agreement and the sign-in records ``ai_data_consent_at``.
     # Absent (an older phone, the web): consent is asked after sign-in, as before.
     ai_data_consent: bool = False
+    # The language the sign-in page was shown in (the phone's own, when Recall has it).
+    # Only a new account takes it; one it cannot use is dropped, never a refused sign-in.
+    locale: str | None = None
+
+    @field_validator("locale")
+    @classmethod
+    def _supported_locale(cls, value: str | None) -> str | None:
+        return supported_locale_code(value)
 
 
 class GoogleAuthRequest(SignInRequest):

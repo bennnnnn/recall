@@ -20,15 +20,19 @@ import {
   signInUnreachable,
 } from "@/features/auth/model/signInRefusal";
 import { deviceSessionFields } from "@/lib/deviceSession";
+import i18n from "@/lib/i18n";
 
 /**
  * Every sign-in starts from a button on the sign-in page, under the line saying that
- * continuing agrees to the Terms and Privacy Policy (`login.agree_line`): the tap is also
- * the account's AI-data consent, and the server
- * records it with the sign-in, so the reply comes back agreed. Only those buttons call these
- * functions.
+ * continuing agrees that outside AI and search services answer the user's messages, files
+ * and voice, and to the Terms and Privacy Policy (`login.agree_line`): the tap is the
+ * account's AI-data consent, and the server records it with the sign-in, so the reply comes
+ * back agreed. Only those buttons call these functions. The page's language goes with it:
+ * a new account starts in it (the server keeps an existing account's own).
  */
-const AGREED_BY_SIGNING_IN = { ai_data_consent: true } as const;
+function signInFields(): { ai_data_consent: true; locale: string } {
+  return { ai_data_consent: true, locale: i18n.language || "en" };
+}
 
 /** A refused sign-in, read by its code: never the server's English (signInRefusal.ts). */
 async function loginFailure(response: Response): Promise<Error> {
@@ -75,7 +79,7 @@ function signIn(
 export function loginWithGoogle(idToken: string): Promise<AuthResult> {
   const body = {
     id_token: idToken,
-    ...AGREED_BY_SIGNING_IN,
+    ...signInFields(),
     ...deviceSessionFields(),
   };
   return signIn("/auth/google", body, async (response) => {
@@ -93,7 +97,7 @@ export function loginWithApple(
     id_token: idToken,
     name: name ?? null,
     nonce,
-    ...AGREED_BY_SIGNING_IN,
+    ...signInFields(),
     ...deviceSessionFields(),
   };
   return signIn("/auth/apple", body, async (response) => {
@@ -109,7 +113,7 @@ export function loginWithDev(
   const body = {
     email,
     name,
-    ...AGREED_BY_SIGNING_IN,
+    ...signInFields(),
     ...deviceSessionFields(),
   };
   return signIn("/auth/dev", body, async (response) => {

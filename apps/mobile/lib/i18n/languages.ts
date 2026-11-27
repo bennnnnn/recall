@@ -2,8 +2,9 @@
  * Single source of truth for supported UI languages.
  *
  * To add a language: drop a `<code>.json` next to this file (mirror `en.json`'s
- * keys), add a loader in `index.ts` `LOCALE_LOADERS`, and add one entry here.
- * Missing keys fall back to English automatically.
+ * keys), add a loader in `index.ts` `LOCALE_BUNDLES`, and add one entry here, plus its
+ * iOS permission prompts in `locales/<code>.json` named in app.json `locales`
+ * (`appStoreConfig.test.ts` holds them). Missing keys fall back to English automatically.
  */
 type LanguageMeta = {
   code: string;
