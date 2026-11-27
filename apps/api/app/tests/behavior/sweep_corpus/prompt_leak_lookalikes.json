@@ -180,5 +180,61 @@
   "prompt": "summarize my UX research notes",
   "reply": "The user prefers short onboarding, so I keep it to three screens in the proposal.\n\nThe notes also flag confusion about the pricing page.",
   "expect": "answer"
+ },
+ {
+  "id": "pl-027",
+  "area": "prompt leak lookalike",
+  "prompt": "is it 12?",
+  "reply": "Your previous answer, 12, was off by two; 14 is right. Nice fix!\n\nTry 3x + 4 = 19 next.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-028",
+  "area": "prompt leak lookalike",
+  "prompt": "so is it 12?",
+  "reply": "Your previous answer was 12.\n\nThe right one is 14: you dropped the 2 when you moved it across.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-029",
+  "area": "prompt leak lookalike",
+  "prompt": "how did my mock interview go?",
+  "reply": "Your last answer about teamwork was strong. Add one number to the second story.\n\nThe opener ran long, though.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-030",
+  "area": "prompt leak lookalike",
+  "prompt": "I got x = 3",
+  "reply": "Your last answer gave x = 3, so check the sign in the second line.\n\nIt should be 2x = -6, so x = -3.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-031",
+  "area": "prompt leak lookalike",
+  "prompt": "I got 2 mol, right?",
+  "reply": "Your earlier reply, 2 mol, was right. Now try 54 g of water.\n\nUse n = m / M again.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-032",
+  "area": "prompt leak lookalike",
+  "prompt": "is it 36 then?",
+  "reply": "Your last reply was close, so try once more with the mass in grams.\n\nHint: 1 kg is 1000 g.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-033",
+  "area": "prompt leak lookalike",
+  "prompt": "how should my docs bot handle questions it can't answer?",
+  "reply": "The user asks a question outside the docs, so I answer with a fallback message.\n\nThat keeps the bot honest and points them to support.",
+  "expect": "answer"
+ },
+ {
+  "id": "pl-034",
+  "area": "prompt leak lookalike",
+  "prompt": "how should my support bot answer refund requests?",
+  "reply": "The user asks for a refund, so I keep the reply short and link the policy.\n\nBilling follows up within a day.",
+  "expect": "answer"
  }
 ]

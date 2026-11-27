@@ -277,7 +277,7 @@ def drop_prompt_leaks(
     style = _STYLE_RULE.search(text) is not None and not any(
         line and _ASKED_ABOUT_STYLE.search(line) for line in asked
     )
-    text = _without_self_label(text)
+    text = _without_self_label(text, asked[0] if asked else None)
     quoted = quotes_the_prompt(text)
     if not text or not (
         _PROMPT_LABEL.search(text) or _PROMPT_PART.search(text) or prompt or style or quoted
@@ -303,14 +303,14 @@ def drop_prompt_leaks(
     return result if result.strip() else text
 
 
-def _without_self_label(text: str) -> str:
+def _without_self_label(text: str, asked: str | None = None) -> str:
     """``text`` without an opening sentence that labels the message and announces the plan;
     as it was when that sentence is the whole reply."""
     stripped = text.lstrip()
     if stripped.startswith(_SKIPPED_STARTS) or stripped.startswith(("```", "~~~")):
         return text
     # Planning about the person or memory, to nobody (``narration``).
-    spoken = without_narration(stripped)
+    spoken = without_narration(stripped, asked or "")
     if spoken != stripped:
         return spoken
     label = _SELF_LABEL.match(straighten_apostrophes(stripped))

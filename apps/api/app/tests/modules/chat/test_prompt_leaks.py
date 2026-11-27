@@ -410,6 +410,58 @@ def test_the_users_own_reply_to_someone_stays() -> None:
     assert drop_prompt_leaks(reply, "how do I reply to Sam") == reply
 
 
+# Feedback on the user's own answer or reply: a practice card, an interview, a quiz (review
+# of #2609: "Your previous answer, 12, was off by two" lost its first sentence).
+_FEEDBACK = [
+    "Your previous answer, 12, was off by two; 14 is right. Nice fix!",
+    "Your previous answer was 12.\n\nThe right one is 14.",
+    "Your last answer about teamwork was strong. Add one number to the second story.",
+    "Your last answer gave x = 3, so check the sign in the second line.",
+    "Your earlier reply, 2 mol, was right. Now try 54 g of water.",
+    "Your last reply was close, so try once more with the mass in grams.\n\nHint: 1 kg is 1000 g.",
+    "In your previous answer you multiplied instead of dividing, so it came out 36.",
+]
+
+
+@pytest.mark.parametrize("reply", _FEEDBACK)
+def test_feedback_on_the_users_own_answer_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "is it 12?") == reply
+
+
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        # A bot's design in the first person, with question, answer and message words.
+        (
+            "how should my docs bot handle questions it can't answer?",
+            "The user asks a question outside the docs, so I answer with a fallback message."
+            "\n\nThat keeps the bot honest.",
+        ),
+        # Even with a reply-shape word: the message is about the product.
+        (
+            "how should my support bot answer refund requests?",
+            "The user asks for a refund, so I keep the reply short and link the policy.\n\n"
+            "Billing follows up within a day.",
+        ),
+    ],
+)
+def test_a_bots_design_in_the_first_person_stays(asked: str, reply: str) -> None:
+    assert drop_prompt_leaks(reply, asked) == reply
+
+
+def test_memory_says_inside_a_fence_stays() -> None:
+    reply = (
+        "Here's a sample reply for your bot:\n\n```text\nBot: Hello!\n\n"
+        "Memory says you're vegetarian, so try dal.\n```"
+    )
+    assert drop_prompt_leaks(reply, "write a sample bot reply") == reply
+
+
+def test_a_paragraph_that_speaks_to_them_stays_whole() -> None:
+    reply = "The user is a student, so I keep the answer simple. You can ask for more.\n\nDone."
+    assert drop_prompt_leaks(reply, "explain photosynthesis") == reply
+
+
 @pytest.mark.parametrize(
     "reply",
     [
