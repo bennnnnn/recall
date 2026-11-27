@@ -514,11 +514,12 @@ def _between_forms(
     exact = DECIMAL.search(left) is None and DECIMAL.search(right) is None and not approximate
     if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
         return WrongStep(left_tex, right_tex, value)
-    # Each side may be only as far off as its own rounded numbers reach: the later side's
-    # decimals are its rounding ("0.011784\\pi" for 0.01182π is a slip, u8-22, though 0.3%).
+    # Two sides said equal may be only as far off as their own rounded numbers reach ("=
+    # 0.011784\\pi" for 0.01182π is a slip, u8-22, though 0.3%); one said near keeps its slack.
     left_reach = spread(left, memory.stands_for_a_range)
     right_reach = spread(right, lambda number: "." in number)
     reach = None if left_reach is None or right_reach is None else left_reach + right_reach
+    reach = None if approximate else reach
     if not exact and _is_wrong(value, other, 0.0, approximate, reach, prefix=False):
         return WrongStep(left_tex, right_tex, value)
     return None

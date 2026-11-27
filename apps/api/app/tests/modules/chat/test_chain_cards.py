@@ -1,4 +1,4 @@
-# ruff: noqa: RUF003 -- replies write × and −.
+# ruff: noqa: RUF002, RUF003 -- replies write × and −.
 """Each unchecked card held to the value its own working's method reaches, worked again at
 full precision (textbook round 2, 2026-11-26: twelve wrong and twenty partial answers came
 from the model's own working, none from a checked one)."""
@@ -76,14 +76,16 @@ _FLYWHEEL = (
 def test_a_card_its_working_contradicts_takes_the_workings_value(
     reply: str, question: str, card: str, corrected: str
 ) -> None:
-    text, note, claim = held_to_chains(reply, question)
+    text, notes = held_to_chains(reply, question)
+    note, claim = notes.corrected, notes.claim
     assert card in _card_of(text)
     assert note is not None and corrected in note
     assert claim is None
 
 
 def test_a_slip_carried_through_a_wrong_form_is_put_right_in_the_later_part() -> None:
-    text, note, _claim = held_to_chains(_WIRE, "")
+    text, notes = held_to_chains(_WIRE, "")
+    note = notes.corrected
     cards = text.split("```answer\nverified: false\n")[1:]
     assert cards[0].startswith("0.00104\\,\\mathrm{m}")
     assert cards[1].startswith("0.00255\\,\\mathrm{J}")
@@ -119,7 +121,8 @@ def test_a_slip_carried_through_a_wrong_form_is_put_right_in_the_later_part() ->
     ],
 )
 def test_a_card_its_working_holds_stands(reply: str, question: str) -> None:
-    text, note, _claim = held_to_chains(reply, question)
+    text, notes = held_to_chains(reply, question)
+    note = notes.corrected
     assert text == reply
     assert note is None
 
@@ -129,7 +132,8 @@ def test_a_card_holding_the_value_more_coarsely_takes_it_without_a_note() -> Non
     reply = "$N_{wall} = \\frac{98}{1.732}$  \n$N_{wall} \\approx 56.58\\,\\mathrm{N}$" + _card(
         "56.6\\,\\mathrm{N}"
     )
-    text, note, _claim = held_to_chains(reply, "The angle is 60°.")
+    text, notes = held_to_chains(reply, "The angle is 60°.")
+    note = notes.corrected
     assert _card_of(text) == "56.58\\,\\mathrm{N}"
     assert note is None
 
@@ -140,7 +144,7 @@ def test_the_wrong_value_said_again_after_the_card_follows_it() -> None:
         + _card("2.41 \\times 10^{-4}\\,\\mathrm{W}")
         + "\n\nSo heat flows at 2.41 \\times 10^{-4} W."
     )
-    text, _note, _claim = held_to_chains(reply, "")
+    text, _notes = held_to_chains(reply, "")
     assert "2.41 \\times 10^{-4}" not in text.split("```", 2)[2]
 
 
@@ -152,7 +156,8 @@ def test_a_claim_the_workings_values_contradict_is_named() -> None:
         "Energy check: the kinetic energy is $490.5 - 84.96 = 405.54$ J, giving "
         "$\\tfrac{1}{2}mv_5^2 = 405.5$ J, the same as the kinematics value."
     )
-    _text, note, claim = held_to_chains(reply, "")
+    _text, notes = held_to_chains(reply, "")
+    note, claim = notes.corrected, notes.claim
     assert note is None
     assert claim is not None and "160.30" in claim and "405.5" in claim
 
@@ -169,4 +174,66 @@ def test_a_claim_the_workings_values_contradict_is_named() -> None:
     ],
 )
 def test_no_claim_is_named_where_the_working_bears_it_out(reply: str) -> None:
-    assert held_to_chains(reply, "")[2] is None
+    assert held_to_chains(reply, "")[1].claim is None
+
+
+def test_a_card_under_an_equation_solved_for_one_name_is_its_solution() -> None:
+    """21250 / 241.67 is 87.93, carded 87.80 °C (u8-28, live 2026-11-27)."""
+    reply = "$20000 + 1250 = 200\\theta + 41.67\\theta$  \n$21250 = 241.67\\theta$" + _card(
+        "87.80\\,^\\circ\\mathrm{C}"
+    )
+    text, notes = held_to_chains(reply, "")
+    assert _card_of(text) == "87.93\\,^\\circ\\mathrm{C}"
+    assert notes.corrected is not None
+
+
+def test_a_stated_value_a_power_of_ten_off_its_own_working_stands_for_the_worked_one() -> None:
+    """The givens said A = 3.142 × 10⁻⁷ m², the working made it 3.142 × 10⁻⁶ m², and the
+    stress was worked on the stated one (u8-07, live 2026-11-27)."""
+    reply = (
+        "$A = 3.142 \\times 10^{-7}\\,\\mathrm{m^2}$\n\n**Substitution**  \n"
+        "$A = \\pi \\left(\\frac{0.002}{2}\\right)^2$  \n"
+        "$A = 3.142 \\times 10^{-6}\\,\\mathrm{m^2}$\n\n"
+        "$\\sigma = \\frac{19.62}{3.142 \\times 10^{-7}}$  \n"
+        "$\\sigma = 6.244 \\times 10^{7}\\,\\mathrm{Pa}$" + _card("62444302.99\\,\\mathrm{Pa}")
+    )
+    text, notes = held_to_chains(reply, "A load of 2.0 kg, a wire of diameter 2.0 mm.")
+    assert _card_of(text) == "6245239.97\\,\\mathrm{Pa}"
+    assert notes.corrected is not None and "slips" in notes.corrected
+
+
+def test_a_name_put_in_a_power_of_ten_off_its_value_is_a_slip() -> None:
+    reply = (
+        "$\\sigma = 6.245 \\times 10^{6}\\,\\mathrm{Pa}$\n\n$E = \\frac{\\sigma}{\\varepsilon}$\n\n"
+        "**Substitution**  \n$E = \\frac{6.245 \\times 10^7}{6.0 \\times 10^{-5}}$"
+        + _card("1.04 \\times 10^{12}\\,\\mathrm{Pa}")
+    )
+    text, _notes = held_to_chains(reply, "")
+    assert _card_of(text).startswith("1.04 \\times 10^{11}")
+
+
+def test_a_slip_no_card_carries_is_named_with_the_value_its_own_method_gives() -> None:
+    """f = N_w, then f = 113.25 N (u7-09, live 2026-11-27): no single card to correct."""
+    reply = (
+        "$N_w = \\frac{98}{1.732}$  \n$N_w = 56.58\\,\\mathrm{N}$  \n$f = N_w$  \n"
+        "$f = 113.25\\,\\mathrm{N}$" + _card("196\\,\\mathrm{N},\\quad 113.30\\,\\mathrm{N}")
+    )
+    _text, notes = held_to_chains(reply, "at 60° to the ground")
+    assert notes.slip is not None and "56.58" in notes.slip
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # One name for two events: t = 205 s, then another t.
+        "$t = 205\\,\\mathrm{s}$\n\n**(b)**  \n$t = \\frac{20 - 15}{5}$" + _card("1\\,\\mathrm{s}"),
+        # A stated value in another unit is no slip: 100 g is 0.1 kg.
+        "$m = 100\\,\\mathrm{g}$\n\n$m = \\frac{100}{1000}$  \n$m = 0.1\\,\\mathrm{kg}$"
+        + _card("0.1\\,\\mathrm{kg}"),
+    ],
+)
+def test_a_name_used_again_is_no_slip(reply: str) -> None:
+    text, notes = held_to_chains(reply, "")
+    assert text == reply
+    assert notes.slip is None
+    assert notes.corrected is None

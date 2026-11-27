@@ -72,7 +72,7 @@ def _in_names(tex: str, known: Callable[[str], float | None]) -> float | None:
     it holds no name, a name with no single value, a number of its own, a unit or a word."""
     if _NUMBER_THEN_LETTER.search(tex) or _UPRIGHT.search(tex):
         return None
-    names = _names_in(tex)
+    names = names_in(tex)
     if not names or any(not _pure(number) for number in _NUMBER.findall(_without(tex, names))):
         return None
     pieces: list[str] = []
@@ -98,7 +98,7 @@ def solved_for(reply: str) -> set[str]:
             continue
         for part in parts:
             bare = _UPRIGHT.sub(" ", part)
-            names = _names_in(bare)
+            names = names_in(bare)
             if names and any(not _pure(n) for n in _NUMBER.findall(_without(bare, names))):
                 unknowns.update(plain_name(match.group(0)) for match in names)
     return unknowns
@@ -108,7 +108,7 @@ def _pure(number: str) -> bool:
     return "." not in number and int(number) <= _PURE_FACTOR
 
 
-def _names_in(tex: str) -> list[re.Match[str]]:
+def names_in(tex: str) -> list[re.Match[str]]:
     """The names a side writes, never a command of maths (\\frac, \\times)."""
     return [
         match

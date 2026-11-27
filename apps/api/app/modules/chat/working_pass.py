@@ -46,14 +46,14 @@ def checked_working(
     # Then each card is the value its working's own method reaches, worked again at full
     # precision, its units with it; a corrected card names what it corrected, in place of
     # the step's note. Last, so no arithmetic of a single step undoes a conversion it put in.
-    text, corrected, claim = held_to_chains(text, question, asked_precision(question))
+    text, chain_notes = held_to_chains(text, question, asked_precision(question))
     text = without_unbacked_senses(held_vector_sizes(text))
-    note = corrected or note or card_note
+    note = chain_notes.corrected or note or card_note or chain_notes.slip
     text = drop_restated_tail(text, question, decimal_comma=decimal_comma)
     if laid_out:
         # The working said again after the cards goes (``worked_lead.drop_recap_tail``).
         text = drop_recap_tail(text, question, decimal_comma=decimal_comma)
-    for line in (note, claim):
+    for line in (note, chain_notes.claim):
         if line:
             text = with_closing_note(text, line)
     return text

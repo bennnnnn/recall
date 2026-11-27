@@ -30,14 +30,14 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass, field
-from difflib import SequenceMatcher
 
 from app.modules.chat.card_walk import answer_cards
+from app.modules.chat.formula_inputs import aligned_names
 from app.modules.chat.tex_arithmetic import evaluate, math_statement_spans, plain_arithmetic
 from app.modules.chat.tex_spread import half_place, spread
 from app.modules.chat.working_cards import card_value
 from app.modules.chat.working_check import NAME, OPERATOR, statement_parts
-from app.modules.chat.working_claims import Claim, claims_in, plain_name, solved_for
+from app.modules.chat.working_claims import Claim, claims_in, names_in, plain_name, solved_for
 from app.modules.chat.working_exact import standard_values
 from app.modules.chat.working_numbers import shown_number
 from app.modules.chat.working_units import converted, quantity_unit, same_unit, unit_after
@@ -60,7 +60,7 @@ _CARD_NUMBER = re.compile(
 )
 # What may follow the number on a card: spacing and one unit group.
 _ONLY_UNIT = re.compile(
-    r"^(?:\\[,; !]|\\ |\s|~)*"
+    r"^(?:\\[,; !]|\\ |\s|~)*(?:\^\s*\{?\s*\\circ\s*\}?|°)?\s*"
     r"(?:\\(?:mathrm|text|textrm|rm)\s*\{[^{}]*\}(?:\s*\^\s*(?:\{[^{}]*\}|-?\d))?)?\s*$"
 )
 
@@ -109,6 +109,8 @@ class CardRead:
     approximate: bool
     since: int
     chain: Chain | None
+    # Where the card's fence body ends: the closing lines after it start past it.
+    body_end: int = 0
     # The card stands below the formal reader's line: the server's value, not the model's.
     server: bool = False
 
@@ -163,7 +165,7 @@ def key_of(written: str) -> str:
 
 
 def _carried(written: str) -> bool:
-    digits = written.strip("()").lower().partition("e")[0].replace(".", "").lstrip("0")
+    digits = written.strip("()-+−").lower().partition("e")[0].replace(".", "").lstrip("0")
     return len(digits.rstrip("0") if "." not in written else digits) >= CARRIED_FIGURES
 
 
@@ -221,9 +223,14 @@ def read_chains(reply: str, question: str = "") -> Reading:
         if len(parts) < 2 or _PM.search(segment):
             walk.current = None
         elif not name:
-            # A statement of no single name: a claim, when its sides are the working's values.
-            reading.claims += claims_in(parts, lambda n: _known(env, n, unknowns))
-            walk.current = None
+            # A statement of no single name: an equation of numbers solved for one name
+            # ("21250 = 241.67\\theta"), or a claim when its sides are the working's values.
+            walk.current = _solved(parts, starts, env)
+            if walk.current is not None:
+                reading.chains.append(walk.current)
+                env.names.setdefault(walk.current.name, []).append(walk.current.value)
+            else:
+                reading.claims += claims_in(parts, lambda n: _known(env, n, unknowns))
         else:
             _statement(name, parts, starts, follows, env, reading, walk)
     reading.cards += [_card_chain(card, reading.chains, walk, env) for card in cards]
@@ -260,12 +267,83 @@ def _statement(
             walk.formulas[name] = part
         elif chain is not None:
             chain.formula, chain.label = formula, parts[0].strip()
+            _void_stated(chain, reading.chains, env)
             reading.chains.append(chain)
     if chain is not None:
         env.names.setdefault(name, []).append(chain.value)
         if chain.given and chain is not current:
             reading.givens[name] = (key_of(plain_arithmetic(chain.method) or ""), chain.unit)
     walk.current = chain
+
+
+def _solved(parts: list[str], starts: list[int], env: _Env) -> Chain | None:
+    """An equation of numbers with one name, a number times it on one side ("21250 =
+    241.67\\theta", "N_w \\times 6.928 = 686"): a chain of that name, its value the
+    equation solved (a card under it states that value). None for anything else: two names,
+    a name plus a number ("2.8 = 1.1 + 0.05F" is no product), a name in a power."""
+    if len(parts) != 2:
+        return None
+    for side, other in ((parts[0].strip(), parts[1].strip()), (parts[1].strip(), parts[0].strip())):
+        names = names_in(side)
+        number = _resolved(other, env)
+        if len(names) != 1 or number is None:
+            continue
+        found = names[0]
+        once = f"{side[: found.start()]}(1){side[found.end() :]}"
+        twice = _resolved(f"{side[: found.start()]}(2){side[found.end() :]}", env)
+        coefficient = _resolved(once, env)
+        if coefficient is None or twice is None:
+            continue
+        values = (evaluate(number[1]), evaluate(coefficient[1]), evaluate(twice[1]))
+        if None in values or not values[1] or not math.isclose(values[2] or 0, 2 * values[1]):
+            continue
+        method = f"\\frac{{{other}}}{{{once}}}"
+        whole = f"({number[1]})/({coefficient[1]})"
+        reach = _reach(whole, env, number[2] | coefficient[2])
+        value = (values[0] or 0.0) / values[1]
+        name = plain_name(found.group(0))
+        end = starts[-1] + len(parts[-1].rstrip())
+        chain = Chain(name, value, "", starts[0], end, method, reach, label=found.group(0))
+        chain.written = _written_value(chain, env)
+        return chain
+    return None
+
+
+def _void_stated(chain: Chain, chains: list[Chain], env: _Env) -> None:
+    """A value the reply stated with no number of the question behind it ("A = 3.142 \\times
+    10^{-7}" among its givens) that its own working then works out otherwise (3.142e-6):
+    the stated number was a slip, and stands for the worked value from now on. Only a power
+    of ten lost or gained, in a value of three figures in the same unit: "t = 205 s" then
+    another t, and "m = 100 g" then 0.1 kg, are no slips."""
+    for earlier in chains:
+        written = plain_arithmetic(earlier.method)
+        if earlier.name != chain.name or not earlier.given or written is None:
+            continue
+        key = key_of(written)
+        if key in env.question or not _carried(written) or chain.unit not in ("", earlier.unit):
+            # A given of the question, a small count, or the value in another unit.
+            continue
+        if not _ten_fold(earlier.value, chain.value):
+            # Another value of a name used twice ("t = 205 s", then t of another event).
+            continue
+        env.numbers[key] = chain.value
+        env.clashed.discard(key)
+        earlier.slip = earlier.method
+        # Its value is void: the name has the worked one only.
+        values = env.names.get(chain.name, [])
+        env.names[chain.name] = [v for v in values if not math.isclose(v, earlier.value)]
+
+
+def _ten_fold(first: float, second: float) -> bool:
+    """The two are ten, a hundred, … times apart, within a rounding's slack."""
+    if first == 0 or second == 0:
+        return False
+    power = math.log10(abs(first / second))
+    return round(power) != 0 and abs(power - round(power)) < _TEN_FOLD_SLACK
+
+
+# How near a whole power of ten two values must be (log10): 0.5% either way.
+_TEN_FOLD_SLACK = 0.002
 
 
 def _name_of(head: str) -> str:
@@ -330,7 +408,8 @@ def _reach(plain: str, env: _Env, placed: set[str]) -> float:
 
 def _start(name: str, part: str, unit: str, at: int, env: _Env, formula: str) -> Chain | None:
     """A new chain from its first form of numbers; None while the part holds a name."""
-    sides = _resolved(part, env, _named_inputs(formula, part, env))
+    named, misput = _named_inputs(formula, part, env)
+    sides = _resolved(part, env, named)
     if sides is None:
         alias = env.known_name(_name_of(part))
         if alias is None:
@@ -342,6 +421,7 @@ def _start(name: str, part: str, unit: str, at: int, env: _Env, formula: str) ->
         return None
     chain = Chain(name, value, unit, at, at + len(part), part, _reach(whole, env, placed))
     chain.written = _written_value(chain, env)
+    chain.slip = part if misput else ""
     if not _worked(written):
         chain.given, chain.reach, chain.shown = True, 0.0, part
         env.exact.add(key_of(written))
@@ -353,17 +433,23 @@ def _worked(plain: str) -> bool:
     return OPERATOR.search(plain.lstrip("-+").replace("e-", "e")) is not None
 
 
-def _named_inputs(formula: str, method: str, env: _Env) -> dict[str, float]:
+def _named_inputs(formula: str, method: str, env: _Env) -> tuple[dict[str, float], bool]:
     """Each number the method puts in for a name of its formula that rounds the name's
-    value: that value ("\\frac{2\\pi}{1.087 \\times 10^{-3}}" for "\\frac{2\\pi}{\\omega}")."""
+    value: that value ("\\frac{2\\pi}{1.087 \\times 10^{-3}}" for "\\frac{2\\pi}{\\omega}"); and
+    whether one was put in a power of ten off it ("6.245 \\times 10^7" for sigma = 6.245e6),
+    a slip the method's value is worked without."""
     found: dict[str, float] = {}
+    misput = False
     for name, number in (aligned_names(formula, method) or {}).items():
         value = env.known_name(name)
-        if value is None or not _carried(number):
+        if value is None or not _carried(number) or key_of(number) in env.question:
             continue
         if abs(abs(value) - float(number)) <= half_place(number) * (1 + 1e-9):
             found[key_of(number)] = abs(value)
-    return found
+        elif _ten_fold(abs(value), float(number)):
+            found[key_of(number)] = abs(value)
+            misput = True
+    return found, misput
 
 
 def _hold(chain: Chain, part: str, unit: str, env: _Env) -> None:
@@ -493,6 +579,7 @@ def _cards(reply: str) -> list[tuple[int, CardRead, str]]:
             approximate,
             answer.since_card,
             None,
+            answer.fence.body_end,
             server,
         )
         found.append((answer.fence.start, card, plain_name(symbol)))
@@ -525,52 +612,6 @@ def _card_chain(
         read.approximate,
         read.since,
         chain,
+        read.body_end,
         read.server,
     )
-
-
-# A formula's own number that converts nothing: a small count or factor (2πr, ½mv²).
-_PURE_FACTOR = 4
-_BRACKETS = frozenset("()")
-_TEX_TOKEN = re.compile(rf"{NAME.pattern}|\d+(?:\.\d+)?(?:e[-+]?\d+)?|\S")
-# "1.087 \times 10^{-3}" is one number put in, as "1.087e-3".
-_SCIENTIFIC = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:\\times|\\cdot|×)\s*10\s*\^\s*\{?\s*([-+−]?\d+)\s*\}?"
-)
-_NO_MATHS = frozenset({"\\times", "\\cdot", "*", "×", "\\,", "\\;", "\\left", "\\right"})
-
-
-def aligned_names(formula: str, method: str) -> dict[str, str] | None:
-    """Each name of ``formula`` with the number ``method`` puts in for it ("2\\pi N" and
-    "2\\pi \\times 250" give N: 250); None when the two differ in any other way, or the
-    formula holds a number of its own that may be a conversion (60, 3.6, 1000)."""
-    left = _tokens(formula)
-    right = _tokens(_SCIENTIFIC.sub(lambda m: f"{m[1]}e{m[2].replace('−', '-')}", method))
-    if not left or not right:
-        return None
-    found: dict[str, str] = {}
-    matcher = SequenceMatcher(None, left, right, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            if not all(_pure(token) for token in left[i1:i2]):
-                return None
-            continue
-        names = left[i1:i2]
-        numbers = [piece for piece in right[j1:j2] if piece not in _BRACKETS]
-        if tag != "replace" or len(names) != 1 or len(numbers) != 1:
-            return None
-        if not numbers[0][:1].isdigit() or NAME.fullmatch(names[0]) is None:
-            return None
-        found[plain_name(names[0])] = numbers[0]
-    return found or None
-
-
-def _tokens(tex: str) -> list[str]:
-    return [token for token in _TEX_TOKEN.findall(tex) if token not in _NO_MATHS]
-
-
-def _pure(token: str) -> bool:
-    """A formula's own number that converts nothing: a small count or factor."""
-    if not token[:1].isdigit():
-        return True
-    return float(token) <= _PURE_FACTOR and float(token) == int(float(token))

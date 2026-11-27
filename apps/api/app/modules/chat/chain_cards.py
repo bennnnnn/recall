@@ -32,6 +32,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.chat.formula_inputs import aligned_names
 from app.modules.chat.tex_arithmetic import plain_arithmetic
 from app.modules.chat.working_cards import closing_end, counted, repeats, said_again
 from app.modules.chat.working_chain import (
@@ -39,7 +40,6 @@ from app.modules.chat.working_chain import (
     CardRead,
     Chain,
     Reading,
-    aligned_names,
     read_chains,
 )
 from app.modules.chat.working_claims import Claim
@@ -67,19 +67,33 @@ class Corrected:
     kind: str
     # The slip the card carried ("e = \\frac{…}{…}"), "" for none.
     slip: str
+    # Where the card's fence body ends.
+    body_end: int
+
+
+@dataclass(frozen=True)
+class ChainNotes:
+    """The closing lines the chains give: what was corrected, a slip no card carried, and a
+    claim the working's own values do not bear out; None for each with nothing to say."""
+
+    corrected: str | None
+    slip: str | None
+    claim: str | None
 
 
 def held_to_chains(
     text: str, question: str = "", precision: Precision = RULE
-) -> tuple[str, str | None, str | None]:
+) -> tuple[str, ChainNotes]:
     """``text`` with each card its working's chain contradicts set to the chain's value and
-    the wrong value said again after it set the same; a note naming what was corrected, and
-    one naming a claim the working's own values do not bear out (the module docstring)."""
+    the wrong value said again after it set the same, and the notes (the module docstring)."""
     reading = read_chains(text, question)
     fixes = [fix for card in reading.cards if (fix := _corrected(card, reading, precision))]
     for fix in reversed(fixes):
         text = _applied(text, fix)
-    return text, _corrected_note(fixes), _claim_note(reading.claims)
+    notes = ChainNotes(
+        _corrected_note(fixes), _slip_note(reading.chains), _claim_note(reading.claims)
+    )
+    return text, notes
 
 
 def _corrected(card: CardRead, reading: Reading, precision: Precision) -> Corrected | None:
@@ -117,7 +131,9 @@ def _corrected(card: CardRead, reading: Reading, precision: Precision) -> Correc
 
 def _fix(card: CardRead, chain: Chain, new: str, kind: str, slip: str) -> Corrected:
     name = chain.label or chain.name
-    return Corrected(name, card.start, card.end, card.number, new, card.unit_tex, kind, slip)
+    return Corrected(
+        name, card.start, card.end, card.number, new, card.unit_tex, kind, slip, card.body_end
+    )
 
 
 def _coarse(number: str) -> bool:
@@ -141,10 +157,13 @@ def _holds(shown: tuple[float, float], value: float, reach: float) -> bool:
 def _states_another(
     shown: tuple[float, float], chains: list[Chain], card: CardRead, own: Chain
 ) -> bool:
-    """The card states another value its part worked out: the largest of several, a step
-    before the last."""
+    """The card states another value its part worked out, to its own rounding: the largest
+    of several, a step before the last."""
     part = [chain for chain in chains if card.since <= chain.start < card.start]
-    return any(chain is not own and _holds(shown, chain.value, chain.reach) for chain in part)
+    return any(
+        not math.isclose(chain.value, own.value, rel_tol=1e-9) and _holds(shown, chain.value, 0.0)
+        for chain in part
+    )
 
 
 def _slip_before(chains: list[Chain], chain: Chain, since: int) -> str:
@@ -204,8 +223,7 @@ def _applied(text: str, fix: Corrected) -> str:
     wrong = repeats({fix.said, plain})
     if wrong.search(text[: fix.start]) is not None:
         return text
-    after = text.find("```", fix.start + len(fix.shown))
-    body_end = len(text) if after < 0 else after
+    body_end = fix.body_end + len(fix.shown) - (fix.end - fix.start)
     closing = closing_end(text, body_end)
     tail = said_again(text[body_end:closing], wrong, fix.shown, dropped=False)
     return f"{text[:body_end]}{tail}{text[closing:]}"
@@ -292,6 +310,20 @@ def _corrected_note(fixes: list[Corrected]) -> str | None:
     if any(fix.kind == UNIT for fix in said):
         return f"Corrected: a unit conversion was left out of the working. With it, {values}."
     return f"Corrected: worked again without rounding along the way, {values}."
+
+
+def _slip_note(chains: list[Chain]) -> str | None:
+    """One closing line naming the first slip in the working, with the value its own method
+    gives: for a slip no corrected card names."""
+    slipped = next((chain for chain in chains if chain.slip), None)
+    if slipped is None:
+        return None
+    name = slipped.label or slipped.name
+    unit = f"\\,\\mathrm{{{slipped.unit}}}" if slipped.unit and "*" not in slipped.unit else ""
+    return (
+        f"Check this step: ${name} = {slipped.slip}$ does not follow from the working; "
+        f"worked again, ${name} = {number_latex(slipped.value)}{unit}$."
+    )
 
 
 def _claim_note(claims: list[Claim]) -> str | None:
