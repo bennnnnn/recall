@@ -24,10 +24,11 @@ MU_SUBSCRIPT = r"(?:_?[ks]|[\u2096\u209b])?"
 COEFFICIENT_LEADS = rf"\s*+(?:of|=|is|:)?\s*+(?:(?:\bmu|\u03bc){MU_SUBSCRIPT}\s*+=\s*+)?"
 
 # Words that start a body from rest, the one reader of them: "released from rest", "starts at
-# rest", "from a standstill", "initially at rest". A stated starting speed of 0 says it again.
+# rest", "from a standstill", "initially at rest", "initially stationary". A stated starting
+# speed of 0 says it again.
 FROM_REST_RE = re.compile(
     r"\bfrom\s+(?:rest|a\s+standstill|standstill|a\s+standing\s+start|a\s+stop)\b"
-    r"|\b(?:starts?|initially)\s+at\s+rest\b",
+    r"|\b(?:starts?|initially)\s+at\s+rest\b|\binitially\s+stationary\b",
     re.IGNORECASE,
 )
 

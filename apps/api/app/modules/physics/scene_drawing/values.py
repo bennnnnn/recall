@@ -141,7 +141,10 @@ class Stated:
         took where the words stated it ("A block of mass 10 kg"): one value, written twice."""
         before = self.text[max(0, given.start - 12) : given.start]
         listed = _ASSIGNED.search(before) is not None
-        return listed and any(_same(used, given) for used in self.taken)
+        # The same quantity, of the same kind: "t = 2 s" is never the 2 kg said again.
+        return listed and any(
+            used.dimension == given.dimension and _same(used, given) for used in self.taken
+        )
 
     def _at_rest(self, given: Given) -> bool:
         """A starting speed of 0 beside words that start the body from rest ("released from

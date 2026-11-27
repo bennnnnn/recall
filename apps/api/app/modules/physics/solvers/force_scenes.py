@@ -105,15 +105,18 @@ def _atwood_forces(
     ]
     if not g:
         return vectors
+    # Each box carries its own mass, so each weight is "mg": the masses are drawn heavier
+    # first, and a subscript would contradict a question that names the lighter one m₁
+    # (review of #2613).
     return vectors + [
         SimulationVector(
             anchor=[0.0, -size],
             dx=0.0,
             dy=-mass / heavy,
-            label=f"{symbol} = {plain_number(mass * g)} N",
+            label=f"mg = {plain_number(mass * g)} N",
             body=body,
         )
-        for body, (symbol, mass, size) in enumerate(zip(("m₁g", "m₂g"), masses, sizes, strict=True))
+        for body, (mass, size) in enumerate(zip(masses, sizes, strict=True))
     ]
 
 

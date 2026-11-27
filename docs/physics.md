@@ -623,7 +623,7 @@ The binder reads these laws, beside the extractors' own:
 
 ## Pictures
 
-A verified answer carries at most one picture (a question in parts, one per part), a `simulation` fence (schema v2,
+A verified answer carries its picture (a question in parts, one per part), a `simulation` fence (schema v2,
 `schemas/simulation.py`). The server samples every position and every frame. The phone walks
 the samples and never re-derives motion. Two kinds of picture exist:
 
@@ -678,7 +678,7 @@ card being none) gets the picture it is taught from, asked for or not (owner,
 2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
 of them because the student had not written "draw"). Beside the reply, one short structured call
 (`scene_drawing/figure_read.py`, on the formal reader's lane, `physics_setup`) says what the question's picture
-is, as one of the blocks a reply would describe: a scene, the question's arrows, the forces on
+is, as the blocks a reply would describe (up to three, one per picture asked): a scene, the question's arrows, the forces on
 one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
 question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`
 adds it under the reply once the reply is done, waiting at most `figure_wait_seconds`, so a
@@ -725,18 +725,21 @@ masses one graph each, upward positive, titled with the mass. A block its fricti
 equal masses, a block moving at the start or a span the question does not give draw no graph.
 The Atwood scene draws each mass's weight beside the tension, sized to each other.
 
-Beside a picture asked for and drawn, a reply's words about drawing it are false and come off
-(`chat/picture_talk.py`, from the owed-picture pass): a sentence about the app's pictures ("The
-app has no scene for a block sliding down an incline"), an offer to draw a kind of picture the
-reply shows ("I can draw the three graphs if you want them as pictures"), or "I can't draw" a
-kind it shows; what such a sentence goes on to say after "but" stays ("…, but v rises to 16
-m/s"), and words about a kind not drawn stay. A reply with no picture keeps its words and gets
-the line that says none was drawn.
+Beside a picture asked for and drawn, a sentence that only denies or offers it comes off
+(`chat/picture_talk.py`, from the owed-picture pass): one that says the app cannot draw or show
+a picture ("The app has no scene for a block sliding down an incline", "I can't draw diagrams
+here"), that the app's picture appears with the reply, or that offers one on the reader's
+say-so ("I can draw the graphs if you want them as pictures"), naming a kind the reply shows
+and holding no number, "=" or "but". Every other sentence stays whole and as written: the
+user's own app, a chart of their data, teaching, and words about a kind not drawn. A reply with
+no picture keeps its words and gets the line that says none was drawn.
 
-Two coefficients stated, kinetic and static, are each taken for their own motion: the least
-force to start a body moving takes μs, a body the words say slides takes μk, a level curve
-takes μs, and a body only released or at rest (it may not slide: μs against tan θ) is
-refused. A frictionless pulley says nothing about the surface: a block resting on a table, a
+When a question states both a kinetic and a static coefficient, the server checks nothing that
+takes one: whether a released block slides, or a push starts it or keeps it moving, is the
+question, and reading either from the words gave verified wrong answers. The model answers it,
+unchecked; a normal force, which takes neither, is still checked. A frictionless surface beside
+a stated coefficient ("down a rough incline, μk = 0.25, then onto a frictionless floor") is
+refused too. A frictionless pulley says nothing about the surface: a block resting on a table, a
 level surface or a slope is never an Atwood machine's hanging mass.
 
 A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics

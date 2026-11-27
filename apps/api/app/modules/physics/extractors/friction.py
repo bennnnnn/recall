@@ -112,50 +112,31 @@ _UPHILL = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\s+up\b", 
 _MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IGNORECASE)
 
 
-def stated_kinetic_and_static(text: str) -> tuple[float, float] | None:
-    """The kinetic and the static coefficient, when the question states both ("μₖ = 0.20 and
-    μₛ = 0.70"); None when it states at most one of them."""
-    kinetic, static = _MU_KINETIC_RE.search(text), _MU_STATIC_RE.search(text)
-    if kinetic is None or static is None:
-        return None
-    return float(kinetic.group(1)), float(static.group(1))
+def states_kinetic_and_static(text: str) -> bool:
+    """The question states both a kinetic and a static coefficient ("μₖ = 0.20 and μₛ =
+    0.70")."""
+    return _MU_KINETIC_RE.search(text) is not None and _MU_STATIC_RE.search(text) is not None
 
 
-def _by_role(op: str, cleaned: str, kinetic: float, static: float) -> float | None:
-    """The coefficient a law takes when both are stated: static to start a body moving (the
-    least force to move it), kinetic for a body the words say is sliding. A body only
-    released or at rest may stay put (μs against tan θ), so with both stated it is refused:
-    "released from rest on a 30° incline, μₖ = 0.20 and μₛ = 0.70" took 0.20 and slid at
-    3.21 m/s², though 0.70 holds it (review of #2613)."""
-    if op == "minimum_force":
-        return static
-    sliding = (
-        _MOVING.search(cleaned) is not None and _REST.search(FROM_REST_RE.sub(" ", cleaned)) is None
-    )
-    if op in ("incline_acceleration", "friction_force") and sliding:
-        return kinetic
-    return None
+# The laws whose result takes a coefficient that the question can leave open. A normal force
+# takes none; whether a block starts to slide is μs against tan θ by definition, the static
+# coefficient read by name (``incline_sliding``, as on main).
+_TAKES_MU = frozenset({"incline_acceleration", "friction_force", "minimum_force"})
 
 
 def extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
-    """Friction's reading, its coefficient the one its motion takes when the question states
-    both a kinetic and a static one, never the first written (``_by_role``)."""
+    """Friction's reading, refused for a law that takes a coefficient when the question
+    leaves open which one: both a kinetic and a static one stated (whether a released block
+    slides, or a push starts or keeps it moving, is the question; reading either one from the
+    words gave verified wrong answers, review of #2613), or a frictionless surface beside a
+    stated coefficient ("down a rough incline, μk = 0.25, then onto a frictionless floor": the
+    incline was read as frictionless). A normal force takes no coefficient and stands, and so
+    does whether a block starts to slide, which takes μs by name."""
     intent = _extract_friction_intent(cleaned)
-    params = intent.physics_params if intent is not None else None
-    if (
-        intent is None
-        or not params
-        or not params.get("mu")
-        or intent.physics_op == "incline_sliding"
-    ):
+    if intent is None or intent.physics_op not in _TAKES_MU:
         return intent
-    both = stated_kinetic_and_static(cleaned)
-    if both is None:
-        return intent
-    mu = _by_role(intent.physics_op or "", cleaned, *both)
-    if mu is None:
-        return None
-    return intent.model_copy(update={"physics_params": {**params, "mu": mu}})
+    frictionless = "frictionless" in cleaned.lower() and _MU_RE.search(cleaned) is not None
+    return None if frictionless or states_kinetic_and_static(cleaned) else intent
 
 
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:

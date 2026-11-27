@@ -25,31 +25,55 @@ _GRAPH = '```graph\n{"type":"trajectory"}\n```'
 _BOTH: frozenset[Kind] = frozenset({"graph", "diagram"})
 
 
+# Cut: each only denies or offers a kind of picture drawn, and holds nothing else.
 @pytest.mark.parametrize(
-    ("said", "kept"),
+    "said",
     [
-        (
-            "The app has no scene for a block sliding down an incline in this setup, so here "
-            "is the picture in words. Draw the slope at 30°.",
-            "Draw the slope at 30°.",
-        ),
-        (
-            "The app's picture of the Atwood setup appears with this reply; the two force "
-            "lists above label what each diagram shows.",
-            "",
-        ),
-        ("I can draw the three graphs for the first 3 seconds if you want them as pictures.", ""),
-        ("Want me to sketch the free-body diagram as well?", ""),
-        ("I can't draw diagrams here, but the forces are listed above.", ""),
+        "The app has no scene for a block sliding down an incline in this setup, so here is "
+        "the picture in words.",
+        "The app's picture of the Atwood setup appears with this reply; the two force lists "
+        "above label what each diagram shows.",
+        "I can draw the graphs if you want them as pictures.",
+        "Want me to sketch the free-body diagram as well?",
+        "I can't draw diagrams here.",
+        "I can\u2019t draw diagrams here.",
+        "I\u2019ll plot the graphs if you want.",
+        "The app can't draw the graph of this motion.",
     ],
 )
-def test_words_about_drawing_the_pictures_drawn_come_off(said: str, kept: str) -> None:
-    text = f"The block slides at 3.21 m/s².\n\n{said}\n\n{_SCENE}\n\n{_GRAPH}\n"
+def test_a_denial_or_an_offer_of_a_picture_drawn_comes_off(said: str) -> None:
+    text = f"The block slides at 3.21 m/s².\n\n{said} Friction acts up the slope.\n\n{_SCENE}\n\n{_GRAPH}\n"
     out = without_picture_talk(text, _BOTH)
-    assert said not in out and _SCENE in out and _GRAPH in out
-    assert out.startswith("The block slides at 3.21 m/s².")
-    if kept:
-        assert kept in out
+    assert said not in out and "Friction acts up the slope." in out
+    assert out.startswith("The block slides at 3.21 m/s².") and _SCENE in out and _GRAPH in out
+
+
+# Kept whole, as written: numbers or an equation, a "but" going on, the user's own app, a
+# chart of their data, teaching, and words about a kind not drawn (review of #2613).
+@pytest.mark.parametrize(
+    ("said", "drawn"),
+    [
+        ("The acceleration is 3.21 m/s², as the app's graph shows.", _BOTH),
+        ("1. The app's diagram shows W = 98.1 N, N = 84.96 N.", _BOTH),
+        ("The app can't animate this, but the graph of v is a line of slope 3.21.", _BOTH),
+        ("I can't draw the v–t graph here, but v rises from 0 to 16 m/s over 5 s.", _BOTH),
+        (
+            "I can draw the three graphs for the first 3 seconds if you want them as pictures.",
+            _BOTH,
+        ),
+        ("The app has 6,000 users by week 5, as the chart shows.", _BOTH),
+        ("The app has no users outside Europe yet, as the chart shows.", _BOTH),
+        ("The graph shows the app reaches 6,000 users.", _BOTH),
+        ("I'd draw the free-body diagram first if you solve these by hand.", _BOTH),
+        ("I'll show where the image forms if you place the object at 2F.", _BOTH),
+        ("I can show that the graph's slope is a if you differentiate s = ½at².", _BOTH),
+        ("The app has no diagram for this setup.", frozenset({"graph"})),
+        ("I can't draw the v–t graph here.", frozenset({"diagram"})),
+    ],
+)
+def test_other_sentences_about_pictures_stay_whole(said: str, drawn: frozenset[Kind]) -> None:
+    text = f"Para A.\n\n{said}\n\n{_SCENE}\n"
+    assert without_picture_talk(text, drawn) == text
 
 
 @pytest.mark.parametrize(
@@ -138,34 +162,7 @@ def test_the_leak_net_and_the_picture_talk_net_each_cut_only_their_own() -> None
         assert out.count(_SCENE) == 1 and out.count(_GRAPH) == 1
 
 
-_GRAPHS_ONLY: frozenset[Kind] = frozenset({"graph"})
 _DIAGRAM_ONLY: frozenset[Kind] = frozenset({"diagram"})
-_NOT_DRAWN = "I can't draw the v–t graph here, but v rises from 0 to 16 m/s over 5 s."
-
-
-@pytest.mark.parametrize(
-    ("said", "drawn", "after"),
-    [
-        # Only the free-body diagram was drawn: the graph sentence is true and its values stay.
-        (_NOT_DRAWN, _DIAGRAM_ONLY, _NOT_DRAWN),
-        # The graph was drawn: the refusal goes, what it goes on to say stays.
-        (_NOT_DRAWN, _GRAPHS_ONLY, "V rises from 0 to 16 m/s over 5 s."),
-        # Curly apostrophes, as models write them.
-        ("I can’t draw diagrams here.", _DIAGRAM_ONLY, ""),
-        ("I’ll plot the graphs if you want.", _GRAPHS_ONLY, ""),
-        # The app a graph is about is no app speaking of its pictures.
-        (
-            "The graph shows the app reaches 6,000 users.",
-            _GRAPHS_ONLY,
-            "The graph shows the app reaches 6,000 users.",
-        ),
-    ],
-)
-def test_only_words_about_a_kind_drawn_go(said: str, drawn: frozenset[Kind], after: str) -> None:
-    text = f"Para A.\n\n{said}\n\n{_SCENE}\n"
-    out = without_picture_talk(text, drawn)
-    expected = f"Para A.\n\n{after}\n\n{_SCENE}\n" if after else f"Para A.\n\n{_SCENE}\n"
-    assert out == expected
 
 
 def test_a_worked_block_is_no_diagram() -> None:

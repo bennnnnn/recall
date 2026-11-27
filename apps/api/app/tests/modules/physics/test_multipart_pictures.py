@@ -232,7 +232,7 @@ def test_the_atwood_scene_and_forces_of_a_long_question_draw() -> None:
     scene = {"kind": "scene", "scene": "atwood", "values": {"mass1": "5 kg", "mass2": "3 kg"}}
     (drawn,) = _drawn(_ATWOOD, scene)
     labels = {vector.get("label") for vector in drawn["vectors"]}
-    assert {"T = 36.79 N", "m₁g = 49.05 N", "m₂g = 29.43 N"} <= labels
+    assert {"T = 36.79 N", "mg = 49.05 N", "mg = 29.43 N"} <= labels
     forces = {"kind": "forces", "body": "mass", "forces": ["weight", "tension"]}
     (rig,) = _drawn(_ATWOOD, forces)
     assert [v["label"] for v in rig["vectors"]] == ["T", "m₁g", "T", "m₂g"]
@@ -316,54 +316,39 @@ def test_each_or_both_before_a_noun_points_back_to_nothing(question: str) -> Non
     assert force_picture(question) is None
 
 
-# Both coefficients stated: each for its own motion, never the first one written; a body only
-# released or at rest may stay put, so it is refused (review of #2613).
+# Both coefficients stated: whether the block slides, or a push starts it or keeps it moving,
+# is the question, so nothing that takes a coefficient is checked; a normal force, which takes
+# none, still is (review of #2613).
 @pytest.mark.parametrize(
-    ("question", "op", "mu"),
+    "question",
     [
-        (
-            "A 5 kg block is released from rest on a 30° incline. μₖ = 0.20 and μₛ = 0.70. "
-            "Find the acceleration.",
-            None,
-            None,
-        ),
-        (
-            "A 5 kg block is released from rest on a 30° incline. The coefficient of kinetic "
-            "friction between the block and the plane is 0.20 and the coefficient of static "
-            "friction is 0.70. Find the acceleration.",
-            None,
-            None,
-        ),
-        (
-            "A 5 kg block slides down a 30° incline. μₖ = 0.20 and μₛ = 0.70. Find the "
-            "acceleration.",
-            "incline_acceleration",
-            0.2,
-        ),
-        (
-            "A 10 kg crate rests on the floor. The coefficient of kinetic friction between the "
-            "crate and the floor is 0.3 and the coefficient of static friction is 0.5. Find the "
-            "minimum force needed to move it.",
-            "minimum_force",
-            0.5,
-        ),
-        (
-            "A car rounds a level curve of radius 50 m. The coefficient of kinetic friction is "
-            "0.4 and the coefficient of static friction is 0.8. What is the maximum speed?",
-            "level_curve_speed",
-            0.8,
-        ),
+        "A 10 kg block is released from rest on a 30° incline. μₛ = 0.70 and μₖ = 0.20. Will "
+        "the block slide? If it does, find its acceleration.",
+        "A 5 kg block is released from rest on a 30° incline. μₖ = 0.20 and μₛ = 0.70. Find "
+        "the acceleration.",
+        "A 5 kg block slides down a 30° incline. μₖ = 0.20 and μₛ = 0.70. Find the acceleration.",
+        "A 20 kg box is on a level floor. μk = 0.3 and μs = 0.5. What horizontal force is "
+        "needed to push it across the floor at a constant speed?",
+        "A 10 kg crate rests on the floor. The coefficient of kinetic friction between the "
+        "crate and the floor is 0.3 and the coefficient of static friction is 0.5. Find the "
+        "minimum force needed to move it.",
+        "A car rounds a level curve of radius 50 m. The coefficient of kinetic friction is 0.4 "
+        "and the coefficient of static friction is 0.8. What is the maximum speed?",
+        # A frictionless floor beside the incline's coefficient: not the incline's.
+        "A 4 kg block slides down a rough incline with θ = 30° and μk = 0.25, then onto a "
+        "frictionless floor. Find its acceleration on the incline.",
     ],
 )
-def test_two_coefficients_are_each_taken_for_their_own_motion(
-    question: str, op: str | None, mu: float | None
-) -> None:
+def test_no_law_that_takes_a_coefficient_is_checked_when_it_is_left_open(question: str) -> None:
     intent = extract_physics_intent(question)
-    if op is None:
-        assert intent is None or intent.physics_op != "incline_acceleration"
-        return
-    assert intent is not None and intent.physics_op == op
-    assert (intent.physics_params or {})["mu"] == pytest.approx(mu)
+    assert intent is None or "mu" not in (intent.physics_params or {})
+
+
+def test_a_normal_force_takes_no_coefficient_and_stands() -> None:
+    intent = extract_physics_intent(
+        "A 5 kg block rests on a 30° incline. μs = 0.6 and μk = 0.4. Find the normal force."
+    )
+    assert intent is not None and intent.physics_op == "normal_force"
 
 
 def test_a_frictionless_pulley_leaves_the_table_a_table() -> None:
@@ -378,7 +363,12 @@ def test_a_frictionless_pulley_leaves_the_table_a_table() -> None:
 
 @pytest.mark.parametrize(
     "start",
-    ["The block starts at rest", "The block starts from a standstill", "It is initially at rest"],
+    [
+        "The block starts at rest",
+        "The block starts from a standstill",
+        "It is initially at rest",
+        "It is initially stationary",
+    ],
 )
 def test_every_way_of_starting_from_rest_sets_a_zero_start_speed_aside(start: str) -> None:
     intent = extract_physics_intent(
@@ -402,8 +392,8 @@ def test_a_slope_with_no_stated_angle_resolves_its_weight_in_symbols() -> None:
 def test_the_atwood_scene_shows_each_mass_s_weight_to_scale() -> None:
     (spec,) = _atwood_scene(5.0, 3.0, 2.4525, 36.7875, 9.81)
     sizes = {vector.label: vector.dy for vector in spec.vectors if vector.label}
-    assert sizes["m₁g = 49.05 N"] == pytest.approx(-1.0)
-    assert sizes["m₂g = 29.43 N"] == pytest.approx(-0.6)
+    assert sizes["mg = 49.05 N"] == pytest.approx(-1.0)
+    assert sizes["mg = 29.43 N"] == pytest.approx(-0.6)
     assert sizes["T = 36.79 N"] == pytest.approx(36.7875 / 49.05)
 
 
@@ -420,3 +410,32 @@ def test_the_figure_read_may_name_several_pictures() -> None:
     assert [b["kind"] for b in _blocks(many)] == ["forces", "motion", "beam"]
     flagged = normalized({"kind": "incline", "angle": "30°", "components": True})
     assert flagged["components"] is True and "components" not in flagged["values"]
+
+
+def test_an_atwood_mass_is_labelled_by_its_own_box_never_by_weight_order() -> None:
+    """ "m1 = 3 kg and m2 = 5 kg": the boxes carry their masses and each weight is mg, so the
+    5 kg box is never labelled m₁ (review of #2613)."""
+    scene = {"kind": "scene", "scene": "atwood", "values": {"mass1": "3 kg", "mass2": "5 kg"}}
+    question = (
+        "Two masses, m1 = 3 kg and m2 = 5 kg, hang over a frictionless pulley. Find the "
+        "acceleration."
+    )
+    (drawn,) = _drawn(question, scene)
+    labels = [vector.get("label") or "" for vector in drawn["vectors"]]
+    assert "mg = 49.05 N" in labels and "mg = 29.43 N" in labels
+    assert not any("m₁" in label or "m₂" in label for label in labels)
+
+
+def test_a_listed_time_is_never_a_mass_said_twice() -> None:
+    """ "t = 2 s" beside "a 2 kg block": the same number of another kind is a quantity of its
+    own, which the incline scene leaves unused, so it is not drawn."""
+    question = (
+        "A 2 kg block slides down a 30° incline with a coefficient of kinetic friction of 0.2. "
+        "Givens: m = 2 kg, t = 2 s. Find its acceleration."
+    )
+    scene = {
+        "kind": "scene",
+        "scene": "incline",
+        "values": {"angle": "30°", "friction": "0.2", "mass": "2 kg"},
+    }
+    assert _drawn(question, scene) == []
