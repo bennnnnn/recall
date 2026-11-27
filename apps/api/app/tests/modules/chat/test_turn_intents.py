@@ -405,6 +405,41 @@ def test_a_multi_part_turn_is_never_offered_a_turn_ending_photo_tool() -> None:
     assert multi == []
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        # Textbook round, 2026-11-26: two parts, the first carded 300 ft/min.
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Give your answer "
+        "in metres per second.",
+        "A ball falls 20 m. How long does it take? Give your final answer in metres per second.",
+        "Sara cycles 12 km in 40 minutes. How fast is she going? Give your answer in metres "
+        "per second.",
+        "What is 3/4 + 1/8? Give your answer as a fraction.",
+        "What is 3/4 + 1/8? Give your answer as a mixed number.",
+        # Asked politely or after "also": the order read on the request's own words.
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Can you give your "
+        "answer in metres per second?",
+        "Berihun walks 3000 feet in 10 minutes. What speed is he walking at? Also, give your "
+        "answer in m/s.",
+    ],
+)
+def test_an_order_about_the_answer_is_the_question_s_own(message: str) -> None:
+    """Each of these planned as two requests before ``answer_form`` (textbook round)."""
+    assert len(plan_turn(message).parts) == 1
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # A request of its own that opens like an order about the answer (review of #2604).
+        "What is 15% of 80? Explain the results of the 2024 French election.",
+        "A car goes 100 m in 5 s. Find its speed. Show the steps to reset my router",
+    ],
+)
+def test_a_new_request_after_a_question_stays_its_own(message: str) -> None:
+    assert len(plan_turn(message).parts) == 2
+
+
 def test_plan_type_is_plain_data() -> None:
     plan = TurnPlan((TurnPart("a"), TurnPart("b", "solve")), context="c")
     assert plan.multi and plan.of_kind("solve") == (TurnPart("b", "solve"),)

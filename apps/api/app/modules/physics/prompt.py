@@ -166,8 +166,14 @@ def _solve_physics_request(
     if block is None:
         return _picture_or(user_content, "note" if intent is None else "failed")
     partial = answers_part_of(user_content, block.physics_intent, len(block.physics_parts))
+    from app.modules.physics.data_precision import bound_figures
+
     return "verified", replace(
-        block, text=wrap_verified_physics(block.text), partial=partial, read_text=read_text
+        block,
+        text=wrap_verified_physics(block.text),
+        partial=partial,
+        read_text=read_text,
+        data_figures=bound_figures(block.physics_intent, user_content),
     )
 
 

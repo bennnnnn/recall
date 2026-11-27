@@ -618,10 +618,19 @@ def _restates(earlier: str, later: str) -> bool:
 _WORKOUT_HEADING = re.compile(
     r"^[^\S\n]*\*\*(?:Substitution|Steps|Answer|Working|\d+\.[^*\n]+)\*\*", re.MULTILINE
 )
+# "**Answer:**", its colon inside the bold: a worked solution's heading only on a school
+# question (textbook round, 2026-11-26: a capillary rise worked to 2.03 mm under it had no
+# card). Elsewhere it opens a quiz's or a recipe's answer ("**Answer:** about **6 years**"),
+# which is no worked card (review of #2604).
+_COLON_ANSWER = re.compile(r"^[^\S\n]*\*\*Answer:\*\*", re.MULTILINE)
 
 
-def is_worked_solution(reply: str) -> bool:
-    return _WORKOUT_HEADING.search(reply) is not None
+def is_worked_solution(reply: str, *, school: bool = False) -> bool:
+    """The reply is a worked solution; ``school``: the turn's reading calls its message a
+    school question, so an "**Answer:**" heading is one too."""
+    if _WORKOUT_HEADING.search(reply) is not None:
+        return True
+    return school and _COLON_ANSWER.search(reply) is not None
 
 
 def working_note(reply: str, question: str = "") -> str | None:

@@ -472,3 +472,20 @@ def test_a_spaced_unknown_is_no_unit() -> None:
 def test_a_fraction_ratio_or_range_is_never_rewritten(reply: str) -> None:
     """Review (#2520): "approximately 22/7" read 22 and became "3/7"."""
     assert corrected_approximations(reply) == reply
+
+
+@pytest.mark.parametrize(
+    ("reply", "school", "worked"),
+    [
+        # "**Answer:**" is a worked solution's heading only on a school question: a quiz's or a
+        # recipe's answer is no worked card (review of #2604).
+        ("**Answer:** It lasted about **6 years**.", False, False),
+        ("**Answer:** You need **2 cups** of flour.", False, False),
+        ("**Answer:** The height is approximately **2.03 mm**.", True, True),
+        ("**Answer**\n\n$x = 3$", False, True),
+    ],
+)
+def test_a_colon_answer_heading_is_worked_only_on_a_school_question(
+    reply: str, school: bool, worked: bool
+) -> None:
+    assert is_worked_solution(reply, school=school) is worked

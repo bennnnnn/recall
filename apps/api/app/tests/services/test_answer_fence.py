@@ -501,3 +501,63 @@ def test_a_closing_boxed_value_is_the_replys_answer_card(reply: str) -> None:
 )
 def test_a_boxed_value_that_is_not_the_closing_answer_is_left(reply: str) -> None:
     assert not boxes_its_answer(reply)
+
+
+@pytest.mark.parametrize(
+    ("answer", "card"),
+    [
+        # Textbook round, 2026-11-26: a capillary rise worked to 2.03 mm had no card.
+        (
+            "**Answer:**\nThe height of the column is approximately **2.03 mm**.",
+            "2.03\\,\\mathrm{mm}",
+        ),
+        ("**Answer:** The rate of heat flow is **0.24 W**.", "0.24\\,\\mathrm{W}"),
+        ("**Answer**\n\nThe uncertainty doubles to **4.62%**.", "4.62\\%"),
+    ],
+)
+def test_a_sentence_that_bolds_its_one_value_is_carded(answer: str, card: str) -> None:
+    landed = land_answer_card(f"$h = 2 \\times 3$\n\n{answer}", None, school=True)
+    assert f"```answer\n{UNCHECKED_ANSWER_MARKER}\n{card}\n```" in landed
+    assert landed.rstrip().endswith("**.")  # the sentence stays under the card
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "**Answer:** It moves at **13.45 km/h** at **42° south of east**.",
+        "**Answer:** The capital is **Paris**.",
+    ],
+)
+def test_a_sentence_that_bolds_no_one_value_stays(answer: str) -> None:
+    reply = f"$h = 2 \\times 3$\n\n{answer}"
+    assert land_answer_card(reply, None) == reply
+
+
+@pytest.mark.parametrize(
+    "bolded",
+    [
+        "It moves at **5 m/s north**.",  # a direction is no unit (review of #2604)
+        "The column is **2.03 mm high**.",
+        "There are **6.02e23 atoms**.",
+    ],
+)
+def test_a_bold_that_holds_more_than_a_value_and_its_unit_is_no_card(bolded: str) -> None:
+    from app.services.answer_fence import bold_quantity
+
+    assert bold_quantity(bolded) is None
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        # The reviewer's input (round 2 of #2604): a bare heading over a quiz's answer.
+        "**Answer**\nThe war lasted about **6 years**.",
+        "**Answer**\n\nYou need **2 cups** of flour.",
+        "**Answer:** It lasted about **6 years**.",
+        "## Answer\nThe trip takes **3 hours**.",
+    ],
+)
+def test_a_bold_value_off_a_school_question_is_no_card(answer: str) -> None:
+    reply = f"Some lines first.\n\n{answer}"
+    assert "```answer" not in land_answer_card(reply, None)
+    assert "```answer" in land_answer_card(reply, None, school=True)

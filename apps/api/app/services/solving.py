@@ -103,6 +103,10 @@ class VerifiedSolveBlock:
     # This block (the first part's) stands for the turn; the fence check keeps each
     # part's card and pictures (``chat.finalize_subjects``).
     question_parts: tuple[VerifiedSolveBlock, ...] = ()
+    # The fewest significant figures among the measured values the solver read, 0 when it
+    # says none: "to the correct number of significant figures" is this many
+    # (``rounding_rule.data_precision``).
+    data_figures: int = 0
     # The solver writes its card's numbers to the precision the subject grades, and the card
     # pass leaves them so unless the user asks another (``chat.card_numbers``): chemistry's
     # significant figures of the data. False: the card is shown by the one rule.

@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- a card's minus is read as either sign a reply writes.
+# ruff: noqa: RUF001, RUF002 -- a card's minus is read as either sign a reply writes.
 """An unchecked answer card held to the working's last line above it.
 
 A model that ends its working on an expression it never works out ("$\\text{total} = 5 +
@@ -260,3 +260,152 @@ def _said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: boo
         elif not dropped:
             lines.append(wrong.sub(said, line))
     return "\n".join(lines)
+
+
+# A vector's component as working writes one: "-9.0435\hat{i}", "8.6957 \hat{j}".
+_COMPONENT = re.compile(r"(?P<sign>[-+−]?)\s*(?P<number>\d+(?:\.\d+)?)\s*\\hat\s*\{?\s*[ijk]\b")
+# A number on a card, and whether an angle's mark follows it.
+_CARD_NUMBER = re.compile(
+    r"(?<![\w.^_{])(?P<number>\d+(?:\.\d+)?)"
+    r"(?P<angle>\s*(?:\\[,; ]\s*)?(?:\^\s*\{?\s*\\circ|°|\\degree\b))?"
+)
+# A script's or a unit's power, whose digits are no value: "s^{-1}", "m^2", "h^{-1}".
+_SCRIPT = re.compile(r"[\^_]\s*(?:\{[^{}]*\}|[-−]?\d+)")
+# A unit written in a group after a value: "\,\mathrm{m/s}".
+_UNIT_AFTER = re.compile(r"\s*(?:\\[,; ]\s*)?\\(?:mathrm|text)\s*\{([^{}]*)\}")
+
+
+def _unscripted(value: str) -> str:
+    """``value`` with every script and power blanked, each character kept in place."""
+    return _SCRIPT.sub(lambda found: " " * len(found.group()), value)
+
+
+def _unit_at(value: str, at: int) -> str | None:
+    found = _UNIT_AFTER.match(value, at)
+    return None if found is None else re.sub(r"\s", "", found.group(1))
+
+
+def _last_vector(above: str) -> list[float] | None:
+    """The components the working's last line of vector maths reaches, unrounded."""
+    for line in reversed(INLINE_MATH.findall(above)):
+        side = RELATION.split(line)[-1]
+        found = [
+            float(match["number"]) * (-1 if match["sign"] in ("-", "−") else 1)
+            for match in _COMPONENT.finditer(side)
+        ]
+        if len(found) >= 2:
+            return found
+    return None
+
+
+def _rounds_to(value: float, written: str) -> bool:
+    places = len(written.partition(".")[2])
+    return abs(abs(value) - float(written)) <= 0.5 * 10.0**-places * (1 + 1e-9) + 1e-12
+
+
+# A moment's unit on a card: N·m, N m, Nm, N\cdot m, N·cm.
+_MOMENT_UNIT = re.compile(r"\bN\s*(?:·|⋅|\\cdot|\{\\cdot\}|\\,|\\ |\s)?\s*c?m\b")
+# The sense a card says a moment turns in, with the brackets or words around it:
+# "(clockwise)", "\text{ anticlockwise}", "counter-clockwise".
+_SENSE_WORD = r"\(?\s*(?:(?:anti|counter)[\s-]?)?clockwise\s*\)?"
+# The sense of turning a card claims, as a group of its own ("\ \text{clockwise}",
+# "\text{ anticlockwise}") or as words inside the unit's group or after it ("\text{N·m
+# (clockwise)}", "(clockwise)"). A group of its own goes whole, with the space before it;
+# words inside a group go and the group stays closed (review of #2604).
+_SENSE_GROUP = re.compile(rf"(?:\s|\\[,; ])*\\text\s*\{{\s*{_SENSE_WORD}\s*\}}", re.IGNORECASE)
+_SENSE = re.compile(rf"\s*{_SENSE_WORD}", re.IGNORECASE)
+# What a card's value may not end on once its sense is gone: a TeX space or a comma.
+_LEFT_OVER = re.compile(r"(?:\s|\\[,; ]|\\$|,)+$")
+
+
+def without_unbacked_senses(text: str) -> str:
+    """Each unchecked moment card without the sense of turning it claims. No solver read
+    the picture, so whether it turns clockwise is the model's guess, and it guessed wrong
+    in three of four (textbook round, 2026-11-26: two downward forces left of Q, carded
+    "2.05 N·m (clockwise)"). The working above says why it turns as it does; the card
+    claims only the size the arithmetic gives."""
+    for answer in reversed(list(answer_cards(text))):
+        body = answer.body(text)
+        headers, value = answer_header_and_value(body)
+        if VERIFIED_ANSWER_MARKER in headers or not _MOMENT_UNIT.search(value):
+            continue
+        bare = _LEFT_OVER.sub("", _SENSE.sub("", _SENSE_GROUP.sub("", value)))
+        if bare != value and any(character.isdigit() for character in bare):
+            at = answer.fence.body_start + body.rfind(value)
+            text = f"{text[:at]}{bare}{text[at + len(value) :]}"
+    return text
+
+
+# A card's words or marks naming a value the size of a vector: "|v| =", "\\lvert", "magnitude".
+_SIZE_NAMED = re.compile(
+    r"\||\\[lr]?vert|\\[lr]Vert|\b(?:magnitude|size|speed|resultant|modulus)\b", re.IGNORECASE
+)
+# A vector written whole on the card: "î", "\\hat{i}", a column.
+_VECTOR_FORM = re.compile(r"\\hat|[îĵ]|k\u0302|\\begin\{[pb]matrix\}")
+
+
+def _states_the_size(value: str, start: int, end: int) -> bool:
+    """The number at ``start`` is the vector's size: named so ("|v| = ", "magnitude"), or the
+    one scalar after components the card writes as bare numbers ("-9.04 m/s, 8.70 m/s,
+    12.30 m/s"). After a vector written whole, a number with no such name may be another
+    quantity: "(3î + 4ĵ) m, 7 m" walked 7 m and moved 5 (review of #2604)."""
+    if _SIZE_NAMED.search(value, end, start) is not None:
+        return True
+    return _VECTOR_FORM.search(value) is None
+
+
+def _said_again_with_unit(closing: str, shown: str, said: str, unit: str) -> str:
+    """The closing lines with the wrong size said as the right one, only where its unit follows
+    it: "after 7 s" is no 7 m (review of #2604)."""
+    spellings = {shown, shown.rstrip("0").rstrip(".") if "." in shown else shown}
+    digits = "|".join(re.escape(number) for number in sorted(spellings, key=len, reverse=True))
+    letters = re.escape(unit)
+    pattern = re.compile(
+        rf"(?<![\d.,])(?:{digits})(?![\d]|[.,]\d)(?=\s*(?:\$|\\[,; ])?\s*(?:\\(?:mathrm|text)\s*\{{)?\s*{letters})"
+    )
+    return pattern.sub(said, closing)
+
+
+def held_vector_sizes(text: str) -> str:
+    """Each unchecked card that lists a vector's components, as the working reached them,
+    then its size, with the size the components give: "−9.04 m/s, 8.70 m/s, 12.30 m/s"
+    under a working of −9.0435 î + 8.6957 ĵ is 12.55 m/s (textbook round, 2026-11-26: no
+    working line wrote the size, so no check read it). Only a number the card states as the
+    size (``_states_the_size``); said again after the card with its unit, it follows."""
+    for answer in reversed(list(answer_cards(text))):
+        body = answer.body(text)
+        headers, value = answer_header_and_value(body)
+        components = _last_vector(text[answer.since_card : answer.fence.start])
+        if VERIFIED_ANSWER_MARKER in headers or not value or components is None:
+            continue
+        plain = _unscripted(value)
+        numbers = [match for match in _CARD_NUMBER.finditer(plain) if not match["angle"]]
+        count = len(components)
+        listed = zip(components, numbers, strict=False)
+        if len(numbers) != count + 1 or not all(_rounds_to(c, m["number"]) for c, m in listed):
+            continue
+        # The size carries the components' unit: "12.30 m/s" after "-9.04 m/s, 8.70 m/s",
+        # or after "(-9.04 î + 8.70 ĵ) m/s"; a number with no unit of theirs is no size.
+        size_unit = _unit_at(plain, numbers[count].end())
+        units = [unit for m in numbers[:count] if (unit := _unit_at(plain, m.end()))]
+        their = (
+            units[-1] if units else _unit_at(plain, plain.find(")", numbers[count - 1].end()) + 1)
+        )
+        if size_unit is None or size_unit != their:
+            continue
+        if not _states_the_size(plain, numbers[count].start(), numbers[count - 1].end()):
+            continue
+        size = math.sqrt(sum(component**2 for component in components))
+        shown = numbers[count]["number"]
+        # Within the card's rounding of the size: 12.60 for 12.546 is a slip, not a rounding
+        # (u4-11 again, round 2 of #2604: a 0.5% allowance let it stand).
+        if _rounds_to(size, shown):
+            continue
+        at = answer.fence.body_start + body.rfind(value) + numbers[count].start()
+        if text[at : at + len(shown)] != shown:
+            continue
+        said = shown_like(size, shown)
+        closing = _closing_end(text, answer.fence.body_end)
+        tail = _said_again_with_unit(text[answer.fence.body_end : closing], shown, said, size_unit)
+        text = f"{text[:at]}{said}{text[at + len(shown) : answer.fence.body_end]}{tail}{text[closing:]}"
+    return text

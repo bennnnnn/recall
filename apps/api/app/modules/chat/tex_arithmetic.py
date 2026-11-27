@@ -373,6 +373,24 @@ def math_statement_spans(reply: str) -> Iterator[tuple[str, bool, int]]:
             yield inside[cuts[index] : cuts[index + 1]], follows or index > 0, start + cuts[index]
 
 
+# Display maths: "$$ … $$" and "\\[ … \\]", over one line or several.
+DISPLAY_MATH = re.compile(r"\$\$(?P<dollars>.+?)\$\$|\\\[(?P<brackets>.+?)\\\]", re.DOTALL)
+# Where a display block breaks into lines: a TeX line break or a newline.
+_DISPLAY_BREAK = re.compile(r"\\\\|\n")
+
+
+def maths_lines(text: str) -> list[str]:
+    """Every line of maths ``text`` writes, inline (``$…$``) and display (``$$…$$``,
+    ``\\[…\\]``, a block of several lines read line by line), in reading order."""
+    found: list[tuple[int, str]] = []
+    for match in DISPLAY_MATH.finditer(text):
+        block = match.group("dollars") if match.group("dollars") is not None else match["brackets"]
+        found += [(match.start(), line) for line in _DISPLAY_BREAK.split(block) if line.strip()]
+    blanked = DISPLAY_MATH.sub(lambda match: " " * len(match.group(0)), text)
+    found += [(match.start(), match.group(1)) for match in INLINE_MATH.finditer(blanked)]
+    return [line for _at, line in sorted(found, key=lambda pair: pair[0])]
+
+
 def masked(reply: str) -> str:
     """``reply`` with each closed code fence and inline code blanked, every offset kept."""
     pieces: list[str] = []
