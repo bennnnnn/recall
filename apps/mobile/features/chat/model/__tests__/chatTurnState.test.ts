@@ -76,6 +76,23 @@ describe("frames", () => {
     expect(cues(blank.commands)).toEqual(["activity", "activity"]);
   });
 
+  it("a composing status that says the reply takes no emoji holds for the turn's draft", () => {
+    // The server tells the phone, so the draft streams without emoji as the saved reply reads.
+    const run = play(streaming(), [
+      frame({ type: "status", phase: "composing", emoji: "none" }),
+      frame({ type: "token", content: "## 🔥 Heat" }),
+      frame({ type: "status", phase: "checking" }),
+      frame({ type: "token", content: "\nmore" }),
+      frame({ type: "stream_end" }),
+    ]);
+    expect(run.state.draft).toMatchObject({ content: "## 🔥 Heat\nmore", noEmoji: true });
+    const plain = play(streaming(), [frame({ type: "status", phase: "composing" }), frame({ type: "token", content: "hi" })]);
+    expect(plain.state.draft?.noEmoji).toBeFalsy();
+    // A new turn starts with the setting again.
+    const next = play(run.state, [frame({ type: "start" })]);
+    expect(next.state.draft?.noEmoji).toBeUndefined();
+  });
+
   it("a step keeps its start when sent again, and starts as long ago as the server says", () => {
     const thinking = play(streaming(), [frame({ type: "status", phase: "thinking", elapsed_ms: 4_000 })]);
     expect(thinking.state.draft?.statusStartedAt).toBe(NOW - 4_000);

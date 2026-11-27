@@ -65,8 +65,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   // The server keeps the emoji setting on the saved reply; the draft keeps it too, or a
   // "Hey bini 👋" lost its wave when the saved reply replaced it.
   const liveContent = useMemo(
-    () => placeLiveEmoji(streamingDraft?.content, emojiUse, priorUserText),
-    [emojiUse, priorUserText, streamingDraft?.content],
+    () => placeLiveEmoji(streamingDraft?.content, emojiUse, priorUserText, streamingDraft?.noEmoji),
+    [emojiUse, priorUserText, streamingDraft?.content, streamingDraft?.noEmoji],
   );
   const generating = live && streamVisualActive;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;

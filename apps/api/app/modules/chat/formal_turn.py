@@ -17,10 +17,12 @@ answers are its cards, and then:
   for any standard value of a constant it uses (g as 9.8, 9.81 or 10), stands: the book's
   g is an assumption, not an error (245 Pa stamped over a working of 250 Pa at g = 10,
   G8 round, 2026-11-18). A card worked from numbers the reply never wrote read the question
-  another way and stands too. Any other card gets the server's value, with a line in the
-  reply's language saying where it comes from: an arithmetic or law slip (in 36 of 36
-  disagreements measured 2026-11-16 the server was right). A card is never added: a
-  second "Answer" card under an identical first one (50 Ω twice, G8 round) is gone.
+  another way and stands too, and so does a card the reply's own working works out: the
+  server never stamps its value over a worked answer it contradicts (owner's rule; the
+  formal reading had left a rocket's weight out, 50 m/s² over a working's right 40.2,
+  textbook round 2026-11-26). Any other card, one no working reaches, gets the server's
+  value, with a line in the reply's language saying where it comes from. A card is never
+  added: a second "Answer" card under an identical first one (50 Ω twice, G8 round) is gone.
 
 A replaced card is marked ``verified: false``: the server did the arithmetic, the reading
 is the model's.
@@ -38,10 +40,11 @@ from app.core.aio import settled_result
 from app.core.config import Settings
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.formal_cards import held_to_server
+from app.modules.chat.formal_lines import SERVER_VALUE_LINES
 from app.modules.chat.reply_language import line_language
 from app.modules.chat.turn_decision import TurnDecision
 from app.services.formal.answer import FormalAnswer, StatedConflict
-from app.services.rounding_rule import asked_precision
+from app.services.rounding_rule import asked_precision, data_precision
 from app.services.subjects.registry import subject_adapter
 
 if TYPE_CHECKING:
@@ -51,16 +54,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Above a card the server's value replaced, in the language of the reply.
-_LINES = {
-    "en": "Worked out again from the values in the question:",
-    "es": "Calculado de nuevo con los valores de la pregunta:",
-    "fr": "Recalculé à partir des valeurs de la question :",
-    "pt": "Recalculado a partir dos valores da pergunta:",
-    "ru": "Пересчитано по данным задачи:",
-    "tr": "Sorudaki değerlerden yeniden hesaplandı:",
-    "am": "ከጥያቄው እሴቶች እንደገና የተሰላ፦",
-    "hi": "प्रश्न के मानों से फिर से गणना की गई:",
-}
+_LINES = SERVER_VALUE_LINES
 # A relation the question's values break ({meaning} is the setup's words, {sides} maths).
 _CONFLICTS = {
     "en": "These values can't all be right: {meaning}, but here {sides}.",
@@ -167,7 +161,8 @@ async def attach_formal(state: FinalizeState) -> str:
         text = stated_conflicts(state.text, answer.conflicts, language)
     else:
         line = _LINES.get(language, _LINES["en"])
-        asked = asked_precision(ctx.user_message_content or "")
+        # No solver read the question's values: the data's figures are unknown here.
+        asked = data_precision(asked_precision(ctx.user_message_content or ""), 0)
         text = held_to_server(state.text, answer.values, line, asked)
     if text != state.text:
         # Committed, so a later pass that falls back keeps the server's value.

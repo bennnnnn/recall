@@ -301,3 +301,119 @@ def test_a_card_of_a_multi_digit_power_keeps_it_whole() -> None:
     """10^23 is ten to the 23rd: read as 10^2 and a 3, the card was two numbers."""
     reply = _card("N = 6.02 × 10^23")
     assert card_numbers(reply, Precision()) == _card("N = 6.02 \\times 10^{23}")
+
+
+@pytest.mark.parametrize(
+    ("working", "card", "shown"),
+    [
+        # A model's zero past its last figure is no figure: 20.1 under "v = 20.1 m/s".
+        ("$v = 20.1\\,\\mathrm{m/s}$", "20.10\\,\\mathrm{m/s}", "20.1\\,\\mathrm{m/s}"),
+        # Worked out again where the working can: I = 5/2 is 2.50 A, known to its zeros.
+        ("$I = \\frac{5}{2}$", "2.50\\,\\mathrm{A}", "2.50\\,\\mathrm{A}"),
+        # The working wrote it to more places: 8.6957 is 8.70, its zero known.
+        (
+            "$\\vec{v} = 8.6957\\hat{j}$",
+            "8.70\\hat{j}\\,\\mathrm{m/s}",
+            "8.70\\hat{j}\\,\\mathrm{m/s}",
+        ),
+    ],
+    ids=["padded", "known-zeros", "worked-places"],
+)
+def test_a_model_s_padded_zero_is_no_figure_it_knows(working: str, card: str, shown: str) -> None:
+    """Textbook round, 2026-11-26: 21.65 m/s carded 21.70, 20.106 m/s carded 20.10."""
+    reply = f"{working}\n\n**Answer**\n\n{_card(card)}"
+    assert card_numbers(reply, Precision()).endswith(_card(shown))
+
+
+def test_a_server_card_keeps_its_zeros() -> None:
+    assert card_numbers(_card("2.50\\,\\mathrm{A}", "true"), Precision()) == _card(
+        "2.50\\,\\mathrm{A}", "true"
+    )
+
+
+@pytest.mark.parametrize(
+    ("card", "shown"),
+    [
+        (
+            "\\begin{pmatrix}7/9\\\\-23/9\\end{pmatrix}\\,\\mathrm{m/s}",
+            "\\begin{pmatrix}0.78\\\\-2.56\\end{pmatrix}\\,\\mathrm{m/s}",
+        ),
+        ("v = \\frac{30}{7}\\,\\mathrm{m/s}", "v = 4.29\\,\\mathrm{m/s}"),
+        ("x = 1/3", "x = 1/3"),  # a pure number keeps maths' exact fraction
+    ],
+)
+def test_a_measured_card_s_fractions_are_decimals(card: str, shown: str) -> None:
+    """A velocity of (7/9, -23/9) m/s is read to two places, never in ninths."""
+    assert card_numbers(_card(card), Precision()) == _card(shown)
+
+
+def test_a_named_vector_card_follows_the_rule() -> None:
+    reply = _card("\\vec{a} = 0.298\\hat{i}\\ \\text{m/s}^2")
+    assert card_numbers(reply, Precision()) == _card("\\vec{a} = 0.30\\hat{i}\\ \\text{m/s}^2")
+
+
+_DATA_ASKED = (
+    "1. A trolley travels 4.345 m in 1.2 s. What is its average speed? Give the answer to the "
+    "correct number of significant figures."
+)
+
+
+@pytest.mark.parametrize(("figures", "shown"), [(2, "3.6"), (3, "3.62"), (0, "3.62")])
+def test_the_data_s_figures_are_the_solver_s(figures: int, shown: str) -> None:
+    """The solver's bound values say the figures; none read leaves the rule (review of
+    #2604: a list's "1." showed a checked 3.62 m/s as "4 m/s")."""
+    from typing import cast
+
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.modules.chat.finalize_passes import FinalizeState
+    from app.services.solving import VerifiedPhysicsBlock
+
+    block = VerifiedPhysicsBlock(text="", subject="physics", data_figures=figures)
+    card = _card("3.620833\\,\\mathrm{m/s}", "true")
+    state = _state(card, _DATA_ASKED, block if figures else None)
+    assert format_card_numbers(cast(FinalizeState, state)) == _card(
+        f"{shown}\\,\\mathrm{{m/s}}", "true"
+    )
+
+
+def test_a_chemistry_card_keeps_its_own_data_figures() -> None:
+    """Chemistry's solver already writes the data's figures (``chemistry.sig_figs``): one rule
+    of the data's figures, never a second count of the question's numbers (review of #2604)."""
+    from typing import cast
+
+    from app.modules.chat.card_numbers import format_card_numbers
+    from app.modules.chat.finalize_passes import FinalizeState
+
+    question = "What is the mass of 2.00 mol of NaCl?"
+    verified = _chemistry(question)
+    card = _card(verified.canonical_answer or "", "true")
+    line = f"{question} Give it to the correct number of significant figures."
+    state = _state(card, line, verified)
+    assert format_card_numbers(cast(FinalizeState, state)) == card
+
+
+def test_an_exact_value_asked_keeps_the_fraction() -> None:
+    card = _card("v = \\frac{7}{9}\\,\\mathrm{m/s}")
+    assert card_numbers(card, Precision(unrounded=True)) == card
+
+
+def test_the_server_s_own_unchecked_card_keeps_its_zeros() -> None:
+    """The formal reader's 2.50 A is the server's value, known to its zeros (review of #2604)."""
+    reply = "Worked out again from the values in the question:\n\n" + _card("2.50\\ \\mathrm{A}")
+    assert card_numbers(reply, Precision()) == reply
+    laid_out = "$I = 2.5$\n\n" + _card("2.50\\,\\mathrm{A}")
+    assert card_numbers(laid_out, Precision(), model_cards=False) == laid_out
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # A mixed number is left as written: its fraction alone read 30.75 m (round 2, #2604).
+        "L = 3\\frac{3}{4}\\,\\mathrm{m}",
+        "L = 3 3/4\\,\\mathrm{m}",
+        "L = 3\\tfrac{3}{4}\\,\\mathrm{m}",
+        "3 \\frac{1}{2}\\,\\mathrm{s}",
+    ],
+)
+def test_a_mixed_number_is_left_as_written(card: str) -> None:
+    assert card_numbers(_card(card), Precision()) == _card(card)

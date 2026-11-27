@@ -23,7 +23,9 @@ Each is a question the law does not describe, whichever reader filled it:
 - a law of one place of a vertical circle, in a question that names another place and
   never says the speed is steady: the speed is the other place's (``place_laws``);
 - a clause that scales a stated value: "amplitude 0.1 m and period 2 s. If the amplitude is
-  doubled, what is its maximum speed?" answered for 0.1 m, 0.314 m/s for 0.628.
+  doubled, what is its maximum speed?" answered for 0.1 m, 0.314 m/s for 0.628;
+- a straight-line law of a force's work for a turn, or with an angle measured from another
+  line than the motion (``work_geometry``): half a turn of a spanner was 135 J for 424 J.
 """
 
 from __future__ import annotations
@@ -38,6 +40,11 @@ from app.modules.physics.motion import read_motion
 from app.modules.physics.place_laws import names_another_place
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.si import params_in_si
+from app.modules.physics.work_geometry import (
+    angle_from_another_line,
+    force_work_law,
+    states_a_turn,
+)
 from app.services.law_binding.domains import outside_domain
 from app.services.law_binding.fit import (
     given_kind,
@@ -98,7 +105,15 @@ def refuses(spec: FormulaSpec, intent: PhysicsIntent, text: str, *, chained: boo
         or _scales_a_given(lower)
         or (_a_wave_speed(spec) and _asks_of_the_medium(text))
         or (spec.id in DIVERGING_LENS_LAWS and spec.id not in diverging_lens_asks_of(text))
+        or (force_work_law(spec) and _straight_line_misread(intent, text))
     )
+
+
+def _straight_line_misread(intent: PhysicsIntent, text: str) -> bool:
+    """A force's straight-line work for a turn, or its cos θ for an angle from another line
+    than the motion (``work_geometry``)."""
+    angled = "angle" in (intent.physics_params or {})
+    return states_a_turn(text) or (angled and angle_from_another_line(text))
 
 
 # The ask names a part of the medium, whose speed is no wave's: "the maximum speed of a

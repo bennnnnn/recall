@@ -28,6 +28,7 @@ from app.modules.chat.worked_answers import (
     in_symbols,
     in_words,
     sentence_answer,
+    without_placeholders,
 )
 from app.modules.chat.worked_lines import marks_maths, split_line, typed_signs
 from app.modules.chat.worked_prose import prose_maths
@@ -35,6 +36,7 @@ from app.modules.chat.worked_solution import Given, Part, Step, WorkedSolution
 from app.modules.chat.worked_text import (
     formula_title,
     is_prose,
+    is_word_symbol,
     names_nothing,
     tidy_symbol,
     tidy_tex,
@@ -86,6 +88,7 @@ def _line(tex: str, note: str | None = None) -> str:
 # (v_{avg}, \frac{distance}{time}, \text{W}), never the sentence's.
 _COMMAND_GROUP = re.compile(r"\{[^{}]*\}|\\[A-Za-z]+")
 _SENTENCE_WORD = re.compile(r"[A-Za-z]{3,}")
+_OPENING_WORD = re.compile(r"[A-Z][a-z]{3,}\s+(?![=<>≈≤≥])\S")
 
 
 def _in_sentences(tex: str) -> bool:
@@ -95,7 +98,10 @@ def _in_sentences(tex: str) -> bool:
     plain = tex
     for _ in range(4):  # nested groups, innermost first
         plain = _COMMAND_GROUP.sub(" ", plain)
-    return len(_SENTENCE_WORD.findall(plain)) >= 3
+    words = len(_SENTENCE_WORD.findall(plain))
+    # Two words when the line opens on one that no relation follows: "Substitute I =
+    # \frac{1}{2}mR^2 and \alpha = \frac{a}{R}:" is a sentence ("Area = l w" is maths).
+    return words >= 3 or (words == 2 and _OPENING_WORD.match(tex) is not None)
 
 
 def _plain(tex: str) -> str:
@@ -394,15 +400,47 @@ def _ended(sentence: str) -> str:
 
 
 def _find_rows(solution: WorkedSolution) -> tuple[str, ...]:
-    concluded = _concluded(solution)
+    concluded = _concluded(solution) | _letters_as_symbols(solution)
     return tuple(
         text_line(prose_maths(item.meaning))
-        if item.meaning and _symbol_key(item.symbol) in concluded
+        if item.meaning and (_symbol_key(item.symbol) in concluded or is_word_symbol(item.symbol))
         else text_line(prose_maths(item.symbol), prose_maths(item.meaning) or None)
-        if names_nothing(item.symbol)
+        if names_nothing(item.symbol) or is_word_symbol(item.symbol)
         else math_line(tidy_symbol(item.symbol), prose_maths(item.meaning) or None)
         for item in solution.required
     )
+
+
+def _letters_as_symbols(solution: WorkedSolution) -> set[str]:
+    """The asks whose "symbol" is only its part's letter: "(a) $a$ (graph description) (b)
+    $b$ (when it speeds up most)" named no quantity (textbook round, 2026-11-26). Only when
+    every ask of two or more is lettered so, in order: one ``a`` may be an acceleration."""
+    keys = {_symbol_key(item.symbol) for item in solution.required}
+    # "Find a and b" asks for two numbers: a line or an answer that sets the letter makes it
+    # a quantity (review of #2602).
+    return keys if _lettered_asks(solution) and not (keys & _set_symbols(solution)) else set()
+
+
+def _lettered_asks(solution: WorkedSolution) -> bool:
+    """Every ask of two or more has its part's letter as its symbol, in order."""
+    keys = [_symbol_key(item.symbol) for item in solution.required]
+    return len(keys) >= 2 and all(key == part_letter(at) for at, key in enumerate(keys))
+
+
+def _set_symbols(solution: WorkedSolution) -> set[str]:
+    """The symbols the working gives a value or the answers name."""
+    named = {
+        _symbol_key(answer.symbol)
+        for part in solution.parts
+        for answer in part.answers
+        if answer.symbol
+    }
+    return named | {
+        _symbol_key(step.tex.split("=", 1)[0])
+        for part in solution.parts
+        for step in part.working
+        if step.kind != "say" and "=" in step.tex
+    }
 
 
 def _symbol_key(symbol: str) -> str:
@@ -471,12 +509,15 @@ def _asked_by_parts(
         # A record's "symbol" in words names every part at once, never this one.
         own = record.symbol if record and not names_nothing(record.symbol) else ""
         answered = _answered_symbols(part)
-        symbol = answered or own
         # The record's meaning is its own symbol's: a part finding another ("t" under
         # "v | average speed") is named by its title or by its symbol alone.
         shared = record is not None and (not answered or tidy_symbol(answered) == tidy_symbol(own))
         meaning = prose_maths(part.title or (record.meaning if record and shared else ""))
-        if symbol:
+        symbol = answered or own
+        if is_word_symbol(symbol):
+            # A word is no symbol: the row says what is asked, in words (review of #2602).
+            rows.append(text_line(meaning or symbol))
+        elif symbol:
             # A meaning that only writes the symbol again ("$AD$ (AD)") says nothing.
             said = meaning if _plain(meaning) != _plain(tidy_symbol(symbol)) else ""
             rows.append(math_line(tidy_symbol(symbol), said or None))
@@ -492,6 +533,9 @@ def render_worked(
 ) -> str:
     """The solution as a worked reply. ``streaming``: the block is still being written, so
     a line that a later record could change is left out until it cannot."""
+    solution = solution.model_copy(
+        update={"parts": tuple(without_placeholders(part) for part in solution.parts)}
+    )
     # While the block streams, what is asked waits until the working shows whether the
     # question is in parts: in parts it is lettered, and a drawn line is never rewritten.
     settled = (
@@ -499,6 +543,10 @@ def render_worked(
         or solution.labelled
         or any(part.formula or part.working or part.answers for part in solution.parts)
     )
+    # Asks whose symbols are their parts' letters are words or unknowns by what the working
+    # sets (``_letters_as_symbols``), known only once the block is whole: they wait for it
+    # (review of #2602).
+    settled = settled and not (streaming and _lettered_asks(solution))
     required = _find_rows(solution) if settled else ()
     # A question asking for several things may come apart at its next law
     # (``worked_solution.assemble``), so while it streams it is drawn in parts: a part

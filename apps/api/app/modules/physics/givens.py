@@ -27,6 +27,7 @@ __all__ = [
     "unit_dimension",
     "unit_expression",
     "unit_readings",
+    "unit_symbol",
 ]
 
 # A speed written as a fraction of c. Written onto the number ("0.8c"), any
@@ -189,6 +190,27 @@ def _power_of(index: int, names: tuple[str, ...], power: int, flipped: bool) -> 
 def unit_at(text: str, end: int) -> tuple[str, str] | None:
     """The unit written right after a number: (spelling, Pint expression)."""
     return PHYSICS_UNITS.at(text, end)
+
+
+def is_unit_symbol(written: str) -> bool:
+    """A unit symbol: "N", "kg", "Hz", "Ω", "µF". A word, however short, is not one: "mol"
+    is read as written by the readers that know it."""
+    if not written.isascii():
+        return True
+    return len(written) <= 2 or not (written.isalpha() and written.islower())
+
+
+@lru_cache(maxsize=512)
+def unit_symbol(expression: str) -> str | None:
+    """The symbol the unit table writes the unit ``expression`` with: "meter" is "m", "hour"
+    "h". The shortest, and of two as short the one a keyboard types: "uC" before "µC"."""
+    symbols = [
+        written
+        for table in (PHYSICS_UNITS.symbols, PHYSICS_UNITS.words)
+        for written, read in table.items()
+        if read == expression and is_unit_symbol(written)
+    ]
+    return min(symbols, key=lambda written: (len(written), not written.isascii()), default=None)
 
 
 def scan_givens(text: str) -> list[Given]:
