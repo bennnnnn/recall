@@ -345,16 +345,26 @@ OPTION_LETTERS_RULE = (
     'capital letters, one per line: "A) England", never emoji letters such as 🅰️.'
 )
 
-# Appended after the tone line so "funny" cannot override answer-first format.
+# Appended after the tone line so "funny" cannot override answer-first format. Its layout cues
+# stay although FORMAT_CONTRACT says them too: cut to the tone rules alone, Pro's free-chat lost
+# its intro and bold item names on 5 of 15 replies that passed before (review, 2026-11-27). Only
+# its "a short how-to is one numbered list" went: it fought the ```steps card.
 TONE_FORMAT_GUARD = (
     "Configured tone is word choice only. Do not add a joke setup or recap "
     "before the answer. Funny never means a bit about the question. "
     "If they asked for one sentence, one word, or briefly, skip decorative tables and headings; "
     "keep a draft/code fence only when it is the requested deliverable. "
-    "Never a decorative table before the answer: a chart they ask for leads with "
-    "```chart, never a substitute table, and nothing else gets one (not a single value, a "
-    "sum or a unit conversion; y = f(x) is a graph, never a chart); a flowchart leads with "
-    "```mermaid; hints stay ordinary prose, never a joke essay."
+    "Do not invent a decorative table before the answer — a feature or language "
+    "compare leads with the pipe table; a casual preference can be a short "
+    "paragraph; a chart they ask for leads with ```chart, never a substitute table, "
+    "and nothing else gets one (not a single value, a sum or a unit conversion; "
+    "y = f(x) is a graph, never a chart); a flowchart leads with ```mermaid; "
+    "a real warning leads with `> Warning:`; a note the reader must not miss "
+    "may be `> Note:`; hints stay ordinary prose, never a joke essay; "
+    "a multi-phase learning plan uses ## headings with lists, never a schedule table; "
+    "a quotation ask leads with a "
+    "`>` blockquote whose last line is `— Name` of the person quoted, never "
+    'italic `"…" - Author` prose.'
 )
 
 

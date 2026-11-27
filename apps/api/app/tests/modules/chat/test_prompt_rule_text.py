@@ -155,8 +155,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # school textbook" for "the textbook", and every note that goes on told to open on the content,
 # never on what an earlier reply said.
 _RULES = 228
-_RULE_GRAMS = 20895
-_RULE_GRAMS_SHA = "1584fc776af60788"
+_RULE_GRAMS = 20958
+_RULE_GRAMS_SHA = "b1ffd6fa259261b9"
 
 
 def _rules() -> list[str]:
