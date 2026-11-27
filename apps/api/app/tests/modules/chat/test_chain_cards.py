@@ -138,6 +138,16 @@ def test_a_card_holding_the_value_more_coarsely_takes_it_without_a_note() -> Non
     assert note is None
 
 
+def test_a_name_said_in_a_sentence_keeps_the_card_on_its_chain() -> None:
+    """ "the wall's force $N_w$" between f = N_w and the card (u7-09, live 2026-11-27)."""
+    reply = (
+        "$N_w = \\frac{196}{2 \\sqrt{3}}$  \n$N_w \\approx 56.58\\,\\mathrm{N}$  \n$f = N_w$\n\n"
+        "Friction balances the wall's force $N_w$." + _card("56.6\\,\\mathrm{N}")
+    )
+    text, _notes = held_to_chains(reply, "")
+    assert _card_of(text) == "56.58\\,\\mathrm{N}"
+
+
 def test_the_wrong_value_said_again_after_the_card_follows_it() -> None:
     reply = (
         _HEAT

@@ -220,6 +220,9 @@ def read_chains(reply: str, question: str = "") -> Reading:
             reading.cards.append(_card_chain(cards.pop(0), reading.chains, walk, env))
         parts, starts = statement_parts(segment, at)
         name = _name_of(parts[0].strip())
+        if len(parts) < 2 and not any(char.isdigit() for char in segment):
+            # A name said in a sentence ("the wall's force $N_w$") works nothing out.
+            continue
         if len(parts) < 2 or _PM.search(segment):
             walk.current = None
         elif not name:
