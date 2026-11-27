@@ -339,11 +339,13 @@ _SHAPED_LAYOUTS = frozenset(
 )
 
 
-def _plain(turn: StyleTurn) -> bool:
-    """The turn's words ask for no shape of their own: no draft or edit, code, lesson, day
-    plan, chart or diagram, subject, several requests, card answer or greeting. Its layout,
-    if any, is one an everyday reply takes (a comparison, a checklist, steps, picks)."""
-    shaped = (
+def _shaped(turn: StyleTurn, *, by_subject: bool) -> bool:
+    """The turn's words give it a shape of its own: a greeting, several requests, a day plan,
+    a broad question about the user, a draft or an edit, code, a lesson, a plan, a lesson
+    under way, a picture, a chart of earlier numbers, a course resumed or a card's answer;
+    with ``by_subject``, a subject's question too. The one test ordinary chat
+    (``_plain``) and the steps card (``_open_layout``) both ask."""
+    return bool(
         turn.compact
         or turn.multi
         or turn.is_day_plan
@@ -357,40 +359,31 @@ def _plain(turn: StyleTurn) -> bool:
         or turn.walkthrough
         or turn.lesson_hint
         or turn.viz_intent
-        or turn.subject
+        or (by_subject and turn.subject)
         or turn.chart_data
         or turn.resuming
         or turn.after_card
     )
-    if shaped or not turn.query or mermaid_format_hint(turn.query):
+
+
+def _plain(turn: StyleTurn) -> bool:
+    """The turn's words ask for no shape of their own: no draft or edit, code, lesson, day
+    plan, chart or diagram, subject, several requests, card answer or greeting. Its layout,
+    if any, is one an everyday reply takes (a comparison, a checklist, steps, picks)."""
+    if _shaped(turn, by_subject=True) or not turn.query or mermaid_format_hint(turn.query):
         return False
     return _layout_format_hint(turn.query, picks=turn.picks) not in _SHAPED_LAYOUTS
 
 
 def _open_layout(turn: StyleTurn) -> bool:
-    """The turn's words give its reply no layout of their own: no draft, code, lesson, plan,
-    day plan, chart, picture, length cap, card answer or several requests, and no layout hint
-    (a comparison, a checklist, steps asked for in words, a quote, picks). Its reply takes the
-    scan layout unless the read calls it one procedure (``steps_turn``)."""
-    shaped = (
-        turn.compact
-        or turn.multi
-        or turn.is_day_plan
-        or turn.minimal_personal_context
-        or turn.writing
-        or turn.writing_kind
-        or turn.revision_fence
-        or turn.code_hint
-        or turn.learning_plan
-        or turn.teaching
-        or turn.walkthrough
-        or turn.lesson_hint
-        or turn.viz_intent
-        or turn.chart_data
-        or turn.resuming
-        or turn.after_card
-    )
-    if shaped or not turn.query or turn.length == "brief" or is_brevity_request(turn.query):
+    """The turn's words give its reply no layout of their own (``_shaped``), no length cap
+    and no layout hint (a comparison, a checklist, steps asked for in words, a quote, picks).
+    Its reply takes the scan layout unless the read calls it one procedure (``steps_turn``).
+    A subject's question may still be one ("how do I balance a chemical equation"): a solve,
+    a money card or a calculation laid out keeps its own layout there (``steps_turn``)."""
+    if _shaped(turn, by_subject=False) or not turn.query or turn.length == "brief":
+        return False
+    if is_brevity_request(turn.query):
         return False
     return _layout_format_hint(turn.query, picks=turn.picks) is None
 

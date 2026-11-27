@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
 from app.gateways import decider_gateway, llm_spend
 from app.gateways.decider_gateway import DeciderReply
-from app.modules.chat import decider_read
+from app.modules.chat import decider_read, picture_ask, turn_decision
 from app.modules.chat.decided_turn import decide_from_the_read
 from app.modules.chat.prompt_constants.format import STEPS_FORMAT_HINT
 from app.modules.chat.steps_turn import gives_the_steps_card, lay_out_the_steps
@@ -170,3 +171,77 @@ def test_the_card_is_given_at_the_measured_line(odds: float, card: bool) -> None
     }
     fields = decider_read.decision_fields(answers, has_earlier=False)
     assert fields is not None and fields["steps"] is card
+
+
+@pytest.mark.asyncio
+async def test_a_pending_read_is_waited_for_when_only_the_steps_are_at_stake() -> None:
+    """Auto off, no search, no lesson: the card alone makes the turn wait for its read
+    (``decided_turn._steps_at_stake``); left unwaited, a procedure lost its card."""
+    begin_turn_trace("new")
+    loop = asyncio.get_running_loop()
+    ctx = _turn(None)
+    pending: asyncio.Future[Any] = loop.create_future()
+    loop.call_later(0.05, pending.set_result, _read(True))
+    ctx.live_read = pending  # type: ignore[assignment]
+    ctx.auto_routed = False
+    await decide_from_the_read(ctx, _SETTINGS)
+    assert _beside_the_message(ctx) == STEPS_FORMAT_HINT
+
+
+@pytest.mark.asyncio
+async def test_a_pending_read_is_not_waited_for_on_a_shaped_turn() -> None:
+    begin_turn_trace("new")
+    ctx = _turn(None, steps_open=False)
+    pending: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+    ctx.live_read = pending  # type: ignore[assignment]
+    ctx.auto_routed = False
+    await asyncio.wait_for(decide_from_the_read(ctx, _SETTINGS), 0.5)
+    assert all(STEPS_FORMAT_HINT not in str(m["content"]) for m in ctx.prompt_messages)
+    pending.cancel()
+
+
+@pytest.fixture
+def _reads(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    """``read_decision`` with the Decider's call recorded and every other call faked."""
+    from app.services import model_health
+
+    monkeypatch.setattr("app.core.redis.get_redis_client", lambda: object())
+    monkeypatch.setattr("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+    breakers = model_health.Breakers(cooling=frozenset(), half_open=frozenset())
+    monkeypatch.setattr(model_health, "read_breakers", AsyncMock(return_value=breakers))
+    fields = {"subject": "everyday", "think": False, "hard": False, "live": False}
+    decider = AsyncMock(return_value={**fields, "asked": False, "steps": True})
+    monkeypatch.setattr(decider_read, "decide_turn", decider)
+    monkeypatch.setattr(
+        "app.gateways.structured_completion.complete_structured",
+        AsyncMock(return_value=TurnDecision(live=False)),
+    )
+    return decider
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "asked"),
+    [
+        ({}, True),
+        # After a lesson's cards, a lesson step or a cut-off reply: its layout is that one's.
+        ({"lesson": {"goes_on": {"type": "noul", "instructions": "next?"}}}, False),
+        # The composer's picture check reads only the picture.
+        ({"steps": False}, False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_the_turns_read_asks_the_steps_question_only_where_it_counts(
+    _reads: AsyncMock, kwargs: dict[str, Any], asked: bool
+) -> None:
+    read = await turn_decision.read_decision(_SETTINGS, "how to tie a tie", earlier=[], **kwargs)
+    assert read is not None and read.steps is True
+    assert _reads.await_args is not None
+    assert _reads.await_args.kwargs["ask_steps"] is asked
+
+
+@pytest.mark.asyncio
+async def test_the_composers_picture_check_reads_no_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    start = MagicMock(return_value=None)
+    monkeypatch.setattr(picture_ask, "start_turn_decision", start)
+    assert await picture_ask.read_picture_ask(_SETTINGS, "draw a cat", []) is None
+    assert start.call_args.kwargs["steps"] is False

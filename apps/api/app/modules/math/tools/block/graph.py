@@ -119,8 +119,8 @@ def _verified_block_graph(
         lines.append(
             f"Shaded region for {line_spec.expr} on the number line: "
             "open circle = endpoint not included, filled circle = included. "
-            "This is a one-variable inequality rendered as a number line "
-            '(type "number_line") — shade the solution '
+            "Draw the one-variable inequality as a number line "
+            '(type "number_line"): shade the solution '
             "interval, do not plot a y=f(x) curve."
         )
         return _diagram_block(lines, line_spec)

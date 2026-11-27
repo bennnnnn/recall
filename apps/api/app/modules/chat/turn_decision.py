@@ -393,8 +393,12 @@ async def read_decision(
     model_alias: str | None = None,
     lesson: dict[str, dict[str, Any]] | None = None,
     raw: list[tuple[str, str]] | None = None,
+    steps: bool = True,
 ) -> TurnDecision | None:
     """How to handle the message; None: no read. ``model_alias`` is for measurement.
+    ``steps``: ask whether the answer is one procedure (``decider_read.STEPS_QUESTION``); a
+    message after a lesson's cards, a lesson step or a cut-off reply never asks, its layout
+    being the lesson's or the reply's (``steps_turn``), nor a composer's picture check.
     ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
     show (``picture_read``); ``earlier`` when not given."""
     question = text.strip()
@@ -438,7 +442,7 @@ async def read_decision(
             earlier,
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
-            ask_steps=True,
+            ask_steps=steps and lesson is None,
             lesson=lesson,
             raw=earlier if raw is None else raw,
         )
@@ -573,11 +577,13 @@ def start_turn_decision(
     *,
     recent: list[Any] | None,
     pictures: asyncio.Future[dict[UUID, ShownPicture]] | None = None,
+    steps: bool = True,
 ) -> asyncio.Task[TurnDecision | None] | None:
     """The read, started now so it runs beside the turn's prep; None when it is off.
     ``recent``: the chat's window before this message, oldest first; ``pictures``: the
     labels of the pictures it shows, being read (``shown_pictures.start_labels``). Search
-    off still reads: the lane and the thinking come from it too."""
+    off still reads: the lane and the thinking come from it too. ``steps``: False for a
+    read that only says whether a picture is asked for (``picture_ask``)."""
     if not settings.live_read_enabled:
         return None
     lesson = _lesson_questions(recent)
@@ -590,6 +596,7 @@ def start_turn_decision(
             earlier=earlier_turns(recent, labels),
             lesson=lesson,
             raw=raw_turns(recent),
+            steps=steps,
         )
 
     return asyncio.create_task(read())

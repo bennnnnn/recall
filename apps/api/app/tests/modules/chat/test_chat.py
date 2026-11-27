@@ -1497,7 +1497,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     todos_mock.assert_not_awaited()
     system = system_prompt(messages)
     assert "Building Recall" in system
-    assert "capabilities overview" in system.lower()
     assert CAPABILITIES_FORMAT_HINT in system
     assert ADVICE_PERSONALIZE_HINT not in system
     assert FORMAT_CONTRACT not in system

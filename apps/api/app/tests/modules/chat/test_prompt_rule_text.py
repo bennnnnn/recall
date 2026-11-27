@@ -145,10 +145,11 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # rule); then every layout and presentation hint saying what to write, never what the turn is
 # ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27), the steps
 # card for one procedure in order only, not for tips or ways, and one card even when the steps
-# differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT).
+# differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT), and no other hint
+# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities).
 _RULES = 228
-_RULE_GRAMS = 21405
-_RULE_GRAMS_SHA = "5cb7d70c3f38bc90"
+_RULE_GRAMS = 21394
+_RULE_GRAMS_SHA = "784197569c4bcf0a"
 
 
 def _rules() -> list[str]:
