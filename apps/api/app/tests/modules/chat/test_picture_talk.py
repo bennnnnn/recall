@@ -179,3 +179,17 @@ def test_a_paragraph_s_first_line_cut_keeps_the_paragraph_apart() -> None:
     text = f"Para A.\n\nI cannot draw diagrams here.\nThe forces are W and N.\n\n{_SCENE}\n"
     out = without_picture_talk(text, _DIAGRAM_ONLY)
     assert out == f"Para A.\n\nThe forces are W and N.\n\n{_SCENE}\n"
+
+
+def test_a_working_check_note_beside_picture_talk_stays_whole() -> None:
+    """#2612's closing notes ("Check this step: …") hold maths with full stops in it; only the
+    picture talk next to them goes."""
+    note = (
+        "Check this step: $v = 6.42$ does not follow from the working; worked again, "
+        "$v = 6.41\\,\\mathrm{m/s}$."
+    )
+    claim = "Check this step: $N = 84.96$, not $84.95$. The lines after it depend on it."
+    talk = "I can draw the graphs if you want them as pictures."
+    text = f"It slides.\n\n{note}\n\n{claim} {talk}\n\n{_SCENE}\n\n{_GRAPH}\n"
+    out = without_picture_talk(text, _BOTH)
+    assert note in out and claim in out and talk not in out
