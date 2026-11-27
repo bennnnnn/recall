@@ -8,6 +8,7 @@ replies the phone received in that round, whose layout showed each defect.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -52,6 +53,7 @@ def _saved(question: str, reply: str) -> str:
         text="".join(accum.shown),
         server_text=False,
         was_cancelled=False,
+        settings=SimpleNamespace(stem_solve_timeout_seconds=10.0),
         ctx=SimpleNamespace(
             verified_subject=None,
             solver_unverified=None,
@@ -59,7 +61,7 @@ def _saved(question: str, reply: str) -> str:
             worked=layout,
         ),
     )
-    return check_working(cast(FinalizeState, state))
+    return asyncio.run(check_working(cast(FinalizeState, state)))
 
 
 def _headings(text: str) -> list[str]:

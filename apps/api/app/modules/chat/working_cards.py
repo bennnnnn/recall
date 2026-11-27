@@ -73,7 +73,7 @@ def _name(tex: str) -> str:
     return re.sub(r"[\s{}]", "", _UPRIGHT.sub(r"\1", tex))
 
 
-def _card_value(body: str) -> tuple[str, str, bool] | None:
+def card_value(body: str) -> tuple[str, str, bool] | None:
     """An unchecked card's symbol (or ""), its one value's TeX, and whether it says "≈"."""
     headers, value = answer_header_and_value(body)
     if not value or "\n" in value or VERIFIED_ANSWER_MARKER in headers:
@@ -119,7 +119,7 @@ def _held(statements: list[str], expression: str, value: float, earlier: str, na
     return any_numbers(expression) <= any_numbers(earlier)
 
 
-def _counted(value: float, shown: str) -> bool:
+def counted(value: float, shown: str) -> bool:
     """A whole card beside a fractional value: a count rounded up or down as asked."""
     plain = plain_arithmetic(shown)
     number = evaluate(plain) if plain is not None else None
@@ -140,7 +140,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
     for answer in cards:
         fence, start = answer.fence, answer.since_fence
         above = text[start : fence.start]
-        card = _card_value(answer.body(text))
+        card = card_value(answer.body(text))
         # The headings right above the card ("**Answer for $D$**") are no working (review,
         # #2536): the working's last line is the last maths above them.
         lines = list(INLINE_MATH.finditer(without_closing_headings(above)))
@@ -162,7 +162,7 @@ def card_slips(text: str, question: str = "") -> list[CardSlip]:
             continue
         shown = plain_arithmetic(shown_tex)
         value = evaluate(expression)
-        if shown is None or value is None or _counted(value, shown_tex):
+        if shown is None or value is None or counted(value, shown_tex):
             continue
         step = slip(expression_tex, shown_tex, expression, shown, approximate, {})
         if step is None:
@@ -203,7 +203,7 @@ def _plain_number(shown: str) -> str | None:
     return written.group(0) if not rest or (rest.isalpha() and is_unit_word(rest)) else None
 
 
-def _repeats(numbers: set[str]) -> re.Pattern[str]:
+def repeats(numbers: set[str]) -> re.Pattern[str]:
     """The card's wrong number written again in prose or maths, in any of its ``numbers``
     spellings ("1200", "1,200"), never inside another number."""
     spellings = sorted(numbers, key=len, reverse=True)
@@ -230,15 +230,15 @@ def held_cards(text: str, question: str = "") -> tuple[str, str | None]:
         body = text[found.body_start : found.body_end]
         at = body.rfind(found.shown)
         body = body[:at] + said + body[at + len(number) :]
-        wrong = _repeats({number, plain_arithmetic(number) or number})
-        closing = _closing_end(text, found.body_end)
+        wrong = repeats({number, plain_arithmetic(number) or number})
+        closing = closing_end(text, found.body_end)
         earlier = wrong.search(text[: found.body_start]) is not None
-        tail = _said_again(text[found.body_end : closing], wrong, said, dropped=earlier)
+        tail = said_again(text[found.body_end : closing], wrong, said, dropped=earlier)
         text = text[: found.body_start] + body + tail + text[closing:]
     return text, note
 
 
-def _closing_end(text: str, after: int) -> int:
+def closing_end(text: str, after: int) -> int:
     """Where the closing lines after a card end: the next fence (a picture, a table's code,
     another card), or the reply's end."""
     later = [fence.start for fence in iter_fences(text) if fence.start >= after]
@@ -249,7 +249,7 @@ def _closing_end(text: str, after: int) -> int:
 _NOT_PROSE = ("|", "#", ">")
 
 
-def _said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: bool) -> str:
+def said_again(closing: str, wrong: re.Pattern[str], said: str, *, dropped: bool) -> str:
     """The closing lines with the card's wrong value said as the right one. When the working
     also wrote that value (a given, a step), which mention is the card's is unknown, so the
     lines saying it go. A table row, a heading or a quote is left as written (review, #2536)."""
@@ -405,7 +405,7 @@ def held_vector_sizes(text: str) -> str:
         if text[at : at + len(shown)] != shown:
             continue
         said = shown_like(size, shown)
-        closing = _closing_end(text, answer.fence.body_end)
+        closing = closing_end(text, answer.fence.body_end)
         tail = _said_again_with_unit(text[answer.fence.body_end : closing], shown, said, size_unit)
         text = f"{text[:at]}{said}{text[at + len(shown) : answer.fence.body_end]}{tail}{text[closing:]}"
     return text
