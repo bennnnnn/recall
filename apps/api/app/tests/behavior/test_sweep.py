@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from app.tests.behavior.sweep import EXPECTS, Entry, load, run_entry
+from app.tests.modules.chat.test_hints_name_no_turn import prompt_labels
 
 ENTRIES = load()
 
@@ -28,6 +29,9 @@ async def test_sweep_turn(entry: Entry, thread_sympy_executor: None) -> None:
     assert not outcome.problems, (
         f"{entry.prompt!r}: " + "; ".join(outcome.problems) + f"\nfinal: {outcome.final[:300]!r}"
     )
+    # No hint or note the turn's prompt sends names its kind (``test_hints_name_no_turn``).
+    if outcome.route is not None:
+        assert prompt_labels(outcome.route.system_prompt) == [], entry.id
 
 
 def test_sweep_corpus_is_well_formed() -> None:

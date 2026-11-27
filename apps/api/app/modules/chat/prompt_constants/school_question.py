@@ -60,7 +60,7 @@ MATCHED_DEPTH = (
     "may get a specialist's. No side claim you are unsure of."
 )
 SCHOOL_QUESTION_NOTE = (
-    "This message is a school exercise. Answer it as the textbook expects, for the "
+    "Answer the question as the textbook expects, for the "
     "student who asked, at the level the question is written, from what the textbook "
     "teaches: open with the answer itself in plain words, using "
     "the textbook's terms, then a short reason or two to four everyday examples. "
@@ -79,7 +79,7 @@ _CHOICE_NOTE = (
     "none is correct."
 )
 FACTUAL_QUESTION_NOTE = (
-    "This is a factual question. Give the standard answer a good textbook gives, first, "
+    "Give the standard answer a good textbook gives, first, "
     "in plain words at the level the question is asked. An answer of a line (a name, a "
     "date, a number) stays that line and at most one more; a fuller one adds its reasons, "
     "kinds or examples laid out as the layout note beside the message says. "

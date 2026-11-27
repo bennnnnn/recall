@@ -191,9 +191,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   their indexes, cost in math ($O(n)$) and a comparison table. Then an unnumbered
   `### Your turn` (the server takes the number off one the model wrote) with a `quiz` card
   (pick an option, **Check answer**, see why; checked on the phone, nothing is sent) and
-  one line previewing the next lesson. A how-to (“how do I make a budget”, “teach me how
-  to balance an equation”) gets its steps as the same flow card; a goal reached several
-  ways (save money) keeps its list. A practice card never repeats one the chat's cards
+  one line previewing the next lesson. A how-to gets its steps as the same flow card when
+  the turn's read calls its answer one procedure done in order (“how do I make a budget”,
+  “teach me how to balance an equation”; `chat/steps_turn.py`) or the message asks for
+  steps in words (“step by step”); tips and a goal reached several ways (“how to look
+  handsome”, “save money”) keep the numbered list, as does any how-to the read gives no
+  answer for in time. A practice card never repeats one the chat's cards
   already showed: each is listed beside the message (question, code and options), and a
   card shown again whole gives way to a fresh one (`chat/practice_asked.py`). An answer to
   the last reply's cards (“b”, “the second one”, “35”, “1.2 times 10 to the 24?”) is read
@@ -225,7 +228,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   outline gets bold topic names, its topics when it only asked about the level, and its
   question last. “I'm stuck on X” teaches a subject, never a thing of the user's own (“I
   don't understand the error”, “the email my landlord sent”). Procedures (“teach me how to
-  install Docker” / “walk me through changing a tire”) keep the how-to steps.
+  install Docker” / “walk me through changing a tire”) are no lesson: they get the steps
+  flow card when the read calls them one procedure or the message asks to be walked
+  through, else a numbered list.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to

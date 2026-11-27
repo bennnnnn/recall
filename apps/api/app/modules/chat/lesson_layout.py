@@ -47,8 +47,8 @@ def lesson_contract(style_hints: Sequence[str]) -> list[str]:
 
 
 def steps_contract(style_hints: Sequence[str]) -> list[str]:
-    """A how-to's steps card, restated beside the message when the turn's layout asks for it:
-    only there, never on a plan or a list of tips."""
+    """The steps card, restated beside a message that asks for steps in words (the read's card
+    says it there itself, ``steps_turn``): only there, never on a plan or a list of tips."""
     return [STEPS_CONTRACT] if STEPS_FORMAT_HINT in style_hints else []
 
 

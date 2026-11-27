@@ -31,7 +31,7 @@ MONEY_REPLY_RULES = (
 # layout every subject's worked reply uses (``services/workout.py``: the formula heading
 # names its formula, never a bare **Formula**), with every number the app's.
 MONEY_WORKED_RULES = (
-    "This is a worked problem from a lesson: lay the answer out for the student. "
+    "Lay the answer out for the student as a worked problem from a lesson. "
     f"{WORKOUT_PROMPT_RULE} The formula is the standard one the result comes from "
     "(`**Compound interest formula**`), in LaTeX, and **Answer** gives the result in words "
     "that answer the question. Copy every number from Inputs and Results exactly; never "

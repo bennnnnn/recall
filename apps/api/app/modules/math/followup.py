@@ -14,7 +14,7 @@ from app.services.number_text import FRACTION_OR_DECIMAL
 from app.services.student_claim import CHECK, CLAIM_LEAD
 
 MATH_FOLLOWUP_HINT = (
-    "This short request refers to the immediately preceding math exchange. Give only "
+    "Read the short request as about the math exchange just before it. Give only "
     "the requested reasoning, proof, hint, or examples, then stop. For 'how' or 'why', "
     "show the calculation or mathematical argument connecting the preceding problem "
     "to its result, stating any theorem needed and showing how it applies. "
