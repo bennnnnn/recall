@@ -43,6 +43,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_quantity
+from app.modules.physics.scene_drawing.components import component_arrow, left_out
 from app.modules.physics.scene_drawing.headings import (
     Mention,
     Relative,
@@ -69,6 +70,34 @@ Quantity = Literal["velocity", "force", "displacement", "momentum"]
 # A value stated once that two arrows share: "two forces of 10 N each", "each of mass 2 kg".
 _SHARED = re.compile(r"\b(?:each|both|identical)\b", re.IGNORECASE)
 _ANGLE_TOLERANCE = 0.5
+# "the velocity of Nishan relative to Melesse", "A's velocity with respect to B", "the
+# relative velocity of A and B", "the velocity of A as seen by B": the asked vector is one
+# body's relative to another, their difference.
+_RELATIVE = r"(?:relative\s+to|with\s+respect\s+to|as\s+(?:seen|observed|measured)\s+(?:by|from))"
+_NAME = r"(?:the\s+)?(?P<{}>[\w ]{{1,30}}?)"
+_UNTIL = r"(?=\s*(?:[?.,;!:]|$|\b(?:and|if|when|in)\b))"
+_RELATIVE_TO = re.compile(
+    r"\b(?:velocity|speed|displacement|motion)\s+of\s+"
+    + _NAME.format("one")
+    + r"\s+"
+    + _RELATIVE
+    + r"\s+"
+    + _NAME.format("other")
+    + _UNTIL
+    + r"|\b"
+    + _NAME.format("one2")
+    + r"'s\s+(?:velocity|speed|motion)\s+"
+    + _RELATIVE
+    + r"\s+"
+    + _NAME.format("other2")
+    + _UNTIL
+    + r"|\brelative\s+(?:velocity|speed)\s+of\s+"
+    + _NAME.format("one3")
+    + r"\s+(?:and|to|with\s+respect\s+to)\s+"
+    + _NAME.format("other3")
+    + _UNTIL,
+    re.IGNORECASE,
+)
 # An angle is a direction's own number ("30° above the horizontal"), never a value it
 # describes; a mass and a pure number have no direction.
 _NO_DIRECTION = frozenset({dimension_of("°"), dimension_of("kg"), None})
@@ -80,7 +109,10 @@ class _Arrow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, max_length=40)
-    size: str = Field(max_length=40)
+    size: str = Field(default="", max_length=40)
+    # A vector the question writes by its components ("[4 5]"), in place of size and
+    # direction (``components``).
+    components: str | None = Field(default=None, max_length=40)
     direction: str | None = Field(default=None, max_length=60)
     mass: str | None = Field(default=None, max_length=40)
 
@@ -169,10 +201,14 @@ def described_vectors(body: str, texts: Sequence[str]) -> list[SimulationBlockSp
     after = described.after is not None and _sticks(described, arrows, question)
     if described.after is not None and not after:
         logger.info("described vectors: no after drawn, the question states none")
+    # A velocity relative to another body is their difference, never the sum a resultant
+    # draws: "the velocity of Nishan relative to Melesse" got the sum's 42° north of east
+    # beside a reply that worked out 42° south of east (textbook round, 2026-11-25). Only when
+    # both bodies are arrows of the picture: a boat's velocity "relative to the water" with
+    # the current beside it sums to the very answer, relative to the ground (review).
+    resultant = described.resultant and not _asks_a_difference(question, arrows)
     try:
-        return laid_out(
-            arrows, described.layout, described.quantity, described.resultant, question, after
-        )
+        return laid_out(arrows, described.layout, described.quantity, resultant, question, after)
     except ValueError as exc:  # a layout the scene schema refuses is no picture
         logger.info("described vectors not drawn: %s", exc)
         return []
@@ -186,17 +222,63 @@ def _checked(described: _Vectors, question: str) -> list[Arrow] | None:
     # Read as the values are read, its markup off: "$90^\circ$" is 90°.
     question = read.stated.text
     free = _free_pair(described, question)
+    unit = SI_UNITS[described.quantity]
     arrows: list[Arrow] = []
+    # The written vectors ("A [4 5] N") the arrows drew, by where the question writes them.
+    written: set[int] = set()
     for index, item in enumerate(described.arrows):
-        arrow = _arrow(item, index, arrows, read, described, question, free)
+        if item.components is not None:
+            arrow = None if item.mass else component_arrow(
+                item.name, item.components, unit, question, written
+            )  # fmt: skip
+        else:
+            arrow = _arrow(item, index, arrows, read, described, question, free)
         if arrow is None:
             logger.info("described vectors not drawn: arrow %d (%s)", index + 1, described.layout)
             return None
         arrows.append(arrow)
-    if _leaves_out(read, arrows, described.layout == "bodies"):
+    if described.layout == "bodies" and _one_body_twice(arrows):
+        logger.info("described vectors not drawn: two velocities of one way, no body named")
+        return None
+    if _leaves_out(read, arrows, described.layout == "bodies") or (
+        written and left_out(question, written, unit)
+    ):
         logger.info("described vectors not drawn: a stated %s left out", described.quantity)
         return None
     return arrows
+
+
+def _asks_a_difference(question: str, arrows: list[Arrow]) -> bool:
+    """The question asks for one body's velocity relative to another, and the other is one
+    of the picture's arrows, or the arrows are named too little to tell: then the sum a
+    resultant draws is no answer. A boat "relative to the water" beside a current arrow keeps
+    its resultant: the water is no arrow."""
+    keys = [arrow.key.split() for arrow in arrows if arrow.key]
+
+    def drawn(name: str) -> bool:
+        # A body is named by its label's last word: "Nishan" is the arrow "Nishan", "A" the
+        # arrow "Car A", "car B" the arrow "B".
+        words = name.lower().split()
+        return bool(words) and any(key[-1] == words[-1] for key in keys)
+
+    for found in _RELATIVE_TO.finditer(question):
+        one = found["one"] or found["one2"] or found["one3"] or ""
+        other = found["other"] or found["other2"] or found["other3"] or ""
+        if len(keys) < len(arrows) or (drawn(one) and drawn(other)):
+            return True
+    return False
+
+
+def _one_body_twice(arrows: list[Arrow]) -> bool:
+    """Two arrows the same way, one of them of no named or weighed body: they may be one
+    body's velocity at two times ("a car at 15 m/s due East slows to 3 m/s due East" was
+    drawn as two cars queued on a road, textbook round 2026-11-25)."""
+    return any(
+        _same_angle(one.angle, other.angle)
+        and any(arrow.name is None and arrow.mass is None for arrow in (one, other))
+        for at, one in enumerate(arrows)
+        for other in arrows[at + 1 :]
+    )
 
 
 def _arrow(

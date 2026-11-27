@@ -174,10 +174,10 @@ def shown_to_judge(text: str) -> str:
 async def run_turn(settings: Any, row: dict[str, Any]) -> tuple[str, str]:
     """The turn's saved reply, and what the intercept did instead ("photo", "painting")."""
     from app.core import readings
+    from app.core.readings import LIVE_READ
     from app.models.orm import Chat, User
     from app.modules.chat import turn_intercepts
     from app.modules.chat.decided_turn import decide_from_the_read
-    from app.modules.chat.figure_turn import LIVE_READ
     from app.modules.chat.finalize_passes import enrich_final_content
     from app.modules.chat.model_routing import choice as model_choice
     from app.modules.chat.model_routing.route import last_user_turn

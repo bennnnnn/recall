@@ -7,14 +7,10 @@ checks each against the question and draws the scene its solver draws
 does not hold, draws nothing.
 """
 
-SCENE_DRAW_CONTRACT = (
-    "Picture of the setup: when the question is a problem about one of these situations, "
-    "always end your reply with one ```draw block describing its setup (one for the whole "
-    "question, also when it has parts), whether or not it asks for a picture; the app "
-    "checks it and draws the scene. A ```draw block is no drawing of yours: the rule "
-    "against drawing a situation yourself stays, and this block is how the app draws it. "
-    "Write "
-    'only JSON: {"kind":"scene","scene":"<name>","values":{"<part>":"<value '
+# The scenes a block may name and the values each takes: the reply's contract below, and the
+# physics figure read's (``figure_read``), which writes the same block beside the reply.
+SCENE_VOCABULARY = (
+    '{"kind":"scene","scene":"<name>","values":{"<part>":"<value '
     'with its unit, as the question states it>"}}. Give only values the question states, '
     "never one you worked out, and never a coordinate; the scene uses every value the "
     "question states for its parts, or it is another situation and gets no block. Scenes "
@@ -52,6 +48,43 @@ SCENE_DRAW_CONTRACT = (
     "pendulum, a charge in a magnetic field) gets no scene block."
 )
 
+SCENE_DRAW_CONTRACT = (
+    "Picture of the setup: when the question is a problem about one of these situations, "
+    "always end your reply with one ```draw block describing its setup (one for the whole "
+    "question, also when it has parts), whether or not it asks for a picture; the app "
+    "checks it and draws the scene. A ```draw block is no drawing of yours: the rule "
+    "against drawing a situation yourself stays, and this block is how the app draws it. "
+    "Write only JSON: " + SCENE_VOCABULARY
+)
+
+# The forces on one body, written by the figure read (``figure_read``): the server draws the
+# free-body diagram from its own reading of the question (``physics.force_pictures``) only
+# when the forces it reads are the ones named here (``forces``).
+FORCES_VOCABULARY = (
+    "The forces on one body (a free-body diagram), when no scene above draws its setup: "
+    '{"kind":"forces","body":"<the body, one word as the question names it: box, block, '
+    'car, ball, crate, lorry>","forces":["<each force acting on that body, one word each: '
+    'weight, normal, friction, tension, push, drag>"]}. A pull by a rope or a string is '
+    "tension; an applied push, a driving force or a thrust is push; air resistance is "
+    "drag. Only the forces acting at the moment the question describes, none it does not "
+    "state or imply: no friction on a smooth or frictionless surface, no drag unless air "
+    "resistance acts."
+)
+
+# A bar or rod with forces at points along it (moments), checked value by value (``beam``).
+BEAM_VOCABULARY = (
+    "A bar, rod, beam or see-saw with forces or masses at points along it (moments), its "
+    'marks left to right: {"kind":"beam","marks":[{"name":"<the point\'s letter as the '
+    'question names it, or empty>","gap":"<its distance from the mark before it, as the '
+    'question states it; left out for the first mark>","pivot":true (only the pivot, axis '
+    'or balance point),"forces":[{"name":"<the force\'s letter, or empty>","size":"<its '
+    "value with its unit as stated: a force, or a mass hung there; or the letter of an "
+    'unknown force>","direction":"up" or "down"}]}]}. "at" in place of "gap" is a '
+    'distance the question measures from the first mark ("50 cm from P"). A distance the '
+    'question asks for is its letter ("x"). Only forces straight up or down: a force at '
+    "another angle, a couple or two bars gets no block."
+)
+
 # Beside a physics message asking to see a picture: the question's own arrows, which the
 # server checks one by one and lays out (``vectors``).
 VECTORS_DRAW_CONTRACT = (
@@ -71,7 +104,9 @@ VECTORS_DRAW_CONTRACT = (
     'the resultant),"after":"together" (bodies, when they stick together after colliding)}. '
     "Every arrow of that quantity the question gives a direction, never a value you worked "
     "out, and for bodies only their velocities before they collide; the app works out and "
-    "draws the rest."
+    'draws the rest. A vector the question writes by its components ("A [4 5] N", '
+    '"velocity [5 2] m/s") is {"name":"A","components":"[4 5]"}, in place of size and '
+    "direction, every written vector of that quantity one arrow."
 )
 
 # Beside a physics message asking to see a graph against time: the motion in stages, which

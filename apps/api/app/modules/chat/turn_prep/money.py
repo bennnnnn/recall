@@ -18,9 +18,8 @@ from redis.asyncio import Redis
 
 from app.core.aio import gather_or_cancel, settled_result
 from app.core.config import Settings
-from app.core.readings import kept_for_turn, kept_reading
+from app.core.readings import LIVE_READ, kept_for_turn, kept_reading
 from app.modules import todos as todos_service
-from app.modules.chat.figure_turn import LIVE_READ
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_prep.instant import settings_card
 from app.modules.chat.turn_prep.intents import plan_turn

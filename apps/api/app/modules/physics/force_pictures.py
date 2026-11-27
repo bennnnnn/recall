@@ -37,12 +37,36 @@ _ASKS = re.compile(
     r"|\bwhat\s+(?:are\s+the\s+)?forces\b|\bforces?\s+(?:acting|that\s+acts?|which\s+acts?)\b",
     re.IGNORECASE,
 )
-# The thing the forces act on. "The forces of the market" names none.
+# The one vocabulary of vehicles: the body reader and the vehicle reader both take it, one
+# or many ("a van", "two buses"), so a vehicle is never drawn as a box on a surface with its
+# driving force and resistance left out (review of #2603).
+_VEHICLE_WORDS = (
+    r"car|bus|truck|lorry|van|bike|bicycle|cyclist|motorcycle|motorbike|scooter|vehicle|tractor"
+)
+_PLURAL = r"(?:e?s)?"
+# The thing the forces act on. "The forces of the market" names none, and the "body" of a
+# "free body diagram" is no body.
 _BODY = re.compile(
-    r"\b(?:box|block|crate|mass|object|cart|sled|sledge|ball|book|car|brick|skier|person|"
-    r"man|woman|child|kid|load|weight|package|parcel|trolley|wagon|cylinder|body|bob|lamp|"
-    r"sign|picture|chandelier|bucket|stone|rock|apple|puck|suitcase|chair|bag|toy|truck|"
-    r"bus|bike|bicycle|cyclist|motorcycle|vehicle)\b",
+    r"\b(?:box|block|crate|mass|object|cart|sled|sledge|ball|book|brick|skier|person|"
+    r"man|woman|child|kid|load|weight|package|parcel|trolley|wagon|cylinder|(?<!free\s)"
+    r"(?<!free-)body|bob|lamp|sign|picture|chandelier|bucket|stone|rock|apple|puck|suitcase|"
+    rf"chair|bag|toy|{_VEHICLE_WORDS}){_PLURAL}\b",
+    re.IGNORECASE,
+)
+# A body that rolls on a surface rather than slides.
+_ROLLS = re.compile(r"\b(?:cylinder|ball|wheel|sphere|disc|disk|hoop|roller|marble)", re.I)
+# A body that rolls, which on a rough surface needs friction this picture does not place.
+_ROLLING = re.compile(r"\broll(?:s|ed|ing)?\b", re.I)
+# Several free-body diagrams asked for ("at the start, during and at the end of its fall"):
+# this file draws one, which would say only part of it.
+_SEVERAL = re.compile(r"\b(?:free[\s-]?body|force)\s+diagrams\b|\bfbds\b", re.IGNORECASE)
+# What "forces ... on" names when it is no body this file draws: a ladder against a wall, a
+# beam, a bridge. A pronoun points back to the body named before it.
+_POINTS_BACK = re.compile(r"\s*(?:it|them|this|that|him|her)\b", re.IGNORECASE)
+# The noun phrase straight after "on": up to "of", "with", "that", "which", a comma or a stop.
+_NOUN_PHRASE = re.compile(
+    r"[^.,;:?!]{0,40}?(?=\s+(?:of|with|that|which|who|resting|leaning|against|on|in|at|if"
+    r"|when|as|and)\b|[.,;:?!]|$)",
     re.IGNORECASE,
 )
 _HANGING = re.compile(
@@ -83,13 +107,10 @@ _SLIDING = re.compile(
     re.IGNORECASE,
 )
 # A vehicle stands on a road: "the forces acting on a car" names no surface.
-_VEHICLE = re.compile(
-    r"\b(?:car|bus|truck|lorry|bike|bicycle|cyclist|motorcycle|scooter|vehicle|tractor)\b",
-    re.IGNORECASE,
-)
+_VEHICLE = re.compile(rf"\b(?:{_VEHICLE_WORDS}){_PLURAL}\b", re.IGNORECASE)
 # A part of the vehicle ("a car engine piston", "a bicycle chain"), someone riding in it
 # ("a person standing in a moving bus") or a hill: not the vehicle on a level road.
-_VEHICLES = r"(?:car|bus|truck|lorry|bike|bicycle|motorcycle|scooter|vehicle|tractor|train)"
+_VEHICLES = rf"(?:(?:{_VEHICLE_WORDS}|train){_PLURAL})"
 _RIDERS = (
     r"(?:person|man|woman|child|boy|girl|passenger|driver|people|box|block|crate|book|bag"
     r"|ball|suitcase|package|parcel|load)"
@@ -148,9 +169,13 @@ class ForcePicture:
     shows: str
 
 
-def force_picture(text: str) -> ForcePicture | None:
-    """The free-body diagram a request to see the forces on a body asks for, or None."""
-    if len(text) > 600 or _ASKS.search(text) is None or _BODY.search(text) is None:
+def force_picture(text: str, *, asked: bool = True) -> ForcePicture | None:
+    """The free-body diagram a request to see the forces on a body asks for, or None.
+    ``asked``: the words must ask to see the forces; off, the turn's figure read has said
+    the question's picture is its forces (``scene_drawing.forces``)."""
+    if len(text) > 600 or (asked and _ASKS.search(text) is None) or _BODY.search(text) is None:
+        return None
+    if _SEVERAL.search(text) is not None or _on_something_else(text):
         return None
     friction = _FRICTION.search(text) is not None and _NO_FRICTION.search(text) is None
     rig = rig_picture(text, friction)
@@ -174,8 +199,34 @@ def force_picture(text: str) -> ForcePicture | None:
     if _FALLING.search(text) is not None:
         return _in_the_air(text)
     if _SURFACE.search(text) is not None:
+        # A round body pulled or pushed (a cylinder pulled by a string off its top), or rolling
+        # on a rough surface, is no box sliding: its friction and the point the pull acts at
+        # are another picture. One at rest or moving freely ("a ball moves along a smooth
+        # table at constant speed") is weight and normal, as drawn (review of #2603).
+        moving = _DRIVEN.search(text) is not None or (
+            _ROLLING.search(text) is not None and friction
+        )
+        if _ROLLS.search(_subject(text)) is not None and moving:
+            return None
         return _on_surface(text, rubs)
     return None
+
+
+def _on_something_else(text: str) -> bool:
+    """ "the forces that act on the ladder": the forces are named on a thing that is no body
+    this file draws, so a box drawn for the ladder's "mass" would be another picture (a
+    ladder against a wall was drawn as a box on level ground, textbook round 2026-11-25)."""
+    asked = _FORCES_ON.search(text)
+    if asked is None or _POINTS_BACK.match(text, asked.end()) is not None:
+        return False
+    # "the forces when a block rests on a table": the body is named before the "on".
+    if _BODY.search(asked.group(0)) is not None:
+        return False
+    # Only the thing straight after "on": "a uniform ladder of mass 20 kg" is a ladder, its
+    # "mass" no body of its own (review of #2603, round 2).
+    named = _NOUN_PHRASE.match(text, asked.end())
+    phrase = named.group(0) if named else text[asked.end() : asked.end() + 40]
+    return _BODY.search(phrase) is None
 
 
 def _subject(text: str) -> str:
