@@ -391,7 +391,11 @@ async def test_a_photo_or_picture_on_the_chat_path_says_so_before_it_runs(
         return await found()
 
     async def on_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
         order.append(f"{phase}: {detail}")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +11,7 @@ from typing import Any, cast
 import pytest
 
 from app.modules.chat.emoji_placement import join_split_emoji, place_emoji, place_reply_emoji
+from app.modules.chat.turn_decision import TurnDecision
 from app.modules.turn_reading.routing import EMOJI
 
 # "What are the benefits of drinking water" at "A few", as the model wrote it.
@@ -112,6 +114,7 @@ _BLANK = "The process by which plants make food is called ________."
         ("🍕 **Tip:** $16", "Calculate the tip on $80 at 20% 🍕", "🍕 **Tip:** $16"),
         ("💶 **About 92 EUR**", "Convert 100 USD to euros 💶", "💶 **About 92 EUR**"),
         # Everyday maths, a plan, a trip: not a textbook's form.
+        # With no solve behind it (one sets verified_subject: a school question's, below).
         ("🧮 **12**", "What's 15% of 80?", "🧮 **12**"),
         ("🚗 **About 4 hours**", "Estimate how long a road trip from LA to Vegas takes",
          "🚗 **About 4 hours**"),
@@ -140,7 +143,12 @@ _CASES = json.loads(
 
 @pytest.mark.parametrize("case", _CASES, ids=[case["name"] for case in _CASES])
 def test_the_shared_cases(case: dict[str, Any]) -> None:
-    placed = place_emoji(case["text"], case["level"], user_wrote_emoji=case["user_wrote_emoji"])
+    placed = place_emoji(
+        case["text"],
+        case["level"],
+        user_wrote_emoji=case["user_wrote_emoji"],
+        homework=case.get("homework", False),
+    )
     assert placed == case["expected"]
 
 
@@ -237,3 +245,99 @@ def test_answer_and_check_out_labels_are_no_worked_solution() -> None:
 )
 def test_clock_and_media_emoji_are_emoji_and_brackets_are_not(text: str, emoji: bool) -> None:
     assert bool(EMOJI.search(text)) is emoji
+
+
+# "No emoji in homework" (owner, 2026-11-26): any reply to a school question, explanations
+# included, has none; the turn's own readings say which turns are school questions, never a
+# word of the message. The message here holds no subject word at all (review of #2602), so
+# only the reading under test can make it homework.
+_ASKED = "Why does that happen?"
+_REPLY = "🔥 **It happens** because energy moves from the hotter body to the colder one ⚡."
+_PLAIN = "**It happens** because energy moves from the hotter body to the colder one."
+
+
+def _read(subject: str) -> Any:
+    """A settled read of the message naming ``subject``."""
+    loop = asyncio.new_event_loop()
+    try:
+        task: asyncio.Future[TurnDecision] = loop.create_future()
+        task.set_result(TurnDecision(live=False, subject=cast(Any, subject)))
+    finally:
+        loop.close()
+    return task
+
+
+@pytest.mark.parametrize("subject", ["physics", "maths", "chemistry"])
+def test_a_school_question_the_read_names_has_no_emoji(subject: str) -> None:
+    state = _state(_REPLY, "more", said=_ASKED)
+    assert place_reply_emoji(state) == _REPLY  # no reading yet: the setting holds
+    state.ctx.live_read = _read(subject)
+    assert place_reply_emoji(state) == _PLAIN
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("verified_subject", object()),
+        ("unverified_subject", "physics"),
+        ("worked", object()),
+    ],
+)
+def test_a_subjects_solve_or_a_worked_layout_is_homework(field: str, value: object) -> None:
+    state = _state(_REPLY, "more", said=_ASKED)
+    assert place_reply_emoji(state) == _REPLY
+    setattr(state.ctx, field, value)
+    assert place_reply_emoji(state) == _PLAIN
+
+
+def test_everyday_maths_a_solver_checked_is_homework() -> None:
+    # "What's 15% of 80?" keeps its 🧮 above only with no solve behind it: in a turn the
+    # solve sets verified_subject, and the reply is a school question's (review of #2602).
+    state = _state("🧮 **12**", "more", said="What's 15% of 80?")
+    state.ctx.verified_subject = object()
+    assert place_reply_emoji(state) == "**12**"
+
+
+@pytest.mark.parametrize("subject", ["everyday", "code", "money"])
+def test_everyday_chat_at_more_keeps_its_emoji(subject: str) -> None:
+    reply = "🌍 **Book early** for Rome ✨"
+    state = _state(reply, "more", said="any tips for my trip to Rome?")
+    state.ctx.live_read = _read(subject)
+    assert place_reply_emoji(state) == reply
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "What temperature should chicken be cooked to?",
+        "How do you get rust out of clothes?",
+        "Which plants are easy to grow indoors?",
+        "Is it safe to mix bleach and vinegar for cleaning?",
+        "what should I cook tonight?",
+    ],
+)
+def test_a_science_word_alone_is_no_school_question(said: str) -> None:
+    # Review of #2602: everyday questions that use a science word keep the setting.
+    reply = "🍗 **Cook it** until the inside reads 74 °C ✨"
+    state = _state(reply, "more", said=said)
+    state.ctx.live_read = _read("everyday")
+    assert place_reply_emoji(state) == reply
+
+
+def test_the_composing_status_tells_the_phone() -> None:
+    from app.modules.chat.emoji_placement import reply_takes_no_emoji
+    from app.modules.chat.stream_events import build_status_event
+
+    state = _state(_REPLY, "more", said=_ASKED)
+    assert not reply_takes_no_emoji(state.ctx, state.settings)
+    state.ctx.worked = object()
+    assert reply_takes_no_emoji(state.ctx, state.settings)
+    assert build_status_event("composing", no_emoji=True) == {
+        "type": "status",
+        "phase": "composing",
+        "emoji": "none",
+    }
+    assert "emoji" not in build_status_event("composing")
+    # The user wrote one: the reply may mirror it, so the phone is told nothing.
+    state.ctx.user_message_content = "Why does that happen? 🤔"
+    assert not reply_takes_no_emoji(state.ctx, state.settings)

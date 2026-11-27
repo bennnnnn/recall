@@ -90,6 +90,8 @@ def _one_script_each(tex: str) -> str:
         while (mark := _skip_spaces(tex, at)) < len(tex) and tex[mark] in "_^":
             script = _skip_spaces(tex, mark + 1)
             end = _token_end(tex, script) if script < len(tex) else script
+            if tex[mark] == "_" and subscript is not None:
+                end = _word_end(tex, script, end)
             words = _within(tex[script:end])
             if tex[mark] == "_" and subscript is not None:
                 # "r_{frustum}_{top}" is one subscript of both, r_{frustum,top}: set on its
@@ -105,6 +107,18 @@ def _one_script_each(tex: str) -> str:
             at = end
         out.append(base)
     return "".join(out)
+
+
+def _word_end(tex: str, script: int, end: int) -> int:
+    """Past a joined subscript's word: ``v_A_mag`` names the magnitude, so its second
+    subscript is ``mag``, never ``m`` with "ag" after the base (``v_{A,m}ag``, textbook
+    round, 2026-11-26). TeX's one-character script stands for nothing here: two subscripts
+    on one base are no TeX, and this repair reads them as the model wrote them, a word."""
+    if end != script + 1 or not tex[script].isalnum():
+        return end
+    while end < len(tex) and tex[end].isascii() and tex[end].isalnum():
+        end += 1
+    return end
 
 
 def _inner(token: str) -> str:

@@ -170,3 +170,30 @@ def test_counted_items_reads_the_count_and_the_value_for_each(
         for item in counted_items(text)
     ]
     assert read == items
+
+
+@pytest.mark.parametrize(
+    ("text", "said_of"),
+    [
+        # A value "of" the items: each one's or all of theirs is unsaid (2026-11-26).
+        ("Two forces of 20 N act as a couple", [(20.0, "N")]),
+        ("Two lamps of 6 Ω are in parallel", [(6.0, "Ω")]),
+        # A list after "of" gives each item its own value.
+        ("two resistors of 10 Ω and 20 Ω", []),
+        ("Two resistors, each of 10 Ω", []),
+    ],
+)
+def test_a_value_said_of_counted_items_is_read(text: str, said_of: list[tuple[float, str]]) -> None:
+    [item] = counted_items(text)
+    assert [(given.value, given.unit) for given in item.said_of] == said_of
+
+
+def test_a_couple_s_forces_of_one_value_are_no_one_force() -> None:
+    """Textbook round, 2026-11-26: τ = F d with one 20 N force, 2 N·m verified for 4."""
+    assert (
+        extract_physics_intent(
+            "Two forces of 20 N act as a couple. The forces act at a distance of 10 cm from "
+            "the centre of rotation. What is the torque produced by the couple?"
+        )
+        is None
+    )

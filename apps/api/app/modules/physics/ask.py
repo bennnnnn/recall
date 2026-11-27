@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from app.modules.physics.ask_numbers import PURE_NUMBER, STATE_ASK, last_state_ask, pure_number_ask
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
 from app.modules.physics.givens import ANGLE, scan_givens, unit_at, unit_dimension, unit_readings
+from app.modules.physics.unit_runs import whole_unit
 from app.services.law_binding.ask import ASK_VERBS, SELF_NAMING
 from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 from app.services.law_binding.ask import ask_clauses as _verb_ask_clauses
@@ -508,10 +509,10 @@ def asked_unit(text: str) -> str | None:
         ):
             found = unit[0]
     for match in _IN_UNIT.finditer(text):
-        unit = unit_at(text, match.end())
+        unit = whole_unit(text, match.end())
         if unit is None:
             continue
         end = match.end() + len(unit[0]) + (1 if text[match.end() : match.end() + 1] == " " else 0)
         if _CLAUSE_END.match(text[end:]):
-            found = unit[0]
+            found = unit[1]
     return found

@@ -64,7 +64,8 @@ Symbol = Annotated[
 Short = Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)]
 
 # Unit fields that name no unit: a model wrote "(unitless)", "coord" or "label" where the
-# value has none, and the card drew it as one, "25\,\mathrm{(unitless)}" (2026-11-21).
+# value has none, and the card drew it as one, "25\,\mathrm{(unitless)}" (2026-11-21), or
+# "vector" for a vector's (2026-11-26).
 _NO_UNIT = frozenset(
     {
         "unitless",
@@ -84,6 +85,8 @@ _NO_UNIT = frozenset(
         "ratio",
         "pure number",
         "integer",
+        "vector",
+        "scalar",
     }
 )
 
@@ -452,20 +455,25 @@ def read_record(line: str) -> RecordModel | None:
         if key == "given":
             fields = _lettered(fields, match.group("part"))
         elif key == "part":
-            fields = _untitled(fields)
+            fields = _untitled(fields, "title")
+        elif key == "required":
+            fields = _untitled(fields, "meaning")
         return _validated(key, fields)
     except ValidationError:
         return None
 
 
-# The contract's own placeholders, copied as a part's title (live, 2026-11-02): no title,
-# so the part is named by what is asked.
-_PLACEHOLDER_TITLES = frozenset({"what it finds", "what is asked"})
+# The contract's own placeholders, copied as a part's title or what it asks ("(what (a)
+# finds)" under Required, 2026-11-26): no words, so the part is named by what is asked.
+_PLACEHOLDER = re.compile(
+    r"what (?:it|\(?\s*[a-h]\s*\)?) finds|what is asked|what \(?\s*[a-h]\s*\)? asks",
+    re.IGNORECASE,
+)
 
 
-def _untitled(fields: dict[str, str]) -> dict[str, str]:
-    title = fields.get("title", "")
-    return {**fields, "title": ""} if title.lower().strip(" .") in _PLACEHOLDER_TITLES else fields
+def _untitled(fields: dict[str, str], name: str) -> dict[str, str]:
+    words = fields.get(name, "")
+    return {**fields, name: ""} if _PLACEHOLDER.fullmatch(words.strip(" .()")) else fields
 
 
 def _lettered(fields: dict[str, str], part: str | None) -> dict[str, str]:
@@ -521,11 +529,16 @@ class _PartDraft:
         elif isinstance(record, Answer):
             self.answers.append(record)
         elif isinstance(record, Step):
-            self.working.append(record)
+            if record not in self.working:  # a line written again says nothing new
+                self.working.append(record)
         elif self.formula is None and not self.working:
             self.formula = record
-        else:  # a second law in one part is a line of its working
-            self.working.append(Step(kind="step", tex=record.tex, move=record.name))
+        elif self.formula is None or record.tex != self.formula.tex:
+            # A second law in one part is a line of its working; its own law again is the
+            # working written twice (before "part: a" and after it, 2026-11-26).
+            step = Step(kind="step", tex=record.tex, move=record.name)
+            if step not in self.working:
+                self.working.append(step)
 
     def part(self) -> Part:
         return Part(

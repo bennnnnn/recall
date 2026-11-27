@@ -47,7 +47,7 @@ from app.modules.chat.worked_solution import (
     WorkedSolution,
     assemble,
 )
-from app.modules.chat.worked_text import names_nothing, tidy_symbol
+from app.modules.chat.worked_text import names_nothing, tidy_symbol, tidy_tex
 
 _WRAPPER = re.compile(
     r"\\(?:text|mathrm|mathcal|mathbf|mathit|operatorname|boldsymbol|vec|overline|bar|hat)\s*"
@@ -86,7 +86,8 @@ def _owner(record: RecordModel, keys: Sequence[frozenset[str]]) -> int | None:
     if isinstance(record, Answer):
         named = {_key(tidy_symbol(piece)) for piece in record.symbol.split(",") if piece.strip()}
     elif isinstance(record, Formula) or (isinstance(record, Step) and record.kind != "say"):
-        named = {_key(record.tex)} if "=" in record.tex else set()
+        # Tidied as the asks' symbols are: "theta = …" sets the ask \theta (review of #2602).
+        named = {_key(tidy_tex(record.tex))} if "=" in record.tex else set()
     else:
         return None
     owners = [at for at, group in enumerate(keys) if named and named <= group]
@@ -107,6 +108,11 @@ class _Group:
             return
         self.lines += own
         stage = self.stages[-1]
+        if isinstance(record, Step) and record in stage:
+            # A line written again in its stage says nothing new, as in a lettered part
+            # (``worked_solution._PartDraft.add``; review of #2602). Another stage may work
+            # the same line for its own leg.
+            return
         if isinstance(record, Formula) and any(
             isinstance(line, Step) and line.kind == "substitution" for line in stage
         ):

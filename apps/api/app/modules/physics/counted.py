@@ -72,15 +72,12 @@ def accounts_for_counted_items(intent: PhysicsIntent, text: str) -> bool:
     for item in counted_items(text):
         if item.noun.lower() in _UNVALUED:
             return False
+        if any(0 < _bound_times(params, given) < (item.count or 2) for given in item.said_of):
+            # "two forces of 20 N" read once: each one's or both, unsaid. Read once per item
+            # ("two spheres of 1000 kg", m1 = m2) it is each one's, and accounted for.
+            return False
         for given in item.each:
-            bound = sum(
-                1
-                for dimension, si in params
-                if dimension == given.dimension
-                and si is not None
-                and given.si is not None
-                and math.isclose(si, given.si, rel_tol=1e-6, abs_tol=1e-12)
-            )
+            bound = _bound_times(params, given)
             if bound and (item.count is None or bound < item.count):
                 return False
         kinds = _PART_KINDS.get(item.noun.lower(), ())
@@ -95,6 +92,18 @@ def accounts_for_counted_items(intent: PhysicsIntent, text: str) -> bool:
             if 0 < len(stated) < item.count:
                 return False
     return True
+
+
+def _bound_times(params: list[tuple[str, float | None]], given: Given) -> int:
+    """How many of the solve's inputs hold ``given``'s value, in its kind."""
+    return sum(
+        1
+        for dimension, si in params
+        if dimension == given.dimension
+        and si is not None
+        and given.si is not None
+        and math.isclose(si, given.si, rel_tol=1e-6, abs_tol=1e-12)
+    )
 
 
 def _with_listed_units(text: str, givens: list[Given]) -> list[Given]:

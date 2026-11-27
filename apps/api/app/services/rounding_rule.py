@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002, RUF003 -- the point of this module is × and superscripts.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the point of this module is × and superscripts.
 """How an answer card shows its number, for every subject: the one rule (owner, 2026-11-18).
 A chemistry solver's checked card is the exception: it keeps the data's significant figures
 (``card_precision_own``).
@@ -55,6 +55,9 @@ class Precision:
     figures: int = 0
     places: int = -1
     unrounded: bool = False
+    # "To the correct number of significant figures": the data's own precision, which only
+    # the values a solver read can say (``data_precision``); unresolved, it is the rule.
+    data: bool = False
 
 
 RULE = Precision()
@@ -95,12 +98,56 @@ _WORD = re.compile(r"[a-z']+", re.IGNORECASE)
 _ALONE_WORDS = 8
 
 
+# "to the correct number of significant figures", "an appropriate number of sig figs": the
+# precision of the question's own data, which a school class grades.
+_DATA_FIGURES = re.compile(
+    r"\b(?:correct|appropriate|right|proper|suitable|sensible|same)\s+number\s+of\s+"
+    r"(?:significant\s+(?:figures?|digits?)|sig(?:nificant)?\.?\s*figs?|s\.\s?f\.?)",
+    re.IGNORECASE,
+)
+
+
+def mantissa_figures(literal: str) -> int:
+    """The figures a typed number's mantissa holds, its sign and exponent aside: "2.0e-6" is
+    2, "-5.0" 2, "0.0050" 2, "200" 3 (chemistry's count, ``chemistry.sig_figs``)."""
+    mantissa = re.split(r"[eE]", literal.strip().lstrip("+-−"))[0]
+    return max(len(mantissa.replace(".", "").lstrip("0")), 1)
+
+
+def written_figures(digits: str) -> int:
+    """The significant figures a number is written to, 0 when it says none: "1.20" is 3,
+    "0.050" 2, "12" 2, "2.0e-6" 2, "-5.0" 2; a whole number ending in zeros with no power of
+    ten (3000, 10) may hold places only."""
+    literal = digits.strip().lstrip("+-−")
+    mantissa = re.split(r"[eE]", literal)[0]
+    if "." not in mantissa and mantissa == literal and mantissa != mantissa.rstrip("0"):
+        return 0
+    return mantissa_figures(literal)
+
+
+def data_precision(precision: Precision, figures: int) -> Precision:
+    """``precision`` with the data's figures in place of its "the correct number of
+    significant figures": ``figures`` from the values a solver read, 0 when no solver read
+    any, and then the rule's places."""
+    if not precision.data:
+        return precision
+    return Precision(figures=min(figures, MOST_DIGITS)) if figures > 0 else RULE
+
+
 def asked_precision(text: str) -> Precision:
-    """The precision ``text`` asks for (``school_rounding.asked_rounding``, no rounding, or a
-    precision said on its own, ``precision_only``)."""
+    """The precision ``text`` asks for (``school_rounding.asked_rounding``, no rounding, the
+    data's own significant figures, or a precision said on its own, ``precision_only``).
+
+    "Give the answer to the correct number of significant figures" asks the precision of the
+    data: a trolley going 4.345 m in 1.2 s is 3.6 m/s, and its card read 3.62 m/s, verified
+    (textbook round, 2026-11-26). Which figures those are is the solver's to say, from the
+    values it read, never from any number written (a list's "1." is no datum):
+    ``data_precision`` resolves it."""
     if _UNROUNDED.search(text):
         return Precision(unrounded=True)
     figures, places, _span = asked_rounding(text)
+    if figures == 0 and places < 0 and _DATA_FIGURES.search(text):
+        return Precision(data=True)
     if figures == 0 and places < 0:
         return precision_only(text) or RULE
     return Precision(figures=min(figures, MOST_DIGITS), places=min(places, MOST_DIGITS))

@@ -32,7 +32,12 @@ class Statuses:
         self.sent: list[tuple[str, str | None, int | None]] = []
 
     async def __call__(
-        self, phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        self,
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
         self.sent.append((phase, detail, elapsed_ms))
 

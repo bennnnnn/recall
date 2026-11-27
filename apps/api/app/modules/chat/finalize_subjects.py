@@ -20,7 +20,11 @@ from app.modules.chat.simulation_fences import drop_open_fences, strip_model_dra
 from app.modules.chat.verification_claims import strip_verification_claims
 from app.modules.chat.worked_lead import drop_recap_tail, drop_restated_tail
 from app.modules.chat.working_approximations import corrected_approximations
-from app.modules.chat.working_cards import held_cards
+from app.modules.chat.working_cards import (
+    held_cards,
+    held_vector_sizes,
+    without_unbacked_senses,
+)
 from app.modules.chat.working_check import (
     is_worked_solution,
     working_note,
@@ -336,7 +340,9 @@ def check_working(state: FinalizeState) -> str:
     text = state.text
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
-    if ctx.solver_unverified is True or is_worked_solution(text) or boxes_its_answer(text):
+    school = school_question(ctx)
+    worked = is_worked_solution(text, school=school)
+    if ctx.solver_unverified is True or worked or boxes_its_answer(text):
         # A decimal given for an exact value is the server's to get right.
         text = corrected_approximations(text)
         # A wrong number in a step is put right, and the lines built on it after it; a step
@@ -346,10 +352,11 @@ def check_working(state: FinalizeState) -> str:
         text, carried_note = put_right(text, question)
         note = carried_note or working_note(text, question)
         # A reply in parts gets a card under each part's Answer heading.
-        text = land_part_answer_cards(text) or land_answer_card(text, None)
+        text = land_part_answer_cards(text) or land_answer_card(text, None, school=school)
         # The card is the working's last step: an expression left unworked and a card that
         # is not its value (``working_cards``).
         text, card_note = held_cards(text, ctx.user_message_content or "")
+        text = without_unbacked_senses(held_vector_sizes(text))
         note = note or card_note
         comma = reply_writes_decimal_comma(ctx)
         text = drop_restated_tail(text, ctx.user_message_content or "", decimal_comma=comma)
@@ -359,6 +366,22 @@ def check_working(state: FinalizeState) -> str:
         if note:
             text = with_closing_note(text, note)
     return text
+
+
+def school_question(ctx: object) -> bool:
+    """The turn's reading calls its message a school question: maths, physics or chemistry,
+    as the read decided it, else as the pool read its subject."""
+    from app.core.aio import settled_result
+    from app.modules.chat.decider_read import READ_SUBJECTS
+    from app.modules.turn_reading.turn import current_turn_reading
+
+    read = getattr(ctx, "live_read", None)
+    decision = settled_result(read) if read is not None and read.done() else None
+    subject = getattr(decision, "subject", None)
+    if subject is not None:
+        return subject in READ_SUBJECTS
+    reading = current_turn_reading()
+    return reading is not None and reading.subject is not None
 
 
 def reply_writes_decimal_comma(ctx: object) -> bool:

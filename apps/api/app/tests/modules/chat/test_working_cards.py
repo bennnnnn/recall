@@ -208,3 +208,160 @@ def test_the_note_never_lands_inside_a_card_left_open() -> None:
     assert card.closed
     assert "Check the answer" not in text[card.body_start : card.body_end]
     assert text.rstrip().endswith("not $37$.")
+
+
+_JUNCTION = (
+    "$\\vec{v}_f = -9.0435\\hat{i} + 8.6957\\hat{j}\\,\\mathrm{m/s}$\n\n**Answer (b)**\n\n"
+    "```answer\nverified: false\n$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, "
+    "$12.30\\,\\mathrm{m/s}$ ($43.9^\\circ$ north of west)\n```\n\n"
+    "They move at **12.3 m/s**."
+)
+
+
+def test_a_vector_s_size_is_the_size_its_components_give() -> None:
+    """Textbook round, 2026-11-26: the junction's cars carded 12.30 m/s for 12.55."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = held_vector_sizes(_JUNCTION)
+    assert "$12.55\\,\\mathrm{m/s}$ ($43.9^\\circ$" in text
+    assert text.endswith("They move at **12.55 m/s**.")
+
+
+def test_a_right_vector_size_stands() -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    right = _JUNCTION.replace("12.30", "12.55").replace("12.3 ", "12.55 ")
+    assert held_vector_sizes(right) == right
+
+
+@pytest.mark.parametrize(
+    ("card", "kept"),
+    [
+        ("$2.05\\,\\mathrm{N·m}$ (clockwise)", "$2.05\\,\\mathrm{N·m}$"),
+        ("0.36\\,\\mathrm{N\\,m} \\text{ anticlockwise}", "0.36\\,\\mathrm{N\\,m}"),
+        # Not a moment: a direction it has is the card's to keep.
+        ("$5\\,\\mathrm{m/s}$ (clockwise)", "$5\\,\\mathrm{m/s}$ (clockwise)"),
+    ],
+)
+def test_an_unchecked_moment_card_claims_no_sense(card: str, kept: str) -> None:
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert without_unbacked_senses(text) == f"**Answer**\n\n```answer\nverified: false\n{kept}\n```"
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # A unit's power is no size (review of #2604: read as 1, it became s^{-13}).
+        "(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m\\,s^{-1}}",
+        "(-9.04\\hat{i} + 8.70\\hat{j})\\,\\mathrm{m\\,h^{-1}}",
+        # An angle, however it is written, is no size.
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $43.9\\,^\\circ$",
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $43.9\\degree$",
+        # A number in no unit of the components' is no size either.
+        "$-9.04\\,\\mathrm{m/s}$, $8.70\\,\\mathrm{m/s}$, $12.30\\,\\mathrm{s}$",
+    ],
+)
+def test_a_vector_card_with_no_size_of_its_own_stands(card: str) -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = (
+        "$\\vec{v}_f = -9.0435\\hat{i} + 8.6957\\hat{j}\\,\\mathrm{m/s}$\n\n**Answer**\n\n"
+        f"```answer\nverified: false\n{card}\n```\n\n1 m/s is 1."
+    )
+    assert held_vector_sizes(text) == text
+
+
+@pytest.mark.parametrize(
+    ("card", "kept"),
+    [
+        ("2.05\\,\\text{N·m (clockwise)}", "2.05\\,\\text{N·m}"),
+        ("2.05\\,\\text{N m clockwise}", "2.05\\,\\text{N m}"),
+        ("2.05\\ \\text{N·m}\\ \\text{clockwise}", "2.05\\ \\text{N·m}"),
+        ("$2.05\\,\\mathrm{N·m}$ (Counter-Clockwise)", "$2.05\\,\\mathrm{N·m}$"),
+    ],
+)
+def test_a_sense_goes_with_its_group_never_half_of_it(card: str, kept: str) -> None:
+    """Review of #2604: "\\text{N·m" was left open, and a "\\" escaped the closing "$"."""
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n{card}\n```"
+    assert without_unbacked_senses(text) == f"**Answer**\n\n```answer\nverified: false\n{kept}\n```"
+
+
+def test_check_working_holds_a_vector_size_and_drops_an_unbacked_sense() -> None:
+    """The wiring: both card checks run in the working check (review of #2604)."""
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.chat.finalize_passes import FinalizeState
+    from app.modules.chat.finalize_subjects import check_working
+
+    moment = "**Answer (a)**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{N·m}$ (clockwise)\n```"
+    reply = f"**Solution**\n\n$M = 5 \\times 0.41$\n\n{moment}\n\n" + _JUNCTION
+    state = SimpleNamespace(
+        text=reply,
+        server_text=False,
+        was_cancelled=False,
+        ctx=SimpleNamespace(
+            verified_subject=None, solver_unverified=True, user_message_content="", worked=None
+        ),
+    )
+    text = check_working(cast(FinalizeState, state))
+    assert "(clockwise)" not in text
+    assert "12.55\\,\\mathrm{m/s}" in text
+
+
+def test_a_size_half_a_percent_off_is_no_rounding() -> None:
+    """u4-11 in round 2 of #2604: 12.60 m/s for components of size 12.546 stood."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = _JUNCTION.replace("12.30", "12.60")
+    assert "$12.55\\,\\mathrm{m/s}$" in held_vector_sizes(text)
+
+
+_WALK = "$\\vec{d} = 3\\hat{i} + 4\\hat{j}\\,\\mathrm{m}$\n\n**Answer**\n\n"
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        # The reviewer's input (round 2 of #2604): 7 m is the distance walked, not |d|.
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, 7\\,\\mathrm{m}",
+        "3\\hat{i} + 4\\hat{j}\\,\\mathrm{m}; distance 7\\,\\mathrm{m}",
+        "\\begin{pmatrix}3\\\\4\\end{pmatrix}\\,\\mathrm{m}, 7\\,\\mathrm{m}",
+    ],
+)
+def test_a_number_beside_a_whole_vector_is_no_size_unless_named(card: str) -> None:
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = f"{_WALK}```answer\nverified: false\n{card}\n```\n\nIt took 7 s to walk 7 m."
+    assert held_vector_sizes(text) == text
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, |\\vec{d}| = 7\\,\\mathrm{m}",
+        "(3\\hat{i} + 4\\hat{j})\\,\\mathrm{m}, magnitude 7\\,\\mathrm{m}",
+        "$3\\,\\mathrm{m}$, $4\\,\\mathrm{m}$, $7\\,\\mathrm{m}$",
+    ],
+)
+def test_a_named_size_is_the_components_size(card: str) -> None:
+    """Named as the size, or the one scalar after bare components: 5 m, and the closing line's
+    7 m with it, but never its 7 s."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = f"{_WALK}```answer\nverified: false\n{card}\n```\n\nIt took 7 s to walk 7 m."
+    held = held_vector_sizes(text)
+    assert "5\\,\\mathrm{m}" in held and held.endswith("It took 7 s to walk 5 m.")
+
+
+@pytest.mark.parametrize("sense", ["counter clockwise", "anti clockwise", "Counter-Clockwise"])
+def test_a_sense_written_in_two_words_goes_whole(sense: str) -> None:
+    from app.modules.chat.working_cards import without_unbacked_senses
+
+    text = f"**Answer**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{{N·m}}$ ({sense})\n```"
+    kept = "**Answer**\n\n```answer\nverified: false\n$2.05\\,\\mathrm{N·m}$\n```"
+    assert without_unbacked_senses(text) == kept
