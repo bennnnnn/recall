@@ -608,7 +608,7 @@ def _follow_note(ctx: StreamContext, read: TurnDecision) -> None:
     # question it answers, it was the cat guess on 5 of 5, the recommendation hint kept for
     # an answer that does ask for one ("Italian" to "What cuisine?").
     if read.follow in _ANSWERS_THE_REPLY and (question := _answered_question(ctx, messages)):
-        note = f'{note} The question it answers: "{question}"'
+        note = f'{note} Your question it answers: "{question}"'
     if read.follow != "accept":
         # The word rules' yes ("Carry out that offer now") is the read's to say: "pls" after
         # a reply that offered nothing asks for more, and the rule had it redo the last one.

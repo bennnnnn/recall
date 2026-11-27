@@ -44,4 +44,4 @@ async def test_a_bare_answer_gets_no_verified_card() -> None:
     assert verified is None
     extract.assert_not_awaited()
     assert BARE_ANSWER_NOTE in prepared[-2]["content"]
-    assert "ask which problem it is the answer to" in BARE_ANSWER_NOTE
+    assert "ask which problem this value for a letter answers" in BARE_ANSWER_NOTE

@@ -67,9 +67,9 @@ CLARIFY_CARD_HINT = (
 # The turn after a card: the phone sends the card's request, "Label: pick." for each
 # question, then its closing, as one message.
 CLARIFY_PICKS_HINT = (
-    "The user's message answers the clarify card your last reply ended on: their request, "
-    "each question's label with what they picked, and what the answer should cover. Now "
-    "give the full answer, built around those picks. Open with a direct recommendation in "
+    "Read this message as the answers to the clarify card your last reply ended on: their "
+    "request, each question's label with what they picked, and what the answer should "
+    "cover. Now give the full answer, built around those picks. Open with a direct recommendation in "
     "one or two sentences: the best fit for them and why, tied to their picks and to what "
     "memory says about them when it fits. Then the complete answer the message asks for, "
     "strongest options first; a flag or fitting emoji may lead each option, an exception to "

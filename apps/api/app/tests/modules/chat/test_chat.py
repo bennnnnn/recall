@@ -514,16 +514,17 @@ def test_is_howto_question(text, expected):
 
 
 def test_format_hints_discourage_tables_for_how_tos():
-    from app.modules.chat.prompt_constants import FORMAT_CONTRACT
+    from app.modules.chat.prompt_constants import COPY_DELIVERABLE_HINT, FORMAT_CONTRACT
 
     blob = FORMAT_CONTRACT
     assert "roadmap" in blob.lower() or "how-to" in blob.lower()
     assert "NEVER" in blob or "Never" in blob
     assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
-    assert FORMAT_CONTRACT in blob
-    assert FORMAT_CONTRACT in blob
-    assert "ask one question" in blob.lower()
-    assert "invent a generic letter" in blob.lower()
+    # A draft with no purpose asks one question: the copy contract says it, once (review,
+    # 2026-11-27: the format contract and the clarification hint said it too).
+    assert "ask one question" in COPY_DELIVERABLE_HINT.lower()
+    assert "invent a generic letter" in COPY_DELIVERABLE_HINT.lower()
+    assert "ask one question" not in blob.lower()
 
 
 def test_universal_format_baseline_pins_answer_first_and_no_decoration():
@@ -605,14 +606,19 @@ def test_math_formula_shape_rule_is_unified():
     ```math only for standalone display — not contradictory guidance."""
     from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_REPLY_POLICY, MATH_SOLVER_HINT
 
+    # Said once, in the pack's formula-shape rule; the solver hint beside it does not repeat it.
+    assert "inline" in MATH_INTENT_HINT.lower()
+    assert "standalone" in MATH_INTENT_HINT.lower()
+    assert "standalone" not in MATH_SOLVER_HINT.lower()
     for blob in (MATH_INTENT_HINT, MATH_SOLVER_HINT):
-        assert "inline" in blob.lower()
-        assert "standalone" in blob.lower()
         # Must not tell the model to put step formulas in ```math fences.
         assert "NEVER indent a ```math fence inside that list item" not in blob
     # Numbered moves: the reply policy every maths pack closes with states them once.
     assert "numbered" in MATH_REPLY_POLICY.lower() and "steps" in MATH_INTENT_HINT.lower()
-    assert "integral" in MATH_INTENT_HINT.lower()
+    # A calculation takes the worked layout; the pack no longer says a concise answer is the
+    # default (it contradicted the reply policy on the same turn, review 2026-11-27).
+    assert "worked layout" in MATH_INTENT_HINT.lower()
+    assert "default to a concise answer" not in MATH_INTENT_HINT.lower()
     assert "closed-form asks" in MATH_INTENT_HINT.lower()
     assert "4! = 4" in MATH_INTENT_HINT
     assert "Do NOT emit ```answer" in MATH_INTENT_HINT
@@ -638,7 +644,7 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     from app.modules.math.reply_policy import MATH_INTENT_HINT, MATH_SOLVER_HINT
 
     lower = MATH_SOLVER_HINT.lower()
-    assert "never invent" in lower
+    assert "never invent" in MATH_INTENT_HINT.lower()
     assert "illustrative" in lower
     assert "only when a verified" in lower
     assert "do not claim verification" in lower  # safety phrase
@@ -649,7 +655,9 @@ def test_math_solver_hint_does_not_overclaim_unverified_scope():
     assert "simulation" not in lower
     from app.modules.math.reply_policy import GRAPH_NO_SUBSTITUTE_CLAUSE
 
-    assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_SOLVER_HINT
+    # The pack says it once, in the intent hint beside this one.
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_INTENT_HINT
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_SOLVER_HINT
     # Must not claim bare "are also in scope" without the verified-block gate.
     assert "are also in scope" not in lower
     assert "never invent geometry" in MATH_INTENT_HINT.lower()

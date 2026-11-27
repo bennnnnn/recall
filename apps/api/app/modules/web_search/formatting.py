@@ -94,8 +94,8 @@ def format_search_block(
         )
     if team:
         lines.append(
-            f"The user asked about **{team}**. Only report scores or tournament status for "
-            f"{team} — do not attribute other teams' World Cup results to them."
+            f"Report scores or tournament status only for **{team}**, the team asked about: "
+            "do not attribute other teams' World Cup results to them."
         )
     # Each dated day says how long ago it was, and a page that calls a time already past
     # still to come says it is a forecast.

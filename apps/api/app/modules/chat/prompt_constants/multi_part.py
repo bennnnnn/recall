@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from app.modules.turn_reading.plan import PartKind, TurnPart, TurnPlan
 from app.services.picture_copy import PICTURE_PLACEMENT_RULE
 
-MULTI_PART_MARKER = "This message asks for more than one thing."
+MULTI_PART_MARKER = "Answer every request in this message."
 
 # What the app does with a part itself; the reply only makes room for it.
 _KIND_NOTES: dict[PartKind, str] = {
@@ -73,7 +73,7 @@ def multi_part_contract(
     """The contract for ``plan``; ``shapes[i]`` is the layout hints request ``i`` asks for.
     ``problem_pictures``: the turn's read calls the message a STEM question asking to see a
     graph, diagram or molecule, so its picture or photo part is the problem's."""
-    lines = [f"{MULTI_PART_MARKER} {len(plan.parts)} requests:"]
+    lines = [f"{MULTI_PART_MARKER} The {len(plan.parts)} requests:"]
     for number, part in enumerate(plan.parts, start=1):
         note = _note(part, problem_pictures=problem_pictures)
         lines.append(f'{number}. "{part.text}"' + (f": {note}" if note else ""))

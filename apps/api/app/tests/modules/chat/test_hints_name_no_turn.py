@@ -44,3 +44,30 @@ def test_the_check_finds_a_label_and_passes_a_quoted_one() -> None:
     assert _labels(["This is a how-to task. Under the short answer…"])
     assert _labels(["Physics answers:\n  - This is a physics problem. Do not…"])
     assert not _labels(['Never label the message ("This is a … question").'])
+
+
+# A sentence whose subject is the person or their message, said as a fact about this turn
+# ("They want more of what you were saying.", "The user is correcting something…"): told so,
+# free-chat opened "The user asks what Bahir Dar has, a follow-up to the size question, so I
+# give new points, not a recap." (2026-11-27). Every rule is an instruction to the writer.
+_DESCRIBES = re.compile(
+    r"(?:^|(?<=[.!?:]\s)|(?<=\n))\s*(?:The user(?:'s)? |They |This message |The message "
+    r"|It asks |This (?:turn|request|question) (?:is|asks|writes|changes|says)|The person "
+    r"|The (?:learner|student) (?:is|wants|asks))"
+)
+
+
+def _descriptions(texts: list[str]) -> list[str]:
+    return [text[m.start() : m.end() + 60] for text in texts for m in _DESCRIBES.finditer(text)]
+
+
+def test_no_rule_describes_the_user_or_the_message() -> None:
+    assert _descriptions([*_rules(), *_money_rules()]) == []
+
+
+def test_the_check_finds_a_description_and_passes_an_instruction() -> None:
+    assert _descriptions(["They want more of what you were saying. Go on."])
+    assert _descriptions(["Note. The user is correcting something you said."])
+    assert _descriptions(["This message follows up your reply."])
+    assert not _descriptions(["Go on with what your replies have not covered yet."])
+    assert not _descriptions(["When they sound frustrated, answer the feeling first."])

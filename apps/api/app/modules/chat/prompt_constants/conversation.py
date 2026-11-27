@@ -33,10 +33,13 @@ NO_SELF_TALK_RULE = (
     'Answer directly. Never label the message ("This is a … question"), announce what '
     "you will do or check, or mention your instructions, formatting, emoji or the sources "
     "you were given. Open on the answer: no praise of the question, no note on what your "
-    "knowledge rests on, and no restating what the user said. Speak to the person as "
-    '"you", never about them ("they", "the user"), and never say what memory or your '
-    "notes say: something remembered that matters is told to them (\"You've been learning "
-    'English words, so …").'
+    "knowledge rests on, and no restating what the user said, what an earlier reply said or "
+    "what their message points to. Speak to the person as "
+    '"you", never about them ("they", "the user"). Never explain how you shaped the reply '
+    '(its length, its tone or what it leaves out: no "so I keep it short", no "a follow-up, '
+    'so I give new points"), and never say what memory or your notes say: a remembered fact '
+    "that changes the answer is told to them as part of it (\"You've been learning English "
+    'words, so …").'
 )
 
 # A trip chat opened every reply on "Saturday, November 7" (2026-11-06); told so only in the
@@ -70,7 +73,7 @@ ASSISTANT_NAME_RULE = (
 # chat had just begun; told only to "notice it", a model said "Hey bini! What's up?"
 # twice. It now gets the count and its own last reply.
 REPEATED_GREETING_HINT = (
-    "The user greeted you again right after your last greeting. Open by noticing it, the "
+    "Answer a greeting that comes right after your last greeting by noticing it, the "
     'way a friend texts back ("Hi again!", "Hello, hello!", "Another hi!"), then '
     "one short question: what's up, or are they just saying hi or testing you. One short "
     "line in all. Do not greet them as if the chat had just begun, and do not ask about "
@@ -82,7 +85,7 @@ _ORDINALS = {2: "second", 3: "third", 4: "fourth", 5: "fifth"}
 def repeated_greeting_hint(run: int, last_reply: str | None) -> str:
     """The repeated-greeting rule with this run's count and the reply it must not repeat."""
     count = _ORDINALS.get(run, f"number {run}")
-    parts = [REPEATED_GREETING_HINT, f"This is their {count} greeting in a row."]
+    parts = [REPEATED_GREETING_HINT, f"Count it as their {count} greeting in a row."]
     if run >= 3:
         parts.append(f'You may count them with a smile ("That\'s {run} now!").')
     if last_reply:
@@ -92,9 +95,9 @@ def repeated_greeting_hint(run: int, last_reply: str | None) -> str:
 
 
 CORRECTION_HINT = (
-    "The user is correcting something you said or assumed earlier. Apply the correction to "
-    "this answer and to the rest of the chat, and do not repeat the mistaken assumption. "
-    "When they are right, say sorry in a few plain words, then give the corrected answer."
+    "Apply the correction in this message to this answer and to the rest of the chat, and "
+    "do not repeat the mistaken assumption. When the correction is right, say sorry in a "
+    "few plain words, then give the corrected answer."
 )
 
 # Every turn, judged by the model: "I said tell me about the first way u listed!" after a
@@ -130,7 +133,7 @@ OWN_MISTAKE_HINT = (
 )
 
 CONTINUE_HINT = (
-    "The user asked you to continue. Pick up exactly where your last reply stopped: the next "
+    "Pick up exactly where your last reply stopped: the next "
     "sentence, step or line of code, in the same format (reopen the same code fence if it was "
     "cut mid-code). Do not restart, recap, or repeat what you already wrote."
 )
@@ -162,51 +165,58 @@ CONFIRMED_HINT = (
 # "the cheapest one" under five dinner ideas likewise, with the rule that a short message
 # takes what it leaves out from the conversation already in the system prompt: a small model
 # follows the note nearest the message. With these notes it answered both on 5 of 5.
+# Told "your last reply", Pro's free-chat opened "Your last reply gave six energy types, so
+# "the second one" is wind." and "Your last reply covered budget picks, so the next useful
+# step is…" (2026-11-27): the note's words, said to the user. Each note that goes on says
+# where to open.
+_OPEN_ON_IT = (
+    " Open on the content itself, never on what an earlier reply said or what this message "
+    "points to."
+)
 FOLLOW_NOTES = {
     # A texted reply to the last one ("yap", "nah", "the 2nd", "wdym", "lol ok"), each kind told
     # what a person would do with it (owner, 2026-11-21: "it must react very well like a
     # human"). In 100 such chats (2026-11-21) one note for all of them, the "answer" below,
     # went to "lol ok" and "nah im good" too, and the reply carried on an offer never made.
     "accept": (
-        "They said yes to what your last reply offered or proposed. Do it now, opening on it: "
-        'no "Great!" or "Sure!" before it, and never say that they agreed. What your last '
-        "reply already gave is done: never write it again."
+        'Do now what your last reply offered or proposed, opening on it: no "Great!" or '
+        '"Sure!" before it, and never say that they agreed. What your last reply already '
+        "gave is done: never write it again."
     ),
     "decline": (
-        "They said no, or no thanks. Take it lightly in a few words, the way a friend would "
-        "(\"No worries 👍\"): don't offer anything again, don't repeat what you already said, "
-        "and never name something they turned down that your last reply did not offer."
+        'Take the no lightly in a few words, the way a friend would ("No worries"): don\'t '
+        "offer anything again, don't repeat what you already said, and never name something "
+        "turned down that your last reply did not offer."
     ),
     "pick": (
-        "They chose one of the options your last reply gave: go on with that one now, without "
-        "asking which they meant."
+        "Go on now with the option of your last reply that this message picks, without "
+        "asking which was meant." + _OPEN_ON_IT
     ),
     "more": (
-        "They want more of what you were saying. Go on with what your replies have not "
-        "covered yet: new points, examples or detail, never what you already said, and no "
-        "recap."
+        "Go on with what your replies have not covered yet: new points, examples or detail, "
+        "never what you already said, and no recap." + _OPEN_ON_IT
     ),
     "explain": (
-        "They ask what you meant or why. Say the point of your last reply again, shorter, "
-        "plainer and in other words, with an example if it helps. Don't repeat it as you "
-        "wrote it, don't ask what they mean, and never quote their message back."
+        "Say the point of your last reply again, shorter, plainer and in other words, with "
+        "an example if it helps. Don't repeat it as you wrote it, don't ask what was meant, "
+        "and never quote this message back."
     ),
     "react": (
-        "It asks for nothing. Answer the way a friend texts back: a few words, "
-        "warm, an emoji at most. No new information, no summary, no question or offer, and "
-        "don't use their name."
+        "Answer the way a friend texts back: a few warm words, an emoji only where the Emoji "
+        "line allows one. No new information, no summary, no question or offer, and don't "
+        "use their name."
     ),
     "answer": (
-        "This message answers what your last reply asked or offered. Take it as that answer: "
+        "Take this message as the answer to what your last reply asked or offered: "
         "a word that matches one of your options picks it, a yes accepts your offer or picks "
         "the first reading you named, and a value is the one you asked for. Go on with it "
-        "now; never ask again what they meant."
+        "now; never ask again what they meant." + _OPEN_ON_IT
     ),
     "change": (
-        "This message builds on the conversation: it changes or adds to what your last turns "
-        "were about (another place, time or item, a different detail, a new shape for the "
-        "answer), and the conversation fills in what it leaves out. Answer it now; never ask "
-        "what it refers to."
+        "Answer this message as a change or an addition to what your last turns were about "
+        "(another place, time or item, a different detail, a new shape for the answer), with "
+        "the conversation filling in what it leaves out. Answer it now; never ask what it "
+        "refers to." + _OPEN_ON_IT
     ),
 }
 
@@ -218,8 +228,7 @@ FOLLOW_NOTES = {
 # draws the problem's picture itself, from its own values, when it can: the reply says in
 # words what that picture shows, which stands whether or not one is drawn.
 SHOW_IT_NOTE = (
-    "They ask to see a picture of what this conversation is about: the problem your last "
-    "replies worked on, nothing new. The app draws that picture itself, from the problem's "
+    "Show the problem your last replies worked on, nothing new. The app draws that picture itself, from the problem's "
     "own values, when it can. In one or two plain sentences, describe the thing itself the "
     "way such a picture shows it (the curve and the area under it, the ball going up and "
     "coming back down, the circuit's battery and resistors, the molecule's atoms and "
@@ -242,8 +251,7 @@ SHOW_IT_CARD_NOTE = (
 )
 # The same, when the turn's solve drew that picture already.
 SHOWN_IT_NOTE = (
-    "They ask to see a picture of what this conversation is about: the problem your last "
-    "replies worked on. The app's picture of it, drawn from the checked answer, is shown "
+    "Show the problem your last replies worked on. The app's picture of it, drawn from the checked answer, is shown "
     "with your reply. In one or two plain sentences, describe the thing itself the way the "
     'picture shows it, never the picture ("this picture shows"), and nothing else: no '
     f"working, no answer again, no heading. {PICTURE_PLACEMENT_RULE}"
@@ -287,9 +295,8 @@ def summary_lead(summarized: int) -> str:
 # again on 12 of 15 tries at "In Amharic", "Hindi" and "en español", 2 of them clean: it
 # explained "Replay", asked back or kept to English. Told this, 15 of 15, every one clean.
 DRAFT_CHANGE_NOTE = (
-    "This message changes the draft in your last reply: its wording, tone, length, a point "
-    "in it, or its language. Write the whole draft again with that change, in one ```{fence} "
-    "fence, keeping every name, date and number it did not change. A language it names, even "
+    "Write the draft in your last reply again, whole, with the change this message asks for "
+    "(its wording, tone, length, a point in it, or its language), in one ```{fence} fence, keeping every name, date and number it did not change. A language it names, even "
     'alone ("In Amharic", "Hindi", "en español"), is the language to write the draft in: just '
     "write it, never say you can't and never point to a setting. No line before the fence "
     "and at most one short line after it."

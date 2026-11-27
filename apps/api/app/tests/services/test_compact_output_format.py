@@ -193,7 +193,7 @@ def test_yes_follow_through_hint_is_not_a_greeting():
         compact=True,
     )
     assert CONFIRM_FOLLOW_THROUGH_HINT in parts
-    assert "Carry out that offer" in CONFIRM_FOLLOW_THROUGH_HINT
+    assert "Carry out your last offer" in CONFIRM_FOLLOW_THROUGH_HINT
 
 
 def test_yes_confirms_what_the_last_reply_asked_to_confirm():
@@ -224,14 +224,15 @@ def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
 
 
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
-    from app.modules.chat.prompt_constants import CLARIFICATION_HINT
+    from app.modules.chat.prompt_constants import CLARIFICATION_HINT, COPY_DELIVERABLE_HINT
     from app.modules.chat.prompt_constants.writing import EMAIL_ASK_PURPOSE_HINT, EMAIL_DRAFT_HINT
     from app.modules.turn_reading.writing_purpose import is_underspecified_writing_request
 
-    assert "escribeme un correo" in CLARIFICATION_HINT
-    assert "LinkedIn" in CLARIFICATION_HINT
-    assert "caption" in CLARIFICATION_HINT
-    assert "ask ONE question for that purpose" in CLARIFICATION_HINT
+    # A draft with no purpose is the draft rules' (said once, review 2026-11-27): the copy
+    # contract and the writing hint for a bare "write me an email".
+    assert "ask one question" in COPY_DELIVERABLE_HINT
+    assert "LinkedIn" in EMAIL_ASK_PURPOSE_HINT
+    assert "escribeme un correo" not in CLARIFICATION_HINT
     assert "ask ONE question for the values" in CLARIFICATION_HINT
     assert "Do not interview for steps" in CLARIFICATION_HINT
     assert "Function plots" in CLARIFICATION_HINT
@@ -533,13 +534,18 @@ def test_translation_and_proofreading_do_not_load_private_rich_context():
 
 
 def test_universal_baseline_bans_invented_tables_and_hooks():
-    assert "Never invent a pipe table" in UNIVERSAL_FORMAT_BASELINE
-    assert "timetables" in UNIVERSAL_FORMAT_BASELINE
+    from app.modules.chat.prompt_constants import FORMAT_CONTRACT
+
+    # Tables are the format contract's (Tables, Decision / compare), said once (review,
+    # 2026-11-27: the baseline and the tone guard said them too).
+    assert "Do not choose one for tips, how-tos" in FORMAT_CONTRACT
+    assert "timetables" in FORMAT_CONTRACT
+    assert "Casual preference (tea vs coffee)" in FORMAT_CONTRACT
+    assert "Never invent a pipe table" not in UNIVERSAL_FORMAT_BASELINE
     assert "Ah, the eternal question" in UNIVERSAL_FORMAT_BASELINE
     assert "word choice only" in TONE_FORMAT_GUARD
-    assert "quotation ask" in TONE_FORMAT_GUARD
     assert "one sentence" in TONE_FORMAT_GUARD
-    assert "casual preference" in TONE_FORMAT_GUARD
+    assert "decorative table" in TONE_FORMAT_GUARD
 
 
 def test_compact_quote_turn_uses_blockquote_not_plain_prose():

@@ -50,8 +50,8 @@ _NO_VERIFIED_RESULT = (
     f"{MATH_REPLY_POLICY}"
 )
 NOTHING_TO_GRAPH = (
-    "The user asked to graph the previous problem, but no function y = f(x) to plot "
-    "was found in it. Ask in one short sentence which function to graph, for example "
+    "No function y = f(x) to plot was found in the previous problem. Ask in one short "
+    "sentence which function to graph, for example "
     "`y = 2x + 3`. Do not draw a graph in text: no ASCII or text-art sketch, no table "
     "of points, no Mermaid diagram, and no ```graph fence."
 )

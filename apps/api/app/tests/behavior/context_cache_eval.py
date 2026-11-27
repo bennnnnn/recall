@@ -46,12 +46,13 @@ from app.modules.chat.context_window import (
 
 _HERE = Path(__file__).parent
 
-# Measured on 2026-11-22 (``render_rules`` of each table, characters / 4) for an ordinary
-# question: the rules every turn shares, this kind of turn's rules, and the context after
-# the history (the clock, to-dos, integrations).
-STABLE_TOKENS = 1_723
-TURN_RULES_TOKENS = 6_469
-CONTEXT_TOKENS = 1_305
+# Measured on 2026-11-27 (characters / 4) for an ordinary question, the battery's "what is
+# the capital of France" on the real turn path: the rules every turn shares, this kind of
+# turn's rules, and the context after the history (the clock, to-dos, the notes beside the
+# message). The prompt review cut the turn's rules from 5,297 (the same measure the day before).
+STABLE_TOKENS = 1_688
+TURN_RULES_TOKENS = 4_477
+CONTEXT_TOKENS = 1_600
 # Each fold adds its facts and topic lines; ``SUMMARY_MAX_CHARS`` (6000) holds it to ~1.5k.
 SUMMARY_FOLD_TOKENS = 120
 SUMMARY_MAX_TOKENS = 1_500

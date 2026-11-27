@@ -102,8 +102,8 @@ WORKED_BLOCK_CONTRACT = (
 # 5 over 2 and was answered in \hat{i} and \hat{j}, straight from I = m(v_f - v_i), where the
 # textbook works the momentum before, after and their change in columns (2026-11-25).
 WORKED_COLUMN_VECTORS_NOTE = (
-    "This question writes its vectors as columns ([5; 2], or a bracket with one number a "
-    "line, is the column 5 over 2). Write every vector in the block as a column too, "
+    "Read the question's vectors as columns ([5; 2], or a bracket with one number a "
+    "line, is the column 5 over 2), and write every vector in the block as a column too, "
     "`\\begin{pmatrix}5\\\\2\\end{pmatrix}`: each given, each line of working and each "
     "answer, its unit in the unit field (`given: \\vec{v}_i | \\begin{pmatrix}5\\\\2"
     "\\end{pmatrix} | m/s | velocity before`, `answer: \\vec{I} | \\begin{pmatrix}-5\\\\0"
@@ -117,7 +117,7 @@ WORKED_COLUMN_VECTORS_NOTE = (
 # part of its own and the layout lettered four parts (a) to (d); asked "a) center b) radius c)
 # tangent d) area", it wrote no part records and the tangent's working went under (b)
 # (hard geometry round, 2026-11-21).
-WORKED_PARTS_NOTE = "This question is in lettered parts"
+WORKED_PARTS_NOTE = "Answer the question's lettered parts"
 
 
 def worked_parts_note(parts: tuple[str, ...]) -> str:
@@ -140,9 +140,9 @@ def worked_parts_note(parts: tuple[str, ...]) -> str:
 # wrote", worked all four problems again and named one slip in passing. A message that only
 # states results to check gets this instead (``chat.worked_turn``).
 RESULT_CHECK_CONTRACT = (
-    "The user's last message states their own results (to the problems earlier in this "
-    "chat, or to the one it names) and asks whether they are right. The results are in "
-    "that message: read them from it, and never say you cannot see them. Go through them in "
+    "Check the results in their last message against the problems (earlier in this "
+    "chat, or the one it names): read the results from that message, and never say you "
+    "cannot see them. Go through them in "
     "the problems' order, one line each and each verdict once: the right value with the one "
     "sum that gives it (its ratio, unit and power of ten included), then their result and "
     "whether it matches; when it does not, the slip in a few words. For example: "

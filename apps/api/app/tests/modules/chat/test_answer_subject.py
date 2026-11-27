@@ -73,4 +73,4 @@ def test_the_subject_hint_follows_the_general_photo_rule() -> None:
 
 @pytest.mark.parametrize("query", ["what is recursion", "where is kenya", "hi"])
 def test_no_subject_hint_for_code_a_place_ask_or_small_talk(query: str) -> None:
-    assert "If that is something people would want to see" not in _hints(query)
+    assert "what this message asks about, is something people would want to see" not in _hints(query)

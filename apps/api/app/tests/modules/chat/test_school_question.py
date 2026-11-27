@@ -64,7 +64,7 @@ def test_a_school_exercise_gets_the_note(query: str) -> None:
 
 def test_a_multiple_choice_question_is_told_to_name_one_option_first() -> None:
     hint = school_question_hint("Which is a natural fibre? a) Rayon b) Nylon c) Polyester d) Silk")
-    assert hint is not None and "name the one correct option" in hint
+    assert hint is not None and "Name the one correct option" in hint
 
 
 @pytest.mark.parametrize(

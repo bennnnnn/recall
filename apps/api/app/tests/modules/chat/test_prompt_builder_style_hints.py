@@ -90,11 +90,17 @@ def test_only_maths_pack_says_a_shape_is_never_drawn_in_text():
         MATH_INTENT_HINT,
         MATH_SOLVER_HINT,
         SHORT_MATH_SAFETY_HINT,
+        math_prompt_hints,
     )
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_FENCE_SAFETY_HINT
-    for hint in (MATH_INTENT_HINT, MATH_SOLVER_HINT, SHORT_MATH_SAFETY_HINT):
-        assert GRAPH_NO_SUBSTITUTE_CLAUSE in hint
+    # Once in each pack: the full pack's intent hint (its solver hint, always beside it, does
+    # not say it again) and the short pack.
+    full = "\n".join(math_prompt_hints(short=False))
+    assert full.count(GRAPH_NO_SUBSTITUTE_CLAUSE) == 1
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_INTENT_HINT
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_SOLVER_HINT
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
 
 
 def test_closed_form_math_prompt_is_instance_first_not_a_lecture():

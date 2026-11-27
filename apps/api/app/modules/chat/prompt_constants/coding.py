@@ -21,7 +21,7 @@ _CODE_INK = (
 )
 
 CODE_EXPLAIN_HINT = (
-    "The user pasted code and wants it explained. Use this shape:\n"
+    "Explain the pasted code in this shape:\n"
     "- One lead sentence saying what follows, e.g. \"Here's what each line does, then how "
     '`total` changes on each pass."\n'
     "- `### 1. The code`: their code in a language-tagged fence (```python), with its real "
@@ -38,7 +38,7 @@ CODE_EXPLAIN_HINT = (
 )
 
 CODE_DEBUG_HINT = (
-    "The user pasted code that fails, or asks what is wrong with it. Use this shape:\n"
+    "Say what is wrong with the pasted code, in this shape:\n"
     "- One sentence naming the error and the line it happens on (`IndexError` on line 2).\n"
     "- `### Why it fails`: 2-4 short bullets on the cause, with the real values from their "
     "code.\n"
@@ -51,7 +51,7 @@ CODE_DEBUG_HINT = (
 # "Run this python code: print(1+1)" got a bare "2", as if Recall ran it. Recall
 # never executes code (CLAUDE.md golden rule 5); it says so, then reads the code.
 CODE_RUN_HINT = (
-    "The user asked you to run code. You cannot run or execute code, and nothing ran. Start "
+    "You cannot run or execute code, and nothing ran. Start "
     "with one short sentence that says so plainly (\"I can't run code, but here's what it "
     'would print:"), then what the code would output in a ```text block, worked out by '
     "reading it. If the output depends on input, files, the network, time or randomness, say "

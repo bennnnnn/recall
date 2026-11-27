@@ -401,7 +401,6 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         _hints(NO_INVENTED_FACTS_RULE, NO_SENDING_RULE, PRIVACY_CONTEXT_HINT),
         name="ordinary_privacy",
     ),
-    PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT), name="clarify_card"),
     # A proofread is a writing request too; it only has no draft fence.
     PromptRule(
         lambda t: (
@@ -426,6 +425,9 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
         name="broad_self_answer",
     ),
     PromptRule(_always, _format_pack, name="format_pack"),
+    # After the format pack, which every turn of a kind shares: a rule only some turns get
+    # comes after it, so the cached prefix two turns share runs through the pack.
+    PromptRule(_may_ask_with_card, _hints(CLARIFY_CARD_HINT), name="clarify_card"),
     PromptRule(
         lambda t: bool(t.lesson_hint), lambda t: _present(t.lesson_hint), name="lesson_hint"
     ),
@@ -453,10 +455,14 @@ HINT_RULES: tuple[PromptRule[StyleTurn], ...] = (
     # Specialized translation/prose hints already own the shape; the copy-fence
     # contract would tell the model to wrap an article in ```copy. A translated
     # draft is still a draft.
+    # Only on a turn that may hold a draft: a message the writing reader names, a draft's
+    # revision or several requests. Any other turn's non-draft hint says the fence in a line;
+    # the whole contract there cost ~470 tokens on every maths, physics and everyday turn.
     PromptRule(
         lambda t: (
             not t.ordinary
             and (bool(t.revision_fence) or t.writing_kind not in {"translation", "prose"})
+            and (bool(t.revision_fence) or t.writing_kind is not None or t.multi)
         ),
         _hints(COPY_DELIVERABLE_HINT),
         name="copy_deliverable",
