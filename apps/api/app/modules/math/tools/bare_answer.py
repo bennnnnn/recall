@@ -14,9 +14,9 @@ from app.modules.math.reply_policy import MATH_REPLY_POLICY
 _BARE_ANSWER = re.compile(r"[a-z]\s*=\s*[-+]?\d+(?:\.\d+)?(?:\s*/\s*\d+)?", re.IGNORECASE)
 
 BARE_ANSWER_NOTE = (
-    "The user sent only a value for a letter, with no problem. There is nothing to "
-    "verify: do not write an answer card or a solution. In one short sentence, ask "
-    "which problem it is the answer to so you can check it.\n\n"
+    "In one short sentence, ask which problem this value for a letter answers, so you can "
+    "check it: with no problem there is nothing to verify, so write no answer card or "
+    "solution.\n\n"
     f"{MATH_REPLY_POLICY}"
 )
 

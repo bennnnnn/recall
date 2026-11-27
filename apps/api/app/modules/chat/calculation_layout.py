@@ -22,6 +22,7 @@ from app.modules.chat.calculation_layout_tail import (
     list_prefix,
     reads_as_prose,
 )
+from app.modules.chat.display_dollars import display_dollar_pair_end
 from app.modules.chat.inline_code import code_span_opens_within, escaped_at, is_bare_number
 from app.modules.chat.markdown_regions import (
     display_math_lines,
@@ -299,12 +300,13 @@ def _read_code_end(text: str, index: int) -> int | None:
 
 def _read_math_span(text: str, index: int) -> tuple[str, str, int] | None:
     if text.startswith("$$", index):
-        close = text.find("$$", index + 2)
-        if close < 0 or close == index + 2 or "\n" in text[index + 2 : close]:
+        # ``$$`` pairs as every reader pairs it (``display_dollars``), on its own line here.
+        end = display_dollar_pair_end(text, index)
+        if end is None or "\n" in text[index:end]:
             return None
-        if code_span_opens_within(text, index + 2, close):
+        if code_span_opens_within(text, index + 2, end - 2):
             return None
-        return "$$", text[index + 2 : close].strip(), close + 2
+        return "$$", text[index + 2 : end - 2].strip(), end
     if text[index] != "$":
         return None
     close = text.find("$", index + 1)

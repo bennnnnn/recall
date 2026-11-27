@@ -161,10 +161,12 @@ analytics schedulers page by keyset over partial indexes.
 before/after numbers in the PR (bench: `components/markdown/__tests__/streamFlushBench.test.tsx`,
 `STREAM_BENCH=1`). Do not redo them. What is still open:
 
-- MX-2: a fence indented 4+ spaces (steps 10 and up, nested lists) still poisons the segment
-  cuts, because strict passes read it as prose. So does a step line or heading inside a bare or
-  maths fence, which `closeInterruptedMathFences` closes there. The worked-region part was left as it was:
-  answer fences already end each region.
+- MX-2: a fence indented 4+ spaces (steps 10 and up, nested lists) holds the segment cuts only
+  until it closes (#2606, 2026-11-27); a marker inside it that strict and loose readers read two
+  ways still poisons them. So does a step line or heading inside a bare or maths fence, which
+  `closeInterruptedMathFences` closes there. A chart's `"$schema"` inside a ``` fence no longer
+  poisons, and `<details>` holds the cuts only until its `</details>` (#2606). The worked-region
+  part was left as it was: answer fences already end each region.
 - MX-7: the prefix `startsWith` compares are left (memcmp). An open data fence is classified on
   every flush, because classifying it once would change its result as its body grows.
 - MX-1: a `\(` inside inline code (`` `\(` ``) still holds the stable prefix until a `\)`, because

@@ -273,7 +273,7 @@ async def test_the_live_house_line_is_worked_with_its_reading(monkeypatch) -> No
     )
     assert turn is not None and turn.worked is not None
     assert round(turn.worked.outputs["payment"] or 0, 2) == 2038.47
-    assert "taken as the down payment on the 400,000 price" in turn.block
+    assert "Take the amount given as the down payment on the 400,000 price" in turn.block
     reply = await service.finish_money_reply(turn, "About $2,038.47 a month.", Settings())
     assert "**Read as:** 60,000 is the down payment" in reply
     assert reply.index("**Read as:**") < reply.index("```calculator")

@@ -559,7 +559,7 @@ async def test_chained_equality_skips_llm_extract(monkeypatch: pytest.MonkeyPatc
     )
     assert verified is None
     assert note is not None
-    assert "chains equalities" in note
+    assert "chained equalities" in note
     assert not note.startswith("Math note:")
 
 

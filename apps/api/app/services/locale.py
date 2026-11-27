@@ -48,7 +48,7 @@ def locale_system_hint(locale: str | None) -> str:
     code = normalize_locale_code(locale)
     name = locale_display_name(code)
     return (
-        f"The user's app language is {name} (locale code: {code}): write replies in {name} "
-        f"unless they write in another language or ask in this conversation for one. "
-        f"When the user changes app language, follow it at once. " + REPLY_LANGUAGE_ORDER
+        f"Write replies in {name}, the app language (locale code: {code}), unless they "
+        f"write in another language or ask in this conversation for one. "
+        f"When they change the app language, follow it at once. " + REPLY_LANGUAGE_ORDER
     )

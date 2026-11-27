@@ -403,12 +403,11 @@ def _followup_section(subject: SubjectName) -> PromptSection:
 
 
 # What the kind of turn needs, steadiest first so consecutive turns share a long
-# prefix: the length and style the message asks for, the profile (name only on a slim
+# prefix: the style the message asks for, the length, the profile (name only on a slim
 # turn, the email on a draft, the device location on a nearby ask), then the chat's
 # summary (rewritten every few turns of a long chat). Nothing here may change from one
 # turn of a kind to the next: the history after it is cached only behind it.
 TURN_SECTIONS: tuple[PromptSection, ...] = (
-    PromptSection(_always, lambda t: [t.length_hint], name="length"),
     # Lightweight/chit-chat turns skipped the math guardrails entirely,
     # so incidental `$...$` rendered as raw ```latex. A two-line fence
     # safety hint is enough — not the full math pack.
@@ -422,6 +421,8 @@ TURN_SECTIONS: tuple[PromptSection, ...] = (
     PromptSection(
         lambda t: not t.lightweight, lambda _t: [FACT_GROUNDING_HINT], name="fact_grounding"
     ),
+    # After the rules every turn of a kind shares: "in detail" changes this line alone.
+    PromptSection(_always, lambda t: [t.length_hint], name="length"),
     PromptSection(
         # Nothing to look up with this turn: say so, never offer (``search_off_hints``).
         lambda t: not t.lightweight,

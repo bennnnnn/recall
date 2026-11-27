@@ -348,6 +348,231 @@ def test_an_opening_that_narrates_the_users_message_comes_off() -> None:
     )
 
 
+_BAHIR_DAR_PLAN = (
+    "The user asks what Bahir Dar has, a follow-up to the size question, so I give new "
+    "points, not a recap. The user prefers brief replies, so I keep it short."
+)
+_BAHIR_DAR_ANSWER = "Bahir Dar has **Lake Tana**, its island monasteries and the Blue Nile Falls."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Live 2026-11-27 (free-chat): the plan in the present tense, its own paragraph...
+        f"{_BAHIR_DAR_PLAN}\n\n{_BAHIR_DAR_ANSWER}",
+        # ...or leading the answer's paragraph.
+        f"{_BAHIR_DAR_PLAN} {_BAHIR_DAR_ANSWER}",
+        # A student's profile, the same shape.
+        f"The user is a student, so I keep the answer simple.\n\n{_BAHIR_DAR_ANSWER}",
+        # Live 2026-11-27 (Pro, free-chat, this branch's first run): the typo read aloud.
+        'The user means "Bahir Dar," and they\'re asking what the city has, meaning its main '
+        "attractions and features. This is settled knowledge, so I'll answer from what I know."
+        f"\n\n{_BAHIR_DAR_ANSWER}",
+    ],
+)
+def test_a_plan_in_the_present_tense_comes_off(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "What does vahir dar has") == _BAHIR_DAR_ANSWER
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # Live 2026-11-27 (Pro, free-chat): the prompt's "your last reply", said to the user.
+        (
+            'Your last reply gave six energy types, so "the second one" is wind. Wind power '
+            "turns moving air into electricity.",
+            "Wind power turns moving air into electricity.",
+        ),
+        (
+            "Your last reply covered budget picks, so the next useful step is judging specs."
+            "\n\n## Specs to Check",
+            "## Specs to Check",
+        ),
+        # Live 2026-11-27: "Memory says" in the second paragraph.
+        (
+            "Congratulations, Bini! 🎉\n\nMemory says you're a student, so is this part-time?",
+            "Congratulations, Bini! 🎉\n\nYou're a student, so is this part-time?",
+        ),
+        # A plan said with "so here is".
+        (
+            "Bahir Dar has more beyond the lake, and the user prefers short replies, so here is "
+            "a brief extension.\n\n## More About Bahir Dar",
+            "## More About Bahir Dar",
+        ),
+    ],
+)
+def test_an_opening_on_the_earlier_reply_comes_off(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "and the second one?") == kept
+
+
+def test_the_users_own_reply_to_someone_stays() -> None:
+    reply = "Your last reply to Sam sounded cold. Try this instead:\n\n```message\nHey Sam!\n```"
+    assert drop_prompt_leaks(reply, "how do I reply to Sam") == reply
+
+
+# Feedback on the user's own answer or reply: a practice card, an interview, a quiz (review
+# of #2609: "Your previous answer, 12, was off by two" lost its first sentence).
+_FEEDBACK = [
+    "Your previous answer, 12, was off by two; 14 is right. Nice fix!",
+    "Your previous answer was 12.\n\nThe right one is 14.",
+    "Your last answer about teamwork was strong. Add one number to the second story.",
+    "Your last answer gave x = 3, so check the sign in the second line.",
+    "Your earlier reply, 2 mol, was right. Now try 54 g of water.",
+    "Your last reply was close, so try once more with the mass in grams.\n\nHint: 1 kg is 1000 g.",
+    "In your previous answer you multiplied instead of dividing, so it came out 36.",
+]
+
+
+@pytest.mark.parametrize("reply", _FEEDBACK)
+def test_feedback_on_the_users_own_answer_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "is it 12?") == reply
+
+
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        # A bot's design in the first person, with question, answer and message words.
+        (
+            "how should my docs bot handle questions it can't answer?",
+            "The user asks a question outside the docs, so I answer with a fallback message."
+            "\n\nThat keeps the bot honest.",
+        ),
+        # Even with a reply-shape word: the message is about the product.
+        (
+            "how should my support bot answer refund requests?",
+            "The user asks for a refund, so I keep the reply short and link the policy.\n\n"
+            "Billing follows up within a day.",
+        ),
+    ],
+)
+def test_a_bots_design_in_the_first_person_stays(asked: str, reply: str) -> None:
+    assert drop_prompt_leaks(reply, asked) == reply
+
+
+def test_memory_says_inside_a_fence_stays() -> None:
+    reply = (
+        "Here's a sample reply for your bot:\n\n```text\nBot: Hello!\n\n"
+        "Memory says you're vegetarian, so try dal.\n```"
+    )
+    assert drop_prompt_leaks(reply, "write a sample bot reply") == reply
+
+
+def test_a_paragraph_that_speaks_to_them_stays_whole() -> None:
+    reply = "The user is a student, so I keep the answer simple. You can ask for more.\n\nDone."
+    assert drop_prompt_leaks(reply, "explain photosynthesis") == reply
+
+
+# The narration and the answer in one paragraph, a second paragraph after it: only the
+# narrating sentences go (review of #2609: the whole paragraph went, the answer with it).
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "The user asks what Bahir Dar has, a follow-up to the size question, so I give new "
+            "points, not a recap. Bahir Dar has Lake Tana and the Blue Nile Falls.\n\n"
+            "## More to see",
+            "Bahir Dar has Lake Tana and the Blue Nile Falls.\n\n## More to see",
+        ),
+        (
+            f"{_BAHIR_DAR_PLAN} Bahir Dar has Lake Tana.\n\n## More to see\n\n1. **Markets**",
+            "Bahir Dar has Lake Tana.\n\n## More to see\n\n1. **Markets**",
+        ),
+        (
+            "The user is a student, so I keep the answer simple. Plants make sugar from light."
+            "\n\n## How it works",
+            "Plants make sugar from light.\n\n## How it works",
+        ),
+        (
+            "The user prefers brief replies, so I keep it short. Paris is the capital.\n\nDone.",
+            "Paris is the capital.\n\nDone.",
+        ),
+    ],
+)
+def test_the_answer_sharing_the_narrations_paragraph_stays(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "tell me more") == kept
+
+
+# A self-label and a "Memory says" further down: both go, in that order (review of #2609).
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "This is a current-events question, so I'll check the latest headlines.\n\n"
+            "Memory says you're in Paris, so here are local stories.",
+            "You're in Paris, so here are local stories.",
+        ),
+        (
+            "This is a recipe request, so I'll keep it simple.\n\nMemory says you're vegetarian,"
+            " so here is dal.\n\n1. **Rinse the lentils**",
+            "You're vegetarian, so here is dal.\n\n1. **Rinse the lentils**",
+        ),
+    ],
+)
+def test_a_self_label_and_a_memory_lead_both_come_off(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "news near me") == kept
+
+
+# The chat is about a bot: a follow-up that does not name it keeps the guard (review of #2609).
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        (
+            ("and for late deliveries?", "how should my support bot handle refunds?"),
+            "The user asks where the order is, so I keep the reply short and give the tracking "
+            "link.\n\nIf it's over a week late, the bot offers a refund.",
+        ),
+        (
+            ("what about returns?", "write the replies my shop's chatbot should give"),
+            "The user asks to return a jacket, so I keep the reply short and send the label.\n\n"
+            "The label is good for 30 days.",
+        ),
+    ],
+)
+def test_a_follow_up_in_a_bots_design_chat_stays(asked: tuple[str, ...], reply: str) -> None:
+    assert drop_prompt_leaks(reply, *asked) == reply
+
+
+# "Your last reply" about the user's own correspondence is theirs (review of #2609).
+@pytest.mark.parametrize(
+    ("asked", "reply"),
+    [
+        (
+            "here's my thread with the client, what next?",
+            "Your last reply covered the pricing, so the client has the numbers. Send the "
+            "timeline next.",
+        ),
+        (
+            "I pasted my email exchange with Sam below, how should I respond?",
+            "Your last reply offered a Friday call, but Sam wants Monday. Suggest Monday at 10.",
+        ),
+        (
+            "is my reply to the landlord ok?",
+            "Your last reply mentioned the leak, so the landlord knows. Ask for a date too.",
+        ),
+    ],
+)
+def test_the_users_own_correspondence_stays(asked: str, reply: str) -> None:
+    assert drop_prompt_leaks(reply, asked) == reply
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A design or product answer about its end user, in the first person.
+        "The user wants to sign in quickly, so I put the login button at the top.\n\n"
+        "Then the form asks for the email only.",
+        "The end user asks for a refund, so I route the ticket to billing.\n\nIt takes a day.",
+        # A user story says "I" and "so I can" as the user.
+        "**User story:** As a user, I want to reset my password so I can sign in again.\n\n"
+        "**Acceptance:** the link expires after an hour.",
+        # Spoken to the person, it stays.
+        "You prefer brief replies, so here it is short: **Lake Tana**.",
+    ],
+)
+def test_first_person_answers_about_a_user_stay(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "write a short user story for a login screen") == reply
+
+
 @pytest.mark.parametrize(
     "reply",
     [
@@ -489,3 +714,43 @@ def test_a_draw_block_of_the_user_s_own_stays(line: str, contract: bool) -> None
 def test_draw_block_in_english_stays(reply: str) -> None:
     """ "Draw block diagrams" is English, never the prompt's block (review of #2603)."""
     assert drop_prompt_leaks(reply, "How do I design a control system?") == reply
+
+
+# The reply explained by a saved preference, anywhere in it: the final live run's free-plan
+# chemistry tips closed "Since you prefer brief replies, I'll keep it concise: focus on…".
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        (
+            "1. **Review**\n\nSince you prefer brief replies, I'll keep it concise: focus on "
+            "doing problems. Good luck!",
+            "1. **Review**\n\nFocus on doing problems. Good luck!",
+        ),
+        ("Paris.\n\nSince you asked for short answers, I'll keep this brief.", "Paris."),
+        (
+            "Because you like short replies, let me keep it simple. Plants make sugar.",
+            "Plants make sugar.",
+        ),
+        (
+            "Lake Tana is the draw. As you prefer brief replies, I keep it short: boats leave "
+            "at eight.",
+            "Lake Tana is the draw. Boats leave at eight.",
+        ),
+    ],
+)
+def test_a_reply_explained_by_a_preference_loses_the_clause(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "any tips?") == kept
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Advice that names what they like, with no first-person "keep it short".
+        "Since you prefer brief answers in interviews, keep each to two minutes.",
+        "Because you like short runs, keep each one under 5 km at first.",
+        # In code, as written.
+        "```text\nSince you prefer brief replies, I'll keep it short.\n```",
+    ],
+)
+def test_advice_about_what_they_prefer_stays(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "interview tips") == reply

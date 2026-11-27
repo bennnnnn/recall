@@ -799,7 +799,7 @@ async def test_an_answer_names_the_question_it_answers() -> None:
     )
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.prompt_messages[-2]["content"] == (
-        f'{FOLLOW_NOTES["answer"]} The question it answers: "Why do cats purr?"'
+        f'{FOLLOW_NOTES["answer"]} Your question it answers: "Why do cats purr?"'
     )
     assert any(ADVICE_PERSONALIZE_HINT in m["content"] for m in ctx.prompt_messages)
 
@@ -829,7 +829,7 @@ async def test_an_answer_quotes_no_question_a_pick_note_contradicts(
     ctx.prompt_messages.insert(-1, {"role": "system", "content": f"{pick} … {OPTION_PICK_MARK}"})
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.prompt_messages[-2]["content"] == FOLLOW_NOTES["answer"] + (
-        ' The question it answers: "Want another round?"' if quoted else ""
+        ' Your question it answers: "Want another round?"' if quoted else ""
     )
 
 

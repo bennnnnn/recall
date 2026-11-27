@@ -17,6 +17,7 @@ import {
   readsAsProse,
 } from "@/lib/markdown/calculationLayoutTail";
 import { isMathFenceLang } from "@/lib/fence/registry";
+import { displayDollarPairEnd } from "@/lib/markdown/displayDollars";
 import { codeSpanOpensWithin, escapedAt } from "@/lib/markdown/inlineCode";
 import { displayMathLines, leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
@@ -271,10 +272,11 @@ function readMathSpan(
   index: number,
 ): { delim: string; inner: string; end: number } | null {
   if (text.startsWith("$$", index)) {
-    const close = text.indexOf("$$", index + 2);
-    if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
-    if (codeSpanOpensWithin(text, index + 2, close)) return null;
-    return { delim: "$$", inner: text.slice(index + 2, close).trim(), end: close + 2 };
+    // `$$` pairs as every reader pairs it (displayDollars.ts), on its own line here.
+    const end = displayDollarPairEnd(text, index);
+    if (end == null || text.slice(index, end).includes("\n")) return null;
+    if (codeSpanOpensWithin(text, index + 2, end - 2)) return null;
+    return { delim: "$$", inner: text.slice(index + 2, end - 2).trim(), end };
   }
   if (text[index] !== "$") return null;
   const close = text.indexOf("$", index + 1);

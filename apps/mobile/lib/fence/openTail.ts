@@ -5,10 +5,12 @@
  */
 
 import { readFenceMarker, type OpenFence } from "@/lib/fence/scan";
+import type { DisplayCloser } from "@/lib/markdown/displayDollars";
 
 type OpenStreamScan = {
   openFence: OpenFence | null;
-  dollarOpen: boolean;
+  /** The `$$` formula open at the tail (displayDollars.ts), or null. */
+  dollarOpen: DisplayCloser;
   bracketDepth: number;
 };
 

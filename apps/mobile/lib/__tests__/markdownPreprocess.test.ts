@@ -571,6 +571,39 @@ $)
     expect(breakMidlineAtxHeadings("### Explanation\n\nHello")).toBe(
       "### Explanation\n\nHello",
     );
+    expect(breakMidlineAtxHeadings("All set. ## Next steps")).toBe("All set.\n\n## Next steps");
+  });
+
+  it.each([
+    ["Hindi", "यह योजना है। ## अगले कदम", "यह योजना है।"],
+    ["Hindi double danda", "पूरा हुआ॥ ## आगे", "पूरा हुआ॥"],
+    ["Amharic", "ይህ እቅዱ ነው። ## ቀጣይ", "ይህ እቅዱ ነው።"],
+    ["Chinese", "这是计划。## 下一步", "这是计划。"],
+    ["a full-width question", "准备好了吗？## 开始", "准备好了吗？"],
+    ["a full-width colon", "步骤如下：## 第一步", "步骤如下："],
+    ["an ellipsis", "And then… ## Later", "And then…"],
+  ])("breakMidlineAtxHeadings: breaks a heading out after a %s sentence end", (_name, line, before) => {
+    expect(breakMidlineAtxHeadings(line).split("\n\n")[0]).toBe(before);
+  });
+
+  // B2 (2026-11-27 review): any "# " split the line, so "C# fast" drew a heading.
+  it.each([
+    ["C# and F#", "How do I learn C# fast? I know Java and F# a bit."],
+    ["a sharp key", "The piece is in A# minor. Then G# major."],
+    ["a keypad key", "Then press # to confirm, and # again to repeat."],
+    ["a table cell", "| C# | Games |"],
+    ["a table cell with two hashes", "| Done. ## Next | Later |"],
+    ["inline code", "Write `x = 1  # set x` and run it."],
+    ["inline code holding a heading's shape", "It prints `done. ## Summary` at the end."],
+    ["a list item", "1. C# basics"],
+    ["no sentence before it", "Use the C## operator ## here"],
+  ])("breakMidlineAtxHeadings: leaves %s alone", (_name, line) => {
+    expect(breakMidlineAtxHeadings(line)).toBe(line);
+  });
+
+  it("preprocessMarkdown: a question about C# keeps its words on one line", () => {
+    const text = "How do I learn C# fast? I know Java and F# a bit.";
+    expect(preprocessMarkdown(text)).toBe(text);
   });
 
   it("BUG FIX regression: mergeStrandedColons also merges stranded semicolons", () => {

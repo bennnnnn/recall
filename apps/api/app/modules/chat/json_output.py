@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 JSON_OUTPUT_HINT = (
-    "The user asked for JSON. Put it in one ```json fence as strict JSON: double-quoted "
+    "Put the JSON asked for in one ```json fence as strict JSON: double-quoted "
     "keys and strings, no comments, no trailing commas, no ... placeholders. Keep any "
     "explanation outside the fence, in one or two short lines."
 )

@@ -91,8 +91,8 @@ _MAX_CHARS = 2000
 _MIN_ITEMS = 3
 
 SHARED_NUMBERS_HINT = (
-    "The user's message lists values. It is not a greeting: never greet them or ask how they "
-    "are. If the message or the conversation asks for something, do that. Otherwise say in one "
+    "Never greet them or ask how they are over a list of values. If the message or the "
+    "conversation asks for something, do that. Otherwise say in one "
     "or two short sentences what the values show, then offer one next step that fits, such as "
     "a chart; do not add them up or average them unless asked."
 )

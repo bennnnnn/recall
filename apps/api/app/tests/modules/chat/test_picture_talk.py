@@ -16,6 +16,7 @@ import pytest
 
 from app.modules.chat.owed_picture import held_to_the_ask
 from app.modules.chat.picture_talk import without_picture_talk
+from app.modules.chat.prompt_leaks import drop_draw_block_mentions, drop_prompt_leaks
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep import StreamContext
 
@@ -105,3 +106,29 @@ async def test_the_owed_picture_pass_takes_them_off_only_beside_a_picture_asked(
     # A picture nobody asked for: the reply is left as it is.
     unasked = _ctx("How fast does it slide?", _read(subject="physics", picture="none"))
     assert held_to_the_ask(drawn, unasked, "en") == drawn
+
+
+def test_the_leak_net_and_the_picture_talk_net_each_cut_only_their_own() -> None:
+    """A reply that narrates the turn, names the ```draw block and talks about the app's
+    pictures: the leak net (``prompt_leaks``, an earlier finalize pass) takes its sentences,
+    this net takes the picture talk, and the answer itself stays whole, in either order."""
+    line = "Draw its free-body diagram and plot its v-t graph for 4 s."
+    narration = (
+        "The user asks for a free-body diagram and a graph, so I give the forces first, "
+        "and the user prefers short replies, so I keep it short."
+    )
+    block = "Here is the `draw` block describing this scenario."
+    talk = "The app has no scene for this setup, so here is the picture in words."
+    offer = "I can draw the graph as a picture if you want."
+    answer = "The block slides at 2.81 m/s², so at 4 s it moves at 11.2 m/s."
+    reply = f"{narration}\n\n{answer} {block}\n\n{talk} Friction acts up the slope.\n\n{offer}"
+    drawn = f"{reply}\n\n{_SCENE}\n\n{_GRAPH}\n"
+
+    def leaks(text: str) -> str:
+        return drop_draw_block_mentions(drop_prompt_leaks(text, line, rules=frozenset()), line)
+
+    for out in (without_picture_talk(leaks(drawn)), leaks(without_picture_talk(drawn))):
+        for gone in (narration, block, talk, offer):
+            assert gone not in out
+        assert answer in out and "Friction acts up the slope." in out
+        assert out.count(_SCENE) == 1 and out.count(_GRAPH) == 1

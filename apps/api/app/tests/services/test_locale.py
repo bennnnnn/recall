@@ -21,7 +21,7 @@ def test_an_english_app_names_its_reply_language_and_what_outranks_it():
     """An English app had no language line; a saved "replies in Spanish" decided instead."""
     for locale in ("en", None, "en-US"):
         hint = locale_system_hint(locale)
-        assert hint.startswith("The user's app language is English (locale code: en)")
+        assert hint.startswith("Write replies in English, the app language (locale code: en)")
         assert hint.endswith(REPLY_LANGUAGE_ORDER)
 
 

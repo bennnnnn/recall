@@ -1,3 +1,4 @@
+import { displayDollarPairEnd } from "@/lib/markdown/displayDollars";
 import { codeSpanOpensWithin, escapedAt, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from "@/lib/math/text";
 
@@ -84,6 +85,12 @@ export function readInlineMathSpan(
   // Check escaping only at an actual opener, not at every character of a
   // backslash run while callers scan the live text one character at a time.
   if (escapedAt(text, start)) return null;
+  if (opener === "$$") {
+    // Display dollars are read as every reader reads them: "$$–$$$" is a price range.
+    const pairEnd = displayDollarPairEnd(text, start);
+    const value = pairEnd == null ? "" : text.slice(start + 2, pairEnd - 2);
+    return value.trim() ? { value: value.trim(), end: pairEnd! } : null;
+  }
   const closer = opener === "\\(" ? "\\)" : opener === "\\[" ? "\\]" : opener;
   let end = text.indexOf(closer, start + opener.length);
   while (end >= 0 && escapedAt(text, end)) end = text.indexOf(closer, end + closer.length);
