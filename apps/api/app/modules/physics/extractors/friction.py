@@ -137,6 +137,27 @@ def _by_role(op: str, cleaned: str, kinetic: float, static: float) -> float | No
     return None
 
 
+def extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
+    """Friction's reading, its coefficient the one its motion takes when the question states
+    both a kinetic and a static one, never the first written (``_by_role``)."""
+    intent = _extract_friction_intent(cleaned)
+    params = intent.physics_params if intent is not None else None
+    if (
+        intent is None
+        or not params
+        or not params.get("mu")
+        or intent.physics_op == "incline_sliding"
+    ):
+        return intent
+    both = stated_kinetic_and_static(cleaned)
+    if both is None:
+        return intent
+    mu = _by_role(intent.physics_op or "", cleaned, *both)
+    if mu is None:
+        return None
+    return intent.model_copy(update={"physics_params": {**params, "mu": mu}})
+
+
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
@@ -236,13 +257,6 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     else:
         return None
 
-    if mu is not None and not frictionless and op != "incline_sliding":
-        both = stated_kinetic_and_static(cleaned)
-        if both is not None:
-            # Both coefficients stated: the one the motion asked about, never the first.
-            mu = _by_role(op, cleaned, *both)
-            if mu is None:
-                return None
     params: dict[str, float] = {"angle": angle, "g": detect_gravity(cleaned)}
     units: dict[str, str] = {
         "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",

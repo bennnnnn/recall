@@ -33,7 +33,7 @@ _PAIR = re.compile(
 # "a 3 kg bucket on one side and a 5 kg sandbag on the other": a pair only with a mass stated
 # for each side; a man pulling the other end of the rope is no second mass (review of #2613).
 _SIDES = re.compile(r"\bon\s+(?:one|each|either)\s+sides?\b", re.IGNORECASE)
-_MASS = re.compile(r"\d(?:[\d.]*)\s*(?:kg|g|kilograms?)\b", re.IGNORECASE)
+_MASS = re.compile(r"(?<![\d.])\d[\d.]*+\s*+(?:kg|g|kilograms?)\b", re.IGNORECASE)
 _ON_TABLE = re.compile(
     r"\b(?:table|desk|bench|counter|shelf|floor|horizontal\s+surface)\b", re.IGNORECASE
 )

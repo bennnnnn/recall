@@ -20,7 +20,8 @@ NO_FRICTION_RE = re.compile(
 _SURFACE_NAME = r"(?:the\s+)?[a-z]+(?:\s+[a-z]+)?"
 COEFFICIENT_BETWEEN = rf"(?:\s+between\s+{_SURFACE_NAME}\s+and\s+{_SURFACE_NAME})?"
 MU_SUBSCRIPT = r"(?:_?[ks]|[\u2096\u209b])?"
-COEFFICIENT_LEADS = rf"\s*(?:of|=|is|:)?\s*(?:(?:\bmu|\u03bc){MU_SUBSCRIPT}\s*=\s*)?"
+# Each run of space is read once (possessive): "mu" and a run of spaces took quadratic time.
+COEFFICIENT_LEADS = rf"\s*+(?:of|=|is|:)?\s*+(?:(?:\bmu|\u03bc){MU_SUBSCRIPT}\s*+=\s*+)?"
 
 # Words that start a body from rest, the one reader of them: "released from rest", "starts at
 # rest", "from a standstill", "initially at rest". A stated starting speed of 0 says it again.
