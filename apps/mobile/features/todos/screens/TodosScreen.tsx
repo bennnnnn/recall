@@ -85,7 +85,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   }, []);
 
   const openedHighlight = useRef<string | null>(null);
-  // A to-do link names one server id, or nothing to open (`routeServerId`).
   const highlightId = routeServerId(Array.isArray(highlight) ? highlight[0] : highlight);
   useEffect(() => {
     if (!highlightId || openedHighlight.current === highlightId || !isCurrentView()) return;
