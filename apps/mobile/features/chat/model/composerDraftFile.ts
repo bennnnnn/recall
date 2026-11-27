@@ -1,13 +1,14 @@
 import { forgetPadMathDrafts, isPadMathDraft, notePadMathDraft } from "@/features/chat/model/padMathDrafts";
-import { cacheFile } from "@/lib/cache/cacheFile";
+import { durableFile } from "@/lib/durableFile";
 import { parseJsonRecord } from "@/lib/fence/json";
 
 /**
  * The composer's unsent text for each chat (and New Chat), kept on disk for this
  * account: drafts lived only in memory and were gone when the phone closed the
- * app in the background.
+ * app in the background. A durable file (`lib/durableFile.ts`): in the cache directory the OS
+ * deleted them when storage ran low, and an Android kill mid-write lost every draft.
  */
-const draftsFile = cacheFile("recall-composer-drafts.json");
+const draftsFile = durableFile("recall-composer-drafts.json", "recall-composer-drafts.json");
 
 /** Drafts kept; the least recently written goes first. */
 const MAX_DRAFTS = 50;

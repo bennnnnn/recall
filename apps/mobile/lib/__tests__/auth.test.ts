@@ -89,7 +89,7 @@ it("deletes the session record when signing out cannot overwrite it", async () =
   await auth.setTokenPair("access-a", "refresh-a");
   mockSetItem.mockRejectedValueOnce(new Error("Keychain full"));
   await auth.clearToken();
-  expect(mockDeleteItem).toHaveBeenCalledWith("recall_session_v1");
+  expect(mockDeleteItem).toHaveBeenCalledWith("recall_session_v1", expect.anything());
   jest.resetModules();
   auth = await import("@/lib/auth");
   await expect(auth.getToken()).resolves.toBeNull();

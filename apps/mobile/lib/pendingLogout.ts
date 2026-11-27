@@ -8,12 +8,11 @@
  *
  * It holds tokens, so it lives in the secure store like the session itself (lib/auth.ts).
  */
-import * as SecureStore from "expo-secure-store";
-
 import { logoutSession } from "@/lib/api/client";
 import { onConnectionAnswered } from "@/lib/api/connectionFailures";
 import { getToken } from "@/lib/auth";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
+import { SECURE_KEYS, secureDelete, secureGet, secureSet } from "@/lib/secureStore";
 import { reportFailure } from "@/lib/sentry";
 
 export type ServerLogout = {
@@ -25,7 +24,7 @@ export type ServerLogout = {
 
 type PendingLogout = ServerLogout & { queuedAt: number };
 
-const PENDING_LOGOUTS_KEY = "recall_pending_logouts_v1";
+const PENDING_LOGOUTS_KEY = SECURE_KEYS.pendingLogouts;
 /** A phone signs out of a handful of accounts at most between connections. */
 const MAX_PENDING = 5;
 /** The refresh token's lifetime: after it the server has ended the session itself. */
@@ -57,7 +56,7 @@ function isPending(value: unknown): value is PendingLogout {
 
 async function readPending(): Promise<PendingLogout[]> {
   try {
-    const raw = await SecureStore.getItemAsync(PENDING_LOGOUTS_KEY);
+    const raw = await secureGet(PENDING_LOGOUTS_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter(isPending) : [];
   } catch (error) {
@@ -70,8 +69,8 @@ async function readPending(): Promise<PendingLogout[]> {
 async function writePending(entries: PendingLogout[]): Promise<void> {
   hasPending = entries.length > 0;
   try {
-    if (entries.length === 0) await SecureStore.deleteItemAsync(PENDING_LOGOUTS_KEY);
-    else await SecureStore.setItemAsync(PENDING_LOGOUTS_KEY, JSON.stringify(entries));
+    if (entries.length === 0) await secureDelete(PENDING_LOGOUTS_KEY);
+    else await secureSet(PENDING_LOGOUTS_KEY, JSON.stringify(entries));
   } catch (error) {
     // An unwritable store leaves only this run's attempt.
     reportFailure("sign_out", error);

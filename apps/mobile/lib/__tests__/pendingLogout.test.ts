@@ -53,8 +53,9 @@ function owed(): string[] {
   return raw ? (JSON.parse(raw) as ServerLogout[]).map((entry) => entry.accessToken) : [];
 }
 
+/** Lets every queued store operation and send settle (each store call waits for the launch's install check). */
 async function flush(): Promise<void> {
-  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  for (let i = 0; i < 3; i += 1) await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 beforeEach(() => {

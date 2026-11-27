@@ -393,7 +393,13 @@ export type FailureArea =
    * A live dictation's call could not be made (the composer recorded the clip instead) or
    * dropped mid-take (what was heard landed).
    */
-  | "live_dictation";
+  | "live_dictation"
+  /** The launch's install check (reinstall, or the secure store's one-time move) could not run; the next call tries again. */
+  | "install_check"
+  /** The secure store could not read or keep this install's id; push registers without one. */
+  | "installation_id"
+  /** A durable file (an unsent draft, the purchase hold) could not be read or written (`lib/durableFile.ts`). */
+  | "durable_file";
 
 /** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
 const failureAllowed = reportLimit(10 * 60_000, 20);

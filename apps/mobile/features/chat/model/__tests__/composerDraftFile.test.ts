@@ -6,15 +6,22 @@ import {
 import { isPadMathDraft, notePadMathDraft } from "@/features/chat/model/padMathDrafts";
 
 const mockFiles = new Map<string, string>();
+jest.mock("react-native", () => ({ Platform: { OS: "android" } }));
 jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "/mock-docs/",
   cacheDirectory: "/mock-cache/",
+  moveAsync: jest.fn(async ({ from, to }: { from: string; to: string }) => {
+    mockFiles.set(to, mockFiles.get(from) ?? "");
+    mockFiles.delete(from);
+  }),
   getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
   readAsStringAsync: jest.fn(async (path: string) => mockFiles.get(path)),
   writeAsStringAsync: jest.fn(async (path: string, contents: string) => { mockFiles.set(path, contents); }),
   deleteAsync: jest.fn(async (path: string) => { mockFiles.delete(path); }),
 }));
 
-const PATH = "/mock-cache/recall-composer-drafts.json";
+const PATH = "/mock-docs/recall-composer-drafts.json";
+const CACHE_PATH = "/mock-cache/recall-composer-drafts.json";
 
 beforeEach(() => mockFiles.clear());
 
@@ -74,4 +81,14 @@ it("keeps the first 20,000 characters of a longer draft, never half a character"
 it("reads an unreadable file as no drafts", async () => {
   mockFiles.set(PATH, "{not json");
   expect((await readComposerDrafts("user-1")).size).toBe(0);
+});
+
+// The cache directory is purged when storage runs low; the drafts moved to the documents directory.
+it("keeps the drafts an earlier version wrote in the cache directory, and moves them", async () => {
+  jest.resetModules();
+  mockFiles.set(CACHE_PATH, JSON.stringify({ user_id: "user-1", drafts: { new: "before the upgrade" } }));
+  const upgraded = await import("@/features/chat/model/composerDraftFile");
+  expect([...(await upgraded.readComposerDrafts("user-1"))]).toEqual([["new", "before the upgrade"]]);
+  expect(mockFiles.has(CACHE_PATH)).toBe(false);
+  expect(mockFiles.has(PATH)).toBe(true);
 });

@@ -48,6 +48,14 @@ const CLIPBOARD_OWNED_BY_LIB = [
   },
 ];
 
+/** The secure store is opened in one place, so every item keeps this phone's Keychain class. Tests may mock it. */
+const SECURE_STORE_OWNED_BY_LIB = [
+  {
+    name: "expo-secure-store",
+    message: "Use secureGet / secureSet / secureDelete from @/lib/secureStore: every item stays on this phone.",
+  },
+];
+
 const TEST_FILES = ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"];
 
 const UI_LEAF = {
@@ -305,6 +313,7 @@ module.exports = defineConfig([
             ...POPUPS_OWNED_BY_UI_KIT,
             ...CONTROLS_OWNED_BY_UI_KIT,
             ...CLIPBOARD_OWNED_BY_LIB,
+            ...SECURE_STORE_OWNED_BY_LIB,
           ],
         },
       ],
@@ -363,7 +372,23 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
+        {
+          paths: [
+            ...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT, ...SECURE_STORE_OWNED_BY_LIB,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one place that opens the secure store.
+    files: ["lib/secureStore.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB],
+        },
       ],
     },
   },

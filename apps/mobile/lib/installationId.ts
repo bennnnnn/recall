@@ -1,43 +1,61 @@
 /**
  * Stable per-install id for push token re-bind checks.
  *
- * Expo removed `Constants.installationId`; we generate once and persist on the
- * filesystem (not SecureStore — this is not a secret; Keychain can fail on
- * entitlement-less simulator builds).
+ * Expo removed `Constants.installationId`; we generate one and keep it in the secure store,
+ * this phone only (`lib/secureStore.ts`): an id in the documents directory travelled to a new
+ * phone in a backup, and the two phones then deleted each other's push token. A reinstall
+ * clears it there, so a reinstalled app gets a new one.
+ *
+ * Earlier versions kept it in a documents file. Its first read here moves that id into the
+ * secure store, so an upgrade keeps its id. Where the secure store cannot be used (an
+ * entitlement-less simulator build) the file's id is still read, and none is made.
  */
 
 import * as Crypto from "expo-crypto";
 import {
+  deleteAsync,
   documentDirectory,
   getInfoAsync,
   readAsStringAsync,
-  writeAsStringAsync,
 } from "expo-file-system/legacy";
 
-const FILE_NAME = "recall.installation-id.txt";
+import { SECURE_KEYS, secureGet, secureSet } from "@/lib/secureStore";
+import { reportFailure } from "@/lib/sentry";
 
-function filePath(): string | null {
-  if (!documentDirectory) return null;
-  return `${documentDirectory}${FILE_NAME}`;
+const LEGACY_FILE_NAME = "recall.installation-id.txt";
+
+function legacyPath(): string | null {
+  return documentDirectory ? `${documentDirectory}${LEGACY_FILE_NAME}` : null;
 }
 
-export async function getInstallationId(): Promise<string | null> {
-  const path = filePath();
+async function readLegacyId(path: string | null): Promise<string | null> {
   if (!path) return null;
   try {
-    const info = await getInfoAsync(path);
-    if (info.exists) {
-      const raw = (await readAsStringAsync(path)).trim();
-      if (raw) return raw;
-    }
-  } catch {
-    /* fall through to create */
-  }
-  try {
-    const next = Crypto.randomUUID();
-    await writeAsStringAsync(path, next);
-    return next;
+    if (!(await getInfoAsync(path)).exists) return null;
+    return (await readAsStringAsync(path)).trim() || null;
   } catch {
     return null;
   }
+}
+
+export async function getInstallationId(): Promise<string | null> {
+  const path = legacyPath();
+  let stored: string | null;
+  try {
+    stored = await secureGet(SECURE_KEYS.installationId);
+  } catch (error) {
+    reportFailure("installation_id", error);
+    return readLegacyId(path);
+  }
+  if (stored) return stored;
+  const legacy = await readLegacyId(path);
+  const next = legacy ?? Crypto.randomUUID();
+  try {
+    await secureSet(SECURE_KEYS.installationId, next);
+  } catch (error) {
+    reportFailure("installation_id", error);
+    return legacy;
+  }
+  if (legacy && path) await deleteAsync(path, { idempotent: true }).catch(() => {});
+  return next;
 }
