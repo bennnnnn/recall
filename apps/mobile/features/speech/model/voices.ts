@@ -86,25 +86,19 @@ export function replyVoiceLabel(id: string): string {
 
 /**
  * The voice the Settings page's Voice row names: the reply voice heard, the one a tap on
- * Listen plays (live talk's is on the Voice page); the live talk voice from an older server;
- * else null.
+ * Listen plays (live talk's is on the Voice page); else null.
  */
 export function heardVoiceLabel(
-  user: Pick<User, "reply_voice_heard" | "tts_voice"> | null | undefined,
+  user: Pick<User, "reply_voice_heard"> | null | undefined,
 ): string | null {
-  if (user?.reply_voice_heard) return replyVoiceLabel(user.reply_voice_heard);
-  return user?.tts_voice ? voiceLabel(user.tts_voice) : null;
+  return user?.reply_voice_heard ? replyVoiceLabel(user.reply_voice_heard) : null;
 }
 
 /**
- * The key of the voices a reply's Listen clips depend on: the reply voice picked and the live
- * talk voice (a reply in another language, or one never picked, follows the live talk voice).
- * A change of either asks for the clips anew. Null when neither is set.
+ * The key of the voice a reply's Listen clips depend on: the reply voice picked. The live talk
+ * voice plays no part (no "Same as live talk", owner 2026-11-27). A change asks for the clips
+ * anew. Null when none is picked.
  */
-export function listenVoiceKey(
-  user: Pick<User, "reply_voice" | "tts_voice"> | null | undefined,
-): string | null {
-  const picked = user?.reply_voice ?? null;
-  const live = user?.tts_voice ?? null;
-  return picked || live ? `${picked ?? ""}|${live ?? ""}` : null;
+export function listenVoiceKey(user: Pick<User, "reply_voice"> | null | undefined): string | null {
+  return user?.reply_voice ?? null;
 }

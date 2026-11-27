@@ -110,21 +110,14 @@ it("offers tts-1's voices where it plays replies", async () => {
   await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: "onyx" }));
 });
 
-it("pins the voice heard while following live talk, and can follow it again", async () => {
-  // Never picked: Follow is ticked and the row names the voice heard (Heart).
+it("has no Same as live talk: never picked, the voice heard is ticked and named", async () => {
+  // Never picked: the row names the voice heard (Heart, the first) and the menu ticks it.
   const view = await render(<VoiceSettingsScreen />);
   expect(view.getByLabelText("settings.voice_reply, Heart")).toBeTruthy();
   await fireEvent.press(view.getByText("settings.voice_reply"));
-  await fireEvent.press(view.getByLabelText("Heart"));
-  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: "af_heart" }));
-
-  mockUpdateUser.mockClear();
-  mockReplyVoice = "bm_george";
-  mockReplyHeard = "bm_george";
-  await view.rerender(<VoiceSettingsScreen />);
-  await fireEvent.press(view.getByText("settings.voice_reply"));
-  await fireEvent.press(view.getByLabelText("settings.voice_reply_follow"));
-  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: null }));
+  expect(view.queryByLabelText("settings.voice_reply_follow")).toBeNull();
+  await fireEvent.press(view.getByLabelText("George"));
+  await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ reply_voice: "bm_george" }));
 });
 
 it("says the TTS voice picked, in the engine that plays it", async () => {
@@ -132,19 +125,6 @@ it("says the TTS voice picked, in the engine that plays it", async () => {
   await fireEvent.press(view.getByText("settings.voice_reply"));
   await fireEvent.press(view.getByLabelText("George"));
   await waitFor(() => expect(mockPreviewVoice).toHaveBeenCalledWith("tok", "reply", "bm_george", "en"));
-});
-
-it("Same as live talk says the voice that now follows", async () => {
-  mockReplyVoice = "bm_george";
-  mockReplyHeard = "bm_george";
-  mockUpdateUser.mockImplementation(async () => {
-    mockReplyVoice = null;
-    mockReplyHeard = "am_michael"; // what the server sends back: cedar's gender
-  });
-  const view = await render(<VoiceSettingsScreen />);
-  await fireEvent.press(view.getByText("settings.voice_reply"));
-  await fireEvent.press(view.getByLabelText("settings.voice_reply_follow"));
-  await waitFor(() => expect(mockPreviewVoice).toHaveBeenCalledWith("tok", "reply", "am_michael", "en"));
 });
 
 it("says a live talk voice picked, and nothing for Default or on a plan without it", async () => {
