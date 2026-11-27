@@ -1,10 +1,19 @@
 name: Publish app update
 
 # Ships JavaScript and asset changes to installed apps over the air (EAS Update),
-# with no store review. Native changes (a new native module, an Expo SDK upgrade,
-# a config plugin or permission change) still need a store build from deploy.yml,
-# and a bump of `version` in apps/mobile/app.json: a build only takes updates whose
-# runtime version (that `version`) matches its own.
+# with no store review. Native changes (a new native module or a native package's
+# version, an Expo SDK upgrade, a config plugin, permission or app config change)
+# need a store build from deploy.yml: the runtime version is the native fingerprint
+# (apps/mobile/app.json, policy "fingerprint"), and a build only takes updates with
+# its own. Before publishing, this checks that the update's fingerprint is the one
+# the channel's newest build has (scripts/check-update-runtime.cjs), so an update
+# that would reach no phone fails here, saying a store build must ship first.
+#
+# With EXPO_PUBLIC_SENTRY_DSN set in the channel's EAS environment, the update's
+# source maps go to Sentry after it is published, matched to crashes by Debug ID.
+# That needs the GitHub secret SENTRY_AUTH_TOKEN in the channel's GitHub
+# environment (SENTRY_ORG and SENTRY_PROJECT come from EAS, as for a build), or
+# SENTRY_DISABLE_AUTO_UPLOAD=true in EAS to publish without maps.
 #
 # The production channel takes updates from main only, after Mobile CI passed for
 # that commit, in the GitHub environment "production" (add required reviewers
@@ -105,6 +114,31 @@ jobs:
           eas-version: 24.10.0
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # eas env:exec loads the channel's EAS environment variables, as the publish
+      # below does, so app.config.ts resolves to the config the build was made with.
+      - name: Native code matches the channel's newest build
+        env:
+          RECALL_UPDATE_PROFILE: ${{ inputs.channel }}
+          UPDATE_CHANNEL: ${{ inputs.channel }}
+        run: >-
+          eas env:exec "$UPDATE_CHANNEL"
+          'node scripts/check-update-runtime.cjs "$UPDATE_CHANNEL"'
+          --non-interactive
+
+      - name: Sentry can take this update's source maps
+        env:
+          UPDATE_CHANNEL: ${{ inputs.channel }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: >-
+          eas env:exec "$UPDATE_CHANNEL"
+          'if [ -z "${EXPO_PUBLIC_SENTRY_DSN:-}" ] || [ "${SENTRY_DISABLE_AUTO_UPLOAD:-}" = true ]; then
+          echo "No source map upload for this channel.";
+          elif [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+          echo "::error title=No Sentry token::EXPO_PUBLIC_SENTRY_DSN is set for $UPDATE_CHANNEL, so its source maps go to Sentry. Add the GitHub secret SENTRY_AUTH_TOKEN to the $UPDATE_CHANNEL environment, or set SENTRY_DISABLE_AUTO_UPLOAD=true in EAS.";
+          exit 1;
+          fi'
+          --non-interactive
+
       - name: Publish the update
         # --environment loads the EAS environment variables for that channel, so the
         # bundle gets the same EXPO_PUBLIC_* values (API URL, client IDs) as the build.
@@ -120,4 +154,20 @@ jobs:
           --channel "$UPDATE_CHANNEL"
           --environment "$UPDATE_CHANNEL"
           --message "$UPDATE_MESSAGE"
+          --non-interactive
+
+      # eas update leaves each platform's bundle and source map in dist/. The upload
+      # names the maps by the Debug ID metro.config.js wrote into each bundle, so a
+      # crash on any build running this update reads as source.
+      - name: Upload the update's source maps to Sentry
+        env:
+          RECALL_UPDATE_PROFILE: ${{ inputs.channel }}
+          UPDATE_CHANNEL: ${{ inputs.channel }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: >-
+          eas env:exec "$UPDATE_CHANNEL"
+          'if [ -z "${EXPO_PUBLIC_SENTRY_DSN:-}" ] || [ "${SENTRY_DISABLE_AUTO_UPLOAD:-}" = true ]; then
+          echo "No source map upload for this channel.";
+          else pnpm exec sentry-expo-upload-sourcemaps dist;
+          fi'
           --non-interactive

@@ -32,6 +32,8 @@ const LAZY_PACKAGES = [
   "katex",
   "mathjax-full",
   "@shopify/react-native-skia",
+  // Never imported statically: lib/sentryStart.ts requires it at launch only when the
+  // build has a DSN, and a build without one never loads it.
   "@sentry/react-native",
   "expo-print",
 ];

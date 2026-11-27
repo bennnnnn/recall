@@ -439,7 +439,19 @@ at the cheaper price, with words arriving per phrase (after each pause) rather t
   To ship without uploads (crash stacks stay minified), set
   `SENTRY_DISABLE_AUTO_UPLOAD=true` instead. The check runs only on the build
   worker (`EAS_BUILD`): EAS keeps Secret variables out of the config that
-  `eas build` and `eas update` resolve locally, and updates upload nothing.
+  `eas build` and `eas update` resolve locally.
+- [ ] **Owner:** with the DSN set, add the GitHub secret `SENTRY_AUTH_TOKEN`
+      (the same Sentry token) to the `production` and `preview` GitHub
+      environments. **Publish app update** uploads each update's source maps to
+      Sentry after publishing it, matched to crashes by the Debug ID every bundle
+      carries (`metro.config.js`), and refuses to publish while the DSN is set
+      and the token is missing (or set `SENTRY_DISABLE_AUTO_UPLOAD=true` in EAS).
+      EAS's own copy is a Secret, which the workflow cannot read.
+- [ ] The app starts Sentry before its first screen (`lib/sentryStart.ts`), so
+      a crash at launch or right after an update is reported. Events name the
+      build's update channel as their environment (`production`, `preview`,
+      `development`); `release` and `dist` stay the SDK's own, the names the
+      store build's maps are uploaded under.
 - [ ] Build:
   ```bash
   cd apps/mobile
@@ -453,7 +465,8 @@ at the cheaper price, with words arriving per phrase (after each pause) rather t
 ### What the store build declares
 
 `app.json` asks only for what the app uses, so review sees no unexplained
-permission. Changing any of it is a native change (bump `version`, new build).
+permission. Changing any of it is a native change: it changes the native
+fingerprint, so it needs a new store build ([Over-the-air updates](#over-the-air-updates-eas-update)).
 
 - **iOS purpose strings** live in `ios.infoPlist`, and every config plugin that
   writes the same key carries the same text (`lib/__tests__/appStoreConfig.test.ts`
@@ -570,11 +583,32 @@ background, and runs the new code from the next launch.
   RECALL_UPDATE_PROFILE=production eas update --channel production \
     --environment production --message "what changed"
   ```
-- [ ] A build takes only updates for its own runtime version, which is the
-      `version` in `apps/mobile/app.json`. **Bump that version and ship a store
-      build** for any native change: a new native module, an Expo SDK upgrade, or
-      a config plugin or permission change. An update sent to an older binary
-      without that native code would crash it.
+- [ ] **How an update is gated.** A build takes only updates for its own runtime
+      version, and the runtime version is the project's native fingerprint
+      (`apps/mobile/app.json`, `runtimeVersion.policy: "fingerprint"`): a hash
+      of every package with native code and its version, the config plugins and
+      their files, the resolved app config, `patches/` and `package.json`'s
+      scripts. Any native change (a new native module or a native package's
+      version, an Expo SDK upgrade, a config plugin, permission or app config
+      change) gives a new fingerprint, so no installed build can take an update
+      that needs native code it lacks. JavaScript, assets and copy keep it.
+  - Every package with native code is pinned to one exact version in
+    `apps/mobile/package.json`, so a lockfile refresh cannot move native code
+    quietly (`lib/__tests__/nativeVersionsPinned.test.ts` fails on a range).
+  - **Publish app update** checks, before it publishes, that the update's
+    fingerprint is the one the channel's newest finished build has
+    (`apps/mobile/scripts/check-update-runtime.cjs`, under the channel's EAS
+    environment, so the config resolves as on the build worker). When it is
+    not, the run fails and says so: ship a store build first (`deploy.yml`),
+    then the update. `eas fingerprint:compare --build-id <id>` shows what
+    changed.
+  - The fingerprint comes from the config `app.config.ts` resolves, so the
+    values it reads must be the same for the build and the update: keep
+    `SENTRY_ORG`, `SENTRY_PROJECT` and every `EXPO_PUBLIC_*` value **Plain
+    text** or **Sensitive** in EAS. A **Secret** one is missing when the
+    update resolves the config, the fingerprints differ and the gate fails.
+  - No `version` bump is needed for updates. Bump `version` for a store
+    release as usual; it does not decide which builds take an update.
 - [ ] Builds made before `expo-updates` was added cannot receive updates; install
       a new build once
 - [ ] **Deploy the API before the app** (store build or update) whenever the app

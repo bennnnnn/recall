@@ -2,6 +2,8 @@ import type { ErrorEvent } from "@sentry/react-native";
 
 import { redactSecrets, scrubBreadcrumb, scrubSentryEvent } from "@/lib/sentry";
 
+declare const __dirname: string;
+
 const mockSdkLoads: string[] = [];
 
 jest.mock("@sentry/react-native", () => {
@@ -15,6 +17,8 @@ jest.mock("@sentry/react-native", () => {
 });
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
+const mockChannel: { value: string | null } = { value: "production" };
+jest.mock("@/lib/appVersion", () => ({ updateChannel: () => mockChannel.value }));
 
 const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig_part_here";
 
@@ -116,7 +120,7 @@ describe("error-boundary capture", () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
     mod.noteApiFailure("GET", "/search?q=my private question", 503, "abc-1");
     expect(sdk().addBreadcrumb).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -133,23 +137,33 @@ describe("error-boundary capture", () => {
   it("reports nothing when Sentry is not configured", async () => {
     delete process.env.EXPO_PUBLIC_SENTRY_DSN;
     const { mod } = freshSentry();
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
     mod.reportBoundaryError("markdown", new Error("render failed"), "in MarkdownContent");
     await Promise.resolve();
     expect(mockSdkLoads).toEqual([]);
   });
 
-  it("loads the SDK only in the deferred init, then captures a boundary crash", async () => {
+  it("loads the SDK only when started, then captures a boundary crash", async () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
     expect(mockSdkLoads).toEqual([]);
 
-    await mod.initMobileSentry();
+    // At once, not a turn later: the modules that load after it are watched.
+    mod.initMobileSentry();
     expect(mockSdkLoads).toEqual(["@sentry/react-native"]);
     expect(sdk().init).toHaveBeenCalledWith(
-      expect.objectContaining({ sendDefaultPii: false, beforeSend: expect.any(Function) }),
+      expect.objectContaining({
+        sendDefaultPii: false,
+        beforeSend: mod.scrubSentryEvent,
+        beforeBreadcrumb: mod.scrubBreadcrumb,
+        environment: "production",
+        enableNetworkBreadcrumbs: false,
+      }),
     );
+    // release and dist stay the SDK's own: the names a store build uploads its maps under.
+    expect(sdk().init.mock.calls[0][0]).not.toHaveProperty("release");
+    expect(sdk().init.mock.calls[0][0]).not.toHaveProperty("dist");
     // Trace headers go to our API's URLs only (sentryTraceHeaders.test.tsx runs the SDK).
     const targets: RegExp[] = sdk().init.mock.calls[0][0].tracePropagationTargets;
     const traced = (url: string) => targets.some((target) => target.test(url));
@@ -170,7 +184,8 @@ describe("error-boundary capture", () => {
     mod.reportBoundaryError("markdown", early, null);
     expect(mockSdkLoads).toEqual([]);
 
-    await Promise.all([mod.initMobileSentry(), mod.initMobileSentry()]);
+    mod.initMobileSentry();
+    mod.initMobileSentry();
     expect(sdk().init).toHaveBeenCalledTimes(1);
     expect(sdk().captureException).toHaveBeenCalledTimes(1);
     expect(sdk().captureException).toHaveBeenCalledWith(early, {
@@ -182,7 +197,7 @@ describe("error-boundary capture", () => {
   it("tags a screen's crash with its route file, not the values in it", async () => {
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
     const error = new Error("screen render failed");
     mod.reportBoundaryError("screen", error, null, "memory/[key]");
     expect(sdk().captureException).toHaveBeenCalledWith(error, {
@@ -195,7 +210,7 @@ describe("error-boundary capture", () => {
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     const { mod, sdk } = freshSentry();
     for (let i = 0; i < 25; i += 1) mod.reportBoundaryError("message_row", new Error(`loop ${i}`));
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
     expect(sdk().captureException).toHaveBeenCalledTimes(10);
   });
 });
@@ -211,9 +226,9 @@ describe("a stored sign-in cleared at launch", () => {
     process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
     jest.resetModules();
     const mod = jest.requireActual<typeof import("@/lib/sentry")>("@/lib/sentry");
-    // At launch, before the deferred init: it waits in the queue.
+    // Before the SDK has started: it waits in the queue.
     mod.reportCorruptSessionCleared();
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
 
     const sdk = jest.requireMock<{ captureMessage: jest.Mock; captureException: jest.Mock }>(
       "@sentry/react-native",
@@ -225,5 +240,25 @@ describe("a stored sign-in cleared at launch", () => {
       { level: "warning", tags: { area: "stored_session" } },
     );
     expect(sdk.captureException).not.toHaveBeenCalled();
+  });
+});
+
+describe("when and where Sentry starts", () => {
+  it("names the environment after the build's update channel", () => {
+    const { sentryEnvironment } = jest.requireActual<typeof import("@/lib/sentry")>("@/lib/sentry");
+    expect(sentryEnvironment("production")).toBe("production");
+    expect(sentryEnvironment("preview")).toBe("preview");
+    expect(sentryEnvironment("development")).toBe("development");
+    // A release build made by hand has no channel.
+    expect(sentryEnvironment(null)).toBe("local");
+    expect(sentryEnvironment("")).toBe("local");
+  });
+
+  it("starts before any other app module the root layout loads", () => {
+    const fs = jest.requireActual<{ readFileSync(path: string, encoding: "utf8"): string }>("node:fs");
+    const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
+    const layout = fs.readFileSync(join(__dirname, "..", "..", "app", "_layout.tsx"), "utf8");
+    const firstImport = /^import\s+(?:[^"']*\sfrom\s+)?["']([^"']+)["']/m.exec(layout)?.[1];
+    expect(firstImport).toBe("@/lib/sentryStart");
   });
 });

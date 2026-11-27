@@ -7,7 +7,11 @@ import Constants from "expo-constants";
  */
 type AppVersion = { version: string; build: string | null; update: string | null };
 
-type UpdatesModule = { updateId: string | null; isEmbeddedLaunch: boolean };
+type UpdatesModule = {
+  updateId: string | null;
+  isEmbeddedLaunch: boolean;
+  channel: string | null;
+};
 
 /** expo-updates when this binary has its native module (a dev client may not). */
 function loadUpdates(): UpdatesModule | null {
@@ -34,6 +38,14 @@ export function appVersion(): AppVersion {
     // The first block of the id is enough to find the update on EAS.
     update: updateId ? updateId.split("-")[0] : null,
   };
+}
+
+/**
+ * The update channel this build listens on (eas.json names it after the build profile:
+ * `production`, `preview`, `development`); none in Expo Go or a build without updates.
+ */
+export function updateChannel(): string | null {
+  return loadUpdates()?.channel || null;
 }
 
 /** "1.0.0 (42)": the version with its native build, when there is one. */

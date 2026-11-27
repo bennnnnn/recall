@@ -24,7 +24,7 @@ async function freshSentry(started = true) {
   (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
   process.env.EXPO_PUBLIC_SENTRY_DSN = "https://key@sentry.example.com/1";
   const mod = jest.requireActual<typeof import("@/lib/sentry")>("@/lib/sentry");
-  if (started) await mod.initMobileSentry();
+  if (started) mod.initMobileSentry();
   const sdk = () => jest.requireMock<SdkMock>("@sentry/react-native");
   return { mod, sdk };
 }
@@ -170,7 +170,7 @@ describe("a refused fence", () => {
     const fences = ["geometry", "graph", "quiz", "array", "clarify", "chart", "mermaid"] as const;
     for (const fence of fences) mod.reportFenceRefused(fence, "invalid_spec");
     for (let i = 0; i < 8; i += 1) mod.reportBoundaryError("message_row", new Error(`crash ${i}`));
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
 
     expect(sdk().captureMessage).toHaveBeenCalledTimes(5);
     expect(sdk().captureException).toHaveBeenCalledTimes(5);
@@ -250,7 +250,7 @@ describe("a native splash call that failed at launch", () => {
     mod.reportFailure("launch_splash_hide", failure);
     expect(sdk().captureException).not.toHaveBeenCalled();
 
-    await mod.initMobileSentry();
+    mod.initMobileSentry();
     const [reported, context] = sdk().captureException.mock.calls[0];
     expect(reported.message).toBe("launch_splash_hide failed");
     expect(context.tags).toEqual({ area: "launch_splash_hide", error: "Error" });

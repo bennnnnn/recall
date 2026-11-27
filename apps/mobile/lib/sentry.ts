@@ -3,9 +3,11 @@
  * the API's (apps/api/app/core/sentry.py): an event carries what broke, never
  * what the user wrote, what the model answered, a request body or a token.
  *
- * The SDK (about 750 KB) loads inside the deferred init, not at launch. Until
- * then Sentry has no global handler, as before; a boundary crash reported in
- * that window waits in a short queue and is sent once the SDK is up.
+ * The SDK starts as the app's code starts (`lib/sentryStart.ts`, the root layout's
+ * first import), before the first render: a crash in a module's first run, or in the
+ * first seconds after a bad update, is reported, and the native SDK's crash handler is
+ * on from then. Without a DSN the SDK is never loaded. A report made before the start
+ * waits in a short queue and is sent once the SDK is up.
  */
 
 import type { Breadcrumb, ErrorEvent } from "@sentry/react-native";
@@ -19,7 +21,6 @@ type SentrySdk = typeof import("@sentry/react-native");
 
 /** The SDK once `init` has run. */
 let sdk: SentrySdk | null = null;
-let starting: Promise<void> | null = null;
 
 /** A crash loop before init keeps only the first few; a minor report takes at most half. */
 const MAX_EARLY_REPORTS = 10;
@@ -118,30 +119,62 @@ function apiTraceTargets(apiUrl: string): RegExp[] {
   return [new RegExp(`^${origin}(?:[/?#]|$)`)];
 }
 
-/** Loads and starts the SDK once; resolves when it is up, or at once without a DSN. */
-export function initMobileSentry(): Promise<void> {
+/**
+ * Which builds an event came from: the update channel the build listens on, which
+ * eas.json names after its profile (`production`, `preview`, `development`). A release
+ * build with no channel was built by hand (`pnpm ios:sim`), so it is `local`.
+ */
+export function sentryEnvironment(channel: string | null): string {
+  return channel?.trim() || "local";
+}
+
+/** The build's update channel; a build that cannot say still reports, as `local`. */
+function buildChannel(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- with the SDK, only with a DSN
+    return (require("@/lib/appVersion") as typeof import("@/lib/appVersion")).updateChannel();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Loads and starts the SDK once, at once; does nothing without a DSN.
+ *
+ * `release` and `dist` stay the SDK's own (the bundle id, version and build): the names
+ * a store build's Xcode and Gradle steps upload its source maps under. An over-the-air
+ * update's maps are matched by Debug ID instead (metro.config.js writes one into every
+ * bundle and its map; mobile-update.yml uploads them), so they need no release.
+ */
+export function initMobileSentry(): void {
   const dsn = configuredDsn();
-  if (!dsn) return Promise.resolve();
-  starting ??= Promise.all([import("@sentry/react-native"), import("@/lib/config")]).then(
-    ([Sentry, { getApiUrl }]) => {
-      Sentry.init({
-        dsn,
-        enabled: !__DEV__,
-        tracesSampleRate: 0.1,
-        tracePropagationTargets: apiTraceTargets(getApiUrl()),
-        sendDefaultPii: false,
-        beforeSend: scrubSentryEvent,
-        beforeBreadcrumb: scrubBreadcrumb,
-      });
-      sdk = Sentry;
-      for (const report of earlyReports.splice(0)) report(Sentry);
-    },
-    () => {
-      // The SDK could not load (a dev bundle offline): the next init tries again.
-      starting = null;
-    },
-  );
-  return starting;
+  if (!dsn || sdk) return;
+  try {
+    /* eslint-disable @typescript-eslint/no-require-imports -- loaded only with a DSN, and
+       at once: an import() starts it a turn later, after the modules it should watch */
+    const Sentry = require("@sentry/react-native") as SentrySdk;
+    const { getApiUrl } = require("@/lib/config") as typeof import("@/lib/config");
+    /* eslint-enable @typescript-eslint/no-require-imports */
+    Sentry.init({
+      dsn,
+      enabled: !__DEV__,
+      environment: sentryEnvironment(buildChannel()),
+      tracesSampleRate: 0.1,
+      tracePropagationTargets: apiTraceTargets(getApiUrl()),
+      sendDefaultPii: false,
+      beforeSend: scrubSentryEvent,
+      beforeBreadcrumb: scrubBreadcrumb,
+      // iOS's own network crumbs keep each request's query (`/search?q=…`) and go into a
+      // native crash report without passing beforeSend. The JS fetch crumbs say the same,
+      // scrubbed.
+      enableNetworkBreadcrumbs: false,
+    });
+    sdk = Sentry;
+    for (const report of earlyReports.splice(0)) report(Sentry);
+  } catch {
+    // The SDK could not load (a dev bundle offline): the next init tries again.
+    return;
+  }
 }
 
 /**
