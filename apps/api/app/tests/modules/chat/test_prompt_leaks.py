@@ -348,6 +348,82 @@ def test_an_opening_that_narrates_the_users_message_comes_off() -> None:
     )
 
 
+_BAHIR_DAR_PLAN = (
+    "The user asks what Bahir Dar has, a follow-up to the size question, so I give new "
+    "points, not a recap. The user prefers brief replies, so I keep it short."
+)
+_BAHIR_DAR_ANSWER = "Bahir Dar has **Lake Tana**, its island monasteries and the Blue Nile Falls."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # Live 2026-11-27 (free-chat): the plan in the present tense, its own paragraph...
+        f"{_BAHIR_DAR_PLAN}\n\n{_BAHIR_DAR_ANSWER}",
+        # ...or leading the answer's paragraph.
+        f"{_BAHIR_DAR_PLAN} {_BAHIR_DAR_ANSWER}",
+        # A student's profile, the same shape.
+        f"The user is a student, so I keep the answer simple.\n\n{_BAHIR_DAR_ANSWER}",
+    ],
+)
+def test_a_plan_in_the_present_tense_comes_off(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "What does vahir dar has") == _BAHIR_DAR_ANSWER
+
+
+@pytest.mark.parametrize(
+    ("reply", "kept"),
+    [
+        # Live 2026-11-27 (Pro, free-chat): the prompt's "your last reply", said to the user.
+        (
+            'Your last reply gave six energy types, so "the second one" is wind. Wind power '
+            "turns moving air into electricity.",
+            "Wind power turns moving air into electricity.",
+        ),
+        (
+            "Your last reply covered budget picks, so the next useful step is judging specs."
+            "\n\n## Specs to Check",
+            "## Specs to Check",
+        ),
+        # Live 2026-11-27: "Memory says" in the second paragraph.
+        (
+            "Congratulations, Bini! 🎉\n\nMemory says you're a student, so is this part-time?",
+            "Congratulations, Bini! 🎉\n\nYou're a student, so is this part-time?",
+        ),
+        # A plan said with "so here is".
+        (
+            "Bahir Dar has more beyond the lake, and the user prefers short replies, so here is "
+            "a brief extension.\n\n## More About Bahir Dar",
+            "## More About Bahir Dar",
+        ),
+    ],
+)
+def test_an_opening_on_the_earlier_reply_comes_off(reply: str, kept: str) -> None:
+    assert drop_prompt_leaks(reply, "and the second one?") == kept
+
+
+def test_the_users_own_reply_to_someone_stays() -> None:
+    reply = "Your last reply to Sam sounded cold. Try this instead:\n\n```message\nHey Sam!\n```"
+    assert drop_prompt_leaks(reply, "how do I reply to Sam") == reply
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        # A design or product answer about its end user, in the first person.
+        "The user wants to sign in quickly, so I put the login button at the top.\n\n"
+        "Then the form asks for the email only.",
+        "The end user asks for a refund, so I route the ticket to billing.\n\nIt takes a day.",
+        # A user story says "I" and "so I can" as the user.
+        "**User story:** As a user, I want to reset my password so I can sign in again.\n\n"
+        "**Acceptance:** the link expires after an hour.",
+        # Spoken to the person, it stays.
+        "You prefer brief replies, so here it is short: **Lake Tana**.",
+    ],
+)
+def test_first_person_answers_about_a_user_stay(reply: str) -> None:
+    assert drop_prompt_leaks(reply, "write a short user story for a login screen") == reply
+
+
 @pytest.mark.parametrize(
     "reply",
     [
