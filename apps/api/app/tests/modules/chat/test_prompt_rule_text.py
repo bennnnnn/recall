@@ -138,14 +138,15 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # title and no nested list, the owner, 2026-11-26); then each member's name bold (the owner,
 # 2026-11-26); then the steps, how-to and comparison hints under the same short answer and
 # title, a multi-part reply's headings as its titles, and a one-line fact kept one line
-# (review of #2601); then every layout and presentation hint saying what to write, never what
-# the turn is ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27),
-# the steps card for one procedure in order only, not for tips or ways, and one card even when
-# the steps differ by country, device or version (STEPS_FORMAT_HINT,
-# STEPS_CONTRACT).
+# (review of #2601); then an arrow written by its components ("A [4 5] N") in
+# VECTORS_DRAW_CONTRACT (textbook round, 2026-11-25); then every layout and presentation hint
+# saying what to write, never what the turn is ("This is a how-to task" came back as "It's a
+# how-to", the owner, 2026-11-27), the steps card for one procedure in order only, not for
+# tips or ways, and one card even when the steps differ by country, device or version
+# (STEPS_FORMAT_HINT, STEPS_CONTRACT).
 _RULES = 227
-_RULE_GRAMS = 21307
-_RULE_GRAMS_SHA = "64b61416676fcff3"
+_RULE_GRAMS = 21344
+_RULE_GRAMS_SHA = "792960223b62f4fc"
 
 
 def _rules() -> list[str]:

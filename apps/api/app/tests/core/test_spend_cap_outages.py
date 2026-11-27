@@ -246,5 +246,8 @@ def test_every_spend_gate_is_listed() -> None:
         "modules/money/model_read.py",
         # A physics setup: no read past the cap (a prototype). services/test_formal_solve.py.
         "modules/physics/formal_read.py",
+        # A physics question's picture: no read past the cap, no picture, the reply stands.
+        # modules/physics/test_scene_teaching_pictures.py.
+        "modules/physics/scene_drawing/figure_read.py",
         "modules/speech/gates.py",  # dictation, read aloud, live talk's session and saves
     ]

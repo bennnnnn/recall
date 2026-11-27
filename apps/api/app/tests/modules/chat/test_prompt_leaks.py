@@ -427,3 +427,65 @@ def test_a_reply_speaks_to_the_person_not_about_them(reply: str, kept: str) -> N
 )
 def test_replies_that_speak_to_the_person_stay(reply: str) -> None:
     assert drop_prompt_leaks(reply, "teach me") == reply
+
+
+def _drawing_state(text: str, line: str, *, contract: bool) -> SimpleNamespace:
+    """A finalize state whose prompt carried the draw contract (``ctx.drawing``) or not."""
+    ctx = SimpleNamespace(
+        user_message_content=line,
+        prompt_messages=[{"role": "user", "content": line}],
+        drawing=object() if contract else None,
+    )
+    return SimpleNamespace(text=text, ctx=ctx, server_text=False)
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "Here is the ```draw block representing this scenario:",
+        "Here is the `draw` block representing this scenario:",
+        "This draw block shows them.",
+    ],
+    ids=["fence-ticks", "one-tick", "pointing"],
+)
+def test_a_sentence_about_the_draw_block_comes_off(lead: str) -> None:
+    """ "Here is the ```draw block representing this scenario" stood in a reply (textbook
+    round, 2026-11-25): on a turn whose prompt asked for the block, it never reaches the
+    phone, in any ticks."""
+    reply = f"The force is largest at the start.\n\n{lead}\n\nThe area under the line is the work."
+    state = _drawing_state(reply, "Draw a graph of force against distance.", contract=True)
+    assert drop_prompt_leaks_pass(state) == (  # type: ignore[arg-type]
+        "The force is largest at the start.\n\nThe area under the line is the work."
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "contract"),
+    [
+        ("Why does my p5.js sketch leave trails?", False),
+        ("My draw block flickers in Processing, why?", True),
+        ("Why does my draw() loop leave trails?", True),
+    ],
+    ids=["no-contract", "user-says-draw-block", "user-says-draw-loop"],
+)
+def test_a_draw_block_of_the_user_s_own_stays(line: str, contract: bool) -> None:
+    """p5.js and Processing have a draw block of their own (review of #2603, round 2)."""
+    reply = (
+        "Move `background(220)` into the draw block so the canvas clears every frame.\n\n"
+        "1. Put setup code in setup().\n2. Move background() into the draw block."
+    )
+    state = _drawing_state(reply, line, contract=contract)
+    assert drop_prompt_leaks_pass(state) == reply  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "First, draw block diagrams for each subsystem.",
+        "1. Draw blocks for each stage.\n2. Join them with arrows.",
+        "Minecraft builders draw blocks on graph paper first.",
+    ],
+)
+def test_draw_block_in_english_stays(reply: str) -> None:
+    """ "Draw block diagrams" is English, never the prompt's block (review of #2603)."""
+    assert drop_prompt_leaks(reply, "How do I design a control system?") == reply

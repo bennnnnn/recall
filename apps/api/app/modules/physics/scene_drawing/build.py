@@ -7,7 +7,9 @@ from collections.abc import Sequence
 from app.modules.physics.fence import scene_fence
 from app.modules.physics.field_lines.build import field_fences
 from app.modules.physics.scene_drawing.apparatus import described_apparatus
+from app.modules.physics.scene_drawing.beam import described_beam
 from app.modules.physics.scene_drawing.describe import described_scene
+from app.modules.physics.scene_drawing.forces import described_forces
 from app.modules.physics.scene_drawing.motion_graph import described_motion
 from app.modules.physics.scene_drawing.vectors import described_vectors
 
@@ -25,6 +27,10 @@ def scene_fences(
         specs = described_scene(body, texts) or described_apparatus(body, texts)
         if not specs and asked:
             specs = described_vectors(body, texts)
+        # The forces on a body and a bar's moments come from the figure read alone
+        # (``figure_read``), whose own check of the read is the server's reading.
+        if not specs:
+            specs = described_forces(body, texts) or described_beam(body, texts)
         if specs and not fences:
             fences = [
                 scene_fence(spec.model_dump(mode="json", exclude_none=True)) for spec in specs

@@ -17,8 +17,7 @@ import pytest
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.core.readings import begin_turn, keep_for_turn
-from app.modules.chat.figure_turn import LIVE_READ
+from app.core.readings import LIVE_READ, begin_turn, keep_for_turn
 from app.modules.chat.turn_decision import TurnDecision
 from app.modules.chat.turn_prep import money as money_prep
 from app.modules.chat.turn_prep.reading import read_turn_message

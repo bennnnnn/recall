@@ -669,7 +669,62 @@ A solver that knows its situation draws it: `motion_scenes.py`, `force_scenes.py
 solved as arithmetic has no solver to draw it, so `solvers/catalog_scenes.py` looks the picture
 up by operation and reuses the same builders. A string's tension is the circular scene with
 its string, and a recoil is the collision scene started from rest. An operation not listed
-draws nothing.
+draws nothing. Work done (W = F d cos θ) is not listed: the law says the angle between the force
+and the displacement, never which way either points, and a box drawn pushed along the ground
+showed a box raised by a rope moving sideways (textbook round, 2026-11-25).
+
+Every other physics question (one no solve read, or one whose solve drew no picture, its answer
+card being none) gets the picture it is taught from, asked for or not (owner,
+2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
+of them because the student had not written "draw"). Beside the reply, one short structured call
+(`scene_drawing/figure_read.py`, on the formal reader's lane, `physics_setup`) says what the question's picture
+is, as one of the blocks a reply would describe: a scene, the question's arrows, the forces on
+one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
+question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`
+adds it under the reply once the reply is done, waiting at most `figure_wait_seconds`, so a
+picture never delays the first word. A solve that drew its own picture keeps it; a reply that
+holds one of the server's pictures gets no second one. With teaching figures on, a physics
+question that asks to see nothing gets no setup contract in the reply's prompt: the read draws
+its setup. Three blocks are the read's own:
+- `forces` (`scene_drawing/forces.py`): the body and the forces on it, one word each. The server
+  reads the situation itself (`force_pictures.py`) and draws its free-body diagram only when the
+  forces it reads are the ones named: a ball "held on a slope ... let go" reads as held to the
+  server and sliding to the read, and draws nothing. Forces said to act on a thing no body word
+  names (a ladder against a wall) and several diagrams asked at once draw nothing.
+- `beam` (`scene_drawing/beam.py`): a bar's marks left to right, each distance a length the
+  question states (or the letter of one it asks for), each force a stated force with the
+  direction its own clause gives it, or a hung mass (down), or an unknown's letter. Every force
+  and mass the question states is on the bar. It is drawn to scale, with dimension lines, the
+  pivot as a wedge and lettered points.
+- arrows by their components (`scene_drawing/components.py`): `{"name":"A","components":"[4
+  5]"}`, held to a vector the question writes, number for number, in a unit of the picture's
+  quantity or none; every written vector of that kind is drawn.
+A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
+reply, picture or none (`sketches.without_sketches`), unless the user asked for one ("as ASCII
+art") and no server picture stands in for it; a data table in characters stays whatever its
+frame (`+---+`, light, heavy, rounded or double box lines), any block whose rows hold words or
+numbers in two cells between bars. On a turn whose prompt asked the reply for a ```draw block,
+a sentence that names it ("the ```draw block", "the `draw` block", "this draw block") comes off
+(`chat/prompt_leaks.py`); never on another turn, and never when the user's own words speak of
+a draw block or loop (p5.js and Processing have one), and "draw block diagrams" is English.
+
+The forces block's server forces are the arrows it draws, never the words beside them: a block
+held on a rough slope by a push draws no friction arrow, so a read that names friction draws
+nothing. A vehicle is one vocabulary for both readers, one or many (a van, two buses): drawn
+with its driving force and resistance, or not at all. A round body at rest or moving freely
+(a ball on a smooth table) is weight and normal; one pulled, pushed or rolling on a rough
+surface draws nothing. The body is the noun straight after "on" ("a uniform ladder of mass 20
+kg" is a ladder, which draws nothing). A beam's every force is held to its own mark by the
+evidence nearest it in its own part of the sentence: a mark's letter, "left end" for the
+first mark and "right end" for the last, and each distance given to the mark on the side it is
+measured to ("a 3 kg mass 1.5 m to the left of the pivot" is the left mark's; a bar's "30 cm
+long" is no mark's). So two forces swapped, a see-saw's masses swapped or two gaps swapped draw
+nothing. A resultant is left off when the question asks for one body's velocity relative to
+another's ("relative to", "with respect to", "as seen by", "the relative velocity of A and
+B") and the other is a drawn arrow, its name matched by its last word ("A" is "Car A"), or the
+arrows are named too little to tell; a boat "relative to the water" keeps its resultant, the
+answer. A follow-up's picture ("What if the mass is 5 kg?") is held to the whole problem it
+follows and the message, never the message alone.
 
 A request to see the forces on a body ("draw the forces on a box sliding down a 30°
 incline with friction", "show the forces on a hanging mass") needs no number: when nothing
@@ -703,7 +758,8 @@ of slashes or a Mermaid diagram (`reply_policy.PHYSICS_NO_SKETCH`), and a drawn 
 the place of any the reply drew anyway (`sketches.py`).
 
 A problem no solve drew a picture for (a question in parts, which no solver reads) gets its
-setup's scene the same way: the reply names the scene and the question's values it uses, never a
+setup's scene from the figure read above, which names it beside the reply. Only with teaching
+figures off does the reply name it itself, the same way: the reply names the scene and the question's values it uses, never a
 coordinate (`scene_drawing/contract.py`), and the server holds each value to one the question
 states, with its unit and kind, each used once, and every other stated value one the scene may
 leave aside (`scene_drawing/values.py`, `describe.py`); the setup itself is the physics reader's

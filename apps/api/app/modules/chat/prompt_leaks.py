@@ -45,6 +45,17 @@ _PROMPT_LABEL = re.compile(
     r"|\bverified block (?:is|was) (?:present|given|shown|provided|attached)\b",
     re.IGNORECASE,
 )
+# The block a reply describes its picture in, which never reaches the phone: "Here is the
+# ```draw block representing this scenario" (textbook round, 2026-11-25). Named as one, in
+# ticks or after "the"/"this"/"that", never "draw block diagrams". Cut only on a turn whose
+# prompt asked for the block (``drop_draw_block_mentions``): p5.js and Processing have a draw
+# block of their own ("move background() into the draw block"; review of #2603).
+_DRAW_BLOCK = re.compile(
+    r"`+\s*draw\s*`*\s+blocks?\b|\b(?:the|this|that)\s+draw\s+blocks?\b(?!\s+diagrams?)",
+    re.IGNORECASE,
+)
+# The user's own words about a draw block ("my draw block flickers"): theirs, never a leak.
+_DRAW_WORDS = re.compile(r"\bdraw\s*(?:\(\s*\))?\s*(?:blocks?|loop|function)\b", re.I)
 # An instruction copied from the prompt's rules: "Do not describe the work as math,
 # algebra, or solving equations." opened a Class 8 speed answer (2026-10-30). Read only
 # against the fixed rules (``prompt_rule_text``), never a turn's memory, to-dos or
@@ -115,10 +126,39 @@ _SKIPPED_STARTS = ("|", "#", ">", "    ", "\t")
 
 
 def drop_prompt_leaks_pass(state: FinalizeState) -> str:
-    """The finalize pass: a model reply loses sentences about the prompt's parts."""
+    """The finalize pass: a model reply loses sentences about the prompt's parts, and, on a
+    turn whose prompt asked it to describe a picture in a ```draw block, the sentences that
+    speak of that block."""
     if state.server_text:
         return state.text
-    return drop_prompt_leaks(state.text, *_recent_user_lines(state), rules=_rule_grams())
+    asked = _recent_user_lines(state)
+    text = drop_prompt_leaks(state.text, *asked, rules=_rule_grams())
+    if getattr(state.ctx, "drawing", None) is not None:
+        text = drop_draw_block_mentions(text, *asked)
+    return text
+
+
+def drop_draw_block_mentions(text: str, *asked: str | None) -> str:
+    """``text`` without the sentences that name the ```draw block the prompt asked for
+    ("Here is the `draw` block representing this scenario:"), read with their code spans
+    whole; unchanged when the user's own words speak of a draw block or loop."""
+    if _DRAW_BLOCK.search(text) is None or any(line and _DRAW_WORDS.search(line) for line in asked):
+        return text
+    owners = line_fences(text)
+    out: list[str] = []
+    for index, line in enumerate(text.split("\n")):
+        if owners[index] is not None or _DRAW_BLOCK.search(line) is None:
+            out.append(line)
+            continue
+        lead_match = _LEAD.match(line)
+        lead = lead_match.group(0) if lead_match else ""
+        kept = [s for s in _SENTENCE_BREAK.split(line[len(lead) :]) if not _DRAW_BLOCK.search(s)]
+        if kept:
+            out.append(lead + " ".join(kept))
+        elif out and not out[-1].strip():
+            out.pop()  # the paragraph that went leaves one blank line, not two
+    result = "\n".join(out)
+    return result if result.strip() else text
 
 
 def drop_prompt_lines(text: str) -> str:

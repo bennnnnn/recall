@@ -201,20 +201,28 @@ async def test_a_physics_problem_asking_to_see_nothing_gets_the_scene_contract(
     from app.services.subjects.registry import subject_adapter
 
     line = "Two masses of 3 kg and 5 kg hang over a pulley. Find (a) the acceleration."
+    # With teaching figures off: with them on, physics' figure read draws the setup beside
+    # the reply, and the reply is asked for none (below).
+    replies = _settings(teaching_figures_enabled=False)
     begin_turn()
     unread = _ctx(line)
     await ask_for_a_drawing(
-        unread, _settings(), _decision(subject="physics", picture="none"), _deadline()
+        unread, replies, _decision(subject="physics", picture="none"), _deadline()
     )
     assert unread.drawing is None
     await read_off_loop(subject_adapter("physics").reads, line, timeout=5.0)
     ctx = _ctx(line)
-    await ask_for_a_drawing(
-        ctx, _settings(), _decision(subject="physics", picture="none"), _deadline()
-    )
+    await ask_for_a_drawing(ctx, replies, _decision(subject="physics", picture="none"), _deadline())
     # The setup's scene only: a field's picture is for a message that asks to see one.
     setup = f"{SCENE_DRAW_CONTRACT}\n{DESCRIBED_PICTURE_SPEECH}"
     assert ctx.drawing is not None and ctx.prompt_messages[-2]["content"] == setup
+    # Teaching figures on: the reply describes nothing; the figure read draws the setup.
+    read = _ctx(line)
+    before = list(read.prompt_messages)
+    await ask_for_a_drawing(
+        read, _settings(), _decision(subject="physics", picture="none"), _deadline()
+    )
+    assert read.drawing is None and read.prompt_messages == before
 
 
 @pytest.mark.parametrize("line", ["What is inertia?", "Why does a ball fall?"])
@@ -454,9 +462,12 @@ async def test_a_late_read_that_asks_to_see_nothing_keeps_a_setup_scene() -> Non
     line = "A ball is thrown at 10 m/s at 45°. Find its range."
     scene = drawing_turn.ReplyDrawing(asked="words", subject="physics")
     setup = _ctx(line, live_read=_read(subject="physics", picture="none"))
-    assert drawing_turn._still_wanted(setup, scene)
+    replies = _settings(teaching_figures_enabled=False)
+    assert drawing_turn._still_wanted(setup, scene, replies)
     other = _ctx(line, live_read=_read(subject="maths", picture="none"))
-    assert not drawing_turn._still_wanted(other, scene)
+    assert not drawing_turn._still_wanted(other, scene, replies)
+    # The figure read draws a setup the student did not ask for; the reply's goes.
+    assert not drawing_turn._still_wanted(setup, scene, _settings())
 
 
 async def test_a_read_that_asks_for_no_picture_draws_no_field(
@@ -476,5 +487,7 @@ async def test_a_read_that_asks_for_no_picture_draws_no_field(
     assert not list(iter_closed_fences(text, "simulation"))
     idle = _ctx(line, live_read=_read(subject="physics", picture="none", work=False))
     assert not drawing_turn._still_wanted(
-        idle, drawing_turn.ReplyDrawing(asked="words", subject="physics")
+        idle,
+        drawing_turn.ReplyDrawing(asked="words", subject="physics"),
+        _settings(teaching_figures_enabled=False),
     )
