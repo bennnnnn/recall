@@ -1,9 +1,10 @@
 /**
- * "By continuing, you agree to the Terms and Privacy Policy", with the two names as links
- * in the sentence. It is one translated string whose links are marked `<terms>…</terms>`
- * and `<privacy>…</privacy>`, so each language keeps its own word order; the pieces wrap
- * as one centred line, and each link is a 44pt target. The sign-in tap below it also
- * records the account's AI-data consent (`features/auth/api.ts`).
+ * "By continuing, you agree that your messages, files and voice are answered by outside AI
+ * and search services, such as OpenAI and Anthropic through OpenRouter, and to the Terms
+ * and Privacy Policy", with the two names as links in the sentence. It is one translated
+ * string whose links are marked `<terms>…</terms>` and `<privacy>…</privacy>`, so each
+ * language keeps its own word order; the pieces wrap centred, and each link is a 44pt
+ * target. The sign-in tap above it is the account's AI-data consent (`features/auth/api.ts`).
  */
 import {
   Pressable,

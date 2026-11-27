@@ -1,3 +1,4 @@
+import { apiPath, isRefusedApiPath } from "@/lib/api/path";
 import { getApiUrl } from "@/lib/config";
 
 /** Only the configured API origin and base path may receive Recall credentials. */
@@ -35,7 +36,9 @@ export function resolveAttachmentUri(options: {
   if (options.localUri) return options.localUri;
   let uri: string | null = null;
   if (options.attachmentId) {
-    uri = `${getApiUrl().replace(/\/+$/, "")}/attachments/${options.attachmentId}/file`;
+    // The id is one segment; one that cannot be (`..`) names no file.
+    const file = apiPath`/attachments/${options.attachmentId}/file`;
+    if (!isRefusedApiPath(file)) uri = `${getApiUrl().replace(/\/+$/, "")}${file}`;
   } else {
     const path = options.path?.trim();
     if (!path) return null;

@@ -176,3 +176,15 @@ def test_sign_in_route_passes_the_agreement_on(
     path: str, body: dict[str, Any], service_fn: str, flag: dict[str, bool], agreed: bool
 ) -> None:
     assert _route_kwargs(path, {**body, **flag}, service_fn)["ai_data_consent"] is agreed
+
+
+@pytest.mark.parametrize(("path", "body", "service_fn"), _ROUTES)
+@pytest.mark.parametrize(
+    ("sent", "passed"), [({"locale": "fr"}, "fr"), ({"locale": " ES "}, "es"), ({}, None)]
+)
+def test_sign_in_route_passes_the_page_language_on(
+    path: str, body: dict[str, Any], service_fn: str, sent: dict[str, str], passed: str | None
+) -> None:
+    """A new account starts in the language its sign-in page was shown in (the service side
+    is ``test_sign_in_locale.py``); a route that drops it leaves the account in English."""
+    assert _route_kwargs(path, {**body, **sent}, service_fn).get("locale") == passed

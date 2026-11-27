@@ -2,6 +2,7 @@ import { loginWithApple, loginWithDev, loginWithGoogle } from "@/features/auth/a
 import { AccountExistsError, accountExistsProvider } from "@/features/auth/model/accountExists";
 import { SignInRefusedError, signInRefusalKey } from "@/features/auth/model/signInRefusal";
 import { ApiRequestError, fetchWithTimeout } from "@/lib/api/client";
+import { ensureLocale } from "@/lib/i18n";
 
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test" }));
 jest.mock("@/lib/auth", () => ({
@@ -143,6 +144,20 @@ describe("the agreement a sign-in carries", () => {
     await login();
     const [url, init] = jest.mocked(fetchWithTimeout).mock.calls.at(-1) ?? [];
     expect(url).toBe(`https://api.test${path}`);
-    expect(JSON.parse(String(init?.body))).toMatchObject({ ai_data_consent: true });
+    expect(JSON.parse(String(init?.body))).toMatchObject({ ai_data_consent: true, locale: "en" });
+  });
+
+  it("sends the language the sign-in page is shown in, so a new account starts in it", async () => {
+    await ensureLocale("fr");
+    try {
+      jest.mocked(fetchWithTimeout).mockResolvedValueOnce(
+        { ok: true, status: 200, json: async () => ({}) } as unknown as Response,
+      );
+      await loginWithDev();
+      const [, init] = jest.mocked(fetchWithTimeout).mock.calls.at(-1) ?? [];
+      expect(JSON.parse(String(init?.body))).toMatchObject({ locale: "fr" });
+    } finally {
+      await ensureLocale("en");
+    }
   });
 });

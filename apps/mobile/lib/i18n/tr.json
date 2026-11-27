@@ -395,7 +395,7 @@
   "gallery.title": "Kütüphane",
   "gallery.use_in_chat": "Sohbette kullan",
   "gallery.viewer_image_a11y": "{{name}}, {{index}}. fotoğraf, toplam {{count}}",
-  "login.agree_line": "Devam ederek <terms>Koşullar</terms>'ı ve <privacy>Gizlilik Politikası</privacy>'nı kabul edersin.",
+  "login.agree_line": "Devam ederek mesajlarının, dosyalarının ve sesinin OpenRouter üzerinden OpenAI ve Anthropic gibi dış yapay zekâ ve arama hizmetlerince yanıtlanmasını, ayrıca <terms>Koşullar</terms>'ı ve <privacy>Gizlilik Politikası</privacy>'nı kabul edersin.",
   "login.apple": "Apple ile devam et",
   "login.dev": "Dev kullanıcı olarak devam et",
   "login.dev_expo_hint": "Google ile giriş için geliştirme derlemesi gerekir. Dev girişi Expo Go'da çalışır.",

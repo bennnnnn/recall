@@ -1679,3 +1679,57 @@ it("checks the connection once for a socket that meets an outage, and shows the 
   }
   if (process.env.CENSUS) console.log(steps.map((s) => `${s.title}\n  ${s.requests.join("\n  ")}`).join("\n"));
 });
+
+/**
+ * A link can carry any text as its chat (`recall://?chatId=..%2Fchats`, which expo-router
+ * reads as `../chats`). Taken as a chat, its tidy on New chat sent DELETE /chats/../chats,
+ * which Android resolves to DELETE /chats: every chat gone; `../memories` every memory
+ * (pre-launch review B1, 2026-11-27). Only a server id opens a chat: the rest open a fresh
+ * one, and no request or file names what the link wrote.
+ */
+const CRAFTED_CHAT_IDS = [
+  "../chats",
+  "../memories",
+  "..%2Fchats",
+  "x%2F..%2F..%2Fchats",
+  "x/../../chats",
+  `${chatId(1)}/../../chats`,
+  "not-a-uuid",
+  "..",
+];
+
+it("opens a fresh chat for a link whose chat is no server id, and deletes nothing", async () => {
+  steps.length = 0;
+  mockSecure.clear();
+  mockFiles.clear();
+  mockSecure.set("recall_session_v1", JSON.stringify({ accessToken: accessToken(NOW_S + 3600), refreshToken: "r" }));
+  mockFiles.set("file:///cache/cached-user.json", JSON.stringify({
+    id: USER_ID, name: "Ann", avatar_url: null, plan: "free", ai_data_consent_at: NOW, locale: "en",
+  }));
+  mockParams = {};
+  const app = await launch();
+  await settle(10_000);
+  const filesBefore = [...mockFiles.keys()].filter((path) => !path.includes("chat-pages/"));
+
+  for (const crafted of CRAFTED_CHAT_IDS) {
+    mark = mockLog.length;
+    mockParams = { chatId: crafted };
+    await app.rerender();
+    await settle(3000);
+    // The fresh chat's composer is there to write in; then New chat, where the tidy ran.
+    expect(app.ui.getByTestId("chat-composer-input")).toBeTruthy();
+    mockParams = {};
+    await app.rerender();
+    await settle(3000);
+    step(`a link to the chat ${crafted}`);
+    const sent = steps[steps.length - 1].sent;
+    expect({ crafted, deletes: sent.filter((r) => r.method === "DELETE").map((r) => r.path) })
+      .toEqual({ crafted, deletes: [] });
+    expect({ crafted, named: sent.filter((r) => r.path.includes("..") || r.path.includes("not-a-uuid")).map((r) => r.path) })
+      .toEqual({ crafted, named: [] });
+  }
+  // No file the link named was read into or written: the account's files are as they were.
+  const filesAfter = [...mockFiles.keys()].filter((path) => !path.includes("chat-pages/"));
+  expect(filesAfter.filter((path) => !filesBefore.includes(path)).filter((path) => path.includes(".."))).toEqual([]);
+  expect([...mockFiles.keys()].filter((path) => path.includes("chat-pages/") && path.includes(".."))).toEqual([]);
+});

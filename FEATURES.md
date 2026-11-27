@@ -1100,7 +1100,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   400 `confirm_required`), then signs out. The rows go in the request; the worker's `storage_sweep` then deletes the
   stored files (every object under the account's prefix) and every Redis key that names
   the user.
-- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English).
+- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, Hindi, Portuguese, Russian, and Turkish (German and Italian were removed 2026-11-20; their users moved to English). Before sign-in the app is in the phone's first language it has (`lib/i18n/deviceLanguage.ts`, English otherwise); the sign-in sends that language and a new account starts in it, while an existing account keeps its own (the cached one before the first frame, then the profile's). Permission prompts are translated too (`app.json` `locales`, `apps/mobile/locales/<lang>.json`).
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Settings → Appearance.
 - ✅ **Local todo reminders** — on a device the server holds no push token for, on-device
@@ -1154,8 +1154,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
 - ✅ **AI data consent** — agreed by signing in: the sign-in page says under its buttons "By
-  continuing, you agree to the Terms and Privacy Policy." with the Terms and Privacy links
-  in it (the user's wording), and every
+  continuing, you agree that your messages, files and voice are answered by outside AI and
+  search services, such as OpenAI and Anthropic through OpenRouter, and to the Terms and
+  Privacy Policy." with the Terms and Privacy links in it (owner approved naming the services
+  there, 2026-11-27; App Store 5.1.2(i)), and every
   Google, Apple and dev sign-in sends `ai_data_consent: true`, so the server stores
   `users.ai_data_consent_at` with the sign-in and a new account opens the chat. An account
   without it (from before this, or signed in by a client that sends no flag) sees one
