@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.readings import begin_turn, keep_for_turn
+from app.core.readings import LIVE_READ, begin_turn, keep_for_turn
 from app.modules.chat.finalize_subjects import strip_text_plots
 from app.services.solving import VerifiedPhysicsBlock
 from app.tests.modules.chat.test_figure_turn import _ctx, _read, _state
@@ -33,7 +33,7 @@ async def test_a_turn_the_read_calls_physics_loses_its_sketch() -> None:
     """A phase diagram the subject readers read as no subject's: the turn's read says it."""
     begin_turn()
     read = _read(subject="physics", picture="diagram")
-    keep_for_turn("live_read", read)
+    keep_for_turn(LIVE_READ, read)
     assert strip_text_plots(_state(_ctx(_LINE, live_read=read), _PIPE)) == _WORDS
 
 
@@ -48,7 +48,7 @@ async def test_a_turn_the_read_calls_physics_loses_its_sketch() -> None:
 async def test_a_sketch_asked_for_or_off_physics_stays(line: str, subject: str) -> None:
     begin_turn()
     read = _read(subject=subject, picture="diagram")
-    keep_for_turn("live_read", read)
+    keep_for_turn(LIVE_READ, read)
     verified = VerifiedPhysicsBlock(text="") if subject == "physics" else None
     ctx = _ctx(line, live_read=read, verified_subject=verified)
     assert strip_text_plots(_state(ctx, _PIPE)) == _PIPE

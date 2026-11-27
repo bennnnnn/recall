@@ -355,6 +355,10 @@ def test_a_box_at_constant_velocity_has_no_lone_friction() -> None:
         "A ball rests on a table. Draw the forces acting on it.",
         # The body named before the "on" of "forces ... on" (review of #2603).
         "Draw the forces when a block rests on a table.",
+        # Moving freely on a smooth table: still weight and normal (review, round 2).
+        "A ball moves along a smooth horizontal table at constant speed. Draw the forces "
+        "acting on it.",
+        "Draw the forces acting on a box of mass 5 kg resting on a table.",
     ],
 )
 def test_a_body_at_rest_on_a_table_keeps_its_picture(text: str) -> None:
@@ -367,7 +371,26 @@ def test_a_body_at_rest_on_a_table_keeps_its_picture(text: str) -> None:
         "A string wound round a cylinder on a rough table is pulled with 6 N. Draw the forces.",
         "A ball rolls along a rough floor. Draw the forces acting on it.",
         "Find the friction and normal forces that act on the ladder resting on the ground.",
+        # The ladder's "mass" is no body of its own (review of #2603, round 2): the base
+        # code drew both as a box on level ground.
+        "Draw the forces acting on a uniform ladder of mass 20 kg resting on rough ground "
+        "against a smooth wall.",
+        "A ladder of mass 15 kg rests on rough ground. Draw the forces that act on the ladder.",
     ],
 )
 def test_a_body_this_file_does_not_draw_gets_no_box(text: str) -> None:
     assert force_picture(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Draw the forces acting on a van moving along a level road at constant speed.",
+        "Draw the forces on the buses as they drive along a level road.",
+        "Draw the forces acting on two cars driving along a level road.",
+    ],
+)
+def test_every_vehicle_word_is_drawn_as_a_vehicle(text: str) -> None:
+    """One vocabulary for bodies and vehicles (review of #2603, round 2): a van got only mg
+    and N, as a box on a surface."""
+    assert _labels(text) == {"mg", "N", "F", "f"}

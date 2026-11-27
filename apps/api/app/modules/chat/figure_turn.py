@@ -23,6 +23,10 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.core.aio import settled_result
 from app.core.config import Settings
+
+# The turn's read is kept for the turn under the one key ``core.readings`` owns (the stream
+# keeps it, every module asks it there).
+from app.core.readings import LIVE_READ
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
@@ -85,10 +89,6 @@ def earlier_user_lines(recent: Sequence[Any] | None, line: str, most: int = _EAR
     if texts and collapse_ws(texts[-1]) == collapse_ws(line):
         texts.pop()
     return list(reversed(texts))[:most]
-
-
-# The turn's read, kept for the turn (``core.readings.keep_for_turn``) by the stream.
-LIVE_READ = "live_read"
 
 
 async def will_draw(settings: Settings) -> bool:

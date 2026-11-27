@@ -225,21 +225,12 @@ class PhysicsFence:
         return without_sketches(text) if physics else text
 
 
-# The turn's read, as the chat keeps it for the turn (``chat.figure_turn.LIVE_READ``).
-_LIVE_READ = "live_read"
-
-
 def _read_as_physics() -> bool:
     """The turn's read, settled, calls the message physics (a phase diagram the subject
-    readers read as no subject's)."""
-    import asyncio
+    readers read as no subject's), asked of the one accessor ``core.readings`` keeps."""
+    from app.core.readings import kept_read_subject
 
-    from app.core.aio import settled_result
-    from app.core.readings import kept_for_turn
-
-    read = kept_for_turn(_LIVE_READ)
-    decision = settled_result(read) if isinstance(read, asyncio.Future) else None
-    return getattr(decision, "subject", None) == "physics"
+    return kept_read_subject() == "physics"
 
 
 def _physics_block(verified: VerifiedSolveBlock | None) -> VerifiedPhysicsBlock | None:

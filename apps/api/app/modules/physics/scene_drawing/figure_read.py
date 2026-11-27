@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -44,7 +43,6 @@ logger = logging.getLogger(__name__)
 _MAX_TOKENS = 500
 _MAX_CHARS = 1500
 _EARLIER_CHARS = 600
-_DIGIT = re.compile(r"\d")
 
 
 class PhysicsPictureRead(BaseModel):
@@ -172,11 +170,13 @@ def normalized(block: dict[str, Any]) -> dict[str, Any]:
 
 
 def problem_text(question: str, earlier: Sequence[str]) -> str:
-    """The text the picture's values are held to: the message, or on a follow-up that states
-    no number ("draw it"), the latest earlier message that does."""
-    if _DIGIT.search(question) or not earlier:
-        return question
-    return next((text for text in reversed(earlier) if _DIGIT.search(text)), question)
+    """The text the picture's values are held to: the message alone, or on a follow-up the
+    problem it follows and every message since, the message last ("A 2 kg box rests on a 30°
+    ramp" then "What if the mass is 5 kg?" holds the box and its slope; review of #2603).
+    ``earlier`` is the problem's messages, oldest first, and empty for a message that stands
+    alone (``chat.figure_turn``)."""
+    lines = [text for text in earlier if text.strip()]
+    return "\n".join([*lines, question]) if lines else question
 
 
 async def draw_physics_figure(

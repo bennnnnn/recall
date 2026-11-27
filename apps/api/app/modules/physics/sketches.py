@@ -45,30 +45,35 @@ def _boxed_art(rows: list[str]) -> bool:
     return len(inked) >= 3 and framed and sum(_drawn_row(row) for row in inked) >= 2
 
 
-# A table drawn in box characters: its borders, and the bars between its cells.
-_BOX_BORDER = frozenset("┌┐└┘├┤┬┴┼─━│┃═║╔╗╚╝╠╣╦╩╬ ")
-_BOX_BAR = "│┃║"
+# A table's frame in any characters: plain ("+---+", "|"), light, heavy, rounded or
+# double box drawing; and the bars between its cells.
+_TABLE_BORDER = frozenset(
+    "+-=:|_ ─━│┃┄┅┆┇┈┉┊┋┌┍┎┏┐┑┒┓└┕┖┗┘┙┚┛├┝┞┟┠┡┢┣┤┥┦┧┨┩┪┫┬┭┮┯┰┱┲┳┴┵┶┷┸┹┺┻┼┽┾┿╀╁╂╃╄╅╆╇╈╉╊╋"
+    "═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬╭╮╯╰"
+)
+_TABLE_BAR = "|│┃║┆┇┊┋"
 
 
-def _box_table(rows: list[str]) -> bool:
-    """A data table drawn in box characters ("┌───┬───┐" over "│ t │ v │"): every row a
-    border or cells between bars, and every row of cells holding a word or a number in two
-    cells or more. A table, never a sketch (review of #2603)."""
+def _framed_table(rows: list[str]) -> bool:
+    """A data table in characters, whatever its frame ("+-------+--------+" over "| A |
+    20 m/s |", "┌───┬───┐" over "│ t │ v │", rounded or heavy): every row a border or cells
+    between bars, two or more of them holding a word or a number. A table, never a sketch
+    or a plot (review of #2603)."""
     inked = [row.strip() for row in rows if row.strip()]
-    cells = [row for row in inked if not set(row) <= _BOX_BORDER]
-    if len(inked) < 3 or not cells:
+    cells = [row for row in inked if not set(row) <= _TABLE_BORDER]
+    if len(inked) < 2 or not cells:
         return False
     for row in cells:
-        if row[0] not in _BOX_BAR or row[-1] not in _BOX_BAR:
+        if row[0] not in _TABLE_BAR or row[-1] not in _TABLE_BAR:
             return False
-        parts = re.split(f"[{_BOX_BAR}]", row)[1:-1]
+        parts = re.split(f"[{re.escape(_TABLE_BAR)}]", row)[1:-1]
         if sum(any(c.isalnum() for c in part) for part in parts) < 2:
             return False
     return True
 
 
 def _sketch(rows: list[str]) -> bool:
-    if _box_table(rows):
+    if _framed_table(rows):
         return False
     inked = [row for row in rows if row.strip()]
     return is_arrow_sketch(rows) or is_text_plot(inked) or _boxed_art(rows)

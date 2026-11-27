@@ -10,10 +10,13 @@ in place of the figure read's picture of that kind (``figure_turn``) and of any 
 Mermaid diagram the reply drew for it; one that does not check is left out, with no note. A reply that was not asked for one, or whose read says
 the message asks to see no maths picture, keeps no block and gets no picture. Nothing here
 raises into a turn.
-Physics describes its pictures the same way: on a physics message no solve drew a picture
-for, the reply gets physics' contract, its setup's scene (``physics.scene_drawing``: a
-projectile, an incline, an Atwood machine, ...) and an electric field's lines
-(``physics.field_lines``), and physics checks and draws what it describes. The field
+Physics describes its pictures the same way: on a physics message that asks to see a picture
+no solve drew, the reply gets physics' contract (its setup's scene, ``physics.scene_drawing``:
+a projectile, an incline, an Atwood machine, ...; an electric field's lines,
+``physics.field_lines``), and physics checks and draws what it describes. A problem that asks
+to see nothing gets its setup from physics' figure read beside the reply (``figure_turn``,
+``physics.scene_drawing.figure_read``); only with teaching figures off is the reply asked to
+describe it (``_setup_of``). The field
 questions of a GCSE set came back as ASCII art (live, 2026-11-16), and 29 of 30 hard
 problems in parts had no picture at all: no solver reads a question in parts.
 """

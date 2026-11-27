@@ -290,6 +290,23 @@ def kept_for_turn(name: str) -> Any:
     return None if memo is None else memo.get((_TURN, name))
 
 
+# The turn's read of the message (chat's ``TurnDecision`` task), kept under this one name:
+# the chat keeps it (``chat.stream_entry``) and every module asks it here.
+LIVE_READ = "live_read"
+
+
+def kept_read_subject() -> str | None:
+    """The subject the turn's read, settled, names ("physics"), or None: no read kept, one
+    still out, one that failed or named none. Nothing is waited for."""
+    read = kept_for_turn(LIVE_READ)
+    if not isinstance(read, asyncio.Future) or not read.done() or read.cancelled():
+        return None
+    if read.exception() is not None:
+        return None
+    subject = getattr(read.result(), "subject", None)
+    return subject if isinstance(subject, str) else None
+
+
 def readings_declined() -> bool:
     """True when this turn's pool read gave up and every reading returns its declined value."""
     memo = _MEMO.get()

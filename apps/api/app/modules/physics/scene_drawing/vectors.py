@@ -70,11 +70,32 @@ Quantity = Literal["velocity", "force", "displacement", "momentum"]
 # A value stated once that two arrows share: "two forces of 10 N each", "each of mass 2 kg".
 _SHARED = re.compile(r"\b(?:each|both|identical)\b", re.IGNORECASE)
 _ANGLE_TOLERANCE = 0.5
-# "the velocity of Nishan relative to Melesse": the asked vector is one body's relative to
-# another, their difference.
+# "the velocity of Nishan relative to Melesse", "A's velocity with respect to B", "the
+# relative velocity of A and B", "the velocity of A as seen by B": the asked vector is one
+# body's relative to another, their difference.
+_RELATIVE = r"(?:relative\s+to|with\s+respect\s+to|as\s+(?:seen|observed|measured)\s+(?:by|from))"
+_NAME = r"(?:the\s+)?(?P<{}>[\w ]{{1,30}}?)"
+_UNTIL = r"(?=\s*(?:[?.,;!:]|$|\b(?:and|if|when|in)\b))"
 _RELATIVE_TO = re.compile(
-    r"\b(?:velocity|speed|displacement|motion)\s+of\s+(?:the\s+)?(?P<one>[\w ]{1,30}?)\s+"
-    r"relative\s+to\s+(?:the\s+)?(?P<other>[\w ]{1,30}?)(?=\s*(?:[?.,;!]|$|\band\b))",
+    r"\b(?:velocity|speed|displacement|motion)\s+of\s+"
+    + _NAME.format("one")
+    + r"\s+"
+    + _RELATIVE
+    + r"\s+"
+    + _NAME.format("other")
+    + _UNTIL
+    + r"|\b"
+    + _NAME.format("one2")
+    + r"'s\s+(?:velocity|speed|motion)\s+"
+    + _RELATIVE
+    + r"\s+"
+    + _NAME.format("other2")
+    + _UNTIL
+    + r"|\brelative\s+(?:velocity|speed)\s+of\s+"
+    + _NAME.format("one3")
+    + r"\s+(?:and|to|with\s+respect\s+to)\s+"
+    + _NAME.format("other3")
+    + _UNTIL,
     re.IGNORECASE,
 )
 # An angle is a direction's own number ("30° above the horizontal"), never a value it
@@ -228,17 +249,24 @@ def _checked(described: _Vectors, question: str) -> list[Arrow] | None:
 
 
 def _asks_a_difference(question: str, arrows: list[Arrow]) -> bool:
-    """The question asks for one arrow's body relative to another arrow's body."""
-    keys = [arrow.key for arrow in arrows if arrow.key]
+    """The question asks for one body's velocity relative to another, and the other is one
+    of the picture's arrows, or the arrows are named too little to tell: then the sum a
+    resultant draws is no answer. A boat "relative to the water" beside a current arrow keeps
+    its resultant: the water is no arrow."""
+    keys = [arrow.key.split() for arrow in arrows if arrow.key]
 
     def drawn(name: str) -> bool:
-        # "Nishan" names the arrow "nishan"; "car A" the arrow "car a"; "A" the arrow "a".
+        # A body is named by its label's last word: "Nishan" is the arrow "Nishan", "A" the
+        # arrow "Car A", "car B" the arrow "B".
         words = name.lower().split()
-        return any(key.split() == words or key in words for key in keys)
+        return bool(words) and any(key[-1] == words[-1] for key in keys)
 
-    return any(
-        drawn(found["one"]) and drawn(found["other"]) for found in _RELATIVE_TO.finditer(question)
-    )
+    for found in _RELATIVE_TO.finditer(question):
+        one = found["one"] or found["one2"] or found["one3"] or ""
+        other = found["other"] or found["other2"] or found["other3"] or ""
+        if len(keys) < len(arrows) or (drawn(one) and drawn(other)):
+            return True
+    return False
 
 
 def _one_body_twice(arrows: list[Arrow]) -> bool:

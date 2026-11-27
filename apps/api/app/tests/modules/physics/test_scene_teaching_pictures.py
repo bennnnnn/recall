@@ -122,6 +122,55 @@ def test_each_force_takes_the_direction_of_its_own_clause() -> None:
     assert _beam(_UPS, flipped) == []
 
 
+def _seesaw(left: str, right: str) -> list[dict[str, Any]]:
+    return [
+        {"forces": [{"size": left, "direction": "down"}]},
+        {"gap": "1.5 m", "pivot": True},
+        {"gap": "x", "forces": [{"size": right, "direction": "down"}]},
+    ]
+
+
+_SEESAWS = [
+    _SEESAW,
+    "On a see-saw a 4 kg mass sits x to the right of the fulcrum while a 3 kg mass sits "
+    "1.5 m to its left. Find x.",
+]
+
+
+@pytest.mark.parametrize("question", _SEESAWS)
+def test_a_see_saw_s_masses_are_held_to_their_sides(question: str) -> None:
+    """Both masses share one clause: each is the mark its nearest distance is measured to,
+    the 3 kg 1.5 m to the left, the 4 kg x to the right; swapped, nothing is drawn (review
+    of #2603, round 2)."""
+    (spec,) = _beam(question, _seesaw("3 kg", "4 kg"))
+    assert [(v.anchor[0] < 0, v.label) for v in spec.vectors if v.role == "force"] == [
+        (True, "3 kg"),
+        (False, "4 kg"),
+    ]
+    assert _beam(question, _seesaw("4 kg", "3 kg")) == []
+
+
+_ENDS = [
+    "A rod 30 cm long has a 6 N force acting downwards at its left end and a 9 N force "
+    "acting upwards at its right end.",
+    "A 9 N force pushes up on the right-hand end of a 30 cm rod, and a 6 N force pulls "
+    "down on its left-hand end.",
+]
+
+
+@pytest.mark.parametrize("question", _ENDS)
+def test_forces_at_the_ends_are_held_to_the_end_they_act_at(question: str) -> None:
+    def marks(left: str, right: str) -> list[dict[str, Any]]:
+        down, up = ("down", "up") if left == "6 N" else ("up", "down")
+        return [
+            {"forces": [{"size": left, "direction": down}]},
+            {"gap": "30 cm", "forces": [{"size": right, "direction": up}]},
+        ]
+
+    assert len(_beam(question, marks("6 N", "9 N"))) == 1
+    assert _beam(question, marks("9 N", "6 N")) == []
+
+
 def test_hung_masses_pull_down_and_an_asked_distance_is_its_letter() -> None:
     marks: list[dict[str, Any]] = [
         {"forces": [{"size": "3 kg", "direction": "down"}]},
@@ -185,6 +234,35 @@ def test_forces_that_do_not_agree_draw_nothing(
     assert _forces(question, *forces, body=body) == []
 
 
+@pytest.mark.parametrize(
+    ("question", "body", "drawn", "refused"),
+    [
+        (
+            "A block is held at rest on a rough 30° slope by a push of 20 N up the slope. "
+            "Find the friction.",
+            "block",
+            ("weight", "normal", "push"),
+            ("weight", "normal", "push", "friction"),
+        ),
+        (
+            "A car goes round a curve on a road banked at 15°. Find its speed.",
+            "car",
+            ("weight", "normal"),
+            ("weight", "normal", "friction"),
+        ),
+    ],
+    ids=["held-by-a-push", "banked-curve"],
+)
+def test_the_forces_agreed_are_the_arrows_drawn(
+    question: str, body: str, drawn: tuple[str, ...], refused: tuple[str, ...]
+) -> None:
+    """Review of #2603, round 2: the server's forces were read from its prose, whose note
+    "(friction acts along the slope ...)" agreed with a read naming friction, and the
+    picture was drawn with no friction arrow. The forces are its arrows."""
+    assert len(_forces(question, *drawn, body=body)) == 1
+    assert _forces(question, *refused, body=body) == []
+
+
 def test_one_body_slowing_down_is_not_drawn_as_two_bodies() -> None:
     question = "A car travelling at 15 m/s due East brakes and slows to 3 m/s due East."
     arrows = [
@@ -204,6 +282,55 @@ def test_a_relative_velocity_gets_no_resultant_of_the_sum() -> None:
         {"name": "A", "size": "6 km/h", "direction": "east"},
         {"name": "B", "size": "8 km/h", "direction": "north"},
     ]
+    block = {
+        "kind": "vectors",
+        "layout": "tail",
+        "quantity": "velocity",
+        "arrows": arrows,
+        "resultant": True,
+    }
+    (spec,) = described_vectors(json.dumps(block), [question])
+    assert len(spec.vectors) == 2 and all(v.role != "result" for v in spec.vectors)
+
+
+@pytest.mark.parametrize(
+    ("question", "names"),
+    [
+        (
+            "Car A travels north at 20 m/s and car B east at 15 m/s. Find the velocity of A "
+            "relative to B.",
+            ("Car A", "Car B"),
+        ),
+        (
+            "Car A travels north at 20 m/s and car B east at 15 m/s. What is the velocity of "
+            "car A with respect to car B?",
+            ("Car A", "Car B"),
+        ),
+        (
+            "Car A travels north at 20 m/s and car B east at 15 m/s. Find A's velocity as seen "
+            "by B.",
+            ("A", "B"),
+        ),
+        (
+            "Car A travels north at 20 m/s and car B east at 15 m/s. Find the relative velocity "
+            "of A and B.",
+            (None, None),
+        ),
+    ],
+    ids=["label", "with-respect-to", "as-seen-by", "unnamed-arrows"],
+)
+def test_every_phrasing_of_a_relative_velocity_drops_the_sum(
+    question: str, names: tuple[str | None, str | None]
+) -> None:
+    """Review of #2603, round 2: "velocity of A relative to B" beside arrows named "Car A"
+    and "Car B" kept the sum, and "with respect to" was not read."""
+    arrows = [
+        {"size": "20 m/s", "direction": "north"},
+        {"size": "15 m/s", "direction": "east"},
+    ]
+    for arrow, name in zip(arrows, names, strict=True):
+        if name:
+            arrow["name"] = name
     block = {
         "kind": "vectors",
         "layout": "tail",
@@ -360,9 +487,16 @@ async def test_no_figure_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch
     assert read is None
 
 
-def test_a_follow_up_with_no_number_is_held_to_the_problem_before_it() -> None:
-    assert figure_read.problem_text("draw it", [_SEESAW]) == _SEESAW
-    assert figure_read.problem_text(_BAR, [_SEESAW]) == _BAR
+def test_a_follow_up_is_held_to_the_whole_problem() -> None:
+    """ "What if the mass is 5 kg?" after a box on a 30° ramp states a number of its own, yet
+    its picture is still of the box on the ramp (review of #2603, round 2)."""
+    problem = "A 2 kg box rests on a 30° ramp. Find the friction."
+    follow = "What if the mass is 5 kg?"
+    assert figure_read.problem_text(follow, [problem]) == f"{problem}\n{follow}"
+    assert figure_read.problem_text("draw it", [_SEESAW]) == f"{_SEESAW}\ndraw it"
+    assert figure_read.problem_text(_BAR, []) == _BAR
+    (spec,) = _forces(f"{problem}\n{follow}", "weight", "normal", "friction", body="box")
+    assert spec.incline_deg == 30.0
 
 
 def test_the_teaching_read_offers_no_field_and_the_asked_one_does() -> None:

@@ -50,6 +50,8 @@ _SENTENCE_END = re.compile(r"[.;?!](?!\d)")
 # Where a force's clause ends: a stop or a comma, never "and" ("B = 10 N downwards and C =
 # 10 N upwards both act at point X" is one clause of X's).
 _CLAUSE_STOP = re.compile(r"[.;?!,](?!\d)")
+# A force's own part of its clause: up to a stop, a comma or an "and".
+_PART_STOP = re.compile(r"[.;?!,](?!\d)|\band\b", re.IGNORECASE)
 # A value written straight after "the" names one stated elsewhere ("the 8 N force").
 _THE = re.compile(r"\bthe[ \t]+$", re.IGNORECASE)
 # Where a clause of one sentence ends: a comma or "and" between two forces.
@@ -243,44 +245,92 @@ def _token(letter: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![\w']){re.escape(letter)}(?![\w'])")
 
 
-# What names a bar's end, and its pivot, in a question's words.
-_END = re.compile(r"\bends?\b", re.IGNORECASE)
+# What names a bar's ends, its pivot, and the side a distance is measured to.
+_LEFT_END = re.compile(r"\bleft(?:[\s-]hand)?(?:[\s-]most)?\s+end\b", re.IGNORECASE)
+_RIGHT_END = re.compile(r"\bright(?:[\s-]hand)?(?:[\s-]most)?\s+end\b", re.IGNORECASE)
 _PIVOT = re.compile(r"\b(?:pivot|balance\s+point|axis|fulcrum|hinge)\b", re.IGNORECASE)
+# "2 m to the left of the pivot", "1.5 m to its left", "10 cm right of P": the side of the
+# gap the measured thing is on, read just after the distance.
+_SIDE = re.compile(
+    r"^[\w\s]{0,20}?\b(?:to\s+(?:the|its|their)\s+|on\s+the\s+)?(left|right)\b", re.IGNORECASE
+)
+_SIDE_REACH = 30
+# A length that is the whole bar's: "30 cm long", "45 cm in length".
+_WHOLE = re.compile(r"\s*(?:[a-zμ]{1,3}\s+)?(?:long\b|in\s+length\b)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
 class _Ties:
-    """What ties a force to its mark in the question's words: the mark's letter, its own
-    distance or the gap after it, "end" for an end of the bar, the pivot's name for the
-    pivot. A force is held to its mark when its own clause holds one of them: "an 8 N force
-    acts downwards 10 cm to the right of P" is the 8 N at the mark 10 cm on, never at the
-    left end, so a picture with two forces swapped draws nothing (review of #2603)."""
+    """What ties a force to its mark in the question's words, and to which mark.
+
+    The evidence in a clause is each mark's letter, "left end" (the first mark) and "right
+    end" (the last), and each distance the bar is laid out by, given to the mark on the side
+    it is measured to: "a 3 kg mass 1.5 m to the left of the pivot" gives the 1.5 m to the
+    mark left of the pivot, "x to the right" the one right of it; a distance with no side is
+    its own mark's. A force is held to its mark when the evidence nearest it in its clause is
+    that mark's: so two forces swapped, the masses of a see-saw swapped or the gaps swapped
+    draw nothing (review of #2603). The pivot's name ties only a force at the pivot, and only
+    when nothing else in its clause does."""
 
     text: str
     marks: Sequence[_Mark]
     lengths: Sequence[_Length]
     index: int
 
+    def _evidence(self, begin: int, finish: int) -> list[tuple[int, int, int]]:
+        """(start, end, mark) of every tie in the clause between ``begin`` and ``finish``."""
+        found: list[tuple[int, int, int]] = []
+        for at, mark in enumerate(self.marks):
+            name = (mark.name or "").strip()
+            if name and _LETTER.fullmatch(name):
+                found += [(m.start(), m.end(), at) for m in _token(name).finditer(self.text)]
+        last = len(self.marks) - 1
+        found += [(m.start(), m.end(), 0) for m in _LEFT_END.finditer(self.text)]
+        found += [(m.start(), m.end(), last) for m in _RIGHT_END.finditer(self.text)]
+        for at, length in enumerate(self.lengths, start=1):
+            spans = [length.span] if length.si is not None else _letter_spans(self.text, length)
+            for span in spans:
+                # "a rod 30 cm long": the whole bar's length is no mark's.
+                if span is not None and not _WHOLE.match(self.text, span[1]):
+                    found.append((*span, self._measured(at, span[1])))
+        return [item for item in found if begin <= item[0] < finish]
+
+    def _measured(self, at: int, after: int) -> int:
+        """The mark a distance belongs to: mark ``at`` (whose distance it is), or the mark
+        before it when the words say the measured thing is to the left."""
+        side = _SIDE.match(self.text[after : after + _SIDE_REACH])
+        gap = self.marks[at].at is None
+        if side is not None and gap and side.group(1).lower() == "left":
+            return at - 1
+        return at
+
     def hold(self, start: int, end: int) -> bool:
-        begin = max((m.end() for m in _CLAUSE_STOP.finditer(self.text, 0, start)), default=0)
-        stop = _CLAUSE_STOP.search(self.text, end)
-        finish = stop.start() if stop else len(self.text)
-        clause = self.text[begin:finish]
-        mark = self.marks[self.index]
-        name = (mark.name or "").strip()
-        if name and _LETTER.fullmatch(name) and _token(name).search(clause):
-            return True
-        if self.index in (0, len(self.marks) - 1) and _END.search(clause):
-            return True
-        if mark.pivot and _PIVOT.search(clause):
-            return True
-        # Its own distance, and the gap after it (the 2 m from a mass to the pivot beside it).
-        # ``lengths[k]`` is the distance of mark k + 1.
-        spans = [self.lengths[self.index - 1].span] if self.index else []
-        after = self.index + 1
-        if after < len(self.marks) and self.marks[after].at is None:
-            spans.append(self.lengths[self.index].span)
-        return any(span is not None and begin <= span[0] < finish for span in spans)
+        # Its own part of the sentence first ("a 6 N force at its left end and a 9 N force at
+        # its right end": each between its "and"s), else the clause between commas ("B = 10
+        # N downwards and C = 10 N upwards both act at point X").
+        evidence: list[tuple[int, int, int]] = []
+        for stops in (_PART_STOP, _CLAUSE_STOP):
+            begin = max((m.end() for m in stops.finditer(self.text, 0, start)), default=0)
+            stop = stops.search(self.text, end)
+            finish = stop.start() if stop else len(self.text)
+            found = self._evidence(begin, finish)
+            evidence = [item for item in found if not start <= item[0] < end]
+            if evidence:
+                break
+        if not evidence:
+            mark = self.marks[self.index]
+            return mark.pivot and _PIVOT.search(self.text, begin, finish) is not None
+        nearest = min(evidence, key=lambda item: max(item[0] - end, start - item[1]))
+        distance = max(nearest[0] - end, start - nearest[1])
+        rivals = {item[2] for item in evidence if max(item[0] - end, start - item[1]) == distance}
+        return rivals == {self.index}
+
+
+def _letter_spans(text: str, length: _Length) -> list[tuple[int, int]]:
+    """Every place the question writes an unknown distance's letter ("a distance x")."""
+    if length.si is not None or not length.label:
+        return []
+    return [m.span() for m in _token(length.label).finditer(text)]
 
 
 def _load(stated: Stated, force: _BeamForce, ties: _Ties) -> _Load | None:

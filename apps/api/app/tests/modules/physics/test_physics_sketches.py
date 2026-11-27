@@ -76,19 +76,26 @@ def test_a_picture_boxed_in_bars_goes_with_the_heading_over_it() -> None:
     assert without_sketches(_PIPE) == "Laminar flow moves in smooth layers.\n"
 
 
-def test_a_table_drawn_in_box_characters_is_no_drawing() -> None:
-    """A t-v table in box characters is data, kept on a physics turn (review of #2603)."""
-    table = (
-        "```text\n"
-        "┌─────┬───────┐\n"
-        "│ t   │ v     │\n"
-        "├─────┼───────┤\n"
-        "│ 0   │ 0     │\n"
-        "│ 2 s │ 4 m/s │\n"
-        "└─────┴───────┘\n"
-        "```\n"
-    )
+@pytest.mark.parametrize(
+    "rows",
+    [
+        ["┌─────┬───────┐", "│ t   │ v     │", "├─────┼───────┤", "│ 0   │ 0     │",
+         "│ 2 s │ 4 m/s │", "└─────┴───────┘"],
+        ["+-------+--------+", "| A     | 20 m/s |", "| B     | 16 m/s |", "+-------+--------+"],
+        ["+-------+--------+", "| car   | v      |", "+=======+========+", "| A     | 20 m/s |",
+         "| B     | 16 m/s |", "+-------+--------+"],
+        ["╭─────┬───────╮", "│ t   │ v     │", "│ 2 s │ 4 m/s │", "╰─────┴───────╯"],
+        ["┏━━━━━┳━━━━━━━┓", "┃ t   ┃ v     ┃", "┃ 2 s ┃ 4 m/s ┃", "┗━━━━━┻━━━━━━━┛"],
+    ],
+    ids=["light-box", "plain-plus", "plain-header", "rounded", "heavy"],
+)  # fmt: skip
+def test_a_data_table_in_characters_is_no_drawing(rows: list[str]) -> None:
+    """A table whose rows hold words or numbers in two cells is data, kept on a physics
+    turn, whatever its frame (review of #2603: a +---+ table of 20 m/s and 16 m/s read as a
+    plot and went)."""
+    table = "```text\n" + "\n".join(rows) + "\n```\n"
     assert without_sketches(table) == table
+    assert without_model_drawings(table) == table
 
 
 def test_a_text_table_with_borders_is_no_drawing() -> None:

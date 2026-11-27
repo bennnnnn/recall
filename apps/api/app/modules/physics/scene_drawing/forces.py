@@ -42,20 +42,39 @@ class _Forces(BaseModel):
     part: str | None = None
 
 
-# The force each symbol of the server's picture stands for, read from what it says it shows
-# ("its weight mg, the normal force N, the pull T and friction f against the motion").
-_SHOWN: tuple[tuple[re.Pattern[str], Force], ...] = (
-    (re.compile(r"\bweights?\b"), "weight"),
-    (re.compile(r"\bnormal\b"), "normal"),
-    (re.compile(r"\bfriction\b"), "friction"),
-    (re.compile(r"\b(?:tension|pull)\b"), "tension"),
-    (re.compile(r"\b(?:push|driving force)\b"), "push"),
-    (re.compile(r"\bair resistance\b"), "drag"),
-)
+# The force each arrow of the server's picture is, by its label or its derived kind: the
+# forces drawn, never the words around them (a held block's "(friction acts along the slope,
+# whichever way keeps the block still)" draws no friction arrow; review of #2603).
+_LABELS: dict[str, Force] = {
+    "mg": "weight",
+    "m₁g": "weight",
+    "m₂g": "weight",
+    "N": "normal",
+    "f": "friction",
+    "T": "tension",
+    "F": "push",
+    "drag": "drag",
+}
+_KINDS: dict[str, Force] = {"gravity": "weight", "normal": "normal", "friction": "friction"}
+# One arrow that is two forces: a vehicle's "friction and air resistance f backward".
+_FRICTION_AND_AIR = "friction and air resistance"
 
 
-def _shown(shows: str) -> set[Force]:
-    return {force for pattern, force in _SHOWN if pattern.search(shows.lower())}
+def _drawn(spec: SimulationBlockSpec) -> set[Force] | None:
+    """The forces the picture draws, or None when an arrow is none the vocabulary names (a
+    picture this check cannot read is drawn by nothing)."""
+    forces: set[Force] = set()
+    for vector in spec.vectors:
+        if vector.role == "motion":
+            continue  # an acceleration, never a force
+        force = _LABELS.get((vector.label or "").strip())
+        if force is None:
+            return None
+        forces.add(force)
+    for arrow in spec.arrows:
+        if arrow in _KINDS:
+            forces.add(_KINDS[arrow])
+    return forces
 
 
 def _names_body(question: str, body: str) -> bool:
@@ -87,7 +106,8 @@ def described_forces(body: str, texts: Sequence[str]) -> list[SimulationBlockSpe
     if picture is None:
         logger.info("described forces not drawn: no situation the server draws")
         return []
-    if not _agree(_shown(picture.shows), set(described.forces), picture.shows):
+    drawn = _drawn(picture.spec)
+    if drawn is None or not _agree(drawn, set(described.forces), picture.shows):
         logger.info("described forces not drawn: the server reads other forces")
         return []
     return [picture.spec]
@@ -103,7 +123,11 @@ def _agree(server: set[Force], read: set[Force], shows: str) -> bool:
     a weight or a normal force, or air resistance drawn in one arrow with friction ("friction
     and air resistance f backward"). A force only the server reads (friction on a ball "held"
     on a slope, then let go) is a disagreement, and draws nothing."""
+    # A read that names air resistance beside friction agrees with the vehicle's one arrow
+    # that is both.
+    if _FRICTION_AND_AIR in shows and "friction" in server:
+        server = server | {"drag"}
+        if "friction" in read:
+            read = read | {"drag"}
     extra = server - read
-    if "friction and air resistance" in shows and "friction" in read:
-        extra -= {"drag"}
     return read <= server and extra <= _ALWAYS

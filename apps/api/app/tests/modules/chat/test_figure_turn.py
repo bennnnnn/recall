@@ -566,7 +566,7 @@ async def test_the_read_alone_says_a_line_asks_to_see_what_the_chat_is_about(
     readings.begin_turn()
     decision = TurnDecision.model_validate({"live": False, "think": False, **fields})
     read = asyncio.ensure_future(_answered(decision))
-    readings.keep_for_turn(figure_turn.LIVE_READ, read)
+    readings.keep_for_turn(readings.LIVE_READ, read)
     assert await figure_turn.read_shows_it(_settings()) is shows
 
 
@@ -771,14 +771,14 @@ async def test_the_prep_leaves_a_shape_to_the_figure_only_when_the_read_wants_on
     async def empty() -> None:
         return None
 
-    readings.keep_for_turn(figure_turn.LIVE_READ, asyncio.ensure_future(empty()))
+    readings.keep_for_turn(readings.LIVE_READ, asyncio.ensure_future(empty()))
     assert not await figure_turn.will_draw(settings)
 
     async def late() -> None:
         await asyncio.sleep(5)
 
     task = asyncio.ensure_future(late())
-    readings.keep_for_turn(figure_turn.LIVE_READ, task)
+    readings.keep_for_turn(readings.LIVE_READ, task)
     assert not await figure_turn.will_draw(settings)
     task.cancel()
 
@@ -792,6 +792,6 @@ async def test_no_teaching_figure_is_wanted_with_teaching_figures_off() -> None:
         {"live": False, "think": False, "subject": "maths", "picture": "none", "follow": "draw"}
     )
     read = asyncio.ensure_future(_answered(decision))
-    readings.keep_for_turn(figure_turn.LIVE_READ, read)
+    readings.keep_for_turn(readings.LIVE_READ, read)
     assert await figure_turn.will_draw(_settings())
     assert not await figure_turn.will_draw(_settings(teaching_figures_enabled=False))
