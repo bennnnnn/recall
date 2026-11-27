@@ -1,5 +1,5 @@
 {
-  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula, closed on its line, or as a $$ that ends a sentence's line, closed by a $$ that starts a line before a blank line; a $$ alone on its line, or with TeX after it, opens a block only its closer ends (a line inside it like |x| < 5 or - 3x &= 2 is maths), while one with words after it or in a list item reads as prose, which a list item or table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts) read every case with the reader, convertBlockMath and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines and the LaTeX check.",
+  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula, or as a padded $$ x = 1 $$ whose text holds a maths mark (= < > ^ _ \\ |) and at most one word, closed on its line, or as a $$ that ends a sentence's line, closed by a $$ that starts a line before a blank line; a $$ alone on its line, or with TeX after it, opens a block only its closer ends (a line inside it like |x| < 5 or - 3x &= 2 is maths), while one with words after it or in a list item reads as prose, which a list item or table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts) read every case with the reader, convertBlockMath and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines and the LaTeX check.",
   "cases": [
     {
       "id": "price-range",
@@ -233,6 +233,32 @@
     {
       "id": "line-final-prices-in-a-paragraph",
       "text": "Nopa – $$\nZuni – $$\n\nBoth take bookings.",
+      "display": []
+    },
+    {
+      "id": "padded-midline-formula",
+      "text": "So $$ x = 1 + 1 = 2 $$ and then we stop.",
+      "display": [
+        "x = 1 + 1 = 2"
+      ]
+    },
+    {
+      "id": "padded-midline-abs-value",
+      "text": "A single block holds every step: $$ |x - 3| < 5 $$. Then we split it.",
+      "display": [
+        "|x - 3| < 5"
+      ]
+    },
+    {
+      "id": "padded-midline-aligned",
+      "text": "Every step: $$ \\begin{aligned} -5 &< x - 3 < 5 \\\\ -2 &< x < 8 \\end{aligned} $$.",
+      "display": [
+        "\\begin{aligned} -5 &< x - 3 < 5 \\\\ -2 &< x < 8 \\end{aligned}"
+      ]
+    },
+    {
+      "id": "padded-price-legend",
+      "text": "Nopa – $$ = moderate, and Zuni – $$ = pricey.",
       "display": []
     }
   ]

@@ -39,6 +39,8 @@ export type DisplayCloser = "$$" | "$$ " | "$$\n" | "\\]" | null;
 const FORMULA_CHAR_RE = /[A-Za-z0-9\\]/;
 /** Text after an opening `$$` that is TeX, not words. */
 const TEX_RE = /[\\^_{}]/;
+/** A mark only maths writes: a relation, a script, a command, a bar. */
+const MATH_MARK_RE = /[=<>^_\\|]/;
 
 /** Awaiting a `$$` closer, of any kind. */
 function awaitsDollars(closer: DisplayCloser): boolean {
@@ -105,12 +107,24 @@ function bracketedTier(line: string, start: number, end: number): boolean {
   return line[before] === "(" && line[after] === ")";
 }
 
+/** Words of three letters or more, TeX commands aside: "a night, and suites" holds two. */
+function proseWords(text: string): number {
+  return (text.replace(/\\[A-Za-z]+(?:\{[A-Za-z*]*\})?/g, " ").match(/[A-Za-z]{3,}/g) ?? []).length;
+}
+
+/** A padded mid-line pair's text that is a formula: a maths mark, and words at most one. */
+function paddedFormula(body: string): boolean {
+  return MATH_MARK_RE.test(body) && proseWords(body) < 2;
+}
+
 /**
- * The closer of a `$$x$$` pair whose opener ends at `from`, on the same line: the next
- * run of exactly two, right after the formula. Null when the line holds none.
+ * The closer of a mid-line pair whose opener ends at `from`, on the same line: the next run
+ * of exactly two. Tight (`$$x$$`), any formula; padded (`$$ x = 1 $$`), only one that reads
+ * as maths, not words ("Rooms are $$ a night, and suites $$ more."). Null when none closes.
  */
 function tightCloser(line: string, from: number, table: boolean): number | null {
-  if (from >= line.length || /\s/.test(line[from]!) || line[from] === "$") return null;
+  if (from >= line.length || line[from] === "$") return null;
+  const padded = /\s/.test(line[from]!);
   let slashes = 0;
   for (let i = from; i < line.length; ) {
     if (line[i] === "$" && slashes % 2 === 0) {
@@ -123,7 +137,8 @@ function tightCloser(line: string, from: number, table: boolean): number | null 
         continue;
       }
       const body = line.slice(from, i);
-      if (/\s$/.test(body) || !FORMULA_CHAR_RE.test(body) || bracketedTier(line, i, end)) return null;
+      if (!FORMULA_CHAR_RE.test(body) || bracketedTier(line, i, end)) return null;
+      if (padded ? !paddedFormula(body) : /\s$/.test(body)) return null;
       if (table && body.includes("|")) return null;
       return i;
     }
@@ -303,7 +318,8 @@ export function displayDollarsMayOpen(text: string, start: number): boolean {
   if (end === text.length) return end - start <= 2;
   if (end - start !== 2) return false;
   if (readFormulaAt(text, start).open) return true;
-  // A `$$x` on the line still being written may find its closer.
+  // A `$$x` on the line still being written may find its closer. A padded `$$ x = 1 $$`
+  // waits for nothing: it shows as typed until its closer comes, so a price never holds the line.
   return text.indexOf("\n", end) < 0 && FORMULA_CHAR_RE.test(text[end]!) && !readLineStart(lineBefore(text, start));
 }
 

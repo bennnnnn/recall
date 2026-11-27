@@ -45,6 +45,10 @@ _DOLLARS = frozenset({"$$", "$$ ", "$$\n"})
 _FORMULA_CHAR = re.compile(r"[A-Za-z0-9\\]")
 # Text after an opening ``$$`` that is TeX, not words.
 _TEX = re.compile(r"[\\^_{}]")
+# A mark only maths writes: a relation, a script, a command, a bar.
+_MATH_MARK = re.compile(r"[=<>^_\\|]")
+_COMMAND = re.compile(r"\\[A-Za-z]+(?:\{[A-Za-z*]*\})?")
+_WORD = re.compile(r"[A-Za-z]{3,}")
 # What the scan stops at: a dollar, a backslash, or a backtick that may open code.
 _MARK = re.compile(r"[$\\`]")
 _DOLLAR_OR_SLASH = re.compile(r"[$\\]")
@@ -112,10 +116,25 @@ def _bracketed_tier(line: str, start: int, end: int) -> bool:
     return before >= 0 and line[before] == "(" and after < len(line) and line[after] == ")"
 
 
+def _prose_words(text: str) -> int:
+    """Words of three letters or more, TeX commands aside: "a night, and suites" holds two."""
+    return len(_WORD.findall(_COMMAND.sub(" ", text)))
+
+
+def _padded_formula(body: str) -> bool:
+    """A padded mid-line pair's text that is a formula: a maths mark, and words at most one."""
+    return _MATH_MARK.search(body) is not None and _prose_words(body) < 2
+
+
 def _tight_closer(line: str, start: int, table: bool) -> int | None:
-    """The closer of a ``$$x$$`` pair whose opener ends at ``start``, on the same line."""
-    if start >= len(line) or line[start].isspace() or line[start] == "$":
+    """The closer of a mid-line pair whose opener ends at ``start``, on the same line.
+
+    Tight (``$$x$$``), any formula; padded (``$$ x = 1 $$``), only one that reads as maths,
+    not words ("Rooms are $$ a night, and suites $$ more.").
+    """
+    if start >= len(line) or line[start] == "$":
         return None
+    padded = line[start].isspace()
     index = start
     slashes = 0
     while (found := _DOLLAR_OR_SLASH.search(line, index)) is not None:
@@ -138,7 +157,9 @@ def _tight_closer(line: str, start: int, table: bool) -> int | None:
             index, slashes = end, 0
             continue
         body = line[start:at]
-        if body[-1:].isspace() or not _FORMULA_CHAR.search(body) or _bracketed_tier(line, at, end):
+        if not _FORMULA_CHAR.search(body) or _bracketed_tier(line, at, end):
+            return None
+        if (not _padded_formula(body)) if padded else body[-1:].isspace():
             return None
         if table and "|" in body:
             return None
