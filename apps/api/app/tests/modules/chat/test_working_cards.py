@@ -311,3 +311,11 @@ def test_check_working_holds_a_vector_size_and_drops_an_unbacked_sense() -> None
     text = check_working(cast(FinalizeState, state))
     assert "(clockwise)" not in text
     assert "12.55\\,\\mathrm{m/s}" in text
+
+
+def test_a_size_half_a_percent_off_is_no_rounding() -> None:
+    """u4-11 in round 2 of #2604: 12.60 m/s for components of size 12.546 stood."""
+    from app.modules.chat.working_cards import held_vector_sizes
+
+    text = _JUNCTION.replace("12.30", "12.60")
+    assert "$12.55\\,\\mathrm{m/s}$" in held_vector_sizes(text)

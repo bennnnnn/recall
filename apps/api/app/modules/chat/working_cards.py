@@ -365,7 +365,9 @@ def held_vector_sizes(text: str) -> str:
             continue
         size = math.sqrt(sum(component**2 for component in components))
         shown = numbers[count]["number"]
-        if _rounds_to(size, shown) or math.isclose(float(shown), size, rel_tol=0.005):
+        # Within the card's rounding of the size: 12.60 for 12.546 is a slip, not a rounding
+        # (u4-11 again, round 2 of #2604: a 0.5% allowance let it stand).
+        if _rounds_to(size, shown):
             continue
         at = answer.fence.body_start + body.rfind(value) + numbers[count].start()
         if text[at : at + len(shown)] != shown:

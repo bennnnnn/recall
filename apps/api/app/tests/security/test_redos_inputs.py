@@ -329,3 +329,11 @@ def test_a_card_s_label_reads_a_run_of_underscores_once() -> None:
     assert _without_label("_" * N) == "_" * N
     assert _without_label("_" * N + " = 1") == "_" * N + " = 1"  # no name is that long
     assert _without_label("\\vec{v}_{3} = 0.298\\hat{i}") == "0.298\\hat{i}"
+
+
+def test_a_bold_value_reads_a_run_of_spaces_once() -> None:
+    """The slow-regex check on #2604's round 2: a bold value's unit and its spaces."""
+    from app.services.answer_fence import bold_quantity
+
+    assert bold_quantity("**0.0e0" + " " * N) is None
+    assert bold_quantity("**2.03 mm**") == "2.03\\,\\mathrm{mm}"

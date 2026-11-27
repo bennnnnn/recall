@@ -491,7 +491,8 @@ def _boxed_as_answer(text: str) -> str:
 # A value in bold in a sentence: a number and its unit, "**2.03 mm**", "**4.62%**",
 # "**0.24 W**". A direction or a word in bold is no value.
 _BOLD_QUANTITY = re.compile(
-    r"\*\*\s*(?P<number>[-−]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*(?P<unit>[^*\n]*?)\s*\*\*"
+    r"\*\*\s*(?P<number>[-−]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)"
+    r"(?:\s*(?P<unit>[^*\s](?:[^*\n]*[^*\s])?))?\s*\*\*"
 )
 _BOLD = re.compile(r"\*\*[^*\n]+\*\*")
 # The Answer heading a line opens with, its value after it: "**Answer:** The rate is ...".
