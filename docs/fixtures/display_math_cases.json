@@ -1,0 +1,30 @@
+{
+  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); it opens a formula at the start of a line (after its indent, a quote mark or a list marker), which may run on over the lines below, or mid-line as $$x$$ with nothing between the dollars and the formula, closed on its line; a formula never reaches across a list item or a table row, and a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts) read every case with the reader, convertBlockMath and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines and the LaTeX check.",
+  "cases": [
+    {"id": "price-range", "text": "Californian, $$–$$$, open late.", "display": []},
+    {"id": "price-list", "text": "1. **Nopa** – Californian, $$$.\n2. **Zuni** – $$.\n3. **Tartine** – bakery, $$.\n\nAll three take bookings.", "display": []},
+    {"id": "price-legend-items", "text": "- $$ = moderate\n- $$$ = pricey\n- $$ = for two", "display": []},
+    {"id": "price-tier-brackets", "text": "Nopa ($$) and Zuni ($$) are both open.", "display": []},
+    {"id": "price-padded-midline", "text": "Rooms are $$ a night, and suites $$ more.", "display": []},
+    {"id": "price-punctuation-pair", "text": "Expect $$-$$ at most places.", "display": []},
+    {"id": "price-table", "text": "| Place | Price |\n| --- | --- |\n| Nopa | $$ |\n| Zuni | $$$ |", "display": []},
+    {"id": "price-table-cells", "text": "| Nopa | $$ | open | $$ |", "display": []},
+    {"id": "four-dollars", "text": "$$$$ is the top tier.", "display": []},
+    {"id": "shell-pid-code", "text": "Run `echo $$` and then `kill $$` to stop it.", "display": []},
+    {"id": "escaped-dollars", "text": "It costs \\$$5 or \\$$10 a month.", "display": []},
+    {"id": "tight-inline", "text": "The area is $$\\pi r^2$$ for a circle.", "display": ["\\pi r^2"]},
+    {"id": "two-tight-pairs", "text": "$$a$$ and $$b$$ are equal.", "display": ["a", "b"]},
+    {"id": "line-start-one-line", "text": "$$x = 1$$", "display": ["x = 1"]},
+    {"id": "line-start-padded", "text": "$$ x^2 + 1 = 5 $$", "display": ["x^2 + 1 = 5"]},
+    {"id": "line-start-block", "text": "We get:\n\n$$\nx = \\frac{1}{2}\n$$\n\nso x is a half.", "display": ["x = \\frac{1}{2}"]},
+    {"id": "line-start-aligned", "text": "$$\\begin{aligned}\na &= 1 \\\\\nb &= 2\n\\end{aligned}$$", "display": ["\\begin{aligned}\na &= 1 \\\\\nb &= 2\n\\end{aligned}"]},
+    {"id": "list-item-indented", "text": "1. Solve for x:\n   $$x = 2$$\n2. Check it.", "display": ["x = 2"]},
+    {"id": "list-item-marker", "text": "- $$a^2 + b^2 = c^2$$\n- the sides of a right triangle", "display": ["a^2 + b^2 = c^2"]},
+    {"id": "blockquote", "text": "> $$E = mc^2$$", "display": ["E = mc^2"]},
+    {"id": "code-then-formula", "text": "The shell's `$$` is its PID; maths is $$x+1$$ here.", "display": ["x+1"]},
+    {"id": "table-tight-cell", "text": "| Circle | $$\\pi r^2$$ |", "display": ["\\pi r^2"]},
+    {"id": "never-across-list-item", "text": "$$ x = 1\n- an item\n$$", "display": []},
+    {"id": "never-across-table-row", "text": "$$ x = 1\n| a | b |\n$$", "display": []},
+    {"id": "escaped-closer", "text": "$$x = \\$$\ny\n$$", "display": ["x = \\$$\ny"]}
+  ]
+}

@@ -83,7 +83,7 @@ def test_plain_prose_is_copied_without_trying_each_reader(monkeypatch: pytest.Mo
     reader, and the display-maths scan, a character at a time (a 16,000-character reply's
     presentation took 10.7 ms, 5.2 ms now): only a character that may open a token is read,
     and a line with no ``$`` or backslash is not scanned for maths."""
-    from app.modules.chat import inline_boundaries, markdown_regions
+    from app.modules.chat import display_dollars, inline_boundaries
 
     tried: list[str] = []
     real_url = inline_boundaries._read_url
@@ -104,7 +104,7 @@ def test_plain_prose_is_copied_without_trying_each_reader(monkeypatch: pytest.Mo
     # The URL, the bold and the maths are each read; the line of prose before them is not.
     assert tried
     assert all(line.startswith("See ") for line in tried)
-    monkeypatch.setattr(markdown_regions, "read_inline_code_span", no_scan)
+    monkeypatch.setattr(display_dollars, "read_inline_code_span", no_scan)
     assert present_assistant_markdown(f"{prose}`code` here") == f"{prose}`code` here"
 
 

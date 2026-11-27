@@ -571,6 +571,27 @@ $)
     expect(breakMidlineAtxHeadings("### Explanation\n\nHello")).toBe(
       "### Explanation\n\nHello",
     );
+    expect(breakMidlineAtxHeadings("All set. ## Next steps")).toBe("All set.\n\n## Next steps");
+  });
+
+  // B2 (2026-11-27 review): any "# " split the line, so "C# fast" drew a heading.
+  it.each([
+    ["C# and F#", "How do I learn C# fast? I know Java and F# a bit."],
+    ["a sharp key", "The piece is in A# minor. Then G# major."],
+    ["a keypad key", "Then press # to confirm, and # again to repeat."],
+    ["a table cell", "| C# | Games |"],
+    ["a table cell with two hashes", "| Done. ## Next | Later |"],
+    ["inline code", "Write `x = 1  # set x` and run it."],
+    ["inline code holding a heading's shape", "It prints `done. ## Summary` at the end."],
+    ["a list item", "1. C# basics"],
+    ["no sentence before it", "Use the C## operator ## here"],
+  ])("breakMidlineAtxHeadings: leaves %s alone", (_name, line) => {
+    expect(breakMidlineAtxHeadings(line)).toBe(line);
+  });
+
+  it("preprocessMarkdown: a question about C# keeps its words on one line", () => {
+    const text = "How do I learn C# fast? I know Java and F# a bit.";
+    expect(preprocessMarkdown(text)).toBe(text);
   });
 
   it("BUG FIX regression: mergeStrandedColons also merges stranded semicolons", () => {

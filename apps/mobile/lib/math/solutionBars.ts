@@ -1,3 +1,5 @@
+import { displayDollarPairEnd } from "@/lib/markdown/displayDollars";
+
 /** Models sometimes use a bar as OR between alternative assignments.
  * Only complete branches for the same variable establish that meaning;
  * equals signs around an absolute value or set delimiter do not. */
@@ -93,13 +95,17 @@ export function displayMathToInline(text: string): string {
   const n = text.length;
   while (i < n) {
     if (text.startsWith("$$", i)) {
-      const close = text.indexOf("$$", i + 2);
-      if (close < 0) {
-        out += text.slice(i);
-        break;
+      // Read as every reader reads `$$` (displayDollars.ts): "$$–$$$" is a price range.
+      const end = displayDollarPairEnd(text, i);
+      if (end != null) {
+        out += `$${text.slice(i + 2, end - 2).trim()}$`;
+        i = end;
+        continue;
       }
-      out += `$${text.slice(i + 2, close).trim()}$`;
-      i = close + 2;
+      let run = i;
+      while (text[run] === "$") run += 1;
+      out += text.slice(i, run);
+      i = run;
       continue;
     }
     if (text.startsWith("\\[", i)) {

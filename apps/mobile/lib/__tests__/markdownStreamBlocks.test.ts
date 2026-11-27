@@ -65,20 +65,20 @@ describe("advanceStreamBlocks", () => {
     }
   });
 
-  it("cuts a numbered list only before item 11, where its number column is settled", () => {
+  it("cuts a numbered list from item 2: every column up to 99 is two digits wide", () => {
     const items = Array.from(
       { length: 12 },
-      (_, i) => `${i + 1}. ${"item text ".repeat(8).trim()}`,
+      (_, i) => `${i + 1}. ${"item text ".repeat(40).trim()}`,
     ).join("\n\n");
     const prepared = `${items}\n\n${PARA("After the list.")}\n\ntail`;
     const state = advanceStreamBlocks(null, prepared, prepared.length);
 
-    expect(state.chunks).toHaveLength(1);
-    expect(prepared.slice(state.settledText.length).startsWith("11. ")).toBe(true);
+    expect(state.chunks.length).toBeGreaterThan(1);
+    expect(state.chunks[1]!.startsWith("2. ")).toBe(true);
     // The chunk ends inside the list: it is drawn as a list that goes on.
-    expect(state.continued).toEqual([true]);
+    expect(state.continued[0]).toBe(true);
     expect(state.listAfter[0]).toEqual(
-      expect.objectContaining({ marker: ".", next: 11, irregular: false, wide: false }),
+      expect.objectContaining({ marker: ".", next: 2, irregular: false, wide: false }),
     );
   });
 
@@ -228,13 +228,18 @@ describe("advanceStreamBlocks between list items", () => {
     }
   });
 
-  it("never cuts a numbered list whose numbers do not run on, or before item 11", () => {
+  it("never cuts a numbered list whose numbers do not run on", () => {
     const repeated = Array.from({ length: 14 }, () => `1. ${"step words ".repeat(10).trim()}`);
+    const prepared = `${repeated.join("\n")}\n\ntail`;
+    expect(advanceStreamBlocks(null, prepared, prepared.length).chunks).toEqual([]);
+  });
+
+  it("cuts a short numbered list too (#2601's numbered main items)", () => {
     const short = Array.from({ length: 9 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
-    for (const lines of [repeated, short]) {
-      const prepared = `${lines.join("\n")}\n\ntail`;
-      expect(advanceStreamBlocks(null, prepared, prepared.length).chunks).toEqual([]);
-    }
+    const prepared = `${short.join("\n")}\n\ntail`;
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+    expect(state.chunks.length).toBeGreaterThan(0);
+    expect(state.continued.every(Boolean)).toBe(true);
   });
 
   it("does not cut a list after a line markdown may read as part of an item", () => {
@@ -248,17 +253,17 @@ describe("advanceStreamBlocks between list items", () => {
     const lines = Array.from({ length: 14 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
     const full = `${lines.join("\n")}\n\ntail`;
     const upTo = (n: number) => `${lines.slice(0, n).join("\n")}\n`;
-    let state = advanceStreamBlocks(null, upTo(10), upTo(10).length);
+    let state = advanceStreamBlocks(null, upTo(2), upTo(2).length);
     expect(state.chunks).toEqual([]);
-    state = advanceStreamBlocks(state, upTo(13), upTo(13).length);
+    state = advanceStreamBlocks(state, upTo(5), upTo(5).length);
     expect(state.continued).toEqual([true]);
-    expect(upTo(13).slice(state.settledText.length).startsWith("11. ")).toBe(true);
+    expect(upTo(5).slice(state.settledText.length).startsWith("4. ")).toBe(true);
     const final = advanceStreamBlocks(state, full, full.length);
     expect(final.chunks.slice(0, 1)).toEqual(state.chunks);
   });
 
   it("drops a chunk drawn as a list that goes on once the text after it no longer does", () => {
-    const lines = Array.from({ length: 13 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
+    const lines = Array.from({ length: 4 }, (_, i) => `${i + 1}. ${"step words ".repeat(10).trim()}`);
     const streamed = `${lines.join("\n")}\n`;
     const state = advanceStreamBlocks(null, streamed, streamed.length);
     expect(state.continued).toEqual([true]);
@@ -305,7 +310,7 @@ describe("advanceStreamBlocks between list items", () => {
       offset += chunk.length;
       expect(offset > opensAt && offset <= closesAt).toBe(false);
     }
-    expect(state.chunks.some((chunk) => /^1[1-4]\. /.test(chunk))).toBe(true);
+    expect(state.chunks.some((chunk) => /^\d+\. /.test(chunk))).toBe(true);
     // A bullet list goes on across an item's fence: the next bullet is a cut, drawn as a list that goes on.
     const para = "lorem ipsum dolor sit amet ".repeat(14);
     const bullets = [`- a ${para}`, "  ```", "  x", "  ```", `- b ${para}`, `- c ${para}`, "", "Done."].join("\n");
@@ -523,7 +528,14 @@ describe("advanceStreamBlocks between list items", () => {
     );
     const prepared = `Plan:\n\n${phases.join("\n")}\n\nDone.\n\ntail`;
     // `10. ` puts item 10's content at column 4: its `   - detail` (column 3) is not inside it.
-    expect(advanceStreamBlocks(null, prepared, prepared.length).continued.some(Boolean)).toBe(false);
+    // The list runs on to item 10, so a cut before it stands; none lands after it.
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+    const tenAt = prepared.indexOf("10. Phase");
+    let offset = 0;
+    state.chunks.forEach((chunk, index) => {
+      offset += chunk.length;
+      if (state.continued[index]) expect(offset).toBeLessThanOrEqual(tenAt);
+    });
 
     // Indented to the item's content, the detail is inside it and the list may be cut.
     const aligned = prepared.replace(/\n   - detail of phase (\d\d)/g, "\n    - detail of phase $1");

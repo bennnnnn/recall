@@ -186,26 +186,52 @@ export function stripBoldListLabelContinuationColons(content: string): string {
   return out.join("\n");
 }
 
+/** A sentence ends before a glued heading: its mark, then any closing bold, quote or bracket. */
+const SENTENCE_END_RE = /[.!?:][*_)\]"'”’]*$/;
+/** A glued heading: two to six hashes, a space, then its words. */
+const GLUED_HEADING_RE = /^#{2,6}[ \t]+\S/;
+
+/** Where a heading glued onto the sentence before it starts in `line`, from `from`; -1 when none does. */
+function gluedHeadingAt(line: string, from: number): number {
+  for (let i = from; i < line.length; i += 1) {
+    if (line[i] === "`") {
+      // A code span is code: "`# comment`" heads nothing.
+      const end = readInlineCodeSpan(line, i);
+      if (end != null) i = end - 1;
+      continue;
+    }
+    if (line[i] !== "#" || line[i - 1] === "#" || !GLUED_HEADING_RE.test(line.slice(i))) continue;
+    const before = line.slice(0, i).trimEnd();
+    if (before && SENTENCE_END_RE.test(before)) return i;
+  }
+  return -1;
+}
+
 /**
  * Models glue an ATX heading onto the previous sentence
  * (``$y=3x+4$: ### Explanation``). CommonMark only recognizes headings at
  * line start, so the hashes leak as literal ``###``. Break them out.
+ *
+ * Only a heading's own shape is broken out: two hashes or more, after a
+ * sentence has ended, outside code and never on a table row. One `#` is
+ * text ("C#", "F#", "A# minor", "press # to"), and so is "C## code".
  */
 export function breakMidlineAtxHeadings(content: string): string {
   const lines = content.split("\n");
   const fenced = fencedLines(content);
   const out: string[] = [];
   for (const [index, line] of lines.entries()) {
-    if (fenced[index] || !line.includes("#")) {
+    if (fenced[index] || !line.includes("##") || line.trimStart().startsWith("|")) {
       out.push(line);
       continue;
     }
-    const split = line.replace(/([^\n#])[ \t]*(#{1,6}[ \t]+\S)/g, "$1\n\n$2");
-    if (split === line) {
-      out.push(line);
-    } else {
-      out.push(...split.split("\n"));
+    let rest = line;
+    // From 1: hashes at the start of what is left are its own line's heading.
+    for (let at = gluedHeadingAt(rest, 1); at > 0; at = gluedHeadingAt(rest, 1)) {
+      out.push(rest.slice(0, at).trimEnd(), "");
+      rest = rest.slice(at);
     }
+    out.push(rest);
   }
   return out.join("\n");
 }

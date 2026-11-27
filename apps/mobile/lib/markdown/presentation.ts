@@ -11,6 +11,7 @@
 
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
+import { displayDollarPairEnd, displayDollarsMayOpen } from "@/lib/markdown/displayDollars";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { breaksBefore, separateLeadLines } from "@/lib/markdown/leadLines";
@@ -78,14 +79,22 @@ function openMathStart(prose: string): number | null {
         continue;
       }
     }
-    if (prose.startsWith("$$", i)) {
-      if (display) {
-        display = false;
-        openAt = -1;
-      } else if (!inline && !paren && !bracket) {
+    if (prose.startsWith("$$", i) && !inline && !paren && !bracket) {
+      // `$$` as every reader reads it (displayDollars.ts): a closed formula is whole, one
+      // that may still open waits, and a price tier ("$$–$$$", "Cafe – $$.") opens nothing.
+      const end = displayDollarPairEnd(prose, i);
+      if (end == null && displayDollarsMayOpen(prose, i)) {
         display = true;
         openAt = i;
+        break;
       }
+      let next = end ?? i;
+      while (end == null && prose[next] === "$") next += 1;
+      i = next;
+      continue;
+    }
+    if (prose.startsWith("$$", i)) {
+      // Inside another formula: its text.
       i += 2;
       continue;
     }

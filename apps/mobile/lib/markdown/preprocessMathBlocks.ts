@@ -1,8 +1,8 @@
 import { looksLikeMarkdownListProse } from "@/lib/markdown/preprocessNormalize";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { applyOutsideFences, mapClosedFences, readFenceMarker } from "@/lib/fence/scan";
+import { findDisplayDollars } from "@/lib/markdown/displayDollars";
 
-const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
 const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
 /** Michelin / restaurant price tiers: ($), ($$), ($$$), ($$$$) — not LaTeX. */
 const PRICE_TIER_RE = /\(\s*\$+\s*\)/g;
@@ -30,14 +30,24 @@ function shieldPriceTiers(content: string): {
   };
 }
 
+/** Each `$$` formula (read as `displayDollars.ts` reads one) as a maths fence. */
+function fenceDisplayDollars(prose: string): string {
+  const spans = findDisplayDollars(prose);
+  if (spans.length === 0) return prose;
+  let out = "";
+  let last = 0;
+  for (const { start, end } of spans) {
+    out += `${prose.slice(last, start)}\n\`\`\`math\n${prose.slice(start + 2, end - 2).trim()}\n\`\`\`\n`;
+    last = end;
+  }
+  return out + prose.slice(last);
+}
+
 export function convertBlockMath(content: string): string {
   const { text: blockMathInput, restore: restorePriceTiers } = shieldPriceTiers(content);
   const blockMathOut = applyOutsideFences(blockMathInput, (prose) => {
-    BLOCK_MATH_RE.lastIndex = 0;
     BLOCK_MATH_BRACKET_RE.lastIndex = 0;
-    let next = prose.replace(BLOCK_MATH_RE, (_m, latex: string) => {
-      return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
-    });
+    const next = fenceDisplayDollars(prose);
     return next.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
       return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
     });

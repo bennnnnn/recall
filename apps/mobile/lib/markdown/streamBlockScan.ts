@@ -9,6 +9,7 @@ import {
   listItemCut,
   type OpenList,
 } from "@/lib/markdown/streamListCuts";
+import { scanDisplayLine } from "@/lib/markdown/displayDollars";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
 
 /** Group small blocks together so long replies don't spawn hundreds of renderers. */
@@ -45,14 +46,17 @@ function insideItem(list: OpenList | null, line: string): boolean {
   return list != null && CONTINUATION_LINE_RE.test(line) && columnAfterWhitespace(line) >= list.content;
 }
 
-function countDoubleDollar(line: string): number {
-  let count = 0;
-  let idx = 0;
-  while ((idx = line.indexOf("$$", idx)) !== -1) {
-    count += 1;
-    idx += 2;
-  }
-  return count;
+/**
+ * Read `line`'s display dollars as preprocessing reads them (`displayDollars.ts`): whether
+ * a `$$` formula is open after it, and whether the line held a delimiter at all. Code, an
+ * escaped dollar or a price tier ("$$$", "Cafe – $$.") opens nothing.
+ */
+function readDisplayDollars(line: string, open: boolean): { open: boolean; touched: boolean } {
+  let touched = false;
+  const after = scanDisplayLine(line, open ? "$$" : null, false, (kind) => {
+    if (kind !== "drop") touched = true;
+  });
+  return { open: after === "$$", touched };
 }
 
 /** Where the scan stands: inside a fence or `$$` math, and what the last lines allow. */
@@ -123,9 +127,11 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     return true;
   }
 
-  const dollarCount = countDoubleDollar(line);
-  if (dollarCount % 2 === 1) {
-    state.mathOpen = !state.mathOpen;
+  const dollars = readDisplayDollars(line, state.mathOpen);
+  // A list item or table row ended a formula left open: the line is read as itself.
+  if (!dollars.touched) state.mathOpen = dollars.open;
+  if (dollars.touched && dollars.open !== state.mathOpen) {
+    state.mathOpen = dollars.open;
     state.prevLineSafe = !state.mathOpen;
     state.inBlankRun = false;
     state.hasRichBlockSinceChunkStart = true;
@@ -136,7 +142,7 @@ function trackBlockLine(state: ScanState, line: string): boolean {
     state.inBlankRun = false;
     return true;
   }
-  if (dollarCount > 0) {
+  if (dollars.touched) {
     // Even, nonzero count while not already inside an open block: one or
     // more complete, self-contained "$$...$$" spans on a single line (no
     // mathOpen state change) — an odd-count line above already covers the

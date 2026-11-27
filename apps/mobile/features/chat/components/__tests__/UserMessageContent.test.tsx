@@ -222,6 +222,27 @@ describe("UserMessageContent maths before a question mark", () => {
   });
 });
 
+describe("UserMessageContent hashes and dollars (B2, B3: 2026-11-27 review)", () => {
+  it.each([
+    "How do I learn C# fast? I know Java and F# a bit.",
+    "The piece is in A# minor.",
+    "Then press # to confirm.",
+  ])("draws %s as the words typed, with no heading", async (typed) => {
+    const { getByText, queryAllByRole } = await render(
+      <UserMessageContent message={userMessage(typed)} />,
+    );
+    expect(queryAllByRole("header")).toHaveLength(0);
+    expect(getByText(typed)).toBeOnTheScreen();
+  });
+
+  it("keeps a price range as text, not a maths card", async () => {
+    const typed = "Somewhere Californian, $$–$$$, open late?";
+    const { getByText, queryByText } = await render(<UserMessageContent message={userMessage(typed)} />);
+    expect(getByText(typed)).toBeOnTheScreen();
+    expect(queryByText(/^math:/)).toBeNull();
+  });
+});
+
 describe("UserMessageContent", () => {
   it("renders a lone letter as a normal bubble", async () => {
     const { getByText, queryByLabelText } = await render(

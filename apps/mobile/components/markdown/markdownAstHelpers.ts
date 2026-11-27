@@ -81,13 +81,18 @@ const PERIOD_WIDTH = 5;
 /** The column 1–99 fit in at the default text size. */
 const MIN_NUMBER_COLUMN = 29;
 
+/** Every list's column holds two digits: a list of 1–9 draws the one 10–99 does. */
+const MIN_COLUMN_DIGITS = 2;
+
 /**
  * Width of a numbered list's marker column: every item in the list uses the
  * width of its largest number at the reader's text size, so "9." and "10."
- * (and "100.") keep their text on one edge.
+ * (and "100.") keep their text on one edge. Two digits at least, at any text
+ * size: a streaming reply's list cut after its first item (streamListCuts.ts)
+ * draws the column the whole list draws, however many items follow.
  */
 export function numberColumnWidth(largest: number, fontScale: number): number {
-  const digits = String(Math.max(1, Math.floor(largest))).length;
+  const digits = Math.max(MIN_COLUMN_DIGITS, String(Math.max(1, Math.floor(largest))).length);
   const needed =
     Math.ceil((digits * DIGIT_WIDTH + PERIOD_WIDTH) * Math.max(1, fontScale)) +
     2;
