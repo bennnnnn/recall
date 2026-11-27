@@ -7,7 +7,6 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
-from app.modules.todos import write_log
 from app.modules.todos.limits import TodoLimitError, ensure_room_for_open
 
 DEFAULT_TOPIC = "General"
@@ -226,10 +225,7 @@ async def create(
         recurrence_rule=recurrence_rule,
         sort_order=resolved_sort,
     )
-    planned = write_log.planned()
-    if planned is not None:
-        return write_log.plan_create(planned, todo)
-    # Every add goes through here (the list, a chat card's tap): one cap for all of them.
+    # Every add goes through here: one cap for all of them.
     try:
         await ensure_room_for_open(session, user_id)
     except TodoLimitError:
@@ -256,9 +252,9 @@ async def update(
         fields["email_sent_at"] = None
         # Its reminder instant reads when the time was set; no other edit moves it.
         fields["due_set_at"] = datetime.now(UTC)
-        # A new due_at is a time unless the write says otherwise: chat and live talk always
-        # give one, and a cleared date leaves the undated row's flag true. A write that
-        # moves a date alone (a repeat's next day) passes its flag.
+        # A new due_at is a time unless the write says otherwise: a cleared date leaves
+        # the undated row's flag true. A write that moves a date alone (a repeat's next
+        # day) passes its flag.
         fields.setdefault("due_has_time", True)
     changes: dict[str, Any] = {}
     for key, value in fields.items():
@@ -266,9 +262,6 @@ async def update(
             if key == "topic" and isinstance(value, str):
                 value = value.strip() or DEFAULT_TOPIC
             changes[key] = value
-    planned = write_log.planned()
-    if planned is not None:
-        return cast(TodoItem, write_log.plan_update(planned, todo, changes))
     if changes.get("checked") is False and todo.checked:
         # Reopening a completed to-do adds an open one, as a new one does.
         await ensure_room_for_open(session, todo.user_id)
@@ -283,10 +276,6 @@ async def update(
 async def delete_by_id(
     session: AsyncSession, todo_id: UUID, user_id: UUID, *, commit: bool = True
 ) -> bool:
-    planned = write_log.planned()
-    if planned is not None:
-        todo = await get_by_id(session, todo_id, user_id)
-        return write_log.plan_delete(planned, todo_id, todo)
     result = cast(
         CursorResult[Any],
         await session.execute(

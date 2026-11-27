@@ -411,7 +411,6 @@ async def build_prompt_messages(
     lightweight: bool = False,
     rich_context: bool = True,
     advice_memory: bool = False,
-    accepted_offer: bool = False,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     omit_message_ids: set[UUID] | None = None,
@@ -457,7 +456,6 @@ async def build_prompt_messages(
         client_timezone=client_timezone,
         history_rag=plan.history_rag,
         recent_messages=recent_messages,
-        accepted_offer=accepted_offer,
     )
     window, asked_practice = await _window_and_practice(
         chat_id,

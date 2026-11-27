@@ -14,7 +14,7 @@
    ]
   ],
   "reply": "Set for **Friday, November 20 at 7:00 AM** — you'll get a nudge to run through the sheet before the test 🌙\n\nIt's past 5:30 in the morning where you are, so a proper sleep now will do more for you than one more read of the sheet.",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-002",
@@ -31,7 +31,7 @@
    ]
   ],
   "reply": "Done! I'll remind you on the morning of the test to look over the sheet.",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-003",
@@ -48,7 +48,7 @@
    ]
   ],
   "reply": "Saved ✅ You'll get it Friday at 7:00 AM.",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-004",
@@ -65,7 +65,7 @@
    ]
   ],
   "reply": "Perfect, all set for the big day! Good luck 🍀",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-005",
@@ -82,7 +82,7 @@
    ]
   ],
   "reply": "Great — I've got that covered for tomorrow. Keep it up!",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-006",
@@ -99,7 +99,7 @@
    ]
   ],
   "reply": "On your list ✅",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-007",
@@ -116,7 +116,7 @@
    ]
   ],
   "reply": "Sure! What day is your test?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-008",
@@ -218,7 +218,7 @@
    ]
   ],
   "reply": "I'll set the reminder for tomorrow morning so you get started on step 1!",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-014",
@@ -235,7 +235,7 @@
    ]
   ],
   "reply": "Done, it's set for tomorrow at 7 PM. Good work on Lesson 1!",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "ro-015",
@@ -252,6 +252,6 @@
    ]
   ],
   "reply": "Here's one more to try, and I've set the reminder for tomorrow evening.\n\n```quiz\n{\"label\": \"Review\", \"question\": \"How many neutrons does carbon-14 have?\", \"code\": \"\", \"options\": [\"6\", \"8\", \"14\"], \"answer\": 1, \"explanation\": \"14 - 6 = 8.\"}\n```",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  }
 ]

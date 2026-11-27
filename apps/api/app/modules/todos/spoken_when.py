@@ -1,9 +1,8 @@
-"""The one reader of a day and a clock in the user's words.
+"""Whether a message only says when: "6pm", "tomorrow at 6", "in 20 minutes", "ok friday then".
 
-"remind me tomorrow at 6pm to call mom", "remind me tmrw 8am buy injera",
-"reminder: renew my passport, oct 20 at 10am", "set a reminder saturday 11am -
-meet abel". In a new reminder, a clock without am/pm counts only beside a part
-of the day ("tonight at 9", "9 in the morning"); otherwise the app asks when.
+Such a message answers a question about a plan or follows the To-do button, and says nothing
+about the person who wrote it (``is_only_a_when``): memory reading "6pm" on its own wrote
+"starts their day at 18:00", and after the button it asks for the same reminder again.
 
 A bare hour is the evening when it is the whole reply to "when?" or ends a
 change ("make it 7"): "6" and "6:30" are 6 PM and 6:30 PM, and "18" stays
@@ -15,14 +14,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
 from typing import NamedTuple
 
 from app.services.calendar_dates import read_dates
 
 _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
-# The words a day is said as on its own, as ``date_for_day`` reads them.
-DAY_NAMES = frozenset(("today", "tomorrow", *_WEEKDAYS))
 _LEAD = r"\b(?:(?:on|for|by|this|coming)\s+){0,2}"
 _DAY_RE = re.compile(
     _LEAD + r"(?P<next>next\s+)?(?P<day>today|tonight|tomorrow|" + "|".join(_WEEKDAYS) + r")\b",
@@ -46,13 +42,6 @@ _SHORT_DAY_RE = re.compile(
     + r"(?P<next>next\s+)?(?P<day>"
     + "|".join(_SHORT_DAYS)
     + r")\b\.?(?=\s*(?:at\s+|@\s*)?\d)",
-    re.IGNORECASE,
-)
-_REPEAT_RE = re.compile(
-    r"\b(?:every\s*(?P<daily>day|night|morning|evening|afternoon)|(?P<daily2>daily|everyday|nightly)"
-    r"|every\s+(?P<weekly>week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
-    r"|(?P<weekly2>weekly)|every\s+(?P<weekdays>weekday)|(?P<weekdays2>weekdays)"
-    r"|every\s+(?P<monthly>month)|(?P<monthly2>monthly))\b",
     re.IGNORECASE,
 )
 # The words before a date that go with it out of the reminder's text: "on", "by Dec 25".
@@ -106,8 +95,6 @@ class SpokenWhen:
     hour: int | None = None
     minute: int | None = None
     spans: list[tuple[int, int]] = field(default_factory=list)
-    # "in 3 minutes": minutes from now, read only when no day or clock is named.
-    after_minutes: int | None = None
     # "at 6" with no am, pm or part of the day: (hour, minute) on the 12-hour clock. It is
     # not a clock yet, but it is when, not the task: the title leaves it out, and the
     # question that follows asks only which half of the day.
@@ -136,8 +123,8 @@ def _find_after(text: str, found: SpokenWhen) -> None:
         unit = groups["unit"].lower()
         per = next(value for key, value in _UNIT_MINUTES.items() if unit.startswith(key))
         minutes = (count + (0.5 if "and_half" in groups else 0)) * per
+    # "in 3 minutes": read only when no day or clock is named.
     if 1 <= minutes <= _MAX_AFTER_MINUTES:
-        found.after_minutes = round(minutes)
         found.spans.append(match.span())
 
 
@@ -315,80 +302,6 @@ def is_only_a_when(text: str | None) -> bool:
 
 # A when on its own is a few words.
 _MAX_WHEN_REPLY = 60
-
-
-def find_clock(text: str) -> Clock | None:
-    """The first am/pm clock in a change, else a bare hour that ends it.
-
-    "make it 8:00 AM", "move gym to 7pm on friday", and "make it 7", which is 7 PM.
-    An am/pm clock starts a word: "18:30pm" is not 8:30 PM.
-    """
-    for at, char in enumerate(text):
-        if char.isdigit() and (at == 0 or not _in_a_word(text[at - 1])):
-            clock = read_clock(text, at)
-            if clock is not None:
-                return clock
-    body = text.rstrip(" .")
-    start = len(body)
-    while start > 0 and not body[start - 1].isspace():
-        start -= 1
-    bare = bare_hour_as_pm(body[start:])
-    return None if bare is None else Clock(bare[0], bare[1], start, len(body))
-
-
-def _in_a_word(char: str) -> bool:
-    return char.isalnum() or char == "_"
-
-
-def date_for_day(day_name: str, now: datetime) -> date | None:
-    """today, tomorrow, a weekday, "next <weekday>", or "MM-DD" (this year, else next)."""
-    if day_name == "today":
-        return now.date()
-    if day_name == "tomorrow":
-        return now.date() + timedelta(days=1)
-    if len(day_name) == 5 and day_name[2] == "-" and day_name.replace("-", "").isdigit():
-        return _next_date(int(day_name[:2]), int(day_name[3:]), now.date())
-    following = day_name.startswith("next ")
-    try:
-        weekday = _WEEKDAYS.index(day_name.removeprefix("next "))
-    except ValueError:
-        return None
-    delta = (weekday - now.weekday()) % 7
-    # "Next Wednesday" said on a Wednesday is a week away, not today.
-    if following and delta == 0:
-        delta = 7
-    return now.date() + timedelta(days=delta)
-
-
-def _next_date(month: int, day: int, today: date) -> date | None:
-    for year in (today.year, today.year + 1):
-        try:
-            candidate = date(year, month, day)
-        except ValueError:
-            return None
-        if candidate >= today:
-            return candidate
-    return None
-
-
-def due_on_day(day_name: str, hour: int, minute: int, now: datetime) -> datetime | None:
-    """That clock on the named day, in the zone of ``now``, the user's local time."""
-    day = date_for_day(day_name, now)
-    if day is None:
-        return None
-    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=now.tzinfo)
-
-
-def find_repeat(text: str) -> tuple[str, tuple[int, int]] | None:
-    """ "every night" → daily, "every monday" → weekly, with where it was said."""
-    match = _REPEAT_RE.search(text)
-    if match is None:
-        return None
-    groups = match.groupdict()
-    for rule in ("daily", "weekly", "weekdays", "monthly"):
-        if groups.get(rule) or groups.get(f"{rule}2"):
-            return rule, match.span()
-    return None
 
 
 def without_spans(text: str, spans: list[tuple[int, int]]) -> str:

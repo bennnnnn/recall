@@ -76,7 +76,6 @@ def test_the_passes_run_in_one_declared_order() -> None:
     ]
     assert [name for name, *_ in order] == [
         "control_tokens",
-        "drop_cut_reminder_fence",
         "prepare_model_reply",
         "worked_again",
         "answer_labels",
@@ -620,10 +619,10 @@ async def test_a_safety_pass_that_failed_runs_again_on_text_committed_after_it(
 async def test_a_fallback_its_safety_passes_emptied_reaches_done(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def no_reminders(*args: Any) -> str:
-        return str(args[4])
+    async def no_todos(*args: Any) -> str:
+        return str(args[3])
 
-    monkeypatch.setattr(finalize_passes, "apply_reminder_pass", no_reminders)
+    monkeypatch.setattr(finalize_passes, "apply_todo_pass", no_todos)
     monkeypatch.setattr(
         finalize_passes,
         "FINALIZE_PASSES",
@@ -637,7 +636,6 @@ async def test_a_fallback_its_safety_passes_emptied_reaches_done(
 
     text = await finalize_passes.enrich_final_content(
         state.deps,
-        MagicMock(),
         state.settings,
         state.ctx,
         assistant_text=_PLANTED,
@@ -653,10 +651,10 @@ async def test_a_fallback_its_safety_passes_emptied_reaches_done(
 
 @pytest.mark.asyncio
 async def test_a_reply_the_passes_emptied_reaches_done(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def no_reminders(*args: Any) -> str:
-        return str(args[4])
+    async def no_todos(*args: Any) -> str:
+        return str(args[3])
 
-    monkeypatch.setattr(finalize_passes, "apply_reminder_pass", no_reminders)
+    monkeypatch.setattr(finalize_passes, "apply_todo_pass", no_todos)
     monkeypatch.setattr(
         finalize_passes,
         "FINALIZE_PASSES",
@@ -667,7 +665,6 @@ async def test_a_reply_the_passes_emptied_reaches_done(monkeypatch: pytest.Monke
 
     text = await finalize_passes.enrich_final_content(
         state.deps,
-        MagicMock(),
         state.settings,
         state.ctx,
         assistant_text=_PLANTED,

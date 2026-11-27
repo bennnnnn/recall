@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -22,6 +21,7 @@ from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.conversation import chats_repository as chats_repo
 from app.modules.todos import repository as todos_repo
+from app.modules.todos.chat_language import todo_screen_answer
 from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.web_search.formatting import format_sources_fence
 from app.repositories import users as users_repo
@@ -29,7 +29,6 @@ from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VERIFIED_PHYSICS_END, VerifiedPhysicsBlock
 from app.tests.modules.chat.chat_test_support import turn_deps
 
-_CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
 _MERMAID_REPLY = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
 
 
@@ -58,11 +57,9 @@ async def _fake_session() -> Any:
 
 
 def _deps() -> Any:
-    async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
-        return str(kwargs["assistant_text"]), 0
-
     todos = MagicMock()
-    todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
+    todos.read_back = AsyncMock(return_value="Nothing scheduled.")
+    todos.saved_todo_named = AsyncMock(return_value=None)
     math_fence = MagicMock()
     math_fence.check = _passthrough_math
     math_fence.recover = lambda content, _verified: content
@@ -101,7 +98,6 @@ async def _finalize_failed_subject_pass(deps: Any, verified: object, reply: str)
     ctx.verified_subject = verified
     return await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
@@ -175,7 +171,7 @@ async def test_exception_fallback_dispatches_to_physics_owner(
 
 
 @pytest.mark.asyncio
-async def test_reminder_finalization_uses_effective_client_timezone(
+async def test_a_read_back_uses_the_effective_client_timezone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
@@ -183,22 +179,21 @@ async def test_reminder_finalization_uses_effective_client_timezone(
     ctx = _ctx()
     ctx.user.timezone = "UTC"
     ctx.user_timezone = "America/Los_Angeles"
-    ctx.user_message_content = "Remind me tomorrow at 3 PM to submit my application."
+    ctx.user_message_content = "what's on my to-do list?"
 
-    await enrich_final_content(
+    persisted = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
-        assistant_text="I'll help with that.",
+        assistant_text="You have a dentist visit.",
         usage={"input": 1, "output": 2},
         outcome=TurnOutcome(),
         was_cancelled=False,
         should_cancel=None,
     )
 
-    kwargs = deps.todos.materialize_reminder_fences.await_args.kwargs
-    assert kwargs["user_timezone"] == "America/Los_Angeles"
+    assert persisted == "Nothing scheduled."
+    assert deps.todos.read_back.await_args.args[2] == "America/Los_Angeles"
 
 
 @pytest.mark.asyncio
@@ -220,7 +215,6 @@ async def test_search_sources_final_content_matches_persisted_text(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
         assistant_text=prose,
@@ -247,7 +241,6 @@ async def test_a_searched_reply_loses_brackets_crediting_its_sources(
     prose = "Payment history is about **35%** of your score (Experian)."
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
         assistant_text=prose,
@@ -267,7 +260,6 @@ async def test_unchanged_turn_omits_final_content(monkeypatch: pytest.MonkeyPatc
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text="Plain answer.",
@@ -291,7 +283,6 @@ async def test_cancelled_turn_closes_unclosed_fence(
     open_fence = "```mermaid\ngraph TD\n  A-->B"
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
@@ -316,7 +307,6 @@ async def test_truncated_turn_closes_unclosed_fence(
     open_fence = "```python\nprint(1"
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
@@ -341,7 +331,6 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
     open_fence = "```message\nHappy birthday! Hope you have a wonderful day."
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=open_fence,
@@ -365,7 +354,6 @@ async def test_mermaid_parenthetical_labels_quoted_on_persist(
     raw = "```mermaid\nflowchart TD\n  D --> E[Grind Beans (Medium Grind)]\n```"
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=raw,
@@ -392,7 +380,6 @@ async def test_verified_math_markers_are_stripped_from_final_content(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=(
@@ -421,7 +408,6 @@ async def test_unverified_math_note_appended_to_final_content(
     ctx.solver_unverified = True
     persisted = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text="The mass is 12 kg.",
@@ -446,7 +432,6 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
     ctx.unverified_subject = "chemistry"
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text="The pH is about 6.",
@@ -481,7 +466,6 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     ctx.solver_unverified = False
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=ctx.instant_reply,
@@ -516,7 +500,6 @@ async def test_paired_direct_reply_keeps_both_answer_fences(
     )
     persisted = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text=reply,
@@ -553,7 +536,6 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     invented = "The pH is 4.\n\n```answer\n4\n```\n\n```smiles\nCCO\n```"
     persisted = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=True),
         ctx,
         assistant_text=invented,
@@ -589,7 +571,6 @@ async def test_answer_photo_replaces_its_fence_in_final_content(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=PHOTO_REPLY,
@@ -614,7 +595,6 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
 
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=PHOTO_REPLY,
@@ -662,7 +642,6 @@ async def test_unverified_working_puts_its_slip_right(
     ctx.solver_unverified = unverified
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
@@ -690,7 +669,6 @@ async def test_unverified_card_takes_its_working_value(monkeypatch: pytest.Monke
     )
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
@@ -711,7 +689,7 @@ _DENTIST_ASK = "add dentist tomorrow at 3pm to my reminders"
 async def _reminder_turn(
     db_session: Any, fake_redis: Any, reply: str, *, was_cancelled: bool = False
 ) -> tuple[str, TurnOutcome, list[Any], Any]:
-    """Finalize ``reply`` to ``_DENTIST_ASK`` with the real reminder pass on Postgres."""
+    """Finalize ``reply`` to ``_DENTIST_ASK`` with the real to-do pass on Postgres."""
     user = await users_repo.create(
         db_session,
         email=f"{uuid4()}@example.com",
@@ -735,7 +713,6 @@ async def _reminder_turn(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         deps,
-        fake_redis,
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,
@@ -750,14 +727,15 @@ async def _reminder_turn(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text_pass_fails", [False, True], ids=["passes ok", "text pass fails"])
-async def test_a_failed_text_pass_keeps_the_reminder_card(
+async def test_a_reminder_fence_saves_nothing_and_sends_the_user_to_todo(
     monkeypatch: pytest.MonkeyPatch,
     db_session: Any,
     fake_redis: Any,
     text_pass_fails: bool,
 ) -> None:
-    """A text pass that failed after the reminder pass persisted the raw reply: the card
-    was lost while its proposal sat in Redis."""
+    """Chat only reads to-dos (owner, 2026-11-27): a reply that took the turn for a change
+    becomes the line and button that open To-do, whatever a text pass did, and no row is
+    written."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     if text_pass_fails:
         _fail_mermaid_pass(monkeypatch)
@@ -765,29 +743,20 @@ async def test_a_failed_text_pass_keeps_the_reminder_card(
     fence = json.dumps({"title": "Dentist", "due_at": due.isoformat()})
     reply = f"Good idea to book early. I'll set a reminder.\n\n```reminder\n{fence}\n```"
 
-    persisted, outcome, rows, user = await _reminder_turn(db_session, fake_redis, reply)
+    persisted, outcome, rows, _user = await _reminder_turn(db_session, fake_redis, reply)
 
-    assert persisted.startswith("Good idea to book early.")
-    # A card waits for the tap, so the model's "I'll set a reminder" goes with it.
+    assert persisted == todo_screen_answer("en")
     assert "I'll set a reminder" not in persisted
     assert TODO_HINT not in persisted
     assert outcome.final_content == persisted
-    # Nothing is written yet: the list refreshes on the tap.
-    assert outcome.todos_changed is False
-    card = _CARD.search(persisted)
-    assert card is not None, persisted
-    assert json.loads(card.group(1))["items"][0]["title"] == "Dentist"
-    assert await fake_redis.keys(f"todos:proposal:{user.id}:*")
     assert rows == []
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("was_cancelled", [True, False], ids=["stopped", "stream dropped"])
-async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
+async def test_a_reply_cut_inside_its_reminder_fence_saves_nothing(
     monkeypatch: pytest.MonkeyPatch, db_session: Any, fake_redis: Any, was_cancelled: bool
 ) -> None:
-    """An open fence is never applied, even though finalize closes open fences
-    before the reminder pass: the user's own words still make the card."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     reply = 'Sure, I\'ll set a reminder.\n\n```reminder\n{"title": "Den'
 
@@ -795,29 +764,27 @@ async def test_a_reply_cut_inside_its_reminder_fence_still_offers_the_card(
         db_session, fake_redis, reply, was_cancelled=was_cancelled
     )
 
-    card = _CARD.search(persisted)
-    assert card is not None, persisted
-    assert json.loads(card.group(1))["items"][0]["title"].lower() == "dentist"
-    assert "Could not save" not in persisted
-    assert TODO_HINT not in persisted
+    assert persisted == todo_screen_answer("en")
     assert rows == []
 
 
 @pytest.mark.asyncio
-async def test_a_failed_reminder_pass_keeps_the_finished_text(
+async def test_a_failed_to_do_pass_keeps_the_finished_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Every text pass already succeeded, so their work persists, not the raw reply."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     deps = _deps()
-    deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    # A read of the list, whose rows fail to load.
+    deps.todos.read_back = AsyncMock(side_effect=RuntimeError("db"))
+    ctx = _ctx()
+    ctx.user_message_content = "what's on my to-do list?"
 
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=False),
-        _ctx(),
+        ctx,
         assistant_text=_MERMAID_REPLY,
         usage={"input": 4, "output": 8},
         outcome=outcome,
@@ -827,7 +794,6 @@ async def test_a_failed_reminder_pass_keeps_the_finished_text(
 
     assert 'E["Grind Beans (Medium Grind)"]' in persisted
     assert outcome.final_content == persisted
-    assert not outcome.todos_changed
 
 
 @pytest.mark.asyncio
@@ -849,7 +815,6 @@ async def test_a_failed_text_pass_keeps_the_attached_answer_photo(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=PHOTO_REPLY,
@@ -884,7 +849,6 @@ async def test_a_failed_text_pass_keeps_the_source_chips(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(search_sources=hits),
         assistant_text=prose,
@@ -910,7 +874,6 @@ async def test_a_failed_text_pass_before_any_side_effect_persists_the_raw_reply(
     outcome = TurnOutcome()
     persisted = await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=_MERMAID_REPLY,

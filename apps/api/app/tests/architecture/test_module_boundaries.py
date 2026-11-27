@@ -14,7 +14,6 @@ from .boundary_support import (
 def test_todos_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "todos"
     expected = {
-        "actions.py",
         "api.py",
         "classification.py",
         "crud.py",
@@ -23,7 +22,7 @@ def test_todos_runtime_code_has_one_owner() -> None:
         "prompt_context.py",
         "prompt_hint.py",
         "recurrence.py",
-        "reminder_fences.py",
+        "reading.py",
         "repository.py",
         "schedule_repository.py",
         "schemas.py",

@@ -193,7 +193,7 @@ async def run_turn(settings: Any, row: dict[str, Any]) -> tuple[str, str]:
     from app.modules.chat.turn_prep.mode import classify_turn_mode
     from app.modules.chat.turn_prep.reading import read_turn_message
     from app.modules.chat.turn_prep.request import TurnRequest
-    from app.tests.behavior.harness import USER_TIMEZONE, _no_reminders, _no_session
+    from app.tests.behavior.harness import USER_TIMEZONE, _no_session, _no_todos
 
     readings.begin_turn()
     user = User(
@@ -293,11 +293,13 @@ async def run_turn(settings: Any, row: dict[str, Any]) -> tuple[str, str]:
     saving = SimpleNamespace(
         session_factory=_no_session,
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
-        todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
+        todos=SimpleNamespace(
+            read_back=AsyncMock(side_effect=_no_todos),
+            saved_todo_named=AsyncMock(return_value=None),
+        ),
     )
     saved = await enrich_final_content(
         replace(deps, **vars(saving)),
-        AsyncMock(),
         settings,
         ctx,
         assistant_text=reply,

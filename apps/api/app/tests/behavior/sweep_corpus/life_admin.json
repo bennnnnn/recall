@@ -5,7 +5,7 @@
     "prompt": "remimd me to pay electric bill fri 6pm",
     "history": [],
     "reply": "Set: pay electric bill — Friday, Oct 16, 6:00 PM. ⚡",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-002",
@@ -13,7 +13,7 @@
     "prompt": "pls remind me 2 call dad at 7 tonight",
     "history": [],
     "reply": "Set: call dad — today, Oct 14, 7:00 PM. 📞",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-003",
@@ -21,7 +21,7 @@
     "prompt": "reminder 4 dentist next tues 3pm",
     "history": [],
     "reply": "```reminder\n{\"title\": \"Dentist\", \"due_at\": \"2026-10-20T15:00:00+03:00\"}\n```\nGot it — I'll remind you about the dentist on **Tuesday, Oct 20 at 3:00 PM**.\n\nYou also still have a **dentist appointment** reminder for tomorrow (Thursday) at 3:00 PM. Want me to remove that one if it was rescheduled?",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-004",
@@ -29,7 +29,7 @@
     "prompt": "add to my reminders: pick up kids 4:30pm tomorrow",
     "history": [],
     "reply": "```reminder\n{\"title\": \"Pick up kids\", \"due_at\": \"2026-10-15T16:30:00+03:00\"}\n```\nAdded — **pick up kids** tomorrow, Thursday, Oct 15 at 4:30 PM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-005",
@@ -37,7 +37,7 @@
     "prompt": "every monday at 8am remind me to take out the trash",
     "history": [],
     "reply": "Set: take out the trash — every Monday at 8:00 AM, starting Monday, Oct 19. 🗑️",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-006",
@@ -45,7 +45,7 @@
     "prompt": "remind me to call Getachew ነገ at 10am",
     "history": [],
     "reply": "Set: call Getachew — tomorrow (ነገ), Thursday, Oct 15, 10:00 AM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-007",
@@ -53,7 +53,7 @@
     "prompt": "sat 9am wash the car. remind me",
     "history": [],
     "reply": "Set: wash the car — Saturday, Oct 17, 9:00 AM. 🚗",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-008",
@@ -61,7 +61,7 @@
     "prompt": "dont let me forget to send the rent receipt to my landlord friday 5pm",
     "history": [],
     "reply": "```reminder\n{\"title\": \"Send rent receipt to landlord\", \"due_at\": \"2026-10-16T17:00:00+03:00\"}\n```\nWon't let you forget — I'll remind you on **Friday, Oct 16 at 5:00 PM**.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-009",
@@ -69,7 +69,7 @@
     "prompt": "set a reminder for my meds at 9pm every night",
     "history": [],
     "reply": "Set: take meds — every night at 9:00 PM, starting tonight (Wed, Oct 14). 💊",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-010",
@@ -77,7 +77,7 @@
     "prompt": "remind me to buy injera on the way home",
     "history": [],
     "reply": "Sure! What time do you usually head home? Give me a time and I'll remind you to pick up injera.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-011",
@@ -85,7 +85,7 @@
     "prompt": "can u remind me abt the water bill",
     "history": [],
     "reply": "Of course — when should I remind you about the water bill? A day and time works, like \"Friday at 9am\".",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-012",
@@ -93,7 +93,7 @@
     "prompt": "remind me tmrw to renew my kebele id",
     "history": [],
     "reply": "Will do — what time tomorrow (Thursday, Oct 15) should I remind you to renew your kebele ID?",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-013",
@@ -101,7 +101,7 @@
     "prompt": "pls add 'return library books' to my reminders",
     "history": [],
     "reply": "Sure — when should I remind you to return the library books? Tell me a day and time.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-014",
@@ -142,7 +142,8 @@
       ]
     ],
     "reply": "Deleted: **gym**.",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-018",
@@ -150,7 +151,7 @@
     "prompt": "mark pay rent as done",
     "history": [],
     "reply": "Done ✅ Marked **pay rent** as complete.",
-    "expect": "change"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-019",
@@ -158,7 +159,7 @@
     "prompt": "i watered the plants already, tick it off",
     "history": [],
     "reply": "Nice 🌱 Marked **water the plants** as done.",
-    "expect": "change"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-020",
@@ -175,7 +176,8 @@
       ]
     ],
     "reply": "Deleted: **read** (tonight, 9:00 PM).",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-021",
@@ -192,7 +194,7 @@
       ]
     ],
     "reply": "Deleted: **gym**. If you start working out at home, I can set a reminder for that instead.",
-    "expect": "change"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-022",
@@ -209,7 +211,8 @@
       ]
     ],
     "reply": "Moved: **gym** — Friday, Oct 16, 6:00 AM.",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-023",
@@ -226,7 +229,8 @@
       ]
     ],
     "reply": "Moved: **read** — tomorrow, Thursday, Oct 15, 9:00 PM.",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-024",
@@ -243,7 +247,7 @@
       ]
     ],
     "reply": "Moved: **pay rent** — Friday, Oct 16, 9:00 AM.",
-    "expect": "change"
+    "expect": "todo_screen"
   },
   {
     "id": "l2-025",
@@ -260,7 +264,8 @@
       ]
     ],
     "reply": "Marked **call mom** as done. Hope she's doing well! 💛",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-026",
@@ -277,7 +282,8 @@
       ]
     ],
     "reply": "No problem — **water the plants** is open again (Saturday, Oct 17, 8:00 AM).",
-    "expect": "change"
+    "expect": "todo_screen",
+    "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
   },
   {
     "id": "l2-027",

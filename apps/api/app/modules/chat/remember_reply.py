@@ -2,8 +2,8 @@
 
 "Remember that I want to try cacio e pepe again" is saved to memory; the reply "I've added
 that to your to-do list so you don't forget" claimed a to-do nothing wrote (live chat,
-2026-10-25). On a remember turn with no reminder card, a sentence that says it put
-something in the to-do list or set a reminder goes. Only that shape counts: "Saved — your
+2026-10-25), and chat writes no to-do at all. On a remember turn, a sentence that says it
+put something in the to-do list or set a reminder goes. Only that shape counts: "Saved — your
 flight is Friday at 6 AM", "I've noted that…" and "I won't add it to your to-dos" are
 memory's words and stay.
 """
@@ -15,10 +15,9 @@ import re
 from app.models.orm import User
 from app.modules import memory as memory_service
 from app.modules.memory.switch import memory_switch_on
-from app.services.md_fence_scan import iter_fences, line_fences
+from app.services.md_fence_scan import line_fences
 from app.services.text_normalize import SENTENCE_BREAK, straighten_apostrophes
 
-_PROPOSAL_FENCE_LANG = "reminder_proposal"
 _ADDED_TO_TODOS = re.compile(
     r"\b(?:i(?:'ve|\s+have)?|i'll|i\s+will)\s+(?:just\s+|also\s+|now\s+|gone\s+ahead\s+and\s+)?"
     r"(?:added|put|saved|placed|add|put|save)\b[^.!?\n]{0,80}?"
@@ -48,8 +47,6 @@ def _without_todo_claims(line: str) -> str | None:
 def without_remember_turn_claims(message: str, user: User | None, text: str) -> str:
     """The reply to a remember command, minus any claim that it became a to-do."""
     if not memory_service.asks_to_remember(message):
-        return text
-    if any(fence.lang == _PROPOSAL_FENCE_LANG for fence in iter_fences(text)):
         return text
     lines: list[str] = []
     for line, fence in zip(text.split("\n"), line_fences(text), strict=True):

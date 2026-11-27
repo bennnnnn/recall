@@ -768,7 +768,7 @@ CASES: tuple[Case, ...] = (
         "remind me to study chemistry tomorrow at 7pm",
         # Chemistry named by a word and a time, no calculation: no ```worked block.
         Expect(no_hints=("worked",)),
-        "A reminder card for 7 pm tomorrow.",
+        "One line and the Open To-do button: chat sets no reminder.",
     ),
     Case(
         "chem-check-my-answers",
@@ -1712,7 +1712,7 @@ CASES: tuple[Case, ...] = (
         "teaching",
         "always remind me to drink water",
         Expect(no_hints=("standing_preference",)),
-        "A reminder (or a question for when), not a teaching preference.",
+        "One line and the Open To-do button (chat sets no reminder), not a teaching preference.",
     ),
     # ── Format ──────────────────────────────────────────────────────────────
     Case(
@@ -2437,16 +2437,17 @@ CASES: tuple[Case, ...] = (
         "personal-reminder",
         "personal",
         "remind me to call mom tomorrow at 5pm",
-        Expect(search="ask"),
-        "Confirms a reminder for tomorrow 5 pm.",
+        # The server answers it: chat sets no reminder (owner, 2026-11-27).
+        Expect(search="no", instant="text"),
+        "One line and the Open To-do button: reminders are added in To-do, never set in chat.",
     ),
     Case(
         "personal-reminder-clock-no-day",
         "personal",
         "remind me to plate the dinner at 7pm",
-        Expect(search="ask", photo=NO_PHOTO, image_gen=False, subject=NONE),
-        "A reminder card for 7 pm today (the next 7 pm) to tap; never 'I didn't change your "
-        "reminders'. The sweep checks the card (sweep_corpus/routing_gaps.json).",
+        Expect(search="no", instant="text", photo=NO_PHOTO, image_gen=False, subject=NONE),
+        "One line and the Open To-do button; nothing is saved and nothing says it was. The "
+        "sweep checks the button (sweep_corpus/routing_gaps.json).",
         pro=True,
     ),
     Case(
@@ -2483,7 +2484,7 @@ CASES: tuple[Case, ...] = (
         "personal",
         "what can you do",
         Expect(hints=("capabilities",), search="ask"),
-        "A short list, including web search, photos, reminders and read-aloud.",
+        "A short list, including web search, photos, reading their to-dos and read-aloud.",
     ),
     # ── Multi-intent ────────────────────────────────────────────────────────
     # One message, several requests: every one answered in one reply, each with its
@@ -2539,7 +2540,7 @@ CASES: tuple[Case, ...] = (
         "multi-intent",
         "remind me to buy milk at 5pm and what's the weather in Nairobi today?",
         Expect(search="ask", hints=("multi_intent",)),
-        "A reminder card for 5 pm to tap, and today's Nairobi weather from the results.",
+        "Today's Nairobi weather from the results, and the To-do line and button under it.",
     ),
     Case(
         "multi-settings-and-joke",

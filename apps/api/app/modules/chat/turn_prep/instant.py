@@ -2,7 +2,7 @@
 
 A recurring-pay estimate, what a bare algebra expression ("3x") means, the local time
 or date, where the user is, a fact from their profile, a settings change to confirm, a
-to-do change asked in another language (chat only reads them there: the To-do button),
+to-do change asked in chat (chat only reads them: the To-do button),
 and the "location not set" answer to a nearby question that has no place to search from.
 """
 

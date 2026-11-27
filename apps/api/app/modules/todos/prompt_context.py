@@ -10,10 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.chat_language import writes_todos_in_todo_screen
 from app.modules.todos.classification import query_implies_todos
 from app.modules.todos.due_day import describe_due, has_time, overdue_from
-from app.modules.todos.prompt_hint import TODO_HINT, TODO_READ_ONLY_HINT
+from app.modules.todos.prompt_hint import TODO_HINT
 from app.modules.todos.repository import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
@@ -275,18 +274,12 @@ async def build_todos_system_section(
     *,
     client_timezone: str | None = None,
     query_text: str | None = None,
-    accepted_offer: bool = False,
 ) -> str | None:
-    """Todo hint + snapshot block, or None when the turn is unrelated.
-
-    ``accepted_offer``: the message is a yes to the last reply's offer of a reminder
-    (``offer_reply``), so the turn is that request.
-    """
+    """Todo hint + snapshot block, or None when the turn is unrelated."""
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     probe: list[TodoItem] = []
     text_hit = bool(
-        accepted_offer
-        or (query_text and day_planning_service.is_day_planning_question(query_text))
+        (query_text and day_planning_service.is_day_planning_question(query_text))
         or query_implies_todos(query_text)
     )
     if not text_hit:
@@ -300,7 +293,4 @@ async def build_todos_system_section(
     )
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     block = format_todos_block(selected, user_timezone=tz)
-    # A turn that may only read its to-dos is never taught to write them.
-    read_only = writes_todos_in_todo_screen(query_text, locale=user.locale)
-    hint = TODO_READ_ONLY_HINT if read_only else TODO_HINT
-    return f"{hint}\n\n{block}" if block else hint
+    return f"{TODO_HINT}\n\n{block}" if block else TODO_HINT

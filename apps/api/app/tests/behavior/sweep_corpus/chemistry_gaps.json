@@ -4,21 +4,21 @@
   "area": "todos",
   "prompt": "remind me to buy NaCl tomorrow at 9am",
   "reply": "Set: Buy NaCl — Friday, Oct 16, 9:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "cg-002",
   "area": "todos",
   "prompt": "remind me to buy 500 g of NaCl and 2 L of milk tomorrow at 10am",
   "reply": "Set: Buy 500 g of NaCl and 2 L of milk — Friday, Oct 16, 10:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "cg-003",
   "area": "todos",
   "prompt": "remind me tomorrow at 7pm to plate the dinner",
   "reply": "Set: Plate the dinner — Thursday, Oct 15, 7:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "cg-004",
@@ -88,7 +88,7 @@
   "area": "todos",
   "prompt": "remind me to balence the books tomorrow at 9am",
   "reply": "Set: Balance the books — Thursday, Oct 15, 9:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "cg-014",

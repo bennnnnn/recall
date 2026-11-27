@@ -311,30 +311,24 @@ class ConversationReferences(Protocol):
 
 
 class Todos(Protocol):
-    """The reply's reminder changes (a card to tap, or To-do rows)."""
+    """The user's saved to-dos as chat reads them: read back as the reply to a question
+    about them, and whether a message names one."""
 
-    async def materialize_reminder_fences(
-        self,
-        session: AsyncSession,
-        *,
-        user_id: UUID,
-        chat_id: UUID,
-        assistant_text: str,
-        user_timezone: str | None,
-        user_text: str | None = ...,
-        prior_assistant: str | None = ...,
-        prior_user: str | None = ...,
-        redis: Redis | None = ...,
-        confirm: bool = ...,
-        window: Sequence[object] | None = ...,
-    ) -> tuple[str, int]: ...
+    async def read_back(
+        self, session: AsyncSession, user_id: UUID, user_timezone: str | None
+    ) -> str: ...
+
+    async def saved_todo_named(
+        self, session: AsyncSession, user_id: UUID, text: str
+    ) -> str | None: ...
 
 
 @dataclass(frozen=True)
 class _PackageTodos:
     """``app.modules.todos`` exports these lazily, which a protocol check cannot see."""
 
-    materialize_reminder_fences: Callable[..., Coroutine[Any, Any, tuple[str, int]]]
+    read_back: Callable[..., Coroutine[Any, Any, str]]
+    saved_todo_named: Callable[..., Coroutine[Any, Any, str | None]]
 
 
 class _ConversationChats:
@@ -420,9 +414,7 @@ def default_deps() -> ChatTurnDeps:
         attachments=attachment_lifecycle,
         attachment_links=attachments_service,
         references=conversation_reference,
-        todos=_PackageTodos(
-            materialize_reminder_fences=todos.materialize_reminder_fences,
-        ),
+        todos=_PackageTodos(read_back=todos.read_back, saved_todo_named=todos.saved_todo_named),
         web_search=web_search,
         math_fence=subject_adapter("math").fence,
     )

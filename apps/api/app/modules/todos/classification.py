@@ -17,7 +17,7 @@ _TODO_QUERY_FIXED = re.compile(
     r"what('?s| is) (?:on|in) my (?:reminders?|schedule|todos?|tasks?|calendar)|"
     r"show my (?:reminders?|schedule|todos?|tasks?|lists?|grocery list)|"
     r"my (?:reminders?|schedule|todos?|tasks?|lists?|grocery list)|"
-    r"reschedule"
+    r"reschedule|uncheck|(?:check|tick|cross)\s+(?:it|that|them|this)\s+off"
     r")\b",
     re.IGNORECASE,
 )

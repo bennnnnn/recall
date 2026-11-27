@@ -30,9 +30,8 @@ from app.models.orm import PushToken, TodoItem
 from app.modules.notifications import push as push_service
 from app.modules.todos import api as todos_router
 from app.modules.todos import crud as todos_crud
-from app.modules.todos import due_day, prompt_context, proposals, service
+from app.modules.todos import due_day, prompt_context, service
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.actions import apply_todo_actions
 from app.modules.todos.due_reminders import (
     PUSH_REMINDERS,
     aged_out_unsent,
@@ -40,16 +39,10 @@ from app.modules.todos.due_reminders import (
     is_due_now,
     reminder_instant,
 )
+from app.modules.todos.reading import format_reminder_reading, format_schedule_when
 from app.modules.todos.recurrence import next_open_due
-from app.modules.todos.reminder_writes import (
-    ReminderWrites,
-    _existing_open_match,
-    format_schedule_when,
-)
 from app.modules.todos.schedule_repository import move_due_day_if_current
-from app.modules.todos.schemas import TodoActionItem, TodoUpdate
-from app.modules.todos.spoken_apply import _apply_saved_fields, format_reminder_reading
-from app.modules.todos.write_log import PlannedWrite
+from app.modules.todos.schemas import TodoUpdate
 from app.repositories import users as users_repo
 from app.tests.fakes import fake_session, isolated_settings, make_user
 
@@ -290,49 +283,6 @@ def test_a_reading_aloud_names_the_day_alone() -> None:
     assert format_schedule_when(NOV_10_NY, "America/New_York", has_time=True).endswith("12:00 AM")
 
 
-def test_a_card_shows_a_date_alone_as_its_day() -> None:
-    write = PlannedWrite(kind="update", todo_id=uuid4(), title="Pay rent", fields={"due_at": 1})
-    write.due_at, write.has_time = NOV_10_NY, False
-    card = proposals.card_item(write, "America/New_York")
-    # No instant the phone would draw at midnight.
-    assert card.due_at is None and card.when == "Tuesday, Nov 10"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("change", "timed", "line"),
-    [
-        ({"shift_days": 1}, False, "Moved: Pay rent — Wednesday, Jan 7."),
-        (
-            {"keep_date": True, "hour": 18, "minute": 0},
-            True,
-            "Moved: Pay rent — Tuesday, Jan 6, 6:00 PM.",
-        ),
-    ],
-)
-async def test_a_spoken_move_keeps_a_date_alone_and_a_clock_gives_it_a_time(
-    change: dict[str, Any], timed: bool, line: str
-) -> None:
-    spoken: Any = SimpleNamespace(
-        keep_date=False, hour=None, minute=None, day=None, shift_days=0, repeat=None, topic=None
-    )
-    for key, value in change.items():
-        setattr(spoken, key, value)
-    update = AsyncMock()
-    # A day still to come, so the clock said is on it.
-    rent = _date_alone(due_at=datetime(2032, 1, 6, tzinfo=NEW_YORK))
-    with patch.object(todos_repo, "update", update):
-        said, ok = await _apply_saved_fields(
-            fake_session(),
-            rent,
-            spoken,
-            title="Pay rent",
-            user_timezone="America/New_York",
-        )
-    assert ok and said == line
-    assert _call(update).kwargs["due_has_time"] is timed
-
-
 # ── a new zone ─────────────────────────────────────────────────────────────
 
 
@@ -426,18 +376,6 @@ async def test_a_new_profile_zone_moves_the_days_in_the_same_commit(zone: str) -
 # ── review: a card for today, an older app, the profile's zone, duplicates ──
 
 
-def test_a_card_can_move_a_date_alone_to_today() -> None:
-    today = due_day.start_of_day(datetime.now(UTC), "UTC")
-    alone = {"due_at": today, "due_has_time": False}
-    assert proposals._upcoming(alone, "UTC") == alone
-    daily = proposals._upcoming({**alone, "recurrence_rule": "daily"}, "UTC")
-    assert daily["due_at"] == today
-    with pytest.raises(proposals.ProposalError):
-        proposals._upcoming({**alone, "due_at": today - timedelta(days=1)}, "UTC")
-    with pytest.raises(proposals.ProposalError):
-        proposals._upcoming({"due_at": datetime.now(UTC) - timedelta(minutes=1)}, "UTC")
-
-
 @pytest.mark.asyncio
 async def test_an_older_app_moving_a_date_alone_keeps_it_alone() -> None:
     # An app without the flag keeps the 00:00 it showed: the 12th's start in New York.
@@ -472,37 +410,6 @@ def _spoken(**change: Any) -> Any:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "change", [{"day": "friday"}, {"keep_date": True, "hour": 18, "minute": 0}]
-)
-async def test_a_spoken_change_reads_a_date_alone_in_the_profiles_zone(
-    change: dict[str, Any],
-) -> None:
-    # Profile New York, phone in Los Angeles, where New York's midnight is 21:00 the day before.
-    session = fake_session()
-    session.get = AsyncMock(return_value=SimpleNamespace(timezone="America/New_York"))
-    tuesday = _date_alone(due_at=datetime(2032, 1, 6, tzinfo=NEW_YORK))
-    update = AsyncMock()
-    with patch.object(todos_repo, "update", update):
-        said, ok = await _apply_saved_fields(
-            session,
-            tuesday,
-            _spoken(**change),
-            title="Pay rent",
-            user_timezone="America/Los_Angeles",
-        )
-    moved = _call(update).kwargs["due_at"]
-    if change.get("day"):
-        assert due_day.local_day(moved, "America/New_York").weekday() == 4
-        assert moved == due_day.start_of_day(moved, "America/New_York")
-        assert ok and said.startswith("Moved: Pay rent — Friday, ")
-    else:
-        # The clock said is the phone's, on the date alone's own day.
-        los_angeles = ZoneInfo("America/Los_Angeles")
-        assert moved.astimezone(los_angeles) == datetime(2032, 1, 6, 18, tzinfo=los_angeles)
-
-
-@pytest.mark.asyncio
 async def test_a_date_alone_never_comes_back_as_a_timed_duplicate() -> None:
     user: Any = SimpleNamespace(id=uuid4(), timezone="America/New_York")
     clash = IntegrityError("insert", {}, Exception("uq_todo_open_content_due"))
@@ -526,21 +433,6 @@ async def test_a_date_alone_never_comes_back_as_a_timed_duplicate() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_duplicate_is_one_of_the_same_kind() -> None:
-    session = fake_session()
-    await todos_repo.get_open_dated_duplicate(
-        session, uuid4(), content="Pay rent", due_at=NOV_10_NY, due_has_time=False
-    )
-    assert "todo_items.due_has_time IS false" in _sql(_call(session.execute).args[0])
-    state = ReminderWrites(
-        session=fake_session(), user_id=uuid4(), chat_id=uuid4(), user_timezone="America/New_York"
-    )
-    state.existing = [_date_alone()]
-    # Chat's "pay rent at midnight" is not the date alone at that midnight.
-    assert _existing_open_match(state, "Pay rent", NOV_10_NY) is None
-
-
-@pytest.mark.asyncio
 async def test_an_edit_clash_on_a_date_alone_says_day_not_time() -> None:
     user: Any = SimpleNamespace(id=uuid4(), timezone="America/New_York")
     clash = IntegrityError("update", {}, Exception("uq_todo_open_content_due"))
@@ -554,58 +446,6 @@ async def test_an_edit_clash_on_a_date_alone_says_day_not_time() -> None:
 
 
 # ── chat's times and a profile update that names no zone ──
-
-
-@pytest.mark.asyncio
-async def test_a_time_chat_sets_on_a_date_alone_makes_it_timed() -> None:
-    # "Remind me at midnight" on the 10th's date alone: the same instant, now a time.
-    update = AsyncMock()
-    with (
-        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[_date_alone()])),
-        patch.object(todos_repo, "update", update),
-    ):
-        applied = await apply_todo_actions(
-            fake_session(),
-            user_id=uuid4(),
-            actions=[
-                TodoActionItem(
-                    action="set_due", topic="General", content="Pay rent", due_at=NOV_10_NY
-                )
-            ],
-            user_timezone="America/New_York",
-        )
-    assert applied == 1 and _call(update).kwargs["due_has_time"] is True
-
-
-def _card(fields: dict[str, Any], row: TodoItem) -> Any:
-    write = proposals._StoredWrite(kind="update", todo_id=row.id, title="Pay rent", fields=fields)
-    return proposals._Stored(
-        chat_id=uuid4(), user_timezone="America/New_York", writes=[write], items=[]
-    )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("fields", "flag"),
-    [
-        # A tapped time keeps the time its write named, and never the row's date-alone flag.
-        ({"due_at": "2032-01-06T22:00:00+00:00", "due_has_time": True}, True),
-        ({"due_at": "2032-01-06T22:00:00+00:00"}, None),
-        # A tick moves a repeating date alone to its next day, still without a time.
-        ({"checked": True}, False),
-    ],
-)
-async def test_a_tapped_card_keeps_the_rows_flag_only_for_a_repeats_next_day(
-    fields: dict[str, Any], flag: bool | None
-) -> None:
-    row = _date_alone(due_at=datetime(2032, 1, 6, tzinfo=NEW_YORK), recurrence_rule="daily")
-    update = AsyncMock()
-    with (
-        patch.object(todos_repo, "get_by_id", AsyncMock(return_value=row)),
-        patch.object(todos_repo, "update", update),
-    ):
-        await proposals._apply(fake_session(), row.user_id, _card(fields, row))
-    assert _call(update).kwargs.get("due_has_time") is flag
 
 
 @pytest.mark.asyncio

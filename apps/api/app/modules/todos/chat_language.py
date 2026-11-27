@@ -1,19 +1,18 @@
 # ruff: noqa: RUF001 - the Turkish dotless i and the typographic apostrophe are matched words
-"""Which chat messages may add or change to-dos: those written in English.
+"""Which language a chat message is in, and the line that sends a to-do change to To-do.
 
-The server reads a chat to-do change against the user's own words (the time they
-said, "mark it done", "remind me…"), and that reading is English. A message in
-another language reads its to-dos in chat; adding or changing one happens in the
-To-do screen, which the reply offers as a button (a ```todo_link fence).
+Chat only reads to-dos, in every language: adding or changing one happens in the To-do
+screen, which the reply offers as a button (a ```todo_link fence) under one line in the
+user's language (``todo_screen_answer``).
 
 A message counts as another language on positive evidence: letters of another
 script (Cyrillic, Ethiopic, Devanagari, …), or at least two words that only the app's
 other Latin-script languages use. An English to-do word keeps it English, so "remind me
-to call Getachew ነገ at 10am" and "remind me to buy молоко хлеб сыр яйца" still save. Only
-an English verb with no English grammar around it, in a message mostly of another script,
-is that language: "कल सुबह 9 बजे remind करना" is Hindi. A message with no language of its own
-("a las 5", "17:00", "sí") follows the chat: the user's previous message, then their
-app language. An answer to "¿cuándo?" never writes either.
+to call Getachew ነገ at 10am" and "remind me to buy молоко хлеб сыр яйца" are answered in
+English. Only an English verb with no English grammar around it, in a message mostly of
+another script, is that language: "कल सुबह 9 बजे remind करना" is Hindi. A message with no
+language of its own ("a las 5", "17:00", "sí") follows the chat: the user's previous
+message, then their app language.
 """
 
 from __future__ import annotations
@@ -140,21 +139,26 @@ def _is_latin(char: str) -> bool:
         return False
 
 
-def writes_todos_in_todo_screen(
+def answer_language(
     text: str | None, *, prior_user: str | None = None, locale: str | None = None
-) -> bool:
-    """True when the to-do changes ``text`` asks for are made in To-do, never in chat.
+) -> str | None:
+    """The language the To-do line answers ``text`` in.
 
     ``prior_user`` is the user's previous message and ``locale`` their app language:
     a message with no language of its own takes the first of them that has one.
     """
-    if not text or not text.strip():
-        return False
     for said in (text, prior_user):
         other = _is_other_language(said)
-        if other is not None:
-            return other
-    return normalize_locale_code(locale) != "en"
+        if other is False:
+            return "en"
+        if other:
+            return message_language(said) or locale
+    return locale
+
+
+def reads_as_english(text: str | None) -> bool:
+    """True when an English to-do word puts ``text`` in English (see the module doc)."""
+    return _is_other_language(text) is False
 
 
 def _is_other_language(text: str | None) -> bool | None:

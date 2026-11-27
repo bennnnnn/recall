@@ -13,9 +13,8 @@ from sqlalchemy.types import DateTime, TypeDecorator
 
 from app.models.orm import TodoItem, User
 from app.modules.notifications import push
-from app.modules.todos import actions, crud
+from app.modules.todos import crud
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.schemas import TodoActionItem
 
 
 class _UTCDateTime(TypeDecorator):
@@ -69,34 +68,6 @@ def _todo(sync_session, *, recurring=False, due=None):
     sync_session.add(row)
     sync_session.commit()
     return row
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["patch_repeat", "chat"])
-async def test_effective_reschedule_clears_delivery_markers(schedule_sql, path):
-    sync_session, session = schedule_sql
-    row = _todo(sync_session)
-    user = SimpleNamespace(id=row.user_id, timezone="UTC")
-    if path == "patch_repeat":
-        await crud.update_todo(session, user, row.id, {"recurrence_rule": "weekdays"})
-    else:
-        await actions.apply_todo_actions(
-            session,
-            user_id=row.user_id,
-            user_timezone="UTC",
-            actions=[
-                TodoActionItem(
-                    action="set_due",
-                    topic=row.topic,
-                    content=row.content,
-                    due_at=row.due_at + timedelta(days=3),
-                )
-            ],
-        )
-        await session.commit()  # the caller commits (code-health audit ARCH-07)
-    sync_session.refresh(row)
-    assert row.notification_sent_at is None
-    assert row.email_sent_at is None
 
 
 @pytest.mark.asyncio
@@ -250,27 +221,3 @@ async def test_schedule_pages_are_owned_and_stable_for_equal_timestamps(schedule
     sync_session.commit()
     pages = [await todos_repo.list_for_user(session, owner_id, limit=1, offset=i) for i in range(3)]
     assert [page[0].id.int & 0xFF for page in pages] == [1, 2, 3]
-
-
-@pytest.mark.asyncio
-async def test_chat_weekday_reschedule_uses_effective_monday_due(schedule_sql):
-    sync_session, session = schedule_sql
-    row = _todo(sync_session, due=datetime(2026, 9, 7, 8, tzinfo=UTC))
-    row.recurrence_rule = "weekdays"
-    sync_session.commit()
-    await actions.apply_todo_actions(
-        session,
-        user_id=row.user_id,
-        user_timezone="UTC",
-        actions=[
-            TodoActionItem(
-                action="set_due",
-                topic=row.topic,
-                content=row.content,
-                due_at=datetime(2026, 9, 5, 8, tzinfo=UTC),
-            )
-        ],
-    )
-    sync_session.refresh(row)
-    assert row.due_at == datetime(2026, 9, 7, 8, tzinfo=UTC)
-    assert row.notification_sent_at is not None

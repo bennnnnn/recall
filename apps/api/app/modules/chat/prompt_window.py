@@ -16,7 +16,6 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.models.orm import Chat
-from app.modules import todos as todos_service
 from app.modules.chat import shown_pictures
 from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.clarify_turn import card_as_line
@@ -33,7 +32,10 @@ from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 from app.services.subjects.registry import subject_adapter
 
-_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo", "calculator")
+# A reminder card is an old reply's (chat no longer offers one): the model never copies it.
+_PROMPT_STRIP_FENCE_LANGS = (
+    "geometry", "graph", "sources", "places", "photo", "calculator", "reminder_proposal",
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -216,9 +218,7 @@ def history_messages(window: PromptWindow, *, math_followup: bool) -> list[dict[
                 if math_followup and msg is window.exchange[-1]
                 else None
             )
-            content = prior_result or todos_service.reminder_cards_as_text(
-                strip_prompt_owned_fences(content)
-            )
+            content = prior_result or strip_prompt_owned_fences(content)
             model = getattr(msg, "model", None)
             content = shown_pictures.as_text(
                 content, model=model if isinstance(model, str) else None, pictures=window.pictures

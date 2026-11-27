@@ -2239,7 +2239,7 @@
    ]
   ],
   "reply": "Done, tap the card to save it.",
-  "expect": "answer"
+  "expect": "todo_screen"
  },
  {
   "id": "mo-129",
@@ -2347,7 +2347,7 @@
    ]
   ],
   "reply": "Tap the card to save it.",
-  "expect": "answer"
+  "expect": "todo_screen"
  },
  {
   "id": "mo-133",

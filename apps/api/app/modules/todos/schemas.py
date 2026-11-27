@@ -128,35 +128,3 @@ class TodoUpdate(BaseModel):
         ):
             raise ValueError("recurrence_rule requires due_at")
         return self
-
-
-class TodoActionItem(BaseModel):
-    model_config = ConfigDict(title="TodoActionItem")
-
-    action: Literal[
-        "add",
-        "complete",
-        "uncheck",
-        "delete",
-        "set_due",
-        "clear_due",
-    ]
-    # Creates may omit a topic; the server selects General or Reminders from due_at.
-    topic: str = Field(default="", max_length=200)
-    content: str = Field(default="", max_length=TODO_TEXT_MAX_CHARS)
-    due_at: datetime | None = None
-    recurrence_rule: RecurrenceRule | None = None
-
-    @model_validator(mode="after")
-    def validate_action_fields(self) -> Self:
-        if not self.content.strip():
-            raise ValueError("content is required for this action")
-        if self.action == "set_due" and self.due_at is None:
-            raise ValueError("set_due requires due_at")
-        if self.recurrence_rule is not None and self.due_at is None:
-            raise ValueError("recurrence_rule requires due_at")
-        if self.action == "add":
-            return self
-        if not self.topic.strip():
-            raise ValueError("topic is required for this action")
-        return self

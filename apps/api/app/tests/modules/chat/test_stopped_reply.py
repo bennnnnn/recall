@@ -36,11 +36,9 @@ async def _fake_session() -> Any:
 
 
 def _deps() -> tuple[Any, MagicMock, MagicMock]:
-    async def _passthrough(_session: object, **kwargs: Any) -> tuple[str, int]:
-        return str(kwargs["assistant_text"]), 0
-
     todos = MagicMock()
-    todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough)
+    todos.read_back = AsyncMock(return_value="Nothing scheduled.")
+    todos.saved_todo_named = AsyncMock(return_value=None)
     math_fence = MagicMock()
     math_fence.needs_check = MagicMock(return_value=True)
     math_fence.check = MagicMock(
@@ -67,7 +65,7 @@ def _ctx() -> MagicMock:
     ctx.local_places = False
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
-    ctx.user_message_content = "solve x^2 = 16 and remind me tomorrow"
+    ctx.user_message_content = "Solve x^2 = 16 and remind me to call mom tomorrow at 6pm"
     ctx.solver_unverified = False
     ctx.unverified_subject = None
     ctx.answer_photo = None
@@ -83,7 +81,6 @@ async def _finalize(reply: str, *, user_stopped: bool) -> tuple[str, TurnOutcome
     outcome = TurnOutcome()
     text = await enrich_final_content(
         deps,
-        MagicMock(),
         Settings(chemistry_enabled=False),
         _ctx(),
         assistant_text=reply,
@@ -100,30 +97,30 @@ _REPLY = "So far: x squared is 16, so"
 
 
 @pytest.mark.asyncio
-async def test_a_stopped_reply_gets_no_server_card_note_sources_or_reminder(
+async def test_a_stopped_reply_gets_no_server_card_note_sources_or_to_do_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    saved, outcome, todos, math_fence = await _finalize(_REPLY, user_stopped=True)
+    saved, outcome, _todos, math_fence = await _finalize(_REPLY, user_stopped=True)
 
     assert saved == _REPLY
     assert outcome.final_content == saved
     assert outcome.search_sources == []
     math_fence.check.assert_not_called()
-    todos.materialize_reminder_fences.assert_not_awaited()
-    assert not outcome.todos_changed
+    # The message's reminder part gets no To-do line under a stopped reply.
+    assert "```todo_link" not in saved
 
 
 @pytest.mark.asyncio
 async def test_the_same_reply_finished_gets_them(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The control: a finished turn still gets its card, sources and reminder pass."""
+    """The control: a finished turn still gets its card, sources and to-do pass."""
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
-    saved, outcome, todos, math_fence = await _finalize(_REPLY, user_stopped=False)
+    saved, outcome, _todos, math_fence = await _finalize(_REPLY, user_stopped=False)
 
     math_fence.check.assert_called_once()
     assert "```sources" in saved
     assert outcome.search_sources
-    todos.materialize_reminder_fences.assert_awaited_once()
+    assert saved.endswith("```todo_link\n```")
 
 
 @pytest.mark.asyncio

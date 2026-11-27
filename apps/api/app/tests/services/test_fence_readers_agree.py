@@ -12,8 +12,7 @@ from app.modules.chat.related_questions import answer_excerpt
 from app.modules.chat.reply_labels import one_answer_label
 from app.modules.images.answer_photo import strip_photo_fences
 from app.modules.math.text_plot import strip_text_plots
-from app.modules.todos.reminder_fence_parse import find_reminder_fences
-from app.modules.todos.reply_claims import without_claim_lines
+from app.modules.todos.reply_claims import without_claims
 from app.services.draft_fences import draft_langs, has_draft
 
 # A how-to: the ~~~ block shows a fence opener, and the reply goes on after it.
@@ -32,15 +31,10 @@ def test_a_plot_shown_inside_a_longer_fence_is_left_as_written() -> None:
     assert strip_text_plots(text) == text
 
 
-def test_a_reminder_fence_closes_on_its_closer_line_only() -> None:
-    body = '{"title": "read ``` in the docs", "due": "2026-10-22T09:00"}\n'
-    text = f"Sure.\n```reminder\n{body}```\nSaved."
+def test_a_claim_shown_inside_a_longer_fence_is_left_as_written() -> None:
+    text = "Print it like this:\n````markdown\n```\nAdded: milk\n```\n````"
 
-    assert find_reminder_fences(text) == [(6, len(text) - len("\nSaved."), body)]
-
-
-def test_an_empty_reply_has_no_claim_lines() -> None:
-    assert without_claim_lines([]) == []
+    assert without_claims(text) == text
 
 
 def test_answer_labels_in_a_shown_block_stay() -> None:

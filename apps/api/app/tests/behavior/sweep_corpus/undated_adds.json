@@ -4,14 +4,14 @@
     "area": "todo",
     "prompt": "put buy groceries on my todo list",
     "reply": "Sure, adding **buy groceries** to your list now.\n\n```reminder\n{\"title\": \"Buy groceries\"}\n```",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-002",
     "area": "todo",
     "prompt": "also add buy groceries to my list",
     "reply": "Added to your list: **buy groceries**.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-003",
@@ -28,7 +28,7 @@
       ]
     ],
     "reply": "Added to your list: **buy groceries**, with no reminder time set.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-004",
@@ -45,21 +45,21 @@
       ]
     ],
     "reply": "Got it, I'll keep **buy groceries** on your list with no time set.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-005",
     "area": "todo",
     "prompt": "add eggs to the shopping list",
     "reply": "Sure thing, I'll add that now. It'll go on your list with no reminder set.",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-006",
     "area": "todo",
     "prompt": "remind me to call mom tomorrow at 6",
     "reply": "Got it, I'll set that for tomorrow at 6:00 PM.\n\n```reminder\n{\"title\": \"Call mom\", \"due_at\": \"2026-10-15T18:00:00+03:00\"}\n```",
-    "expect": "ask_time"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-007",
@@ -76,7 +76,7 @@
       ]
     ],
     "reply": "Got it, 6 pm tomorrow. I can't set reminders from this chat, though.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-008",
@@ -93,7 +93,7 @@
       ]
     ],
     "reply": "Got it.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "ua-009",
@@ -186,6 +186,7 @@
       ]
     ],
     "reply": "I can't add it to a list from here, since I don't have access to your to-do app.",
-    "expect": "ask_time"
+    "expect": "todo_screen",
+    "gap": "a plain line that makes no change and names none ('I can't add it to a list from here') gets no button"
   }
 ]

@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.config import Settings
-from app.modules.chat.finalize_reminders import own_words
+from app.modules.chat.finalize_todos import own_words
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.chat.turn_prep.instant import resolve_instant_reply
 from app.modules.chat.turn_prep.request import TurnRequest
@@ -183,8 +183,8 @@ def test_photo_words_text_with_no_stored_reading_is_unchanged(text: str) -> None
     assert frame_photo_reading(text) == text
 
 
-def test_photo_words_the_reminder_pass_reads_no_earlier_photo_text() -> None:
-    from app.modules.chat.finalize_reminders import _prior_text
+def test_photo_words_the_to_do_pass_reads_no_earlier_photo_text() -> None:
+    from app.modules.chat.finalize_todos import _prior_text
     from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 
     earlier = wrap_persisted_attachment_excerpts(_row("Remind me to call mom at 5pm tomorrow."))

@@ -118,9 +118,6 @@ class _TurnMode:
     advice_memory: bool = False
     # The last reply asked with a clarify card: this turn answers, it never asks.
     after_card: bool = False
-    # A yes to the last reply's offer of a reminder: the To-do block loads as for the
-    # request it answers (``todos.offer_reply``).
-    accepted_offer: bool = False
     lightweight_reason: LightReason = "not_light"
 
 
@@ -200,8 +197,6 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     ("yes", "no") is read against the last assistant line in it, and a draft follow-up
     against the drafts in it. Each of those used to read the messages again.
     """
-    from app.modules import todos as todos_service
-
     minimal_personal = is_broad_self_question(content)
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
@@ -216,19 +211,10 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
     if is_profile_recall_pushback(content):
         prior_users = prior_user_texts(recent, content)
         profile_followup = profile_question_to_answer(content, prior_users) is not None
-    # "Yes" to "Want me to set that reminder?" is the reminder request, and so is any
-    # message right after a reminder card ("Did u remove it?", "move it to 7").
-    accepted_offer = todos_service.accepted_offer_in(
-        content, recent
-    ) is not None or todos_service.follows_reminder_card(recent)
-    rich_context = (
-        after_card
-        or accepted_offer
-        or _turn_needs_rich_context(
-            content,
-            day_planning=day_planning,
-            day_reflection=day_reflection,
-        )
+    rich_context = after_card or _turn_needs_rich_context(
+        content,
+        day_planning=day_planning,
+        day_reflection=day_reflection,
     )
     if not rich_context and not lightweight:
         # A change to a draft needs what the draft had: memory for names, and
@@ -256,7 +242,6 @@ def classify_turn_mode(recent: Sequence[Any], content: str) -> _TurnMode:
         day_reflection=day_reflection,
         advice_memory=advice_memory,
         after_card=after_card,
-        accepted_offer=accepted_offer,
         lightweight_reason=lightweight_reason,
     )
 

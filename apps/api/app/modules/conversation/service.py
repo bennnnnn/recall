@@ -7,7 +7,6 @@ transaction (CLAUDE.md, "Transaction ownership").
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
 from uuid import UUID
 
@@ -134,32 +133,3 @@ async def set_feedback(
 ) -> Message | None:
     """The reply's rating, or None when the message is not in the chat."""
     return await _messages.set_feedback(session, message_id, chat_id, feedback)
-
-
-async def edit_recent_reply(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    containing: str,
-    edit: Callable[[str], str],
-    scan: int = 30,
-) -> bool:
-    """Rewrite the chat's recent reply that holds ``containing``; commits. Whether it changed.
-
-    A card the user acted on in another module (a reminder card saved by its tap) is
-    stored as acted on; conversation keeps the only writes to its messages (audit ARCH-08).
-    """
-    for message in await _messages.list_recent(session, chat_id, limit=scan):
-        if message.role != "assistant" or containing not in (message.content or ""):
-            continue
-        # Edited as it is under its row lock: a write since the scan (a late photo put
-        # above the reply) is kept, not overwritten by the text the scan read.
-        locked = await _messages.get_by_id(session, message.id, chat_id, for_update=True)
-        if locked is None or containing not in (locked.content or ""):
-            return False
-        updated = edit(locked.content)
-        if updated == locked.content:
-            return False
-        await _messages.update_content(session, locked, updated)
-        return True
-    return False

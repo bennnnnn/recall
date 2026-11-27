@@ -81,10 +81,6 @@ async def _voice() -> None:
         patch.object(chats_repo, "get_by_id", AsyncMock(return_value=MagicMock())),
         patch.object(messages_repository, "create", AsyncMock(side_effect=rows)),
         patch.object(messages_repository, "count_for_chat", AsyncMock(return_value=0)),
-        patch(
-            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
-            AsyncMock(return_value=(_REPLY, 0)),
-        ),
     ):
         await persist_live_talk_turn(
             user=user,

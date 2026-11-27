@@ -1,0 +1,139 @@
+[
+ {
+  "id": "crt-001",
+  "area": "todo",
+  "prompt": "remind me to call mom",
+  "reply": "Sure! When should I remind you to call mom?",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-002",
+  "area": "todo",
+  "prompt": "add milk to my list",
+  "reply": "Added **milk** to your list! 🥛",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-003",
+  "area": "todo",
+  "prompt": "set an alarm for 7",
+  "reply": "7 am or 7 pm?",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-004",
+  "area": "todo",
+  "prompt": "remind me tomorrow at 6pm to take my medicine",
+  "reply": "```reminder\n{\"title\": \"Take my medicine\", \"due_at\": \"2026-10-15T18:00:00\"}\n```\n\nDone! I'll remind you tomorrow at 6 PM.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-005",
+  "area": "todo",
+  "prompt": "mark call mom as done",
+  "reply": "Done! ✅ I've marked **call mom** as complete.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-006",
+  "area": "todo",
+  "prompt": "delete my gym reminder",
+  "reply": "I've deleted your gym reminder.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-007",
+  "area": "todo",
+  "prompt": "move the dentist to friday at 3pm",
+  "reply": "You can change it yourself in your To-do list.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-008",
+  "area": "todo",
+  "prompt": "6pm",
+  "history": [
+   ["user", "remind me to water the plants"],
+   ["assistant", "You can add or change it in **To-do**.\n\n```todo_link\n```"]
+  ],
+  "reply": "Got it, set for 6 PM today.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-009",
+  "area": "todo language",
+  "prompt": "recuérdame llamar a mamá el viernes",
+  "reply": "¡Claro! Te lo recordaré el viernes.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-010",
+  "area": "todo language",
+  "prompt": "ነገ ጠዋት 8 ሰዓት መድሃኒቴን እንድወስድ አስታውሰኝ",
+  "reply": "እሺ፣ ነገ ጠዋት 8 ሰዓት አስታውስሻለሁ።",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-011",
+  "area": "todo",
+  "prompt": "what's on my list today?",
+  "reply": "You have call mom at 6 PM and the gym.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-012",
+  "area": "todo",
+  "prompt": "when is my dentist appointment?",
+  "reply": "Your dentist appointment is on Tuesday, Oct 20 at 6 PM.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-013",
+  "area": "todo",
+  "prompt": "do I have anything due tomorrow?",
+  "reply": "Nothing is due tomorrow. Your next reminder is pay rent on Tuesday.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-014",
+  "area": "memory",
+  "prompt": "can you remember my dentist is Friday",
+  "reply": "Got it, I'll remember your dentist is on Friday.",
+  "expect": "memory"
+ },
+ {
+  "id": "crt-015",
+  "area": "chitchat",
+  "prompt": "how do I make a sourdough starter?",
+  "reply": "Mix equal parts flour and water in a jar, cover it loosely, and feed it once a day for about a week until it doubles after each feed.\n\nWant me to set a reminder to feed it every morning?",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-016",
+  "area": "chitchat",
+  "prompt": "how do I set a reminder on my iPhone?",
+  "reply": "Open the **Reminders** app, tap **New Reminder**, type it, then tap the info button to add a date and time.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-017",
+  "area": "chitchat",
+  "prompt": "remind me how to convert Celsius to Fahrenheit",
+  "reply": "Multiply the Celsius value by 9/5, then add 32. For example, 20 °C is 68 °F.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-018",
+  "area": "writing",
+  "prompt": "write a short reminder text to my team that the report is due Friday",
+  "reply": "```message\nHi team, a quick reminder that the report is due this Friday. Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-019",
+  "area": "multi",
+  "prompt": "What is the capital of France, and remind me to call mom at 6pm",
+  "reply": "### The capital of France\n\nThe capital of France is **Paris**, a city on the Seine known for the Eiffel Tower and the Louvre.\n\nI've set a reminder to call mom at 6 PM.",
+  "expect": ["answer", "todo_screen"]
+ }
+]

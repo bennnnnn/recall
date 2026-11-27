@@ -19,8 +19,9 @@ What an exception in it does follows its kind, unless its own ``on_error`` says 
 A safety pass that goes on after failing hands on its closed strip of its input, never the
 input itself.
 
-Then the reminder pass (``finalize_reminders``) runs on whatever text the passes leave: it
-is the one step with an effect outside the reply.
+Then the to-do pass (``finalize_todos``) runs on whatever text the passes leave: chat reads
+to-dos and never writes them, so a question about them is answered from the saved rows and
+a change asked for becomes the line and button that open To-do.
 """
 
 from __future__ import annotations
@@ -31,8 +32,6 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
-
-from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.chat.card_numbers import format_card_numbers
@@ -63,7 +62,6 @@ from app.modules.chat.finalize_parts import (
     divide_request_sections,
     place_pictures_by_part,
 )
-from app.modules.chat.finalize_reminders import apply_reminder_pass, drop_cut_reminder_fence
 from app.modules.chat.finalize_subjects import (
     CHEMISTRY_ENRICH,
     check_math_fences,
@@ -97,6 +95,7 @@ from app.modules.chat.finalize_text import (
     settle_clarify,
     strip_recipient_placeholders,
 )
+from app.modules.chat.finalize_todos import apply_todo_pass
 from app.modules.chat.formal_turn import attach_formal
 from app.modules.chat.generic_closer import strip_generic_closer
 from app.modules.chat.json_output import check_requested_json
@@ -228,13 +227,6 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         closed=drop_control_tokens,
         kind=TEXT,
         before=EVERY_OTHER,
-    ),
-    # Before the fence repair below can close it for the reminder pass.
-    FinalizePass(
-        "drop_cut_reminder_fence",
-        lambda s: drop_cut_reminder_fence(s.text),
-        kind=TEXT,
-        before=frozenset({"close_fences"}),
     ),
     # Model text before any server card is added to it.
     FinalizePass(
@@ -526,7 +518,6 @@ async def _made_safe(state: FinalizeState, text: str, passes: tuple[FinalizePass
 
 async def enrich_final_content(
     deps: ChatTurnDeps,
-    redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     *,
@@ -538,11 +529,10 @@ async def enrich_final_content(
     user_stopped: bool = False,
     on_status: StreamStatusFn | None = None,
 ) -> str:
-    """The reply as it persists: the finalize passes, then the reminder pass.
+    """The reply as it persists: the finalize passes, then the to-do pass.
 
-    A reply the user stopped runs only ``STOPPED_REPLY_PASSES`` and no reminder
-    pass: it changes nothing outside itself, and ``done`` carries the text the
-    user saw, made safe, never a longer one.
+    A reply the user stopped runs only ``STOPPED_REPLY_PASSES`` and no to-do pass:
+    ``done`` carries the text the user saw, made safe, never a longer one.
     """
     state = FinalizeState(
         deps=deps,
@@ -558,12 +548,8 @@ async def enrich_final_content(
         on_status=on_status,
     )
     await run_finalize_passes(state)
-    # Last, on the finished text: no later pass can fail and lose its card.
-    text = (
-        state.text
-        if user_stopped
-        else await apply_reminder_pass(deps, redis, settings, ctx, state.text, outcome)
-    )
+    # Last, on the finished text: a read-back stands in for the whole reply.
+    text = state.text if user_stopped else await apply_todo_pass(deps, settings, ctx, state.text)
 
     # One write: done.final_content must equal the string we persist. Skip on
     # an unchanged normal turn so done payloads stay small. The client settles

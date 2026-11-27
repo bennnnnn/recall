@@ -59,7 +59,6 @@ class OwnerData:
     attachment_key: str
     pending_attachment_id: UUID
     push_token: str
-    reminder_proposal_id: str
     settings_proposal_id: str
     secret_word: str
     extra: dict[str, Any] = field(default_factory=dict)
@@ -182,7 +181,6 @@ async def _seed(settings: Settings, storage_root: Path) -> tuple[UUID, UUID, Own
             attachment_key=att_key,
             pending_attachment_id=pending_id,
             push_token=push_token,
-            reminder_proposal_id="",
             settings_proposal_id="",
             secret_word=secret,
         )
@@ -236,7 +234,6 @@ async def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
     from app.core.db import engine
     from app.main import create_app
     from app.modules.account import settings_proposal
-    from app.modules.todos import proposals
 
     storage_root = tmp_path / "attachments"
     storage_root.mkdir()
@@ -247,17 +244,7 @@ async def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> AsyncIterato
 
     a_id, b_id, a_data, b_chat_id = await _seed(settings, storage_root)
     try:
-        # Owner A has a reminder card and a settings card waiting for a tap.
-        reminder_card = await proposals.propose(
-            fake,
-            user_id=a_id,
-            chat_id=a_data.chat_id,
-            writes=[],
-            user_timezone="UTC",
-        )
-        a_data.reminder_proposal_id = json.loads(
-            reminder_card.split("\n", 1)[1].rsplit("\n```", 1)[0]
-        )["proposal_id"]
+        # Owner A has a settings card waiting for a tap.
         a_data.settings_proposal_id = str(uuid4())
         await settings_proposal.store_proposal(
             fake,

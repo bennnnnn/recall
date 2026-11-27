@@ -408,73 +408,20 @@ async def test_load_session_context_includes_schedule_snapshot():
 
 
 @pytest.mark.asyncio
-async def test_persist_live_talk_turn_materializes_clocked_reminder():
-    user = MagicMock()
-    user.id = uuid4()
-    user.memory_enabled = False
-    user.timezone = "UTC"
-    chat_id = uuid4()
-    chat = MagicMock()
-    user_row = MagicMock()
-    user_row.id = uuid4()
-    asst_row = MagicMock()
-    asst_row.id = uuid4()
-    asst_row.content = "Sure."
-    updated = "Sure.\n\nSet: call mom · tomorrow 5:00 PM"
-
-    session = fake_session()
-    session.__aenter__ = AsyncMock(return_value=session)
-    session.__aexit__ = AsyncMock(return_value=None)
-
-    with (
-        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
-        patch("app.modules.speech.live_talk.chat_history.get_chat", AsyncMock(return_value=chat)),
-        patch.object(
-            messages_repository,
-            "create",
-            AsyncMock(side_effect=[user_row, asst_row]),
-        ),
-        patch(
-            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
-            AsyncMock(return_value=(updated, 1)),
-        ) as materialize,
-        patch_job_enqueue() as enqueue,
-    ):
-        await persist_live_talk_turn(
-            user=user,
-            chat_id=chat_id,
-            user_text="remind me to call mom tomorrow at 5pm",
-            assistant_text="Sure.",
-            untitled=True,
-            settings=Settings(chat_history_rag_enabled=False),
-            redis=redis_mock(),
-        )
-
-    materialize.assert_awaited_once()
-    assert materialize.await_args.kwargs["user_text"] == ("remind me to call mom tomorrow at 5pm")
-    assert asst_row.content == updated
-    jobs = [call.args[1] for call in enqueue.await_args_list]
-    assert "todos" not in jobs
-    assert "topic" in jobs
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("said", "locale", "saves"),
+    "said",
     [
-        ("recuérdame mañana a las 5 llamar a mamá", "en", False),
-        ("напомни завтра в 5 позвонить маме", "en", False),
-        # No language of its own: a Spanish user's app language decides.
-        ("tomorrow 5pm dentist", "es", True),
-        ("dentista 17:00", "es", False),
-        ("dentista 17:00", "en", True),
-        ("remind me to call mom tomorrow at 5pm", "es", True),
+        "remind me to call mom tomorrow at 5pm",
+        "recuérdame mañana a las 5 llamar a mamá",
+        "ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ",
     ],
 )
-async def test_live_talk_in_another_language_only_reads_to_dos(
-    said: str, locale: str, saves: bool
-) -> None:
-    user = MagicMock(id=uuid4(), memory_enabled=False, timezone="UTC", locale=locale)
+async def test_a_spoken_reminder_saves_nothing_and_keeps_what_was_said(said: str) -> None:
+    """Live talk only reads to-dos (owner, 2026-11-27): a spoken "remind me…" writes no
+    row, and the saved reply is what the call said."""
+    user = MagicMock(id=uuid4(), memory_enabled=False, timezone="UTC", locale="en")
+    spoken = "You can add that yourself in the To-do screen of the app."
+    asst_row = MagicMock(id=uuid4(), content=spoken)
     session = fake_session()
     session.__aenter__ = AsyncMock(return_value=session)
     session.__aexit__ = AsyncMock(return_value=None)
@@ -487,24 +434,23 @@ async def test_live_talk_in_another_language_only_reads_to_dos(
         patch.object(
             messages_repository,
             "create",
-            AsyncMock(side_effect=[MagicMock(id=uuid4()), MagicMock(id=uuid4(), content="Ok.")]),
+            AsyncMock(side_effect=[MagicMock(id=uuid4()), asst_row]),
         ),
-        patch(
-            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
-            AsyncMock(return_value=("Ok.", 0)),
-        ) as materialize,
-        patch_job_enqueue(),
+        patch("app.modules.todos.repository.create", AsyncMock()) as create,
+        patch_job_enqueue() as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,
             chat_id=uuid4(),
             user_text=said,
-            assistant_text="Ok.",
+            assistant_text=spoken,
             untitled=False,
             settings=Settings(chat_history_rag_enabled=False),
             redis=redis_mock(),
         )
-    assert materialize.await_count == (1 if saves else 0)
+    create.assert_not_awaited()
+    assert asst_row.content == spoken
+    assert "todos" not in [call.args[1] for call in enqueue.await_args_list]
 
 
 async def _persist_voice_turn(
@@ -529,10 +475,6 @@ async def _persist_voice_turn(
             messages_repository,
             "create",
             AsyncMock(side_effect=[user_row, asst_row]),
-        ),
-        patch(
-            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
-            AsyncMock(return_value=(assistant_text, 0)),
         ),
         patch_job_enqueue() as enqueue,
         patch.object(
@@ -610,11 +552,16 @@ async def test_voice_memory_follows_the_typed_chat_cadence(
     assert ("memory" in jobs) is queued
 
 
-def test_live_talk_schedule_hint_does_not_confirm_unverified_writes():
+def test_live_talk_only_reads_to_dos():
+    """Live talk reads the list and sends every change to the To-do screen; it never says
+    one was saved and never offers one (owner, 2026-11-27)."""
     text = build_realtime_instructions()
-    assert "Confirm in one short sentence" not in text
-    assert "Do not say the reminder is saved" in text  # safety phrase
-    assert "weekday" in text.lower()
+    assert "you can only read their to-dos" in text  # safety phrase
+    assert "To-do screen" in text
+    assert "Never say a reminder was saved" in text  # safety phrase
+    assert "never offer to set one" in text  # safety phrase
+    assert "The app can save a reminder" not in text
+    assert "remind me" not in text.lower()
 
 
 def test_live_talk_and_chat_keep_the_name_recall():

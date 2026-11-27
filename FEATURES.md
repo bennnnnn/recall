@@ -150,7 +150,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   numbered or labelled parts gets no thinking pass and says up front what the reply covers
   and what it can't do here. The kept text never changes after Stop: the cancel frame
   says how much the phone drew (`shown_chars`), the server saves that text made safe
-  and laid out (no verified card, note, sources or reminder card added), and a Stop
+  and laid out (no verified card, note or sources added), and a Stop
   before any text shows saves nothing. The count only trims what saves: the turn is
   charged what the server sent (a Stop with at most 120 characters sent is given back).
   A dropped connection is no Stop, over the socket or SSE: the reply finishes and
@@ -705,9 +705,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
-  and HTML `<details>` unwrap to a bold title plus markdown. Reminder
-  (`reminder_proposal`) and settings (`settings_proposal`) control fences stay outside the
-  registry; a leftover `calendar_proposal` in an old message is stripped for display.
+  and HTML `<details>` unwrap to a bold title plus markdown. The settings
+  (`settings_proposal`) control fence stays outside the registry; a leftover
+  `calendar_proposal` or `reminder_proposal` (chat no longer offers one) in an old message
+  is stripped for display.
   Leftover `vocab_quiz` fences in old messages are stripped for display.
 - ✅ **Answer photos** — an answer mainly about something worth seeing (a place,
   landmark, animal, plant, person, food, product) gets one real photo above the text,
@@ -1263,19 +1264,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   dropdown (not wrapping chips). Repeats fire a **device push** only
   (notification bar), not email. After a successful server todo push, a recurring
   item advances `due_at` and clears `notification_sent_at` so the next occurrence
-  can fire. Chat can set `repeat` on the ` ```reminder `
-  fence (create, complete, uncheck, delete, set_due). After the fence applies, the
-  reply appends the saved result (`Set: Call Mom — Friday, Jul 19, 3:00 PM · weekly.`)
-  or a failure line — it does not promise a change that has not happened. A clear
-  “mark done”, “reopen”, “delete”, or “move … to Monday at 8pm” is applied from
-  those words when the fence is missing or mislabeled, and that turn does not
-  run the background extractor again. “Make it everyday”, “make it 8:00 AM”,
-  and “put it in Health” change that reminder’s repeat, clock, or category.
-  “It” means the latest one. Asking what is scheduled answers from the saved
-  rows. A create with no clock asks when instead of inventing one. A reply
-  that is only a clock (“6”) finishes that reminder on the day already named,
-  and a time that has already passed is not saved. A success sentence is kept
-  only when that row actually changed. Route
+  can fire. Reminders are added, edited, completed and deleted on the To-do screen only
+  (see **Chat and live talk only read to-dos** below). Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
 - ✅ **Schedule reliability** — normal reminder saves use the
@@ -1290,36 +1280,31 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   finalization cannot mark a concurrently edited occurrence as delivered.
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
-  Chat extract skips undated adds.
-- ✅ **Reminder cards** — a to-do change from chat is a card the user taps: **Save reminder**,
-  **Mark done**, **Move**, **Delete** (` ```reminder_proposal `; always, and no background job
-  writes a reminder from a reply). The reminder rules run unchanged inside `todos/write_log.recording()`, where the
-  repository plans its writes instead of making them; `todos/proposals.py` keeps them in Redis
-  for a day. `POST /todos/proposals/{id}/confirm` makes them once (a second tap answers the
-  same), refuses a one-off time that has passed or a row deleted since, and marks the card
-  `"status": "saved"` in the chat so it reads Saved after a reload.
-- ✅ **Chat changes to-dos in English; other languages read them** — the server checks a
-  chat to-do change against the user's own words (the time they said, "mark it done"),
-  and that reading is English. A message in another app language reads its to-dos in chat
-  ("¿qué tengo hoy?" loads the list) but adds or changes them in To-do: the reply says so in
-  one line and ends on an **Open To-do** button (` ```todo_link `). A ` ```reminder ` the
-  model writes anyway becomes the button, never the English "When should I remind you?";
-  a reply with no line of its own gets one from the server, in that language. The
-  language is read from the message (`todos/chat_language.py`): another script, or two
-  words only Spanish, French, German, Italian, Portuguese or Turkish use; any English to-do
-  word keeps a mixed message English. A message with no language of its own ("a las 5",
-  "17:00", "sí") follows the user's previous message, then their app language, so the
-  answer to a question asked in Spanish never writes either. Live talk follows the same
-  rule: speech in another language never saves a reminder.
-- ✅ **LLM todo sync** — ` ```reminder ` fences and the spoken rules become reminder cards
-  (above); with cards off they apply on persist (create + mutations), and a background job
-  recovers missed writes from chat (dated items only). The job is off while cards are on,
-  since it would write without one. Injects
-  Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
-  …” loads Schedule on the first turn. Typed “remind me …” also classifies
-  as a Schedule turn. Live Talk injects a compact Schedule snapshot and applies the same
-  clocked “remind me … today/tomorrow at …” persist heuristic (no invented times; tools
-  stay read-only).
+- ❌ **Reminder cards and chat to-do writes** — removed (owner, 2026-11-27). Chat and live
+  talk never add, edit, complete or delete a to-do: no ` ```reminder ` fence is taught or
+  applied, no ` ```reminder_proposal ` card is offered, and `POST /todos/proposals/{id}/confirm`
+  is gone. Old saved replies may still hold a card: the phone draws nothing for it and the
+  prompt's history leaves it out. Never offer it back.
+- ✅ **Chat and live talk only read to-dos** — in every language. A question about the list
+  loads it into the prompt (“what's on my list today?”, “when is my dentist appointment?”,
+  “¿qué tengo hoy?”), and a plain “what's on my to-do list?” is answered from the saved rows,
+  never the model's list (`todos/read_asks.py`, `todos/reading.py`). A request to add or
+  change one (“remind me to call mom”, “add milk to my list”, “set an alarm for 7”,
+  “recuérdame…”, “напомни…”, “አስታውሰኝ”) gets the server's own reply, no model call: one line in
+  the user's language and an **Open To-do** button (` ```todo_link `,
+  `todos/write_asks.py`, `todos/chat_language.py`). A time or a yes right after the button
+  (“6pm”, “a las 5”) gets it again. A change the words did not catch (“mark call mom as
+  done”) is the model's: it is told it cannot change one and writes the button; a reply
+  that writes the old fence, the button, or says a change was made (“Done! I've marked
+  it”) becomes the server's line and button (`chat/finalize_todos.py`,
+  `todos/reply_claims.py`). A message of several requests keeps its other answers, with the
+  line under them. A question offering to set a reminder (“Want me to set a reminder?”) is
+  dropped from every reply (`todos/reply_offers.py`). Live talk reads a compact snapshot of
+  the list and is told to answer a spoken “remind me…” by sending the user to the To-do
+  screen, in their language; it saves nothing.
+- ✅ **To-dos in the prompt** — Schedule + overdue summary in the system prompt when a turn
+  is about to-dos or one is overdue. “What time is my flight / meeting / …” loads Schedule
+  on the first turn.
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker on Reminders; relative
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
@@ -1329,7 +1314,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   before due). With push on, the server owns due-at (`server_todo_push_enabled` defaults
   true) and local scheduling is skipped so both do not fire. Turning push off cancels
   leftover local alerts then re-schedules them on-device.
-- ✅ **Follow-up questions** — up to three short questions (one line each, about 3–9 words) under the latest reply, about what the user just asked: a why, a what-if and a next step for a maths, physics or chemistry problem, and the next things a person would ask for any other real question with a full answer. Small talk, drafts, personal updates, reminders and settings get none. What a short line follows is the turn's one follow-up read (`modules/chat/follow_up_read.py`, the posed read begun as the turn loads): the reply is told beside the line which message it follows and the labelled part or step it names ("explain step 2", "and b?"), in every subject, and the questions stay on the problem it names, or on none when the turn's read says the line stands alone; word rules decide only with no read. One `memory-model` call per eligible turn after `done` (`modules/chat/related_prompts.py`), cached per message for reopen; rows in `features/suggestions/components/RelatedPromptLines.tsx`. The old proactive chips built from other chats are gone from the app, and the `suggestions` job, its generator and the `/suggestions` routes are removed; stored rows stay in the data export until a later release drops the table.
+- ✅ **Follow-up questions** — up to three short questions (one line each, about 3–9 words) under the latest reply, about what the user just asked: a why, a what-if and a next step for a maths, physics or chemistry problem, and the next things a person would ask for any other real question with a full answer. Small talk, drafts, personal updates, to-do requests and settings get none. What a short line follows is the turn's one follow-up read (`modules/chat/follow_up_read.py`, the posed read begun as the turn loads): the reply is told beside the line which message it follows and the labelled part or step it names ("explain step 2", "and b?"), in every subject, and the questions stay on the problem it names, or on none when the turn's read says the line stands alone; word rules decide only with no read. One `memory-model` call per eligible turn after `done` (`modules/chat/related_prompts.py`), cached per message for reopen; rows in `features/suggestions/components/RelatedPromptLines.tsx`. The old proactive chips built from other chats are gone from the app, and the `suggestions` job, its generator and the `/suggestions` routes are removed; stored rows stay in the data export until a later release drops the table.
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker.
 
 ## 15. Code execution policy

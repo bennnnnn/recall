@@ -57,7 +57,6 @@ SERVER_MEDIA = frozenset({"answer_photo", "reply_picture", "search_sources"})
 STOPPED_REPLY_PASSES = frozenset(
     {
         "control_tokens",
-        "drop_cut_reminder_fence",
         "prepare_model_reply",
         "answer_labels",
         "untrusted_media",

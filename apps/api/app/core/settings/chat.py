@@ -25,8 +25,6 @@ class ChatContextSettings(BaseModel):
     ordinary_prompt_enabled: bool = True
     link_preview_cache_ttl: int = 3600
     todo_inject_limit: int = 100
-    # A reminder change from chat is a card the user taps to save (or mark
-    # done, move, delete). Off: chat writes to-dos as soon as it reads them.
     todo_prompt_limit: int = 48
 
     # History compression. The prompt carries every message after the summary's edge

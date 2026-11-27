@@ -13,10 +13,10 @@ in front raises the programming errors a decline would hide (``math/solve/declin
 
 ``expect`` per entry: "answer" (an ordinary reply that must reach the user),
 "instant" (the server answers without the model: the date, the time),
-"photo", "search", "image_gen", "save" (a reminder is saved), "ask_time",
-"change" (done / delete / move), "read" (the reminder list), "settings",
-"memory", "todo" (any of the reminder outcomes), "todo_screen" (a to-do change asked in
-another language: nothing saved or changed, the Open To-do button instead). A list asks
+"photo", "search", "image_gen", "read" (the reminder list), "settings", "memory",
+"todo" (either to-do outcome), "todo_screen" (a reminder or to-do change asked in chat, in
+any language: nothing saved or changed, no claim that it was, the Open To-do button
+instead; chat only reads to-dos, owner 2026-11-27). A list asks
 for every outcome on the one turn: ``["search", "answer"]`` is a message with a live part
 and another
 answered beside it ("image_gen" and "settings" there are the picture or card a
@@ -57,8 +57,8 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.conversation import messages_repository
 from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
-from app.modules.todos import write_log
-from app.modules.todos.reply_check import KEEP_AS_REMINDER, NEED_A_TIME
+from app.modules.todos.reply_claims import without_claims
+from app.modules.todos.reply_offers import without_reminder_offers
 from app.modules.turn_reading.lesson_flow import has_lesson_title
 from app.modules.turn_reading.routing import EMOJI
 from app.services.md_fence_scan import iter_closed_fences, strip_closed_fences, without_fences
@@ -74,21 +74,13 @@ from app.tests.fakes import fake_session
 
 CORPUS = Path(__file__).with_name("sweep_corpus")
 
-# Replies the server writes in place of the model's when it decides a turn was
-# about reminders. On an ordinary turn any of them is a hijack.
+# Replies the server writes in place of the model's when it decides a turn was about
+# to-dos. On an ordinary turn any of them is a hijack.
 CANNED = (
-    NEED_A_TIME,
-    KEEP_AS_REMINDER,
-    "That time already passed.",
-    "I didn't change your reminders.",
-    "I didn't set a reminder.",
-    "Could not ",
-    "Couldn't find",
-    "I couldn't find",
-    "You have no reminders",
-    "No reminders",
+    "You can add or change it in **To-do**.",
+    "Nothing scheduled.",
 )
-TODO_EXPECTS = {"save", "ask_time", "change", "read", "todo"}
+TODO_EXPECTS = {"read", "todo", "todo_screen"}
 # What a turn's picture must come to: a flowchart the user asked for, a picture of the app's,
 # or one line saying none could be drawn (``owed_picture``).
 PICTURE_EXPECTS = frozenset({"flowchart", "drawn", "said_not_drawn"})
@@ -100,7 +92,6 @@ EXPECTS = {
     "image_gen",
     "settings",
     "memory",
-    "todo_screen",
     *TODO_EXPECTS,
     *PICTURE_EXPECTS,
 }
@@ -303,7 +294,8 @@ def _user(*, pro: bool) -> User:
 
 @contextmanager
 def _stores(outcome: Outcome, user: User) -> Iterator[None]:
-    """In-memory reminders: six saved ones, and a record of every write."""
+    """In-memory reminders: six saved ones to read back, and a record of every write, which
+    chat never makes."""
     items = [
         SimpleNamespace(
             id=uuid4(),
@@ -328,41 +320,16 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
     async def list_for_user(*_args: Any, **_kwargs: Any) -> list[Any]:
         return list(items)
 
-    # Like the real repository, a write made while the turn records (the
-    # reminder card the user taps) is planned, not made.
     async def create(_session: Any, **kwargs: Any) -> Any:
         outcome.saved.append(kwargs)
-        # The real row's defaults, the time flag included: ``write_log.plan_create`` reads it,
-        # and without it every planned save raised and printed a traceback into the run.
-        fields = {
-            "checked": False,
-            "sort_order": 0,
-            "source": "chat",
-            "due_has_time": True,
-            **kwargs,
-        }
-        item = SimpleNamespace(id=uuid4(), **fields)
-        planned = write_log.planned()
-        if planned is not None:
-            return write_log.plan_create(planned, item)  # type: ignore[arg-type]
-        items.append(item)
-        return item
+        return SimpleNamespace(id=uuid4(), **kwargs)
 
     async def update(_session: Any, item: Any, **fields: Any) -> Any:
         outcome.changed.append(f"update {getattr(item, 'content', '?')} {sorted(fields)}")
-        planned = write_log.planned()
-        if planned is not None:
-            return write_log.plan_update(planned, item, fields)
-        for key, value in fields.items():
-            setattr(item, key, value)
         return item
 
     async def delete_by_id(_session: Any, todo_id: Any, *_args: Any, **_kwargs: Any) -> bool:
         outcome.changed.append(f"delete {todo_id}")
-        planned = write_log.planned()
-        if planned is not None:
-            row = next((item for item in items if item.id == todo_id), None)
-            return write_log.plan_delete(planned, todo_id, row)
         return True
 
     repo = "app.modules.todos.repository"
@@ -372,7 +339,6 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
             ("create", create),
             ("update", update),
             ("delete_by_id", delete_by_id),
-            ("get_open_dated_duplicate", AsyncMock(return_value=None)),
         ):
             stack.enter_context(patch(f"{repo}.{name}", value))
         yield
@@ -491,7 +457,6 @@ async def _run_entry(entry: Entry) -> Outcome:
     ):
         outcome.final = await enrich_final_content(
             deps,
-            AsyncMock(),
             settings,
             ctx,
             assistant_text=entry.reply,
@@ -502,7 +467,7 @@ async def _run_entry(entry: Entry) -> Outcome:
         )
     outcome.problems = (
         judge(outcome)
-        + claims_above_a_pending_card(outcome.final)
+        + claims_a_to_do_change(outcome)
         + undrawn_charts(outcome.final)
         + picture_problems(outcome)
     )
@@ -554,10 +519,14 @@ def _words(text: str) -> set[str]:
     return set(re.findall(r"[^\W_]{3,}", text.lower()))
 
 
-def _kept(reply: str, final: str) -> bool:
+def _kept(reply: str, final: str, *, to_do_part: bool = False) -> bool:
     """Most of the reply's words survived (layout fixes may move them). A ```draw block is
-    no words of the reply: the server draws it or drops it."""
-    reply = strip_closed_fences(reply, "draw")
+    no words of the reply: the server draws it or drops it. Nor is an offer to set a
+    reminder, or beside a message's to-do part a sentence saying one was set: chat makes
+    none (owner, 2026-11-27)."""
+    reply = without_reminder_offers(strip_closed_fences(reply, "draw"))
+    if to_do_part:
+        reply = without_claims(reply)
     if not reply.strip():
         return True
     words = _words(reply)
@@ -572,6 +541,9 @@ def judge(outcome: Outcome) -> list[str]:
     problems: list[str] = []
     for expect in entry.expects:
         problems.extend(p for p in _judge_expect(outcome, expect) if p not in problems)
+    # Chat sets no reminder, so no reply offers one (owner, 2026-11-27).
+    if without_reminder_offers(outcome.final) != outcome.final:
+        problems.append("offers to set a reminder")
     # The turn after a clarify card answers: another card, or its questions as prose, is
     # asking again (live: "plan my week", picks sent, a second card came back).
     if entry.area in AFTER_CARD_AREAS and "```clarify" in outcome.final:
@@ -603,14 +575,15 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
     if expect in {"answer", "photo", "search", "image_gen", "settings", "memory"}:
         if canned:
             problems.append(f"reply replaced by {canned!r}")
-        elif not _kept(entry.reply, final) and entry.area not in AFTER_CARD_AREAS:
+        elif (
+            not _kept(entry.reply, final, to_do_part="todo_screen" in expects)
+            and entry.area not in AFTER_CARD_AREAS
+        ):
             # After a card, losing the model's second card is the point.
             problems.append("reply lost most of its words")
-        # A reminder the entry also expects is the other part of the same turn.
-        if outcome.saved and not expects & TODO_EXPECTS:
-            problems.append(f"saved a reminder {outcome.saved[0].get('content')!r}")
-        if outcome.changed and not expects & TODO_EXPECTS:
-            problems.append(f"changed reminders: {outcome.changed[0]}")
+        # A to-do the entry also expects is the other part of the same turn.
+        if not expects & TODO_EXPECTS:
+            problems.extend(_to_do_written(outcome))
     if expect == "answer":
         if route.photo:
             problems.append(f"photo lookup took the turn ({route.photo!r})")
@@ -679,33 +652,57 @@ def _judge_expect(outcome: Outcome, expect: str) -> list[str]:
     elif expect == "memory" and not outcome.memory_command:
         problems.append("not read as a memory command")
     elif expect == "todo_screen":
-        # The server answers a change asked in another language itself (an instant reply).
-        if "```todo_link" in route.instant_text:
-            final = route.instant_text
-        if outcome.saved or outcome.changed:
-            problems.append("changed reminders from a message in another language")
-        if canned:
-            problems.append(f"reply replaced by {canned!r}")
-        if "```todo_link" not in final:
-            problems.append(f"no Open To-do button (reply: {final[:70]!r})")
-        elif not without_fences(final).strip():
-            problems.append("an Open To-do button with no line saying what it is for")
-    elif expect == "save" and not outcome.saved:
-        problems.append(f"no reminder saved (reply: {final[:70]!r})")
-    elif expect == "ask_time" and (outcome.saved or "?" not in final):
-        problems.append(f"did not ask for a time (reply: {final[:70]!r})")
-    elif expect == "change" and not outcome.changed and not canned:
-        problems.append(f"no reminder changed (reply: {final[:70]!r})")
-    elif expect == "read" and not ("call mom" in final.lower() or "reminder" in final.lower()):
+        problems.extend(_todo_screen_problems(outcome))
+    elif expect == "todo" and not (_todo_button(outcome) or _reads_the_list(final)):
+        problems.append(f"neither read the list nor sent it to To-do (reply: {final[:70]!r})")
+    elif expect == "read" and not _reads_the_list(final):
         problems.append(f"did not read the reminders (reply: {final[:70]!r})")
+    if expect in TODO_EXPECTS:
+        problems.extend(_to_do_written(outcome))
     if expect in TODO_EXPECTS and route.photo:
         problems.append(f"photo lookup took the turn ({route.photo!r})")
     return problems
 
 
-# Said above a reminder card nobody has tapped: nothing is saved yet. "The
-# meeting is set for Friday" and "I set aside time to write" are not claims.
-_PENDING_CARD_CLAIM = re.compile(
+def _todo_button(outcome: Outcome) -> str | None:
+    """The reply holding the Open To-do button: the server's instant reply or the final."""
+    for text in (outcome.route.instant_text, outcome.final):
+        if "```todo_link" in text:
+            return text
+    return None
+
+
+def _reads_the_list(final: str) -> bool:
+    """The reply names a saved reminder, or reminders."""
+    lowered = final.lower()
+    return "reminder" in lowered or any(title in lowered for title in SEEDED)
+
+
+def _to_do_written(outcome: Outcome) -> list[str]:
+    """Chat writes no to-do (owner, 2026-11-27): any write the turn made."""
+    problems = []
+    if outcome.saved:
+        problems.append(f"saved a reminder {outcome.saved[0].get('content')!r}")
+    if outcome.changed:
+        problems.append(f"changed reminders: {outcome.changed[0]}")
+    return problems
+
+
+def _todo_screen_problems(outcome: Outcome) -> list[str]:
+    """A to-do change asked in chat: the Open To-do button under a line saying what it is
+    for, and the reply's other parts (a multi-part message) kept."""
+    final = _todo_button(outcome)
+    if final is None:
+        return [f"no Open To-do button (reply: {outcome.final[:70]!r})"]
+    if not without_fences(final).strip():
+        return ["an Open To-do button with no line saying what it is for"]
+    return []
+
+
+# A reply that says a reminder was set, added or changed: chat makes no change, so every
+# one is false. "The meeting is set for Friday" and "I set aside time to write" are not
+# claims.
+_CHANGE_CLAIM = re.compile(
     r"\b(?:i['\u2019]ve set|i have set|i set (?:a|an|the|your|up|it)\b"
     r"|i['\u2019]ve (?:added|scheduled|saved|created)\b"
     r"|(?:reminder|it|that)(?:['\u2019]s| is| has been) (?:all )?set\b|reminder set\b"
@@ -727,13 +724,14 @@ def undrawn_charts(final: str) -> list[str]:
     ]
 
 
-def claims_above_a_pending_card(final: str) -> list[str]:
-    """A reply carrying an untapped reminder card makes no completed-action claim."""
-    if "```reminder_proposal" not in final or '"status": "saved"' in final:
+def claims_a_to_do_change(outcome: Outcome) -> list[str]:
+    """A turn about to-dos never says one was set, added or changed."""
+    if not set(outcome.entry.expects) & TODO_EXPECTS:
         return []
+    final = _todo_button(outcome) or outcome.final
     prose = re.sub(r"```.*?```", " ", final, flags=re.DOTALL)
-    claim = _PENDING_CARD_CLAIM.search(prose)
-    return [f"claims the change before the tap: {claim.group(0)!r}"] if claim else []
+    claim = _CHANGE_CLAIM.search(prose)
+    return [f"claims a to-do change: {claim.group(0)!r}"] if claim else []
 
 
 async def run(entries: list[Entry]) -> list[Outcome]:
