@@ -39,7 +39,8 @@ import {
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
-import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser } from "@/lib/cachedUser";
+import { useCachedUserWriter } from "@/contexts/useCachedUserWriter";
 import { AccountSessionContext } from "@/contexts/accountSession";
 import { endServerSession, watchPendingLogouts } from "@/lib/pendingLogout";
 import { reportCorruptSessionCleared } from "@/lib/sentry";
@@ -346,14 +347,7 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   useEffect(() => {
     if (user?.locale) void ensureLocale(user.locale);
   }, [user?.locale]);
-
-  // The launch cache follows every change to the user the server has confirmed this run, by any
-  // path: /auth/me, a sign-in, a save, a re-read, a token refresh's account, the store's plan
-  // sync, a merge. The next launch (an offline one too) paints the plan and settings as they were
-  // last shown, never an older plan. A sign-out clears the user first, so nothing is written back.
-  useEffect(() => {
-    if (profileValidated && user) void writeCachedUser(user);
-  }, [profileValidated, user]);
+  useCachedUserWriter(profileValidated ? user : null);
 
   // The launch cache keeps no push, email or reminder switch, nor Location: running bootstrap
   // on their placeholders would unregister push and overwrite local reminders.

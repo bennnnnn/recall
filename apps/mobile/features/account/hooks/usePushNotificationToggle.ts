@@ -20,6 +20,37 @@ type PushNotificationToggleOptions = {
 };
 
 /**
+ * The phone's permission, read when the page opens and again by `read` (each return to the
+ * app): allowed or taken away in the phone's Settings meanwhile, the switch shows it.
+ */
+function usePushPermission(isCurrent: () => boolean, onError: () => void) {
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const read = useCallback((active: () => boolean = () => true, then?: (granted: boolean) => void) => {
+    void getNotificationPermissionGranted()
+      .then((granted) => {
+        if (!active() || !isCurrent()) return;
+        setPermissionGranted(granted);
+        then?.(granted);
+      })
+      .catch(() => {
+        if (!active() || !isCurrent()) return;
+        setPermissionGranted(false);
+        onError();
+      });
+  }, [isCurrent, onError]);
+
+  useEffect(() => {
+    if (!isCurrent()) return;
+    let active = true;
+    read(() => active);
+    return () => {
+      active = false;
+    };
+  }, [isCurrent, read]);
+  return { permissionGranted, setPermissionGranted, read };
+}
+
+/**
  * Owns the push switch's optimistic draft without letting a stale screen or
  * previous account update the current view.
  */
@@ -33,7 +64,6 @@ export function usePushNotificationToggle({
   onError,
 }: PushNotificationToggleOptions) {
   const session = getSessionGeneration();
-  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [optimisticValue, setOptimisticValue] = useState<boolean | null>(null);
 
   const sameAccount = useCallback(
@@ -44,29 +74,7 @@ export function usePushNotificationToggle({
     () => isCurrentView() && sameAccount(),
     [isCurrentView, sameAccount],
   );
-
-  // The phone's permission, read when the page opens and on each return to the app: allowed
-  // or taken away in the phone's Settings meanwhile, the switch shows it.
-  const readPermission = useCallback((active: () => boolean = () => true) => {
-    void getNotificationPermissionGranted()
-      .then((granted) => {
-        if (active() && isCurrent()) setPermissionGranted(granted);
-      })
-      .catch(() => {
-        if (!active() || !isCurrent()) return;
-        setPermissionGranted(false);
-        onError();
-      });
-  }, [isCurrent, onError]);
-
-  useEffect(() => {
-    if (!isCurrent()) return;
-    let active = true;
-    readPermission(() => active);
-    return () => {
-      active = false;
-    };
-  }, [isCurrent, readPermission]);
+  const { permissionGranted, setPermissionGranted, read: readPermission } = usePushPermission(isCurrent, onError);
 
   const value = optimisticValue ?? (serverEnabled && permissionGranted === true);
 
@@ -135,12 +143,9 @@ export function usePushNotificationToggle({
   // away shows off and leaves the account's switch alone.
   useOnForeground(() => {
     if (!isCurrent()) return;
-    if (!wantedOn.current) return readPermission();
-    void getNotificationPermissionGranted().then((granted) => {
-      if (!isCurrent()) return;
-      setPermissionGranted(granted);
+    readPermission(undefined, (granted) => {
       if (granted && wantedOn.current) void toggle(true);
-    }).catch(() => {});
+    });
   }, Boolean(token));
 
   return { value, permissionGranted, toggle };
