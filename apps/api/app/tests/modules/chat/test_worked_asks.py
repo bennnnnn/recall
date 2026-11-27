@@ -8,6 +8,7 @@ replies the phone received in that round, whose layout showed each defect.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from pathlib import Path
@@ -52,6 +53,7 @@ def _saved(question: str, reply: str) -> str:
         text="".join(accum.shown),
         server_text=False,
         was_cancelled=False,
+        settings=SimpleNamespace(stem_solve_timeout_seconds=10.0),
         ctx=SimpleNamespace(
             verified_subject=None,
             solver_unverified=None,
@@ -59,7 +61,7 @@ def _saved(question: str, reply: str) -> str:
             worked=layout,
         ),
     )
-    return check_working(cast(FinalizeState, state))
+    return asyncio.run(check_working(cast(FinalizeState, state)))
 
 
 def _headings(text: str) -> list[str]:
@@ -397,7 +399,7 @@ def test_a_question_in_lettered_parts_names_them_beside_the_contract() -> None:
     prompt = [{"role": "user", "content": question}]
     with_note = with_worked_contract(prompt, _layout(question))
     note = with_note[-2]["content"]
-    assert note.startswith("This question is in lettered parts: (a) The altitude; (b) The")
+    assert note.startswith("Answer the question's lettered parts: (a) The altitude; (b) The")
     assert "exactly 3 `part` records" in note
     assert without_worked_contract(with_note) == prompt
     assert len(with_worked_contract(prompt, WorkedLayout())) == 2

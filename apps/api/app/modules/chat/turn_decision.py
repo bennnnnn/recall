@@ -400,8 +400,9 @@ async def read_decision(
 ) -> TurnDecision | None:
     """How to handle the message; None: no read. ``model_alias`` is for measurement.
     ``steps``: ask whether the answer is one procedure (``decider_read.STEPS_QUESTION``); a
-    message after a lesson's cards, a lesson step or a cut-off reply never asks, its layout
-    being the lesson's or the reply's (``steps_turn``), nor a composer's picture check.
+    message after a lesson's cards or a lesson step never asks, its layout being the
+    lesson's (``steps_turn``), nor a composer's picture check; after a cut-off reply it asks,
+    and a "Continue" keeps the reply's layout (``steps_turn.gives_the_steps_card``).
     ``asked`` records whether the steps question really goes out (``asks_steps``).
     ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
     show (``picture_read``); ``earlier`` when not given."""
@@ -449,7 +450,7 @@ async def read_decision(
             earlier,
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
-            ask_steps=steps and lesson is None,
+            ask_steps=steps and _no_lesson_asked(lesson),
             lesson=lesson,
             raw=earlier if raw is None else raw,
         )
@@ -594,7 +595,7 @@ def start_turn_decision(
     if not settings.live_read_enabled:
         return None
     lesson = _lesson_questions(recent)
-    asked = StepsAsked(steps and lesson is None)
+    asked = StepsAsked(steps and _no_lesson_asked(lesson))
 
     async def read() -> TurnDecision | None:
         labels = await shown_pictures.settled_labels(pictures)
@@ -616,8 +617,8 @@ def start_turn_decision(
 @dataclass
 class StepsAsked:
     """Whether a turn's read asks the steps question (``decider_read.STEPS_QUESTION``): not
-    after a lesson's cards, a lesson step or a cut-off reply, nor for a picture check, nor
-    with the Decider's breaker open. The reply waits for a steps answer only when one is
+    after a lesson's cards or a lesson step, nor for a picture check, nor with the
+    Decider's breaker open. The reply waits for a steps answer only when one is
     coming (``decided_turn._steps_at_stake``)."""
 
     asked: bool
@@ -653,6 +654,13 @@ def _lesson_questions(recent: list[Any] | None) -> dict[str, dict[str, Any]] | N
     if follows_a_cut_off_reply(recent):
         questions = {**questions, **RESUME_QUESTION}
     return questions or None
+
+
+def _no_lesson_asked(lesson: dict[str, dict[str, Any]] | None) -> bool:
+    """No question about a lesson or its cards: none at all, or only whether the message goes
+    on with a cut-off reply. "how do I change a flat tire" after a reply that ran out of room
+    is still asked the steps question (review of #2610: it never got the card)."""
+    return lesson is None or set(lesson) <= set(RESUME_QUESTION)
 
 
 def drop_read(task: asyncio.Task[TurnDecision | None] | None) -> None:

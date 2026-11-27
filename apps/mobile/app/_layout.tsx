@@ -1,3 +1,5 @@
+// First: crash reporting is on before any other app module runs (lib/sentryStart.ts).
+import "@/lib/sentryStart";
 import "@/lib/i18n";
 
 import { Stack } from "expo-router";
@@ -39,7 +41,7 @@ import {
   stackUtilityTransition,
 } from "@/lib/stackTransitions";
 import { subscribeUnknownLatexCommands } from "@/lib/math/latexNames";
-import { initMobileSentry, reportUnknownLatexCommandName } from "@/lib/sentry";
+import { reportUnknownLatexCommandName } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 
 // Before the first render: the user's appearance, accent and language.
@@ -126,7 +128,6 @@ export default function RootLayout() {
   // Work for later in the session, once the launch has settled.
   useEffect(() => {
     return scheduleIdleTask(() => {
-      void initMobileSentry();
       preloadFigures();
     });
   }, []);

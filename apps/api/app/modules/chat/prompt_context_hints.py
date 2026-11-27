@@ -67,7 +67,7 @@ def slim_geo_hints(turn: SlimTurn) -> list[str]:
     if not asks_place and (turn.lightweight or turn.minimal_personal_context):
         return []
     location = turn.prompt_location or profile_place(turn.user, turn.local_tz)
-    parts = [f"The user's location: {location}. {USE_THE_LOCATION}"] if location else []
+    parts = [f"Their location: {location}. {USE_THE_LOCATION}"] if location else []
     return parts + (_geo_hints(query, turn.prompt_location) if asks_place else [])
 
 

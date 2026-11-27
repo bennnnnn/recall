@@ -5,6 +5,7 @@ import {
   finishSegmentedPrefix,
   type SegmentedPrefix,
 } from "@/lib/markdown/segmentedPreprocess";
+import { displayDollarsAfter, type DisplayCloser } from "@/lib/markdown/displayDollars";
 import { pairLazily } from "@/lib/markdown/streamSegments";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";
 import { fenceAfterLine, type OpenFence } from "@/lib/fence/scan";
@@ -72,13 +73,13 @@ export function findStableMarkdownPrefixLen(content: string): number {
 
 /** `$`, `$$`, `\[`, and `\(` inside a code fence are code, not math. */
 function mathMarkersOutsideFences(text: string): {
-  blockDollar: number;
+  dollarOpen: DisplayCloser;
   bracketOpen: boolean;
   parenOpen: boolean;
   fenceOpen: boolean;
 } {
   let openFence: OpenFence | null = null;
-  let blockDollar = 0;
+  let dollarOpen: DisplayCloser = null;
   let bracketOpen = false;
   let parenOpen = false;
   let pos = 0;
@@ -89,20 +90,20 @@ function mathMarkersOutsideFences(text: string): {
     const before = openFence;
     openFence = fenceAfterLine(openFence, line);
     if (before == null && openFence == null) {
-      const markers = lineMathMarkers(line, bracketOpen, parenOpen);
-      blockDollar += markers.blockDollars;
+      const markers = lineMathMarkers(line, dollarOpen, bracketOpen, parenOpen);
+      dollarOpen = markers.dollarOpen;
       bracketOpen = markers.bracketOpen;
       parenOpen = markers.parenOpen;
     }
     if (nl === -1) break;
     pos = nl + 1;
   }
-  return { blockDollar, bracketOpen, parenOpen, fenceOpen: openFence != null };
+  return { dollarOpen, bracketOpen, parenOpen, fenceOpen: openFence != null };
 }
 
 function hasUnclosedStreamingStructure(text: string): boolean {
   const math = mathMarkersOutsideFences(text);
-  if (math.blockDollar % 2 !== 0) return true;
+  if (math.dollarOpen) return true;
   // A single `$` holds nothing: only whole lines are stable, and a `$` span never
   // reaches past its line (`readInlineMathSpan`), so a closed line's odd `$`
   // ("a $300 deposit", a price list) can never close later.
@@ -122,19 +123,24 @@ function hasUnclosedStreamingStructure(text: string): boolean {
 
 /**
  * The maths delimiters of one line outside a fence. `$$`, `\[…\]` and
- * `\(…\)` may span lines, so they carry across them, and pair lazily, as the
- * preprocess regexes read them (`/\\\[([\s\S]+?)\\\]/`): an opener waits for
- * the next closer, and a closer with no opener is not one. A single `$`
- * pairs only on its line, so it is not read here.
+ * `\(…\)` may span lines, so they carry across them. `$$` is read as
+ * `convertBlockMath` reads it (`displayDollars.ts`: code, escapes and price
+ * tiers hold none). `\[` and `\(` pair lazily, as the preprocess regexes read
+ * them (`/\\\[([\s\S]+?)\\\]/`): an opener waits for the next closer, and a
+ * closer with no opener is not one. A single `$` pairs only on its line, so
+ * it is not read here.
  */
 function lineMathMarkers(
   line: string,
+  dollarOpen: DisplayCloser,
   bracketOpen: boolean,
   parenOpen: boolean,
-): { blockDollars: number; bracketOpen: boolean; parenOpen: boolean } {
-  if (!line.includes("$") && !line.includes("\\")) return { blockDollars: 0, bracketOpen, parenOpen };
+): { dollarOpen: DisplayCloser; bracketOpen: boolean; parenOpen: boolean } {
+  if (!line.includes("$") && !line.includes("\\") && !dollarOpen) {
+    return { dollarOpen, bracketOpen, parenOpen };
+  }
   return {
-    blockDollars: countOccurrences(line, "$$"),
+    dollarOpen: displayDollarsAfter(line, dollarOpen),
     bracketOpen: pairLazily(line, bracketOpen, "\\[", "\\]"),
     parenOpen: pairLazily(line, parenOpen, "\\(", "\\)"),
   };
@@ -170,17 +176,6 @@ function endsWithOpenCallout(text: string): boolean {
   return false;
 }
 
-function countOccurrences(text: string, needle: string): number {
-  if (!needle) return 0;
-  let count = 0;
-  let idx = 0;
-  while ((idx = text.indexOf(needle, idx)) !== -1) {
-    count += 1;
-    idx += needle.length;
-  }
-  return count;
-}
-
 const CALLOUT_MARKER_LINE_RE = /^>\s*\[!\w+\]/i;
 
 type StableScanState = {
@@ -191,8 +186,8 @@ type StableScanState = {
    * lines): a ``` line inside a ~~~ block is that block's content (audit DUP-03).
    */
   openFence: OpenFence | null;
-  /** Parity of `$$` occurrences seen so far (true = inside block math). */
-  dollarOpen: boolean;
+  /** The `$$` formula open at `scannedLen` (`displayDollars.ts`), or null. */
+  dollarOpen: DisplayCloser;
   /** 1 inside \[...\] block math, paired lazily (`lineMathMarkers`), else 0. */
   bracketDepth: number;
   /** 1 inside \(...\) inline math, which may span lines, paired lazily, else 0. */
@@ -218,7 +213,8 @@ type StableScanState = {
  * every line of the fence, every tick, for as long as it stays open.
  *
  * This function instead scans `content` forward line by line exactly once,
- * maintaining running parity/state for fences, `$$` math, and callouts as it
+ * maintaining running state for fences, `$$` math (read by the shared
+ * `displayDollars.ts` reader, so a price tier opens nothing), and callouts as it
  * goes (folding in each line is O(1)), and remembers the last line boundary
  * where all three were "closed". Given a previous call's returned state, a
  * later call for grown (append-only) `content` resumes from
@@ -227,11 +223,11 @@ type StableScanState = {
  * previous call, not by how much of the message is still open.
  *
  * Why resuming is safe: `scannedLen` is always a full-line boundary (0 or
- * right after a `\n`), and the fence/`$$` parity + callout state cached at
+ * right after a `\n`), and the fence/`$$` + callout state cached at
  * that boundary are exactly the running state a whole-prefix scan of
  * `content.slice(0, scannedLen)` would have computed. Appending more text
  * cannot retroactively change whether that earlier text closed its
- * fences/math/callouts (its own parity/chain state is a closed fact once
+ * fences/math/callouts (its own state is a closed fact once
  * written), so the cached state stays valid — only the newly appended lines
  * need to be folded in. (This mirrors why `findStableMarkdownPrefixLen`'s
  * own answer never needs to re-examine text before a boundary it already
@@ -253,7 +249,7 @@ function scanStableMarkdownPrefix(
   }
 
   let openFence: OpenFence | null = null;
-  let dollarOpen = false;
+  let dollarOpen: DisplayCloser = null;
   let bracketDepth = 0;
   let parenDepth = 0;
   let calloutOpen = false;
@@ -285,8 +281,8 @@ function scanStableMarkdownPrefix(
     // A single `$` pairs only on its line (`readInlineMathSpan`), so it holds no
     // whole line: "a $300 deposit" or a price list settles as it comes.
     if (before == null && openFence == null) {
-      const markers = lineMathMarkers(line, bracketDepth !== 0, parenDepth !== 0);
-      if (markers.blockDollars % 2 !== 0) dollarOpen = !dollarOpen;
+      const markers = lineMathMarkers(line, dollarOpen, bracketDepth !== 0, parenDepth !== 0);
+      dollarOpen = markers.dollarOpen;
       bracketDepth = markers.bracketOpen ? 1 : 0;
       parenDepth = markers.parenOpen ? 1 : 0;
     }

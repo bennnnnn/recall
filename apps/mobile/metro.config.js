@@ -1,10 +1,26 @@
 const fs = require("fs");
 const path = require("path");
-const { getDefaultConfig } = require("expo/metro-config");
-const { withSentryFeedbackResolver, withSentryResolver } = require("@sentry/react-native/metro");
+const {
+  getSentryExpoConfig,
+  withSentryFeedbackResolver,
+  withSentryResolver,
+} = require("@sentry/react-native/metro");
 
-/** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(__dirname);
+/**
+ * Expo's default config, with Sentry's Debug ID in every release bundle and its source
+ * map: a stack from a store build or an over-the-air update finds its map by that id
+ * (mobile-update.yml uploads an update's maps; a store build's Xcode and Gradle steps
+ * upload its own). Nothing else of Sentry's: no options file (lib/sentry.ts starts the
+ * SDK), no dev-server middleware, no release injected into a web bundle, and the
+ * resolver below replaces Sentry's, as before.
+ *
+ * @type {import('expo/metro-config').MetroConfig}
+ */
+const config = getSentryExpoConfig(__dirname, {
+  optionsFile: false,
+  enableSourceContextInDevelopment: false,
+  injectReleaseForWeb: false,
+});
 
 /**
  * Pin react-native-svg to a single physical copy (pnpm can otherwise hand

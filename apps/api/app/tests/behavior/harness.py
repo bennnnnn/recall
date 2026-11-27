@@ -142,8 +142,8 @@ HINTS: dict[str, str] = {
     # "Do not create an email, message ... fence": the turn is no draft.
     "no_draft": NON_DRAFT_TURN_HINT,
     # The draft asked for earlier, written or changed on this turn.
-    "draft_revision": "Change the draft you wrote earlier in this conversation",
-    "draft_now": "and this turn says what it should say or how to change it",
+    "draft_revision": "Change the draft you wrote earlier",
+    "draft_now": "with what this message says it should say or how to change it",
     "brevity": pc.BREVITY_REQUEST_HINT,
     "capabilities": pc.CAPABILITIES_FORMAT_HINT,
     "lightweight": pc.LIGHTWEIGHT_REPLY_HINT,
@@ -154,7 +154,7 @@ HINTS: dict[str, str] = {
     "answer_photo": pc.ANSWER_PHOTO_HINT,
     "where_is_photo": pc.WHERE_IS_PHOTO_HINT,
     # The subject is the user's own words; its fixed part marks the hint.
-    "subject_photo": "If that is something people would want to see",
+    "subject_photo": "what this message asks about, is something people would want to see",
     "emoji_rule": EMOJI_RULE,
     "code_explain": CODE_EXPLAIN_HINT,
     "code_debug": CODE_DEBUG_HINT,
@@ -168,7 +168,7 @@ HINTS: dict[str, str] = {
     "reply_missed": REPLY_MISSED_HINT,
     # "A" under a question with lettered options: the option it picks, by its words.
     "option_pick": OPTION_PICK_MARK,
-    # "The user is asking for a personal recommendation": tastes shape the pick.
+    # A personal recommendation: the known facts' tastes shape the pick.
     "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,

@@ -6,8 +6,10 @@ from app.modules.chat.prompt_constants.format import (
     FORMAT_CONTRACT,
     READER_NOTE,
     SCAN_LAYOUT,
+    STEPS_FORMAT_HINT,
     TONE_FORMAT_GUARD,
 )
+from app.modules.chat.prompt_constants.privacy import CLARIFICATION_HINT
 from app.modules.chat.prompt_constants.routing import LIGHTWEIGHT_REPLY_HINT
 
 
@@ -33,11 +35,14 @@ def test_a_message_about_their_own_life_is_answered_as_a_conversation() -> None:
 
 
 def test_headings_rule_does_not_contradict_the_short_how_to() -> None:
-    # The contract says a short how-to is one numbered list; the tone guard
-    # used to tell every how-to to lead with ## headings.
-    assert "Short how-to: one numbered list" in FORMAT_CONTRACT
-    assert "a short how-to is one numbered list" in TONE_FORMAT_GUARD
+    # The tone guard used to tell every how-to to lead with ## headings; then it and the
+    # contract said a short how-to is one numbered list, against the ```steps card the read
+    # gives one procedure (review, 2026-11-27). A how-to's shape is the steps hint's, or the
+    # scan layout's ordered list, alone.
+    assert "how-to: one numbered list" not in FORMAT_CONTRACT
+    assert "how-to is one numbered list" not in TONE_FORMAT_GUARD
     assert "learning plan / how-to leads with ## headings" not in TONE_FORMAT_GUARD
+    assert "never a plain numbered list" in STEPS_FORMAT_HINT
 
 
 def test_a_greeting_gets_no_closing_offer() -> None:
@@ -45,8 +50,11 @@ def test_a_greeting_gets_no_closing_offer() -> None:
 
 
 def test_an_answer_that_rests_on_an_unstated_detail_names_its_assumption() -> None:
-    assert "state the assumption in one short clause and answer" in FORMAT_CONTRACT
-    assert "(budget, platform, version)" in FORMAT_CONTRACT
+    # One rule, the clarification hint's: assume, say it, answer (review, 2026-11-27: it also
+    # said "ask instead of guessing" against the format contract's "state the assumption").
+    assert "assume a sensible default, say it in one short clause and" in CLARIFICATION_HINT
+    assert "ask instead of guessing" not in CLARIFICATION_HINT
+    assert "state the assumption" not in FORMAT_CONTRACT
     assert "no stacked disclaimers" in FORMAT_CONTRACT
 
 

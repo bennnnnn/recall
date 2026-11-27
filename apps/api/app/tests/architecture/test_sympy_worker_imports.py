@@ -45,6 +45,9 @@ _WORKER_JOBS = (
     "from app.services.subjects.dispatch import maybe_direct_subject_reply",
     "from app.modules.chemistry.context import _solve_locally",
     "_solve_locally('How many moles are in 18 g of water?')",
+    "from app.modules.chat.working_pass import checked_working",
+    "checked_working('**Substitution**\\n$v = 72\\\\,\\\\mathrm{km/h} = 20\\\\,\\\\mathrm{m/s}$',"
+    " 'A car goes at 72 km/h.', school=True, laid_out=False, decimal_comma=False)",
 )
 _HEAVY = ("litellm", "openai", "tiktoken", "sqlalchemy", "fastapi")
 

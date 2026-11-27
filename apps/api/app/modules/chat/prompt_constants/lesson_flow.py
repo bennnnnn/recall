@@ -58,9 +58,10 @@ def lesson_continue_hint(number: int, *, after_gap: bool = False) -> str:
 # to go on: "yes" to "Want me to set a reminder to review this tomorrow?" got Lesson 2 (review,
 # 2026-11-14), the system prompt's steps reading every short reply as "next".
 LESSON_ASIDE_NOTE = (
-    "This message neither answers the lesson's practice card nor asks for the next lesson: it "
-    "accepts another offer your last reply made, picks among choices it offered, or asks "
-    "something of its own. Do that now, and teach no new lesson unless it asks for one."
+    "Take this message as what it is besides the lesson (a yes to another offer your last "
+    "reply made, a pick among choices it offered, or a question of its own), not an answer "
+    "to the practice card or a request for the next lesson. Do that now, and teach no new "
+    "lesson unless it asks for one."
 )
 
 

@@ -32,7 +32,7 @@ _ANY_LANGUAGE = re.compile(rf"^(?:huh\s*\?|eh\s*\?|hm+\s*\?|pardon\s*\?|\?+){_EN
 # "i dont get it, explain it simpler without all the letters" after a worked age problem got
 # the answer restated and checked again (2026-11-06): what they missed is how it was found.
 REPLY_MISSED_HINT = (
-    "The user did not follow your last reply. Say it again so they can: simpler and shorter, "
+    "Say your last reply again so it can be followed: simpler and shorter, "
     "in plain everyday words. When it worked something out, walk through how the answer is "
     "found, step by step, with no symbols or letters standing for numbers unless they ask; "
     "never just repeat the result or check a guess. If it may have been wrong, check it "
@@ -84,7 +84,7 @@ _ASKS_HOW = re.compile(
 # date plan") asks how to do what it was about: told the reply had an answer to explain, the
 # model asked "how I got my previous answer, or how to do something?" (2026-11-15).
 REPLY_HOW_HINT = (
-    "The user asks how, about your last reply. When it gave an answer or a result, explain "
+    'Answer this "how" about your last reply. When it gave an answer or a result, explain '
     "how it got there: the steps or reasoning, briefly, the main point first. When it was "
     'about something they want to do, a "how" asks how to do it: give the steps. Do not '
     "ask what they meant."

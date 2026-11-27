@@ -43,7 +43,7 @@ it("puts trace headers on our API's requests and on no one else's", async () => 
   const { initMobileSentry } = await import("@/lib/sentry");
   await import("@sentry/react-native");
   Object.defineProperty(globalThis, "fetch", { value: phoneFetch, writable: true, configurable: true });
-  await initMobileSentry();
+  initMobileSentry();
   for (const url of [
     "https://api.recall.test/chats",
     "https://api.recall.test/chats/1/messages?limit=40",

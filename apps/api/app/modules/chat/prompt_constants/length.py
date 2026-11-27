@@ -7,8 +7,8 @@ length line a turn's system prompt carries.
 """
 
 BREVITY_REQUEST_HINT = (
-    "The user set the length: a sentence, word or line count, or a brief answer. "
-    "Ignore decorative table/heading layout and match the length they asked exactly. Preserve a "
+    "Match the length this message sets (a sentence, word or line count, or a brief "
+    "answer) exactly, and ignore decorative table/heading layout. Preserve a "
     "draft/code/visual container only when that container is the requested deliverable. "
     "When shortening existing text, never drop or blur factual details such as units, "
     "quantities, dates, names, or commitments."
@@ -16,9 +16,8 @@ BREVITY_REQUEST_HINT = (
 
 
 MIXED_LENGTH_HINT = (
-    "The user set different lengths for different parts of this message (one sentence for "
-    "one question, detail for another). Give each part exactly the length it asked for; a "
-    "one-sentence part stays one sentence."
+    "Give each part of this message exactly the length it sets (one sentence for one "
+    "question, detail for another); a one-sentence part stays one sentence."
 )
 
 
@@ -28,8 +27,8 @@ def many_parts_hint(parts: int, max_output_tokens: int) -> str:
     # Worked maths costs about 2.5 characters a token, so the cap is ~3/8 of it in words.
     words = max(500, round(max_output_tokens * 3 / 8, -2))
     return (
-        f"This message asks {parts} separate things. One reply has room for about "
-        f"{words:,.0f} words, so they may not all fit in full. If they won't, open with one "
+        f"Answer the {parts} separate things this message asks. One reply has room for "
+        f"about {words:,.0f} words, so they may not all fit in full. If they won't, open with one "
         "or two lines saying which parts this reply answers and which it leaves for a "
         "follow-up, and name any part you can't do here (running code, a numerical "
         "simulation or integration, a plot or file this chat can't produce), with what you "
@@ -55,7 +54,7 @@ STYLE_HINTS = {
         "layout note beside the message says."
     ),
     "detailed": (
-        "Response length: DETAILED. The user asked for depth: explain fully, with the "
+        "Response length: DETAILED. Explain fully, with the "
         "mechanism, reasoning, examples, edge cases and trade-offs that matter. Stay "
         "scannable, with headings and lists where they fit; a requested essay, story, letter "
         "or paragraph keeps its prose form."

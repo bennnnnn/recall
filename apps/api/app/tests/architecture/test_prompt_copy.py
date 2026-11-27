@@ -29,8 +29,10 @@ _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
 # ending rule ("a question or an offer") was replaced and its pin with it (2026-11-20); 106
 # once the guard read constants built from named parts (``_folded``), which four older pins on
 # such copy had escaped, as the format and privacy rules split into parts would have (2026-11-22);
-# 86 once the day reflection test asserted its constant (2026-11-27).
-_PINNED = 86
+# 86 once the day reflection test asserted its constant (2026-11-27); 84 once the prompt review
+# moved the email-purpose and table rules to one place each and their tests to that place
+# (2026-11-27).
+_PINNED = 84
 
 
 def _as_sent(text: str) -> str:

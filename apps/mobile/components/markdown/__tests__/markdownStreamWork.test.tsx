@@ -183,7 +183,7 @@ describe("a streaming reply's work per flush", () => {
   }, 300_000);
 
   it("redraws only the list item still being written", async () => {
-    // A numbered list is not cut before item 11, so it stays in the live piece.
+    // A numbered list is cut from item 2; the items still in the live piece are memoized.
     const items = Array.from(
       { length: 10 },
       (_, i) => `${i + 1}. **Step ${i + 1}** – run \`step_${i + 1}()\` and check what it returns before you go on.`,
@@ -199,8 +199,9 @@ describe("a streaming reply's work per flush", () => {
       perFlush.push(mockWork.codeSpans);
     }
     // Every flush drew every item's code span again (8 to 10 a flush over the last
-    // ten). Now one flush does: item 10 widens the number column of every item.
-    expect(perFlush.slice(-10).filter((spans) => spans > 2)).toHaveLength(1);
+    // ten). Then one flush did, as item 10 widened the number column of every item;
+    // now the column is two digits wide from item 1, so none does.
+    expect(perFlush.slice(-10).filter((spans) => spans > 2)).toHaveLength(0);
     await view.unmount();
   });
 

@@ -43,6 +43,7 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   // The streaming draft's lines already placed, and settled replies preprocessed whole.
   "features/chat/model/emojiPlacement.ts#placedDraft": "clearPlacedDraft",
   "lib/markdown/preprocessStream.ts#wholeMemo": "clearSettledMarkdownMemo",
+  "lib/markdown/displayDollars.ts#lastReading": "clearDisplayDollarsMemo",
   "lib/fence/scan.ts#LOOSE_SCANS": "clearFenceScanMemo",
   "lib/fence/scan.ts#STRICT_SCANS": "clearFenceScanMemo",
   "features/chat/model/padMathDrafts.ts#padMathTexts": "clearSavedComposerDrafts",
@@ -247,8 +248,8 @@ const NO_ACCOUNT_DATA = [
   // The launch's install check, once a run: the phone's, not an account's.
   "lib/secureStore.ts#installCheck",
   "lib/secureStore.ts#failureReported",
+  "lib/sentry.ts#failedStarts",
   "lib/sentry.ts#sdk",
-  "lib/sentry.ts#starting",
   "lib/skiaAvailability.ts#cached",
   "lib/speech/voiceAudio.ts#audioModule",
   "lib/speech/voiceAudio.ts#exclusiveMicStop",

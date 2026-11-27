@@ -3,6 +3,8 @@ card that is not its value (live, 2026-11-22: "5 + 20" carded 37, "D = 4 - 12" c
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from app.modules.chat.working_cards import held_cards
@@ -199,11 +201,12 @@ def test_the_note_never_lands_inside_a_card_left_open() -> None:
         text=reply,
         server_text=False,
         was_cancelled=False,
+        settings=SimpleNamespace(stem_solve_timeout_seconds=10.0),
         ctx=SimpleNamespace(
             verified_subject=None, solver_unverified=True, user_message_content="", worked=None
         ),
     )
-    text = check_working(cast(FinalizeState, state))
+    text = asyncio.run(check_working(cast(FinalizeState, state)))
     [card] = [fence for fence in iter_fences(text) if fence.lang == "answer"]
     assert card.closed
     assert "Check the answer" not in text[card.body_start : card.body_end]
@@ -304,11 +307,12 @@ def test_check_working_holds_a_vector_size_and_drops_an_unbacked_sense() -> None
         text=reply,
         server_text=False,
         was_cancelled=False,
+        settings=SimpleNamespace(stem_solve_timeout_seconds=10.0),
         ctx=SimpleNamespace(
             verified_subject=None, solver_unverified=True, user_message_content="", worked=None
         ),
     )
-    text = check_working(cast(FinalizeState, state))
+    text = asyncio.run(check_working(cast(FinalizeState, state)))
     assert "(clockwise)" not in text
     assert "12.55\\,\\mathrm{m/s}" in text
 

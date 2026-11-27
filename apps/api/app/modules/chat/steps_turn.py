@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.modules.chat.decider_read import READ_SUBJECTS
+from app.modules.chat.model_routing.thinking import resumes_a_cut_off_reply
 from app.modules.chat.prompt_constants.format import STEPS_FORMAT_HINT
 from app.modules.chat.prompt_inject import inject_before_last_user
 from app.modules.chat.turn_trace import note_prompt_rule
@@ -37,8 +38,12 @@ _STEPS_PICTURES = frozenset({"none", "photo"})
 
 def gives_the_steps_card(ctx: StreamContext, read: TurnDecision | None) -> bool:
     """The read calls the answer one procedure, on a turn whose layout its words left open,
-    and no server path worked numbers for it (a solve, a money card, a calculation laid out)."""
+    and no server path worked numbers for it (a solve, a money card, a calculation laid out).
+    Never on a message that goes on with a cut-off reply ("Continue"): the continuation keeps
+    the layout of the reply it continues (review of #2610)."""
     if read is None or read.steps is not True or not ctx.steps_open:
+        return False
+    if resumes_a_cut_off_reply(ctx.user_message_content, ctx.recent_messages, asked=read.resumes):
         return False
     worked = ctx.verified_subject is not None or ctx.money is not None or ctx.worked is not None
     if worked or ctx.solver_unverified or ctx.instant_reply:

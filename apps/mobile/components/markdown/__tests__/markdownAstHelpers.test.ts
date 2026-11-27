@@ -71,6 +71,13 @@ describe("numbered list column", () => {
     expect(numberColumnWidth(12, 1.5)).toBeGreaterThan(numberColumnWidth(12, 1));
   });
 
+  it("holds two digits at any text size, so a list cut after item 1 draws the whole list's column", () => {
+    for (const scale of [1, 1.5, 2, 3.1]) {
+      expect(numberColumnWidth(1, scale)).toBe(numberColumnWidth(99, scale));
+      expect(numberColumnWidth(9, scale)).toBe(numberColumnWidth(12, scale));
+    }
+  });
+
   it("reads the largest number from the list's start and item count", () => {
     const list = { attributes: { start: 8 }, children: [{}, {}, {}] };
     expect(listLargestNumber([list])).toBe(10);

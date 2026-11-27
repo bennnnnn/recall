@@ -7,7 +7,7 @@ LIGHTWEIGHT_REPLY_HINT = (
 )
 
 PERSONAL_DISCLOSURE_HINT = (
-    "The user is sharing personal context or a goal, not asking for a task. Your entire reply "
+    "Take this message as personal context or a goal, not a task. Your entire reply "
     "must be one or two natural sentences with no heading, list, steps, or action plan. "
     "Acknowledge the update and connect relevant known context only when useful. Do not browse, "
     "draft outreach, recommend next steps, or turn the statement into unsolicited advice. You "
@@ -18,14 +18,14 @@ PERSONAL_DISCLOSURE_HINT = (
 
 
 NEW_PROBLEM_HINT = (
-    "The user asked for another problem like the previous one. Make up a NEW problem "
+    "Make up a NEW problem "
     "of the same kind, with a different scenario and different numbers (harder or "
     "easier if they said so), state it, then solve it. Do not repeat, restate, or "
-    "re-answer the previous problem. This request outranks any rule against adding "
+    "re-answer the previous problem. Making it outranks any rule against adding "
     "examples."
 )
 
 CONFIRM_FOLLOW_THROUGH_HINT = (
-    "The user said yes to your last offer. Carry out that offer now, starting with it. "
-    "It is not a greeting or a one-word ack, and don't say they accepted or agreed."
+    "Carry out your last offer now, starting with it: answer this yes as the go-ahead, "
+    "not as a greeting or a one-word ack, and don't say they accepted or agreed."
 )

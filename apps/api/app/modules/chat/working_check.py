@@ -33,8 +33,10 @@ from app.modules.chat.tex_arithmetic import (
 )
 from app.modules.chat.tex_spread import half_place, spread
 from app.modules.chat.working_align import Piece, pieces
+from app.modules.chat.working_exact import standard_values
 from app.modules.chat.working_numbers import shown_like, shown_number
 from app.modules.chat.working_systems import unheld_equations
+from app.modules.chat.working_units import conversions
 
 # A result in a prefixed unit the working did not use (7200 m = 7.2 km, 4.52e6 J = 4.5 MJ)
 # is a conversion, not arithmetic to check.
@@ -137,13 +139,21 @@ def _exact_side(plain: str, rounded: dict[str, float]) -> str:
 
 
 def _is_wrong(
-    value: float, shown: float, rounding: float, approximate: bool, spread: float | None = None
+    value: float,
+    shown: float,
+    rounding: float,
+    approximate: bool,
+    spread: float | None = None,
+    *,
+    prefix: bool = True,
 ) -> bool:
     """``shown`` is off ``value`` by more than its own rounding and more than the slack a
     rounding chain has: 1%, or only as far as the inputs' own rounding reaches (``spread``,
     ``tex_spread``) when that is less. "\\sqrt{1088.5} = 33.11" is 0.4% off but no rounding
-    of 1088.5 moves its root past 32.99 (live, 2026-11-23)."""
-    if _prefix_shift(value, shown):
+    of 1088.5 moves its root past 32.99 (live, 2026-11-23). ``prefix``: a power of ten off
+    may be a prefixed unit the line never names ("≈ 4.5" MJ after 4.52e6 J); never between
+    two worked forms, which name no unit ("\\frac{70}{50000 + 240000}" for 70 / 290, u8-28)."""
+    if prefix and _prefix_shift(value, shown):
         return False
     difference = abs(value - shown)
     factor = 2 if approximate else 1
@@ -165,6 +175,8 @@ class _Memory:
     rounded: dict[str, float] = field(default_factory=dict)
     worked: dict[str, float] = field(default_factory=dict)
     results: set[str] = field(default_factory=set)
+    # Results written as their exact value ("686/4 = 171.5"): no rounding to stand for.
+    exact: set[str] = field(default_factory=set)
     # Where a given is written: the question, and the givens the working stated so far.
     question: str = ""
     givens: set[str] = field(default_factory=set)
@@ -175,6 +187,8 @@ class _Memory:
         are exact as written; a number the reply worked out, in prose ("cos 30° ≈ 0.87"),
         display maths or a step, stands for its rounding (review, #2576)."""
         key = _key(number)
+        if key in self.exact and key not in self.rounded:
+            return False
         given = key in self.givens_and_question()
         return key in self.results or key in self.rounded or not given
 
@@ -189,8 +203,23 @@ class _Memory:
             number = _LEADING_NUMBER.fullmatch(_UNIT_TAIL.sub("", values[0]).strip())
             if number is not None and name.replace(" ", "") not in self.worked:
                 self.givens.add(_key(plain_arithmetic(number.group(0)) or ""))
+        if len(values) > 1 and NAME.fullmatch(name.replace(" ", "")):
+            self._note_conversions(values)
         for part in parts:
             self.givens.update(_COEFFICIENT.findall(part))
+
+    def _note_conversions(self, values: list[str]) -> None:
+        """A given in two units ("r = 9.00 cm = 0.09 m"): the later number is exact when it
+        is the first converted, and a rounding of it otherwise (``working_units``)."""
+        for later, value in zip(values[1:], conversions(values), strict=True):
+            plain = plain_arithmetic(later)
+            shown = shown_number(plain) if plain is not None else None
+            if value is None or shown is None or plain is None:
+                continue
+            if math.isclose(value, shown[0], rel_tol=1e-12):
+                self.exact.add(_key(plain))
+            elif abs(value - shown[0]) <= shown[1] * (1 + 1e-9):
+                self.rounded[_key(plain)] = value
 
 
 # A decimal as the question writes it, and one written before a letter in maths ("4.9t").
@@ -229,6 +258,8 @@ def _note_rounded(left_tex: str, left: str | None, right: str | None, memory: _M
     if exact is None or shown is None:
         return
     memory.results.add(key)
+    if math.isclose(exact, shown[0], rel_tol=1e-12):
+        memory.exact.add(key)
     off = abs(exact - shown[0])
     if 0 < off <= shown[1] * (1 + 1e-9) and not math.isclose(exact, shown[0], rel_tol=1e-12):
         rounded[key] = exact
@@ -249,6 +280,8 @@ def wrong_steps(reply: str, question: str = "") -> list[WrongStep]:
     the ``question`` is a given, exact as written."""
     found: list[WrongStep] = []
     memory = _Memory(question=question)
+    # 0.8660 written for cos 30° is cos 30° (``working_exact``): a line right on it is right.
+    memory.rounded.update(standard_values(reply, question))
     last = ""
     # The line before: the name it worked out, its last expression and its first value.
     before: _Line | None = None
@@ -481,7 +514,13 @@ def _between_forms(
     exact = DECIMAL.search(left) is None and DECIMAL.search(right) is None and not approximate
     if exact and not math.isclose(value, other, rel_tol=1e-6, abs_tol=1e-9):
         return WrongStep(left_tex, right_tex, value)
-    if not exact and _is_wrong(value, other, 0.0, approximate):
+    # Two sides said equal may be only as far off as their own rounded numbers reach ("=
+    # 0.011784\\pi" for 0.01182π is a slip, u8-22, though 0.3%); one said near keeps its slack.
+    left_reach = spread(left, memory.stands_for_a_range)
+    right_reach = spread(right, lambda number: "." in number)
+    reach = None if left_reach is None or right_reach is None else left_reach + right_reach
+    reach = None if approximate else reach
+    if not exact and _is_wrong(value, other, 0.0, approximate, reach, prefix=False):
         return WrongStep(left_tex, right_tex, value)
     return None
 

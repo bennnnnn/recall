@@ -90,11 +90,17 @@ def test_only_maths_pack_says_a_shape_is_never_drawn_in_text():
         MATH_INTENT_HINT,
         MATH_SOLVER_HINT,
         SHORT_MATH_SAFETY_HINT,
+        math_prompt_hints,
     )
 
     assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_FENCE_SAFETY_HINT
-    for hint in (MATH_INTENT_HINT, MATH_SOLVER_HINT, SHORT_MATH_SAFETY_HINT):
-        assert GRAPH_NO_SUBSTITUTE_CLAUSE in hint
+    # Once in each pack: the full pack's intent hint (its solver hint, always beside it, does
+    # not say it again) and the short pack.
+    full = "\n".join(math_prompt_hints(short=False))
+    assert full.count(GRAPH_NO_SUBSTITUTE_CLAUSE) == 1
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in MATH_INTENT_HINT
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE not in MATH_SOLVER_HINT
+    assert GRAPH_NO_SUBSTITUTE_CLAUSE in SHORT_MATH_SAFETY_HINT
 
 
 def test_closed_form_math_prompt_is_instance_first_not_a_lecture():
@@ -869,3 +875,85 @@ def test_a_lesson_turn_restates_its_shape_beside_the_message(
     _, nearby = _turn_prompt(query)
     for name in ("LESSON_CONTRACT", "TEACH_CONTRACT"):
         assert (getattr(teaching, name) in nearby) is (name == contract)
+
+
+_EMAIL_REPLY = "```email\nSubject: Heater\n\nHi Dana,\n\nThe heater in 4B stopped working.\n```"
+
+
+@pytest.mark.parametrize(
+    ("prior", "copy"),
+    [
+        # "Hindi" after an ```email: the draft is in play, and its drafting rules stand with
+        # the change note (review of #2610: the contract went missing).
+        (
+            [
+                ("user", "write an email to my landlord about the heater"),
+                ("assistant", _EMAIL_REPLY),
+            ],
+            True,
+        ),
+        # The same word after a reply with no draft: no draft is in play.
+        ([("user", "how do I say thank you in Hindi?"), ("assistant", "**Dhanyavaad**.")], False),
+    ],
+)
+def test_the_copy_contract_follows_a_draft_in_play(
+    prior: list[tuple[str, str]], copy: bool
+) -> None:
+    from app.modules.chat.prompt_constants import COPY_DELIVERABLE_HINT
+
+    hints = _style_format_hints(
+        query_text="Hindi",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=prior,
+    )
+    assert (COPY_DELIVERABLE_HINT in hints) is copy
+
+
+def test_a_missing_detail_leaves_wants_to_the_tap_card_rule() -> None:
+    """ "What's the best laptop for me?" gets the clarify card's rule and the missing-detail
+    rule together: the second defers to the first on what they want (review of #2610)."""
+    from app.modules.chat.prompt_constants import CLARIFICATION_HINT, CLARIFY_CARD_HINT
+    from app.modules.chat.prompt_constants.privacy import CARD_DECIDES_WANTS
+
+    hints = _style_format_hints(
+        query_text="What's the best laptop for me?",
+        is_day_plan=False,
+        minimal_personal_context=False,
+    )
+    assert CLARIFY_CARD_HINT in hints and CLARIFICATION_HINT in hints
+    assert CARD_DECIDES_WANTS in CLARIFICATION_HINT
+    # The note beside the message, which the model follows first, defers the same way and
+    # no longer has them assume "their spending" (review of #2610, round 2).
+    from types import SimpleNamespace
+
+    from app.modules.chat.message_notes import message_notes
+    from app.modules.chat.prompt_constants.format import READER_NOTE
+
+    user = SimpleNamespace(emoji_use="some", locale="en", custom_instructions=None)
+    notes = message_notes("What's the best laptop for me?", [], user)
+    assert any(READER_NOTE in note for note in notes)
+    assert CARD_DECIDES_WANTS in READER_NOTE
+    assert "spending" not in READER_NOTE
+
+
+def test_a_wdym_turn_may_say_the_last_replys_point_again() -> None:
+    """ "wdym?" is told to say the last reply's point again; the self-talk rule bans only
+    sentences about that reply ("Your last reply gave…"), never saying it again."""
+    from app.modules.chat.prompt_constants.conversation import (
+        FOLLOW_NOTES,
+        NO_SELF_TALK_RULE,
+        NO_TALK_ABOUT_EARLIER_REPLY,
+    )
+
+    assert NO_TALK_ABOUT_EARLIER_REPLY in NO_SELF_TALK_RULE
+    assert "again" in FOLLOW_NOTES["explain"] and "again" in NO_TALK_ABOUT_EARLIER_REPLY
+
+
+def test_the_maths_pack_names_no_worked_fence() -> None:
+    """A verified solve, a lesson or a multi-part turn gets no ```worked contract, and the
+    phone draws no such fence: the pack names the layout, never the fence (review of #2610)."""
+    from app.modules.math.reply_policy import math_prompt_hints
+
+    assert all("```worked" not in hint for hint in math_prompt_hints(short=False))
+    assert all("```worked" not in hint for hint in math_prompt_hints(short=True))
