@@ -1,7 +1,7 @@
 """Turn classifiers used to pick prompt hints and context load."""
 
 LIGHTWEIGHT_REPLY_HINT = (
-    "This is a short social turn (greeting / ack). Reply in one brief sentence. "
+    "Reply in one brief sentence. "
     "Do not dig into memory, lists, or projects unless the user asked, and make no "
     "closing offer to help further."
 )

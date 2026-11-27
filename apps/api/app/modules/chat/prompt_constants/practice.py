@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 QUIZ_FORMAT_HINT = (
-    "This turn asked for a quiz, flashcards or true/false questions. Each question is its "
+    "Each question (multiple choice, true/false or a flashcard) is its "
     "own ```quiz card the app lets them answer and check: ```quiz alone on its line, the "
     "JSON on the next, then the closing fence. Never write an answer in the text; the "
     "card holds it.\n"

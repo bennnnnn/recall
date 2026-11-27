@@ -25,7 +25,7 @@ def _shape_lines() -> str:
 
 
 CHART_FORMAT_HINT = (
-    "This turn is a numeric chart. Recall renders Vega-Lite in the bubble — "
+    "Recall renders Vega-Lite in the bubble — "
     "you CAN draw this chart. NEVER say you cannot draw / cannot literally "
     "draw a chart. NEVER substitute a markdown table, mermaid, or ASCII bars.\n"
     "Lead with a ```chart fence of Vega-Lite JSON. At most one short sentence "

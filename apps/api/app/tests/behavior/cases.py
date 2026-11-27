@@ -113,6 +113,9 @@ class Case:
     # The turn's read: the subject and the picture it says the message asks to see
     # (``chat.turn_decision``). None: no read, as with no model.
     read: tuple[str, str] | None = None
+    # The read's steps answer: whether the reply is one procedure done in order, drawn as a
+    # ```steps card (``chat.steps_turn``). None: no read, and the scan layout stands.
+    steps: bool | None = None
 
 
 NO_PHOTO = ""
@@ -1778,6 +1781,24 @@ CASES: tuple[Case, ...] = (
         "how do I make tea",
         Expect(hints=("steps",), search="ask"),
         "Numbered steps.",
+        # The read calls it one procedure: the ```steps card (``steps_turn``).
+        steps=True,
+    ),
+    Case(
+        "format-howto-no-read",
+        "format",
+        "how do I make tea",
+        Expect(no_hints=("steps",), search="ask"),
+        "With no read in time, the scan layout's numbered steps: never a card by its words.",
+    ),
+    Case(
+        "format-ways",
+        "format",
+        "How to look handsome",
+        Expect(no_hints=("steps",), search="ask"),
+        'Short answer, a ## title, numbered bold tips: no steps card, no "It\'s a how-to" '
+        "(the owner, 2026-11-27).",
+        steps=False,
     ),
     Case(
         "format-howto-walkthrough",
@@ -2479,7 +2500,8 @@ CASES: tuple[Case, ...] = (
         "multi-two-questions",
         "multi-intent",
         "what's the capital of Australia? and how do I boil an egg?",
-        Expect(hints=("multi_intent", "steps")),
+        # A part's plain "how do I" gets no card by its words; the read reads the message whole.
+        Expect(hints=("multi_intent",), no_hints=("steps",)),
         "### Capital of Australia: Canberra, one line. ### Boiling an egg: numbered steps.",
     ),
     Case(
@@ -2735,7 +2757,7 @@ CASES: tuple[Case, ...] = (
         "multi-compare-and-install",
         "multi-intent",
         "compare python and javascript, and how do I install node on mac?",
-        Expect(hints=("multi_intent", "comparison", "steps"), no_hints=("howto",)),
+        Expect(hints=("multi_intent", "comparison"), no_hints=("howto", "steps")),
         "### A python/javascript compare table, then ### numbered install steps.",
     ),
     Case(

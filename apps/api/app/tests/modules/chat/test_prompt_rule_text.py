@@ -142,10 +142,14 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # VECTORS_DRAW_CONTRACT (textbook round, 2026-11-25); then the worked contract's working
 # shown once, with no second try, its one-line Check kept, and no emoji in a reply to a
 # school question (Grade 11 physics round and the owner, 2026-11-26; WORKING_ONCE, its own
-# rule).
+# rule); then every layout and presentation hint saying what to write, never what the turn is
+# ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27), the steps
+# card for one procedure in order only, not for tips or ways, and one card even when the steps
+# differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT), and no other hint
+# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities).
 _RULES = 228
-_RULE_GRAMS = 21487
-_RULE_GRAMS_SHA = "44f894a285f0b28f"
+_RULE_GRAMS = 21394
+_RULE_GRAMS_SHA = "784197569c4bcf0a"
 
 
 def _rules() -> list[str]:
