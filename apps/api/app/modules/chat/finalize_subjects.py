@@ -9,27 +9,19 @@ and the reply gets the notes and the working check an unverified answer needs.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures.process import BrokenProcessPool
 from typing import TYPE_CHECKING
 
 from app.core import sympy_executor
 from app.modules.chat.simulation_fences import drop_open_fences, strip_model_drawn_fences
 from app.modules.chat.verification_claims import strip_verification_claims
-from app.modules.chat.worked_lead import drop_recap_tail, drop_restated_tail
-from app.modules.chat.working_approximations import corrected_approximations
-from app.modules.chat.working_cards import (
-    held_cards,
-    held_vector_sizes,
-    without_unbacked_senses,
-)
-from app.modules.chat.working_check import (
-    is_worked_solution,
-    working_note,
-)
-from app.modules.chat.working_fix import put_right
+from app.modules.chat.working_check import is_worked_solution
+from app.modules.chat.working_pass import checked_working
 from app.modules.chat.written_numbers import writes_decimal_comma
 from app.modules.turn_reading.turn import current_turn_reading
 from app.services.answer_fence import (
@@ -40,13 +32,11 @@ from app.services.answer_fence import (
     answer_header_and_value,
     boxes_its_answer,
     demote_answer_fences,
-    land_answer_card,
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
 )
-from app.services.md_fence_scan import close_unclosed_fences, iter_fences, map_closed_fences
-from app.services.part.answer_cards import land_part_answer_cards
+from app.services.md_fence_scan import iter_fences, map_closed_fences
 from app.services.part.fences import keep_part_fences
 from app.services.solving import VerifiedPhysicsBlock, strip_verified_solve_markers
 from app.services.structure_captions import STRUCTURE_LANGS, without_structure_captions
@@ -329,43 +319,37 @@ def tidy_and_drop_unverified_notes(state: FinalizeState) -> str:
     return text
 
 
-def check_working(state: FinalizeState) -> str:
-    """Working the model wrote with no verified result behind it: a slip in one
-    multiplication carries into the answer, so it is put right and carried on, or named
-    when it cannot be put right in place. Its final
-    answer goes in the same card a verified one does, without the check, and is not
-    said again below the cards (``worked_lead.drop_restated_tail``).
-    """
+async def check_working(state: FinalizeState) -> str:
+    """Working the model wrote with no verified result behind it, checked line by line and
+    card by card (``working_pass``). The check reads every line's arithmetic and units, so it
+    runs in the SymPy pool, off the event loop; with no slot free right now it runs here,
+    rather than hold the reply's finish behind another user's solve."""
     ctx = state.ctx
     text = state.text
     if state.server_text or ctx.verified_subject is not None or state.was_cancelled:
         return text
     school = school_question(ctx)
     worked = is_worked_solution(text, school=school)
-    if ctx.solver_unverified is True or worked or boxes_its_answer(text):
-        # A decimal given for an exact value is the server's to get right.
-        text = corrected_approximations(text)
-        # A wrong number in a step is put right, and the lines built on it after it; a step
-        # that cannot be put right in place, or whose number is still written after it, is
-        # named (``working_fix``).
-        question = ctx.user_message_content or ""
-        text, carried_note = put_right(text, question)
-        note = carried_note or working_note(text, question)
-        # A reply in parts gets a card under each part's Answer heading.
-        text = land_part_answer_cards(text) or land_answer_card(text, None, school=school)
-        # The card is the working's last step: an expression left unworked and a card that
-        # is not its value (``working_cards``).
-        text, card_note = held_cards(text, ctx.user_message_content or "")
-        text = without_unbacked_senses(held_vector_sizes(text))
-        note = note or card_note
-        comma = reply_writes_decimal_comma(ctx)
-        text = drop_restated_tail(text, ctx.user_message_content or "", decimal_comma=comma)
-        if getattr(ctx, "worked", None) is not None:
-            # The working said again after the cards goes (``worked_lead.drop_recap_tail``).
-            text = drop_recap_tail(text, ctx.user_message_content or "", decimal_comma=comma)
-        if note:
-            text = with_closing_note(text, note)
-    return text
+    if not (ctx.solver_unverified is True or worked or boxes_its_answer(text)):
+        return text
+    question = ctx.user_message_content or ""
+    job = functools.partial(
+        checked_working,
+        school=school,
+        laid_out=getattr(ctx, "worked", None) is not None,
+        decimal_comma=reply_writes_decimal_comma(ctx),
+    )
+    if sympy_executor.get_sympy_executor().can_start_now() is False:
+        return job(text, question)
+    try:
+        return await sympy_executor.run_sympy(
+            job, text, question, timeout=state.settings.stem_solve_timeout_seconds
+        )
+    except (TimeoutError, BrokenProcessPool, OSError):
+        # A busy pool (``WorkerBusyError`` is a ``TimeoutError``), a job past its deadline or
+        # a worker that died: the reply still gets its check, here.
+        logger.warning("working check ran inline: the SymPy pool could not run it")
+        return job(text, question)
 
 
 def school_question(ctx: object) -> bool:
@@ -390,13 +374,6 @@ def reply_writes_decimal_comma(ctx: object) -> bool:
     locale = user.locale if user is not None else None
     question = getattr(ctx, "user_message_content", None) or ""
     return writes_decimal_comma(question, locale if isinstance(locale, str) else None)
-
-
-def with_closing_note(text: str, note: str) -> str:
-    """``text`` with ``note`` after it, never inside a fence the reply left open: that fence
-    is closed first, as the closer would close it (a card cut off at the length limit kept
-    "Check the answer: …" as its last line, review of #2592)."""
-    return f"{close_unclosed_fences(text).rstrip()}\n\n{note}"
 
 
 def strip_text_plots(state: FinalizeState) -> str:

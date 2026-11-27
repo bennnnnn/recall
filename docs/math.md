@@ -345,11 +345,54 @@ The server then recomputes the working (`modules/chat/working_check.py`):
   a given and is not carried; a short number ("38") is carried only to its restatements. A
   step that cannot be put right in place (two exact forms that differ) gets one line under
   the reply, "Check this step: …", and nothing after it is changed.
-- **What it leaves alone:** variables, unit conversions, prefix steps (≈ 4.5 MJ), percents,
+- **What it leaves alone:** variables, a prefix step after a number (≈ 4.5 MJ), percents,
   a sine with no degree sign past a full turn, "e^2" alone (a name squared), every fence
-  and the server's cards.
+  and the server's cards. A power of ten between two worked forms is no prefix step and is
+  held (`\frac{70}{50000 + 240000}` for 70/290 is a slip). A given's conversion it reads
+  with Pint, so "r = 9.00 cm = 0.09 m" is exact.
 - **Measured:** on 5,896 corpus replies it raised no false alarm, and it caught every slip
   injected into server-written working.
+
+### The card held to its working's chain
+
+After the line check, each unchecked card is held to the value its own working reaches
+(`working_chain.py`, `chain_cards.py`, `working_claims.py`, run by `working_pass.py` in the
+SymPy pool):
+
+- **A chain** is a name and its forms over one line or several ("e = …", "e = …", "e ≈ 1.041 m").
+  Its first form of numbers is its method; every later form must keep the method's value
+  within its own rounding and the reach of the method's rounded inputs. The value is worked at
+  full precision: a rounded result or card number of an earlier chain is that chain's whole
+  value, a number put into a formula for a name is that name's value when it rounds it, and a
+  standard value written rounded (0.8660 for cos 30°, of the reply's own angles and roots,
+  three figures or more; `working_exact.py`) is exact. Only the question's numbers are exact as
+  written. A wrong form is a slip; later lines that use the wrong number or form get the right
+  one: the reply's own method with the arithmetic redone, never another law.
+- **A card** states the chain it names, or the working's last maths before it. One that misses
+  the chain by more than its rounding takes the chain's value and a closing "Corrected: …"
+  line. One that holds it more coarsely (56.6 for 56.58) takes it with no line, so the rule
+  rounds it once, but only under the rule's own precision and when the chain knows the value
+  more finely than the card. A card stands when it states another value of its part (the
+  largest of several), its size without the sign, a count, the server's value, or a value
+  right on the rounded numbers its own working wrote.
+- **Units, never converted** (`working_units.py`). A card and its chain are compared only
+  when the card writes exactly the unit the chain last wrote on one of its own parts (same unit,
+  same prefix), read for certain, or neither writes one. A card in kJ under a chain in J, in
+  °C under one in K, or in rad/s, %, rpm or °, stands; so does a card under a chain whose unit
+  is written outside the maths ("$m = 250$ g"). Each part's unit is its own: a chain that goes
+  on in another unit ends there, and a part that names a unit the chain has not ("375 kJ" after
+  "½ × 1200 × 25²") ends it too unless it is within a factor of 1.5 of the chain's value or of
+  the part before it. With no unit on either side, a card more than 1.5 times off stands.
+- **Also read:** an equation solved for one name (`21250 = 241.67\theta`); a value stated, or
+  put into a formula, a power of ten off the working's own value of it in a written SI unit;
+  a claim in names its own values contradict, only in SI's own units (½mv² with m = 10 kg and
+  v = 5.66 m/s is 160 J, not 405.5 J; a name in g or km, or an equation solved for its unknown,
+  makes no claim); a slip no card carries, named with "Check this step".
+- **Measured:** 210 right worked replies (563 lines) across every unit kind above, units
+  written outside the maths, multi-part replies in different units, values carried to two,
+  three and four figures and questions that ask for significant figures
+  (`test_working_units_corpus.py`) change in nothing. On the 300 saved textbook replies no
+  card judged right changes.
 
 ## STEM sweep
 
