@@ -247,7 +247,9 @@ PHOTO_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
 # beside the turn's, as the work question is. A word rule gave every "how to …" the card:
 # "How to look handsome" got six independent tips in it, the reply opening "It's a how-to"
 # (the owner, 2026-11-27). Tips, ways and advice take the scan layout's numbered list.
-# Measured on ``steps_need_corpus.json`` (``tests/behavior/steps_need_eval.py``).
+# Measured on ``steps_need_corpus.json`` (``tests/behavior/steps_need_eval.py``). Its examples
+# are tuning turns only: the held-out groups (proc, tips, pick) were once its examples, so the
+# held-out score measured recall of the prompt's own words (review of #2610).
 STEPS_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
     {
         "steps": {
@@ -255,11 +257,12 @@ STEPS_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
             "instructions": (
                 "Is the answer to the user's last message one procedure the user will carry "
                 "out, its steps done in a fixed order, each after the one before: a task "
-                "(tie a tie, renew a passport, change a tire, install or set up something, "
-                "make bread, boil an egg, jump-start a car) or a method to follow (balance a "
-                "chemical equation, long division), or does the message ask for steps? Not "
-                "tips, habits or several independent ways to reach a goal (look good, save "
-                "money, sleep better, make friends, get fit, be confident), advice, a choice "
+                "(make a cup of tea, change a car's oil, unclog a sink, install or set up "
+                "something, open a bank account, do CPR, wrap a gift) or a method to follow "
+                "(long division, a pivot table in Excel), or does the message ask for steps? "
+                "Not tips, habits or several independent ways to reach a goal (stay motivated, "
+                "reduce stress, eat healthier, improve my memory, be a better listener), "
+                "advice, a choice "
                 "or decision to weigh, how something works, a plan over weeks, a list, a "
                 "fact, a problem to work out, writing, or chat."
             ),

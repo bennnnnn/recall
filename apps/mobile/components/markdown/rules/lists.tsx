@@ -92,7 +92,7 @@ type DrawnListItemProps = { source: string | null; drawnWith: object; children: 
 
 /**
  * A list item drawn again only when what it is drawn from changes. A list a
- * streaming reply cannot cut yet (a numbered list before item 11) is parsed
+ * streaming reply cannot cut yet (an item's lazy line, a task list) is parsed
  * again on every flush; its finished items stay as they were drawn.
  */
 const DrawnListItem = memo(

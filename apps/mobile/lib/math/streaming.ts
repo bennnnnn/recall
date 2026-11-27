@@ -1,3 +1,4 @@
+import { displayDollarsMayOpen } from "@/lib/markdown/displayDollars";
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { readGroup } from "@/lib/math/latexGroups";
@@ -108,8 +109,17 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
       i = span.end;
       continue;
     }
-    if (text.startsWith("\\(", i) || text.startsWith("\\[", i) || text.startsWith("$$", i)) {
+    if (text.startsWith("\\(", i) || text.startsWith("\\[", i)) {
       return { text: out, pending: true };
+    }
+    if (text.startsWith("$$", i)) {
+      // A `$$` that may still open a formula waits; a price tier ("$$–$$$") shows as typed.
+      if (displayDollarsMayOpen(text, i)) return { text: out, pending: true };
+      let run = i;
+      while (text[run] === "$") run += 1;
+      out += text.slice(i, run);
+      i = run;
+      continue;
     }
     if (unfinishedFormulaAt(text, i)) return { text: out, pending: true };
     if (text[i] === "\\" && i + 1 < text.length) {

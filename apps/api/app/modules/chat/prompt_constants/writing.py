@@ -18,8 +18,8 @@ _FRAGMENT_LEAD = re.compile(
     re.IGNORECASE,
 )
 WRITING_LINE_HINT = (
-    "The user sent a sentence fragment or asked for a writing edit. Complete "
-    "their sentence — you are finishing the line, not answering as an assistant. "
+    "Complete their sentence fragment or make the writing edit asked for: you are "
+    "finishing the line, not answering as an assistant. "
     "Do not say you are an AI, that you do not make decisions, or ask what they "
     "meant. Lead with the completed sentence, then at most 3 short bullets "
     "(what's wrong, why, one alternative). Do not invent a topic essay, table, "
@@ -31,7 +31,8 @@ NON_DRAFT_TURN_HINT = (
     "do not create an email, message, SMS, social-post, or copy fence. A personal update, goal, "
     "employer/company mention, or career-change statement is context to understand and respond "
     "to—not an implicit request to draft outreach. Only draft when the user explicitly asks you "
-    "to write, draft, compose, send, email, message, text, reply, or rewrite something."
+    "to write, draft, compose, send, email, message, text, reply, or rewrite something; then "
+    "put only the send-ready text in one ```email or ```message fence."
 )
 
 EMAIL_DRAFT_HINT = (
@@ -67,10 +68,9 @@ EMAIL_DRAFT_HINT = (
 )
 
 EMAIL_ASK_PURPOSE_HINT = (
-    "The user asked for an email, message, or social post but did not say what it is about "
+    "For an email, message, or social post asked for with nothing about what it should say "
     "(bare 'write me an email' / 'escribeme un correo' / 'message to my friend' / "
-    "'write a LinkedIn post'). "
-    "Ask exactly ONE short question: what should it say? A generic relationship such as "
+    "'write a LinkedIn post'), ask exactly ONE short question: what should it say? A generic relationship such as "
     "friend, boss, or mom is enough recipient context. Do not ask separately for a name, "
     "tone, phone number, or email address. Do not create a draft fence yet."
 )
@@ -114,8 +114,8 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
     """
     if drafted:
         return (
-            "Change the draft you wrote earlier in this conversation: "
-            "apply the requested change (what it says, tone, length, wording, a point added or "
+            "Change the draft you wrote earlier in this conversation as this message asks. "
+            "Apply the requested change (what it says, tone, length, wording, a point added or "
             "removed, the language, or the form, such as a text made into an email) and keep "
             "every name, date, number, and commitment the "
             f"user did not change. Return the whole revised draft in one ```{fence} fence, not "
@@ -123,8 +123,8 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
             "after it. Several versions only when the user asked for them."
         )
     return (
-        f"The user asked for a {fence} earlier in this conversation, and this turn says what it "
-        "should say or how to change it. Write it now, to the same recipient: the whole "
+        f"Write the {fence} asked for earlier in this conversation now, with what this "
+        "message says it should say or how to change it, to the same recipient: the whole "
         f"send-ready text in one ```{fence} fence. No explanation before it and at most one "
         "short line after it."
     )

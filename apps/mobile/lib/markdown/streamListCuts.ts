@@ -36,11 +36,12 @@ type ListScan = {
 };
 
 /**
- * A numbered list's number column is as wide as its largest number. A chunk
- * that ends at item 10 or later already has the width every item up to 99
- * shares, so the items after it cannot widen the column the chunk drew.
+ * A numbered list's number column is as wide as its largest number, and never
+ * narrower than two digits (`numberColumnWidth`): every list up to 99 draws the
+ * same column, so a chunk may end after its first item and the items after it
+ * cannot widen the column the chunk drew.
  */
-const MIN_NUMBERED_CUT = 11;
+const MIN_NUMBERED_CUT = 2;
 const MAX_NUMBERED_CUT = 99;
 /** The first number with three digits: a list that shows it is `wide`. */
 const WIDE_NUMBER = MAX_NUMBERED_CUT + 1;

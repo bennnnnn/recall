@@ -185,7 +185,7 @@ async def test_the_reply_is_told_which_message_and_step_the_line_follows() -> No
         await note_the_follow_up(ctx, isolated_settings(), loop.time() + 1.0)
     note = ctx.prompt_messages[-2]
     assert note["role"] == "system"
-    assert note["content"].startswith('This message follows up your reply to "A rectangular')
+    assert note["content"].startswith('Answer this message about your reply to "A rectangular')
     assert '"step 2"' in note["content"]
     assert ctx.prompt_messages[-1] == {"role": "user", "content": "explain step 2"}
     assert "follow_up.explain" in trace.prompt_rules

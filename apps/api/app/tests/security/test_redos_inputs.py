@@ -337,3 +337,46 @@ def test_a_bold_value_reads_a_run_of_spaces_once() -> None:
 
     assert bold_quantity("**0.0e0" + " " * N) is None
     assert bold_quantity("**2.03 mm**") == "2.03\\,\\mathrm{mm}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "(" * 2_000 + SPACES + "$$x$$",
+        "a $$" + SPACES + ")",
+        "( " * (N // 2) + "$$",
+        "\t" * N + "- $$ = moderate",
+        "\t" * N + "x",
+        ">" * N + "$$",
+        "1" * N + ". $$",
+    ],
+)
+def test_display_dollars_read_runs_of_blanks_once(text):
+    """CodeQL 287/288 (#2606): the bracketed tier and the line's start, read by loops."""
+    from app.modules.chat.display_dollars import find_display_dollars, scan_display_line
+
+    find_display_dollars(text)
+    scan_display_line(text, "$$ ")
+    scan_display_line(text, "$$\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "$$x$$ " * 5_000,
+        "Nopa – $$. " * 5_000,
+        "$$ x = 1 $$ and " * 3_000,
+        "a $$" + "x" * N,
+    ],
+)
+def test_display_dollars_a_line_of_many_pairs_is_read_once(line):
+    """Review #2606 round 2: each inline reader asked about every ``$$`` of a line, and each
+    question read the line again from its start (k² · n)."""
+    from app.modules.chat.calculation_layout import layout_calculations
+    from app.modules.chat.display_dollars import display_dollar_pair_end
+    from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
+
+    repair_inline_token_boundaries(line)
+    layout_calculations(line)
+    for index in range(0, len(line), 7):
+        display_dollar_pair_end(line, index)

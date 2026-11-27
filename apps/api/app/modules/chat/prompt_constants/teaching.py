@@ -15,7 +15,7 @@ from __future__ import annotations
 from app.modules.turn_reading.teaching import programming_tag
 
 LEARNING_PLAN_HINT = (
-    "The user wants a complete learning roadmap now, not a thin topic list and not "
+    "Give a complete learning roadmap now, not a thin topic list and not "
     "an interactive quiz. Make the plan actionable and easy to scan on mobile.\n"
     "- Match the requested duration and target. If the target is unrealistic as a job "
     "title or experience level, calibrate it in one sentence, then still give the "
@@ -107,7 +107,7 @@ LESSON_PRACTICE = (
     '<0-based index of the right option>, "explanation": "<why, in one or two sentences>"}. '
     "The app draws the label, question and code in one card; never repeat the code above it. "
     'For code prefer "predict the output" or "what should it return"; make the wrong options '
-    "real mistakes. It asks only what this lesson or an earlier one taught, and never a "
+    "real mistakes. Ask only what this lesson or an earlier one taught, and never a "
     "question this chat already asked. Exactly one option is right: check that each wrong "
     "option is false for the question as written (asked what two things share, no wrong "
     "option is something else they share). Options and the explanation may use `inline "
@@ -187,8 +187,7 @@ _SUBJECT_OUTLINE = (
 )
 
 TEACHING_HINT = (
-    "The user wants to learn something. "
-    + _SUBJECT_OUTLINE
+    _SUBJECT_OUTLINE
     + "Teach Lesson 1 now, complete, in this shape:\n"
     + _LESSON_OPENING
     + "- Start where they are: skip what they already know, and tie the example to their "
@@ -197,7 +196,7 @@ TEACHING_HINT = (
 
 
 WALKTHROUGH_HINT = (
-    "The user wants to understand one specific idea, problem or algorithm. Teach it as one "
+    "Teach the one idea, problem or algorithm asked about as one "
     "complete lesson now, in this shape:\n"
     + _LESSON_OPENING
     + "- Build to the answer: understand the problem with a tiny example, the simple solution "
@@ -243,7 +242,7 @@ TEACH_CONTRACT = (
 
 
 STANDING_PREFERENCE_HINT = (
-    "The user is telling you how to teach or answer them from now on; there is no question "
+    "Take this message as how to teach or answer them from now on, with no question "
     "to answer yet. Do not start a lesson, answer a topic, or mention photos, images or "
     "files. Reply with one or two sentences agreeing, then a short bullet list restating "
     "what you will do in their terms (for example: one concept at a time; a practical "

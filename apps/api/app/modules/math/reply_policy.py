@@ -24,7 +24,7 @@ MATH_REPLY_POLICY = (
     "requested reasoning or examples; use only the detail needed. For hints or practice, "
     "give a focused hint without revealing the full solution unless requested. "
     "A deadline or difficulty alone is not a request for a full worked solution. "
-    "The user's response-length preference does count: with DETAILED, show the "
+    "Follow the response length: with DETAILED, show the "
     "working for anything that took more than one step, without waiting to be "
     "asked; with SHORT, give less. "
     "Honor explicit requests for just the answer or no steps. Always preserve necessary "
@@ -67,7 +67,7 @@ MATH_INTENT_HINT = (
     "  - Do NOT emit ```answer, ```arithmetic, ```graph, or ```geometry fences. Do not tell the "
     "user a diagram will be attached. Closed-form and one-line arithmetic: the "
     "`$...$` line is the answer — do not restate it. When steps are requested, show them in "
-    "`$...$` and do not add a boxed final-answer section.\n"
+    "`$...$`.\n"
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}. "
     "LaTeX `n\\sqrt{x}` (number then square-root, no brackets) is n times "
@@ -86,12 +86,8 @@ MATH_INTENT_HINT = (
     "No banter, no 'what is factorial', no section headers, no general "
     "$n! = n(n-1)\\cdots 1$ lecture unless they asked what the operator means. "
     "No fun-fact callouts on these.\n"
-    "  - Default to a concise answer: give the result once, with only the key "
-    "transformation or rule needed to understand it. A simple root, derivative, "
-    "integral, factorization, or equation does not need a step-by-step tutorial. "
-    "Example: `$\\sqrt[6]{9} = 3^{1/3} = \\sqrt[3]{3} \\approx 1.442$`, "
-    "followed only if useful by 'Since $9 = 3^2$, divide the exponent by 6.' "
-    "Do not repeat the exact answer in a heading, summary, or Note/Tip callout.\n"
+    "  - A calculation takes the worked layout this prompt gives it; give its result "
+    "once, never again in a heading, summary, or Note/Tip callout.\n"
     "  - Honor Short mode and explicit requests for just the answer. Show a "
     "full derivation when the user asks for steps, explanation, or a proof. "
     # The worked-solution layout (MATH_WORKOUT_PROMPT_RULE, ~460 tokens) is stated
@@ -126,16 +122,9 @@ MATH_INTENT_HINT = (
 
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
-    "- Do NOT emit ```arithmetic, ```geometry, or ```graph fences. Do not tell the user a "
-    "diagram will be attached. Describe the figure in words using `$...$`. "
-    f"{GRAPH_NO_SUBSTITUTE_CLAUSE}\n"
-    "- Never invent geometry dimensions. Numbers in any older examples were "
-    "illustrative only — use user-stated or verified measures. If measures are "
-    'missing (bare "what is a circle?"), explain in words or ask. Graph y=f(x) '
-    "is not missing a domain — do not interview or offer Python/Colab.\n"
-    "- Do NOT use ```html or SVG for math diagrams.\n"
-    "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
-    "equation (not a bare number). Do NOT emit ```answer.\n"
+    "- Describe the figure in words using `$...$`. Numbers in any older examples were "
+    "illustrative only: use user-stated or verified measures. If measures are missing "
+    '(bare "what is a circle?"), explain in words or ask.\n'
     "- Limits, series, statistics, combinatorics, number theory, and small matrices: "
     "ONLY when a verified math block is present—use its exact result and do NOT "
     "recompute. Without one, do NOT claim verification and add no could-not-verify "
@@ -154,11 +143,9 @@ MATH_TUTORING_HINT = (
     "'correct' or re-ask the same question — point to the specific step where "
     "it went wrong and give a small hint toward the right method, then let "
     "them try again.\n"
-    "- Only give the full worked solution when the user asks for it. For "
-    "practice, prefer one leading question over the full answer.\n"
+    "- For practice or a hint, prefer one leading question over the full answer.\n"
     "- Never invent a 'verified' result when no verified math block is "
-    "present. Missing verification does not call for a worked solution; "
-    "match the detail the user requested and state uncertainty only when needed.\n"
+    "present; state uncertainty only when needed.\n"
 )
 
 # Compact fence + step rules for Short/compact math turns (not the full pack).

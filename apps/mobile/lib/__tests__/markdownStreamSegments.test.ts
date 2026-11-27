@@ -37,7 +37,7 @@ describe("stream segment cuts", () => {
   });
 
   it("stops cutting at a fence marker the passes could read two ways", () => {
-    for (const odd of ["Use ``` to open a fence.", "    ```python", "```js```"]) {
+    for (const odd of ["Use ``` to open a fence.", "```js```"]) {
       const { cuts, state } = cutsOf(`Intro.\n\n${odd}\n\nLater.\n\nMore.\n`);
       expect(state.poisoned).toBe(true);
       // The cut before it stands; none after it.
@@ -78,6 +78,31 @@ describe("stream segment cuts", () => {
       expect(cuts).toEqual([]);
     },
   );
+
+  // H1 (2026-11-27 review): each of these stopped every cut after it, for the rest of the reply.
+  it("cuts after a chart whose $schema is inside its fence", () => {
+    const text = '```json\n{ "$schema": "https://vega.github.io/schema/vega-lite/v5.json" }\n```\n\nLater.\n\nMore.\n';
+    expect(cutsOf(text).state.poisoned).toBe(false);
+    expect(cutLines(text)).toEqual(["Later.", "More."]);
+  });
+
+  it("cuts after a <details> once its </details> has come", () => {
+    const text = "<details><summary>Why</summary>\nBecause.\n\n</details>\n\nLater.\n\nMore.\n";
+    expect(cutLines(text)).toEqual(["Later.", "More."]);
+    expect(cutLines("<details>\n\nOpen still.\n\nMore.\n")).toEqual([]);
+    // The passes read the tags in any case (review #2606).
+    expect(cutLines("<Details>\n\nA.\n\nB.\n\n</Details>\n\nLater.\n")).toEqual(["Later."]);
+  });
+
+  it("holds the cuts only while a fence indented four spaces is open", () => {
+    const fence = "    ```bash\n    npm test\n\n    npm run lint\n    ```";
+    expect(cutLines(`Intro.\n\n${fence}\n\nLater.\n\nMore.\n`)).toEqual(["    ```bash", "Later.", "More."]);
+    const open = cutsOf("Intro.\n\n    ```bash\n    npm test\n\nLater.\n");
+    expect(open.cuts).toEqual(["Intro.\n\n".length]);
+    expect(open.state.looseFence).not.toBeNull();
+    // A margin marker inside it: a loose reader closes the fence there, a strict one opens one.
+    expect(cutsOf("Intro.\n\n    ```bash\n```\n\nLater.\n").state.poisoned).toBe(true);
+  });
 
   it("holds a worked region together until a fence every pass keeps", () => {
     const text = [

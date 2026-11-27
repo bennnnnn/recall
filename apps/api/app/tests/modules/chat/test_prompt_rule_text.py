@@ -146,10 +146,22 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # ("This is a how-to task" came back as "It's a how-to", the owner, 2026-11-27), the steps
 # card for one procedure in order only, not for tips or ways, and one card even when the steps
 # differ by country, device or version (STEPS_FORMAT_HINT, STEPS_CONTRACT), and no other hint
-# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities).
-_RULES = 228
-_RULE_GRAMS = 21394
-_RULE_GRAMS_SHA = "784197569c4bcf0a"
+# naming the turn either (PHYSICS_INTENT_HINT, the react note, code ink, capabilities); then
+# the prompt review (2026-11-27): every note said as an instruction to the writer, never as
+# what the user or the message is ("They want more…", "The user is correcting…", "This message
+# follows up…"), one ending rule (an offer unless the note beside the message says none), one
+# missing-detail rule (assume and say it), one paragraph size, the draft rules said once
+# (COPY_DELIVERABLE_HINT), the maths pack's worked answer left to its reply policy, and "a
+# school textbook" for "the textbook", and every note that goes on told to open on the content,
+# never on what an earlier reply said; then its review: the missing-detail rule leaving what
+# they want to the tap card, the ranking hint said as an instruction (RANKING_FORMAT_HINT), and
+# the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION);
+# then its second round: the reader note deferring to the tap card too, the self-talk rule
+# banning sentences about an earlier reply, never its point said again
+# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence.
+_RULES = 230
+_RULE_GRAMS = 20992
+_RULE_GRAMS_SHA = "69203f4038170530"
 
 
 def _rules() -> list[str]:
