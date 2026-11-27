@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getSessionGeneration } from "@/lib/auth";
+import { useOnForeground } from "@/lib/foregroundRefresh";
 import {
   askNotificationPermission,
   getNotificationPermissionGranted,
@@ -44,29 +45,39 @@ export function usePushNotificationToggle({
     [isCurrentView, sameAccount],
   );
 
-  useEffect(() => {
-    if (!isCurrent()) return;
-    let active = true;
+  // The phone's permission, read when the page opens and on each return to the app: allowed
+  // or taken away in the phone's Settings meanwhile, the switch shows it.
+  const readPermission = useCallback((active: () => boolean = () => true) => {
     void getNotificationPermissionGranted()
       .then((granted) => {
-        if (active && isCurrent()) setPermissionGranted(granted);
+        if (active() && isCurrent()) setPermissionGranted(granted);
       })
       .catch(() => {
-        if (!active || !isCurrent()) return;
+        if (!active() || !isCurrent()) return;
         setPermissionGranted(false);
         onError();
       });
+  }, [isCurrent, onError]);
+
+  useEffect(() => {
+    if (!isCurrent()) return;
+    let active = true;
+    readPermission(() => active);
     return () => {
       active = false;
     };
-  }, [isCurrent, onError]);
+  }, [isCurrent, readPermission]);
 
   const value = optimisticValue ?? (serverEnabled && permissionGranted === true);
+
+  /** The switch was turned on and the phone refused: allowed later, it finishes turning on. */
+  const wantedOn = useRef(false);
 
   // The switch shows off, and the account's switch stays as it was: allowing notifications
   // later in the phone's Settings brings reminders back on the next return to the app.
   const setDenied = useCallback(() => {
     if (!isCurrent()) return;
+    wantedOn.current = true;
     setPermissionGranted(false);
     setOptimisticValue(false);
     onPermissionDenied();
@@ -78,6 +89,7 @@ export function usePushNotificationToggle({
     if (!release) return;
     setOptimisticValue(enabled);
 
+    wantedOn.current = false;
     try {
       if (!enabled) {
         await updatePreference(false);
@@ -116,6 +128,20 @@ export function usePushNotificationToggle({
     token,
     updatePreference,
   ]);
+
+  // Back from the phone's Settings: the switch shows the permission as it now is. One the
+  // user turned on and the phone refused finishes turning on once it is allowed (no ask: it
+  // is granted, so the token registers and the account's switch saves). A permission taken
+  // away shows off and leaves the account's switch alone.
+  useOnForeground(() => {
+    if (!isCurrent()) return;
+    if (!wantedOn.current) return readPermission();
+    void getNotificationPermissionGranted().then((granted) => {
+      if (!isCurrent()) return;
+      setPermissionGranted(granted);
+      if (granted && wantedOn.current) void toggle(true);
+    }).catch(() => {});
+  }, Boolean(token));
 
   return { value, permissionGranted, toggle };
 }

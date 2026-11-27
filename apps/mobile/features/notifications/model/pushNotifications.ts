@@ -34,23 +34,44 @@ export async function getNotificationPermissionGranted(): Promise<boolean> {
 }
 
 /**
+ * Where the permission stands, read without asking: allowed; refused for good (`denied`: only
+ * Settings can turn it on); or `askable`, the phone's prompt still unspent.
+ */
+export async function notificationPermissionState(): Promise<"granted" | "denied" | "askable"> {
+  const { status, canAskAgain } = await Notifications.getPermissionsAsync();
+  if (status === "granted") return "granted";
+  return canAskAgain === false ? "denied" : "askable";
+}
+
+/**
  * What asking for notifications came to: allowed; refused by the phone, so only Settings can
  * turn it on; or `not_now`, the user's answer to Recall's explanation, with the phone's own
  * prompt still unspent.
  */
 type NotificationAsk = "granted" | "denied" | "not_now";
 
+/** The ask on screen: a second one while it is answered (two cards tapped quickly) shares it. */
+let asking: Promise<NotificationAsk> | null = null;
+
 /**
  * Asks for notifications on the user's own step (a reminder saved, the Notifications switch
  * turned on, a trial reminder), never at launch. iOS shows its prompt once, so Recall says
  * why first (`confirmDialog`) and the phone asks only on Continue. Granted already, or
- * refused for good (`canAskAgain` false), asks nothing.
+ * refused for good (`canAskAgain` false), asks nothing. Asks made together share one answer.
  */
-export async function askNotificationPermission(): Promise<NotificationAsk> {
+export function askNotificationPermission(): Promise<NotificationAsk> {
+  if (!asking) {
+    asking = askOnce().finally(() => {
+      asking = null;
+    });
+  }
+  return asking;
+}
+
+async function askOnce(): Promise<NotificationAsk> {
   await ensureReminderChannel();
-  const existing = await Notifications.getPermissionsAsync();
-  if (existing.status === "granted") return "granted";
-  if (existing.canAskAgain === false) return "denied";
+  const state = await notificationPermissionState();
+  if (state !== "askable") return state;
   const proceed = await confirmDialog({
     title: i18n.t("permissions.notifications_ask_title"),
     message: i18n.t("permissions.notifications_ask_body"),

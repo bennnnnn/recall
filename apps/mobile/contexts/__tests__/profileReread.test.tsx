@@ -281,6 +281,25 @@ describe("back after an outage", () => {
     expect(api.me).not.toHaveBeenCalled();
   });
 
+  it("a read still out when the API comes back, which then fails, reads once more", async () => {
+    (api.me as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+    await mount();
+    await act(async () => { reportDisconnected(); });
+    const hung = deferred<User>();
+    (api.me as jest.Mock).mockReturnValueOnce(hung.promise);
+    await act(async () => { reread(SETTINGS_PROFILE_STALE_MS); });
+    await flush();
+    expect(api.me).toHaveBeenCalledTimes(1);
+    (api.me as jest.Mock).mockResolvedValue(userA);
+    await reconnect();
+    // The hung read is still out: nothing more yet.
+    expect(api.me).toHaveBeenCalledTimes(1);
+    await act(async () => { hung.reject(new Error("timed out")); });
+    await flush();
+    expect(api.me).toHaveBeenCalledTimes(2);
+    expect(auth.profileValidated).toBe(true);
+  });
+
   it("a try that failed during the outage does not hold back the read once it ends", async () => {
     (api.me as jest.Mock).mockRejectedValueOnce(new Error("offline"));
     await mount();

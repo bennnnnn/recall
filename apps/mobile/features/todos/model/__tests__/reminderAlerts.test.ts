@@ -5,16 +5,17 @@ import {
 } from "@/features/todos/model/reminderAlerts";
 import {
   askNotificationPermission,
-  getNotificationPermissionGranted,
+  notificationPermissionState,
 } from "@/features/notifications/model/pushNotifications";
 
 jest.mock("@/features/notifications/model/pushNotifications", () => ({
   askNotificationPermission: jest.fn(),
-  getNotificationPermissionGranted: jest.fn(async () => false),
+  notificationPermissionState: jest.fn(async () => "askable"),
 }));
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(notificationPermissionState).mockResolvedValue("askable");
   resetAlertsOffNoticeForTest();
 });
 
@@ -33,9 +34,16 @@ it("after Not now, the next save this launch does not explain again", async () =
   await expect(allowReminderAlerts()).resolves.toBe("not_now");
   expect(askNotificationPermission).toHaveBeenCalledTimes(1);
   // Allowed in Settings meanwhile: on, still without asking.
-  jest.mocked(getNotificationPermissionGranted).mockResolvedValue(true);
+  jest.mocked(notificationPermissionState).mockResolvedValue("granted");
   await expect(allowReminderAlerts()).resolves.toBe("on");
   expect(askNotificationPermission).toHaveBeenCalledTimes(1);
+});
+
+it("after Not now, a refusal for good since (the Settings switch's ask) reads as off", async () => {
+  jest.mocked(askNotificationPermission).mockResolvedValue("not_now");
+  await allowReminderAlerts();
+  jest.mocked(notificationPermissionState).mockResolvedValue("denied");
+  await expect(allowReminderAlerts()).resolves.toBe("off");
 });
 
 it("a failed ask counts as off, never as an error", async () => {

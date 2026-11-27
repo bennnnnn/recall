@@ -82,19 +82,32 @@ describe.each([
   });
 });
 
-it("an hour-fast phone refreshes once, then sends without refreshing", async () => {
-  const serverNowMs = 1_800_000_000_000;
-  jest.spyOn(Date, "now").mockReturnValue(serverNowMs + HOUR_MS);
-  const stored = issuedAt(serverNowMs - 5 * 60_000);
-  const fresh = issuedAt(serverNowMs);
-  mockFetch.mockImplementation(async (url: string) =>
-    url.endsWith("/auth/refresh")
-      ? answer({ access_token: fresh, refresh_token: "r2" }, serverNowMs)
-      : answer({ ok: true }, serverNowMs));
+it.each([
+  ["the Date header", true, false],
+  ["the new token's iat", false, true],
+])("an hour-fast phone learns the server's time from %s: one refresh, then none", async (_label, dateHeader, iat) => {
+  const serverStart = 1_800_000_000_000;
+  let elapsed = 0;
+  jest.spyOn(Date, "now").mockImplementation(() => serverStart + HOUR_MS + elapsed);
+  const stored = issuedAt(serverStart - 5 * 60_000);
+  const fresh = issuedAt(serverStart, iat);
+  mockFetch.mockImplementation(async (url: string) => {
+    const date = dateHeader ? serverStart + elapsed : null;
+    return url.endsWith("/auth/refresh")
+      ? answer({ access_token: fresh, refresh_token: "r2" }, date)
+      : answer({ ok: true }, date);
+  });
 
   // Before any answer the phone's clock is all there is: the stored token looks expired.
   await request("/home", stored);
-  for (let i = 0; i < 20; i += 1) await request("/home", fresh);
+  expect(refreshCalls()).toBe(1);
+  // Judged on the server's clock now, not held back by the back-off.
+  expect(accessTokenNeedsRefresh(fresh)).toBe(false);
+  // Twenty minutes of requests, two minutes apart: well past any back-off, inside the token's hour.
+  for (let i = 0; i < 10; i += 1) {
+    elapsed += 2 * 60_000;
+    await request("/home", fresh);
+  }
   expect(refreshCalls()).toBe(1);
 });
 

@@ -696,3 +696,24 @@ describe("the stored sign-in at launch", () => {
     expect(reportCorruptSessionCleared).not.toHaveBeenCalled();
   });
 });
+
+it("rewrites the launch cache on every confirmed change: a token refresh's account, a merge", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  const refresh = (setTokenRefreshHandler as jest.Mock).mock.calls.at(-1)[0];
+  const lapsed = { ...userA, plan: "free" } as User;
+  await act(async () => { refresh("access-a2", lapsed); });
+  expect(writeCachedUser).toHaveBeenLastCalledWith(expect.objectContaining({ id: "account-a", plan: "free" }));
+  // The store's plan sync merges only the plan's fields: the cache follows it too.
+  await act(async () => { current.mergeUser({ plan: "pro" }); });
+  expect(writeCachedUser).toHaveBeenLastCalledWith(expect.objectContaining({ plan: "pro" }));
+});
+
+it("writes nothing back to the cache after a sign-out", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  await act(async () => { await current.signOut(); });
+  expect(writeCachedUser).not.toHaveBeenCalled();
+});

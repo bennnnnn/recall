@@ -261,7 +261,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         if (revision === updateUserGenRef.current) {
           setCurrentUser(me);
           markRead();
-          void writeCachedUser(me);
         }
       } catch {
         // Offline launches retain a cached account. Without one, keep a
@@ -304,7 +303,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     setCurrentUser(result.user);
     markRead();
     setLoading(false);
-    void writeCachedUser(result.user);
   }, [isCurrent, setCurrentToken, setCurrentUser, markRead]);
 
   const signInWithGoogle = useCallback(() => signIn(async (current) => {
@@ -349,8 +347,16 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (user?.locale) void ensureLocale(user.locale);
   }, [user?.locale]);
 
-  // Cached display fields intentionally omit preferences. Running bootstrap
-  // on those defaults would unregister push and overwrite local reminders.
+  // The launch cache follows every change to the user the server has confirmed this run, by any
+  // path: /auth/me, a sign-in, a save, a re-read, a token refresh's account, the store's plan
+  // sync, a merge. The next launch (an offline one too) paints the plan and settings as they were
+  // last shown, never an older plan. A sign-out clears the user first, so nothing is written back.
+  useEffect(() => {
+    if (profileValidated && user) void writeCachedUser(user);
+  }, [profileValidated, user]);
+
+  // The launch cache keeps no push, email or reminder switch, nor Location: running bootstrap
+  // on their placeholders would unregister push and overwrite local reminders.
   useBootstrapSync({
     token: profileValidated ? token : null,
     user: profileValidated ? user : null,
@@ -367,7 +373,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
     markRead();
-    void writeCachedUser(me);
   }, [token, sessionGeneration, isCurrent, setCurrentUser, markRead]);
 
   const completeOnboarding = useCallback(async () => {

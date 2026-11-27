@@ -245,6 +245,8 @@ const NO_ACCOUNT_DATA = [
   "lib/productAnalytics.ts#flushTimer",
   "features/billing/model/purchases.ts#purchasesModule",
   "features/notifications/model/pushNotifications.ts#androidChannelReady",
+  // The phone's permission ask on screen: the same for every account.
+  "features/notifications/model/pushNotifications.ts#asking",
   "features/notifications/model/pushNotifications.ts#pushTokenFailureReported",
   "lib/reconnectRefresh.ts#lostAt",
   "lib/reduceMotion.ts#knownReduceMotion",

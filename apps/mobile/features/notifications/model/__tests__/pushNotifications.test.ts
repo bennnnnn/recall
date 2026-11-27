@@ -184,6 +184,19 @@ describe("push gating on user.push_notifications_enabled", () => {
     expect(updateMeMock).not.toHaveBeenCalled();
   });
 
+  it("two asks at once share one explanation and one answer", async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "undetermined", canAskAgain: true });
+    let answer!: (value: boolean) => void;
+    mockConfirm.mockImplementationOnce(() => new Promise<boolean>((resolve) => { answer = resolve; }));
+    const first = askNotificationPermission();
+    const second = askNotificationPermission();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    answer(false);
+    await expect(Promise.all([first, second])).resolves.toEqual(["not_now", "not_now"]);
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+
   it("asks nothing when allowed already, or refused for good", async () => {
     await expect(askNotificationPermission()).resolves.toBe("granted");
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: "denied", canAskAgain: false });

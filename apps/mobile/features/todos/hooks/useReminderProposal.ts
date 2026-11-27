@@ -63,7 +63,8 @@ export function useReminderProposal(proposal: ReminderProposal) {
     else notifySuccess();
     // Ask before the rows land, so the reminder sync that follows may schedule its alert.
     if (proposal.items.some((item) => item.dueAt && (item.action === "add" || item.action === "set_due"))) {
-      setAlertsOff((await allowReminderAlerts()) !== "on");
+      // Only a refusal: after Not now nothing was refused, and iOS Settings has no row for it yet.
+      setAlertsOff((await allowReminderAlerts()) === "off");
     }
     // The rows the tap wrote, applied as they are (code-health audit NET-16); a card
     // another device saved first sends none, and the list is read again.
