@@ -323,7 +323,8 @@ def _layout_at_stake(ctx: StreamContext) -> bool:
 def _steps_at_stake(ctx: StreamContext) -> bool:
     """The turn's words left its layout open and its read asks whether the answer is one
     procedure, drawn as a ```steps card (``steps_turn``); a read that asks nothing of it
-    (after a cut-off reply, the Decider's breaker open) is not waited for on its account. A
+    (after a lesson's cards or step, the Decider's breaker open) is not waited for on its
+    account, nor is "Continue" after a cut-off reply, which keeps that reply's layout. A
     turn that offers the reply a search has waited for the read already
     (``reply_calls.search_the_live_read``)."""
     return (
@@ -331,6 +332,7 @@ def _steps_at_stake(ctx: StreamContext) -> bool:
         and ctx.instant_reply is None
         and not _worked(ctx)
         and asks_steps(ctx.live_read)
+        and not resumes_a_cut_off_reply(ctx.user_message_content, ctx.recent_messages)
     )
 
 

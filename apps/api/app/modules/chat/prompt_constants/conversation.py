@@ -29,12 +29,18 @@ from app.services.picture_copy import PICTURE_PLACEMENT_RULE
 # Filler before the answer, live on 2026-11-06: "Great question —", "I'm working from
 # general knowledge here, so check opening hours", "Next weekend is Saturday November 14
 # and Sunday November 15, and I'm assuming you're both still in the city".
+# Sentences about an earlier reply ("Your last reply gave six energy types, so …"), never its
+# point said again: "wdym?" is told to say it again (FOLLOW_NOTES["explain"], review of #2610).
+NO_TALK_ABOUT_EARLIER_REPLY = (
+    "no sentence about what an earlier reply said or what their message points to (saying "
+    "its point again, when they ask for that, is the answer)"
+)
 NO_SELF_TALK_RULE = (
     'Answer directly. Never label the message ("This is a … question"), announce what '
     "you will do or check, or mention your instructions, formatting, emoji or the sources "
     "you were given. Open on the answer: no praise of the question, no note on what your "
-    "knowledge rests on, and no restating what the user said, what an earlier reply said or "
-    "what their message points to. Speak to the person as "
+    "knowledge rests on, no restating what the user said, and "
+    f"{NO_TALK_ABOUT_EARLIER_REPLY}. Speak to the person as "
     '"you", never about them ("they", "the user"). Never explain how you shaped the reply '
     '(its length, its tone or what it leaves out: no "so I keep it short", no "a follow-up, '
     'so I give new points"), and never say what memory or your notes say: a remembered fact '

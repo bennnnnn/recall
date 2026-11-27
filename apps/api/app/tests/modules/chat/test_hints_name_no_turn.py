@@ -100,12 +100,27 @@ def prompt_descriptions(text: str) -> list[str]:
     return [prose[m.start() : m.end() + 60] for m in _DESCRIBES.finditer(prose)]
 
 
+def _strings(value: object) -> list[str]:
+    """Every string in a constant: itself, or the strings a dict, tuple or list of them holds."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _strings(item)]
+    if isinstance(value, tuple | list):
+        return [text for item in value for text in _strings(item)]
+    return []
+
+
 def _module_rules() -> list[str]:
-    texts: list[str] = []
+    """The constants of those modules, dicts of copy included, and the memory-command notes
+    built from one (review of #2610: a dict and a builder escaped the scan)."""
+    from app.modules.chat.prompt_memory import _MEMORY_COMMAND_DOES, _memory_command_note
+
+    texts: list[str] = [_memory_command_note(command) for command in _MEMORY_COMMAND_DOES]
     for name in _MORE_PROMPT_MODULES:
         for key, value in vars(importlib.import_module(name)).items():
-            if key.lstrip("_").isupper() and isinstance(value, str) and len(value) >= 40:
-                texts.append(value)
+            if key.lstrip("_").isupper():
+                texts += [text for text in _strings(value) if len(text) >= 40]
     return texts
 
 

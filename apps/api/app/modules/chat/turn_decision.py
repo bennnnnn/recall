@@ -400,8 +400,9 @@ async def read_decision(
 ) -> TurnDecision | None:
     """How to handle the message; None: no read. ``model_alias`` is for measurement.
     ``steps``: ask whether the answer is one procedure (``decider_read.STEPS_QUESTION``); a
-    message after a lesson's cards, a lesson step or a cut-off reply never asks, its layout
-    being the lesson's or the reply's (``steps_turn``), nor a composer's picture check.
+    message after a lesson's cards or a lesson step never asks, its layout being the
+    lesson's (``steps_turn``), nor a composer's picture check; after a cut-off reply it asks,
+    and a "Continue" keeps the reply's layout (``steps_turn.gives_the_steps_card``).
     ``asked`` records whether the steps question really goes out (``asks_steps``).
     ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
     show (``picture_read``); ``earlier`` when not given."""
@@ -616,8 +617,8 @@ def start_turn_decision(
 @dataclass
 class StepsAsked:
     """Whether a turn's read asks the steps question (``decider_read.STEPS_QUESTION``): not
-    after a lesson's cards, a lesson step or a cut-off reply, nor for a picture check, nor
-    with the Decider's breaker open. The reply waits for a steps answer only when one is
+    after a lesson's cards or a lesson step, nor for a picture check, nor with the
+    Decider's breaker open. The reply waits for a steps answer only when one is
     coming (``decided_turn._steps_at_stake``)."""
 
     asked: bool

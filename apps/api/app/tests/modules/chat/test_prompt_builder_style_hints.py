@@ -923,3 +923,37 @@ def test_a_missing_detail_leaves_wants_to_the_tap_card_rule() -> None:
     )
     assert CLARIFY_CARD_HINT in hints and CLARIFICATION_HINT in hints
     assert CARD_DECIDES_WANTS in CLARIFICATION_HINT
+    # The note beside the message, which the model follows first, defers the same way and
+    # no longer has them assume "their spending" (review of #2610, round 2).
+    from types import SimpleNamespace
+
+    from app.modules.chat.message_notes import message_notes
+    from app.modules.chat.prompt_constants.format import READER_NOTE
+
+    user = SimpleNamespace(emoji_use="some", locale="en", custom_instructions=None)
+    notes = message_notes("What's the best laptop for me?", [], user)
+    assert any(READER_NOTE in note for note in notes)
+    assert CARD_DECIDES_WANTS in READER_NOTE
+    assert "spending" not in READER_NOTE
+
+
+def test_a_wdym_turn_may_say_the_last_replys_point_again() -> None:
+    """ "wdym?" is told to say the last reply's point again; the self-talk rule bans only
+    sentences about that reply ("Your last reply gave…"), never saying it again."""
+    from app.modules.chat.prompt_constants.conversation import (
+        FOLLOW_NOTES,
+        NO_SELF_TALK_RULE,
+        NO_TALK_ABOUT_EARLIER_REPLY,
+    )
+
+    assert NO_TALK_ABOUT_EARLIER_REPLY in NO_SELF_TALK_RULE
+    assert "again" in FOLLOW_NOTES["explain"] and "again" in NO_TALK_ABOUT_EARLIER_REPLY
+
+
+def test_the_maths_pack_names_no_worked_fence() -> None:
+    """A verified solve, a lesson or a multi-part turn gets no ```worked contract, and the
+    phone draws no such fence: the pack names the layout, never the fence (review of #2610)."""
+    from app.modules.math.reply_policy import math_prompt_hints
+
+    assert all("```worked" not in hint for hint in math_prompt_hints(short=False))
+    assert all("```worked" not in hint for hint in math_prompt_hints(short=True))

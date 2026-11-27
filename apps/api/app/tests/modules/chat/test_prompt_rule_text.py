@@ -155,10 +155,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # school textbook" for "the textbook", and every note that goes on told to open on the content,
 # never on what an earlier reply said; then its review: the missing-detail rule leaving what
 # they want to the tap card, the ranking hint said as an instruction (RANKING_FORMAT_HINT), and
-# the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION).
-_RULES = 229
-_RULE_GRAMS = 20983
-_RULE_GRAMS_SHA = "7cecd1f2657581f9"
+# the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION);
+# then its second round: the reader note deferring to the tap card too, the self-talk rule
+# banning sentences about an earlier reply, never its point said again
+# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence.
+_RULES = 230
+_RULE_GRAMS = 20992
+_RULE_GRAMS_SHA = "69203f4038170530"
 
 
 def _rules() -> list[str]:

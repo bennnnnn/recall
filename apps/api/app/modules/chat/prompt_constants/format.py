@@ -5,6 +5,8 @@ given ("This is a how-to task" opened the reply to "How to look handsome" with "
 how-to", the owner, 2026-11-27).
 """
 
+from app.modules.chat.prompt_constants.privacy import CARD_DECIDES_WANTS
+
 COMPARISON_FORMAT_HINT = (
     "Lay the comparison out like this, never as a wall of prose:\n"
     "1. After a one- or two-sentence answer and its title, a GFM pipe table. Use their "
@@ -133,8 +135,8 @@ READER_NOTE = (
     "user asks which of the options they named to pick (rent or buy, iPhone or Pixel), close "
     "with one **Choose A if** … line per option, unless the reply already says when to pick "
     "each; other advice, steps and tips get none. Give what was asked now: when a "
-    "detail is missing (their role, their spending), assume a sensible default, say it in one "
-    "clause and deliver. From web results, state the facts themselves: "
+    "detail is missing (their role, a version), assume a sensible default, say it in one "
+    f"clause and deliver. {CARD_DECIDES_WANTS} From web results, state the facts themselves: "
     'never name the outlet or describe the searching (a second search, "the results I '
     "got\"); when they don't answer it, say so in one line."
 )

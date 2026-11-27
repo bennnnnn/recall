@@ -86,9 +86,8 @@ MATH_INTENT_HINT = (
     "No banter, no 'what is factorial', no section headers, no general "
     "$n! = n(n-1)\\cdots 1$ lecture unless they asked what the operator means. "
     "No fun-fact callouts on these.\n"
-    "  - A calculation takes the worked layout this prompt gives it (the maths reply policy "
-    "or the ```worked block); give its result once, never again in a heading, summary, or "
-    "Note/Tip callout.\n"
+    "  - A calculation takes the worked layout this prompt gives it; give its result "
+    "once, never again in a heading, summary, or Note/Tip callout.\n"
     "  - Honor Short mode and explicit requests for just the answer. Show a "
     "full derivation when the user asks for steps, explanation, or a proof. "
     # The worked-solution layout (MATH_WORKOUT_PROMPT_RULE, ~460 tokens) is stated
