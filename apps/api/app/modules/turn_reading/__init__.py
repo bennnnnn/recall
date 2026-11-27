@@ -12,6 +12,7 @@ Every module, chat included, imports a reader from here and never through chat.
 from __future__ import annotations
 
 _MODULE_EXPORTS = (
+    "answer_form",
     "answer_subject",
     "capabilities",
     "chart",

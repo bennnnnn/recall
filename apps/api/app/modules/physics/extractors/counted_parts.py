@@ -24,7 +24,8 @@ _COUNT = (
     rf"{_DOZEN}|{count_word_pattern(low=2, high=20)}"
     r"|(?<![\d.,])(?:[2-9]|[1-9]\d)(?![\d.,])"
 )
-_SAME = r"(?:(?:identical|equal|similar)\s+)?"
+# "two identical heaters", "two equal and opposite forces" (a couple, review of #2604).
+_SAME = r"(?:(?:identical|equal|similar)\s+(?:and\s+opposite\s+)?)?"
 # "two resistors", "each of the three lamps", "two identical heaters", "a pair of cells",
 # "both capacitors", "two of them". The noun is a plural word, or "of them".
 _COUNT_RE = re.compile(
@@ -50,13 +51,21 @@ _LATER_NOUN_RE = re.compile(
 # "each" before a value; not "each other" (toward each other at 20 m/s), and not an "each"
 # that closes a value of its own ("1 µC each are 1 m apart").
 _EACH_BEFORE = re.compile(r"\beach\b(?!\s+other\b)[^\d.;:?!\n]{0,60}\Z", re.IGNORECASE)
-# "10 Ω each", then the clause goes on: "each, ...", "each are connected". Not "3 hours each
-# day": that is a rate, not items.
+# "10 Ω each", whatever the clause goes on with: "each, ...", "each are connected", "each act
+# as a couple" (review of #2604: "act" was no verb the list knew, and τ = 2 N·m verified for
+# 4). Not "each other", and not "3 hours each day": that is a rate, not items.
 _EACH_AFTER = re.compile(
-    r"\s*each\b(?=\s*(?:[.,;:?!)]|\Z|(?:are|is|were|was|and|in|on|at|connected|placed|"
-    r"joined|wired|arranged)\b))",
+    r"\s*each\b(?!\s+(?:other|day|night|week|month|year|hour|minute|second|time)\b)",
     re.IGNORECASE,
 )
+
+
+def each_after(text: str, at: int) -> re.Match[str] | None:
+    """ "each" right after a value, saying the value is each item's, whatever the clause goes
+    on with: "20 N each act as a couple", "10 Ω each are connected", "10 Ω each cost $3"."""
+    return _EACH_AFTER.match(text, at)
+
+
 # A plural noun ("each of the resistors has 4 Ω"); not "across".
 _PLURAL = re.compile(r"[a-z]{2,}[^s]s")
 # The words that may stand between "each" and its value.
@@ -87,6 +96,9 @@ class CountedItems:
     count: int | None
     # The values stated once for every item, as the givens scanner reads them.
     each: tuple[Given, ...]
+    # A value "of" the items, right after their noun ("two forces of 20 N"): each one's or
+    # all of theirs, the words do not say (``_said_of``).
+    said_of: tuple[Given, ...] = ()
 
 
 def _count(word: str) -> int:
@@ -96,6 +108,45 @@ def _count(word: str) -> int:
     if lower.endswith("dozen"):
         return 6 if lower.startswith("half") else 12
     return int(lower) if lower.isdigit() else number_word_value(lower) or 0
+
+
+# "Two forces of 20 N", "two lamps of 6 Ω": a value "of" the items counted.
+_OF_EACH = re.compile(r"\s+of\s+", re.IGNORECASE)
+# What joins a list of values: "10 Ω and 20 Ω", "3 µC, -5 µC".
+_LIST_JOIN = re.compile(r"\s*(?:,|and|or)\s*")
+
+
+def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
+    """The one value "of" says of the counted items right after their noun. Whether it is
+    each item's or all of theirs is unsaid ("two lamps of 6 Ω"), so a solve that reads it
+    once is refused: a couple's "two forces of 20 N" was one force, carded τ = 2 N·m,
+    verified, for 4 N·m (textbook round, 2026-11-26). A list of values after it ("of 10 Ω
+    and 20 Ω", "of 4 and 6 ohms", "of 3 µC and -5 µC") gives each item its own, and "each"
+    after it ("of 2 µC each") says it is each one's: ``each``, held to every item."""
+    joined = _OF_EACH.match(text, end)
+    given = next((g for g in givens if joined and g.start == joined.end()), None)
+    if given is None:
+        return ()
+    after = _unit_end(text, given)
+    if _another_listed(text, given, givens) or each_after(text, after):
+        return ()
+    return (given,)
+
+
+def _another_listed(text: str, given: Given, givens: list[Given]) -> bool:
+    """A second value of the same kind is listed after ``given``: "of 10 Ω and 20 Ω", "of 4
+    and 6 ohms", "of 3 µC and -5 µC". A value of another kind after a comma is no item's:
+    "two forces of 20 N, 10 cm from the centre" (review of #2604)."""
+    for at in (given.end, _unit_end(text, given)):
+        joined = _LIST_JOIN.match(text, at)
+        if joined is None or joined.end() == at:
+            continue
+        following = next((g for g in givens if joined.end() <= g.start <= joined.end() + 2), None)
+        if following is not None and (
+            following.dimension == given.dimension or not following.unit or not given.unit
+        ):
+            return True
+    return False
 
 
 def _unit_end(text: str, given: Given) -> int:
@@ -117,7 +168,7 @@ def _each_governs(text: str, given: Given, nouns: frozenset[str], closing: set[i
     2 kW", "each of the two resistors has a resistance of 10 Ω"; not "each are connected
     across 12 V"). An "each" that closes a value of its own says nothing of the next one
     ("1 µC each are 1 m apart")."""
-    if _EACH_AFTER.match(text, _unit_end(text, given)):
+    if each_after(text, _unit_end(text, given)):
         return True
     window = max(0, given.start - 60)
     before = _EACH_BEFORE.search(text[window : given.start])
@@ -155,12 +206,13 @@ def counted_items(text: str) -> list[CountedItems]:
                 own.append(after)
         count = _count(found.group("count"))
         counts.append((found.start(), named.end(), named.group("noun").lower(), count, own))
+    said_of = {end: _said_of(text, end, givens) for _, end, _, _, own in counts if not own}
     plural = {noun for _, _, noun, _, _ in counts}
     # "Two resistors ... Each resistor is 3 Ω": the noun said once more, singular.
     nouns = frozenset(plural | {re.sub(r"(?:es|s)$", "", noun) for noun in plural})
     closing: set[int] = set()
     for given in givens:
-        said = _EACH_AFTER.match(text, _unit_end(text, given))
+        said = each_after(text, _unit_end(text, given))
         if said is not None:
             closing.add(said.end() - len("each"))
     each = [given for given in givens if _each_governs(text, given, nouns, closing)]
@@ -168,14 +220,17 @@ def counted_items(text: str) -> list[CountedItems]:
     for start, end, noun, count, own in counts:
         sentence = _sentence(text, start)
         mine = [g for g in each if sentence[0] <= g.start < sentence[1] and g.start >= end]
-        found_items.append(CountedItems(noun, count, tuple(dict.fromkeys([*own, *mine]))))
+        values = tuple(dict.fromkeys([*own, *mine]))
+        found_items.append(
+            CountedItems(noun, count, values, () if values else said_of.get(end, ()))
+        )
     claimed = {given for item in found_items for given in item.each}
     loose = tuple(given for given in each if given not in claimed)
     if loose and len(found_items) == 1:
         # "Two resistors ... Each is 3 Ω", "Each resistor is 10 Ω. Two of them ...": the one
         # count names the items "each" is said of.
         only = found_items[0]
-        found_items = [CountedItems(only.noun, only.count, (*only.each, *loose))]
+        found_items = [CountedItems(only.noun, only.count, (*only.each, *loose), only.said_of)]
     elif loose:
         found_items.append(CountedItems("", None, loose))
     return found_items

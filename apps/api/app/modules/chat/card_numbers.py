@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002, RUF003 -- the module reads × and − as a card writes them.
+# ruff: noqa: RUF001, RUF002, RUF003 -- the module reads × and − as a card writes them.
 """Every answer card's number shown by the one rule (``services.rounding_rule``), whoever
 wrote the card: a subject's solver, the worked layout, the formal check or the model; a
 chemistry solver's checked card is the exception (below).
@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 from app.modules.chat.card_lists import known_value, listed_values
 from app.modules.chat.card_walk import answer_cards
+from app.modules.chat.formal_lines import server_valued
 from app.modules.chat.written_numbers import (
     WRITTEN_NUMBER,
     any_numbers,
@@ -51,10 +52,11 @@ from app.services.rounding_rule import (
     SMALL_BELOW,
     Precision,
     asked_precision,
+    data_precision,
     number_latex,
     number_parts,
 )
-from app.services.school_rounding import round_places
+from app.services.school_rounding import round_places, trim_zeros
 
 if TYPE_CHECKING:
     from app.modules.chat.finalize_passes import FinalizeState
@@ -72,10 +74,14 @@ def format_card_numbers(state: FinalizeState) -> str:
     """The reply with each card's numbers by the rule (the module docstring). A solver that
     writes its cards to its subject's own precision (chemistry's significant figures of the
     data) keeps them, unless the question asks for another."""
-    precision = asked_precision(state.ctx.user_message_content or "")
+    asked = asked_precision(state.ctx.user_message_content or "")
     verified = state.ctx.verified_subject
+    # Only a physics solve says its data's figures; chemistry's checked card keeps its own
+    # (``chemistry.sig_figs``), so the data's precision there is the rule's for every card.
+    precision = data_precision(asked, verified.data_figures if verified is not None else 0)
+    laid_out = getattr(state.ctx, "worked", None) is not None
     if verified is None or not verified.cards_keep_precision:
-        return card_numbers(state.text, precision)
+        return card_numbers(state.text, precision, model_cards=not laid_out)
     # A photo read uncertainly unchecks the solver's card; it is still the solver's, and is
     # known by its numbers. The model's own card there follows the rule.
     unchecked: frozenset[str] = frozenset()
@@ -93,12 +99,14 @@ def card_numbers(
     *,
     keep_checked: bool = False,
     solver_numbers: frozenset[str] = frozenset(),
+    model_cards: bool = True,
 ) -> str:
     """``keep_checked``: a card the server checked keeps its solver's precision, and takes a
     precision the question asks for only when the working knows the value to it (a card of
     2.4 is no 2.400). ``solver_numbers``: the solver's answers' numbers, which an unchecked
     card that is the solver's (a photo read uncertainly) holds. The model's own unchecked
-    card on that turn follows the rule."""
+    card on that turn follows the rule. ``model_cards``: the unchecked cards are the model's
+    own writing, not the worked layout's (``_written_digits``)."""
     changes: list[tuple[int, int, str]] = []
     for card in answer_cards(text):
         fence = card.fence
@@ -106,7 +114,7 @@ def card_numbers(
         if keep_checked and _solver_card(body, solver_numbers):
             if precision == RULE or not _known_to(body, above, precision):
                 continue
-        shown = _shown(body, above, precision)
+        shown = _shown(body, above, precision, model=model_cards and not server_valued(above))
         if shown is not None and shown != body:
             changes.append((fence.body_start, fence.body_end, shown))
     for start, end, body in reversed(changes):
@@ -207,23 +215,70 @@ def plain_numbers(body: str) -> tuple[list[str], str, VerifiedValue] | None:
     return headers, value, read
 
 
-def _shown(body: str, above: str, precision: Precision) -> str | None:
+def _shown(body: str, above: str, precision: Precision, *, model: bool = True) -> str | None:
     """The card's body with its numbers by the rule, or None to leave it as written."""
+    decimals = measured_fractions(body, precision)
+    if decimals != body:
+        return _shown(decimals, above, precision, model=model) or decimals
     plain = plain_numbers(body)
     if plain is None:
-        return _listed_shown(body, above, precision)
+        return _listed_shown(body, above, precision, model=model)
     headers, value, read = plain
     numbers = list(read.numbers)
     written = list(WRITTEN_NUMBER.finditer(value))
     each = _unrounded_each(numbers, above)
     pieces, at = [], 0
+    unchecked = model and UNCHECKED_ANSWER_MARKER in headers
     for match, number, worked in zip(written, numbers, each, strict=True):
-        known = worked or _known(match, value, above)
-        own = precision if known is not None else _no_new_figures(match, number, precision)
+        known = worked or _known(match, value, above, unchecked=unchecked)
+        own = (
+            precision
+            if known is not None
+            else _no_new_figures(match, number, precision, unchecked=unchecked, above=above)
+        )
         # The sign stays where the card wrote it, before the match.
         pieces += [value[at : match.start()], _number_shown(match, known or number, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
+    return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+# A fraction of whole numbers a card writes: "7/9", "-23/9", "\frac{30}{7}". Never inside a
+# unit's group ("m/s"), whose parts are letters.
+_FRACTION = re.compile(
+    r"(?:(?P<sign>[-−])\s*)?(?:\\d?frac\s*\{\s*(?P<top>\d+)\s*\}\s*\{\s*(?P<bottom>\d+)\s*\}"
+    r"|(?<![\w./{])(?P<num>\d+)\s*/\s*(?P<den>\d+)(?![\w./]))"
+    # A fraction that multiplies a symbol ("\frac{9}{2}\pi") is an exact expression.
+    r"(?!\s*(?:\\(?:pi|sqrt|cdot|times)\b|[A-Za-z(]))"
+)
+_UNIT_RUN = re.compile(r"\\(?:mathrm|text|textrm)\s*\{([^{}]*)\}")
+
+
+def measured_fractions(body: str, precision: Precision = RULE) -> str:
+    """A card of a measured quantity with its numbers as fractions ("(7/9, −23/9) m/s") has
+    each written as a decimal by the rule, which knows them exactly: a velocity is read to
+    two places, never as ninths (textbook round, 2026-11-26). Only the model's own card: the
+    server's exact form beside its decimal ("\\frac{110}{3} \\approx 36.67 cm") stays, and so
+    does any card that already gives the decimal, a pure number (x = 1/3 is maths' exact
+    answer) and money."""
+    headers, value = answer_header_and_value(body)
+    if precision.unrounded or UNCHECKED_ANSWER_MARKER not in headers or ROUNDED_TO.search(value):
+        return body  # "the exact value" asks for the fraction
+    units = [group for group in _UNIT_RUN.findall(value) if _measured(group.replace("·", "*"))]
+    if not value or not units or _KEPT.search(value) or _FRACTION.search(value) is None:
+        return body
+
+    def decimal(match: re.Match[str]) -> str:
+        top, bottom = match["top"] or match["num"], match["bottom"] or match["den"]
+        # A mixed number ("3\\frac{3}{4}", "3 3/4") is left as written: its fraction alone
+        # read 30.75 m (review of #2604).
+        whole_before = value[: match.start()].rstrip()[-1:].isdigit()
+        if int(bottom) in (0, 1) or whole_before:
+            return match[0]
+        sign = "-" if match["sign"] else ""
+        return sign + number_latex(Fraction(int(top), int(bottom)), precision)
+
+    shown = _FRACTION.sub(decimal, value)
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
 
 
@@ -234,10 +289,34 @@ def _past_dots(value: str, at: int) -> int:
     return dots.end() if dots is not None else at
 
 
-def _known(match: re.Match[str], value: str, above: str) -> Number | None:
+# A decimal the working above a card writes.
+_WORKED_DECIMAL = re.compile(r"(?<![\w.])\d+\.\d+")
+
+
+def _written_digits(match: re.Match[str], *, unchecked: bool, above: str = "") -> str:
+    """The card's number as known: a model's zeros after its last figure are no figures
+    it knows, unless the working above wrote the value to more places ("8.6957" under a
+    card of 8.70). "20.10 m/s" under a working of "v = 20.1 m/s" claimed a digit nothing
+    worked out, and 21.65 m/s carded "21.70" (textbook round, 2026-11-26): such a card is
+    read as 20.1, worked out again when the working can, never padded (#2591)."""
+    written = match.group("number").replace(",", "")
+    trimmed = trim_zeros(written) if "." in written else written
+    if not unchecked or trimmed == written or power_of(match) is not None:
+        return written
+    places = len(written.partition(".")[2])
+    shown = round_places(written, places)
+    for worked in _WORKED_DECIMAL.findall(above):
+        if len(worked.partition(".")[2]) > places and round_places(worked, places) == shown:
+            return written
+    return trimmed
+
+
+def _known(
+    match: re.Match[str], value: str, above: str, *, unchecked: bool = False
+) -> Number | None:
     """The value a card's number rounds, as the working above it works it out
     (``card_lists.known_value``), when the card shows fewer places than the rule."""
-    written = match.group("number").replace(",", "")
+    written = _written_digits(match, unchecked=unchecked, above=above)
     places = len(written.partition(".")[2])
     # A whole number ("120 N/m") claims no places to fill: working through rounded steps
     # (1/0.008333 is 120.0048) would pad it to 120.00 from a value no step knows exactly.
@@ -247,7 +326,7 @@ def _known(match: re.Match[str], value: str, above: str) -> Number | None:
     return None if found is None else Number(Fraction(repr(found)), None)
 
 
-def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
+def _listed_shown(body: str, above: str, precision: Precision, *, model: bool = True) -> str | None:
     """A card of several values no single reading takes, each a number standing as a value: a
     vector's components ("(-9.0434 î + 8.6956 ĵ) m/s"), a magnitude, an angle and its
     direction. Each decimal number is written by the rule; a whole number, a script, a
@@ -255,20 +334,39 @@ def _listed_shown(body: str, above: str, precision: Precision) -> str | None:
     headers, value = answer_header_and_value(body)
     if not value or "\n" in value or CHEMISTRY_NOTATION_LINE in headers or _KEPT.search(value):
         return None
-    if not listed_values(value):
+    if not listed_values(_without_label(value)):
         return None
+    unchecked = model and UNCHECKED_ANSWER_MARKER in headers
     pieces, at = [], 0
     for match in WRITTEN_NUMBER.finditer(value):
         number = match.group("number")
         if "." not in number or power_of(match) is not None:
             continue
         read = Number(Fraction(Decimal(number.replace(",", ""))), len(number.partition(".")[2]))
-        known = _known(match, value, above)
-        own = precision if known is not None else _no_new_figures(match, read, precision)
+        known = _known(match, value, above, unchecked=unchecked)
+        own = (
+            precision
+            if known is not None
+            else _no_new_figures(match, read, precision, unchecked=unchecked, above=above)
+        )
         pieces += [value[at : match.start()], _number_shown(match, known or read, own)]
         at = _past_dots(value, match.end())
     shown = "".join([*pieces, value[at:]])
     return "\n".join([*headers, shown]) + ("\n" if body.endswith("\n") else "")
+
+
+# A card's name for its value before it: "\\vec{a} = ", "v_{3} = ". A name is short: its
+# runs are bounded, so a run of underscores is no cubic backtrack (CI's slow-regex check).
+_LABEL_RUN = 80
+_LABEL = re.compile(
+    rf"^[^=\d]{{0,{_LABEL_RUN}}}(?:_\{{?\w{{1,{_LABEL_RUN}}}\}}?[^=\d]{{0,{_LABEL_RUN}}})?=\s*"
+)
+
+
+def _without_label(value: str) -> str:
+    """The card's value without the name it gives it: "\\vec{a} = 0.298\\hat{i} m/s²" lists
+    one vector, as its value alone does."""
+    return _LABEL.sub("", value, count=1)
 
 
 def _number_shown(match: re.Match[str], number: Number, precision: Precision) -> str:
@@ -283,7 +381,14 @@ def _figures(text: str) -> int:
     return len(text.replace(",", "").replace(".", "").lstrip("0")) or 1
 
 
-def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) -> Precision:
+def _no_new_figures(
+    match: re.Match[str],
+    number: Number,
+    precision: Precision,
+    *,
+    unchecked: bool = False,
+    above: str = "",
+) -> Precision:
     """The card's own value, with no working to take it from: the rule shows no more figures
     than the card wrote, never a padded zero. A Kp of 1.2 x 10^-4 (two figures, from
     1.242 x 10^-4) as 1.20 x 10^-4 claimed a precision it never had, and a θ of 43.9° (from
@@ -292,7 +397,7 @@ def _no_new_figures(match: re.Match[str], number: Number, precision: Precision) 
     if precision != RULE:
         return precision
     mantissa, exponent = number_parts(abs(number.value), precision)
-    digits = match.group("number").replace(",", "")
+    digits = _written_digits(match, unchecked=unchecked, above=above)
     written = _figures(digits)
     if _figures(mantissa) <= written:
         return precision

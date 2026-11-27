@@ -1,3 +1,4 @@
+# ruff: noqa: RUF002, RUF003 -- the module reads × and − as replies write them.
 """The reply's own answer cards held to the server's values, card to card.
 
 Each ```answer card the reply ends a part on is read as a quantity (its number and unit,
@@ -8,9 +9,14 @@ value. Cards of one kind with no names are never paired by order, so never corre
 unit and size, is within the card's rounding of it, anywhere in the range the standard
 constants allow (g as 9.8 or 10: the book's g is an assumption, not an error), and when
 the reply never wrote one of the question's numbers the server's value is worked from, it
-read the question another way and is not held to that reading. Any other card is the
-server's: its value replaces the card's, with one line saying where it comes from. No card
-is ever added: a part the reply did not card keeps what it wrote.
+read the question another way and is not held to that reading. A card its own working
+reaches (the working above it ends on the card's value) stands too: the reply worked the
+question out its own way, and the server never stamps its value over a worked answer it
+contradicts (owner's rule; a rocket's 40.2 m/s², thrust less weight over mass, was carded
+the formal reading's 10 N / 0.2 kg = 50 m/s², textbook round 2026-11-26). Any other card,
+one no working reaches, is the server's: its value replaces the card's, with one line
+saying where it comes from. No card is ever added: a part the reply did not card keeps
+what it wrote.
 """
 
 from __future__ import annotations
@@ -19,7 +25,7 @@ import logging
 import math
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.modules.chat.card_walk import answer_cards, is_card
@@ -59,6 +65,8 @@ class ReplyCard:
     places: int | None
     # The card's own name for its value ("T2" from "T_2 = 30 N"), "" for none.
     label: str = ""
+    # The working above the card ends on the card's value: the reply worked it out.
+    worked: bool = False
 
 
 def reply_cards(text: str) -> list[ReplyCard]:
@@ -73,18 +81,106 @@ def reply_cards(text: str) -> list[ReplyCard]:
         if read is None or len(read.numbers) != 1:
             continue
         number = read.numbers[0]
-        cards.append(
-            ReplyCard(
-                letter=_letter(above),
-                body_start=fence.body_start,
-                body_end=fence.body_end,
-                value=float(number.value),
-                unit=number.unit,
-                places=number.places,
-                label=read.label or "",
-            )
+        card_read = ReplyCard(
+            letter=_letter(above),
+            body_start=fence.body_start,
+            body_end=fence.body_end,
+            value=float(number.value),
+            unit=number.unit,
+            places=number.places,
+            label=read.label or "",
         )
+        cards.append(replace(card_read, worked=_worked_to(card_read, above, text)))
     return cards
+
+
+# The sides of a line of working: "a = \\frac{8.04}{0.2} \\approx 40.2 m/s^2" has three.
+_SIDES = re.compile(r"=|\\approx(?![A-Za-z])|≈")
+# A number on its own once read, a power of ten included: "40.2", "(3e-6)". It works nothing.
+_ONE_NUMBER = re.compile(r"\(*[-+]?\d*\.?\d+(?:e[-+]?\d+)?\)*")
+# A decimal the arithmetic puts in, which may be an earlier value rounded too soon.
+_DECIMAL = re.compile(r"(?<![\d.])\d+\.\d+(?![\d.])")
+
+
+def _arithmetic(line: str) -> list[tuple[str, float]]:
+    """Each side of a line that works something out, as plain arithmetic, with its value."""
+    from app.modules.chat.tex_arithmetic import evaluate, plain_arithmetic
+
+    sides = []
+    for side in _SIDES.split(line):
+        plain = plain_arithmetic(side.strip())
+        if plain is None or _ONE_NUMBER.fullmatch(plain):
+            continue
+        reached = evaluate(plain)
+        if reached is not None:
+            sides.append((plain, reached))
+    return sides
+
+
+def _worked_to(card: ReplyCard, above: str, text: str) -> bool:
+    """The working above the card works its value out, and right: its last line of
+    arithmetic, the numbers put into a formula ("2 × 20 × 0.1", "\\frac{10 - 0.2 × 9.8}{0.2}
+    ≈ 40.2"), inline or in display maths, comes to the card's value within the card's
+    rounding, on numbers the reply holds (``_held``), and still does with every earlier value
+    it rounded put back unrounded. A formula in symbols, a value stated alone and a power of
+    ten work nothing out ("R = \\frac{v^2 \\sin 2θ}{g}" over "R = 32.4 m"); "I = 60/220 ≈
+    0.27", then "R = 220/0.27 = 814.8" is a slip, 806.67 unrounded (review of #2604). The
+    owner's rule keeps a right working; it never keeps a slip."""
+    from app.modules.chat.tex_arithmetic import evaluate, maths_lines
+
+    lines = maths_lines(above)
+    for index in range(len(lines) - 1, -1, -1):
+        sides = _arithmetic(lines[index])
+        if not sides:
+            continue
+        plain, reached = sides[-1]
+        slack = max(_rounding(card), _ROUNDING * abs(reached))
+        if abs(abs(reached) - abs(card.value)) > slack:
+            return False
+        if not _held(plain, written_numbers(text.replace(lines[index], " ", 1))):
+            return False
+        earlier = [value for line in lines[:index] for _plain, value in _arithmetic(line)]
+        unrounded = evaluate(_unrounded_inputs(plain, earlier))
+        return unrounded is None or abs(abs(unrounded) - abs(card.value)) <= slack
+    return False
+
+
+def _unrounded_inputs(plain: str, earlier: Sequence[float]) -> str:
+    """The arithmetic with each decimal that rounds an earlier value put back as that value:
+    0.27 after "60/220" is 0.272727."""
+
+    def unrounded(match: re.Match[str]) -> str:
+        written = match.group()
+        places = len(written.partition(".")[2])
+        number = float(written)
+        for value in reversed(earlier):
+            if value != number and round(abs(value), places) == number:
+                return repr(abs(value))
+        return written
+
+    return _DECIMAL.sub(unrounded, plain)
+
+
+_PLAIN_NUMBER = re.compile(r"\d*\.?\d+(?:e[-+]?\d+)?")
+# A small whole number is a count or a factor of a formula ("2 × F × r", "½"): held anywhere.
+_FACTOR = 12
+_SCALES = tuple(10.0**power for power in range(-9, 10))
+
+
+def _held(plain: str, elsewhere: Sequence[float]) -> bool:
+    """Each number of the arithmetic is one the reply writes elsewhere, in any unit of ten
+    (200 g is 0.2 kg, 10 cm 0.1 m), or a small whole factor."""
+    for spelling in _PLAIN_NUMBER.findall(plain):
+        number = float(spelling)
+        if number == int(number) and abs(number) <= _FACTOR:
+            continue
+        if not any(
+            math.isclose(number, other * scale, rel_tol=1e-9)
+            for other in elsewhere
+            for scale in _SCALES
+        ):
+            return False
+    return True
 
 
 # A value's other form in brackets after it, opened after a space: "0.840 (84.0 percent)".
@@ -397,6 +493,9 @@ def held_to_server(
     for card, value in _pairs(reply_cards(text), values):
         if not _read_it_so(value, numbers):
             logger.info("formal answer: the reply read a part another way")
+            continue
+        if card.worked:
+            logger.info("formal answer: the reply's working reaches its card, which stands")
             continue
         verdict = agrees(card, value, asked)
         logger.info("formal answer: a card agrees=%s", verdict is True)

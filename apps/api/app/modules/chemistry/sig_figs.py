@@ -24,6 +24,7 @@ from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
 from app.services.problem_followup import item_number
+from app.services.rounding_rule import mantissa_figures
 from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
 MIN_FIGURES = 2
@@ -73,8 +74,7 @@ _LITERAL = re.compile(r"(?<![\w.])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?
 
 def figures_of(literal: str) -> int:
     """Significant figures of a typed number: 0.0050 has 2, 1.10 has 3, 200 has 3."""
-    mantissa = re.split(r"[eE]", literal.lstrip("+-"))[0]
-    return max(len(mantissa.replace(".", "").lstrip("0")), 1)
+    return mantissa_figures(literal)
 
 
 def decimals_of(literal: str) -> int:
