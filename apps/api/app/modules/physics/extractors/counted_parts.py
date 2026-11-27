@@ -58,6 +58,20 @@ _EACH_AFTER = re.compile(
     r"\s*each\b(?!\s+(?:other|day|night|week|month|year|hour|minute|second|time)\b)",
     re.IGNORECASE,
 )
+# "each" as the subject of a verb whose object is a value: "each cost $3", "each weigh 2 kg".
+_EACH_HAS_ITS_OWN = re.compile(r"\s+[A-Za-z]+\s+(?:[$£€¥]\s*)?\d")
+
+
+def each_after(text: str, at: int) -> re.Match[str] | None:
+    """ "each" right after a value, saying the value is each item's, whatever the verb after
+    it: "20 N each act as a couple", "10 Ω each are connected". Not when "each" is the subject
+    of a verb whose own object is a value ("10 Ω each cost $3"): that is said of the cost."""
+    found = _EACH_AFTER.match(text, at)
+    if found is None or _EACH_HAS_ITS_OWN.match(text, found.end()) is not None:
+        return None
+    return found
+
+
 # A plural noun ("each of the resistors has 4 Ω"); not "across".
 _PLURAL = re.compile(r"[a-z]{2,}[^s]s")
 # The words that may stand between "each" and its value.
@@ -120,9 +134,7 @@ def _said_of(text: str, end: int, givens: list[Given]) -> tuple[Given, ...]:
     if given is None:
         return ()
     after = _unit_end(text, given)
-    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or _EACH_AFTER.match(
-        text, after
-    ):
+    if any(_ANOTHER_LISTED.match(text, at) for at in (given.end, after)) or each_after(text, after):
         return ()
     return (given,)
 
@@ -146,7 +158,7 @@ def _each_governs(text: str, given: Given, nouns: frozenset[str], closing: set[i
     2 kW", "each of the two resistors has a resistance of 10 Ω"; not "each are connected
     across 12 V"). An "each" that closes a value of its own says nothing of the next one
     ("1 µC each are 1 m apart")."""
-    if _EACH_AFTER.match(text, _unit_end(text, given)):
+    if each_after(text, _unit_end(text, given)):
         return True
     window = max(0, given.start - 60)
     before = _EACH_BEFORE.search(text[window : given.start])
@@ -190,7 +202,7 @@ def counted_items(text: str) -> list[CountedItems]:
     nouns = frozenset(plural | {re.sub(r"(?:es|s)$", "", noun) for noun in plural})
     closing: set[int] = set()
     for given in givens:
-        said = _EACH_AFTER.match(text, _unit_end(text, given))
+        said = each_after(text, _unit_end(text, given))
         if said is not None:
             closing.add(said.end() - len("each"))
     each = [given for given in givens if _each_governs(text, given, nouns, closing)]
