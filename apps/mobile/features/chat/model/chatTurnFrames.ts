@@ -3,6 +3,7 @@ import { phaseStartedAt } from "@/lib/streamStatusLabel";
 import { withStreamingPlaceholder } from "@/features/chat/model/partialStream";
 import type { RejectedSend } from "@/features/chat/model/sendLogic";
 import type { ChatSsePayload } from "@/features/chat/model/sse";
+import type { StreamingDraft } from "@/features/chat/model/streamingDraftStore";
 import {
   applyAnswerPhoto,
   applyRelatedPrompts,
@@ -135,6 +136,14 @@ function onDuplicate(s: ChatTurnState, out: Out): void {
   });
 }
 
+/**
+ * What a turn's draft keeps from frame to frame: its search sources, and the server's word
+ * that the reply takes no emoji (the `composing` status's `emoji: "none"`).
+ */
+function turnDraft(draft: StreamingDraft | null): Pick<StreamingDraft, "search_sources" | "noEmoji"> {
+  return { search_sources: draft?.search_sources, noEmoji: draft?.noEmoji };
+}
+
 /** Applies one socket or SSE frame; late deltas after Stop and unknown types change nothing. */
 export function applyFrame(
   s: ChatTurnState,
@@ -172,7 +181,7 @@ export function applyFrame(
         // facts): the bubble empties for the answer that replaces it.
         s.retracted += s.buffer;
         s.buffer = "";
-        s.draft = { content: "", search_sources: s.draft?.search_sources };
+        s.draft = { ...turnDraft(s.draft), content: "" };
         return;
       }
       out.push({ type: "outcome", outcome: "activity", phase: payload.phase });
@@ -182,6 +191,8 @@ export function applyFrame(
         status: payload.phase,
         statusDetail: typeof payload.detail === "string" && payload.detail ? payload.detail : undefined,
         statusStartedAt: phaseStartedAt(s.draft, payload.phase, payload.elapsed_ms, now),
+        // The server's word that this reply takes no emoji holds for the rest of the turn.
+        noEmoji: payload.emoji === "none" || s.draft?.noEmoji || undefined,
       };
       return;
     case "token":
@@ -190,14 +201,14 @@ export function applyFrame(
       out.push({ type: "first_token", turnId: ttftTurnId, frame: payload.type });
       out.push({ type: "outcome", outcome: "token" });
       s.buffer += payload.content ?? "";
-      s.draft = { content: s.buffer, search_sources: s.draft?.search_sources, status: undefined, statusDetail: undefined };
+      s.draft = { ...turnDraft(s.draft), content: s.buffer, status: undefined, statusDetail: undefined };
       return;
     case "stream_end": {
       s.pending = null;
       out.push({ type: "outcome", outcome: "send_ready" });
       s.phase = "finalizing";
       // The reply is whole: a label from its last step must not outlive it.
-      if (s.draft?.status !== undefined) s.draft = { content: s.draft.content, search_sources: s.draft.search_sources };
+      if (s.draft?.status !== undefined) s.draft = { ...turnDraft(s.draft), content: s.draft.content };
       const model = payload.resolved_model;
       if (typeof model === "string" && model) messages(out, (previous) => applyStreamEndModel(previous, model));
       return;

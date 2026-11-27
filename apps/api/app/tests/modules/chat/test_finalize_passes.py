@@ -78,6 +78,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "control_tokens",
         "drop_cut_reminder_fence",
         "prepare_model_reply",
+        "worked_again",
         "answer_labels",
         "untrusted_media",
         "search_links",

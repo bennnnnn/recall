@@ -55,7 +55,9 @@ from app.modules.chat.turn_outcome import TurnOutcome
 
 # What the stream's producer puts for the SSE writer: an event (kind, text, status
 # detail, status elapsed ms), or None when done.
-_EventQueue = asyncio.Queue[tuple[str, str, str | None, int | None] | None]
+_EventQueue = asyncio.Queue[
+    tuple[str, str, str | None, int | None] | tuple[str, str, str | None, int | None, bool] | None
+]
 
 logger = logging.getLogger(__name__)
 
@@ -173,12 +175,27 @@ async def _watch_disconnect(
         pass
 
 
+def _queued_status(event_queue: _EventQueue) -> StreamStatusFn:
+    """The turn's status emitter: each status goes on the queue the SSE lines read."""
+
+    async def on_status(
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
+    ) -> None:
+        await event_queue.put(("status", phase, detail, elapsed_ms, no_emoji))
+
+    return on_status
+
+
 def _queued_event(
-    kind: str, text: str, detail: str | None, elapsed_ms: int | None
+    kind: str, text: str, detail: str | None, elapsed_ms: int | None, no_emoji: bool = False
 ) -> dict[str, Any]:
     """One event the producer queued, as the SSE payload the client reads."""
     if kind == "status":
-        return build_status_event(text, detail, elapsed_ms=elapsed_ms)
+        return build_status_event(text, detail, elapsed_ms=elapsed_ms, no_emoji=no_emoji)
     if kind == "reasoning":
         return build_reasoning_event(text)
     return build_token_event(text)
@@ -209,10 +226,7 @@ async def _turn_sse_lines(
         claim.settle_after(None, outcome)
         raise
 
-    async def on_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
-    ) -> None:
-        await event_queue.put(("status", phase, detail, elapsed_ms))
+    on_status = _queued_status(event_queue)
 
     async def on_reasoning(chunk: str) -> None:
         await event_queue.put(("reasoning", chunk, None, None))

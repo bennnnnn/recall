@@ -121,6 +121,7 @@ from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_trace import note_pass, note_pass_failed
 from app.modules.chat.untrusted_media import drop_media_lines, neutralize_untrusted_media
+from app.modules.chat.worked_again import drop_working_again_pass
 from app.modules.chat.worked_language import localize_working_pass
 from app.modules.chat.worked_lead import drop_guessed_lead
 from app.services.subjects.registry import FENCE_FALLBACK, SUBJECTS
@@ -242,6 +243,16 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         closed=drop_check_lines,
         kind=TEXT,
         before=CARD_PASSES | {"server_answer_cards", "settings_card", "money_card"},
+    ),
+    # Working the model wrote again outside its laid-out ```worked block, while the block
+    # reads exactly as it was laid out: before a recap's own "**Answer:**" can take the
+    # place of the block's Answer heading (review of #2602), and before its answer is a card.
+    FinalizePass(
+        "worked_again",
+        drop_working_again_pass,
+        kind=TEXT,
+        after=frozenset({"prepare_model_reply"}),
+        before=frozenset({"answer_labels", "working_check"}),
     ),
     # Before a subject lands its card under the reply's Answer heading.
     FinalizePass(
