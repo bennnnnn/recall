@@ -1,4 +1,4 @@
-# ruff: noqa: RUF003 -- the module reads × · ² as replies write them.
+# ruff: noqa: RUF001, RUF003 -- the module reads × · ² − as replies write them.
 """The units a line of working writes, read by Pint only where the reading is certain.
 
 A working writes its units in TeX ("\\mathrm{m/s^2}", "\\,\\text{km/h}", "m²", "W/(m·K)",
@@ -42,6 +42,10 @@ _GROUP = re.compile(
 _BETWEEN = re.compile(r"(?:\\[,;: !]|\s|~|\\cdot|\\times|·)*")
 # A degree sign: of an angle or of a temperature's scale.
 _DEGREE = re.compile(r"\^\s*\{?\s*\\circ\s*\}?|°|\\degree\b")
+# A side that is one number in degrees: "30^\circ", "−12.5°".
+_NUMBER_IN_DEGREES = re.compile(
+    r"[-−]?\d+(?:\.\d+)?\s*(?:\^\s*\{?\s*\\circ\s*\}?|°|\\degree\b)\s*(?:\\mathrm\{[CF]\})?"
+)
 # Angles and counts of turns, percentages: a size Pint cannot hold for certain.
 _NOT_SURE = re.compile(
     r"\b(?:rad|radians?|sr|deg|degrees?|rev|revolutions?|rpm|cycles?|turns?|rotations?)\b|%|°"
@@ -68,7 +72,9 @@ def unit_after(tex: str) -> str:
     before = body[:end]
     if not run:
         degree = _DEGREE.search(body[-12:])
-        return f"{UNREAD}°" if degree else ""
+        # "30^\circ" writes an angle; "\cos(50^\circ)" and "25 \times \sin 30^\circ" work one out.
+        angle = degree and _NUMBER_IN_DEGREES.fullmatch(body) is not None
+        return f"{UNREAD}°" if angle else ""
     text = "*".join(_pint_text(match["inner"], match["power"] or "") for match in run)
     if _DEGREE.search(before[-8:]) or quantity_unit(text) is None:
         return f"{UNREAD}{body[end:].strip()}"
