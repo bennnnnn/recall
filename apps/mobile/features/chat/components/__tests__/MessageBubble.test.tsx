@@ -375,8 +375,9 @@ describe("MessageBubble copy feedback timers", () => {
       const view = await render(<MessageBubble message={assistantMessage} />);
       await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
       const options = jest.mocked(readReplyAloud).mock.calls.at(-1)?.[3];
-      // Both voices key the clips kept for a reply: one changed since is asked for anew.
-      expect(options).toEqual({ token: "token", preferCloud: true, voice: "am_puck|cedar" });
+      // The reply voice picked keys the clips kept for a reply: one changed since is asked for
+      // anew. The live talk voice plays no part in Listen.
+      expect(options).toEqual({ token: "token", preferCloud: true, voice: "am_puck" });
     });
 
     it("keeps reading when the reply leaves the screen; the player over the composer stops it", async () => {
