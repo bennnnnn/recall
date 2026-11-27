@@ -51,7 +51,7 @@ describe("restoreLaunchPrefs", () => {
   it("applies the appearance, accent and the last account's language before anything renders", async () => {
     mockSyncFiles.set("file:///docs/recall.appearance-preference.txt", "dark");
     mockSyncFiles.set("file:///docs/recall.accent-preference.txt", "ocean");
-    mockSyncFiles.set("file:///cache/cached-user.json", JSON.stringify({ id: "u1", plan: "free", locale: "fr" }));
+    mockSyncFiles.set("file:///cache/cached-user.json", JSON.stringify({ v: 2, id: "u1", plan: "free", locale: "fr" }));
     const setAccent = jest.spyOn(accentRuntime, "setAccentSnapshot");
 
     const ready = restoreLaunchPrefs();
