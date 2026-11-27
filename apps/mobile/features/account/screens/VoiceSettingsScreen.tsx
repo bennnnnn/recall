@@ -79,22 +79,10 @@ export default function VoiceSettingsScreen() {
 
   return (
     <SettingsPage>
+      {/* Listen (TTS) and everything that shapes it together, then live talk on its own
+          (owner, 2026-11-27). */}
       <SettingsGroup>
         <ReplyVoiceRow action={action} preview={preview} />
-        <SettingsMenuRow
-          title={t("settings.voice_live")}
-          value={voice ? voiceLabel(voice) : t("settings.voice_default")}
-          options={voiceOptions}
-          selectedKey={voice ?? DEFAULT_VOICE}
-          busy={action.busy === "voice"}
-          onSelect={(key) => {
-            const next = USER_VOICES.find((candidate) => candidate === key) ?? null;
-            void action.run("voice", () => updateUser({ tts_voice: next })).then((saved) => {
-              // Default is the server's voice: nothing on the phone names it, so it says nothing.
-              if (saved && next) preview("live", next);
-            });
-          }}
-        />
         <SettingsMenuRow
           title={t("settings.voice_speed")}
           value={rateLabel(rate)}
@@ -107,9 +95,6 @@ export default function VoiceSettingsScreen() {
             void setSpeechRate(next);
           }}
         />
-      </SettingsGroup>
-
-      <SettingsGroup>
         <SettingsSwitchRow
           title={t("settings.voice_on_device")}
           subtitle={t("settings.voice_on_device_summary")}
@@ -117,6 +102,23 @@ export default function VoiceSettingsScreen() {
           onValueChange={(next) => {
             setOnDevice(next);
             void setTtsModel(next ? TTS_DEVICE_MODEL : TTS_QUALITY_MODEL);
+          }}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <SettingsMenuRow
+          title={t("settings.voice_live")}
+          value={voice ? voiceLabel(voice) : t("settings.voice_default")}
+          options={voiceOptions}
+          selectedKey={voice ?? DEFAULT_VOICE}
+          busy={action.busy === "voice"}
+          onSelect={(key) => {
+            const next = USER_VOICES.find((candidate) => candidate === key) ?? null;
+            void action.run("voice", () => updateUser({ tts_voice: next })).then((saved) => {
+              // Default is the server's voice: nothing on the phone names it, so it says nothing.
+              if (saved && next) preview("live", next);
+            });
           }}
         />
       </SettingsGroup>
