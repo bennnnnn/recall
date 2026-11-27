@@ -175,6 +175,21 @@ async def _watch_disconnect(
         pass
 
 
+def _queued_status(event_queue: _EventQueue) -> StreamStatusFn:
+    """The turn's status emitter: each status goes on the queue the SSE lines read."""
+
+    async def on_status(
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
+    ) -> None:
+        await event_queue.put(("status", phase, detail, elapsed_ms, no_emoji))
+
+    return on_status
+
+
 def _queued_event(
     kind: str, text: str, detail: str | None, elapsed_ms: int | None, no_emoji: bool = False
 ) -> dict[str, Any]:
@@ -211,14 +226,7 @@ async def _turn_sse_lines(
         claim.settle_after(None, outcome)
         raise
 
-    async def on_status(
-        phase: str,
-        detail: str | None = None,
-        *,
-        elapsed_ms: int | None = None,
-        no_emoji: bool = False,
-    ) -> None:
-        await event_queue.put(("status", phase, detail, elapsed_ms, no_emoji))
+    on_status = _queued_status(event_queue)
 
     async def on_reasoning(chunk: str) -> None:
         await event_queue.put(("reasoning", chunk, None, None))

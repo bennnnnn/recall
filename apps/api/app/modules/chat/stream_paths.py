@@ -293,6 +293,19 @@ async def _asked_again(
     return retry, retry_tools
 
 
+async def _announce_composing(
+    on_status: StreamStatusFn | None, ctx: StreamContext, settings: Settings
+) -> None:
+    """The model is writing now: a tool or search label must not linger. A reply that takes
+    no emoji says so here, so the phone's draft drops them as the saved one will."""
+    if on_status is None:
+        return
+    if reply_takes_no_emoji(ctx, settings):
+        await on_status("composing", no_emoji=True)
+    else:
+        await on_status("composing")
+
+
 async def run_llm_token_stream(
     deps: ChatTurnDeps,
     redis: Redis,
@@ -312,13 +325,7 @@ async def run_llm_token_stream(
     may_try = probe_gate(redis, settings, ctx.probe_models)
     spare = name_to_spare(ctx.user, ctx.user_message_content or "", ctx.recent_messages or [])
     scaffold = ReplyFilter(accum, ctx.worked, spare_name=spare)
-    if on_status is not None:
-        # The model is writing now: a tool or search label must not linger. A reply that
-        # takes no emoji says so here, so the phone's draft drops them as the saved one will.
-        if reply_takes_no_emoji(ctx, settings):
-            await on_status("composing", no_emoji=True)
-        else:
-            await on_status("composing")
+    await _announce_composing(on_status, ctx, settings)
     if ctx.timing is not None:
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.
