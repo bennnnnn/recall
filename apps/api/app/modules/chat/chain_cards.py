@@ -32,6 +32,8 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from pint.errors import PintError
+
 from app.modules.chat.formula_inputs import aligned_names
 from app.modules.chat.tex_arithmetic import plain_arithmetic
 from app.modules.chat.working_cards import closing_end, counted, repeats, said_again
@@ -195,7 +197,7 @@ def _in_card_unit(chain: Chain, card_unit: str, reading: Reading) -> tuple[float
 def _magnitude_in(quantity: Any, unit: Any) -> float | None:
     try:
         return float(quantity.to(unit).magnitude)
-    except Exception:
+    except (PintError, TypeError, ValueError, ArithmeticError):
         return None
 
 
@@ -288,7 +290,7 @@ def _operated(op: ast.operator, left: Any, right: Any) -> Any:
             return left / right
         if isinstance(op, ast.Pow) and right.dimensionless and float(right.magnitude).is_integer():
             return left ** int(right.magnitude)
-    except Exception:
+    except (PintError, TypeError, ValueError, ArithmeticError):
         return None
     return None
 
