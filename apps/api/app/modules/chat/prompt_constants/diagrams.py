@@ -7,7 +7,7 @@ from app.modules.turn_reading.diagrams import (
 )
 
 MERMAID_FORMAT_HINT = (
-    "This turn is a flowchart. Lead with a ```mermaid fence — not a numbered "
+    "Lead with a ```mermaid flowchart fence — not a numbered "
     "list, not HTML/SVG, and not a joke setup ('let's brew up some fun'). "
     "At most one short sentence, then the fence. Do not interview for steps.\n"
     "Match the process they asked for. If they named steps or said ~N steps, "
@@ -25,7 +25,7 @@ MERMAID_FORMAT_HINT = (
 )
 
 SEQUENCE_FORMAT_HINT = (
-    "This turn is a sequence diagram, not a flowchart. Lead with a ```mermaid "
+    "Draw a sequence diagram, not a flowchart: lead with a ```mermaid "
     "fence using sequenceDiagram — not flowchart TD, not a numbered list, and "
     "not a joke setup. At most one short sentence, then the fence.\n"
     "Participants and messages they named; do not invent a 2-box story.\n"
@@ -41,7 +41,7 @@ SEQUENCE_FORMAT_HINT = (
 
 
 DIAGRAM_KIND_HINT = (
-    "This turn names a diagram Recall draws from a ```mermaid fence. Lead with that "
+    "Recall draws the diagram named from a ```mermaid fence. Lead with that "
     "fence — never an image, HTML/SVG, ASCII art, or a list in its place, and no joke "
     "setup. At most one short sentence, then the fence. Use the Mermaid type that fits "
     "what they named:\n"

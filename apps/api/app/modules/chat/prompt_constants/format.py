@@ -1,7 +1,12 @@
-"""Response-format, comparison and layout hints (reply length is ``length.py``)."""
+"""Response-format, comparison and layout hints (reply length is ``length.py``).
+
+A hint says what to write, never what kind of turn it is: a reply repeats a label it was
+given ("This is a how-to task" opened the reply to "How to look handsome" with "It's a
+how-to", the owner, 2026-11-27).
+"""
 
 COMPARISON_FORMAT_HINT = (
-    "This turn is X vs Y. Layout (do not write a wall of prose):\n"
+    "Lay the comparison out like this, never as a wall of prose:\n"
     "1. After a one- or two-sentence answer and its title, a GFM pipe table. Use their "
     "option names as columns. "
     "Cells are one short phrase. NEVER put source code, ``` fences, <br>, or HTML in a cell.\n"
@@ -18,7 +23,7 @@ COMPARISON_FORMAT_HINT = (
 
 
 CALLOUT_FORMAT_HINT = (
-    "This turn asked for a highlighted warning or note. A callout is only "
+    "Give the warning or note asked for as a callout. A callout is only "
     "`> Warning:` for a real risk or correction, or a short `> Note:` the reader "
     "must not miss, and only when that label is true. Never for hints, answers, "
     "section intros, emphasis, or decoration. Other points are ordinary bullets "
@@ -28,8 +33,7 @@ CALLOUT_FORMAT_HINT = (
 
 
 HOWTO_FORMAT_HINT = (
-    "This turn is a roadmap or an N-week plan.\n"
-    "Do not write a joke setup. Prefer lists over a pipe table—a week-by-week plan "
+    "Lay the plan out by week or phase. Do not write a joke setup. Prefer lists over a pipe table—a week-by-week plan "
     "is normally not a schedule grid. If the user explicitly asks for a compact table, "
     "honor that request and keep it to 2-3 columns.\n"
     "Use ## headings per week or phase. Under each: a one-line goal, then "
@@ -40,33 +44,35 @@ HOWTO_FORMAT_HINT = (
 
 
 # "If I ask how to do something, I need to see a flow with arrows" (the owner, 2026-11-14):
-# the phone draws a ```steps card as boxes joined by arrows (``StepFlow.tsx``).
+# the phone draws a ```steps card as boxes joined by arrows (``StepFlow.tsx``). Only for one
+# procedure done in order: the message asks for steps in words (``format.asks_for_steps``), or
+# the turn's read says its answer is one (``chat.steps_turn``). Tips and ways keep the scan
+# layout. It says what to write, never what the turn is: told "This is a how-to task", the
+# reply to "How to look handsome" opened "It's a how-to" (the owner, 2026-11-27).
 STEPS_FORMAT_HINT = (
-    "This is a how-to task. Under the short answer and its title, put what is needed "
-    "(ingredients, tools, documents) first as a short list when there is any. Then the steps, in the order they are done, in one "
-    "```steps card, which the app draws as boxes joined by arrows: one numbered line per step "
-    "with its action in bold, and a plain line or two under it for how, for example:\n"
+    "Give the steps to follow in one ```steps card, never a plain numbered list or sections "
+    "of lists, even when they differ by country, device or version: the usual steps in the "
+    "card, and where they differ in one line after it. Under the short answer and its title, "
+    "put what is needed (ingredients, tools, documents) first as a short list when there is "
+    "any. Then the card, its steps in the order they are done, which the app draws as boxes "
+    "joined by arrows: one numbered line per step with its action in bold, and a plain line "
+    "or two under it for how, for example:\n"
     "```steps\n1. **Boil the water**\nBring fresh water to a rolling boil.\n2. **Steep the "
     "tea**\nPour it over the bag and wait 3 minutes.\n```\n"
     "A warning or a must-do-first (back up, switch off the power) is a line in the box of the "
     "step it applies to, never a step after it. A method from school or work (balancing an "
     "equation, long division) gets one short worked example after the card. Add a one-line "
-    "tip at the end only if it helps. No `###` subtitles for a short task. A goal reached in several "
-    "independent ways rather than one sequence (save money, sleep better, learn a language "
-    "fast) takes the ways layout instead, never the card: numbered items, each opening with a "
-    "bold label."
+    "tip at the end only if it helps. No `###` subtitles for a short task."
 )
 
 
-# Restated beside a how-to's message (``lesson_layout.steps_contract``): the reader note beside
-# every message asks for a numbered list, and the note nearest the message won: with this rule
-# only in the system prompt, "how do I balance a chemical equation" came as a list 9 of 9
-# (review, 2026-11-14).
+# Restated beside the message when it asks for steps in words (``lesson_layout.steps_contract``):
+# the reader note beside every message asks for a numbered list, and the note nearest the
+# message won: with this rule only in the system prompt, "how do I balance a chemical
+# equation" came as a list 9 of 9 (review, 2026-11-14). The read's card is said there whole.
 STEPS_CONTRACT = (
     "Give the steps in one ```steps card, never a plain numbered list: one numbered line per "
-    "step with its action in bold and a plain line or two under it. A goal reached in several "
-    "independent ways (save money, sleep better, learn a language fast, make friends) keeps "
-    "the ways layout instead, never the card."
+    "step with its action in bold and a plain line or two under it."
 )
 
 
@@ -135,9 +141,8 @@ READER_NOTE = (
 
 
 QUOTE_FORMAT_HINT = (
-    "This turn asked for a quotation. A `>` quote card is only a cited "
-    "quotation whose last line is `— Name`. Do not write a joke setup. Lead "
-    "with the quote.\n"
+    "Lead with the quotation asked for, in a `>` quote card, which is only a cited "
+    "quotation whose last line is `— Name`. Do not write a joke setup.\n"
     "Put the quote on `>` lines. Attribution on its own following line as "
     "`— Name` (em dash). Do not wrap the whole thing in straight quotes "
     '(`"…" - Author`) and do not italicize it as a paragraph.\n'
@@ -149,7 +154,7 @@ QUOTE_FORMAT_HINT = (
 # Do NOT teach steps / comparison / details / answer / tip fences as layout.
 # A quote card is only a citation. A callout is only Warning or Note.
 FORMAT_CONTRACT = (
-    "This is a conversational chat. Write normal Markdown — headings, lists, "
+    "Write normal Markdown — headings, lists, "
     "tables, and blockquotes. Do not invent custom fence names for layout.\n"
     "\n"
     "Explicit format requests win: one paragraph stays one paragraph; requested outline "
@@ -323,7 +328,7 @@ CALCULATION_LAYOUT_CONTRACT = (
 # Statistics has no module yet: chat's continuation_subject names it, so its presentation
 # hint stays here until a subject module owns it.
 STATISTICS_PRESENTATION_HINT = (
-    "This is a statistics answer. Name the statistic and the values that enter it. "
+    "Name the statistic and the values that enter it. "
     "When you calculate, follow the calculation layout: one reasoning state per row."
 )
 
@@ -337,7 +342,7 @@ UNIVERSAL_FORMAT_BASELINE = " ".join(
 
 # Slim/casual turns: ChatGPT-shaped, not a rich-fence pack.
 COMPACT_RESPONSE_FORMAT_HINT = (
-    "Casual turn: lead with the answer in the first sentence. Plain prose or at "
+    "Lead with the answer in the first sentence. Plain prose or at "
     "most 4 short bullets. No ## headings and no pipe tables unless they explicitly "
     "asked for a table or an X vs Y compare. If they pasted a phrase or fragment, "
     "correct or complete it — do not invent a topic essay or joke about the words."

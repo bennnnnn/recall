@@ -47,7 +47,7 @@ from app.services.problem_followup import (
 from app.services.scaled_followup import scaled_given
 
 PHYSICS_FOLLOWUP_HINT = (
-    "This short request continues the immediately preceding physics problem. "
+    "Read the short request as part of the physics problem just before it. "
     "When the request changes one given or asks for a different quantity, the "
     "verified block is that new result: present it in the usual layout with the "
     "changed given under Given, and never compare it with or comment on the earlier "

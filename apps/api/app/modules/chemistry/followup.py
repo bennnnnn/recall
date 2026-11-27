@@ -38,7 +38,7 @@ from app.services.problem_followup import (
 from app.services.scaled_followup import scaled_given
 
 CHEMISTRY_FOLLOWUP_HINT = (
-    "This short request continues the immediately preceding chemistry problem. "
+    "Read the short request as part of the chemistry problem just before it. "
     "Explain that verified result: why the formula applies and how the numbers "
     "produce it. Do not start a new problem. Copy the verified numbers; do not "
     "recompute them. When the request changes one given or asks for a different "

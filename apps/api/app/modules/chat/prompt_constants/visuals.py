@@ -83,7 +83,7 @@ ANSWER_PHOTO_HINT = (
 )
 
 WHERE_IS_PHOTO_HINT = (
-    "This turn asks where a place is. Open the reply with "
-    "```photo\n<place> location map\n```, then answer in 1-3 sentences: the region it is "
+    "Open the reply with "
+    "```photo\n<place> location map\n```, then say where the place is in 1-3 sentences: the region it is "
     "in and a neighbour, sea or landmark that places it."
 )

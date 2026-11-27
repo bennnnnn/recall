@@ -15,8 +15,8 @@ from app.modules.turn_reading.coding import code_question_kind
 # general maths rule (inline `$...$`) does not apply to it.
 _CODE_INK = (
     "- Code ink: every identifier, value, keyword and short expression goes in `inline code` "
-    "(`total`, `0`, `for`, `total + n`); ordinary words stay plain. This is a programming "
-    "answer: never write `$...$` or LaTeX, not even for arithmetic or a single number. Short "
+    "(`total`, `0`, `for`, `total + n`); ordinary words stay plain. In a programming "
+    "answer never write `$...$` or LaTeX, not even for arithmetic or a single number. Short "
     "bullets, no paragraphs."
 )
 

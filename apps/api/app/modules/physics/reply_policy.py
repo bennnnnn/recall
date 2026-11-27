@@ -15,7 +15,7 @@ PHYSICS_NO_SKETCH = (
 
 PHYSICS_INTENT_HINT = (
     "Physics answers:\n"
-    "  - This is a physics problem. Do not describe the work as math, algebra, "
+    "  - Do not describe the work as math, algebra, "
     "or solving equations.\n"
     "  - When verified results appear in a [BEGIN VERIFIED PHYSICS] block, use "
     "those exact numbers and units. Do not recompute. If no verified block is "

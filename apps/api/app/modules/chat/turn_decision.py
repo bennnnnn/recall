@@ -29,6 +29,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import weakref
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, get_args
 from uuid import UUID
@@ -260,6 +262,10 @@ class TurnDecision(BaseModel):
     # (``decider_read.PHOTO_QUESTION``). The Decider's alone: None from the text read, and the
     # word rules offer the photo (``chat.answer_photo_offer``).
     seen: bool | None = None
+    # Whether the answer is one procedure carried out in order, drawn as a ```steps card
+    # (``decider_read.STEPS_QUESTION``). The Decider's alone: None from the text read, and the
+    # reply takes the scan layout's numbered list (``chat.steps_turn``).
+    steps: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod
@@ -389,8 +395,14 @@ async def read_decision(
     model_alias: str | None = None,
     lesson: dict[str, dict[str, Any]] | None = None,
     raw: list[tuple[str, str]] | None = None,
+    steps: bool = True,
+    asked: StepsAsked | None = None,
 ) -> TurnDecision | None:
     """How to handle the message; None: no read. ``model_alias`` is for measurement.
+    ``steps``: ask whether the answer is one procedure (``decider_read.STEPS_QUESTION``); a
+    message after a lesson's cards, a lesson step or a cut-off reply never asks, its layout
+    being the lesson's or the reply's (``steps_turn``), nor a composer's picture check.
+    ``asked`` records whether the steps question really goes out (``asks_steps``).
     ``raw``: the chat's last messages as stored, uncut, whose problem a draw follow-up may
     show (``picture_read``); ``earlier`` when not given."""
     question = text.strip()
@@ -425,7 +437,10 @@ async def read_decision(
     ask_work = any(char.isdigit() for char in question)
     try:
         if ROUTING.decider in skip:
-            # The Decider's breaker is open: the text read decides, as when it refuses.
+            # The Decider's breaker is open: the text read decides, as when it refuses. It
+            # asks no steps question, so nothing waits for that answer.
+            if asked is not None:
+                asked.asked = False
             return _followed(await text_read, earlier)
         return await _join(
             settings,
@@ -434,6 +449,7 @@ async def read_decision(
             earlier,
             ask_work=ask_work,
             ask_photo=settings.image_search_enabled,
+            ask_steps=steps and lesson is None,
             lesson=lesson,
             raw=earlier if raw is None else raw,
         )
@@ -451,6 +467,7 @@ async def _join(
     *,
     ask_work: bool = False,
     ask_photo: bool = False,
+    ask_steps: bool = False,
     lesson: dict[str, dict[str, Any]] | None = None,
     raw: list[tuple[str, str]] | None = None,
 ) -> TurnDecision | None:
@@ -466,6 +483,7 @@ async def _join(
         seconds=settings.live_read_timeout_seconds,
         ask_work=ask_work,
         ask_photo=ask_photo,
+        ask_steps=ask_steps,
         lesson=lesson,
     )
     if decided is None:
@@ -566,14 +584,17 @@ def start_turn_decision(
     *,
     recent: list[Any] | None,
     pictures: asyncio.Future[dict[UUID, ShownPicture]] | None = None,
+    steps: bool = True,
 ) -> asyncio.Task[TurnDecision | None] | None:
     """The read, started now so it runs beside the turn's prep; None when it is off.
     ``recent``: the chat's window before this message, oldest first; ``pictures``: the
     labels of the pictures it shows, being read (``shown_pictures.start_labels``). Search
-    off still reads: the lane and the thinking come from it too."""
+    off still reads: the lane and the thinking come from it too. ``steps``: False for a
+    read that only says whether a picture is asked for (``picture_ask``)."""
     if not settings.live_read_enabled:
         return None
     lesson = _lesson_questions(recent)
+    asked = StepsAsked(steps and lesson is None)
 
     async def read() -> TurnDecision | None:
         labels = await shown_pictures.settled_labels(pictures)
@@ -583,9 +604,40 @@ def start_turn_decision(
             earlier=earlier_turns(recent, labels),
             lesson=lesson,
             raw=raw_turns(recent),
+            steps=steps,
+            asked=asked,
         )
 
-    return asyncio.create_task(read())
+    task = asyncio.create_task(read())
+    note_steps_asked(task, asked)
+    return task
+
+
+@dataclass
+class StepsAsked:
+    """Whether a turn's read asks the steps question (``decider_read.STEPS_QUESTION``): not
+    after a lesson's cards, a lesson step or a cut-off reply, nor for a picture check, nor
+    with the Decider's breaker open. The reply waits for a steps answer only when one is
+    coming (``decided_turn._steps_at_stake``)."""
+
+    asked: bool
+
+
+# Each started read's steps question, by its task: gone with the task.
+_STEPS_ASKED: weakref.WeakKeyDictionary[asyncio.Future[Any], StepsAsked] = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def note_steps_asked(task: asyncio.Future[Any], asked: StepsAsked) -> None:
+    _STEPS_ASKED[task] = asked
+
+
+def asks_steps(task: asyncio.Future[Any] | None) -> bool:
+    """Whether the read ``task`` asks the steps question; False for no read or one not
+    started by ``start_turn_decision``."""
+    found = _STEPS_ASKED.get(task) if task is not None else None
+    return found is not None and found.asked
 
 
 def _lesson_questions(recent: list[Any] | None) -> dict[str, dict[str, Any]] | None:
