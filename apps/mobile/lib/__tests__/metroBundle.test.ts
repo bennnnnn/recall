@@ -19,6 +19,25 @@ const fs = jest.requireActual<{
   readdirSync(path: string, options: { withFileTypes: true }): { name: string; isDirectory(): boolean }[];
   readFileSync(path: string, encoding: "utf8"): string;
 }>("node:fs");
+/**
+ * What metro.config.js asks Expo's default config for. Sentry's Debug ID reaches every
+ * bundle and its map as one of these options (getSentryExpoConfig); Expo's own
+ * getDefaultConfig, called bare, passes none.
+ */
+const mockDefaultConfigCalls: { unstable_beforeAssetSerializationPlugins?: { name: string }[] }[] = [];
+jest.mock("expo/metro-config", () => {
+  const actual = jest.requireActual<{
+    getDefaultConfig(root: string, options?: Record<string, unknown>): unknown;
+  }>("expo/metro-config");
+  return {
+    ...actual,
+    getDefaultConfig: (root: string, options?: Record<string, unknown>) => {
+      mockDefaultConfigCalls.push(options ?? {});
+      return actual.getDefaultConfig(root, options);
+    },
+  };
+});
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- the CommonJS config Metro loads
 const config = require(join(__dirname, "..", "..", "metro.config.js")) as MetroConfig;
 
@@ -38,6 +57,15 @@ function resolve(
 const EMPTY = { type: "empty" };
 
 describe("metro.config.js", () => {
+  it("writes Sentry's Debug ID into every bundle and its source map", () => {
+    // Without it the update workflow uploads maps no crash can be matched to.
+    expect(mockDefaultConfigCalls).toHaveLength(1);
+    const plugins = mockDefaultConfigCalls[0].unstable_beforeAssetSerializationPlugins ?? [];
+    expect(plugins.map((plugin) => plugin.name)).toContain(
+      "unstableBeforeAssetSerializationDebugIdPlugin",
+    );
+  });
+
   it("ships the preview WebViews' libraries (lib/vendor/*.txt) as assets", () => {
     expect(config.resolver.assetExts).toContain("txt");
   });

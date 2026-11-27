@@ -1,6 +1,8 @@
 const mockConstants: { expoConfig?: { version?: string }; platform?: Record<string, unknown> } = {};
 // One object the mocks read when called, so every load sees the current test's value.
-const mockState: { updates: { updateId: string | null; isEmbeddedLaunch: boolean } | null } = { updates: null };
+const mockState: {
+  updates: { updateId: string | null; isEmbeddedLaunch: boolean; channel?: string | null } | null;
+} = { updates: null };
 
 jest.mock("expo-constants", () => ({ __esModule: true, default: mockConstants }));
 jest.mock("expo-modules-core", () => ({
@@ -14,6 +16,9 @@ jest.mock(
     },
     get isEmbeddedLaunch() {
       return mockState.updates?.isEmbeddedLaunch ?? true;
+    },
+    get channel() {
+      return mockState.updates?.channel ?? null;
     },
   }),
   { virtual: true },
@@ -52,4 +57,12 @@ it("has no build in Expo Go, and no update when the built-in bundle runs", () =>
 it("names the over-the-air update it runs by its id's first block", () => {
   mockState.updates = { updateId: "ab12cd34-0000-4000-8000-000000000000", isEmbeddedLaunch: false };
   expect(load().appVersion().update).toBe("ab12cd34");
+});
+
+it("names the update channel the build listens on, and none without expo-updates", () => {
+  expect(load().updateChannel()).toBeNull();
+  mockState.updates = { updateId: null, isEmbeddedLaunch: true, channel: "preview" };
+  expect(load().updateChannel()).toBe("preview");
+  mockState.updates = { updateId: null, isEmbeddedLaunch: true, channel: "" };
+  expect(load().updateChannel()).toBeNull();
 });

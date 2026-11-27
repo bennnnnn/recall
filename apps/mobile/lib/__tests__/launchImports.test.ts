@@ -27,11 +27,18 @@ function launchEntries(): string[] {
   return [...layouts, "app/index.tsx", "app/login.tsx", "app/consent.tsx", "app/onboarding.tsx"];
 }
 
-/** Packages that load on first use, never at launch. */
+/**
+ * Packages no launch module imports statically: each loads on first use, except
+ * Sentry's SDK, which a build with a DSN loads at launch on purpose (below).
+ */
 const LAZY_PACKAGES = [
   "katex",
   "mathjax-full",
   "@shopify/react-native-skia",
+  // Guards only against a static import. With a DSN the SDK is evaluated before the
+  // first render: lib/sentry.ts's initMobileSentry requires it inside the function
+  // (which this walk does not follow), and lib/sentryStart.ts calls that at launch. A
+  // build without a DSN never loads it.
   "@sentry/react-native",
   "expo-print",
 ];
