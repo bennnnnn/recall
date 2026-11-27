@@ -172,7 +172,7 @@ export function applyFrame(
         // facts): the bubble empties for the answer that replaces it.
         s.retracted += s.buffer;
         s.buffer = "";
-        s.draft = { content: "", search_sources: s.draft?.search_sources };
+        s.draft = { content: "", search_sources: s.draft?.search_sources, noEmoji: s.draft?.noEmoji };
         return;
       }
       out.push({ type: "outcome", outcome: "activity", phase: payload.phase });
@@ -182,6 +182,8 @@ export function applyFrame(
         status: payload.phase,
         statusDetail: typeof payload.detail === "string" && payload.detail ? payload.detail : undefined,
         statusStartedAt: phaseStartedAt(s.draft, payload.phase, payload.elapsed_ms, now),
+        // The server's word that this reply takes no emoji holds for the rest of the turn.
+        noEmoji: payload.emoji === "none" || s.draft?.noEmoji || undefined,
       };
       return;
     case "token":
@@ -190,14 +192,22 @@ export function applyFrame(
       out.push({ type: "first_token", turnId: ttftTurnId, frame: payload.type });
       out.push({ type: "outcome", outcome: "token" });
       s.buffer += payload.content ?? "";
-      s.draft = { content: s.buffer, search_sources: s.draft?.search_sources, status: undefined, statusDetail: undefined };
+      s.draft = {
+        content: s.buffer,
+        search_sources: s.draft?.search_sources,
+        status: undefined,
+        statusDetail: undefined,
+        noEmoji: s.draft?.noEmoji,
+      };
       return;
     case "stream_end": {
       s.pending = null;
       out.push({ type: "outcome", outcome: "send_ready" });
       s.phase = "finalizing";
       // The reply is whole: a label from its last step must not outlive it.
-      if (s.draft?.status !== undefined) s.draft = { content: s.draft.content, search_sources: s.draft.search_sources };
+      if (s.draft?.status !== undefined) {
+        s.draft = { content: s.draft.content, search_sources: s.draft.search_sources, noEmoji: s.draft.noEmoji };
+      }
       const model = payload.resolved_model;
       if (typeof model === "string" && model) messages(out, (previous) => applyStreamEndModel(previous, model));
       return;

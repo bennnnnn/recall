@@ -231,13 +231,19 @@ function placeGrowingDraft(content: string, use: string): string {
   return done.placed + placeFrom(lineEnd, { open: done.open }, content.length);
 }
 
-/** The streaming draft as the saved reply will read, for the user who asked `priorUserText`. */
+/**
+ * The streaming draft as the saved reply will read, for the user who asked `priorUserText`.
+ * `noEmoji`: the server said this reply takes none at any setting (a school question's; its
+ * `composing` status), so none shows while it streams either. The phone never reads the
+ * message for that itself: the server's turn readings decide it.
+ */
 export function placeLiveEmoji(
   content: string | undefined,
   level: string | null | undefined,
   priorUserText: string | null,
+  noEmoji = false,
 ): string | undefined {
   if (!content) return content;
-  const use = placementUse(content, level, EMOJI.test(priorUserText ?? ""));
+  const use = noEmoji ? "off" : placementUse(content, level, EMOJI.test(priorUserText ?? ""));
   return use === null ? content : placeGrowingDraft(content, use);
 }

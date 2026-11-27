@@ -24,6 +24,7 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.modules.chat import tool_loop
 from app.modules.chat.control_tokens import until_control_run
+from app.modules.chat.emoji_placement import reply_takes_no_emoji
 from app.modules.chat.name_use import name_to_spare
 from app.modules.chat.prompt_constants.grounding import DENIAL_RETRY_NOTE
 from app.modules.chat.prompt_inject import inject_before_last_user
@@ -312,8 +313,12 @@ async def run_llm_token_stream(
     spare = name_to_spare(ctx.user, ctx.user_message_content or "", ctx.recent_messages or [])
     scaffold = ReplyFilter(accum, ctx.worked, spare_name=spare)
     if on_status is not None:
-        # The model is writing now: a tool or search label must not linger.
-        await on_status("composing")
+        # The model is writing now: a tool or search label must not linger. A reply that
+        # takes no emoji says so here, so the phone's draft drops them as the saved one will.
+        if reply_takes_no_emoji(ctx, settings):
+            await on_status("composing", no_emoji=True)
+        else:
+            await on_status("composing")
     if ctx.timing is not None:
         # Reserve top-up and the tool loop have finished. The interval from
         # here includes gateway routing/retries, not only upstream inference.

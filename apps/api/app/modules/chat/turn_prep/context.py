@@ -184,8 +184,9 @@ class StreamContext:
     worked: WorkedLayout | None = None
     # The app language that block named for its words (``worked_language``).
     worked_language: str | None = None
-    # That block as the server laid it out: working outside it goes (``worked_again``).
-    worked_layout: str = ""
+    # Each block as the server laid it out: working outside them that repeats them goes
+    # (``worked_again``).
+    worked_layouts: tuple[str, ...] = ()
     # The problem a follow-up points back to, as rewritten: a picture's values are checked
     # against it ("draw it", "now with 25 m/s"; ``augment.Augmentation.followup_problem``).
     followup_problem: str | None = None

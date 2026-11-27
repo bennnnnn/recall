@@ -135,7 +135,11 @@ async def test_live_tokens_carry_no_scaffolding_while_finalize_still_reads_it(
     statuses: list[tuple[str, str | None]] = []
 
     async def on_status(
-        phase: str, detail: str | None = None, *, elapsed_ms: int | None = None
+        phase: str,
+        detail: str | None = None,
+        *,
+        elapsed_ms: int | None = None,
+        no_emoji: bool = False,
     ) -> None:
         statuses.append((phase, detail))
 

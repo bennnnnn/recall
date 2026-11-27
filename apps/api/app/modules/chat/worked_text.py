@@ -84,9 +84,12 @@ _GREEK_NAMES = (
     "alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|rho|sigma|tau|upsilon"
     "|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Sigma|Upsilon|Phi|Psi|Omega"
 )
-# Never after a number and a space: "32.1 psi" is pounds per square inch (review of #2602).
+# psi after a number and a space is pounds per square inch ("32.1 psi"), the one name that is
+# also a unit; every other name there is still its letter ("0.5 rho v^2", "2 theta"). Reviews
+# of #2602.
+_UNIT_PSI = r"(?<!\d )(?<!\d\\,)(?<!\d~)psi"
 _TYPED_GREEK = re.compile(
-    rf"(?<![A-Za-z\\])(?<!\d )(?<!\d\\,)(?<!\d~)({_GREEK_NAMES})(\d*)(?![A-Za-z])"
+    rf"(?<![A-Za-z\\])({_UNIT_PSI}|{_GREEK_NAMES.replace('|psi|', '|')})(\d*)(?![A-Za-z])"
 )
 _RUN_ON_GREEK = re.compile(rf"\\({_GREEK_NAMES})(?=[A-Za-z])")
 

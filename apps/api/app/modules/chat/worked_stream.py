@@ -62,9 +62,9 @@ class WorkedFilter:
         self.blocks = 0
         # The app language a block's ``language`` record named (``worked_language``).
         self.language: str | None = None
-        # The last block as laid out: what lies outside it is the model's own
+        # Every block as laid out, in order: what lies outside them is the model's own
         # (``worked_again``).
-        self.laid_out = ""
+        self.laid_out: list[str] = []
 
     @property
     def text(self) -> str:
@@ -147,7 +147,7 @@ class WorkedFilter:
         self._done += f"{rendered}\n\n" if rendered else ""
         if self._records:
             self.blocks += 1
-            self.laid_out = rendered
+            self.laid_out.append(rendered)
             logger.info("worked block laid out records=%d", len(self._records))
         else:
             logger.info("worked block had no records; shown as written")
@@ -191,7 +191,7 @@ class ReplyFilter:
             return visible
         self._worked.feed(visible)
         self._accum.worked_language = self._worked.language
-        self._accum.worked_layout = self._worked.laid_out
+        self._accum.worked_layouts = tuple(self._worked.laid_out)
         return self._delta(self._worked.text)
 
     def flush(self) -> str:
@@ -204,7 +204,7 @@ class ReplyFilter:
         self._worked.feed(tail)
         self._worked.close()
         self._accum.worked_language = self._worked.language
-        self._accum.worked_layout = self._worked.laid_out
+        self._accum.worked_layouts = tuple(self._worked.laid_out)
         return self._delta(self._worked.text)
 
     def _delta(self, text: str) -> str:

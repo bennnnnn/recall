@@ -48,6 +48,10 @@ def _laid_out(block: str) -> str:
             "P_2 = 30 \\times \\frac{310}{290} = 32.1 psi",
         ),
         ("p = 32.1\\,psi", "p = 32.1\\,psi"),
+        # Every other name after a number is its letter: only psi is also a unit.
+        ("F_d = 0.5 rho v^2 C_d A", "F_d = 0.5 \\rho v^2 C_d A"),
+        ("x = 2 theta", "x = 2 \\theta"),
+        ("y = 3\\,omega t", "y = 3\\,\\omega t"),
     ],
 )
 def test_a_greek_name_in_maths_is_its_letter(tex: str, shown: str) -> None:
@@ -204,3 +208,34 @@ def test_the_worked_contract_keeps_the_one_line_check() -> None:
     # working must not forbid it (review of #2602).
     assert WORKING_ONCE in WORKED_BLOCK_CONTRACT
     assert "**Check**" in WORKING_ONCE and "**Check**" in SELF_CHECK_PROMPT_RULE
+
+
+def test_lettered_asks_wait_for_the_whole_block_while_it_streams() -> None:
+    # Review of #2602: whether "a" and "b" are part letters or unknowns is known only once
+    # the working that sets them is in, so Required waits and no drawn line changes.
+    asks = "required: a | first number\nrequired: b | second number\n"
+    records = [
+        record
+        for record in (read_record(line) for line in f"{asks}step: 2a + b = 7".split("\n"))
+        if record is not None
+    ]
+    streamed = render_worked(assemble(records), PHYSICS, streaming=True)
+    assert "first number" not in streamed
+    whole = _laid_out(
+        f"{asks}step: 2a + b = 7\nstep: a = 3 | solve\nanswer: a | 3 |\nanswer: b | 1 |"
+    )
+    assert "$a$ (first number)" in whole
+
+
+def test_a_line_said_twice_in_an_unlabelled_block_shows_once() -> None:
+    # Review of #2602: the unlabelled two-ask path (``worked_asks._by_symbol``) dedupes as
+    # a lettered part does.
+    block = (
+        "required: F | tension\nrequired: theta | angle\n"
+        "formula: Tension | F = m g\nsubstitution: F = 2 \\times 9.8\nsubstitution: F = 19.6\n"
+        "substitution: F = 19.6\nformula: Angle | \\tan theta = 0.75\n"
+        "substitution: theta = 36.87\nanswer: F | 19.6 | N\nanswer: theta | 36.87 | °"
+    )
+    records = [record for record in (read_record(line) for line in block.split("\n")) if record]
+    text = render_worked(fitted(records), PHYSICS)
+    assert text.count("$F = 19.6") == 1

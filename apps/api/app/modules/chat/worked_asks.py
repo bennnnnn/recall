@@ -108,6 +108,11 @@ class _Group:
             return
         self.lines += own
         stage = self.stages[-1]
+        if isinstance(record, Step) and record in stage:
+            # A line written again in its stage says nothing new, as in a lettered part
+            # (``worked_solution._PartDraft.add``; review of #2602). Another stage may work
+            # the same line for its own leg.
+            return
         if isinstance(record, Formula) and any(
             isinstance(line, Step) and line.kind == "substitution" for line in stage
         ):

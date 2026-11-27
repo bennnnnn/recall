@@ -415,11 +415,16 @@ def _letters_as_symbols(solution: WorkedSolution) -> set[str]:
     """The asks whose "symbol" is only its part's letter: "(a) $a$ (graph description) (b)
     $b$ (when it speeds up most)" named no quantity (textbook round, 2026-11-26). Only when
     every ask of two or more is lettered so, in order: one ``a`` may be an acceleration."""
-    keys = [_symbol_key(item.symbol) for item in solution.required]
-    lettered = len(keys) >= 2 and all(key == part_letter(at) for at, key in enumerate(keys))
+    keys = {_symbol_key(item.symbol) for item in solution.required}
     # "Find a and b" asks for two numbers: a line or an answer that sets the letter makes it
     # a quantity (review of #2602).
-    return set(keys) if lettered and not (set(keys) & _set_symbols(solution)) else set()
+    return keys if _lettered_asks(solution) and not (keys & _set_symbols(solution)) else set()
+
+
+def _lettered_asks(solution: WorkedSolution) -> bool:
+    """Every ask of two or more has its part's letter as its symbol, in order."""
+    keys = [_symbol_key(item.symbol) for item in solution.required]
+    return len(keys) >= 2 and all(key == part_letter(at) for at, key in enumerate(keys))
 
 
 def _set_symbols(solution: WorkedSolution) -> set[str]:
@@ -538,6 +543,10 @@ def render_worked(
         or solution.labelled
         or any(part.formula or part.working or part.answers for part in solution.parts)
     )
+    # Asks whose symbols are their parts' letters are words or unknowns by what the working
+    # sets (``_letters_as_symbols``), known only once the block is whole: they wait for it
+    # (review of #2602).
+    settled = settled and not (streaming and _lettered_asks(solution))
     required = _find_rows(solution) if settled else ()
     # A question asking for several things may come apart at its next law
     # (``worked_solution.assemble``), so while it streams it is drawn in parts: a part

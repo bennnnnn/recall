@@ -379,7 +379,7 @@ async def _settle_reply(
         # The reply's ```draw blocks, kept out of what the phone was sent (``draw_stream``).
         ctx.drawing.descriptions = [body for _at, body in accum.drawings]
     ctx.worked_language = accum.worked_language
-    ctx.worked_layout = accum.worked_layout
+    ctx.worked_layouts = accum.worked_layouts
 
     async def persist_reply() -> None:
         final_text = await enrich_final_content(

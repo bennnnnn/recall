@@ -173,5 +173,21 @@
     "user_wrote_emoji": false,
     "text": "Thanks 😊 see you",
     "expected": "Thanks see you"
+  },
+  {
+    "name": "a school question's reply at Lots",
+    "level": "more",
+    "user_wrote_emoji": false,
+    "homework": true,
+    "text": "## 🔥 Heat\n- ⚡ **Energy** moves from hot to cold 🌡️",
+    "expected": "## Heat\n- **Energy** moves from hot to cold"
+  },
+  {
+    "name": "a school question's reply at A few",
+    "level": "some",
+    "user_wrote_emoji": false,
+    "homework": true,
+    "text": "### 🧪 Rust\nIron reacts with oxygen and water 💧.",
+    "expected": "### Rust\nIron reacts with oxygen and water."
   }
 ]

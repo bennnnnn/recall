@@ -9,6 +9,11 @@ export type StreamingDraft = {
   statusDetail?: string;
   /** When the status's phase began, on this phone's clock (ms): "Thinking… 12s" counts from it. */
   statusStartedAt?: number;
+  /**
+   * The server said the reply takes no emoji at any setting (a school question's, its
+   * `composing` status): the draft drops them as the saved reply will.
+   */
+  noEmoji?: boolean;
 };
 
 let draft: StreamingDraft | null = null;

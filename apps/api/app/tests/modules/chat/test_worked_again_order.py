@@ -24,7 +24,7 @@ def _passes_in_order(text: str, accum: StreamAccum, names: set[str]) -> str:
         text=text,
         server_text=False,
         ctx=SimpleNamespace(
-            worked=PHYSICS, worked_layout=accum.worked_layout, user_message_content=QUESTION
+            worked=PHYSICS, worked_layouts=accum.worked_layouts, user_message_content=QUESTION
         ),
     )
     for finalize_pass in FINALIZE_PASSES:
@@ -37,8 +37,9 @@ def test_a_recaps_own_answer_label_never_takes_the_blocks_heading() -> None:
     # The recap ends on its own "**Answer:**": the label pass keeps only the last label, so
     # run first it dropped the block's heading and the card had none to land under.
     recap = (
-        "Working it again:\n\n$$\\omega_0 = \\frac{2\\pi}{8}$$\n$$v = 4 \\times 0.785$$\n"
-        "$$t = \\frac{0 - 0.785}{-0.1}$$\n\n**Answer:** $\\omega_0 = \\frac{2\\pi}{8} \\approx 0.785$"
+        "Working it again:\n\n$$\\omega_0 = \\frac{2\\pi}{T}$$\n$$\\omega_0 = \\frac{2\\pi}{8}$$\n"
+        "$$\\omega_0 = 2\\pi \\div 8 = 0.785$$\n\n"
+        "**Answer:** $\\omega_0 = \\frac{2\\pi}{8} \\approx 0.785$"
     )
     text, accum = _streamed(f"{BLOCK}\n\n{recap}")
     kept = _passes_in_order(text, accum, {"worked_again", "answer_labels"})
@@ -46,9 +47,9 @@ def test_a_recaps_own_answer_label_never_takes_the_blocks_heading() -> None:
     assert "**Answer:**" not in kept
 
 
-def test_a_second_block_repeating_the_first_is_the_one_kept() -> None:
-    # The second try is a second ```worked block: the layout kept is the last one, and the
-    # first, above it, is the working written again.
+def test_every_block_stays_with_its_answer_heading() -> None:
+    # Two ```worked blocks are two laid-out answers: neither is cut as the other's repeat,
+    # and each keeps its Answer heading for its card (reviews of #2602).
     first = BLOCK.replace(
         "substitution: \\omega_0 = \\frac{2\\pi}{8}\n",
         "substitution: \\omega_0 = \\frac{2\\pi}{8}\nsubstitution: \\omega_0 = 6.2832 \\div 8\n"
@@ -57,11 +58,10 @@ def test_a_second_block_repeating_the_first_is_the_one_kept() -> None:
     second = first.replace("0.785398", "0.785400")
     text, accum = _streamed(f"{first}\n\n{second}")
     kept = _passes_in_order(text, accum, {"worked_again", "answer_labels"})
-    # The last block stands whole, its Answer heading kept for its card.
-    assert accum.worked_layout.strip() in kept
-    assert kept.rstrip().endswith("**Answer**\n\n$0.79\\,\\mathrm{rad/s}$")
-    # The first, holding four sums, is the working written again above it.
-    assert kept.count("**Given**") == 1
+    assert len(accum.worked_layouts) == 2
+    assert all(layout.strip() in kept for layout in accum.worked_layouts)
+    assert kept.count("**Given**") == 2
+    assert kept.count("**Answer**") == 2
 
 
 async def test_the_streamed_layout_reaches_the_finalize_pass() -> None:
@@ -103,7 +103,7 @@ async def test_the_streamed_layout_reaches_the_finalize_pass() -> None:
             outcome=TurnOutcome(),
             resources=None,
         )
-    assert ctx.worked_layout == accum.worked_layout
-    assert ctx.worked_layout
+    assert ctx.worked_layouts == accum.worked_layouts
+    assert ctx.worked_layouts
     assert saved.await_args is not None
     assert "step-by-step" not in saved.await_args.kwargs["assistant_text"]
