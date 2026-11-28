@@ -432,7 +432,8 @@ async def test_the_figure_read_s_block_is_drawn_only_when_it_holds(
 
     async def read(settings: Settings, question: str, earlier: Any, *, asked: bool) -> Any:
         modes.append(asked)
-        return blocks.pop(0)
+        block = blocks.pop(0)
+        return [block] if block is not None else []
 
     monkeypatch.setattr(figure_read, "read_physics_picture", read)
     fence = await figure_read.draw_physics_figure(_BAR, [], _settings(), asked=False)
@@ -484,7 +485,7 @@ async def test_no_figure_read_past_the_spend_cap(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr("app.gateways.structured_completion.complete_structured", never)
     monkeypatch.setattr("app.core.redis.get_redis_client", lambda: None)
     read = await figure_read.read_physics_picture(_settings(), _BAR, [], asked=False)
-    assert read is None
+    assert read == []
 
 
 def test_a_follow_up_is_held_to_the_whole_problem() -> None:

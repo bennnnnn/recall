@@ -12,6 +12,7 @@ import { classifyOpenFencePreview, type OpenFencePreviewKind } from "@/lib/fence
 import type { StreamingPreprocessCache } from "@/lib/markdown/preprocessStream";
 import { completeStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import { classifyOpenStreamTail } from "@/lib/fence/openTail";
+import { hideUnpairedMarkers } from "@/lib/markdown/streamMarkers";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import { useTheme } from "@/lib/theme";
@@ -120,7 +121,8 @@ export function streamingEnd(
   const unsettled = prepared.slice(settledEnd, safeLen);
   const openRegion = classifyOpenStreamTail(prepared.slice(safeLen), cache?.scanState);
   if (openRegion.kind === "other") {
-    const typing = prepareStreamingMathText(openRegion.text).text;
+    // A star with no partner yet is left out of the line still typing, never drawn as an asterisk.
+    const typing = hideUnpairedMarkers(prepareStreamingMathText(openRegion.text).text);
     if (typing.trim() && acceptsStreamCaret(typing)) {
       return { live: unsettled + withStreamCaret(typing), tail: null, caretAfter: false };
     }

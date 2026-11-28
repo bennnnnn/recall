@@ -224,7 +224,6 @@ async def synthesize_speech(
     *,
     language: str | None = None,
     model_alias: str | None = None,
-    voice: str | None = None,
     reply_voice: str | None = None,
     reply_language: str | None = None,
     on_call: Callable[[], None] | None = None,
@@ -234,8 +233,8 @@ async def synthesize_speech(
 
     The text's own language picks the model (``text_language``): Kokoro for the languages
     it reads, tts-1 for the rest and for a text whose language is unclear; when Kokoro
-    fails, tts-1 reads the clip. ``language`` is the app's locale, ``voice`` the live talk
-    voice and ``reply_voice`` the reply voice the user picked (``voice_catalog``);
+    fails, tts-1 reads the clip. ``language`` is the app's locale and ``reply_voice`` the reply
+    voice the user picked (``voice_catalog``);
     ``reply_language`` is what the reply's lead clip was read as (``clip_language``).
     ``on_call`` runs just before the first provider is asked (the mock counts as one), and
     ``on_played`` with what played the clip (``ListenClip``)."""
@@ -263,7 +262,7 @@ async def synthesize_speech(
     if on_call is not None:
         on_call()
     for alias in aliases:
-        speaker = voice_for(alias, spoken, reply_voice, voice)
+        speaker = voice_for(alias, spoken, reply_voice)
         audio = await _synthesize_with(settings, alias, plain, speaker, language, model_alias)
         if audio is None:
             continue

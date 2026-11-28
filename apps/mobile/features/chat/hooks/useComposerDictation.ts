@@ -74,8 +74,8 @@ export function useComposerDictation({
     cancelVoiceInput();
   }, [routeChatId, cancelVoiceInput]);
 
-  // The launch cache paints every plan "free": until the server says the plan, the take goes
-  // and the server decides (its refusal opens the plans above), never a paid account's offer.
+  // The launch cache holds the plan last seen: until the server says the plan, the take goes
+  // and the server decides (its refusal opens the plans above), never an offer on a stale plan.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
   const canDictate = !planKnown || hasPlanFeature(user, "speech_transcription");
   /** The mic. `caret` is the field's selection while it is being edited, else none. */

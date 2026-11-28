@@ -58,11 +58,15 @@ export function rowMarkdown(content: string, generating: boolean): string {
   }).markdownContent;
 }
 
-/** Stream `reply` in `step`-character flushes through the row's pipeline, then settle it. */
+/**
+ * Stream `reply` in `step`-character flushes through the row's pipeline, then settle it.
+ * `onFlush` sees each flush's pieces as they are drawn: the settled chunks, then the live end.
+ */
 export function streamReply(
   reply: string,
   step = 30,
   mathFormat?: (expr: string) => string,
+  onFlush?: (pieces: string[], shown: string) => void,
 ): StreamRun {
   let pre: StreamingPreprocessCache | null = null;
   let blocks: StreamBlocksState | null = null;
@@ -89,6 +93,7 @@ export function streamReply(
     });
     markdownItInstance.parse(tail.live, {});
     stats.parsedChars += tail.live.length;
+    onFlush?.([...blocks.chunks, tail.live], reply.slice(0, end));
     stats.parseMs += performance.now() - parseStart;
     stats.unstableChars += content.length - pre.rawStableLen;
     stats.flushes += 1;

@@ -30,7 +30,8 @@ from app.core.readings import LIVE_READ
 from app.modules.chat.decider_read import READ_SUBJECTS
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.turn_decision import TurnDecision
-from app.services.solving import SubjectName
+from app.services.md_fence_scan import iter_fences
+from app.services.solving import SubjectName, VerifiedPhysicsBlock, VerifiedSolveBlock
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 from app.services.text_normalize import collapse_ws
 
@@ -152,17 +153,42 @@ def start_figure(settings: Settings, ctx: StreamContext) -> asyncio.Task[str | N
     A reply the server made without a solve (the time in Tokyo, a settings line, a plan's
     limit) answers no maths question, so it never waits at finalize for a read that could
     only say "no picture" (it waited 1.7 s for one, 2026-11-13)."""
-    if (
-        ctx.live_read is None
-        or not settings.figure_read_enabled
-        or _shown_already(ctx.verified_subject)
-        or (ctx.instant_reply and ctx.verified_subject is None)
-    ):
+    if ctx.live_read is None or not settings.figure_read_enabled:
+        return None
+    solved_by = getattr(ctx.verified_subject, "subject", None)
+    shown = _shown_already(ctx.verified_subject)
+    # A physics solve's scene leaves room only for the graphs of its motion it lacks, when
+    # they are asked for (``_draw``); one that drew them too covers every picture asked.
+    graphs_only = shown and solved_by == "physics"
+    if (shown and not graphs_only) or (graphs_only and solve_graphed(ctx.verified_subject)):
+        return None
+    if ctx.instant_reply and ctx.verified_subject is None:
         return None
     line = ctx.user_message_content or ""
     recent = list(ctx.recent_messages or [])
-    solved_by = getattr(ctx.verified_subject, "subject", None)
-    return asyncio.create_task(_draw(settings, ctx.live_read, line, recent, solved_by))
+    task = _draw(settings, ctx.live_read, line, recent, solved_by, graphs_only=graphs_only)
+    return asyncio.create_task(task)
+
+
+# The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
+_TIME_GRAPH = "trajectory"
+# A graph named in the message: "plot its v-t graph", "velocity against time", "s-t". It only
+# gates the read's call beside a solve that drew its scene; the read says what to draw.
+_NAMES_A_GRAPH = re.compile(
+    r"\b(?:graphs?|plot(?:s|ted)?|charts?)\b|\b(?:against|versus|vs\.?)\s+time\b"
+    r"|\b[svad]\s*[-\u2013]\s*t\b",
+    re.IGNORECASE,
+)
+
+
+def solve_graphed(verified: VerifiedSolveBlock | None) -> bool:
+    """A physics solve's cards already draw a graph against time (a v-t or x-t trajectory)
+    beside its scene."""
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        return False
+    blocks = [verified, *verified.question_parts]
+    specs = [s for b in blocks for s in (b.canonical_fence, *b.canonical_fences) if s]
+    return any(spec.get("type") == _TIME_GRAPH for spec in specs)
 
 
 def _figure_wanted(
@@ -212,13 +238,19 @@ async def _draw(
     line: str,
     recent: Sequence[Any],
     solved_by: SubjectName | None = None,
+    *,
+    graphs_only: bool = False,
 ) -> str | None:
     # Waited on, never awaited: the reply may cancel the read when it stops waiting for it.
     await asyncio.wait([read])
     wanted = _figure_wanted(read, teaching=settings.teaching_figures_enabled)
     figure = _figure(wanted[0]) if wanted is not None else None
-    # A solved turn gets only its own subject's figure, never another's over its solve.
+    # A solved turn gets only its own subject's figure, never another's over its solve; one
+    # whose solve drew its picture, only a picture asked for (``attach_figure`` adds the kinds
+    # it lacks).
     if wanted is None or figure is None or solved_by not in (None, wanted[0]):
+        return None
+    if graphs_only and not _asks_for_graphs(read.result(), line):
         return None
     topic = await _topic(settings, read, line, recent)
     fence = await figure.draw(line, topic, settings, asked=wanted[1] == "asked")
@@ -238,6 +270,15 @@ async def _draw(
         len(topic),
     )
     return fence
+
+
+def _asks_for_graphs(decision: TurnDecision | None, line: str) -> bool:
+    """Beside a solve that drew its scene: the read asks for a graph, or the message names
+    one (the read names one picture, and "draw its free-body diagram and plot its v-t graph"
+    read as a diagram)."""
+    return decision is not None and (
+        decision.picture == "graph" or _NAMES_A_GRAPH.search(line) is not None
+    )
 
 
 async def _topic(
@@ -364,6 +405,49 @@ def _without(text: str, fences: Sequence[str]) -> str:
     return text
 
 
+def _pictures(result: str) -> list[str]:
+    """Each fenced picture of a figure's result, in order; the result whole when it is one
+    picture (a maths figure is one fence)."""
+    pieces = [result[f.start : f.end].strip() for f in iter_fences(result) if f.closed]
+    return pieces if len(pieces) > 1 else [result]
+
+
+def _held_against(reply: str, drawn: list[str], fence: str) -> tuple[str, list[str]] | None:
+    """The reply and its own drawn pictures once ``fence`` takes its place, or None when the
+    reply's own picture of that kind stands.
+
+    The reply's own described picture of that kind, checked and drawn, stands
+    (``drawing_turn``); one of the other kind leaves room for this one. One that shows none
+    of the question's values gives way to the figure that does: "Draw it" after a rectangle's
+    8 cm, 6 cm and diagonal got the reply's bare 3-by-2 rectangle, and this figure, the 8 by
+    6 with its diagonals, was dropped (live, 2026-11-21)."""
+    same = [drawn_fence for drawn_fence in drawn if _kind(drawn_fence) == _kind(fence)]
+    if not same:
+        return reply, drawn
+    bare = [drawn_fence for drawn_fence in same if not _shows_a_value(drawn_fence)]
+    if len(bare) < len(same) or not _shows_a_value(fence):
+        return None
+    return _without(reply, bare), [f for f in drawn if f not in bare]
+
+
+def _scene_first(text: str, pieces: list[str]) -> str | None:
+    """``text`` with ``pieces`` added under it, a setup's scene placed above the graphs the
+    reply ends on (its own motion graphs, drawn before the figure came in): the picture of
+    the situation, then the graphs of its motion, as a textbook sets them out. None when
+    the reply ends on no graph or the pieces hold no scene: they simply go under it."""
+    scenes = [piece for piece in pieces if _kind(piece) != "graph"]
+    graphs = [fence for fence in iter_fences(text) if fence.closed and fence.lang == "graph"]
+    if not scenes or not graphs:
+        return None
+    start = graphs[0].start
+    tail = text[start:]
+    if _without(tail, [tail[f.start : f.end] for f in iter_fences(tail) if f.closed]).strip():
+        return None  # words after the graphs: they are not the pictures the reply ends on
+    head = text[:start].rstrip()
+    rest = [piece for piece in pieces if piece not in scenes]
+    return "\n\n".join(part for part in (head, *scenes, tail.strip(), *rest) if part) + "\n"
+
+
 def stop_figure(ctx: StreamContext) -> None:
     if ctx.figure is not None and not ctx.figure.done():
         ctx.figure.cancel()
@@ -394,26 +478,28 @@ async def attach_figure(state: FinalizeState) -> str:
     if task.cancelled() or task.exception() is not None:
         logger.info("figure task failed: %r", None if task.cancelled() else task.exception())
         return state.text
-    fence = task.result()
-    # The reply's own described picture of that kind, checked and drawn, stands
-    # (``drawing_turn``); one of the other kind leaves room for this one. One that shows
-    # none of the question's values gives way to the figure that does: "Draw it" after a
-    # rectangle's 8 cm, 6 cm and diagonal got the reply's bare 3-by-2 rectangle, and this
-    # figure, the 8 by 6 with its diagonals, was dropped (live, 2026-11-21).
-    if not fence:
+    result = task.result()
+    if not result:
         return state.text
-    reply = state.text
-    same = [drawn_fence for drawn_fence in drawn if _kind(drawn_fence) == _kind(fence)]
-    if same:
-        bare = [drawn_fence for drawn_fence in same if not _shows_a_value(drawn_fence)]
-        if len(bare) < len(same) or not _shows_a_value(fence):
-            return state.text
-        reply, drawn = _without(reply, bare), [f for f in drawn if f not in bare]
-    if not figure.adds_to(_without(reply, drawn), fence):
-        logger.info("figure left out: the reply already shows it")
+    reply, kept = state.text, []
+    # A figure of several pictures (a slope's free-body diagram and its motion's graphs) is
+    # held picture by picture: each one the reply does not show already is added.
+    for fence in _pictures(result):
+        held = _held_against(reply, drawn, fence)
+        if held is None:
+            continue
+        reply, drawn = held
+        if not figure.adds_to(_without(reply, drawn), fence):
+            logger.info("figure left out: the reply already shows it")
+            continue
+        kept.append(fence)
+    if not kept:
         return state.text
-    text = figure.without_substitutes(reply, fence, ctx.user_message_content or "").rstrip()
-    text = f"{text}\n\n{fence}\n" if text else f"{fence}\n"
+    fence = "\n\n".join(kept)
+    body = figure.without_substitutes(reply, fence, ctx.user_message_content or "").rstrip()
+    # A physics setup's scene goes above the graphs of its motion the reply drew itself.
+    placed = _scene_first(body, kept) if wanted is not None and wanted[0] == "physics" else None
+    text = placed or (f"{body}\n\n{fence}\n" if body else f"{fence}\n")
     # Committed, so a later pass that falls back keeps the picture.
     state.committed = fallback_text(text, server_text=state.server_text)
     return text

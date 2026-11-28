@@ -623,7 +623,7 @@ The binder reads these laws, beside the extractors' own:
 
 ## Pictures
 
-A verified answer carries at most one picture (a question in parts, one per part), a `simulation` fence (schema v2,
+A verified answer carries its picture (a question in parts, one per part), a `simulation` fence (schema v2,
 `schemas/simulation.py`). The server samples every position and every frame. The phone walks
 the samples and never re-derives motion. Two kinds of picture exist:
 
@@ -678,19 +678,25 @@ card being none) gets the picture it is taught from, asked for or not (owner,
 2026-11-25: "Diagrams must be drawn"; 66 of 77 Grade 11 questions that needed one drew none, 61
 of them because the student had not written "draw"). Beside the reply, one short structured call
 (`scene_drawing/figure_read.py`, on the formal reader's lane, `physics_setup`) says what the question's picture
-is, as one of the blocks a reply would describe: a scene, the question's arrows, the forces on
+is, as the blocks a reply would describe (up to three, one per picture asked): a scene, the question's arrows, the forces on
 one body, a bar's moments, a motion's graph and, asked for, a field. The server holds it to the
 question exactly as it holds a reply's block (`scene_drawing/build.py`), and `chat/figure_turn.py`
 adds it under the reply once the reply is done, waiting at most `figure_wait_seconds`, so a
-picture never delays the first word. A solve that drew its own picture keeps it; a reply that
-holds one of the server's pictures gets no second one. With teaching figures on, a physics
+picture never delays the first word. A solve that drew its own picture keeps it, and a reply
+gets no second picture of a kind it already holds (a solve's scene still gets the motion
+graphs asked for). With teaching figures on, a physics
 question that asks to see nothing gets no setup contract in the reply's prompt: the read draws
 its setup. Three blocks are the read's own:
 - `forces` (`scene_drawing/forces.py`): the body and the forces on it, one word each. The server
   reads the situation itself (`force_pictures.py`) and draws its free-body diagram only when the
   forces it reads are the ones named: a ball "held on a slope ... let go" reads as held to the
   server and sliding to the read, and draws nothing. Forces said to act on a thing no body word
-  names (a ladder against a wall) and several diagrams asked at once draw nothing.
+  names (a ladder against a wall) and several diagrams of one body asked at once draw nothing;
+  "a free-body diagram for each mass" of two masses over a pulley is the rig, each mass with
+  its tension and weight. `"components": true` (on this block or on the incline scene) adds the
+  weight resolved along and into the slope (`scene_drawing/weight_parts.py`): on the incline
+  scene sized from the reader's mass and g, `mg sin 30° = 49.05 N` then `mg cos 30° = 84.96 N`;
+  on the forces block in symbols, `mg sin 30°`; and with no angle stated, `mg sin θ`.
 - `beam` (`scene_drawing/beam.py`): a bar's marks left to right, each distance a length the
   question states (or the letter of one it asks for), each force a stated force with the
   direction its own clause gives it, or a hung mass (down), or an unknown's letter. Every force
@@ -699,6 +705,43 @@ its setup. Three blocks are the read's own:
 - arrows by their components (`scene_drawing/components.py`): `{"name":"A","components":"[4
   5]"}`, held to a vector the question writes, number for number, in a unit of the picture's
   quantity or none; every written vector of that kind is drawn.
+
+A question that asks for several pictures (a free-body diagram and s–t, v–t and a–t graphs)
+gets a block for each, in the order asked (at most three), and each picture is added unless
+the reply already shows one of its kind; a solve that drew its scene still gets the graphs
+asked for, and a setup's scene goes above graphs the reply ended on. A question in many
+parts (live, 2026-11-27: a block on a 30° slope and an Atwood machine, ten parts each, drew
+nothing) is read for its pictures as the statement before its first part
+(`services/question_parts.statement_before_parts`, numbered lines or lettered parts) when the
+whole question, its asks, times and distances, reads as no one scene; a value listed again
+as a symbol's ("Given: m = 10 kg" after "a block of mass 10 kg") and a starting speed of 0
+beside "from rest" are the same values said twice. The motion of a block sliding down a
+slope or of an Atwood machine from rest is its own motion block, `{"kind":"motion","of":
+"incline","graphs":["displacement","velocity","acceleration"],"time":"5 s"}`
+(`scene_drawing/setup_motion.py`): the span is a time the question states, the words start
+the body from rest, and the acceleration is the scene's solver's, from the reader's reading
+of the setup; each graph is drawn from rest (s = ½at², v = at, a), an Atwood machine's two
+masses one graph each, upward positive, titled with the mass. A block its friction holds,
+equal masses, a block moving at the start or a span the question does not give draw no graph.
+The Atwood scene draws each mass's weight beside the tension, sized to each other.
+
+Beside a picture asked for and drawn, a sentence that only denies or offers it comes off
+(`chat/picture_talk.py`, from the owed-picture pass): one that says the app cannot draw or show
+a picture ("The app has no scene for a block sliding down an incline", "I can't draw diagrams
+here"), that the app's picture appears with the reply, or that offers one on the reader's
+say-so ("I can draw the graphs if you want them as pictures"), naming a kind the reply shows
+and holding no number, "=" or "but". Every other sentence stays whole and as written: the
+user's own app, a chart of their data, teaching, and words about a kind not drawn. A reply with
+no picture keeps its words and gets the line that says none was drawn.
+
+When a question states both a kinetic and a static coefficient, the server checks nothing that
+takes one: whether a released block slides, or a push starts it or keeps it moving, is the
+question, and reading either from the words gave verified wrong answers. The model answers it,
+unchecked; a normal force, which takes neither, is still checked. A frictionless surface beside
+a stated coefficient ("down a rough incline, μk = 0.25, then onto a frictionless floor") is
+refused too. A frictionless pulley says nothing about the surface: a block resting on a table, a
+level surface or a slope is never an Atwood machine's hanging mass.
+
 A picture drawn in characters (rows of tildes boxed in bars, slashes) comes off every physics
 reply, picture or none (`sketches.without_sketches`), unless the user asked for one ("as ASCII
 art") and no server picture stands in for it; a data table in characters stays whatever its

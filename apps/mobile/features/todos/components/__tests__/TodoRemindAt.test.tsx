@@ -19,9 +19,6 @@ import { formatDate, refreshPhoneClock } from "@/lib/datetime/format";
 
 declare const setTestTimeZone: (zone: string) => void;
 
-jest.mock("@/features/todos/model/todoReminders", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
-}));
 jest.mock("@/lib/api", () => ({ api: { previewReminder: jest.fn() } }));
 let mockAuth: { token: string; user: User } = {
   token: "a",
