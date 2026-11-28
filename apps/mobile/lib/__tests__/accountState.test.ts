@@ -108,6 +108,8 @@ const SCOPED_TO_SESSION = [
   "features/chat/model/pageReads.ts#pageReads",
   "features/memory/model/memoryDocumentsCache.ts#resource",
   "features/todos/model/todoMutationState.ts#current",
+  // A refresh the clock asked for whose token still looked expired, keyed to the session.
+  "lib/api/client.ts#clockDoubt",
   "lib/api/client.ts#lastRefreshed",
   "lib/api/client.ts#refreshInFlight",
   "lib/api/client.ts#refreshRefused",
@@ -197,7 +199,10 @@ const NO_ACCOUNT_DATA = [
   "features/speech/model/speechRate.ts#ratePref",
   "features/speech/model/ttsPreference.ts#ttsModelPref",
   "features/todos/model/optimisticTodo.ts#optimisticTodoSeq",
+  "features/todos/model/reminderAlerts.ts#saidNotNow",
   "features/todos/model/reminderAlerts.ts#toldAlertsOff",
+  // The offset between the server's clock and the phone's: the phone's, not an account's.
+  "lib/api/serverClock.ts#offsetMs",
   "lib/accentPrefs.ts#accentPref",
   "lib/accentRuntime.ts#accent",
   // This build's version and native build: the same for every account.
@@ -222,6 +227,8 @@ const NO_ACCOUNT_DATA = [
   "lib/google-auth.ts#googleModule",
   "lib/haptics.ts#enabled",
   "lib/hapticsPrefs.ts#hapticsPref",
+  // The Expo push token this install last registered: the install's, the same for every account.
+  "features/notifications/model/registeredPushToken.ts#lastRegistered",
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",
@@ -240,6 +247,8 @@ const NO_ACCOUNT_DATA = [
   "lib/productAnalytics.ts#flushTimer",
   "features/billing/model/purchases.ts#purchasesModule",
   "features/notifications/model/pushNotifications.ts#androidChannelReady",
+  // The phone's permission ask on screen: the same for every account.
+  "features/notifications/model/pushNotifications.ts#asking",
   "features/notifications/model/pushNotifications.ts#pushTokenFailureReported",
   "lib/reconnectRefresh.ts#lostAt",
   "lib/reduceMotion.ts#knownReduceMotion",

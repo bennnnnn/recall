@@ -70,10 +70,10 @@ export function useTodosActions({ token, userId, todos, getTodos,
     else void alertDialog({ title: t("todos.error"), message: t(bodyKey) });
   }, [canAct, feedback, t]);
 
-  // A to-do with a time asks for alerts before it saves, so its reminder sync may schedule;
-  // a user who said no is told once per session, with a way to Settings, without holding the save.
+  // A to-do with a time asks for alerts before it saves, so its reminder sync may schedule; one the
+  // phone refused is told once per session, with a way to Settings (Not now to Recall is an answer).
   const askForAlerts = useCallback(async (dueIso: string | null) => {
-    if (!dueIso || (await allowReminderAlerts()) === "on" || !shouldTellAlertsOff()) return;
+    if (!dueIso || (await allowReminderAlerts()) !== "off" || !shouldTellAlertsOff()) return;
     void offerSettings("notifications");
   }, []);
   const latestTodo = useCallback((id: string) => (getTodos?.() ?? todosRef.current).find((item) => item.id === id), [getTodos, todosRef]);

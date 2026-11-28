@@ -36,7 +36,6 @@
   "features/speech/model/realtimeMicGate.ts": 1,
   "features/speech/model/realtimePeer.ts": 9,
   "features/speech/model/realtimeVoice.ts": 1,
-  "features/todos/components/TodoDateFields.tsx": 1,
   "features/todos/hooks/useTodosList.ts": 1,
   "features/todos/model/reminderProposal.ts": 1,
   "features/todos/model/todoReminders.ts": 1,

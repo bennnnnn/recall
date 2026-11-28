@@ -21,9 +21,6 @@ jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
   initReactI18next: { type: "3rdParty", init: () => undefined },
 }));
-jest.mock("@/features/todos/model/todoReminders", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
-}));
 
 /** The 10th as a New York profile holds it: 21:00 on the 9th in Los Angeles. */
 const RENT = {

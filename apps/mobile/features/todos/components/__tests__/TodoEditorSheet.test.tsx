@@ -20,9 +20,6 @@ jest.mock("@/lib/haptics", () => ({
 // The detail page asks the server for Remind at; signed out here, it asks nothing.
 jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => null }));
 jest.mock("@/lib/api", () => ({ api: { previewReminder: jest.fn() } }));
-jest.mock("@/features/todos/model/todoReminders", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
-}));
 
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");

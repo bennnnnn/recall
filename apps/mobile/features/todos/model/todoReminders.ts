@@ -10,7 +10,6 @@ import { isDateOnly } from "@/features/todos/model/dueDate";
 import { AndroidNotificationChannel, notificationSound } from "@/features/notifications/model/notificationChannels";
 import { ensureReminderChannel } from "@/features/notifications/model/pushNotifications";
 
-export { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
 const TODO_PREFIX = "todo-due-";
 const ANDROID_CHANNEL = AndroidNotificationChannel.reminders;
 type ReminderOptions = {

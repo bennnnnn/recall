@@ -2,7 +2,6 @@ import { useCallback, useRef, useState, type MutableRefObject } from "react";
 
 import { api, type User } from "@/lib/api";
 import { emitAppEvent } from "@/lib/appEvents";
-import { writeCachedUser } from "@/lib/cachedUser";
 
 type Options = {
   token: string | null;
@@ -78,7 +77,6 @@ export function useUpdateUser({
           readAtRef.current = Date.now();
           setCurrentUser(updated);
           setProfileValidated(true);
-          void writeCachedUser(updated);
         }
         // Saved now, a later save waiting or not: what the server derives from these fields
         // (a to-do's notify_at, from quiet hours) may read again.
