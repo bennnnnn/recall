@@ -28,6 +28,7 @@ from app.modules.chat.prompt_constants import (
     PHOTO_LOOKUP_HINT,
     SETTINGS_IN_APP_HINT,
     STYLE_HINTS,
+    TODO_IN_APP_HINT,
     TONE_FORMAT_GUARD,
     UNCLEAR_MESSAGE_HINT,
     learning_plan_contract,
@@ -133,6 +134,7 @@ async def test_the_marked_message_is_the_same_on_every_kind_of_turn_for_one_user
                 PERSONAL_HELP_RULE,
                 UNCLEAR_MESSAGE_HINT,
                 SETTINGS_IN_APP_HINT,
+                TODO_IN_APP_HINT,
                 locale_system_hint("en"),
             )
         )

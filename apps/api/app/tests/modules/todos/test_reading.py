@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from app.modules.todos import reading
+from app.modules.todos import repository as todos_repo
 from app.tests.fakes import fake_session
 
 _ROWS = [
@@ -33,7 +34,7 @@ _ROWS = [
 async def test_saved_todo_named(
     monkeypatch: pytest.MonkeyPatch, text: str, named: str | None
 ) -> None:
-    monkeypatch.setattr(reading.todos_repo, "list_for_user", AsyncMock(return_value=_ROWS))
+    monkeypatch.setattr(todos_repo, "list_for_user", AsyncMock(return_value=_ROWS))
     assert await reading.saved_todo_named(fake_session(), uuid4(), text) == named
 
 
