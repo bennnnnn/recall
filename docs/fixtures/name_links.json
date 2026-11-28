@@ -1,5 +1,5 @@
 {
-  "about": "Where a name the reply marks to look up, [Name](check \"City\"), opens when no search result is its own site: a Google Maps search for the name and its city when it gives one, else a Google search for the name. The server places it when the reply is saved (apps/api/app/modules/chat/name_links.py, test_reply_links.py); the phone opens a marked name the same way while the reply streams (apps/mobile/lib/markdown/replyLinks.ts, lib/__tests__/replyLinks.test.ts; the drawn and tapped cases in components/markdown/__tests__/markdownRenderRules.test.tsx). Each address is encoded as encodeURIComponent encodes it. `markdown` holds whole marked links as the reply writes them: the server places each (`place_links`), and the phone, drawing it through MarkdownContent (whose typographer curls the apostrophe and whose parser escapes the city), opens the same address on a tap.",
+  "about": "Where a name the reply marks to look up, [Name](check \"City\"), opens when no search result is its own site: a Google Maps search for the name and its city when it gives one, else a Google search for the name, each encoded as encodeURIComponent encodes it with its brackets escaped too, so the saved link's own brackets stay balanced. The server alone places it (apps/api/app/modules/chat/name_links.py, reply_links.py, test_reply_links.py); while the reply streams the phone draws a mark as its words (apps/mobile/lib/markdown/replyLinks.ts). `markdown` holds whole marked links as the reply writes them and the address the server writes for each. `untouched` holds text the server leaves exactly as written and the phone draws with no link: maths whose brackets look like a link ($\\\\mathcal{L}[t^2](s)$, a concentration $[A](t)$, an interval), code, and a target that is no web address.",
   "cases": [
     {
       "id": "restaurant-with-city",
@@ -23,13 +23,19 @@
       "id": "product-with-symbols",
       "name": "Pixel 9a (128 GB)",
       "city": "",
-      "url": "https://www.google.com/search?q=Pixel%209a%20(128%20GB)"
+      "url": "https://www.google.com/search?q=Pixel%209a%20%28128%20GB%29"
     },
     {
       "id": "amharic-place",
       "name": "ቶሞካ ቡና",
       "city": "Addis Ababa",
       "url": "https://www.google.com/maps/search/?api=1&query=%E1%89%B6%E1%88%9E%E1%8A%AB%20%E1%89%A1%E1%8A%93%2C%20Addis%20Ababa"
+    },
+    {
+      "id": "city-with-its-own-brackets",
+      "name": "Joe's Pizza",
+      "city": "New York (Greenwich Village)",
+      "url": "https://www.google.com/maps/search/?api=1&query=Joe's%20Pizza%2C%20New%20York%20%28Greenwich%20Village%29"
     }
   ],
   "markdown": [
@@ -50,6 +56,42 @@
       "markdown": "2. **[Atomic Habits](check)** — small habits",
       "words": "Atomic Habits",
       "url": "https://www.google.com/search?q=Atomic%20Habits"
+    },
+    {
+      "id": "city-with-its-own-brackets",
+      "markdown": "3. **[Joe's Pizza](check \"New York (Greenwich Village)\")** — a slice",
+      "words": "Joe's Pizza",
+      "url": "https://www.google.com/maps/search/?api=1&query=Joe's%20Pizza%2C%20New%20York%20%28Greenwich%20Village%29"
+    }
+  ],
+  "untouched": [
+    {
+      "id": "laplace",
+      "text": "The transform is $\\mathcal{L}[t^2](s) = \\frac{2}{s^3}$, so it shrinks."
+    },
+    {
+      "id": "concentration",
+      "text": "First order: $[A](t) = [A]_0 e^{-kt}$ for every reactant."
+    },
+    {
+      "id": "concentration-display",
+      "text": "Its rate law:\n\n$$[A](t) = [A]_0 e^{-kt}$$\n\nso it halves."
+    },
+    {
+      "id": "interval",
+      "text": "On $[a](b)$ the integral of $[f](x)$ is defined."
+    },
+    {
+      "id": "paren-maths",
+      "text": "Then \\( [x](y) \\) and \\[ [A](t) = 1 \\] hold."
+    },
+    {
+      "id": "inline-code",
+      "text": "Write `[Nopa](check)` to mark a name."
+    },
+    {
+      "id": "no-web-target",
+      "text": "Use [a](b) notation, or see [the intro](#intro) and [Nopa](nopasf.com)."
     }
   ]
 }

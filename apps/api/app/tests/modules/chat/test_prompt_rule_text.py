@@ -166,8 +166,8 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # (NAME_LINK_RULE, NAME_LINK_NOTE), and the "near me" places card's layout hint gone
 # (LOCAL_PLACES_FORMAT_HINT; the owner, 2026-11-27).
 _RULES = 232
-_RULE_GRAMS = 21208
-_RULE_GRAMS_SHA = "0e7a486a58771885"
+_RULE_GRAMS = 21212
+_RULE_GRAMS_SHA = "50fa385a2cf744e1"
 
 
 def _rules() -> list[str]:

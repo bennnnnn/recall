@@ -97,7 +97,7 @@ NAME_LINK_RULE = (
     "Maps or a search, so never write a web address for one yourself, and give a city only "
     "to a place someone can go into, never to a course, an app or an event online. Never a "
     "link on a heading, a kind of thing (a taqueria, budget phones), a private person, a "
-    "name only mentioned, or inside code or maths."
+    "name only mentioned, or inside code, maths, a card or a draft."
 )
 
 

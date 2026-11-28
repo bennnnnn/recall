@@ -47,6 +47,8 @@ def test_display_dollars_pair_end_pairs_the_same_dollars(case: dict[str, object]
 
 @pytest.mark.parametrize("case", CASES, ids=IDS)
 def test_display_dollars_latex_check_reads_the_same_maths(case: dict[str, object]) -> None:
+    if case.get("no_pair_at"):
+        pytest.skip("a blank pair's text is read by test_display_dollars_a_blank_pair_is_no_maths")
     maths, _prose = _maths_and_prose(str(case["text"]))
     expected = [*case["display"], *case.get("inline", [])]  # type: ignore[misc]
     assert [body.strip() for body in maths] == expected
@@ -117,6 +119,7 @@ PRICES = [
     for case in CASES
     if not case["display"]
     and not case.get("inline")
+    and not case.get("no_pair_at")
     and "\n" not in case["text"]
     and "`" not in case["text"]
     and "\\" not in case["text"]
@@ -173,3 +176,14 @@ def test_display_dollars_calculation_layout_splits_no_chain_a_tier_closes() -> N
 def test_display_dollars_notation_between_tiers_paragraphs_apart() -> None:
     text = "Zuni - $$.\n\nIts smell is CC(=O)O.\n\nTartine - $$."
     assert "`CC(=O)O`" in code_notation(text)
+
+
+BLANK = [case for case in CASES if case.get("no_pair_at")]
+
+
+@pytest.mark.parametrize("case", BLANK, ids=[case["id"] for case in BLANK])
+def test_display_dollars_a_blank_pair_is_no_maths(case: dict[str, object]) -> None:
+    """The phone's ``!value.trim()``: ``$ $`` opens no inline formula on either side."""
+    text = str(case["text"])
+    for at in case["no_pair_at"]:  # type: ignore[attr-defined]
+        assert maths_pair_end(text, at) is None

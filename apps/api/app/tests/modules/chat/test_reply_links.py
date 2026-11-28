@@ -20,6 +20,7 @@ FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "name_link
 _FIXTURE = json.loads(FIXTURE.read_text(encoding="utf-8"))
 NAME_CASES = _FIXTURE["cases"]
 MARKDOWN_CASES = _FIXTURE["markdown"]
+UNTOUCHED = _FIXTURE["untouched"]
 
 _HITS = [
     WebSearchHit(title="Reuters", url="https://www.reuters.com/world/lisbon-2026", snippet="s"),
@@ -104,12 +105,35 @@ def test_the_users_own_link_stays_but_not_one_in_their_file() -> None:
     assert link_reply_names(_state(leaked, message=attached)) == "The notes say so."
 
 
-def test_code_is_copied_as_written() -> None:
+def test_code_is_copied_as_written_and_a_fenced_mark_keeps_its_words() -> None:
     reply = (
         "Use `[x](https://made-up.example)` or `[Zuni](check)` in markdown.\n\n"
-        '```md\n[Zuni Café](check "San Francisco")\n```'
+        '```steps\n1. **Download [Python](check)**\nFrom [Python](check "Online").\n```'
     )
-    assert link_reply_names(_state(reply)) == reply
+    out = link_reply_names(_state(reply))
+    assert out.startswith("Use `[x](https://made-up.example)` or `[Zuni](check)` in markdown.")
+    assert "```steps\n1. **Download Python**\nFrom Python.\n```" in out
+    assert "](check" not in out.split("```steps")[1]
+
+
+@pytest.mark.parametrize("case", UNTOUCHED, ids=[case["id"] for case in UNTOUCHED])
+def test_maths_code_and_a_target_that_is_no_web_address_are_left_as_written(
+    case: dict[str, str],
+) -> None:
+    """Review of #2618: "$\\mathcal{L}[t^2](s)$" saved as "$\\mathcal{L}t^2$"."""
+    assert link_reply_names(_state(case["text"])) == case["text"]
+    assert link_reply_names(_state(case["text"], hits=[])) == case["text"]
+
+
+def test_a_link_an_earlier_reply_carried_stays() -> None:
+    """A follow-up with no search keeps the site an earlier search gave Zuni Café."""
+    state = _state("For a date, [Zuni Café](https://zunicafe.com/) is best.", hits=[])
+    state.ctx.prompt_messages = [
+        {"role": "user", "content": "best restaurants in San Francisco"},
+        {"role": "assistant", "content": "1. **[Zuni Café](https://zunicafe.com/)** — classic"},
+        {"role": "user", "content": "which of those is best for a date?"},
+    ]
+    assert link_reply_names(state) == state.text
 
 
 def test_a_bare_url_as_the_words_becomes_the_site_name() -> None:
@@ -139,18 +163,16 @@ def test_an_unmarked_name_opens_its_own_site_from_the_results() -> None:
     [
         # A host with no scheme, from a result: https.
         ("[Nopa](www.nopasf.com)", "[Nopa](https://www.nopasf.com)"),
-        ("[Nopa](nopasf.com)", "[Nopa](https://nopasf.com)"),
-        # Not from a result, or no address at all: its words, never a dead link.
-        ("[Tartine](tartine-guess.com)", "Tartine"),
-        ("[La Taqueria](#)", "La Taqueria"),
-        ("[click](" + "java" + "script:alert(1))", "click"),
-        # An app's link stays.
+        # Not from a result: its words, never a dead link.
+        ("[Tartine](www.tartine-guess.com)", "Tartine"),
+        # No web address at all: as written, never this pass's (the phone draws its words).
+        ("[Nopa](nopasf.com)", "[Nopa](nopasf.com)"),
+        ("[La Taqueria](#)", "[La Taqueria](#)"),
+        ("[click](" + "java" + "script:alert(1))", "[click](" + "java" + "script:alert(1))"),
         ("[call](tel:+14155551234)", "[call](tel:+14155551234)"),
     ],
 )
-def test_an_address_with_no_scheme_is_https_from_a_result_or_its_words(
-    link: str, kept: str
-) -> None:
+def test_a_www_host_is_https_from_a_result_and_anything_else_is_left(link: str, kept: str) -> None:
     out = link_reply_names(_state(f"See {link}.", hits=_RESTAURANT_HITS))
     assert out == f"See {kept}."
 
@@ -268,3 +290,11 @@ def test_a_name_is_linked_the_first_time_only() -> None:
 @pytest.mark.parametrize("case", MARKDOWN_CASES, ids=[case["id"] for case in MARKDOWN_CASES])
 def test_a_marked_link_as_written_opens_what_the_phone_opens(case: dict[str, str]) -> None:
     assert f"]({case['url']})" in place_marks_only(case["markdown"])
+
+
+def test_a_city_with_its_own_brackets_keeps_the_saved_link_whole() -> None:
+    reply = """Try [Joe's Pizza](check "New York (Greenwich Village)")."""
+    out = link_reply_names(_state(reply, hits=[]))
+    target = out[out.index("](") + 2 : -2]
+    assert target.count("(") == target.count(")") == 0
+    assert out.endswith("%28Greenwich%20Village%29).")

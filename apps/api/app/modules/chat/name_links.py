@@ -11,8 +11,9 @@ and the server picks where it goes:
    the name and the city;
 3. else a Google search for the name.
 
-The phone opens a name the same way while the reply streams (``lib/markdown/replyLinks.ts``);
-``docs/fixtures/name_links.json`` holds the two to the same addresses.
+The phone draws a mark as its words while the reply streams (``lib/markdown/replyLinks.ts``)
+and the saved reply's link once the server placed it: one rule, the server's.
+``docs/fixtures/name_links.json`` holds the addresses it writes and what it leaves alone.
 """
 
 from __future__ import annotations
@@ -25,8 +26,9 @@ from urllib.parse import quote, urlsplit
 
 MAPS_SEARCH = "https://www.google.com/maps/search/?api=1&query="
 WEB_SEARCH = "https://www.google.com/search?q="
-# What encodeURIComponent leaves as it is, so the phone's twin writes the same address.
-_URI_SAFE = "!~*'()"
+# Left as they are; a bracket is escaped, so a name such as "Pixel 9a (128 GB)" keeps the
+# saved link's own brackets balanced.
+_URI_SAFE = "!~*'"
 # Markdown a link's words may carry: **bold**, *italic*, `code`.
 _EMPHASIS = re.compile(r"[*_`]+")
 _STRAIGHT_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})

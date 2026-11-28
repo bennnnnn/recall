@@ -141,8 +141,9 @@ def _bracketed_tier(line: str, start: int, end: int) -> bool:
 
 # A dash that joins two price tiers ("$-$$", "$$-$$$"), en and em dashes included.
 _RANGE_DASHES = "-\u2013\u2014"
-# What may come before a price tier: the line's start, a blank or an opening mark.
-_TIER_BEFORE = " \t(,:;"
+# What may come before a price tier: the line's start, a blank, an opening mark, the bold
+# that closes a name or a dash, en and em dashes included ("**Burma Superstar**-$-$$").
+_TIER_BEFORE = " \t(,:;*-\u2013\u2014"
 
 
 def _range_end(line: str, start: int) -> bool:

@@ -37,6 +37,16 @@ describe("deriveAssistantMessageContent", () => {
     }
   });
 
+  it("drops a retired venue list a reply once fenced as json, and keeps other json", () => {
+    const venues = '```json\n[{"name":"Shell","url":"https://maps.example/shell","address":"1 Main St"}]\n```';
+    const asked = '```json\n[{"name":"Shell","cuisine":"diner","url":"https://shell.example"}]\n```';
+    const settled = deriveAssistantMessageContent({ ...base, content: `Nearby:\n\n${venues}\n\nEnjoy.` });
+    expect(settled.markdownContent).not.toContain("Shell");
+    expect(settled.markdownContent).toContain("Enjoy.");
+    const kept = deriveAssistantMessageContent({ ...base, content: `Here:\n\n${asked}` });
+    expect(kept.markdownContent).toContain('"cuisine":"diner"');
+  });
+
   it("returns empty markdown flags for user rows", () => {
     const result = deriveAssistantMessageContent({
       ...base,

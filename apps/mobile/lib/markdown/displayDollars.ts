@@ -126,8 +126,9 @@ function bracketedTier(line: string, start: number, end: number): boolean {
 
 /** A dash that joins two price tiers ("$–$$", "$$-$$$"), en and em dashes included. */
 const RANGE_DASHES = "-–—";
-/** What may come before a price tier: the line's start, a blank or an opening mark. */
-const TIER_BEFORE = " \t(,:;";
+/** What may come before a price tier: the line's start, a blank, an opening mark, the bold that
+ * closes a name or a dash ("**Burma Superstar**—$–$$"). */
+const TIER_BEFORE = " \t(,:;*-–—";
 
 /**
  * The run of two at `start` ends a price range, `$–$$` or `$ – $$`: a dash before it and a

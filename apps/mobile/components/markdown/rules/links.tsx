@@ -2,12 +2,12 @@ import { ReactNode } from "react";
 import { Image } from "expo-image";
 import { Text } from "react-native";
 
-import { type AstNode, astText } from "@/components/markdown/markdownAstHelpers";
+import type { AstNode } from "@/components/markdown/markdownAstHelpers";
 import type { MdImgStyles, StyleMap } from "@/components/markdown/markdownContentStyles";
 import { TapToLoadImage } from "@/components/markdown/TapToLoadImage";
 import { imageLoadPolicy } from "@/lib/images/imageUriPolicy";
 import { isAllowedLinkUrl, openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { replyLinkUrl } from "@/lib/markdown/replyLinks";
+import { isNameMark } from "@/lib/markdown/replyLinks";
 
 export function linkRules(mdImg: MdImgStyles) {
   return {
@@ -41,14 +41,15 @@ export function linkRules(mdImg: MdImgStyles) {
       _parent: unknown,
       styles: StyleMap,
     ) => {
-      const href = node.attributes?.href ?? "";
-      const title = node.attributes?.title ?? "";
-      // A name still marked to look up (the reply is streaming) opens Maps or a search
-      // (`replyLinks.ts`). The scheme guard rejects javascript:/data:/file: before the OS
-      // link handler: Linking.openURL runs the payload on some platforms. A target it would
-      // refuse ("#", "zunicafe.com") is drawn as the words, never as a dead link.
-      const target = replyLinkUrl(href, astText(node), title);
-      if (!isAllowedLinkUrl(target)) return <Text key={node.key}>{children}</Text>;
+      const target = (node.attributes?.href ?? "").trim();
+      // A name still marked to look up (the reply is streaming) is its words until the
+      // server places it (`replyLinks.ts`). The scheme guard rejects javascript:/data:/file:
+      // before the OS link handler: Linking.openURL runs the payload on some platforms. A
+      // target it would refuse ("#", "zunicafe.com") is drawn as the words, never as a dead
+      // link.
+      if (isNameMark(target) || !isAllowedLinkUrl(target)) {
+        return <Text key={node.key}>{children}</Text>;
+      }
       return (
         <Text
           key={node.key}

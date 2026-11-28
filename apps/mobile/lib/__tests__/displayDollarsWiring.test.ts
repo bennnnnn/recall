@@ -7,7 +7,7 @@
  */
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
-import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
 import { presentStreamTail } from "@/lib/markdown/presentation";
@@ -17,11 +17,11 @@ import { prepareStreamingMathText } from "@/lib/math/streaming";
 
 import fixture from "../../../../docs/fixtures/display_math_cases.json";
 
-type Case = { id: string; text: string; display: string[]; inline?: string[] };
+type Case = { id: string; text: string; display: string[]; inline?: string[]; no_pair_at?: number[] };
 
 /** One-line texts with dollar runs and no formula: prices. */
 const PRICES = (fixture.cases as Case[])
-  .filter((c) => c.display.length === 0 && !(c.inline ?? []).length)
+  .filter((c) => c.display.length === 0 && !(c.inline ?? []).length && !c.no_pair_at)
   .filter((c) => !c.text.includes("\n") && !c.text.includes("`") && !c.text.includes("\\"))
   .map((c): [string, string] => [c.id, c.text]);
 
@@ -73,6 +73,12 @@ describe("every $$ reader leaves a price tier as written", () => {
       .filter((part) => part.type === "math")
       .map((part) => part.value);
     expect(found).toEqual(c.inline);
+  });
+
+  it.each(
+    (fixture.cases as Case[]).filter((c) => c.no_pair_at).map((c): [string, Case] => [c.id, c]),
+  )("%s: a blank pair opens no inline formula", (_id, c) => {
+    for (const at of c.no_pair_at ?? []) expect(readInlineMathSpan(c.text, at)).toBeNull();
   });
 
   it.each(PRICES)("%s: the inline reader finds no maths in it", (_id, text) => {

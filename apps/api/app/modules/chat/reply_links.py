@@ -1,34 +1,43 @@
 """Finalize pass: every link a reply shows opens what the server can stand behind.
 
-A link stays as written when its page was among this turn's search results or the chat's own
-user messages (the words they typed, as link previews trust them), when it is the home page of
-a site a result came from, when it is a Google Maps or Google search link (a search, not a
-claim), or when it opens an app (``mailto:``, ``tel:``). A host written with no scheme
-(``zunicafe.com``, ``www.…``) is read as https and held to the same.
+Only a web link is this pass's: a name the reply marked to look up (``check``, maybe
+``check "City"`` or ``check:City``), an ``http(s)`` address, or a host written from ``www.``.
+Any other ``[…](…)`` (``#``, ``mailto:``, a relative path) is left exactly as written, and so is
+every ``[…](…)`` inside maths (``$…$``, ``$$…$$``, ``\\(…\\)``, ``\\[…\\]``, read as the phone reads
+them: ``$\\mathcal{L}[t^2](s)$``, ``$[A](t)$``), inline code and fences.
+
+A web link stays as written when its page was among this turn's search results, the chat's own
+user messages (the words they typed, as link previews trust them) or the links the chat's
+earlier replies already carried, when it is the home page of a site a result came from, or when
+it is a Google Maps or Google search link (a search, not a claim). A ``www.`` host is read as
+https and held to the same.
 
 A name the reply marked to look up, ``[Zuni Café](check "San Francisco")``, is the server's to
-place (``name_links``): the name's own site from the results, Maps for a place, or a search.
-Any other link with an address the server cannot stand behind (one the model wrote from memory,
-a made-up source, ``#``) opens the name's own site when a result is on a host that names it,
-and otherwise keeps only its words: no link and no search ("Read More" is no name to search).
-A marked link that names nothing ("a taqueria"), a bare URL as its own words and a link on a
-heading keep only their words too.
+place (``name_links``): the name's own site from the results, Maps for a place, or a search. A
+web address the server cannot stand behind (one the model wrote from memory, a made-up source)
+opens the name's own site when a result is on a host that names it, and otherwise keeps only
+its words: no link and no search ("Read More" is no name to search). A marked link that names
+nothing ("a taqueria"), a bare URL as its own words, a link on a heading and a name's second
+mark keep only their words too, and a mark inside a fence (a steps card, a draft) keeps its
+words: no raw ``check`` is ever saved, and the phone draws one only as words while it streams.
 
 It runs after ``untrusted_media``, which turns a model's image into a link: the image's own
-address is not a source claim, so those links stay. Fenced and inline code are copied as
-written, so a code sample's links are untouched.
+address is not a source claim, so those links stay.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
+from app.modules.chat.display_dollars import display_dollar_pair_end
 from app.modules.chat.inline_code import escaped_at, read_inline_code_span
 from app.modules.chat.markdown_regions import map_prose_outside_fences
+from app.modules.chat.math_padding import maths_pair_end
 from app.modules.chat.name_links import Page, is_a_name, name_target, name_text, own_site
+from app.services.md_fence_scan import iter_fences
 from app.services.prompt_safety import text_before_attachment_markers
 
 if TYPE_CHECKING:
@@ -36,17 +45,22 @@ if TYPE_CHECKING:
     from app.modules.chat.turn_prep import StreamContext
 
 _USER_URL = re.compile(r"https?://[^\s<>()\[\]\"']+", re.IGNORECASE)
+# A link an earlier reply carried: "](https://…)".
+_REPLY_LINK = re.compile(r"\]\(\s*<?(https?://[^\s)>]+)", re.IGNORECASE)
 _IMAGE_SOURCE = re.compile(
     r"!\[[^\]\n]*\]\(\s*<?([^\s)>]+)|<img\b[^>]*\bsrc\s*=\s*[\"']?([^\"'\s>]+)", re.IGNORECASE
 )
 _GOOGLE_HOSTS = frozenset({"google.com", "maps.google.com"})
-# Schemes that open an app, not a page: kept as written (``lib/linkSchemePolicy.ts``).
-_APP_SCHEMES = frozenset({"mailto", "tel", "sms", "maps", "geo"})
-# A host with no scheme: "zunicafe.com", "www.nopasf.com/menu".
-_BARE_HOST = re.compile(r"^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:/\S*)?$", re.IGNORECASE)
+# A host written from "www." with no scheme: "www.nopasf.com/menu".
+_WWW_HOST = re.compile(r"^www\.[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:/\S*)?$", re.IGNORECASE)
 # The address the reply's model writes for a name it marks (``NAME_LINK_RULE``).
 CHECK_MARKER = "check"
-_TITLE_QUOTES = "\"'()"
+# A marked link inside a fence, its title's one pair of brackets included.
+_FENCED_MARK = re.compile(
+    r"(?<!!)\[([^\]\n]+)\]\(\s*check(?=[\s:)\"'])(?:[^()\n]|\([^()\n]*\))*\)", re.IGNORECASE
+)
+# The pairs a link title may stand between.
+_TITLE_PAIRS = (('"', '"'), ("'", "'"), ("(", ")"))
 
 
 def _key(url: str) -> tuple[str, str] | None:
@@ -63,9 +77,10 @@ def _key(url: str) -> tuple[str, str] | None:
 
 
 class _Allowed:
-    """The pages this turn may link: its results, the user's links and the model's images."""
+    """The pages this turn may link: its results, the user's links, the chat's earlier
+    replies' links and the model's images."""
 
-    def __init__(self, urls: list[str]) -> None:
+    def __init__(self, urls: Iterable[str]) -> None:
         keys = [key for url in urls if (key := _key(url)) is not None]
         self.pages = set(keys)
         self.hosts = {host for host, _path in keys}
@@ -87,39 +102,64 @@ def link_reply_names(state: FinalizeState) -> str:
         return state.text
     images = [next(g for g in match.groups() if g) for match in _IMAGE_SOURCE.finditer(state.raw)]
     pages = list(ctx.search_sources)
-    allowed = _Allowed([hit.url for hit in pages] + _users_urls(ctx) + images)
+    allowed = _Allowed([hit.url for hit in pages] + _chat_urls(ctx) + images)
     return place_links(state.text, allowed, pages)
 
 
-def _users_urls(ctx: StreamContext) -> list[str]:
-    """The URLs the user typed in this chat: this message and the earlier ones the turn read,
-    their attachments' text left out (``text_before_attachment_markers``, as the phone's link
-    previews read them). "Summarise https://…", then "what did it say about rents?" keeps
-    the user's link in the second reply."""
-    texts = [ctx.user_message_content or ""]
+def _chat_messages(ctx: StreamContext) -> list[tuple[str, str]]:
+    """The chat's messages the turn read, as (role, text): the stored window and the prompt's."""
+    messages = [("user", ctx.user_message_content or "")]
     for message in ctx.recent_messages or ():
-        if getattr(message, "role", None) == "user":
-            texts.append(str(getattr(message, "content", "") or ""))
+        role = getattr(message, "role", None)
+        messages.append((str(role), str(getattr(message, "content", "") or "")))
     for message in ctx.prompt_messages:
-        if message.get("role") == "user" and isinstance(message.get("content"), str):
-            texts.append(message["content"])
-    return [
-        url for text in texts for url in _USER_URL.findall(text_before_attachment_markers(text))
-    ]
+        content = message.get("content")
+        if isinstance(content, str):
+            messages.append((str(message.get("role")), content))
+    return messages
+
+
+def _chat_urls(ctx: StreamContext) -> list[str]:
+    """The URLs the user typed in this chat (their attachments' text left out, as the phone's
+    link previews read them) and the links the chat's earlier replies carried: "Summarise
+    https://…", then "what did it say about rents?" keeps the user's link, and "which of those
+    is best for a date?" keeps the site an earlier search gave Zuni Café."""
+    urls: list[str] = []
+    for role, text in _chat_messages(ctx):
+        if role == "user":
+            urls += _USER_URL.findall(text_before_attachment_markers(text))
+        elif role == "assistant":
+            urls += _REPLY_LINK.findall(text)
+    return urls
 
 
 def place_links(text: str, allowed: _Allowed, pages: Sequence[Page]) -> str:
     if "](" not in text:
         return text
     placing = _Placing(allowed, pages)
-    return map_prose_outside_fences(text, lambda prose: _rewrite_links(prose, placing))
+    placed = map_prose_outside_fences(text, lambda prose: _rewrite_links(prose, placing))
+    return _fence_marks_as_words(placed) if "](" in placed else placed
 
 
 def place_marks_only(text: str) -> str:
     """What stands in when the pass fails, and on a stopped reply's text: a marked name opens
-    Maps or a search with no result to go by, and any other address the server cannot stand
-    behind keeps only its words, so no raw ``check`` mark is ever saved."""
+    Maps or a search with no result to go by, and any other web address the server cannot
+    stand behind keeps only its words, so no raw ``check`` mark is ever saved."""
     return place_links(text, _Allowed([]), [])
+
+
+def _fence_marks_as_words(text: str) -> str:
+    """Each fence (a steps card, a draft) as written, every ``check`` mark in it its words: a
+    card reads no links, and a draft is copied."""
+    pieces: list[str] = []
+    cursor = 0
+    for fence in iter_fences(text):
+        body = text[fence.body_start : fence.body_end]
+        if "](" not in body:
+            continue
+        pieces += [text[cursor : fence.body_start], _FENCED_MARK.sub(lambda m: m.group(1), body)]
+        cursor = fence.body_end
+    return "".join([*pieces, text[cursor:]])
 
 
 class _Link:
@@ -138,12 +178,27 @@ class _Link:
         return url == CHECK_MARKER or url.startswith(f"{CHECK_MARKER}:")
 
     @property
+    def web(self) -> bool:
+        """This pass's link: a mark, an http(s) address or a ``www.`` host."""
+        return self.marked or _key(self.url) is not None or _WWW_HOST.match(self.url) is not None
+
+    @property
     def city(self) -> str:
         """The place's city a marked name gives, as its title or after ``check:``."""
         if not self.marked:
             return ""
         after = self.url[len(CHECK_MARKER) :].lstrip(":")
-        return " ".join(f"{after} {self.title}".strip(_TITLE_QUOTES + " ").split())
+        return " ".join(f"{after} {self.title}".split())
+
+
+def _unquoted(title: str) -> str:
+    """A link title without the one pair of quotes or brackets it stands between: "New York
+    (Greenwich Village)" keeps its own brackets."""
+    title = title.strip()
+    for opening, closing in _TITLE_PAIRS:
+        if len(title) >= 2 and title.startswith(opening) and title.endswith(closing):
+            return title[1:-1].strip()
+    return title
 
 
 def _link_at(prose: str, start: int) -> _Link | None:
@@ -168,8 +223,7 @@ def _link_at(prose: str, start: int) -> _Link | None:
         return None
     target = prose[close + 2 : index].strip()
     url, _, title = target.partition(" ") if target else ("", "", "")
-    title = title.strip().strip(_TITLE_QUOTES).strip()
-    return _Link(index + 1, prose[start + 1 : close], url.strip("<>"), title)
+    return _Link(index + 1, prose[start + 1 : close], url.strip("<>"), _unquoted(title))
 
 
 def _plain(words: str) -> str:
@@ -195,12 +249,12 @@ class _Placing:
 
     def placed(self, prose: str, at: int, link: _Link) -> str:
         """The link as the reply keeps it."""
+        if not link.web:
+            return prose[at : link.end]
         if link.marked:
             return self._marked(prose, at, link)
-        if _opens_an_app(link.url):
-            return prose[at : link.end]
-        url = _with_scheme(link.url)
-        if url is not None and url in self.allowed:
+        url = link.url if _key(link.url) is not None else f"https://{link.url}"
+        if url in self.allowed:
             return prose[at : link.end] if url == link.url else f"[{link.words}]({url})"
         # An address no result gave: the name's own site from the results, else its words.
         name = name_text(link.words)
@@ -217,19 +271,23 @@ class _Placing:
         return f"[{link.words}]({name_target(name, link.city, self.pages)})"
 
 
-def _opens_an_app(url: str) -> bool:
-    try:
-        return urlsplit(url).scheme.lower() in _APP_SCHEMES
-    except ValueError:
-        return False
-
-
-def _with_scheme(url: str) -> str | None:
-    """``url`` as a web address: as written, or https for a host written with no scheme; None
-    for anything else (``#``, a relative path, ``javascript:``)."""
-    if _key(url) is not None:
-        return url
-    return f"https://{url}" if _BARE_HOST.match(url) else None
+def _maths_end(prose: str, index: int) -> int | None:
+    """The end of the maths that opens at ``index`` (``$…$``, ``$$…$$``, ``\\(…\\)``,
+    ``\\[…\\]``), read as the phone reads it (``display_dollars``, ``math_padding``); None when
+    no maths opens there."""
+    if prose.startswith("$$", index):
+        return display_dollar_pair_end(prose, index)
+    if prose.startswith("$", index):
+        line_start = prose.rfind("\n", 0, index) + 1
+        line_end = prose.find("\n", index)
+        line = prose[line_start : len(prose) if line_end < 0 else line_end]
+        end = maths_pair_end(line, index - line_start)
+        return None if end is None else line_start + end
+    for opener, closer in (("\\(", "\\)"), ("\\[", "\\]")):
+        if prose.startswith(opener, index) and not escaped_at(prose, index):
+            close = prose.find(closer, index + 2)
+            return None if close < 0 else close + 2
+    return None
 
 
 def _rewrite_links(prose: str, placing: _Placing) -> str:
@@ -240,6 +298,10 @@ def _rewrite_links(prose: str, placing: _Placing) -> str:
         if char == "`" and (code_end := read_inline_code_span(prose, index)) is not None:
             out.append(prose[index:code_end])
             index = code_end
+            continue
+        if char in "$\\" and (maths_end := _maths_end(prose, index)) is not None:
+            out.append(prose[index:maths_end])
+            index = maths_end
             continue
         # An image's "[" opens its alt text, not a link.
         image = char == "!" and prose.startswith("[", index + 1)

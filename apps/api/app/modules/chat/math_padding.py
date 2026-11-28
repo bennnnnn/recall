@@ -113,7 +113,9 @@ def maths_pair_end(line: str, start: int) -> int | None:
     if end < 0:
         return None
     body = line[start + 1 : end]
-    if _opens_price_range(line, end, body) or code_span_opens_within(line, start + 1, end):
+    if not body.strip() or _opens_price_range(line, end, body):
+        return None
+    if code_span_opens_within(line, start + 1, end):
         return None
     if _opens_price(line, end, body) or _price_body(body):
         return None

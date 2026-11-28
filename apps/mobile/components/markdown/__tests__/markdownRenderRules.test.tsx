@@ -1,4 +1,4 @@
-import { Linking, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -20,6 +20,7 @@ import "@/lib/i18n";
 jest.unmock("react-i18next");
 
 const NAME_LINK_MARKDOWN = nameLinks.markdown as { id: string; markdown: string; words: string; url: string }[];
+const NAME_LINK_UNTOUCHED = nameLinks.untouched as { id: string; text: string }[];
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual(
@@ -367,9 +368,10 @@ describe("markdown render rules", () => {
   });
 
   it("draws every link one way: the text's colour, dotted underline (2026-11-27)", async () => {
+    const placed = "https://www.google.com/maps/search/?api=1&query=Zuni%20Caf%C3%A9%2C%20San%20Francisco";
     const { getByText } = await render(
       <MarkdownContent
-        content={'1. **[Zuni Café](check "San Francisco")** — Californian\n2. See [the docs](https://example.com/docs).'}
+        content={`1. **[Zuni Café](${placed})** — Californian\n2. See [the docs](https://example.com/docs).`}
       />,
     );
     for (const words of ["Zuni Café", "the docs"]) {
@@ -383,17 +385,26 @@ describe("markdown render rules", () => {
     }
   });
 
-  // docs/fixtures/name_links.json: the reply's marked links as written, drawn and tapped,
-  // open what the server writes when it places them (test_reply_links.py).
+  // docs/fixtures/name_links.json: a mark still in the text (the reply is streaming) is its
+  // words, never a link; the server's placed link appears when the reply settles, so the
+  // phone never opens an address the saved reply does not have.
   it.each(NAME_LINK_MARKDOWN.map((c) => [c.id, c] as const))(
-    "%s: a marked link opens what the server writes",
+    "%s: a marked name is its words until the server places it",
     async (_id, c) => {
-      const open = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
-      const { getByText } = await render(<MarkdownContent content={c.markdown} />);
-      fireEvent.press(getByText(c.words));
-      await Promise.resolve();
-      expect(open).toHaveBeenCalledWith(c.url);
-      open.mockRestore();
+      const { getByText, queryByRole } = await render(<MarkdownContent content={c.markdown} />);
+      // The typographer curls the apostrophe ("Joe’s Pizza").
+      expect(getByText(c.words.replace(/'/g, "\u2019"))).toBeOnTheScreen();
+      expect(queryByRole("link")).toBeNull();
+    },
+  );
+
+  // Maths and code whose brackets look like a link, and targets that are no web address,
+  // draw no link (the server leaves them as written: test_reply_links.py).
+  it.each(NAME_LINK_UNTOUCHED.map((c) => [c.id, c] as const))(
+    "%s: no link is drawn",
+    async (_id, c) => {
+      const { queryByRole } = await render(<MarkdownContent content={c.text} />);
+      expect(queryByRole("link")).toBeNull();
     },
   );
 
@@ -405,17 +416,12 @@ describe("markdown render rules", () => {
     expect(queryByRole("link")).toBeNull();
   });
 
-  it("opens a name still marked while streaming on Maps with its city", async () => {
-    const open = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
-    const { getByText } = await render(
-      <MarkdownContent content={'1. **[Zuni Café](check "San Francisco")** — Californian'} />,
+  it("previews no search or Maps link the server placed for a name alone on its line", async () => {
+    const { queryByTestId, getByText } = await render(
+      <MarkdownContent content={"[Atomic Habits](https://www.google.com/search?q=Atomic%20Habits)"} />,
     );
-    fireEvent.press(getByText("Zuni Café"));
-    await Promise.resolve();
-    expect(open).toHaveBeenCalledWith(
-      "https://www.google.com/maps/search/?api=1&query=Zuni%20Caf%C3%A9%2C%20San%20Francisco",
-    );
-    open.mockRestore();
+    expect(queryByTestId("link-preview-card")).toBeNull();
+    expect(getByText("Atomic Habits")).toBeOnTheScreen();
   });
 
   it("renders a preview card for a standalone markdown link", async () => {
