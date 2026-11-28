@@ -79,11 +79,21 @@ async def test_client_id_is_per_account(db_session):
     first_user, other_user = await _user(db_session), await _user(db_session)
     client_id = uuid4()
     mine = await todos_crud.create_todo(
-        db_session, first_user, content="Mine", topic=None, chat_id=None, due_at=None,
+        db_session,
+        first_user,
+        content="Mine",
+        topic=None,
+        chat_id=None,
+        due_at=None,
         client_id=client_id,
     )
     theirs = await todos_crud.create_todo(
-        db_session, other_user, content="Theirs", topic=None, chat_id=None, due_at=None,
+        db_session,
+        other_user,
+        content="Theirs",
+        topic=None,
+        chat_id=None,
+        due_at=None,
         client_id=client_id,
     )
     assert theirs.id != mine.id
@@ -97,7 +107,12 @@ async def test_a_create_racing_its_twin_returns_the_row_the_twin_made(db_session
     user = await _user(db_session)
     client_id = uuid4()
     made = await todos_crud.create_todo(
-        db_session, user, content="Buy milk", topic=None, chat_id=None, due_at=None,
+        db_session,
+        user,
+        content="Buy milk",
+        topic=None,
+        chat_id=None,
+        due_at=None,
         client_id=client_id,
     )
     # The rollback below expires the rows the session holds.
@@ -112,7 +127,12 @@ async def test_a_create_racing_its_twin_returns_the_row_the_twin_made(db_session
 
     monkeypatch.setattr(todos_crud.todos_repo, "get_by_client_id", miss_first)
     again = await todos_crud.create_todo(
-        db_session, user, content="Buy milk", topic=None, chat_id=None, due_at=None,
+        db_session,
+        user,
+        content="Buy milk",
+        topic=None,
+        chat_id=None,
+        due_at=None,
         client_id=client_id,
     )
     assert again.id == made_id

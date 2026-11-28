@@ -35,7 +35,9 @@ def is_client_id_conflict(exc: BaseException) -> bool:
     return CLIENT_ID_UNIQUE in blob
 
 
-async def get_by_client_id(session: AsyncSession, user_id: UUID, client_id: UUID) -> TodoItem | None:
+async def get_by_client_id(
+    session: AsyncSession, user_id: UUID, client_id: UUID
+) -> TodoItem | None:
     """The to-do this account's create named ``client_id`` made, if it was made."""
     result = await session.execute(
         select(TodoItem).where(TodoItem.user_id == user_id, TodoItem.client_id == client_id)
