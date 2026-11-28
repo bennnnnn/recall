@@ -6,18 +6,24 @@
 const mockPlatform = { OS: "android" };
 jest.mock("react-native", () => ({ Platform: mockPlatform }));
 
+/** The documents directory by file name; the cache directory's files as `cache/<name>`. */
 const mockDisk = new Map<string, string>();
-jest.mock("@/lib/cache/cacheFile", () => ({
-  cacheFile: (name: string) => ({
-    read: async () => mockDisk.get(name) ?? null,
-    readSync: () => mockDisk.get(name) ?? null,
-    write: async (contents: string) => {
-      mockDisk.set(name, contents);
-    },
-    clear: async () => {
-      mockDisk.delete(name);
-    },
-  }),
+const mockKey = (path: string) => path.replace("file:///docs/", "").replace("file:///cache/", "cache/");
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "file:///docs/",
+  cacheDirectory: "file:///cache/",
+  getInfoAsync: async (path: string) => ({ exists: mockDisk.has(mockKey(path)) }),
+  readAsStringAsync: async (path: string) => mockDisk.get(mockKey(path)) ?? "",
+  writeAsStringAsync: async (path: string, contents: string) => {
+    mockDisk.set(mockKey(path), contents);
+  },
+  moveAsync: async ({ from, to }: { from: string; to: string }) => {
+    mockDisk.set(mockKey(to), mockDisk.get(mockKey(from)) ?? "");
+    mockDisk.delete(mockKey(from));
+  },
+  deleteAsync: async (path: string) => {
+    mockDisk.delete(mockKey(path));
+  },
 }));
 
 type HeldModule = typeof import("@/features/billing/model/heldPurchase");
@@ -51,6 +57,14 @@ describe("on Android", () => {
     const relaunched = launch();
     await relaunched.loadHeldPurchase("user-1", T0 + 3 * DAY);
     expect(relaunched.heldPurchase()).toBe("pro");
+  });
+
+  it("keeps the hold an earlier version wrote in the cache directory, now in the documents directory", async () => {
+    mockDisk.set("cache/recall-held-purchase.txt", `user-1|pro|${T0}`);
+    const upgraded = launch();
+    await upgraded.loadHeldPurchase("user-1", T0 + DAY);
+    expect(upgraded.heldPurchase()).toBe("pro");
+    expect([...mockDisk]).toEqual([["recall-held-purchase.txt", `user-1|pro|${T0}`]]);
   });
 
   it("lets go of a hold an older version kept for Plus, which is no plan any more", async () => {

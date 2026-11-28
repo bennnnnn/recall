@@ -4,6 +4,8 @@ import appConfig from "../../app.config";
 import appJson from "../../app.json";
 import { LANGUAGES } from "../i18n/languages";
 
+declare const __dirname: string;
+
 /**
  * Store-review guards on app.json. Expo decides the order its config plugins write
  * Info.plist in, so every plugin that writes a usage description must carry the text
@@ -70,6 +72,24 @@ describe("app store config", () => {
       }
     },
   );
+
+  // expo-secure-store's Auto Backup rules include only shared preferences, and an <include>
+  // makes Android back up nothing else: the files directory (unsent drafts, the purchase hold,
+  // lib/durableFile.ts) and the secure store itself never reach a backup or another phone.
+  it("keeps Android Auto Backup to shared preferences outside the secure store", () => {
+    expect(pluginOptions("expo-secure-store").get("configureAndroidBackup")).not.toBe(false);
+    const rules = ["secure_store_backup_rules.xml", "secure_store_data_extraction_rules.xml"].map((name) =>
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- @types/node is not installed
+      (require("node:fs") as { readFileSync: (path: string, encoding: string) => string }).readFileSync(
+        `${__dirname}/../../node_modules/expo-secure-store/android/src/main/res/xml/${name}`,
+        "utf8",
+      ));
+    for (const xml of rules) {
+      const includes = [...xml.matchAll(/<include domain="([^"]+)"/g)].map((match) => match[1]);
+      expect(includes.length).toBeGreaterThan(0);
+      expect(new Set(includes)).toEqual(new Set(["sharedpref"]));
+    }
+  });
 
   it("leaves out permissions the app never asks for", () => {
     expect(pluginOptions("expo-secure-store").get("faceIDPermission")).toBe(false);

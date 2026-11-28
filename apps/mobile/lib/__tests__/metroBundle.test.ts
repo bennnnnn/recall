@@ -272,10 +272,9 @@ describe("react-native-purchases in a native production bundle (no web SDK)", ()
     }));
     jest.doMock("@/lib/expoRuntime", () => ({ isExpoGo: () => false }));
     // A held purchase's file (features/billing/model/heldPurchase.ts): nothing on disk here.
-    jest.doMock("@/lib/cache/cacheFile", () => ({
-      cacheFile: () => ({
+    jest.doMock("@/lib/durableFile", () => ({
+      durableFile: () => ({
         read: async () => null,
-        readSync: () => null,
         write: async () => undefined,
         clear: async () => undefined,
       }),

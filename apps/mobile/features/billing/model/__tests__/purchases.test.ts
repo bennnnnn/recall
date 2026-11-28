@@ -7,20 +7,18 @@ jest.mock("@/lib/expoRuntime", () => ({
 const mockPlatform = { OS: "ios" };
 jest.mock("react-native", () => ({ Platform: mockPlatform }));
 jest.mock("@/lib/sentry", () => ({ reportFailure: jest.fn() }));
-// The phone's cache files, in memory: a held purchase on Android is kept in one.
+// The phone's files, in memory: a held purchase on Android is kept in one.
 const mockDisk = new Map<string, string>();
-jest.mock("@/lib/cache/cacheFile", () => ({
-  cacheFile: (name: string) => ({
-    read: async () => mockDisk.get(name) ?? null,
-    readSync: () => mockDisk.get(name) ?? null,
-    write: async (contents: string) => {
-      mockDisk.set(name, contents);
-    },
-    clear: async () => {
-      mockDisk.delete(name);
-    },
-  }),
-}));
+const mockMemoryFile = (name: string) => ({
+  read: async () => mockDisk.get(name) ?? null,
+  write: async (contents: string) => {
+    mockDisk.set(name, contents);
+  },
+  clear: async () => {
+    mockDisk.delete(name);
+  },
+});
+jest.mock("@/lib/durableFile", () => ({ durableFile: (name: string) => mockMemoryFile(name) }));
 
 jest.mock("react-native-purchases", () => {
   const listeners: Array<(info: { entitlements: { active: Record<string, unknown> } }) => void> = [];
