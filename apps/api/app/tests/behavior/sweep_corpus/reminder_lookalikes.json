@@ -1003,8 +1003,7 @@
     "prompt": "can you add milk to my Apple Reminders?",
     "history": [],
     "reply": "Good catch. I can't add reminders to Apple Reminders directly, but you can share a list from the Reminders app: tap the list, then Share.",
-    "expect": "answer",
-    "gap": "an add to another app's list (Apple Reminders) is asked when, as on main; a grocery add needs no time"
+    "expect": "answer"
   },
   {
     "id": "ht-103",
@@ -1122,8 +1121,7 @@
       ]
     ],
     "reply": "Great, I'll set that up for you!",
-    "expect": "todo_screen",
-    "gap": "a yes to an offered reminder gets no card unless the model writes the fence"
+    "expect": "todo_screen"
   },
   {
     "id": "ht-111",
@@ -1191,8 +1189,7 @@
       ]
     ],
     "reply": "I'll set a reminder for you now!",
-    "expect": "todo_screen",
-    "gap": "a yes to an offer that names no time gets no card unless the model writes the fence"
+    "expect": "todo_screen"
   },
   {
     "id": "ht-115",
