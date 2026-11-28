@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from itertools import combinations, product
 
 from app.modules.physics.bodies import orbiting_body_masses
+from app.modules.physics.extractors.cues import FROM_REST_RE
 from app.modules.physics.extractors.unit_patterns import NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.net_force import friction_coefficients, states_net_force
@@ -76,6 +77,7 @@ _SITUATION_KINDS = frozenset(
     },
 )
 _TIME = _kind("second")
+_SPEED = _kind("meter / second")
 # A time that names the moment the asked state holds: "after 2 s", "at t = 2 s", "3 s later",
 # "2 s after launch". Left out, a law answers the state at another moment (the top height
 # for "how high after 2 s"). A time that says how long something lasted ("in 5 s", "held for
@@ -251,11 +253,15 @@ def _counted_network(given: Given, text: str, params: list[_Param]) -> bool:
 
 
 def _clearly_irrelevant(given: Given, text: str) -> bool:
-    """A length that only describes an object's size: "a 2 m long plank".
+    """A length that only describes an object's size: "a 2 m long plank"; a starting speed
+    of zero beside the words that say the body starts from rest ("released from rest ...
+    Initial velocity: u = 0 m/s"), the same fact said twice.
 
-    Only for a solve that uses no length at all; a length it uses is bound or
+    Only for a solve that uses no length or speed at all; one it uses is bound or
     competing above.
     """
+    if given.dimension == _SPEED and given.value == 0:
+        return FROM_REST_RE.search(text) is not None
     return given.dimension == _LENGTH and _SIZE_ONLY.match(text, given.end) is not None
 
 

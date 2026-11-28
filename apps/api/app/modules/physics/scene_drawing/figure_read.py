@@ -40,20 +40,25 @@ from app.modules.physics.scene_drawing.contract import (
 
 logger = logging.getLogger(__name__)
 
-_MAX_TOKENS = 500
-_MAX_CHARS = 1500
+_MAX_TOKENS = 700
+# A question in many parts states its last pictures late ("8. Graphs: ..."): read it whole.
+_MAX_CHARS = 4000
 _EARLIER_CHARS = 600
+# The most pictures one question gets: its setup and its motion's graphs.
+_MOST_BLOCKS = 3
 
 
 class PhysicsPictureRead(BaseModel):
-    """The block that draws the question's picture, or none."""
+    """The block that draws the question's picture, the blocks of the pictures it asks for
+    (its free-body diagram and its motion's graphs), or none."""
 
-    draw: dict[str, Any] | None = None
+    draw: dict[str, Any] | list[dict[str, Any]] | None = None
 
 
 _ASKED = (
     "The user wants to see a picture for this physics question. Say what it shows as one "
-    "block below, from what the question states.\n"
+    "block below, from what the question states; a question that asks for several pictures "
+    "(a free-body diagram and its motion's graphs) gets a block for each.\n"
 )
 # Not asked: the picture a textbook draws beside the problem (owner, 2026-11-25).
 _TEACH = (
@@ -68,7 +73,8 @@ _TEACH = (
     "circuit, a wave, heat flowing, a fluid in a pipe).\n"
 )
 _RULES = (
-    'Answer only JSON: {"draw": <one block>} or {"draw": null}. Each block is the JSON '
+    'Answer only JSON: {"draw": <one block>}, {"draw": [<a block for each picture asked, '
+    'in the order asked>]} or {"draw": null}. Each block is the JSON '
     "named below (a reply writes it in a ```draw block; here it is the value of draw). "
     "Copy every value exactly as the question writes it, with its unit; never a value you "
     "worked out, never a coordinate. Draw what the question describes, at the moment it "
@@ -116,15 +122,15 @@ def _message(question: str, earlier: Sequence[str]) -> str:
 
 async def read_physics_picture(
     settings: Settings, question: str, earlier: Sequence[str], *, asked: bool
-) -> dict[str, Any] | None:
-    """The block the question's picture is, as the figure read says it; None for none."""
+) -> list[dict[str, Any]]:
+    """The blocks the question's pictures are, as the figure read says them; none for none."""
     from app.core.redis import get_redis_client
     from app.gateways.structured_completion import complete_structured
     from app.services import quota as quota_service
 
     try:
         if await quota_service.global_spend_exceeded(get_redis_client(), settings):
-            return None
+            return []
         read = await complete_structured(
             settings=settings,
             # The lane that reads a physics question beside the reply (the formal reader's):
@@ -142,12 +148,19 @@ async def read_physics_picture(
         )
     except Exception as exc:  # A read is a hint: any failure draws nothing.
         logger.info("physics figure read failed (%s)", type(exc).__name__)
-        return None
-    return read.draw if read is not None else None
+        return []
+    return _blocks(read.draw) if read is not None else []
+
+
+def _blocks(draw: dict[str, Any] | list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """The read's blocks, in its order: none for null or a block of no kind."""
+    blocks = [draw] if isinstance(draw, dict) else list(draw or [])
+    drawn = [block for block in blocks if block.get("kind") not in (None, "none")]
+    return drawn[:_MOST_BLOCKS]
 
 
 # A scene's flags, which the read now and then writes among its values.
-_FLAGS = ("sticks", "elastic", "horizontal")
+_FLAGS = ("sticks", "elastic", "horizontal", "components")
 
 
 def normalized(block: dict[str, Any]) -> dict[str, Any]:
@@ -190,14 +203,14 @@ async def draw_physics_figure(
         return None
     if not asked and not settings.teaching_figures_enabled:
         return None
-    block = await read_physics_picture(settings, question, earlier, asked=asked)
-    if not block or block.get("kind") in (None, "none"):
+    blocks = await read_physics_picture(settings, question, earlier, asked=asked)
+    if not blocks:
         return None
     texts = [problem_text(question, earlier), question]
     try:
         fences = await sympy_executor.run_sympy(
             physics_fences,
-            [json.dumps(normalized(block))],
+            [json.dumps(normalized(block)) for block in blocks],
             texts,
             None,
             True,
@@ -206,5 +219,7 @@ async def draw_physics_figure(
     except Exception as exc:  # A failed build draws nothing; the reply stands.
         logger.info("physics figure build failed (%s)", type(exc).__name__)
         return None
-    logger.info("physics figure %s: %s", "asked" if asked else "teach", block.get("kind"))
+    kinds = ",".join(str(b.get("of") or b.get("scene") or b["kind"]) for b in blocks)
+    way = "asked" if asked else "teach"
+    logger.info("physics figure %s: %s -> %d drawn", way, kinds, len(fences))
     return "\n\n".join(fences) if fences else None

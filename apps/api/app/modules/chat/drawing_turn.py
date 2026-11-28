@@ -39,6 +39,7 @@ from app.modules.chat.figure_turn import (
     names_nothing,
     read_asks_for_a_picture,
     shows_it,
+    solve_graphed,
 )
 from app.modules.chat.finalize_subjects import fallback_text
 from app.modules.chat.prompt_inject import inject_before_last_user
@@ -53,7 +54,6 @@ from app.services.solving import (
     SubjectName,
     VerifiedMathBlock,
     VerifiedPhysicsBlock,
-    VerifiedSolveBlock,
 )
 from app.services.subjects.registry import SubjectFigure, subject_adapter
 
@@ -185,26 +185,12 @@ async def _read_for_a_picture(ctx: StreamContext, deadline: float) -> TurnDecisi
     return settled_result(task)
 
 
-# The kind of graph a physics solve draws against time (a v-t or x-t trajectory).
-_TIME_GRAPH = "trajectory"
-
-
-def _solver_graphed(verified: VerifiedSolveBlock | None) -> bool:
-    """A physics solve's card already draws a graph against time: no second graph of the
-    reply's beside it."""
-    if not isinstance(verified, VerifiedPhysicsBlock):
-        return False
-    blocks = [verified, *verified.question_parts]
-    specs = [s for b in blocks for s in (b.canonical_fence, *b.canonical_fences) if s]
-    return any(spec.get("type") == _TIME_GRAPH for spec in specs)
-
-
 def _described_by(ctx: StreamContext, read: TurnDecision) -> SubjectName | None:
     """The subject whose reply describes the picture the read asks for: maths for its
     figure or graph and for a physics question's graph (drawn as any curve is), physics for
     a physics diagram (a field's lines); none when a physics card already draws its graph
     against time. One check, the read's own (``read_asks_for_a_picture``)."""
-    if _solver_graphed(ctx.verified_subject):
+    if solve_graphed(ctx.verified_subject):
         return None
     if not read_asks_for_a_picture(read, described=True) or read.picture not in _DESCRIBED:
         return None
@@ -241,7 +227,7 @@ async def write_for_a_picture(ctx: StreamContext, settings: Settings) -> None:
         return
     if isinstance(verified, VerifiedMathBlock) and figure.shown(verified):
         return  # the card already draws the picture ("Graph y = x² and y = 2x")
-    if _solver_graphed(verified):
+    if solve_graphed(verified):
         return  # the physics card already draws its graph against time
     deadline = asyncio.get_running_loop().time() + settings.live_read_wait_seconds
     read = await _read_for_a_picture(ctx, deadline)

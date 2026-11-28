@@ -8,6 +8,10 @@ from typing import Literal
 from app.modules.physics.extractors.angles import INCLINE_ANGLE_RE
 from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
+    COEFFICIENT_BETWEEN,
+    COEFFICIENT_LEADS,
+    FROM_REST_RE,
+    MU_SUBSCRIPT,
     has_cue,
 )
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
@@ -47,27 +51,28 @@ _FRICTION_FORCE_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 
+
 _MU_RE = re.compile(
-    r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
+    rf"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction{COEFFICIENT_BETWEEN}{COEFFICIENT_LEADS}"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    r"|\bmu(?:_?[ks])?\s+is\s+|\bmu(?:_?[ks])?\s*=\s*"
-    r"|\u03bc(?:_?[ks])?\s+is\s+|\u03bc(?:_?[ks])?\s*=\s*)"
+    rf"|\bmu{MU_SUBSCRIPT}\s+is\s+|\bmu{MU_SUBSCRIPT}\s*=\s*"
+    rf"|\u03bc{MU_SUBSCRIPT}\s+is\s+|\u03bc{MU_SUBSCRIPT}\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_STATIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:s|\u209b)|"
-    r"coefficient\s+of\s+static\s+friction|static\s+(?:coefficient\s+of\s+)?friction|"
+    rf"coefficient\s+of\s+static\s+friction{COEFFICIENT_BETWEEN}|static\s+(?:coefficient\s+of\s+)?friction|"
     r"static\s+friction\s+coefficient)"
-    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    rf"{COEFFICIENT_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _MU_KINETIC_RE = re.compile(
     r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:k|\u2096)|"
-    r"coefficient\s+of\s+kinetic\s+friction|kinetic\s+(?:coefficient\s+of\s+)?friction)"
-    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    rf"coefficient\s+of\s+kinetic\s+friction{COEFFICIENT_BETWEEN}|kinetic\s+(?:coefficient\s+of\s+)?friction)"
+    rf"{COEFFICIENT_LEADS}(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
@@ -103,12 +108,35 @@ _MIN_FORCE_ASK_RE = re.compile(
 )
 
 _REST = re.compile(r"\b(?:rests|resting|stationary|at rest|equilibrium)\b", re.IGNORECASE)
-_INITIAL_REST = re.compile(
-    r"\b(?:initially\s+(?:at\s+rest|stationary)|released\s+from\s+rest|starts?\s+from\s+rest)\b",
-    re.IGNORECASE,
-)
 _UPHILL = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\s+up\b", re.IGNORECASE)
 _MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IGNORECASE)
+
+
+def states_kinetic_and_static(text: str) -> bool:
+    """The question states both a kinetic and a static coefficient ("μₖ = 0.20 and μₛ =
+    0.70")."""
+    return _MU_KINETIC_RE.search(text) is not None and _MU_STATIC_RE.search(text) is not None
+
+
+# The laws whose result takes a coefficient that the question can leave open. A normal force
+# takes none; whether a block starts to slide is μs against tan θ by definition, the static
+# coefficient read by name (``incline_sliding``, as on main).
+_TAKES_MU = frozenset({"incline_acceleration", "friction_force", "minimum_force"})
+
+
+def extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
+    """Friction's reading, refused for a law that takes a coefficient when the question
+    leaves open which one: both a kinetic and a static one stated (whether a released block
+    slides, or a push starts or keeps it moving, is the question; reading either one from the
+    words gave verified wrong answers, review of #2613), or a frictionless surface beside a
+    stated coefficient ("down a rough incline, μk = 0.25, then onto a frictionless floor": the
+    incline was read as frictionless). A normal force takes no coefficient and stands, and so
+    does whether a block starts to slide, which takes μs by name."""
+    intent = _extract_friction_intent(cleaned)
+    if intent is None or intent.physics_op not in _TAKES_MU:
+        return intent
+    frictionless = "frictionless" in cleaned.lower() and _MU_RE.search(cleaned) is not None
+    return None if frictionless or states_kinetic_and_static(cleaned) else intent
 
 
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
@@ -202,7 +230,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
             mu is None
             and angle != 0.0
             and _REST.search(cleaned) is not None
-            and _INITIAL_REST.search(cleaned) is None
+            and FROM_REST_RE.search(cleaned) is None
             and _MOVING.search(cleaned) is None
         )
         if mass is None or (mu is None and not held):
@@ -232,7 +260,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
             params["static_equilibrium"] = 1.0
             units["static_equilibrium"] = ""
     if op in {"friction_force", "incline_acceleration"}:
-        initially_at_rest = _INITIAL_REST.search(cleaned) is not None
+        initially_at_rest = FROM_REST_RE.search(cleaned) is not None
         at_rest = _REST.search(cleaned) is not None and not initially_at_rest
         moving = _MOVING.search(cleaned) is not None
         kinetic = "kinetic" in lower

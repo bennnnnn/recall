@@ -10,7 +10,7 @@ from app.modules.physics.extractors.assignments import strip_param_assignments
 from app.modules.physics.extractors.cues import (
     has_cue,
 )
-from app.modules.physics.extractors.friction import _MU_RE
+from app.modules.physics.extractors.friction import _MU_RE, states_kinetic_and_static
 from app.modules.physics.extractors.oscillations import _ANGULAR_FREQ_RE
 from app.modules.physics.extractors.stated_values import find_value_with_specific_unit
 from app.modules.physics.extractors.surface_gravity import detect_gravity
@@ -168,7 +168,8 @@ def _road_intent(text: str) -> PhysicsIntent | None:
     units: dict[str, str] = {"r": radius[1] or "m", "g": "m/s^2"}
     if _LEVEL_CURVE.search(text) and not _BANKED.search(text):
         mu = _MU_RE.search(text)
-        if mu is None or not _ASKS_SPEED.search(text):
+        # Both a kinetic and a static coefficient: which one holds the tyres is left open.
+        if mu is None or not _ASKS_SPEED.search(text) or states_kinetic_and_static(text):
             return None
         params["mu"] = float(mu.group(1))
         units["mu"] = ""
