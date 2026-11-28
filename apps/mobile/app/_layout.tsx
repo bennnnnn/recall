@@ -1,6 +1,14 @@
 // First: crash reporting is on before any other app module runs (lib/sentryStart.ts).
 import "@/lib/sentryStart";
 import "@/lib/i18n";
+// The caches that listen for app events as they load: loaded at launch, so a photo or chat
+// deleted before any of them is first used still reaches their saved copies (metro.config.js
+// loads every other import on first use; lib/__tests__/metroBundle.test.ts holds this list).
+import "@/features/chat/model/messageCache";
+import "@/features/chat/model/chatListCache";
+import "@/features/attachments/model/galleryListCache";
+import "@/features/memory/model/memoryListCache";
+import "@/features/memory/model/memoryDocumentsCache";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";

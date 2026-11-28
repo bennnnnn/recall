@@ -7,7 +7,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 
 import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
@@ -33,7 +33,7 @@ const ignoreMessage = () => undefined;
 export function MermaidFullScreen({ visible, source, title, onClose }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const config = useMemo(
     () => mermaidPreviewConfig(source, theme, { natural: true }),

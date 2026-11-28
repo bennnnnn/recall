@@ -55,6 +55,8 @@ const CLEARED_AT_SIGN_OUT: Record<string, string> = {
   "features/chat/model/messageCache.ts#diskWrites": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#keptPages": "clearAllCachedChatMessages",
   "features/chat/model/messageCache.ts#unsavedChats": "clearAllCachedChatMessages",
+  // A chat's file upload under way: its progress and Cancel (each also names its sign-in).
+  "features/chat/model/sendUpload.ts#current": "hideSendUpload",
   "features/chat/model/quotaNudgeDismissal.ts#dismissedDate": "resetQuotaNudgeDismissal",
   "features/memory/model/memoryListCache.ts#resource": "invalidateMemoriesCache",
   "features/todos/model/reminderProposal.ts#savedHere": "clearSavedProposals",
@@ -244,8 +246,6 @@ const NO_ACCOUNT_DATA = [
   // The words formulas are spoken with, in the app's language, and the ones being spoken.
   "lib/math/speechWords.ts#current",
   "lib/math/spokenFormula.ts#speech",
-  // The chat upload under way: its progress and its Cancel, no file or text.
-  "features/chat/model/sendUpload.ts#current",
   "lib/preview/previewPageFile.ts#pageFiles",
   "lib/networkProbe.ts#netInfoConfigured",
   // The phone's localization module and whether its failure was said: the same for every account.

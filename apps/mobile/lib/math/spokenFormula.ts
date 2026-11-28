@@ -160,10 +160,14 @@ function speakRoot(segment: Extract<MathSegment, { type: "sqrt" }>, depth: numbe
     : segment.degree
       ? speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim()
       : "";
-  const pause = isCompound(segment.body) ? PAUSE : "";
-  if (!degree) return `${times}${word("sqrt", { x: body })}${pause}`;
-  if (degree === "3") return `${times}${word("cbrt", { x: body })}${pause}`;
-  return `${times}${word("root", { n: degree, x: body })}${pause}`;
+  const compound = isCompound(segment.body);
+  const key: MathSpeechWord = !degree ? "sqrt" : degree === "3" ? "cbrt" : "root";
+  // A sum under the root ends on a pause. Where the language says the root after its body
+  // (Hindi "x+1 का वर्गमूल"), the root word cannot mark where the sum starts: it is said
+  // as a quantity, as a fraction's grouped denominator is ("कोष्ठक में x+1, का वर्गमूल").
+  const opensAfter = !/\{x\}\s*$/.test(speech.words[key]);
+  const x = compound && opensAfter ? word("quantity", { x: body }) : body;
+  return `${times}${word(key, { n: degree, x })}${compound ? PAUSE : ""}`;
 }
 
 /** Read-aloud walks the same segments as copy. A `[^}]+` fraction regex

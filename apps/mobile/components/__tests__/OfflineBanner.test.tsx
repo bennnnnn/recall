@@ -8,10 +8,15 @@ import { StyleSheet, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import * as ts from "typescript";
+
 import { OfflineFrame } from "@/components/OfflineBanner";
+import { MoleculeRotateModal } from "@/components/rich/MoleculeRotateModal";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { useWindowInsets, WindowInsetsScope } from "@/ui/hooks/useWindowInsets";
 
+declare const __dirname: string;
+const ROOT = ts.sys.resolvePath(`${__dirname}/../..`);
 const WINDOW = { top: 47, bottom: 34, left: 0, right: 0 };
 const seen = { screenTop: -1, windowTop: -1, layerTop: -1, mounts: 0 };
 const record = (values: Partial<typeof seen>) => Object.assign(seen, values);
@@ -64,4 +69,39 @@ it("keeps the screens mounted as the connection comes and goes", async () => {
   expect(view.getByTestId("offline-banner")).toBeTruthy();
   await act(async () => view.rerender(app("online")));
   expect(seen.mounts).toBe(1);
+});
+
+it("keeps a full-screen page's close button clear of the notch while the banner shows", async () => {
+  // The molecule viewer reads its insets outside its modal, under the screens' frame.
+  const view = await render(
+    <SafeAreaInsetsContext.Provider value={WINDOW}>
+      <OfflineFrame status="no_internet">
+        <MoleculeRotateModal visible onClose={jest.fn()} onGrant={jest.fn()} onMove={jest.fn()}>
+          {() => null}
+        </MoleculeRotateModal>
+      </OfflineFrame>
+    </SafeAreaInsetsContext.Provider>,
+  );
+  expect(view.getByTestId("molecule-rotate-close")).toBeTruthy();
+  type Node = { props?: { style?: unknown }; children?: (Node | string)[] | null };
+  const tops: unknown[] = [];
+  const walk = (node: Node | string | null) => {
+    if (!node || typeof node === "string") return;
+    const top = (StyleSheet.flatten(node.props?.style as never) as { marginTop?: number } | undefined)?.marginTop;
+    if (top !== undefined) tops.push(top);
+    node.children?.forEach(walk);
+  };
+  walk(view.toJSON() as Node);
+  // Its sheet starts below the status bar (47), not at the frame's 0 (which drew it at 8).
+  expect(tops).toContain(WINDOW.top);
+});
+
+it("has every full-screen page's owner read the window's insets, not its screen's", () => {
+  // The page covers the window, so its top bar clears the status bar whatever the screens' frame says.
+  const owners = ts.sys
+    .readDirectory(ROOT, [".tsx"], ["node_modules", "**/__tests__"])
+    .filter((file) => /<FullScreenModal\b/.test(ts.sys.readFile(file) ?? ""));
+  expect(owners.length).toBeGreaterThan(4);
+  const screenInsets = owners.filter((file) => /useSafeAreaInsets\(/.test(ts.sys.readFile(file) ?? ""));
+  expect(screenInsets.map((file) => file.slice(ROOT.length + 1))).toEqual([]);
 });

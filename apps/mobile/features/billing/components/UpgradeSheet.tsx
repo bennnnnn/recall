@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
@@ -81,7 +81,7 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const { token, user, syncSubscription, devUpgrade, setUpStore } = useSubscriptionActions();
   const current = planOf(user);
   // The one paid plan, or none for an account already on it.

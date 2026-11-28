@@ -133,8 +133,12 @@ describe("textWidthUnits", () => {
     expect(textWidthUnits("Price")).toEqual({ width: 5, longestWord: 5 });
     // Amharic words are spaced: "ዋጋ ከፍተኛ" is two words, the second four characters wide.
     expect(textWidthUnits("ዋጋ ከፍተኛ")).toEqual({ width: 13, longestWord: 8 });
-    // Hindi's vowel signs are marks: "कीमत" draws as three letters.
-    expect(textWidthUnits("कीमत").width).toBe(3);
+    // A Hindi vowel sign that sits beside its letter (ी, ा) takes room; the virama (्) does not.
+    expect(textWidthUnits("कीमत").width).toBe(4);
+    expect(textWidthUnits("विश्वविद्यालय")).toEqual({ width: 11, longestWord: 11 });
+    // Its column is wide enough for the whole word ("university"), never 8 letters' worth.
+    const [hindi] = tableColumnWidths([textWidthUnits("विश्वविद्यालय")].map(({ width, longestWord }) => ({ longest: width, longestWord })), 358);
+    expect(hindi).toBeGreaterThanOrEqual(11 * 8);
   });
 
   it("lets Chinese and Japanese break between any two characters", () => {

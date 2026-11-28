@@ -82,6 +82,29 @@ describe("metro.config.js", () => {
     expect(firstImport).toBe('import "@/lib/sentryStart";');
   });
 
+  it("loads at launch every module that starts listening as it loads", () => {
+    // With imports loaded on first use, a module's top-level `onAppEvent(...)` or
+    // `x.subscribe(...)` would wait for that use and miss the events before it (a photo
+    // deleted from the Library staying in a chat's saved copy).
+    const app = join(__dirname, "..", "..");
+    const listening: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(join(app, dir), { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          if (entry.name !== "__tests__" && entry.name !== "node_modules" && entry.name !== "vendor") walk(path);
+        } else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith(".d.ts")) {
+          const source = fs.readFileSync(join(app, path), "utf8");
+          if (/^(?:onAppEvent|\w+\.subscribe)\(/m.test(source)) listening.push(path.replace(/\.tsx?$/, ""));
+        }
+      }
+    };
+    ["components", "contexts", "features", "hooks", "lib", "ui"].forEach(walk);
+    expect(listening.length).toBeGreaterThan(3);
+    const layout = fs.readFileSync(join(app, "app", "_layout.tsx"), "utf8");
+    expect(listening.filter((module) => !layout.includes(`import "@/${module}";`))).toEqual([]);
+  });
+
   it("ships the preview WebViews' libraries (lib/vendor/*.txt) as assets", () => {
     expect(config.resolver.assetExts).toContain("txt");
   });

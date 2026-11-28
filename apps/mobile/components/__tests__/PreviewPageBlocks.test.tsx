@@ -174,6 +174,19 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     },
   );
 
+  it("starts the count over once a reloaded page loads: Retry is for two losses in a row", async () => {
+    const { findByTestId, queryByTestId } = await render(element(data[0]));
+    await findByTestId("preview-webview");
+    const lose = () => act(async () => (lastProps().onContentProcessDidTerminate as () => void)());
+    await lose();
+    await act(async () => (lastProps().onLoad as () => void)());
+    // A second trip to the background, much later: the page reloads again.
+    await lose();
+    await findByTestId("preview-webview");
+    expect(mockWebView.mounts).toBe(3);
+    expect(queryByTestId("preview-lost")).toBeNull();
+  });
+
   it("keeps the WebView as locked down as the inline page was", async () => {
     const { findByTestId } = await render(element(data[0]));
     await findByTestId("preview-webview");

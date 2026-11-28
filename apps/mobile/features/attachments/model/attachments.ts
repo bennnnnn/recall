@@ -5,7 +5,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { api } from "@/lib/api";
 import { type AttachmentTransfer, uploadAttachmentBytes, type UploadPurpose } from "@/features/attachments/api";
 import { uploadAttachmentFile } from "@/features/attachments/model/uploadTransfer";
-import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
+import { AttachmentError, presignFailure, UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
 import { DOCUMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/attachments/model/attachmentPrep";
 import { adoptLocalCopy, discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
@@ -334,8 +334,11 @@ export async function uploadChatAttachment(
 ): Promise<string> {
   requireTokenSession(token);
   const generation = getSessionGeneration();
+  // Every step after the presign stops on a sign-out, and on Cancel: one tapped after the
+  // file is up (its confirm still on its way) still gives the draft back, the upload refunded.
   const requireCurrent = () => {
     if (generation !== getSessionGeneration()) throw new SessionChangedError();
+    if (transfer.signal?.aborted) throw new UploadCancelledError();
   };
   if (pending.existingAttachmentId) return pending.existingAttachmentId;
 

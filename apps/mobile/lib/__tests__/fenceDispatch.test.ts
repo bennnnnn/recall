@@ -134,41 +134,9 @@ describe("a fence's shape", () => {
   );
 });
 
-describe("a card fence a newer build draws", () => {
-  const card = '{"kind":"timeline","events":[{"year":1900,"label":"A"}]}';
-
-  it.each(["timeline", "flashcards", "chem_reaction", "unit_card2"])(
-    "```%s around a JSON object asks for the update, never raw JSON",
-    (lang) => {
-      expect(classifyFence(lang, card).kind).toBe("newer");
-      // Streaming: its half-written JSON is a placeholder, not a code card.
-      expect(classifyOpenFencePreview(lang, '{"kind":"time')).toBe("placeholder");
-    },
-  );
-
-  it.each([
-    // A language this build knows, and the user's own data under a data word.
-    ["json", card],
-    ["javascript", card],
-    ["lua", card],
-    ["response", card],
-    ["api_payload", card],
-    ["config", card],
-    ["geojson", card],
-    ["package", card],
-    // Not a card's shape: no JSON object, an array, or an empty object.
-    ["timeline", "1900 A\n1950 B"],
-    ["timeline", "[1, 2, 3]"],
-    ["timeline", "{}"],
-    // Not a card's tag.
-    ["time-line", card],
-    ["", card],
-  ])("```%s %j stays as it was", (lang, body) => {
-    expect(classifyFence(lang, body).kind).not.toBe("newer");
-  });
-
-  it("leaves every registered card to its own renderer", () => {
-    expect(classifyFence("calculator", '{"product":"loan"}').kind).toBe("rich");
-    expect(classifyFence("chem_scene", '{"kind":"titration"}').kind).toBe("rich");
+describe("a tag this build does not know", () => {
+  // A model makes these up; only the user's data under them is sure, so it shows, with Copy.
+  it.each(["plotly", "vegalite", "tool_call", "ipynb", "swagger"])("```%s around JSON is a code card", (lang) => {
+    expect(classifyFence(lang, '{"data":[{"x":[1,2]}]}').kind).toBe("code");
   });
 });

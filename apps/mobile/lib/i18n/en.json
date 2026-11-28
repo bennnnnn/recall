@@ -620,7 +620,6 @@
   "rich.chart": "Chart",
   "rich.chart_dev_build": "Chart preview requires a dev build",
   "rich.chart_error": "Could not render that chart.",
-  "rich.newer_card": "Update Recall to see this.",
   "math_speech.plus_minus": "plus or minus",
   "math_speech.times": "times",
   "math_speech.dot": "dot",

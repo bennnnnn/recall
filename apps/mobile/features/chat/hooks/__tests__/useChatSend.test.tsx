@@ -1545,6 +1545,37 @@ describe("useChatSend send steps", () => {
     expect(current.sendPhase).toBe("idle");
   });
 
+  it("keeps one chat's upload out of another chat", async () => {
+    let progress: (fraction: number) => void = () => undefined;
+    uploadAttachment.mockImplementationOnce(
+      (_token, _file, _purpose, transfer: { signal: AbortSignal; onProgress: (fraction: number) => void }) =>
+        new Promise((_, reject) => {
+          progress = transfer.onProgress;
+          transfer.signal.addEventListener("abort", () => reject(new UploadCancelledError()));
+        }),
+    );
+    const sendMessage = sent();
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    let sending: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      sending = current.handleSend();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const upload = sendUploadStore.get();
+    expect(upload).not.toBeNull();
+    // Chat 2 opens while chat 1's file uploads: it shows neither the percent nor a Cancel,
+    // and chat 1's progress, still coming, never puts them back.
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    expect(sendUploadStore.get()).toBeNull();
+    await act(async () => progress(0.5));
+    expect(sendUploadStore.get()).toBeNull();
+    await act(async () => {
+      upload?.cancel();
+      await sending;
+    });
+  });
+
   it("restores the draft when the server makes no new chat", async () => {
     const prepareDraftChat = jest.fn().mockResolvedValue(null);
     await render(<Probe prepareDraftChat={prepareDraftChat} />);

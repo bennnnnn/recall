@@ -638,7 +638,6 @@
   "rich.chart": "График",
   "rich.chart_dev_build": "Предпросмотр графика требует dev-сборку",
   "rich.chart_error": "Не удалось построить график.",
-  "rich.newer_card": "Обновите Recall, чтобы увидеть это.",
   "math_speech.plus_minus": "плюс-минус",
   "math_speech.times": "умножить на",
   "math_speech.dot": "умножить на",

@@ -282,12 +282,6 @@ export function fenceUsesSyntaxColor(info: string): boolean {
   return Boolean(LANG_TO_PRISM[raw]);
 }
 
-/** A tag this build knows as a language or a teaching snippet (`text`, `output`). */
-export function isKnownCodeLang(lang: string): boolean {
-  const raw = parseFenceLang(lang);
-  return TEACHING_FENCE_LANGS.has(raw) || raw in LANG_TO_PRISM || raw in LANG_LABELS;
-}
-
 /** True for ```diff / ```patch fences, which color by line instead of by token. */
 export function isDiffFence(info: string): boolean {
   return LANG_TO_PRISM[parseFenceLang(info)] === "diff";

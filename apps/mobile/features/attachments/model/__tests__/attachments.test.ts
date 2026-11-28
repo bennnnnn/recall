@@ -179,24 +179,29 @@ describe("a file's upload to storage", () => {
     jest.useFakeTimers();
     try {
       let tick: (p: object) => void = () => undefined;
-      let fail: (error: Error) => void = () => undefined;
       mockUpload.mockImplementationOnce((_uri, _url, options: { onProgress: (p: object) => void; signal: AbortSignal }) => {
         tick = options.onProgress;
         return new Promise((_, reject) => {
-          fail = reject;
           options.signal.addEventListener("abort", () => reject(new Error("AbortError")));
         });
       });
-      const upload = uploadChatAttachment("token", pending);
-      const outcome = upload.then(() => "done", (error: unknown) => error);
+      let settled = false;
+      const outcome = uploadChatAttachment("token", pending).then(
+        () => "done",
+        (error: unknown) => error,
+      ).finally(() => { settled = true; });
       await jest.advanceTimersByTimeAsync(0);
-      // Four minutes of a slow upload: well past the old 120 s total, still moving.
+      // Four minutes of a slow upload, a byte every 20 s: well past the old 120 s total.
       for (let second = 0; second < 240; second += 20) {
         tick({ bytesSent: second, totalBytes: 10_000 });
         await jest.advanceTimersByTimeAsync(20_000);
       }
-      expect(fail).toBeDefined();
-      await jest.advanceTimersByTimeAsync(30_000);
+      expect(settled).toBe(false);
+      // 29 s since the last byte: still going. 31 s: stalled.
+      await jest.advanceTimersByTimeAsync(9_000);
+      expect(settled).toBe(false);
+      await jest.advanceTimersByTimeAsync(2_000);
+      expect(settled).toBe(true);
       expect(await outcome).toMatchObject({ reason: "upload_failed" });
       expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
     } finally {
@@ -215,6 +220,22 @@ describe("a file's upload to storage", () => {
     await expect(upload).rejects.toBeInstanceOf(UploadCancelledError);
     expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
     expect(api.confirmAttachment).not.toHaveBeenCalled();
+  });
+
+  it("still stops on Cancel once the file is up, while its confirm is on its way", async () => {
+    const controller = new AbortController();
+    let confirmed: () => void = () => undefined;
+    jest.mocked(api.confirmAttachment).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { confirmed = resolve; }),
+    );
+    const upload = uploadChatAttachment("token", pending, "chat", { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.confirmAttachment).toHaveBeenCalled();
+    // "Uploading… 100%": Cancel, then the confirm lands.
+    controller.abort();
+    confirmed();
+    await expect(upload).rejects.toBeInstanceOf(UploadCancelledError);
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
   });
 
   it("refuses a file that changed size since the presign before sending it", async () => {

@@ -19,7 +19,7 @@ type WebViewRecovery = {
   lost: boolean;
   retry: () => void;
   /** Spread onto the WebView. */
-  handlers: { onContentProcessDidTerminate: () => void; onRenderProcessGone: () => void };
+  handlers: { onContentProcessDidTerminate: () => void; onRenderProcessGone: () => void; onLoad: () => void };
 };
 
 export function useWebViewRecovery(): WebViewRecovery {
@@ -34,9 +34,14 @@ export function useWebViewRecovery(): WebViewRecovery {
   const retry = useCallback(() => {
     setState((current) => ({ losses: 0, mount: current.mount + 1 }));
   }, []);
+  // A page that loaded again starts the count over: Retry is for two losses in a row, not
+  // two trips to the background a chart sat through.
+  const onLoad = useCallback(() => {
+    setState((current) => (current.losses === 0 ? current : { ...current, losses: 0 }));
+  }, []);
   const handlers = useMemo(
-    () => ({ onContentProcessDidTerminate: onGone, onRenderProcessGone: onGone }),
-    [onGone],
+    () => ({ onContentProcessDidTerminate: onGone, onRenderProcessGone: onGone, onLoad }),
+    [onGone, onLoad],
   );
   return {
     mount: state.mount,

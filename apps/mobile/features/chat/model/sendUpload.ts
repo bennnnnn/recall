@@ -2,6 +2,10 @@
  * The file a chat send is uploading: how far it has got and its Cancel. The composer's
  * send button turns into Cancel while it runs and its status line says the percent
  * (`useSendUpload`); a cancelled upload gives the draft back (useChatSendRoute).
+ *
+ * It is the view's that sent it: leaving that chat hides it (`hideSendUpload`; the upload
+ * itself goes on, as the send does), and sign-out clears it. A hidden upload never shows
+ * again, as only the upload the store holds may write to it.
  */
 import type { Translate } from "@/lib/i18n/translate";
 import { createValueStore } from "@/lib/listenerSet";
@@ -21,6 +25,11 @@ type UploadTransfer = {
 const current = createValueStore<SendUpload | null>(null);
 
 export const sendUploadStore = { get: current.get, subscribe: current.subscribe };
+
+/** The view that sent it is gone (another chat, another account): it no longer shows. */
+export function hideSendUpload(): void {
+  current.set(null);
+}
 
 /** The composer's status line while a send waits: its location, or how far its file has got. */
 export function sendStatusLine(phase: string, upload: SendUpload | null, t: Translate): string | undefined {

@@ -8,7 +8,10 @@
  * lib/i18n sets the words whenever the language changes (`setMathSpeechWords`), so this
  * module stays free of i18next and a test that never loads it hears English.
  */
+import { useSyncExternalStore } from "react";
+
 import type { Translate } from "@/lib/i18n/translate";
+import { createValueStore } from "@/lib/listenerSet";
 import type { MathAccentKind } from "@/lib/math/textTypes";
 
 const WORD_KEYS = [
@@ -85,14 +88,19 @@ export const ACCENT_WORD: Record<MathAccentKind, MathSpeechWord> = {
   ddot: "accent_ddot",
 };
 
-let current = ENGLISH_MATH_SPEECH;
+const current = createValueStore<MathSpeechWords>(ENGLISH_MATH_SPEECH);
 
 export function mathSpeechWords(): MathSpeechWords {
-  return current;
+  return current.get();
 }
 
 export function setMathSpeechWords(words: MathSpeechWords): void {
-  current = words;
+  current.set(words);
+}
+
+/** The words formulas are spoken with: a label drawn with them reads again when they change. */
+export function useMathSpeechWords(): MathSpeechWords {
+  return useSyncExternalStore(current.subscribe, current.get, current.get);
 }
 
 /** The words of `language`, read through its `t`. */

@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -269,7 +269,7 @@ function ShareToolbarItem({ html, theme, styles }: {
 }
 
 export function HtmlPreviewModal({ visible, html, onClose }: Props) {
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);

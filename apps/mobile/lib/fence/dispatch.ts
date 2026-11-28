@@ -33,7 +33,6 @@ import {
   looksLikeLatexFence,
   looksLikeMathFenceBody,
 } from "@/lib/math/fenceRetag";
-import { isNewerCardFence, opensNewerCardFence } from "@/lib/fence/newerCard";
 import { detectJsonRichFenceKind } from "@/lib/richBlocks";
 import {
   isClockFenceBody,
@@ -50,9 +49,7 @@ export type FenceRenderKind =
   | "clock"
   | "code"
   | "copy"
-  | "prose"
-  // A card a newer build draws (lib/fence/newerCard.ts): "Update Recall to see this".
-  | "newer";
+  | "prose";
 
 type FenceDecision = {
   kind: FenceRenderKind;
@@ -105,8 +102,6 @@ export function classifyFence(lang: string, content: string, openerRun = 3): Fen
     if (jsonKind && drawsBareJson(jsonKind)) return { kind: "rich", lang: l, id: jsonKind };
   }
 
-  if (isNewerCardFence(l, content)) return { kind: "newer", lang: l };
-
   if (isExplicitCodeLang(lang)) return { kind: "code", lang: l };
 
   if (allowsContentHeuristic(lang)) {
@@ -153,10 +148,6 @@ export type OpenFencePreviewKind =
 export function classifyOpenFencePreview(lang: string, body: string): OpenFencePreviewKind {
   const decision = classifyFence(lang, body);
   if (decision.kind === "hide") return "hide";
-  // A newer build's card streams as a quiet placeholder, never as raw JSON.
-  if (decision.kind === "newer" || (decision.kind === "code" && opensNewerCardFence(lang, body))) {
-    return "placeholder";
-  }
   // Draft text streams as neutral prose until the fence closes. It must never
   // flash a programming block or a math-style Answer box before becoming a card.
   if (

@@ -29,8 +29,7 @@
  * Do not add FenceId values casually. Prefer Markdown, `>` callouts/quotes, and
  * GFM tables. New layout fences need a prompt contract, a renderer, stream
  * preview, and preprocess — freeze the set unless the user-visible object is
- * truly new. A new card's tag is a lowercase name around a JSON object, so a build
- * from before it says "Update Recall to see this" (lib/fence/newerCard.ts).
+ * truly new.
  *
  * Reminder / settings control fences are parsed outside this registry (see
  * assistantMessageContent.ts), which also strips the retired

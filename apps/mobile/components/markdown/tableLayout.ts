@@ -13,8 +13,8 @@ import { Space } from "@/lib/space";
 
 /**
  * What one column holds, in Latin letters' widths: a Latin letter is 1, a CJK or
- * Ethiopic character about 2 (each is near square, about the type's size), a combining
- * mark 0. Counting characters gave an Amharic or Chinese cell half the room it needed,
+ * Ethiopic character about 2 (each is near square, about the type's size), a mark drawn
+ * over or under its letter 0 (a Hindi vowel sign beside it, like ा, takes its room). Counting characters gave an Amharic or Chinese cell half the room it needed,
  * so its words broke mid-letter.
  */
 export type TableColumnText = { longest: number; longestWord: number };
@@ -31,7 +31,7 @@ const WIDE_CHAR =
   /[ᄀ-ᅟሀ-᎟ⶀ-⷟⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏꬀-꬯가-힣豈-﫿︰-﹏＀-｠￠-￦\u{1E7E0}-\u{1E7FF}\u{20000}-\u{3FFFD}]/u;
 /** Han, kana and Hangul lines break between any two characters, as words do at spaces. */
 const BREAKS_ANYWHERE = /[⺀-〾ぁ-㏿㐀-䶿一-鿿가-힣豈-﫿\u{20000}-\u{3FFFD}]/u;
-const MARK = /\p{M}/u;
+const MARK = /[\p{Mn}\p{Me}]/u;
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 /** One character's width in Latin letters. */

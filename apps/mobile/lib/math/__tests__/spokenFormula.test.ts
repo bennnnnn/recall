@@ -3,6 +3,7 @@
  * dropped it: (v_f − v_i)/t was read "v_f - v_i/t" and (27 − 0)/9 "27 - 0/9".
  */
 import en from "@/lib/i18n/en.json";
+import am from "@/lib/i18n/am.json";
 import hi from "@/lib/i18n/hi.json";
 import { ENGLISH_MATH_SPEECH, readMathSpeechWords, setMathSpeechWords } from "@/lib/math/speechWords";
 import { spokenFormula } from "@/lib/math/spokenFormula";
@@ -82,5 +83,41 @@ describe("spokenFormula in the app's language", () => {
     // Hindi says the root after its body: "x का वर्गमूल".
     expect(spokenFormula(String.raw`\sqrt{x}`)).toBe("x का वर्गमूल");
     expect(spokenFormula(String.raw`\frac{1}{2}`)).toBe("1 बटा 2");
+  });
+
+  it("keeps every blank of each spoken word in every language", () => {
+    // `{x}`, `{num}`, `{den}`, `{n}`: one dropped loses the formula's part, a typo is said aloud.
+    const locales: Record<string, Record<string, string>> = {
+      es: jest.requireActual("@/lib/i18n/es.json"),
+      fr: jest.requireActual("@/lib/i18n/fr.json"),
+      pt: jest.requireActual("@/lib/i18n/pt.json"),
+      ru: jest.requireActual("@/lib/i18n/ru.json"),
+      tr: jest.requireActual("@/lib/i18n/tr.json"),
+      am: am as Record<string, string>,
+      hi: hi as Record<string, string>,
+    };
+    const blanks = (value: string | undefined) => [...(value ?? "").matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    const english = en as Record<string, string>;
+    const mismatched = Object.entries(locales).flatMap(([code, bundle]) =>
+      Object.keys(english)
+        .filter((key) => key.startsWith("math_speech."))
+        .filter((key) => blanks(bundle[key]).join() !== blanks(english[key]).join())
+        .map((key) => `${code} ${key}`),
+    );
+    expect(mismatched).toEqual([]);
+  });
+
+  it("marks where a sum under a root starts when the root word comes after it", () => {
+    setMathSpeechWords(readMathSpeechWords((key: string) => (hi as Record<string, string>)[key] ?? key, "hi"));
+    // Without "कोष्ठक में", "x+1 का वर्गमूल" is heard as x + √1.
+    expect(spokenFormula(String.raw`\sqrt{x+1} + 2`)).toBe("कोष्ठक में x+1 का वर्गमूल, + 2");
+    expect(spokenFormula(String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`)).toContain(
+      "कोष्ठक में b का वर्ग - 4ac का वर्गमूल",
+    );
+    // Amharic says the root first, as English does: its start is already marked.
+    setMathSpeechWords(readMathSpeechWords((key: string) => (am as Record<string, string>)[key] ?? key, "am"));
+    expect(spokenFormula(String.raw`\sqrt{x+1} + 2`)).toBe("ካሬ ሥር x+1, + 2");
+    setMathSpeechWords(ENGLISH_MATH_SPEECH);
+    expect(spokenFormula(String.raw`\sqrt{x+1} + 2`)).toBe("the square root of x+1, + 2");
   });
 });
