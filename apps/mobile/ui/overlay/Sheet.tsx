@@ -16,9 +16,8 @@ import {
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
+import { useWindowInsets, WindowInsetsScope } from "../hooks/useWindowInsets";
 import { useAndroidBack } from "./useAndroidBack";
 import { useSheetPanDismiss } from "./useSheetPanDismiss";
 import { useReduceMotion } from "@/lib/reduceMotion";
@@ -93,7 +92,8 @@ export function Sheet({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  // The sheet rises over the whole window, the offline banner included.
+  const insets = useWindowInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
   const reduceMotion = useReduceMotion();
@@ -242,7 +242,9 @@ export function Sheet({
       onRequestClose={requestClose}
       testID="app-sheet-modal"
     >
-      <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>
+      <GestureHandlerRootView style={s.flex}>
+        <WindowInsetsScope>{frame}</WindowInsetsScope>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
