@@ -8,11 +8,11 @@
 import { useCallback, useMemo, useState } from "react";
 
 /** Process losses the card recovers from on its own before it asks for a Retry. */
-export const PREVIEW_PROCESS_RELOADS = 1;
+const PREVIEW_PROCESS_RELOADS = 1;
 
 type Recovery = { losses: number; mount: number };
 
-export type WebViewRecovery = {
+type WebViewRecovery = {
   /** Part of the WebView's key: it changes on every reload, so the view mounts afresh. */
   mount: number;
   /** The page is gone and the card shows Retry in its place. */

@@ -13,7 +13,7 @@ export type SendUpload = {
 };
 
 /** What the upload reports to, and stops by. */
-export type UploadTransfer = {
+type UploadTransfer = {
   signal: AbortSignal;
   onProgress: (fraction: number) => void;
 };

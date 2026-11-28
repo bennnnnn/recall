@@ -14,7 +14,7 @@ import { AttachmentError, UploadCancelledError } from "@/features/attachments/mo
 import { getSessionGeneration, SessionChangedError } from "@/lib/auth";
 
 /** No byte sent (or no answer after the last one) for this long: the upload has stalled. */
-export const UPLOAD_STALL_MS = 30_000;
+const UPLOAD_STALL_MS = 30_000;
 
 type StorageUpload = AttachmentTransfer & {
   url: string;
@@ -24,7 +24,7 @@ type StorageUpload = AttachmentTransfer & {
 };
 
 /** PUTs the file; resolves with the storage's HTTP status. */
-export async function putFileToStorage({
+async function putFileToStorage({
   url,
   localUri,
   headers,

@@ -24,7 +24,7 @@ const DATA_WORDS =
   /json|yaml|toml|xml|csv|config|conf|settings|schema|data|payload|response|request|body|api|http|output|input|example|sample|object|dict|map|record|manifest|package|query|event|log|state|props/;
 
 /** A tag that may name a card fence this build does not know (the body is still to check). */
-export function isNewerCardTag(lang: string): boolean {
+function isNewerCardTag(lang: string): boolean {
   const tag = lang.trim().toLowerCase();
   return (
     CARD_TAG.test(tag) &&
