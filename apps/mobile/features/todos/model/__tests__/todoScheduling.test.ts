@@ -5,7 +5,7 @@ import {
   syncTodoReminders,
   todoNotificationId,
 } from "@/features/todos/model/todoReminders";
-import { ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
+import { askNotificationPermission, ensureNotificationPermission } from "@/features/notifications/model/pushNotifications";
 import type { Todo } from "@/lib/api/types";
 let mockSession = 1;
 const scheduled = new Map<string, unknown>();
@@ -17,6 +17,7 @@ let mockExpoGo = false;
 jest.mock("@/lib/expoRuntime", () => ({ isExpoGo: () => mockExpoGo }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/features/notifications/model/pushNotifications", () => ({
+  askNotificationPermission: jest.fn(async () => "granted"),
   ensureNotificationPermission: jest.fn(async () => true),
   ensureReminderChannel: jest.fn(async () => undefined),
 }));
@@ -47,6 +48,7 @@ it("schedules no alert for a date alone, even one a row gave a notify_at", async
 it("never requests OS permission from background synchronization", async () => {
   await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();
+  expect(askNotificationPermission).not.toHaveBeenCalled();
   expect(Notifications.getPermissionsAsync).toHaveBeenCalled();
 });
 
@@ -126,6 +128,7 @@ it("does not prompt or schedule when notification permission is denied", async (
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ status: "denied" } as never);
   await syncTodoReminders([todo], { remotePush: false });
   expect(ensureNotificationPermission).not.toHaveBeenCalled();
+  expect(askNotificationPermission).not.toHaveBeenCalled();
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 

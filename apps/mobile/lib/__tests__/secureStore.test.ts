@@ -299,3 +299,27 @@ it("gives callers at once on the first upgraded launch the one id it moved", asy
   expect(ids).toEqual(["kept-id", "kept-id"]);
   expect(mockKeychain.get(INSTALL_ID)?.value).toBe("kept-id");
 });
+
+it("keeps the registered push token on this phone only, moved from its documents file", async () => {
+  mockFiles.set(`${DOCS}recall.push-token.txt`, "ExponentPushToken[old]\n");
+  await launch();
+  const { readRegisteredPushToken, rememberRegisteredPushToken } = await import(
+    "@/features/notifications/model/registeredPushToken"
+  );
+  await expect(readRegisteredPushToken()).resolves.toBe("ExponentPushToken[old]");
+  expect(mockKeychain.get("recall_push_token_v1")).toEqual({ value: "ExponentPushToken[old]", accessible: THIS_DEVICE_ONLY });
+  expect(mockFiles.has(`${DOCS}recall.push-token.txt`)).toBe(false);
+
+  await rememberRegisteredPushToken(null);
+  expect(mockKeychain.has("recall_push_token_v1")).toBe(false);
+});
+
+it("on a reinstall, owes the old session's logout with the token the deleted app registered, then forgets it", async () => {
+  oldVersionSignedIn();
+  mockKeychain.set(RAN, { value: "1", accessible: THIS_DEVICE_ONLY });
+  mockKeychain.set("recall_push_token_v1", { value: "ExponentPushToken[device]", accessible: THIS_DEVICE_ONLY });
+  await expect((await launch()).auth.getToken()).resolves.toBeNull();
+  const owed = JSON.parse(mockKeychain.get("recall_pending_logouts_v1")?.value ?? "[]") as { pushToken: string | null }[];
+  expect(owed.map((entry) => entry.pushToken)).toEqual(["ExponentPushToken[device]"]);
+  expect(mockKeychain.has("recall_push_token_v1")).toBe(false);
+});

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.extractors.cues import COEFFICIENT_BETWEEN, COEFFICIENT_LEADS
 from app.services.law_binding.ask import ask_clause
 from app.services.law_binding.words import word_pattern
 
@@ -66,9 +67,9 @@ _NET_FORCE = re.compile(r"\b(?:net|resultant|unbalanced)\s+force\b")
 # coefficient, and "5 μC" is a charge. Each run of space is read once (possessive): split
 # between the \s* either side of an optional mark, "mu" and a run of spaces took quadratic time.
 _STATED_MU_RE = re.compile(
-    r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction|friction\s+coefficient"
-    r"|(?:\bmu|\u03bc)(?:\s*+_?\s*+[ks\u2096\u209b])?)"
-    r"\s*+(?:of|=|is)?\s*+(\d+(?:\.\d+)?)",
+    rf"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction{COEFFICIENT_BETWEEN}"
+    r"|friction\s+coefficient|(?:\bmu|\u03bc)(?:\s*+_?\s*+[ks\u2096\u209b])?)"
+    rf"{COEFFICIENT_LEADS}(\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 

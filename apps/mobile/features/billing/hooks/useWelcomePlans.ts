@@ -25,8 +25,8 @@ type Options = {
  * Offers a free account the plans when one is due (`welcomePlans`): as the app opens or comes
  * back, after a reply, and when the day's allowance runs out. A paid account never sees it.
  *
- * The launch cache paints every plan "free" (`lib/cachedUser.ts`), so nothing is offered until
- * the server has said the plan, nor before the store can sell: RevenueCat answers no read
+ * The launch cache holds the plan last shown (`lib/cachedUser.ts`), which may have changed since,
+ * so nothing is offered until the server has said the plan, nor before the store can sell: RevenueCat answers no read
  * before it is set up for the account, and the sheet said "store unavailable".
  */
 export function useWelcomePlans({ user, busy, outOfCredit, open }: Options) {

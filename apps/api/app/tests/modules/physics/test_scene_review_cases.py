@@ -482,7 +482,7 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
     (
         "Two masses, 3 kg and 5 kg, are connected by a light string over a frictionless pulley. Find the acceleration and the tension. (g = 9.8 m/s^2)",
         {"scene": "atwood", "values": {"mass1": "3 kg", "mass2": "5 kg"}},
-        False,
+        True,
     ),
     (
         "An Atwood machine has masses of 3 kg and 5 kg. The system is released from rest. How far does the 5 kg mass fall in 2 s?",
@@ -497,7 +497,7 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
     (
         "A simple pendulum is 1.5 m long. Find its period. (g = 9.81 m/s^2)",
         {"scene": "pendulum", "values": {"length": "1.5 m"}},
-        False,
+        True,
     ),
     (
         "A 1500 kg car moving at 20 m/s collides with a stationary 1000 kg car and they lock bumpers.",
@@ -797,7 +797,7 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
     (
         "Two masses of 3 kg and 5 kg are connected by a light string over a frictionless pulley. Find the acceleration and the tension. (g = 9.8 m/s^2)",
         {"scene": "atwood", "values": {"mass1": "3 kg", "mass2": "5 kg"}},
-        False,
+        True,
     ),
     (
         "In an Atwood machine, m1 = 2 kg and m2 = 3 kg. Find the acceleration.",
@@ -863,7 +863,7 @@ _CASES: list[tuple[str, dict[str, Any], bool]] = [
     (
         "A pendulum of length 1.2 m swings with a small amplitude. Calculate its frequency (g = 9.81 m/s^2).",
         {"scene": "pendulum", "values": {"length": "1.2 m"}},
-        False,
+        True,
     ),
     (
         "A light ray passes from air into glass with refractive index 1.5 at an angle of incidence of 30 degrees. Find the angle of refraction.",

@@ -39,7 +39,8 @@ import {
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
-import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { cachedUserMatchesToken, clearCachedUser, mergeCachedUser, readCachedUser } from "@/lib/cachedUser";
+import { useCachedUserWriter } from "@/contexts/useCachedUserWriter";
 import { AccountSessionContext } from "@/contexts/accountSession";
 import { endServerSession, watchPendingLogouts } from "@/lib/pendingLogout";
 import { reportCorruptSessionCleared } from "@/lib/sentry";
@@ -56,8 +57,9 @@ type AuthContextValue = {
   user: User | null;
   token: string | null;
   loading: boolean;
-  /** The user came from the server this run (sign-in, /auth/me or a profile
-   * write), not only the launch cache, whose plan always reads "free". */
+  /** The user came from the server this run (sign-in, /auth/me or a profile write), not
+   * only the launch cache: its settings are the last ones this phone saw, and the fields it
+   * does not keep (push and reminder switches, Location, personal details) are placeholders. */
   profileValidated: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
@@ -260,7 +262,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
         if (revision === updateUserGenRef.current) {
           setCurrentUser(me);
           markRead();
-          void writeCachedUser(me);
         }
       } catch {
         // Offline launches retain a cached account. Without one, keep a
@@ -303,7 +304,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     setCurrentUser(result.user);
     markRead();
     setLoading(false);
-    void writeCachedUser(result.user);
   }, [isCurrent, setCurrentToken, setCurrentUser, markRead]);
 
   const signInWithGoogle = useCallback(() => signIn(async (current) => {
@@ -347,9 +347,10 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
   useEffect(() => {
     if (user?.locale) void ensureLocale(user.locale);
   }, [user?.locale]);
+  useCachedUserWriter(profileValidated ? user : null, savesWaitingRef);
 
-  // Cached display fields intentionally omit preferences. Running bootstrap
-  // on those defaults would unregister push and overwrite local reminders.
+  // The launch cache keeps no push, email or reminder switch, nor Location: running bootstrap
+  // on their placeholders would unregister push and overwrite local reminders.
   useBootstrapSync({
     token: profileValidated ? token : null,
     user: profileValidated ? user : null,
@@ -366,7 +367,6 @@ export function AuthProvider({ children, onRestored }: AuthProviderProps) {
     if (!isCurrent(sessionGeneration) || revision !== updateUserGenRef.current) return;
     setCurrentUser(me);
     markRead();
-    void writeCachedUser(me);
   }, [token, sessionGeneration, isCurrent, setCurrentUser, markRead]);
 
   const completeOnboarding = useCallback(async () => {

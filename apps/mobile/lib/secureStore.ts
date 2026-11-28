@@ -16,7 +16,7 @@
  * | --- | --- | --- | --- |
  * | yes | yes | an ordinary launch | nothing |
  * | no | no | first launch of this version: an upgrade, or a new install | each item rewritten in the new class |
- * | no | yes | this version ran, then its files went: a reinstall | session and installation id cleared, the session's logout owed to the server |
+ * | no | yes | this version ran, then its files went: a reinstall | session, installation id and registered push token cleared, the session's logout (with that token) owed to the server |
  * | yes | no | a backup restored onto another phone, or a first launch cut short | items rewritten, nothing cleared |
  *
  * The marker is written before the "ran" item, so a launch killed between the two reads as
@@ -38,6 +38,8 @@ export const SECURE_KEYS = {
   pendingLogouts: "recall_pending_logouts_v1",
   /** This install's id, for push token re-bind checks (`lib/installationId.ts`). */
   installationId: "recall_installation_id_v1",
+  /** The Expo push token this install last registered (`features/notifications/model/registeredPushToken.ts`). */
+  registeredPushToken: "recall_push_token_v1",
 } as const;
 
 /** Written once this version has run on this phone; it outlives a reinstall, the marker does not. */
@@ -48,7 +50,7 @@ const MARKER_FILE = "recall.install-marker.txt";
 /** Items an earlier version wrote in the default (backed-up) class. */
 const MIGRATED_KEYS = [SECURE_KEYS.session, SECURE_KEYS.pendingLogouts] as const;
 /** What a reinstall forgets. Owed logouts stay: they still revoke sessions on the server. */
-const CLEARED_ON_REINSTALL = [SECURE_KEYS.session, SECURE_KEYS.installationId] as const;
+const CLEARED_ON_REINSTALL = [SECURE_KEYS.session, SECURE_KEYS.installationId, SECURE_KEYS.registeredPushToken] as const;
 /** As many owed logouts as `lib/pendingLogout.ts` keeps. */
 const MAX_PENDING_LOGOUTS = 5;
 
@@ -104,7 +106,10 @@ async function oweLogout(session: { accessToken: string; refreshToken: string | 
   const parsed = readJson(await keychain.get(SECURE_KEYS.pendingLogouts));
   const owed = (Array.isArray(parsed) ? parsed : []) as { accessToken?: unknown }[];
   if (owed.some((entry) => entry.accessToken === session.accessToken)) return;
-  const entry = { ...session, pushToken: null, queuedAt: Date.now() };
+  // The token the deleted app registered, cleared below: the logout takes it off that account
+  // even while notifications are off and no token can be read.
+  const pushToken = (await keychain.get(SECURE_KEYS.registeredPushToken)) || null;
+  const entry = { ...session, pushToken, queuedAt: Date.now() };
   await keychain.set(SECURE_KEYS.pendingLogouts, JSON.stringify([...owed, entry].slice(-MAX_PENDING_LOGOUTS)));
 }
 

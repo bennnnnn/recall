@@ -21,10 +21,12 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.modules.physics.scene_drawing.guards import GUARDS
 from app.modules.physics.scene_drawing.kinds import SCENES, Quantities, SceneKind
 from app.modules.physics.scene_drawing.setup import setup_readings
 from app.modules.physics.scene_drawing.values import Stated, stated_texts
+from app.modules.physics.scene_drawing.weight_parts import with_weight_parts
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
 from app.modules.physics.solvers.si import to_si
 from app.services.law_binding.givens import Given
@@ -41,6 +43,8 @@ class _Scene(BaseModel):
     sticks: bool | None = None
     elastic: bool | None = None
     horizontal: bool | None = None
+    # A slope's block with its weight resolved along and into the slope (``weight_parts``).
+    components: bool | None = None
 
 
 def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec]:
@@ -80,7 +84,19 @@ def described_scene(body: str, texts: Sequence[str]) -> list[SimulationBlockSpec
     if drawn is None:
         logger.info("described scene %s not drawn: no reading agrees", described.scene)
         return []
-    return kind.draw(drawn)
+    specs = kind.draw(drawn)
+    if not described.components:
+        return specs
+    # The weight resolved along and into the slope, of the reader's mass and g.
+    mass, g = (_si(drawn, param) for param in ("m", "g"))
+    return [with_weight_parts(spec, mass, g or SCHOOL_GRAVITY["earth"]) for spec in specs]
+
+
+def _si(drawn: Quantities, param: str) -> float | None:
+    if param not in drawn:
+        return None
+    value, unit = drawn[param]
+    return to_si(value, unit, expected_key=param) if unit else value
 
 
 def _values(kind: SceneKind, described: _Scene, stated: Stated) -> dict[str, Given] | None:
@@ -122,11 +138,14 @@ def _agreed(
     value and claim; None when it does not."""
     params = reading.physics_params or {}
     units = reading.physics_units or {}
+    # A reading that names no g takes Earth's school g, the one its solve uses.
+    with_g = {"g": SCHOOL_GRAVITY["earth"], **params}
+    g_units = {"g": "m/s^2", **units}
     for name, given in held.items():
         param = kind.parts[name].param
         if not param or name in kind.unordered:
             continue
-        if param not in params or not _same(given, params[param], units.get(param, ""), param):
+        if param not in with_g or not _same(given, with_g[param], g_units.get(param, ""), param):
             return None
     if kind.unordered:
         written = [held[name] for name in kind.unordered if name in held]

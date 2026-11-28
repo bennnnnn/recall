@@ -696,3 +696,54 @@ describe("the stored sign-in at launch", () => {
     expect(reportCorruptSessionCleared).not.toHaveBeenCalled();
   });
 });
+
+it("rewrites the launch cache on every confirmed change: a token refresh's account, a merge", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  const refresh = (setTokenRefreshHandler as jest.Mock).mock.calls.at(-1)[0];
+  const lapsed = { ...userA, plan: "free" } as User;
+  await act(async () => { refresh("access-a2", lapsed); });
+  expect(writeCachedUser).toHaveBeenLastCalledWith(expect.objectContaining({ id: "account-a", plan: "free" }));
+  // The store's plan sync merges only the plan's fields: the cache follows it too.
+  await act(async () => { current.mergeUser({ plan: "pro" }); });
+  expect(writeCachedUser).toHaveBeenLastCalledWith(expect.objectContaining({ plan: "pro" }));
+});
+
+// Review of #2614: Auto turned off, then the app killed while the save is out. The next launch
+// painted, and sent, a model the server never stored.
+it("writes a save's optimistic patch to the cache only once the server has answered", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  const save = deferred<User>();
+  (api.updateMe as jest.Mock).mockReturnValueOnce(save.promise);
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ enabled_models: ["smart-chat"] }); });
+  expect(current.user?.enabled_models).toEqual(["smart-chat"]);
+  expect(writeCachedUser).not.toHaveBeenCalled();
+  await act(async () => { save.resolve({ ...userA, enabled_models: ["smart-chat"] }); await pending; });
+  expect(writeCachedUser).toHaveBeenLastCalledWith(expect.objectContaining({ enabled_models: ["smart-chat"] }));
+});
+
+it("a refused save leaves the cache on the last confirmed user", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  const save = deferred<User>();
+  (api.updateMe as jest.Mock).mockReturnValueOnce(save.promise);
+  let pending!: Promise<void>;
+  await act(async () => { pending = current.updateUser({ memory_enabled: false }).catch(() => {}); });
+  await act(async () => { save.reject(new Error("offline")); await pending; });
+  for (const [written] of (writeCachedUser as jest.Mock).mock.calls) {
+    expect((written as User).memory_enabled).not.toBe(false);
+  }
+});
+
+it("writes nothing back to the cache after a sign-out", async () => {
+  await mount();
+  await act(async () => {});
+  (writeCachedUser as jest.Mock).mockClear();
+  await act(async () => { await current.signOut(); });
+  expect(writeCachedUser).not.toHaveBeenCalled();
+});

@@ -39,7 +39,7 @@ from app.modules.physics.extractors.forces import _FORCE_CUE_RES, _FORCE_CUES, _
 from app.modules.physics.extractors.friction import (
     _FRICTION_CUE_RES,
     _FRICTION_CUES,
-    _extract_friction_intent,
+    extract_friction_intent,
 )
 from app.modules.physics.extractors.gravitation import (
     _GRAVITATION_CUE_RES,
@@ -147,7 +147,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     _extract_suvat_intent,
     extract_projectile_intent,
     _extract_momentum_intent,
-    _extract_friction_intent,
+    extract_friction_intent,
     _extract_circular_intent,
     # Before the pendulum and the spring: both of those read a *period* as the
     # answer, and the two SHM ops read it as a given.
