@@ -18,7 +18,7 @@ const STORE_PATTERNS = [
   /^(?:export )?let (\w+)/,
   /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*new (?:Map|Set|WeakMap|WeakSet)(?:<.*>)?\(\s*\)/,
   /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*new \w*ResourceCache\b/,
-  /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*(?:createValueStore|cacheFile|createFilePref)\b/,
+  /^(?:export )?const (\w+)(?:\s*:[^=]+)?\s*=\s*(?:createValueStore|cacheFile|durableFile|createFilePref)\b/,
 ];
 
 /** Holds an account's data; sign-out calls the named function. */
@@ -232,7 +232,8 @@ const NO_ACCOUNT_DATA = [
   "lib/haptics.ts#enabled",
   "lib/hapticsPrefs.ts#hapticsPref",
   // The Expo push token this install last registered: the install's, the same for every account.
-  "features/notifications/model/registeredPushToken.ts#lastRegistered",
+  "features/notifications/model/registeredPushToken.ts#known",
+  "features/notifications/model/registeredPushToken.ts#writes",
   "lib/launchSplash.ts#deadlinePassed",
   "lib/launchSplash.ts#exited",
   "lib/launchSplash.ts#hidden",
@@ -258,6 +259,12 @@ const NO_ACCOUNT_DATA = [
   "lib/reduceMotion.ts#knownReduceMotion",
   "features/scanner/model/switchCue.ts#cueEpoch",
   "features/scanner/model/switchCue.ts#preparing",
+  // The launch's install check, once a run: the phone's, not an account's.
+  "lib/secureStore.ts#installCheck",
+  "lib/secureStore.ts#failureReported",
+  "lib/secureStore.ts#reinstallCleared",
+  // The installation id read running now: the phone's id, the same for every account.
+  "lib/installationId.ts#reading",
   "lib/sentry.ts#failedStarts",
   "lib/sentry.ts#sdk",
   "lib/skiaAvailability.ts#cached",

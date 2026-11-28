@@ -63,7 +63,6 @@ const LEGACY_STRUCTURED = [
   "molecule3d",
   "mol3d",
   "3dmol",
-  "places",
   "quiz",
   "clarify",
   "array",
@@ -116,7 +115,6 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "clock",
   "time",
   "sources",
-  "places",
   "quiz",
   "clarify",
   "array",
@@ -200,7 +198,6 @@ describe("fence registry lookups", () => {
     expect(fallbackKindForLang("graph")).toBe("graph");
     expect(fallbackKindForLang("answer")).toBe("answer");
     expect(fallbackKindForLang("sources")).toBe("sources");
-    expect(fallbackKindForLang("places")).toBe("places");
     expect(fallbackKindForLang("mermaid")).toBe("visual");
     expect(fallbackKindForLang("chart")).toBe("visual");
     expect(fallbackKindForLang("python")).toBeNull();
@@ -247,7 +244,6 @@ describe("fence registry lookups", () => {
       "message",
       "molecule",
       "molecule3d",
-      "places",
       "quiz",
       "quote",
       // P14. Server-owned like geometry/graph: the prompt forbids it and
@@ -270,7 +266,6 @@ describe("fence registry lookups", () => {
       "math",
       "mermaid",
       "message",
-      "places",
       "quiz",
       "social",
       "steps",
@@ -308,7 +303,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       chemistry: "component",
       molecule: "component",
       molecule3d: "component",
-      places: "component",
       quiz: "component",
       clarify: "component",
       array: "component",
@@ -355,6 +349,7 @@ describe("per-fence predicates accept exactly these fences", () => {
     "reminder_proposal",
     "settings_proposal",
     "calendar_proposal",
+    "places",
     "photo",
     "python",
     "json",
@@ -431,7 +426,6 @@ describe("per-fence predicates accept exactly these fences", () => {
       clarify: "copyText",
       array: "copyText",
       calculator: "calculator",
-      places: "places",
       graph: "graph",
       chemistry: "molecule",
       molecule: "molecule",

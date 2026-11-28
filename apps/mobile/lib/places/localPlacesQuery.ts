@@ -1,5 +1,5 @@
 /**
- * Universal geo intent — mirrors backend `is_geo_query` / `is_places_list_query`
+ * Universal geo intent — mirrors backend `is_geo_query` / `is_ambiguous_local_places_query`
  * (apps/api/app/modules/web_search/geo_intent.py). Detects *how* the user asks
  * (proximity, distance), never *what* venue type. The phone reads it before
  * sending, to decide whether to read GPS. docs/fixtures/geo_intent_cases.json

@@ -50,11 +50,22 @@ function isSafeHref(value: string): boolean {
   }
 }
 
+function isAbsolute(value: string): boolean {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 if (typeof window !== "undefined") {
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     if (node.tagName === "A") {
       const href = node.getAttribute("href") ?? "";
-      if (href && !isSafeHref(href)) {
+      // A link is absolute: a reply's name still marked to look up ("check", while it
+      // streams) or "#" would open this page, so it shows as its words.
+      if (href && (!isSafeHref(href) || !isAbsolute(href))) {
         node.removeAttribute("href");
       } else {
         node.setAttribute("target", "_blank");

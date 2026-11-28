@@ -52,7 +52,7 @@ import { applyOutsideFences } from "@/lib/fence/scan";
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { isWorkedReply } from "@/lib/markdown/workoutSection";
-import { repairBrokenMarkdownLinks } from "@/lib/places/placesList";
+import { repairBrokenMarkdownLinks } from "@/lib/markdown/replyLinks";
 
 export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 export { breakAttachedMathFences, unwrapProseMathBackticks } from "@/lib/markdown/preprocessMathFences";

@@ -444,6 +444,14 @@ export type FailureArea =
    * dropped mid-take (what was heard landed).
    */
   | "live_dictation"
+  /** The launch's install check (reinstall, or the secure store's one-time move) could not run; the next call tries again. */
+  | "install_check"
+  /** The secure store could not read or keep this install's id; push registers without one. */
+  | "installation_id"
+  /** A durable file (an unsent draft, the purchase hold) could not be read or written (`lib/durableFile.ts`). */
+  | "durable_file"
+  /** The push token this install registered could not be read or kept in the secure store. */
+  | "push_token_store"
   /** The screen could not be kept on (or let sleep) for a call, a take or a picture. */
   | "keep_awake";
 

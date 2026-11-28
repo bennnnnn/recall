@@ -1,9 +1,84 @@
 {
-  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula (any script: $$π$$), or as a padded $$ x = 1 $$ whose text holds a maths mark (= < > ^ _ \\ |) and at most one word (\\text{…} groups and commands aside), closed on its line, or as a $$ that ends a sentence's line, whose formula lines run to a $$ that starts a line before a blank line (a line inside it like |x| < 5 or + 2x + 1 is maths); a $$ alone on its line, or with TeX after it, opens a block only its closer ends, while one with words after it or in a list item reads as prose, which a blank line, a list item or a table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths. `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts, displayDollarsWiring.test.ts) read every case with the reader, convertBlockMath, displayMathLines, the inline readers and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines, the inline-boundary and calculation readers and the LaTeX check.",
+  "about": "Where `$$` display maths opens and closes, read the same on the phone (apps/mobile/lib/markdown/displayDollars.ts) and on the server (apps/api/app/modules/chat/display_dollars.py). remark-math's rule: a delimiter is a run of exactly two unescaped dollars (three or more, or one in brackets, is a price tier); at the start of a line (after its indent, a quote mark or a list marker) it opens a formula that may run on over the lines below; mid-line it is maths as $$x$$ with nothing between the dollars and the formula (any script: $$π$$), or as a padded $$ x = 1 $$ whose text holds a maths mark (= < > ^ _ \\ |) and at most one word (\\text{…} groups and commands aside), closed on its line, or as a $$ that ends a sentence's line, whose formula lines run to a $$ that starts a line before a blank line (a line inside it like |x| < 5 or + 2x + 1 is maths); a $$ alone on its line, or with TeX after it, opens a block only its closer ends, while one with words after it or in a list item reads as prose, which a blank line, a list item or a table row ends unclosed; a pair on a table row never spans a |. Inline code holds no maths, and a single-dollar pair around no letter, digit or command whose closer runs into more dollars is a price range (\"$–$$\"), while a symbol alone between two dollars is still maths (\"$<$\", `inline` lists each inline formula a case holds; a blank pair, `$ $`, is none: `no_pair_at` lists where neither inline reader opens one), so a one-line price tier holds no inline maths either ($–$$ is a range: apps/mobile/lib/markdown/inlineMath.ts, apps/api/app/modules/chat/math_padding.py). `display` lists each formula's text between its dollars, trimmed, in order. The phone's tests (lib/__tests__/displayDollars.test.ts, displayDollarsWiring.test.ts) read every case with the reader, convertBlockMath, displayMathLines, the inline readers and the streaming scanners; the server's (app/tests/modules/chat/test_display_dollars.py) with its reader, display_math_lines, the inline-boundary and calculation readers and the LaTeX check.",
   "cases": [
     {
       "id": "price-range",
       "text": "Californian, $$–$$$, open late.",
+      "display": []
+    },
+    {
+      "id": "symbol-alone-is-maths",
+      "text": "Flip $<$ to $>$ when you multiply by a negative.",
+      "display": [],
+      "inline": ["<", ">"]
+    },
+    {
+      "id": "symbol-signs-are-maths",
+      "text": "The $+$ sign, the $=$ sign, then $≤$ and $±$.",
+      "display": [],
+      "inline": ["+", "=", "≤", "±"]
+    },
+    {
+      "id": "symbol-command-is-maths",
+      "text": "Read $\\pm$ as plus or minus, and $\\leq$ as at most.",
+      "display": [],
+      "inline": ["\\pm", "\\leq"]
+    },
+    {
+      "id": "inline-closer-then-a-display-formula",
+      "text": "Since $a$ — $$b = 3$$ holds.",
+      "display": ["b = 3"],
+      "inline": ["a"]
+    },
+    {
+      "id": "price-range-ends-the-line",
+      "text": "4. **Burma Superstar** — Burmese, $–$$",
+      "display": []
+    },
+    {
+      "id": "price-range-after-an-unspaced-dash",
+      "text": "4. **Burma Superstar**—$–$$",
+      "display": []
+    },
+    {
+      "id": "blank-pair-is-no-maths",
+      "text": "Use $ $ to write maths, e.g. $x^2$.",
+      "display": [],
+      "no_pair_at": [4]
+    },
+    {
+      "id": "price-range-one-to-two-en-dash",
+      "text": "1. **Burma Superstar** — Burmese, $–$$, Richmond.",
+      "display": []
+    },
+    {
+      "id": "price-range-list-line-ends",
+      "text": "1. **Burma Superstar** — Burmese, $–$$\n2. **Nopa** — Californian, $$\n3. **Zuni Café** — Californian, $$–$$$\n\nEach takes bookings; a formula after them, $$x^2$$, still draws.",
+      "display": ["x^2"]
+    },
+    {
+      "id": "price-range-one-to-two-hyphen",
+      "text": "2. **La Taqueria** — tacos, $-$$, Mission.",
+      "display": []
+    },
+    {
+      "id": "price-range-one-to-two-em-dash",
+      "text": "Nopa — $—$$ for dinner.",
+      "display": []
+    },
+    {
+      "id": "price-range-one-to-two-padded",
+      "text": "Most taquerias run $ – $$ a plate.",
+      "display": []
+    },
+    {
+      "id": "price-range-one-to-three",
+      "text": "House of Prime Rib — $–$$$, book ahead.",
+      "display": []
+    },
+    {
+      "id": "price-range-two-to-two",
+      "text": "Zuni Café — $$–$$ most nights.",
       "display": []
     },
     {

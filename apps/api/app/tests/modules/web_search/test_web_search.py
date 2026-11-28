@@ -109,30 +109,6 @@ def test_is_ambiguous_local_places_query():
     assert not is_ambiguous_local_places_query("nearest hospital")
 
 
-def test_format_search_block_local_places_links():
-    block = format_search_block(
-        [
-            WebSearchHit(
-                title="Zuni Café",
-                url="https://www.zunicafe.com",
-                snippet="Market St, San Francisco.",
-            )
-        ],
-        local_places=True,
-    )
-    assert "places fence" in block.lower()
-    assert '"name"' in block
-    assert "Zuni Café (https://www.zunicafe.com)" in block
-    assert "Google Maps" in block
-    # A page is no venue: its title never seeds a places list.
-    assert "Starter JSON" not in block
-
-
-def test_format_search_empty_block_local_places():
-    block = format_search_empty_block(["best restaurants San Francisco"], local_places=True)
-    assert "Do NOT invent restaurant names" in block
-
-
 def test_filter_hits_to_today_removes_other_dates():
     from app.modules.web_search.query_builders import _today_label, filter_hits_to_today
 
@@ -265,15 +241,6 @@ def test_format_sources_fence_sanitizes_backticks_in_snippets():
 def test_mock_search_results_respects_limit():
     hits = mock_search_results("query", max_results=1)
     assert len(hits) == 1
-
-
-def test_format_search_block_warns_when_location_missing():
-    block = format_search_block(
-        [WebSearchHit(title="Cafe", url="https://cafe.com", snippet="Nice spot")],
-        local_places=True,
-        user_location=None,
-    )
-    assert "User location is not set" in block
 
 
 def test_format_location_not_set_answer_prompts_to_enable():

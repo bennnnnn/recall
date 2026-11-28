@@ -76,7 +76,6 @@ _ALLOWED_KEYS = {
     "solver",
     "money",
     "search_hits",
-    "local_places",
     "recalled",
     "summarized",
     "prior_messages",

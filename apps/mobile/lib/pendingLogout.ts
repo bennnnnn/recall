@@ -8,12 +8,11 @@
  *
  * It holds tokens, so it lives in the secure store like the session itself (lib/auth.ts).
  */
-import * as SecureStore from "expo-secure-store";
-
 import { logoutSession } from "@/lib/api/client";
 import { onConnectionAnswered } from "@/lib/api/connectionFailures";
 import { getToken } from "@/lib/auth";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
+import { SECURE_KEYS, secureDelete, secureGet, secureSet } from "@/lib/secureStore";
 import { reportFailure } from "@/lib/sentry";
 
 export type ServerLogout = {
@@ -25,7 +24,7 @@ export type ServerLogout = {
 
 type PendingLogout = ServerLogout & { queuedAt: number };
 
-const PENDING_LOGOUTS_KEY = "recall_pending_logouts_v1";
+const PENDING_LOGOUTS_KEY = SECURE_KEYS.pendingLogouts;
 /** A phone signs out of a handful of accounts at most between connections. */
 const MAX_PENDING = 5;
 /** The refresh token's lifetime: after it the server has ended the session itself. */
@@ -55,13 +54,23 @@ function isPending(value: unknown): value is PendingLogout {
   );
 }
 
-async function readPending(): Promise<PendingLogout[]> {
+/**
+ * What is owed; null when the store could not be read (the Keychain locked in a launch before
+ * the first unlock), which says nothing about what is owed, so a later try reads it again. A
+ * record that is not a list of logouts reads as nothing owed.
+ */
+async function readPending(): Promise<PendingLogout[] | null> {
+  let raw: string | null;
   try {
-    const raw = await SecureStore.getItemAsync(PENDING_LOGOUTS_KEY);
+    raw = await secureGet(PENDING_LOGOUTS_KEY);
+  } catch (error) {
+    reportFailure("sign_out", error);
+    return null;
+  }
+  try {
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter(isPending) : [];
   } catch (error) {
-    // Unreadable: nothing is owed that this run can send.
     reportFailure("sign_out", error);
     return [];
   }
@@ -70,8 +79,8 @@ async function readPending(): Promise<PendingLogout[]> {
 async function writePending(entries: PendingLogout[]): Promise<void> {
   hasPending = entries.length > 0;
   try {
-    if (entries.length === 0) await SecureStore.deleteItemAsync(PENDING_LOGOUTS_KEY);
-    else await SecureStore.setItemAsync(PENDING_LOGOUTS_KEY, JSON.stringify(entries));
+    if (entries.length === 0) await secureDelete(PENDING_LOGOUTS_KEY);
+    else await secureSet(PENDING_LOGOUTS_KEY, JSON.stringify(entries));
   } catch (error) {
     // An unwritable store leaves only this run's attempt.
     reportFailure("sign_out", error);
@@ -80,15 +89,17 @@ async function writePending(entries: PendingLogout[]): Promise<void> {
 
 function crossOff(accessTokens: ReadonlySet<string>): Promise<void> {
   if (accessTokens.size === 0) return Promise.resolve();
-  return serial(async () =>
-    writePending((await readPending()).filter((entry) => !accessTokens.has(entry.accessToken))),
-  );
+  return serial(async () => {
+    const owed = await readPending();
+    // Unread, so nothing is written over what it may hold.
+    if (owed !== null) await writePending(owed.filter((entry) => !accessTokens.has(entry.accessToken)));
+  });
 }
 
 /** Sign-out's server half: written down first, then sent, then crossed off when the server answered. */
 export async function endServerSession(logout: Promise<ServerLogout>): Promise<void> {
   const entry: PendingLogout = { ...(await logout), queuedAt: Date.now() };
-  await serial(async () => writePending([...(await readPending()), entry].slice(-MAX_PENDING)));
+  await serial(async () => writePending([...((await readPending()) ?? []), entry].slice(-MAX_PENDING)));
   if (await logoutSession(entry.accessToken, entry.refreshToken, entry.pushToken)) {
     await crossOff(new Set([entry.accessToken]));
   }
@@ -106,7 +117,9 @@ async function signedIn(): Promise<boolean> {
 
 async function retryOwed(readPushToken: () => Promise<string | null>): Promise<void> {
   const entries = await serial(readPending);
-  hasPending = entries.length > 0;
+  // Unread: still unknown, so the next return to the app or answer from our API tries again.
+  hasPending = entries === null ? null : entries.length > 0;
+  if (entries === null) return;
   const done = new Set<string>();
   // Someone signed in since: their registration took this device's token, and the same
   // account signing back in must not lose it to its own old logout. The session is still revoked.

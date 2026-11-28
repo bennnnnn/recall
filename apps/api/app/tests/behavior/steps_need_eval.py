@@ -9,7 +9,8 @@ OpenRouter key in the environment, and nothing else (no database).
 Every turn of ``steps_need_corpus.json`` is labelled ``steps`` (a task or a method carried
 out in a fixed order: tie a tie, renew a passport, balance a chemical equation) or not (tips
 and ways to reach a goal, advice, a choice to weigh, how something works, a plan, a fact,
-chat). ``read`` asks the Decider's ``steps`` question (``decider_read.STEPS_QUESTION``) at
+chat). ``read`` asks the Decider's ``steps`` question in the call the turn sends it
+(``decider_read.LAYOUT_QUESTIONS``, with the names question) at
 each threshold on the tuning turns, then on the held-out ones (the owner's 2026-11-27
 groups, written before any tuning) at ``--at``.
 
@@ -76,7 +77,7 @@ async def measure_read(turns: list[StepsTurn], runs: int) -> tuple[list[Outcome]
     from app.gateways.decider_gateway import decide
     from app.models import model_catalog
     from app.models.routing_lanes import ROUTING
-    from app.modules.chat.decider_read import STEPS_QUESTION
+    from app.modules.chat.decider_read import LAYOUT_QUESTIONS
     from app.modules.chat.turn_decision import decision_messages
 
     settings = Settings()
@@ -91,7 +92,11 @@ async def measure_read(turns: list[StepsTurn], runs: int) -> tuple[list[Outcome]
             started = time.monotonic()
             try:
                 reply = await decide(
-                    settings, model=model, state=state, questions=dict(STEPS_QUESTION), seconds=5.0
+                    settings,
+                    model=model,
+                    state=state,
+                    questions=dict(LAYOUT_QUESTIONS),
+                    seconds=5.0,
                 )
             except Exception as exc:  # A failed call is counted, never retried.
                 print(f"  unread [{turn.id}] {type(exc).__name__}")

@@ -126,7 +126,8 @@ def test_a_photo_above_the_steps_still_takes_the_card() -> None:
 @pytest.mark.asyncio
 async def test_the_steps_question_is_its_own_call(monkeypatch: pytest.MonkeyPatch) -> None:
     """Asked among the turn's questions it would move their measured answers (the Decider
-    weighs a call's questions together): a call of its own, as the work question is."""
+    weighs a call's questions together): a call of its own, as the work question is, shared
+    only with the names question, measured in it (``LAYOUT_QUESTIONS``)."""
     asked: list[set[str]] = []
     turn = {
         "subject": {"type": "choice", "choice": "everyday"},
@@ -151,7 +152,7 @@ async def test_the_steps_question_is_its_own_call(monkeypatch: pytest.MonkeyPatc
         _SETTINGS, "how to tie a tie", has_earlier=False, seconds=1.0, ask_steps=True
     )
     assert fields is not None and fields["steps"] is True
-    assert {"steps"} in asked and "steps" not in decider_read.QUESTIONS
+    assert {"steps", "names"} in asked and "steps" not in decider_read.QUESTIONS
     fields = await decider_read.decide_turn(
         _SETTINGS, "how to tie a tie", has_earlier=False, seconds=1.0
     )

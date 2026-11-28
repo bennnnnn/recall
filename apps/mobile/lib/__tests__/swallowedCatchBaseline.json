@@ -96,7 +96,6 @@
   "lib/money/format.ts": 2,
   "lib/networkProbe.ts": 2,
   "lib/physics/simulation/parse.ts": 1,
-  "lib/places/placesList.ts": 3,
   "lib/preview/previewPage.ts": 1,
   "lib/preview/previewPageFile.ts": 2,
   "lib/reduceMotion.ts": 1,

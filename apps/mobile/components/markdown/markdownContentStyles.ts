@@ -224,9 +224,15 @@ export function makeMdStyles(t: Theme) {
       marginTop: 0,
       marginBottom: PARAGRAPH_GAP,
     },
-    // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark
-    // mode the accent is only ~1.8:1 against body text, and Graphite is grey.
-    link: { color: t.primary, textDecorationLine: "underline" },
+    // Every link a reply shows, a name to look up or a page, looks one way (the owner,
+    // 2026-11-27): the text's own colour, dotted underline. Underlined, so a link never
+    // depends on color alone (WCAG 1.4.1).
+    link: {
+      color: t.text,
+      textDecorationLine: "underline",
+      textDecorationStyle: "dotted",
+      textDecorationColor: t.textSecondary,
+    },
   });
 }
 

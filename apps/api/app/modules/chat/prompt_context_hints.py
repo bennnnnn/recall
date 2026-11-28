@@ -21,14 +21,13 @@ from app.services.prompt_safety import wrap_saved_memory, wrap_untrusted
 
 
 def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]:
-    """Layout and location for a nearby, distance or local-weather question."""
+    """What to ask, the directions rule and the location for a nearby, distance or local-weather
+    question; a list of places is laid out as any list is, its names linked (``NAME_LINK_RULE``)."""
     if not query_text:
         return []
     parts: list[str] = []
     if web_search_service.is_ambiguous_local_places_query(query_text):
         parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
-    elif web_search_service.is_places_list_query(query_text):
-        parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
     elif web_search_service.is_distance_query(query_text):
         parts.append(web_search_service.GEO_DISTANCE_HINT)
     if prompt_location and web_search_service.is_geo_query(query_text):
@@ -59,7 +58,7 @@ def slim_geo_hints(turn: SlimTurn) -> list[str]:
     """A slim turn has no profile block, so it states where the user is whenever Location
     gives a place (the turn's fix, else the saved one), whatever the message's wording
     (``USE_THE_LOCATION``). A greeting and a "who am I" turn, which share no profile detail,
-    state it only when they ask about a place; the places layout hints go with that too."""
+    state it only when they ask about a place; the nearby and distance hints go with that too."""
     query = turn.query_text
     asks_place = bool(
         turn.settings.web_search_enabled and query and web_search_service.is_geo_query(query)

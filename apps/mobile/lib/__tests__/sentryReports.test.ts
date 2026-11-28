@@ -156,7 +156,7 @@ describe("a refused fence", () => {
     for (let i = 0; i < 50; i += 1) mod.reportFenceRefused("graph", "invalid_json");
     expect(sdk().captureMessage).toHaveBeenCalledTimes(1);
 
-    const fences = ["geometry", "quiz", "array", "clarify", "chart", "mermaid", "calculator", "chem_scene", "molecule", "places", "steps"] as const;
+    const fences = ["geometry", "quiz", "array", "clarify", "chart", "mermaid", "calculator", "chem_scene", "molecule", "steps"] as const;
     for (const fence of fences) mod.reportFenceRefused(fence, "invalid_spec");
     expect(sdk().captureMessage).toHaveBeenCalledTimes(10);
 
