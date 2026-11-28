@@ -3,6 +3,7 @@ import { apiPath, withQuery } from "@/lib/api/path";
 import type { AttachmentListResponse } from "@/features/attachments/types";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
 import { AttachmentError, UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
+import { isGone } from "@/lib/api/gone";
 
 async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
   const generation = getSessionGeneration();
@@ -91,15 +92,7 @@ export async function attachmentRecordExists(
     await request(apiPath`/attachments/${attachmentId}/url`, token);
     return true;
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      error.status === 404
-    ) {
-      return false;
-    }
-    return null;
+    return isGone(error) ? false : null;
   }
 }
 

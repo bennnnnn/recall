@@ -391,6 +391,8 @@ def test_create_todo():
 
     user = api_user()
     app = app_with_user(user)
+    # The create commits its own insert now (a savepoint around it): no database here.
+    app.dependency_overrides[get_db] = lambda: fake_session()
     with (
         patch("app.modules.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
     ):
@@ -442,6 +444,8 @@ def test_create_todo_with_chat_id():
 
     user = api_user()
     app = app_with_user(user)
+    # The create commits its own insert now (a savepoint around it): no database here.
+    app.dependency_overrides[get_db] = lambda: fake_session()
     # The router now verifies chat ownership before linking a todo to it
     # (cross-user FK guard). Mock the chat lookup so the owned-chat path
     # reaches todo creation.
@@ -611,6 +615,8 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     # User in America/New_York (UTC-5 in EST).
     user = api_user(timezone="America/New_York")
     app = app_with_user(user)
+    # The create commits its own insert now (a savepoint around it): no database here.
+    app.dependency_overrides[get_db] = lambda: fake_session()
     create_mock = AsyncMock(return_value=todo_mock)
     with (
         patch("app.modules.todos.crud.todos_repo.create", create_mock),
@@ -650,6 +656,8 @@ def test_create_todo_accepts_plain_undated_item():
     todo_mock.updated_at = now
     user = api_user()
     app = app_with_user(user)
+    # The create commits its own insert now (a savepoint around it): no database here.
+    app.dependency_overrides[get_db] = lambda: fake_session()
     create_mock = AsyncMock(return_value=todo_mock)
     with (
         patch("app.modules.todos.crud.todos_repo.create", create_mock),

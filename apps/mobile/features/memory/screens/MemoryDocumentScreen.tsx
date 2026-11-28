@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { FieldSheet } from "@/ui/overlay/FieldSheet";
@@ -130,13 +130,10 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (!editing || !text || saving) return;
     setSaving(true);
     const saved = await editFact(editing.fact.id, text);
-    if (!isCurrentView()) return;
     setSaving(false);
-    if (!saved.ok) {
-      reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
-      return;
-    }
-    setEditing(null);
+    // The sheet ends with its save however the visit did (saved, or the fact gone); the toast is the visit's.
+    if (!saved.ok && isCurrentView()) reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
+    if (saved.ok || saved.failure === "gone") setEditing(null);
   }, [editing, saving, editFact, isCurrentView, feedback, t]);
 
   const toggleMuted = useCallback(async (fact: Memory) => {
@@ -152,7 +149,7 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     typeof key === "string" ? key : undefined,
   );
 
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
   if (!document) {
     if (memory.loading) return <SkeletonList />;
     // A failed read is not a deleted page: say so and offer the read again.
@@ -325,7 +322,7 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
         sourceHref ? [{ name: "openSource", label: t("memory.source_chat_hint") }] : undefined
       }
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.push(sourceHref);
+        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.dismissTo(sourceHref);
       }}
       testID={`memory-fact-${fact.id}`}
     >
@@ -340,7 +337,7 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
         {source && sourceHref ? (
           <Text
             style={[s.factMeta, s.factSource]}
-            onPress={() => router.push(sourceHref)}
+            onPress={() => router.dismissTo(sourceHref)}
             accessibilityRole="link"
             accessibilityHint={t("memory.source_chat_hint")}
             testID={`memory-fact-source-${fact.id}`}

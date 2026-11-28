@@ -17,6 +17,7 @@ import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { writeCachedChatMessages } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
 import type { EditThread } from "@/features/chat/model/threadEdit";
+import { forgetChatIfGone } from "@/features/chat/model/chatGone";
 
 const SERVER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -36,7 +37,11 @@ type Options = {
 };
 
 /** A page that could not be read: Sentry hears of it, and the view that asked, still open, says so. */
-function pageReadFailed(error: unknown, shown: boolean, { showActionBanner, t }: Pick<Options, "showActionBanner" | "t">) {
+function pageReadFailed(
+  error: unknown, shown: boolean, { showActionBanner, t }: Pick<Options, "showActionBanner" | "t">, chatId: string,
+) {
+  // Deleted on another device: it goes, and the screen gives way to New chat.
+  if (shown && forgetChatIfGone(chatId, error)) return;
   reportFailure("chat_page", error);
   if (shown) showActionBanner(t("common.error"), "alert-circle");
 }
@@ -51,9 +56,11 @@ function isStaleAnchor(error: unknown): boolean {
 
 /** A failed older or newer page: true when its anchor is gone (the caller reads the newest
  * page); otherwise reported as any failed read. */
-function anchorGone(error: unknown, current: boolean, banner: Pick<Options, "showActionBanner" | "t">): boolean {
+function anchorGone(
+  error: unknown, current: boolean, banner: Pick<Options, "showActionBanner" | "t">, chatId: string,
+): boolean {
   if (isStaleAnchor(error) && current) return true;
-  pageReadFailed(error, current, banner);
+  pageReadFailed(error, current, banner, chatId);
   return false;
 }
 
@@ -73,7 +80,7 @@ async function readLatestPage(read: LatestRead, deps: LatestDeps): Promise<void>
     deps.setHasMoreNewer(false);
     void writeCachedChatMessages(read.chatId, page.messages, page.has_more);
   } catch (error) {
-    pageReadFailed(error, read.isCurrent(), deps);
+    pageReadFailed(error, read.isCurrent(), deps, read.chatId);
   } finally {
     if (read.isCurrent()) deps.requestRef.current = null;
   }
@@ -130,7 +137,7 @@ export function useChatPaging({
       }, "older_page");
       setHasMoreOlder(page.has_more);
     } catch (error) {
-      stale = anchorGone(error, read.isCurrent(), { showActionBanner, t });
+      stale = anchorGone(error, read.isCurrent(), { showActionBanner, t }, read.chatId);
     } finally {
       if (read.isCurrent()) {
         requestRef.current = null;
@@ -157,7 +164,7 @@ export function useChatPaging({
       }, "newer_page");
       setHasMoreNewer(page.has_more_after === true);
     } catch (error) {
-      stale = anchorGone(error, read.isCurrent(), { showActionBanner, t });
+      stale = anchorGone(error, read.isCurrent(), { showActionBanner, t }, read.chatId);
     } finally {
       if (read.isCurrent()) {
         requestRef.current = null;
@@ -180,7 +187,7 @@ export function useChatPaging({
       return true;
     } catch (error) {
       // A hit whose message is gone: the caller opens the chat as it would without one.
-      if (!isStaleAnchor(error)) pageReadFailed(error, read.isCurrent(), { showActionBanner, t });
+      if (!isStaleAnchor(error)) pageReadFailed(error, read.isCurrent(), { showActionBanner, t }, read.chatId);
       return false;
     } finally {
       if (read.isCurrent()) requestRef.current = null;

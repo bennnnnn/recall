@@ -95,6 +95,8 @@ export type ChatTurnEvent =
   | { type: "regenerate_failed"; error?: unknown }
   | { type: "dropped_turn"; follow: DroppedTurnFollow; result: DroppedTurnResult }
   | { type: "rejected_draft_restored" }
+  /** The chat was deleted: its unsent sends went back to New chat's composer. */
+  | { type: "rejected_dropped"; chatId: string }
   /** Any other change to the thread on screen (threadEdit.ts names every writer). */
   | {
       type: "thread_edit";
@@ -119,7 +121,8 @@ export type ChatTurnCommand =
   | { type: "announce"; key: string }
   | { type: "consent_required" }
   /** The server's words when it sent some, else `key` translated. */
-  | { type: "report_error"; message?: string; key: string; code?: string }
+  // `cause`: the server's own code when an unsaved send is reported as its retry (a chat gone).
+  | { type: "report_error"; message?: string; key: string; code?: string; cause?: string }
   | { type: "first_reply"; reply: FirstReply }
   /** A new chat's title, which followed the first reply's `done` on its stream (null: none came). */
   | { type: "title"; chatId: string | null; title: string | null }
@@ -176,7 +179,7 @@ export function cue(out: Out, value: Extract<ChatTurnCommand, { type: "cue" }>["
   out.push({ type: "cue", cue: value });
 }
 
-export function reportError(out: Out, error: { message?: string; key: string; code?: string }): void {
+export function reportError(out: Out, error: { message?: string; key: string; code?: string; cause?: string }): void {
   out.push({ type: "report_error", ...error });
 }
 

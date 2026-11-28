@@ -4,6 +4,53 @@ import {
   useChatErrorRecovery,
   useChatStreamLifecycle,
 } from "@/features/chat/hooks/useChatErrorHandlers";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
+import { subscribeChatGone } from "@/features/chat/model/chatGone";
+import { api } from "@/lib/api";
+import { ApiRequestError } from "@/lib/api/errorBody";
+
+jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn() } }));
+jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+jest.mock("@/features/chat/drawer/drawer", () => ({ abandonActiveChatIfDeleted: jest.fn() }));
+
+beforeEach(() => jest.clearAllMocks());
+
+// Pre-launch review 2026-11-27: a send to a chat deleted on another device failed with the
+// generic error, and the chat stayed open. The stream's not_found asks whether the chat is
+// there (it may be only the message a regenerate answers that is gone).
+describe("a turn refused as not found", () => {
+  it("takes the open chat away when the chat itself is gone", async () => {
+    (api.getChat as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+    const told: string[] = [];
+    const stop = subscribeChatGone((chatId) => void told.push(chatId));
+    try {
+      const { result } = await renderHook(() => useChatErrorHandlers(false, { token: "token", chatId: "gone-chat" }));
+      await act(async () => { result.current.handleChatError("Chat not found.", "not_found"); });
+      expect(api.getChat).toHaveBeenCalledWith("token", "gone-chat");
+      expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["gone-chat"]);
+      expect(told).toEqual(["gone-chat"]);
+    } finally {
+      stop();
+    }
+  });
+
+  it("asks for a send the server refused as not found, reported as the send's retry", async () => {
+    (api.getChat as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+    const { result } = await renderHook(() => useChatErrorHandlers(false, { token: "token", chatId: "gone-send" }));
+    await act(async () => { result.current.handleChatError("Chat not found.", "send_rejected", "not_found"); });
+    expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["gone-send"]);
+  });
+
+  it("leaves a chat that is still there, and reads nothing for any other error", async () => {
+    (api.getChat as jest.Mock).mockResolvedValue({ id: "here" });
+    const { result } = await renderHook(() => useChatErrorHandlers(false, { token: "token", chatId: "here" }));
+    await act(async () => { result.current.handleChatError("No user message to regenerate from.", "not_found"); });
+    expect(abandonActiveChatIfDeleted).not.toHaveBeenCalled();
+    (api.getChat as jest.Mock).mockClear();
+    await act(async () => { result.current.handleChatError("Connection lost", "failed"); });
+    expect(api.getChat).not.toHaveBeenCalled();
+  });
+});
 
 it("clears the previous chat's rejection while preserving unrelated errors", async () => {
   const { result } = await renderHook(() => useChatErrorHandlers(false));

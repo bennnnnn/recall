@@ -30,6 +30,7 @@
   "chat.delete_confirm_title": "Delete chat",
   "chat.delete_failed": "Could not delete this chat.",
   "chat.deleted_toast": "Chat deleted",
+  "chat.gone_toast": "This chat no longer exists",
   "chat.email_card_body_placeholder": "Email body",
   "chat.email_card_copy": "Copy email",
   "chat.email_card_done": "Done editing",

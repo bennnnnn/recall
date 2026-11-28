@@ -932,12 +932,16 @@ const TYPICAL_CEILINGS: Record<string, number> = {
   // The phone finished turns since the last read: the list once (its ETag answers a 304 when the
   // phone already has it all), then nothing.
   "open the drawer": 1,
-  "open the drawer again": 0,
+  // Half a minute later the list is past its stale window (20 s): read once behind the rows, a
+  // 304 when nothing changed. A chat started on another device showed only after a pull
+  // (pre-launch review 2026-11-27); an open within the window reads nothing.
+  "open the drawer again": 1,
   // The old chat's page and its three files' statuses (this server's pages carry files);
   // reading it opens no socket.
   "open an old chat": 4,
-  // From the drawer, unchanged since; nothing while it sits there.
-  "go to To-do and stay 3 minutes": 0,
+  // The drawer opened past its stale window (a 304), and To-do read on the visit, its list past
+  // the window (a 304); nothing while it sits there.
+  "go to To-do and stay 3 minutes": 2,
 };
 
 it("keeps the owner's typical session light: one socket for the conversation, and no rereads", async () => {

@@ -1,5 +1,5 @@
 import { FlashList } from "@shopify/flash-list";
-import { Redirect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
@@ -89,7 +89,7 @@ export default function SecuritySettingsScreen() {
     );
   };
 
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
 
   return (
     <FlashList keyboardShouldPersistTaps="handled"

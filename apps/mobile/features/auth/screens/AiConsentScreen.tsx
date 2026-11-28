@@ -44,7 +44,7 @@ function AiConsent() {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { busy, agree, decline, deleteAccount } = useAiConsentActions();
 
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
   if (!needsAiDataConsent(user)) return <Redirect href="/" />;
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;

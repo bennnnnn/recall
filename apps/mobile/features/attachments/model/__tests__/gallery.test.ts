@@ -45,15 +45,15 @@ describe("gallery helpers", () => {
     expect(isReadableTextContentType("application/pdf")).toBe(false);
   });
 
-  it("pushes the main chat route with returnTo=gallery so Back returns to Library", () => {
+  it("opens the chat in the one chat screen, with no second one over Library", () => {
     expect(libraryOpenChatHref({ chat_id: null, message_id: "m1" })).toBeNull();
     expect(libraryOpenChatHref({ chat_id: "c1", message_id: "m1" })).toEqual({
       pathname: "/",
-      params: { chatId: "c1", returnTo: "gallery", highlightMessage: "m1" },
+      params: { chatId: "c1", highlightMessage: "m1" },
     });
     expect(libraryOpenChatHref({ chat_id: "c1", message_id: null })).toEqual({
       pathname: "/",
-      params: { chatId: "c1", returnTo: "gallery" },
+      params: { chatId: "c1" },
     });
   });
 

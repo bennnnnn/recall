@@ -4,6 +4,8 @@ import MemoryDocumentScreen from "@/features/memory/screens/MemoryDocumentScreen
 import type { MemoryDocument } from "@/features/memory/types";
 
 let mockKey = "area:recall";
+/** The page has focus (a blur and return keeps it mounted). */
+let mockFocused = true;
 const mockLoad = jest.fn(async () => {});
 const mockInstruct = jest.fn();
 const mockDeleteDocument = jest.fn();
@@ -12,7 +14,7 @@ const mockEditFact = jest.fn();
 const mockSetFactMuted = jest.fn();
 const mockConfirm = jest.fn(async (..._args: unknown[]) => true);
 const mockFeedback = { error: jest.fn(), success: jest.fn(), warning: jest.fn() };
-const mockRouter = { back: jest.fn(), push: jest.fn() };
+const mockRouter = { back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
 let mockLoading = false;
 let mockError = false;
@@ -99,11 +101,13 @@ jest.mock("@/ui/overlay/FieldSheet", () => ({
     value,
     onChangeText,
     onSave,
+    saving,
   }: {
     visible: boolean;
     value: string;
     onChangeText: (text: string) => void;
     onSave: () => void;
+    saving?: boolean;
   }) => {
     const { Text, TextInput, View } = jest.requireActual("react-native");
     if (!visible) return null;
@@ -111,6 +115,7 @@ jest.mock("@/ui/overlay/FieldSheet", () => ({
       <View>
         <TextInput testID="edit-field" value={value} onChangeText={onChangeText} />
         <Text testID="edit-save" onPress={onSave}>save</Text>
+        {saving ? <Text testID="edit-saving">saving</Text> : null}
       </View>
     );
   },
@@ -121,7 +126,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ key: mockKey }),
   useFocusEffect: (effect: () => void | (() => void)) => {
     const React = jest.requireActual("react");
-    React.useEffect(() => effect(), [effect]);
+    const focused = mockFocused;
+    React.useEffect(() => (focused ? effect() : undefined), [effect, focused]);
   },
 }));
 jest.mock("@/features/memory/hooks/useMemoryDocuments", () => ({
@@ -153,6 +159,7 @@ async function flush() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocused = true;
   mockKey = "area:recall";
   mockLoading = false;
   mockError = false;
@@ -225,6 +232,41 @@ describe("MemoryDocumentScreen", () => {
     await flush();
 
     expect(mockEditFact).toHaveBeenCalledWith("f2", "Recall uses FastAPI and Neon");
+    expect(ui.queryByTestId("edit-field")).toBeNull();
+  });
+
+  // Pre-launch review 2026-11-27: the edit of a fact deleted on another device stayed open,
+  // its Save failing again on each tap.
+  it("closes the edit of a fact deleted on another device, and says it is gone", async () => {
+    mockEditFact.mockResolvedValue({ ok: false, failure: "gone" });
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 10, pageY: 20 } });
+    await fireEvent.press(ui.getByTestId("menu-edit"));
+    await fireEvent.changeText(ui.getByTestId("edit-field"), "New words");
+    await fireEvent.press(ui.getByTestId("edit-save"));
+    await flush();
+
+    expect(ui.queryByTestId("edit-field")).toBeNull();
+  });
+
+  // Review of #2621: the page stays mounted across a blur, and an edit that saved while away
+  // left its sheet "saving" for good.
+  it("ends an edit's saving that finished while the page was away", async () => {
+    let finish!: (value: { ok: true }) => void;
+    mockEditFact.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 10, pageY: 20 } });
+    await fireEvent.press(ui.getByTestId("menu-edit"));
+    await fireEvent.changeText(ui.getByTestId("edit-field"), "New words");
+    await fireEvent.press(ui.getByTestId("edit-save"));
+    expect(ui.getByTestId("edit-saving")).toBeTruthy();
+    mockFocused = false;
+    await ui.rerender(<MemoryDocumentScreen />);
+    await act(async () => { finish({ ok: true }); await flush(); });
+    mockFocused = true;
+    await ui.rerender(<MemoryDocumentScreen />);
+    expect(ui.queryByTestId("edit-saving")).toBeNull();
+    // Saved: its sheet closed too (round 2), not left open over words already kept.
     expect(ui.queryByTestId("edit-field")).toBeNull();
   });
 
@@ -337,10 +379,12 @@ describe("MemoryDocumentScreen", () => {
     expect(link.props.accessibilityRole).toBe("link");
     await fireEvent.press(link);
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
+    // The one chat screen under the memory pages, never a second one pushed over them.
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith({
       pathname: "/",
-      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+      params: { chatId: "chat-9", highlightMessage: "message-3" },
     });
+    expect(mockRouter.push).not.toHaveBeenCalled();
     expect(ui.queryByTestId("menu-mute")).toBeNull();
   });
 
@@ -359,9 +403,9 @@ describe("MemoryDocumentScreen", () => {
     ]);
     await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "openSource" } });
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith({
       pathname: "/",
-      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+      params: { chatId: "chat-9", highlightMessage: "message-3" },
     });
   });
 

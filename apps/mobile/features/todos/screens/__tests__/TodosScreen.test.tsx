@@ -102,19 +102,22 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
     openTodoEditor: mockOpenTodo,
     handleDeleteItem: jest.fn(),
     closeTodoEditor: jest.fn(),
+    startNewTodo: jest.fn(),
     handleCreateTodo: mockCreate,
     handleUpdateTodo: jest.fn(),
   };
 } }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => ({ info: mockInfo }) }));
+let mockLoaded = true;
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: mockTodos, loading: false, error: false,
+  loaded: mockLoaded,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds,
   refresh: mockRefresh, setTodos: jest.fn(), olderCompleted: mockOlderCompleted, showOlderCompleted: jest.fn(),
 }) }));
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession++; mockToken = "token-a"; mockFocused = true;
-  mockRouteParams = {}; mockTodos = []; mockOlderCompleted = false; mockEditingTodo = null;
+  mockRouteParams = {}; mockTodos = []; mockOlderCompleted = false; mockEditingTodo = null; mockLoaded = true;
   mockRefresh.mockResolvedValue();
 });
 
@@ -149,31 +152,60 @@ it.each(["account", "blur", "unmount"])("ignores retained Add and Retry callback
   if (change === "account") mockSession++;
   if (change === "blur") { mockFocused = false; await ui.rerender(<TodosScreen />); }
   if (change === "unmount") await ui.unmount();
+  mockRefresh.mockClear();
   await act(() => { add(); retry(); });
   expect(mockRefresh).not.toHaveBeenCalled();
 });
 
-it("closes a draft when leaving To-do and rejects its old close callback on return", async () => {
+// A visit in the screen's key mounted it again on each return: the list went back to the top
+// and a draft was lost. The page stays as it was left; only another account starts it again.
+it("keeps the page as it was across a blur and return", async () => {
   const ui = await render(<TodosScreen />);
   await act(() => { mockAdd.onPress(); });
-  const close = mockSheet.onClose;
   mockFocused = false; await ui.rerender(<TodosScreen />);
   mockFocused = true; await ui.rerender(<TodosScreen />);
-  expect(mockSheet.visible).toBe(false);
-  await act(() => { mockAdd.onPress(); close(); });
   expect(mockSheet.visible).toBe(true);
+  await act(() => { mockSheet.onClose(); });
+  expect(mockSheet.visible).toBe(false);
+});
+
+it("reads the list on each visit, past its stale window only (refresh decides)", async () => {
+  const ui = await render(<TodosScreen />);
+  expect(mockRefresh).toHaveBeenCalledWith({ silent: true });
+  mockRefresh.mockClear();
+  mockFocused = false; await ui.rerender(<TodosScreen />);
+  expect(mockRefresh).not.toHaveBeenCalled();
+  mockFocused = true; await ui.rerender(<TodosScreen />);
+  expect(mockRefresh).toHaveBeenCalledWith({ silent: true });
+  // Never forced: a visit within 20 s of the last read sends nothing.
+  expect(mockRefresh).not.toHaveBeenCalledWith(expect.objectContaining({ force: true }));
 });
 
 it("deduplicates pull refresh before React rerenders", async () => {
   let resolve!: () => void;
   mockRefresh.mockReturnValue(new Promise<void>((done) => { resolve = done; }));
   await render(<TodosScreen />);
+  mockRefresh.mockClear();
   const refresh = mockList.onRefresh;
   let pending!: Promise<void>;
   await act(() => { pending = refresh(); void refresh(); });
   expect(mockList.refreshing).toBe(true);
   expect(mockRefresh).toHaveBeenCalledTimes(1);
   await act(async () => { resolve(); await pending; });
+  expect(mockList.refreshing).toBe(false);
+});
+
+// The page stays mounted across a blur: a pull that ends while away left the spinner on for good.
+it("ends a pull's spinner that finished while the page was away", async () => {
+  let resolve!: () => void;
+  mockRefresh.mockReturnValue(new Promise<void>((done) => { resolve = done; }));
+  const ui = await render(<TodosScreen />);
+  let pending!: Promise<void>;
+  await act(() => { pending = mockList.onRefresh(); });
+  expect(mockList.refreshing).toBe(true);
+  mockFocused = false; await ui.rerender(<TodosScreen />);
+  await act(async () => { resolve(); await pending; });
+  mockFocused = true; await ui.rerender(<TodosScreen />);
   expect(mockList.refreshing).toBe(false);
 });
 
@@ -250,6 +282,30 @@ it("opens the reminder a due notification points at, and brings its row on scree
   expect(mockList.completedOpen).toBe(false);
   await act(() => { mockList.onRevealed?.(); });
   expect(mockList.revealId).toBeNull();
+});
+
+// A reminder push for a to-do made on another device: the list held nothing for it, and the
+// page opened on the list with no to-do.
+it("reads the list at once for a link to a to-do it does not hold, then opens it", async () => {
+  mockTodos = [todoAt("other", null)];
+  mockRouteParams = { highlight: DUE_ID };
+  const ui = await render(<TodosScreen />);
+  expect(mockRefresh).toHaveBeenCalledWith({ silent: true, force: true });
+  expect(mockOpenTodo).not.toHaveBeenCalled();
+  const due = todoAt(DUE_ID, 0);
+  mockTodos = [todoAt("other", null), due];
+  mockRefresh.mockClear();
+  await ui.rerender(<TodosScreen />);
+  expect(mockOpenTodo).toHaveBeenCalledWith(due);
+  // Read once for it: a to-do gone for good does not read the list in a loop.
+  expect(mockRefresh).not.toHaveBeenCalledWith({ silent: true, force: true });
+});
+
+it("waits for the first read before reading again for a linked to-do", async () => {
+  mockLoaded = false;
+  mockRouteParams = { highlight: DUE_ID };
+  await render(<TodosScreen />);
+  expect(mockRefresh).not.toHaveBeenCalledWith({ silent: true, force: true });
 });
 
 it("opens Completed first when the reminder it points at is done", async () => {

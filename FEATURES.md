@@ -112,8 +112,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   generation; pin/archive updates are atomic; drawer and header changes stay in sync.
   Bulk partial failures preserve successful actions, and stale reads cannot restore
   deleted chats. Saved history and the wait for a new chat's title respect navigation and
-  account changes. A drawer open shows the list it holds and reads it again (ETag) only after
-  this phone changed a chat: a reply saved, a title, a pin, an archive, a delete.
+  account changes. A drawer open shows the list it holds and reads it again (ETag) behind the
+  rows once this phone changed a chat (a reply saved, a title, a pin, an archive, a delete) or
+  once the list is past its 20 s stale window; the open chat's header title, pin and archive
+  follow that list's row, so a rename or archive on another device shows with its next read.
+- ✅ **A chat deleted elsewhere** — a chat the server no longer has (deleted on another device,
+  or a draft chat its retention let go) goes as this phone's own delete takes it, whichever read
+  or change finds it (opening it, a return to the app, a page, a rename, pin or archive, a send
+  refused as not found): its drawer row, saved thread and files go, its unsent message goes to
+  New chat's composer, the screen opens New chat, and "This chat no longer exists" shows once.
+  Deleting one already gone is a delete. A memory fact gone the same way leaves its page.
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
 
@@ -1157,7 +1165,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   that lands after the 4 s is merged once nothing of the message that went first is left on screen
   (it was refused), else the chat is read again when that turn is over. A chat reopened within
   20 s of this phone keeping its page is not read again, unless the app went to the background
-  since or the drawer's last read of the chat list (once per session, or on pull to refresh) shows
+  since or the drawer's last read of the chat list (its first open, an open past its 20 s stale
+  window or after this phone changed a chat, a return from the background, or a pull) shows
   the chat changed; rows the server's page left unchanged are not redrawn.
 - ✅ **Chat screen** — single-purpose composer, top-right `＋` (new) and `⋯` (Share / Rename /
   Pin / Delete).

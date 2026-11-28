@@ -30,6 +30,7 @@
   "chat.delete_confirm_title": "Supprimer le chat",
   "chat.delete_failed": "Impossible de supprimer ce chat.",
   "chat.deleted_toast": "Chat supprimé",
+  "chat.gone_toast": "Ce chat n'existe plus",
   "chat.email_card_body_placeholder": "Corps de l’e-mail",
   "chat.email_card_copy": "Copier l’e-mail",
   "chat.email_card_done": "Terminer la modification",

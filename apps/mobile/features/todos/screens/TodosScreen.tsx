@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Redirect, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { useLocalSearchParams, usePreventRemove } from "expo-router";
 import { Keyboard, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -15,6 +15,7 @@ import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosHeader } from "@/features/todos/hooks/useTodosHeader";
 import { useTodoReveal } from "@/features/todos/hooks/useTodoReveal";
+import { useTodosFocusRefresh } from "@/features/todos/hooks/useTodosFocusRefresh";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useReconnectRefresh } from "@/hooks/useReconnectRefresh";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,13 +36,11 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const { highlight } = useLocalSearchParams<{
-    highlight?: string;
-  }>();
+  const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const {
     todos,
     setTodos,
-    loading,
+    loading, loaded,
     error,
     refresh,
     markSeenIds,
@@ -86,6 +85,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const openedHighlight = useRef<string | null>(null);
   const highlightId = routeServerId(Array.isArray(highlight) ? highlight[0] : highlight);
+  useTodosFocusRefresh({ refresh, todos, loaded, highlightId: highlightId ?? null });
   useEffect(() => {
     if (!highlightId || openedHighlight.current === highlightId || !isCurrentView()) return;
     const todo = todos.find((item) => item.id === highlightId);
@@ -146,7 +146,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       await refresh({ silent: true, force: true });
     } finally {
       refreshingRef.current = false;
-      if (isCurrentView()) setPullRefreshing(false);
+      setPullRefreshing(false);
     }
   }, [refresh, isCurrentView]);
 
@@ -186,7 +186,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       current.includes(todo.id) ? current.filter((id) => id !== todo.id) : [...current, todo.id],
     );
   }, []);
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
 
   if (loading && todos.length === 0) {
     return <SkeletonList />;
@@ -196,7 +196,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (!isCurrentView()) return;
     setMenuOpen(false);
     setDetailMenu(false);
-    actions.closeTodoEditor();
+    actions.startNewTodo();
     setEditorOpen(true);
   };
 
@@ -282,8 +282,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             content,
             due,
             (created) => {
-              if (!isCurrentView()) return;
               setEditorOpen(false);
+              if (!isCurrentView()) return;
               // In its section wherever it falls, scrolled on screen: a later day or Anytime may
               // be far down the list.
               reveal(created);

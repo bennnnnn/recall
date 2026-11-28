@@ -12,6 +12,7 @@ from app.modules.todos.limits import TodoLimitError, ensure_room_for_open
 
 DEFAULT_TOPIC = "General"
 OPEN_CONTENT_DUE_UNIQUE = "uq_todo_open_content_due"
+CLIENT_ID_UNIQUE = "uq_todo_user_client_id"
 
 
 def is_open_content_due_conflict(exc: BaseException) -> bool:
@@ -22,6 +23,26 @@ def is_open_content_due_conflict(exc: BaseException) -> bool:
         return True
     blob = f"{exc} {orig if orig is not None else ''}".lower()
     return OPEN_CONTENT_DUE_UNIQUE in blob
+
+
+def is_client_id_conflict(exc: BaseException) -> bool:
+    """True when INSERT hit the (user, client id) unique: the create was made already."""
+    orig = getattr(exc, "orig", None)
+    constraint = getattr(getattr(orig, "diag", None), "constraint_name", None)
+    if constraint == CLIENT_ID_UNIQUE:
+        return True
+    blob = f"{exc} {orig if orig is not None else ''}".lower()
+    return CLIENT_ID_UNIQUE in blob
+
+
+async def get_by_client_id(
+    session: AsyncSession, user_id: UUID, client_id: UUID
+) -> TodoItem | None:
+    """The to-do this account's create named ``client_id`` made, if it was made."""
+    result = await session.execute(
+        select(TodoItem).where(TodoItem.user_id == user_id, TodoItem.client_id == client_id)
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_due_soon(
@@ -210,6 +231,7 @@ async def create(
     recurrence_rule: str | None = None,
     sort_order: int | None = None,
     due_has_time: bool = True,
+    client_id: UUID | None = None,
     commit: bool = True,
 ) -> TodoItem:
     normalized_topic = topic.strip() or DEFAULT_TOPIC
@@ -225,6 +247,7 @@ async def create(
         due_has_time=due_has_time or due_at is None,
         recurrence_rule=recurrence_rule,
         sort_order=resolved_sort,
+        client_id=client_id,
     )
     planned = write_log.planned()
     if planned is not None:

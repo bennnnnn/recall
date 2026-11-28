@@ -10,6 +10,7 @@ import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
+import { createAttemptKey, createAttempts, type CreateAttempts } from "@/features/todos/model/createAttempt";
 import { todoErrorKey } from "@/features/todos/model/todoLimit";
 import { alertDialog, confirmDialog, offerSettings } from "@/ui/overlay/dialogs";
 import { useLatestRef } from "@/lib/latestRef";
@@ -26,6 +27,20 @@ type Params = {
   refresh: (opts?: { silent?: boolean; force?: boolean; afterPending?: boolean }) => Promise<void>;
 };
 const alwaysCurrent = () => true;
+
+/** POST /todos under the create's own id, the same when the same to-do is saved again. */
+async function sendCreate(
+  attempts: CreateAttempts, token: string, content: string, topic: string, due: TodoDue | null,
+  recurrenceRule: RecurrenceRule | null,
+): Promise<Todo> {
+  const sent = dueFieldsToSend(due);
+  const attempt = createAttemptKey(content, topic, sent.due_at, sent.due_has_time, recurrenceRule);
+  const created = await api.createTodo(token, content, topic, {
+    dueAt: sent.due_at, dueHasTime: sent.due_has_time, recurrenceRule, clientId: attempts.idFor(attempt),
+  });
+  attempts.made(attempt);
+  return created;
+}
 
 export function useTodosActions({ token, userId, todos, getTodos,
   isCurrentSession = alwaysCurrent, isCurrentView = alwaysCurrent, markSeenIds,
@@ -50,6 +65,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const canAct = useCallback(() => mounted.current && isSameOwner() && isCurrentView(),
     [isSameOwner, isCurrentView]);
   const [, redraw] = useState(0);
+  const attempts = useRef(createAttempts()); // Save again after a lost answer: the draft's same id.
   useEffect(() => {
     const changed = () => { if (mounted.current && isSameOwner()) redraw((value) => value + 1); };
     owner.mutations.listeners.add(changed);
@@ -141,18 +157,14 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!release) return;
     applyTodos((rows) => [optimistic, ...rows]);
     try {
-      const sent = dueFieldsToSend(due);
-      const created = await api.createTodo(token, trimmed, nextTopic, {
-        dueAt: sent.due_at, dueHasTime: sent.due_has_time, recurrenceRule,
-      });
+      const created = await sendCreate(attempts.current, token, trimmed, nextTopic, due, recurrenceRule);
       applyTodos((rows) => replaceTodoById(rows, optimistic.id, created));
       if (created.due_at && isSameOwner()) {
         if (markSeenIds) void markSeenIds([created.id]);
         else if (userId) void markReminderIdsSeen(userId, [created.id]);
       }
-      if (canAct()) {
-        onCreated(created);
-      }
+      // Its own page closes and lights it even after a blur: the page stays mounted.
+      if (mounted.current && isSameOwner()) onCreated(created);
     } catch (error) {
       applyTodos((rows) => removeTodoById(rows, optimistic.id));
       reportError(todoErrorKey(error, "todos.error_create"));
@@ -280,9 +292,9 @@ export function useTodosActions({ token, userId, todos, getTodos,
     busyTodoIds: new Set(owner.mutations.pendingIds),
     editingTodo,
     savingTodo: owner.mutations.createId !== null,
-    handleCreateTodo,
-    handleToggle,
-    handleDeleteItem,
+    handleCreateTodo, handleToggle, handleDeleteItem,
+    // A new to-do's sheet: its own create id (a lost answer's held id returned the old row).
+    startNewTodo: () => { attempts.current = createAttempts(); closeTodoEditor(); },
     openTodoEditor,
     closeTodoEditor,
     handleUpdateTodo,

@@ -5,7 +5,7 @@ import {
   type HostInstance,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
-import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -83,7 +83,7 @@ function ChatScreen() {
   const composerActive = useComposerDraftActivity();
   const draft = useDraftChat({ chatId, intent: composerActive });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  const errors = useChatErrorHandlers(isPaid);
+  const errors = useChatErrorHandlers(isPaid, { token, chatId });
   const { chatError, dismissChatError } = errors;
   const quotaNudge = useQuotaNudge({ isPaid, chatError });
   // The one hook cycle left: useChat calls it on the first reply, and the title poll that
@@ -215,7 +215,7 @@ function ChatScreen() {
   });
   useWelcomePlans({ user, busy: streamActive || regenerating, outOfCredit: quotaNudge.usedPct >= 100 || chatError?.kind === "quota", open: upgrade.open });
 
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
 
   const { chatTitle, pinned, archived } = metadata;
   return (

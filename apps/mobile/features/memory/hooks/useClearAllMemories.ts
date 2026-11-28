@@ -41,7 +41,8 @@ export function useClearAllMemories(isCurrentView: () => boolean) {
       if (isCurrentView()) reportRecoverableError(feedback, t("common.error"));
       return false;
     } finally {
-      if (isCurrentView()) setBusy(false);
+      // Always: the page stays mounted across a blur, and a busy left set would block it.
+      setBusy(false);
     }
   }, [token, isCurrentView, busy, t, feedback]);
 

@@ -10,16 +10,16 @@ import "@/features/attachments/model/galleryListCache";
 import "@/features/memory/model/memoryListCache";
 import "@/features/memory/model/memoryDocumentsCache";
 
-import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useTranslation } from "react-i18next";
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AppStack } from "@/components/AppStack";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { OpenedDocumentBootstrap } from "@/features/chat/components/OpenedDocumentBootstrap";
+import { ChatGoneNotice } from "@/features/chat/components/ChatGoneNotice";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
@@ -27,7 +27,6 @@ import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
 import { OfflineFrame } from "@/components/OfflineBanner";
-import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { preloadFigures } from "@/components/rich/LazyHeavyRich";
 import { useLaunchFonts } from "@/hooks/useLaunchFonts";
@@ -39,15 +38,7 @@ import { boundImageMemoryCache } from "@/lib/images/memoryCache";
 import { restoreLaunchPrefs } from "@/lib/launchPrefs";
 import { markLaunchReady } from "@/lib/launchSplash";
 import { LaunchReveal } from "@/components/LaunchReveal";
-import { useReduceMotion } from "@/lib/reduceMotion";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
-import { useStackHeaderOptions } from "@/lib/stackHeader";
-import {
-  stackAuthTransition,
-  stackHomeTransition,
-  stackPushTransition,
-  stackUtilityTransition,
-} from "@/lib/stackTransitions";
 import { subscribeUnknownLatexCommands } from "@/lib/math/latexNames";
 import { reportUnknownLatexCommandName } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
@@ -64,63 +55,16 @@ nameThisBuild(appVersion());
 const markSessionRestored = () => markLaunchReady("session");
 
 function RootNavigator() {
-  const { t } = useTranslation();
   const theme = useTheme();
-  const header = useStackHeaderOptions();
   const { status } = useNetwork();
-  const reduceMotion = useReduceMotion();
+  const { token } = useAuth();
 
   return (
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
       {/* The banner takes its own room at the top; the screens sit below it, headers and all. */}
       <OfflineFrame status={status}>
-        <Stack
-          screenOptions={{
-            ...stackPushTransition(reduceMotion),
-            headerShown: false,
-            contentStyle: { backgroundColor: theme.bg },
-          }}
-        >
-          <Stack.Screen name="login" options={stackAuthTransition(reduceMotion)} />
-          <Stack.Screen name="onboarding" options={stackAuthTransition(reduceMotion)} />
-          <Stack.Screen name="consent" options={stackAuthTransition(reduceMotion)} />
-          <Stack.Screen
-            name="index"
-            options={{ ...stackHomeTransition(), title: "", headerShown: false }}
-          />
-          <Stack.Screen
-            name="memory"
-            options={{ ...stackUtilityTransition(reduceMotion), headerShown: false }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
-          />
-          <Stack.Screen
-            name="todos"
-            options={{
-              ...stackUtilityTransition(reduceMotion),
-              ...header,
-              headerShown: true,
-              title: t("drawer.reminders"),
-              headerBackVisible: false,
-              ...stackBackOptions(),
-            }}
-          />
-          <Stack.Screen
-            name="gallery"
-            options={{
-              ...stackUtilityTransition(reduceMotion),
-              ...header,
-              headerShown: true,
-              title: t("gallery.title"),
-              headerBackVisible: false,
-              headerRight: undefined,
-              ...stackBackOptions(),
-            }}
-          />
-        </Stack>
+        <AppStack signedIn={Boolean(token)} />
       </OfflineFrame>
     </>
   );
@@ -153,6 +97,7 @@ export default function RootLayout() {
                   <NetworkProvider>
                     <PushNotificationBootstrap />
                     <OpenedDocumentBootstrap />
+                    <ChatGoneNotice />
                     <AiConsentRedirect />
                     <RootNavigator />
                     <DialogHost />

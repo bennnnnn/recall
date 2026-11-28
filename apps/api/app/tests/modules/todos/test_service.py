@@ -128,7 +128,9 @@ async def test_create_todo_unique_violation_returns_existing():
         )
     assert item is existing
     lookup.assert_awaited_once()
-    session.rollback.assert_awaited_once()
+    # Only the insert's savepoint is undone: a session rollback expired the request's user.
+    session.begin_nested.assert_called_once()
+    session.rollback.assert_not_awaited()
 
 
 def test_is_open_content_due_conflict_reads_constraint_name():

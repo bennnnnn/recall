@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Redirect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -78,10 +78,10 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setRefreshing(true);
     await load();
     refreshingRef.current = false;
-    if (isCurrentView()) setRefreshing(false);
+    setRefreshing(false);
   }, [isCurrentView, load]);
 
-  if (!token) return <Redirect href="/login" />;
+  if (!token) return null;
   if (loading) return <SkeletonList />;
   if (error) {
     return (

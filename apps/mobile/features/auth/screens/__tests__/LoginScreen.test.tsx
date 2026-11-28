@@ -122,16 +122,14 @@ describe("LoginScreen", () => {
     }
   });
 
-  it("sends a sign-in the server answered without the agreement (an older API) to the AI consent screen", async () => {
-    mockSignedIn = { token: "tok", user: { ai_data_consent_at: null } };
-    const { getByText } = await render(<LoginScreen />);
-    expect(getByText("redirect:/consent")).toBeOnTheScreen();
-  });
-
-  it("sends an account that already agreed straight to the chat", async () => {
-    mockSignedIn = { token: "tok", user: { ai_data_consent_at: "2026-10-19T12:00:00Z" } };
-    const { getByText } = await render(<LoginScreen />);
-    expect(getByText("redirect:/")).toBeOnTheScreen();
+  // The root stack's guard leaves sign-in once an account is in (components/AppStack.tsx), and
+  // AiConsentRedirect sends one the server answered without the agreement to /consent; the
+  // screen's own Redirect put a chat screen on top of the old account's (review 2026-11-27).
+  it.each([null, "2026-10-19T12:00:00Z"])("draws nothing and redirects nowhere once signed in (consent %s)", async (consent) => {
+    mockSignedIn = { token: "tok", user: { ai_data_consent_at: consent } };
+    const { queryByText, toJSON } = await render(<LoginScreen />);
+    expect(queryByText(/^redirect:/)).toBeNull();
+    expect(toJSON()).toBeNull();
   });
 
   it("BUG FIX regression: only the tapped button shows its spinner, not every visible button", async () => {

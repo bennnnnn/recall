@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useRef, type RefObject } from "react";
 import { StyleSheet, Text, View, type LayoutChangeEvent, type HostInstance } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { HeaderButton, HeaderButtonGroup } from "@/ui/controls/HeaderButton";
 import { useTranslation } from "react-i18next";
 
@@ -31,12 +30,6 @@ type Props = {
   menuAnchorRef?: RefObject<HostInstance | null>;
 };
 
-/** Opened over another page (Library's "Open chat", a memory fact's "From" line): the
- *  leading button goes back to it instead of opening the drawer. */
-function opensOverAPage(returnTo: string | undefined): boolean {
-  return returnTo === "gallery" || returnTo === "memory";
-}
-
 export const ChatHeader = memo(function ChatHeader({
   paddingTop,
   minimumHeight,
@@ -54,9 +47,6 @@ export const ChatHeader = memo(function ChatHeader({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
-  const router = useRouter();
-  const openedOver = opensOverAPage(returnTo);
   const lastReportedHeight = useRef(0);
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -91,17 +81,10 @@ export const ChatHeader = memo(function ChatHeader({
         pointerEvents="box-none"
       >
         <HeaderButton
-          icon={openedOver ? "arrow-left" : "menu"}
-          variant={openedOver ? "plain" : "plate"}
-          onPress={() => {
-            if (openedOver) {
-              if (router.canGoBack()) router.back();
-              else router.replace("/");
-              return;
-            }
-            onOpenDrawer();
-          }}
-          accessibilityLabel={openedOver ? t("common.back") : t("chat.open_drawer_a11y")}
+          icon="menu"
+          variant="plate"
+          onPress={onOpenDrawer}
+          accessibilityLabel={t("chat.open_drawer_a11y")}
           testID="chat-header-leading"
         />
         {headerTitleLabel ? (

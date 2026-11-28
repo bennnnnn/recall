@@ -1,4 +1,5 @@
 import { ApiRequestError, isServiceUnavailable } from "@/lib/api/errorBody";
+import { isGone } from "@/lib/api/gone";
 
 /** Why a memory change did not happen, in the terms the person who asked needs. */
 export type MemoryFailure =
@@ -31,7 +32,7 @@ export function memoryFailure(error: unknown): MemoryFailure {
   // Recall down: a Redis outage said "Too many memory changes", "being updated" (the write
   // lock) or "couldn't be updated" (the spend cap's refusal).
   if (isServiceUnavailable(error)) return "unavailable";
-  if (error.status === 404) return "gone";
+  if (isGone(error)) return "gone";
   return "failed";
 }
 

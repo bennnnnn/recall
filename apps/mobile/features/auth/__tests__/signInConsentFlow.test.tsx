@@ -7,7 +7,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Text } from "react-native";
 import { act, fireEvent, render } from "@testing-library/react-native";
-import { Redirect } from "expo-router";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
@@ -146,12 +145,26 @@ jest.mock("expo-router", () => {
   };
 });
 
-/** The chat route's stand-in: a signed-out visit goes to sign-in, as the root layout does. */
+/** The chat route's stand-in. */
 function Chat() {
-  const { token, loading } = useAuth();
-  if (loading) return null;
-  if (!token) return <Redirect href="/login" />;
   return <Text>chat</Text>;
+}
+
+const SIGNED_OUT_ROUTES = ["/login", "/onboarding"];
+const SIGNED_IN_ROUTES = ["/", "/consent"];
+
+/**
+ * The root stack's guards (components/AppStack.tsx): a route on the other side of sign-in is
+ * left for the first route of this side's group.
+ */
+function useStackGuard(route: string) {
+  const { token, loading } = useAuth();
+  const allowed = token ? SIGNED_IN_ROUTES : SIGNED_OUT_ROUTES;
+  const guarded = !loading && !allowed.includes(route);
+  useEffect(() => {
+    if (guarded) mockGo(allowed[0]);
+  }, [guarded, allowed]);
+  return loading || guarded;
 }
 
 /** The introduction a sign-out opens on; its Get started goes on to sign-in. */
@@ -171,6 +184,7 @@ function App() {
     return () => void mockRouteListeners.delete(setRoute);
   }, []);
   useEffect(() => setRoute(mockRoute), []);
+  if (useStackGuard(route)) return <AiConsentRedirect />;
   return (
     <>
       <AiConsentRedirect />

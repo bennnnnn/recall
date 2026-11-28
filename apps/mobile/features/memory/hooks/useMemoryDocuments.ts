@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, type Memory } from "@/lib/api";
+import { isGone } from "@/lib/api/gone";
 import { getSessionGeneration } from "@/lib/auth";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import {
@@ -66,6 +67,21 @@ function withDocumentRestored(
     : [...documents, removed];
 }
 
+/** A delete of an item already deleted on another device: deleted all the same, nothing put back. */
+function deletedElsewhere(): MemoryChange {
+  invalidateMemoriesCache();
+  return { ok: true };
+}
+
+/** A change to a fact the server no longer has: it leaves the pages, and the change says why. */
+function changeFailed(factId: string, error: unknown, session: number): MemoryChange {
+  if (isGone(error)) {
+    updateMemoryDocuments((documents) => withoutFact(documents, factId), session);
+    invalidateMemoriesCache();
+  }
+  return { ok: false, failure: memoryFailure(error) };
+}
+
 /**
  * Memory as documents (You, Topics, Areas) for the signed-in account. Writes
  * made after an account switch never land in the next account's pages.
@@ -110,8 +126,8 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      // Put back only this item: other deletes may have finished meanwhile.
-      updateMemoryDocuments(restore, session);
+      if (isGone(error)) return deletedElsewhere();
+      updateMemoryDocuments(restore, session); // Only this item: other deletes may have finished meanwhile.
       return { ok: false, failure: memoryFailure(error) };
     }
   }, []);
@@ -145,7 +161,7 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      return { ok: false, failure: memoryFailure(error) };
+      return changeFailed(factId, error, session);
     }
   }, [token]);
 
@@ -161,7 +177,7 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      return { ok: false, failure: memoryFailure(error) };
+      return changeFailed(factId, error, session);
     }
   }, [token]);
 

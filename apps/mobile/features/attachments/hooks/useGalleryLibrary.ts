@@ -126,7 +126,7 @@ export function useGalleryLibrary(
     (item: AttachmentListItem) => {
       const href = libraryOpenChatHref(item);
       if (!href) return;
-      router.push(href);
+      router.dismissTo(href);
     },
     [router],
   );

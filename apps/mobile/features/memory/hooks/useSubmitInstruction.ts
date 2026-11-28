@@ -23,14 +23,16 @@ export function useSubmitInstruction(
 
   return useCallback(async (instruction: string): Promise<boolean> => {
     const outcome = await instruct(instruction, topic);
-    if (!isCurrentView()) return false;
+    // What landed is said only on the visit that asked; the answer stands either way, so a
+    // composer kept across a blur clears a line that saved (sent again, it saved twice).
+    const shown = isCurrentView();
     if (!outcome.ok) {
-      reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
+      if (shown) reportRecoverableError(feedback, t(memoryFailureKey(outcome.failure, "memory.instruct_failed")));
       return false;
     }
     const notice = instructNotice(outcome, t);
-    if (notice.landed) feedback?.success(notice.message);
-    else feedback?.warning(notice.message);
+    if (shown && notice.landed) feedback?.success(notice.message);
+    else if (shown) feedback?.warning(notice.message);
     return notice.landed;
   }, [instruct, topic, isCurrentView, feedback, t]);
 }

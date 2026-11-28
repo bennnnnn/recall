@@ -102,6 +102,7 @@ async def create_todo(
         due_at=body.due_at,
         recurrence_rule=body.recurrence_rule,
         due_has_time=body.due_has_time,
+        client_id=body.client_id,
     )
     return _todo_out(item, user)
 

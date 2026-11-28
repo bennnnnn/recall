@@ -131,6 +131,8 @@ const IN_FLIGHT = [
   "features/attachments/model/localAttachmentFile.ts#ownedCopies",
   "features/attachments/model/openedDocument.ts#copying",
   "features/chat/drawer/drawer.ts#_pendingTitleChatIds",
+  // The chats found gone and said so once, by their server ids.
+  "features/chat/model/chatGone.ts#toldChatIds",
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
   "features/chat/model/mutationLock.ts#pendingMutations",

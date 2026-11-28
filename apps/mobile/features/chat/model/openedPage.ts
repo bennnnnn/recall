@@ -74,6 +74,41 @@ function giveBack(turns: PendingSend[], thread: string, home: DraftHome | null, 
   }
 }
 
+/** New Chat's composer as a deleted chat's unsent turns reach it: its thread, and its open text. */
+type NewChatHome = DraftHome & {
+  getThreadKey: () => string;
+  inputRef: { current: string };
+  setInput: (text: string) => void;
+};
+
+/**
+ * A deleted chat's unsent turns (its Retry queue) go back to New Chat's composer, text and file.
+ * Their texts go as one draft, a blank line between them (a slot takes one text, and the second
+ * was dropped). With New Chat already open, the draft goes into the open composer, after any
+ * text there: a stash to the thread on screen is skipped, and the text was lost.
+ */
+export function giveBackToNewChat(turns: PendingSend[], home: NewChatHome | null): void {
+  const texts = turns
+    .map((turn) => (turn.options.composerDraft?.text ?? turn.content).trim())
+    .filter(Boolean);
+  for (const turn of turns) {
+    turn.takenBack = "page";
+    const file = turn.options.composerDraft?.attachment;
+    if (!file) continue;
+    if (!home) discardLocalCopy(file.localUri);
+    // Queued once the view that moved on has settled, as giveBack does.
+    else void Promise.resolve().then(() => queueComposerAttachment(file, COMPOSER_NEW_THREAD_KEY));
+  }
+  if (!home || texts.length === 0) return;
+  const text = texts.join("\n\n");
+  if (home.getThreadKey() !== COMPOSER_NEW_THREAD_KEY) {
+    home.stashFailedDraftForThread(COMPOSER_NEW_THREAD_KEY, text);
+    return;
+  }
+  const open = home.inputRef.current.trim();
+  home.setInput(open ? `${home.inputRef.current}\n\n${text}` : text);
+}
+
 /**
  * The route loader reads a chat's newest page while the cached page is on
  * screen and Send already works. A turn sent meanwhile is painted at once but

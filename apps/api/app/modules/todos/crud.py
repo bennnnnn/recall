@@ -84,7 +84,13 @@ async def create_todo(
     due_at: datetime | None,
     recurrence_rule: RecurrenceRule | None = None,
     due_has_time: bool = True,
+    client_id: UUID | None = None,
 ) -> TodoItem:
+    # A create sent again under the phone's id (its answer was lost): the row it made.
+    if client_id is not None:
+        made = await todos_repo.get_by_client_id(session, user.id, client_id)
+        if made is not None:
+            return made
     if chat_id is not None:
         chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
@@ -94,29 +100,40 @@ async def create_todo(
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
     if normalized_due is None:
         recurrence_rule = None
-    # Read before the try: a rollback expires the user, and reading it then fails.
     user_id = user.id
     try:
-        item = await todos_repo.create(
-            session,
-            user_id=user_id,
-            content=content,
-            topic=topic or todos_repo.DEFAULT_TOPIC,
-            chat_id=chat_id,
-            due_at=normalized_due,
-            recurrence_rule=recurrence_rule,
-            due_has_time=due_has_time,
-        )
+        # A savepoint: a unique hit undoes only this insert. A rollback of the whole session
+        # expired the request's user, and its answer then failed reading the user's zone.
+        async with session.begin_nested():
+            item = await todos_repo.create(
+                session,
+                user_id=user_id,
+                content=content,
+                topic=topic or todos_repo.DEFAULT_TOPIC,
+                chat_id=chat_id,
+                due_at=normalized_due,
+                recurrence_rule=recurrence_rule,
+                due_has_time=due_has_time,
+                client_id=client_id,
+                commit=False,
+            )
     except IntegrityError as exc:
+        if client_id is not None and todos_repo.is_client_id_conflict(exc):
+            # The same create, sent twice at once: the other one made it.
+            made = await todos_repo.get_by_client_id(session, user_id, client_id)
+            if made is None:
+                raise
+            return made
         if not todos_repo.is_open_content_due_conflict(exc) or normalized_due is None:
             raise
-        await session.rollback()
         existing = await todos_repo.get_open_dated_duplicate(
             session, user_id, content=content, due_at=normalized_due, due_has_time=due_has_time
         )
         if existing is None:
             raise _duplicate(has_time=due_has_time) from exc
         return existing
+    await session.commit()
+    await session.refresh(item)
     return item
 
 

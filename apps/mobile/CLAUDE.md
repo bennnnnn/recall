@@ -27,12 +27,17 @@ product-free code goes to `lib/<domain>/`; a reusable control goes to `ui/` (cat
 1. The screen is `features/<name>/screens/<Name>Screen.tsx` (default export).
 2. The route is a one-line adapter: `app/<route>.tsx` is
    `export { default } from "@/features/<name>/screens/<Name>Screen";`.
-3. Its header and transition: a root route gets a `Stack.Screen` in `app/_layout.tsx`;
-   a Settings page is one row in `SETTINGS_PAGES` (`app/settings/_layout.tsx`).
+3. Its header and transition: a root route gets a `Stack.Screen` in `components/AppStack.tsx`,
+   inside the `Stack.Protected` group it belongs to: an account's screen in the signed-in group
+   (a sign-out takes it out of the history), a sign-in screen in the signed-out one; the first
+   screen of a group is where its guard lands. A Settings page is one row in `SETTINGS_PAGES`
+   (`app/settings/_layout.tsx`).
    Nested stacks share `nestedStackScreenOptions` and `useStackHeaderOptions`
    (`lib/stackHeader.ts`).
 4. Screen state that must not outlive the account or the visit uses
-   `useAccountViewOwner()` (`key` remounts it, `isCurrent()` guards late callbacks).
+   `useAccountViewOwner()` (`key` remounts it for another account, never on a blur and
+   return; `isCurrent()` guards a visit's late callbacks: a toast or a navigation, never the
+   reset of the page's own busy, spinner or draft state, which must end however the visit did).
 
 ## An API call
 
