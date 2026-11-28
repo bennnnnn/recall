@@ -4,7 +4,7 @@
  * building a page of up to 3.4 MB per block. These tests pin what the WebView
  * gets: the file, the data, and settings no looser than the inline pages had.
  */
-import { act, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 import { Linking, Platform } from "react-native";
 
@@ -149,6 +149,30 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     expect(props.injectedJavaScriptBeforeContentLoaded).toBe(props.injectedJavaScript);
     expect(props.injectedJavaScript).toContain(inScript(data[0]));
   });
+
+  it.each(["onContentProcessDidTerminate", "onRenderProcessGone"])(
+    "loads the page again once after %s, then offers Retry",
+    async (handler) => {
+      const { findByTestId, findByText, getByTestId, queryByTestId } = await render(element(data[0]));
+      await findByTestId("preview-webview");
+      expect(mockWebView.mounts).toBe(1);
+
+      // The first loss: the page mounts afresh by itself.
+      await act(async () => (lastProps()[handler] as () => void)());
+      await findByTestId("preview-webview");
+      expect(mockWebView.mounts).toBe(2);
+      expect(queryByTestId("preview-lost")).toBeNull();
+
+      // The second: Retry in place of a blank card.
+      await act(async () => (lastProps()[handler] as () => void)());
+      expect(await findByText("preview.lost")).toBeTruthy();
+      expect(queryByTestId("preview-webview")).toBeNull();
+      await act(async () => fireEvent.press(getByTestId("preview-lost-retry")));
+      await findByTestId("preview-webview");
+      expect(queryByTestId("preview-lost")).toBeNull();
+      expect(mockWebView.mounts).toBe(3);
+    },
+  );
 
   it("keeps the WebView as locked down as the inline page was", async () => {
     const { findByTestId } = await render(element(data[0]));

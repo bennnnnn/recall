@@ -8,6 +8,7 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
 import { MermaidFullScreen } from "@/components/rich/MermaidFullScreen";
+import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { imageLabelProps } from "@/components/rich/imageLabel";
@@ -100,6 +101,8 @@ export function MermaidBlock({ content }: Props) {
         <View style={s.previewBox}>
           <Text style={s.previewText}>{sanitized}</Text>
         </View>
+      ) : preview.status === "lost" ? (
+        <PreviewLostNote onRetry={preview.retry} />
       ) : canRenderInline && WebView ? (
         canMount && preview.status === "ready" ? (
           <View style={[s.webWrap, { height }]} {...imageLabelProps(spoken)}>

@@ -9,6 +9,7 @@ import {
   LazyWebPreviewCodeBlock,
 } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
+import { NewerCardNote } from "@/components/rich/NewerCardNote";
 import {
   mathFenceKey,
   renderCopyStyleBlock,
@@ -96,6 +97,8 @@ function renderFenceInner(
   if (decision.kind === "answer") {
     return <FenceAnswerBlock key={key} content={content} />;
   }
+
+  if (decision.kind === "newer") return <NewerCardNote key={key} />;
 
   if (decision.kind === "math") {
     return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} indent={indent} />;

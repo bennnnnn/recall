@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { MERMAID_PAGE, mermaidPreviewConfig } from "@/lib/mermaid/previewHtml";
 import { Space } from "@/lib/space";
@@ -77,6 +78,8 @@ export function MermaidFullScreen({ visible, source, title, onClose }: Props) {
             showsHorizontalScrollIndicator
             showsVerticalScrollIndicator
           />
+        ) : preview.status === "lost" ? (
+          <PreviewLostNote onRetry={preview.retry} style={s.loading} />
         ) : (
           <View style={s.loading}>
             <ActivityIndicator color={theme.primary} />
