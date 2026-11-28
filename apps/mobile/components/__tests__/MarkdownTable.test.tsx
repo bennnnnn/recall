@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { Dimensions, Text } from "react-native";
 
 import {
   MarkdownTable,
@@ -17,6 +17,7 @@ import {
   tableColumnText,
   TABLE_PEEK,
   tableColumnWidths,
+  textWidthUnits,
   type TableColumnText,
 } from "@/components/markdown/tableLayout";
 import type { AstNode } from "@/components/markdown/markdownAstHelpers";
@@ -113,6 +114,51 @@ describe("tableColumnWidths", () => {
     expect(tiny).toBe(TABLE_MIN_COL_WIDTH);
     expect(word).toBeGreaterThanOrEqual(18 * 8);
   });
+
+  it("gives a word room at the phone's larger text sizes", () => {
+    // "Customization" at twice the size: 13 letters of about 16 pt, not 8.
+    const column = { longest: 13, longestWord: 13 };
+    const [normal] = tableColumnWidths([column, { longest: 60, longestWord: 8 }], 358);
+    const [large] = tableColumnWidths([column, { longest: 60, longestWord: 8 }], 358, 2);
+    expect(normal).toBeGreaterThanOrEqual(13 * 8);
+    expect(large).toBeGreaterThanOrEqual(13 * 16);
+    // A word wider than the old 240 ceiling still fits whole, up to the viewport.
+    const [wide] = tableColumnWidths([{ longest: 20, longestWord: 20 }], 358, 2);
+    expect(wide).toBeGreaterThanOrEqual(Math.min(20 * 16, 358));
+  });
+});
+
+describe("textWidthUnits", () => {
+  it("counts a CJK or Ethiopic character as two Latin letters, a mark as none", () => {
+    expect(textWidthUnits("Price")).toEqual({ width: 5, longestWord: 5 });
+    // Amharic words are spaced: "ዋጋ ከፍተኛ" is two words, the second four characters wide.
+    expect(textWidthUnits("ዋጋ ከፍተኛ")).toEqual({ width: 13, longestWord: 8 });
+    // Hindi's vowel signs are marks: "कीमत" draws as three letters.
+    expect(textWidthUnits("कीमत").width).toBe(3);
+  });
+
+  it("lets Chinese and Japanese break between any two characters", () => {
+    // One unspaced run of four Han characters: its widest piece is one character.
+    expect(textWidthUnits("价格很高")).toEqual({ width: 8, longestWord: 2 });
+    expect(textWidthUnits("値段 high")).toEqual({ width: 9, longestWord: 4 });
+  });
+
+  it("sizes an Amharic column for its characters, not their count", () => {
+    const cell = (type: string, text: string): AstNode => ({
+      key: text,
+      type,
+      children: [{ key: `${text}-t`, type: "text", content: text }],
+    });
+    const table: AstNode = {
+      key: "t",
+      type: "table",
+      children: [{ key: "r", type: "tr", children: [cell("td", "ማብራሪያ"), cell("td", "x")] }],
+    };
+    const [column] = tableColumnText(table);
+    // Five characters, ten Latin letters wide: 8 pt a character broke the word mid-letter.
+    expect(column).toEqual({ longest: 10, longestWord: 10 });
+    expect(tableColumnWidths([column!], 358)[0]).toBeGreaterThanOrEqual(10 * 8);
+  });
 });
 
 describe("tableShouldFreezeFirstColumn", () => {
@@ -150,6 +196,11 @@ describe("hiddenScrollEdges", () => {
 });
 
 describe("MarkdownTable scroll cue", () => {
+  // React Native's test window is at twice the text size; these read the default size.
+  const testWindow = Dimensions.get("window");
+  beforeEach(() => Dimensions.set({ window: { ...testWindow, fontScale: 1 } }));
+  afterEach(() => Dimensions.set({ window: testWindow }));
+
   async function renderTable(columns: TableColumnText[]) {
     return render(
       <MarkdownTable nodeKey="t" columns={columns}>
