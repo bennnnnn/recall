@@ -27,6 +27,12 @@ type Props = {
   lift?: SharedValue<number>;
 };
 
+function errorIcon(kind: ResolvedChatError["kind"]) {
+  if (kind === "quota") return "zap";
+  if (kind === "busy" || kind === "send_rejected") return "hourglass";
+  return kind === "model_unavailable" ? "cloud-off" : "alert-circle";
+}
+
 export function ChatInlineError({
   error,
   upgradeLabel,
@@ -46,15 +52,7 @@ export function ChatInlineError({
   useLiveAnnouncement(error?.message);
 
   if (!error) return null;
-
-  const iconName =
-    error.kind === "quota"
-      ? "zap"
-      : error.kind === "busy" || error.kind === "send_rejected"
-        ? "hourglass"
-        : error.kind === "model_unavailable"
-          ? "cloud-off"
-          : "alert-circle";
+  const iconName = errorIcon(error.kind);
 
   return (
     <Animated.View style={[s.wrap, { bottom }, lift ? liftStyle : null]}>

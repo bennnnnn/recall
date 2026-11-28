@@ -93,17 +93,13 @@ export function MermaidBlock({ content }: Props) {
       {renderError || previewError ? (
         <View style={s.previewBox}>
           <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
-          <Text style={[s.previewText, { color: theme.danger }]}>
-            {renderError ?? previewError}
-          </Text>
+          <Text style={[s.previewText, { color: theme.danger }]}>{renderError ?? previewError}</Text>
         </View>
       ) : showSource ? (
         <View style={s.previewBox}>
           <Text style={s.previewText}>{sanitized}</Text>
         </View>
-      ) : preview.status === "lost" ? (
-        <PreviewLostNote onRetry={preview.retry} />
-      ) : canRenderInline && WebView ? (
+      ) : preview.status === "lost" ? <PreviewLostNote onRetry={preview.retry} /> : canRenderInline && WebView ? (
         canMount && preview.status === "ready" ? (
           <View style={[s.webWrap, { height }]} {...imageLabelProps(spoken)}>
             <WebView

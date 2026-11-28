@@ -102,7 +102,6 @@ function MenuCard({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const progress = useOverlayProgress();
   const screen = useWindowDimensions();
-  // Placed in the window's coordinates, over the offline banner too.
   const insets = useWindowInsets();
   const [anchor, setAnchor] = useState<Rect | null>(null);
   const [waitedForAnchor, setWaitedForAnchor] = useState(false);

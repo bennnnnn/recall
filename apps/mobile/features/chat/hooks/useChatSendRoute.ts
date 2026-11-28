@@ -59,6 +59,22 @@ type Options = {
 };
 
 /**
+ * The send's file, uploaded while the composer shows how far it has got and Cancel in place
+ * of Send. A failure comes back to be said; a cancelled one (`isUploadCancelled`) is not, as
+ * the draft back in the composer says enough.
+ */
+async function uploadWithProgress(token: string, attachment: PendingAttachment) {
+  const upload = startSendUpload();
+  try {
+    return await uploadSendAttachment(token, attachment, "chat", upload);
+  } catch (error) {
+    return { error };
+  } finally {
+    upload.finish();
+  }
+}
+
+/**
  * Everything a painted send waits on before it is handed over, in one place. With
  * no dots at the tap the last reply was still saving (after its `stream_end`): the
  * send goes after that reply's `done`. Another wait joins this list as one more
@@ -183,18 +199,13 @@ export function useChatSendRoute({
       setSendPhase(attached ? "uploading" : "preparing");
       let attachmentIds: string[] | undefined;
       if (attached) {
-        // The composer shows how far the file has got, and Cancel in place of Send.
-        const upload = startSendUpload();
-        try {
-          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached, "chat", upload));
-        } catch (error) {
+        const uploaded = await uploadWithProgress(authToken, attached);
+        if ("error" in uploaded) {
           giveBack();
-          // Cancelled: the draft is back in the composer, which says enough.
-          if (send.isCurrentView() && !isUploadCancelled(error)) feedback?.error(attachmentErrorMessage(error, t));
+          if (send.isCurrentView() && !isUploadCancelled(uploaded.error)) feedback?.error(attachmentErrorMessage(uploaded.error, t));
           return;
-        } finally {
-          upload.finish();
         }
+        ({ ids: attachmentIds, attachment: attached } = uploaded);
       }
       if (!(await drafts) || !(await clearToHandOver())) return giveBack();
 

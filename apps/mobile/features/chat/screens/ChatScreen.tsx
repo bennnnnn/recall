@@ -168,14 +168,10 @@ function ChatScreen() {
   const { liveTalk } = composerWiring;
 
   useEffect(() => setActiveChatIdGlobal(chatId), [chatId]);
-  useEffect(
-    () =>
-      registerNewChat((opts) => {
-        dismissChatError();
-        startNewChat(opts);
-      }),
-    [startNewChat, dismissChatError],
-  );
+  useEffect(() => registerNewChat((opts) => {
+    dismissChatError();
+    startNewChat(opts);
+  }), [startNewChat, dismissChatError]);
   const scrollToLatest = newerPage ? () => void jumpToLatest().then(scroll.scrollToLatest) : scroll.scrollToLatest;
 
   const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({

@@ -92,7 +92,6 @@ export function Sheet({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  // The sheet rises over the whole window, the offline banner included.
   const insets = useWindowInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
@@ -242,9 +241,7 @@ export function Sheet({
       onRequestClose={requestClose}
       testID="app-sheet-modal"
     >
-      <GestureHandlerRootView style={s.flex}>
-        <WindowInsetsScope>{frame}</WindowInsetsScope>
-      </GestureHandlerRootView>
+      <GestureHandlerRootView style={s.flex}><WindowInsetsScope>{frame}</WindowInsetsScope></GestureHandlerRootView>
     </Modal>
   );
 }

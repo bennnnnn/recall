@@ -11,7 +11,12 @@ type ResolveRequest = (
   moduleName: string,
   platform: string | null,
 ) => Resolution;
-type MetroConfig = { resolver: { assetExts: string[]; resolveRequest: ResolveRequest } };
+type MetroConfig = {
+  resolver: { assetExts: string[]; resolveRequest: ResolveRequest };
+  transformer: {
+    getTransformOptions: (...args: unknown[]) => Promise<{ transform: Record<string, unknown> }>;
+  };
+};
 
 const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
 const fs = jest.requireActual<{
@@ -64,6 +69,17 @@ describe("metro.config.js", () => {
     expect(plugins.map((plugin) => plugin.name)).toContain(
       "unstableBeforeAssetSerializationDebugIdPlugin",
     );
+  });
+
+  it("loads a module when its import is first used, and still starts Sentry first", async () => {
+    // Off, about three quarters of the app ran before the first frame (2,908 of 3,923 modules).
+    const options = await config.transformer.getTransformOptions([], { dev: false, hot: false, platform: "ios" }, async () => []);
+    expect(options.transform).toMatchObject({ inlineRequires: true, experimentalImportSupport: true });
+    // A bare side-effect import is never moved to its first use: the layout's first line still
+    // starts Sentry before any other app module runs.
+    const layout = fs.readFileSync(join(__dirname, "..", "..", "app", "_layout.tsx"), "utf8");
+    const firstImport = layout.split("\n").find((line) => line.startsWith("import "));
+    expect(firstImport).toBe('import "@/lib/sentryStart";');
   });
 
   it("ships the preview WebViews' libraries (lib/vendor/*.txt) as assets", () => {

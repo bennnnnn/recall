@@ -19,6 +19,8 @@ type Props<K extends string> = {
   accessibilityLabel?: string;
   /** On a tinted background: a see-through track that takes the tint, not a grey one. */
   tinted?: boolean;
+  /** How far the labels grow with the phone's text size, on a page that caps its own. */
+  maxFontSizeMultiplier?: number;
   testID?: string;
 };
 
@@ -32,6 +34,7 @@ export function SegmentedControl<K extends string>({
   onChange,
   accessibilityLabel,
   tinted = false,
+  maxFontSizeMultiplier,
   testID = "segmented",
 }: Props<K>) {
   const theme = useTheme();
@@ -89,7 +92,9 @@ export function SegmentedControl<K extends string>({
             testID={`${testID}-${segment.key}`}
           >
             {/* A label wraps, never cuts: "Yearly · Save 37%" at the largest text size. */}
-            <Text style={[s.label, selected && s.labelOn]}>{segment.label}</Text>
+            <Text style={[s.label, selected && s.labelOn]} maxFontSizeMultiplier={maxFontSizeMultiplier}>
+              {segment.label}
+            </Text>
           </Pressable>
         );
       })}

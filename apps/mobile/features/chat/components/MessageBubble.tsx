@@ -189,12 +189,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               testID={`sending-${message.id}`}
             />
           ) : null}
-          {showUserActions ? (
-            <UserActions
-              content={userCopyText}
-              theme={theme}
-            />
-          ) : null}
+          {showUserActions ? <UserActions content={userCopyText} theme={theme} /> : null}
         </View>
       ) : (
         <View style={b.assistantBubble}>

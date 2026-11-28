@@ -249,6 +249,8 @@ function PeriodSwitch({
       onChange={(next) => onPick?.(next)}
       accessibilityLabel={t("upgrade.billing_period")}
       tinted
+      // As large as the page's other text, so "Monthly" never breaks mid-word.
+      maxFontSizeMultiplier={PLANS_FONT_SCALE}
       testID="upgrade-period"
     />
   );
