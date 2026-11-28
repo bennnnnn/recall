@@ -1,8 +1,8 @@
 /**
- * ```todo_link: a reply asked to add or change a to-do in a language other than
- * English. Chat only reads to-dos in those languages; the change is made in the
- * To-do screen, which the reply offers as a button (the server writes the fence:
- * apps/api/app/modules/todos/chat_language.py). The fence has no body.
+ * ```todo_link: a reply to a message that asked chat to add or change a to-do, in any
+ * language. Chat and live talk only read to-dos; reminders are added and changed in the
+ * To-do screen, which the reply offers as a button (the server writes the fence). The
+ * fence has no body.
  */
 import { collectClosedFenceBodies, stripLangFence } from "@/lib/fence/scan";
 

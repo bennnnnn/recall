@@ -125,7 +125,6 @@ export type ChatTurnCommand =
   | { type: "title"; chatId: string | null; title: string | null }
   /** A reply was saved: its chat moved up the drawer's list, which reads it again on its next open. */
   | { type: "reply_saved" }
-  | { type: "todos_changed" }
   | { type: "usage"; usage: TurnUsage }
   | { type: "drop_socket" }
   | { type: "abort_sse" }

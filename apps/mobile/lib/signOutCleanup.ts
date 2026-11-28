@@ -36,7 +36,6 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   await Promise.allSettled([
     deleteAccountFiles(),
     forgetSyncRecords(),
-    import("@/features/todos/model/reminderProposal").then(({ clearSavedProposals }) => clearSavedProposals()),
     import("@/features/chat/model/quotaNudgeDismissal").then(({ resetQuotaNudgeDismissal }) => resetQuotaNudgeDismissal()),
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     // A share the last account left hanging does not hold the next one's.

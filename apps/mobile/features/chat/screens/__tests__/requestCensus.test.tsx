@@ -368,8 +368,6 @@ type FakeSocket = {
 };
 
 let replies = 0;
-/** The next reply's `done` says it changed the to-do list. */
-let nextReplyChangesTodos = false;
 
 function serverFrame(socket: FakeSocket, frame: object): void {
   if (!socket.closed) socket.onmessage?.({ data: JSON.stringify(frame) });
@@ -396,15 +394,13 @@ function answerFrame(socket: FakeSocket, raw: string): void {
   // A new chat's first reply: its title follows done on the stream (title_event).
   const chat = socket.url.split("/ws/chats/")[1]?.split("?")[0] ?? "";
   const titled = untitledChats.delete(chat);
-  const todosChanged = nextReplyChangesTodos;
-  nextReplyChangesTodos = false;
   setTimeout(() => serverFrame(socket, { type: "start" }), 50);
   for (let i = 0; i < 20; i++) {
     setTimeout(() => serverFrame(socket, { type: "token", content: `word${i} ` }), 100 + i * 20);
   }
   setTimeout(() => serverFrame(socket, { type: "stream_end" }), 600);
   setTimeout(() => serverFrame(socket, {
-    type: "done", message_id: id, todos_changed: todosChanged,
+    type: "done", message_id: id,
     usage: { used_tokens: 10, daily_limit: 100000 }, ...(titled ? { title_pending: "1" } : {}),
   }), 700);
   setTimeout(() => serverFrame(socket, { type: "related_prompts", message_id: id, prompts: ["a?", "b?"] }), 900);
@@ -716,8 +712,9 @@ const CEILINGS: Record<string, number> = {
   "send in chat 1": 1,
   "the reply finishes": 0,
   "20 s after the reply": 0,
-  // On the socket kept since the last reply; the to-do list the reply changed: one read of it.
-  "a reply that changes a to-do": 1,
+  // On the socket kept since the last reply. Chat only reads to-dos: a reply about them
+  // reads nothing more.
+  "a reply about the to-dos": 0,
   // This phone finished turns since the drawer read its chats: read again behind the rows
   // shown (ETag, 304). With nothing changed an open reads nothing (useDrawerChatList.test).
   "open the drawer": 1,
@@ -791,10 +788,9 @@ it("keeps every step of an everyday session within its requests", async () => {
   step("the reply finishes");
   await settle(20_000);
   step("20 s after the reply");
-  nextReplyChangesTodos = true;
-  await send(app, "Remind me to call Sam at 5");
+  await send(app, "What's on my to-do list today?");
   await settle(3000);
-  step("a reply that changes a to-do");
+  step("a reply about the to-dos");
 
   const { openDrawer, closeDrawer } = await import("@/features/chat/drawer/drawer");
   await rtl.act(async () => { openDrawer(); });

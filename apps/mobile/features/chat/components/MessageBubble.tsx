@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { SettingsProposalCard } from "@/features/chat/components/SettingsProposalCard";
-import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { TodoLinkButton } from "@/features/todos/components/TodoLinkButton";
 import { UserMessageContent } from "@/features/chat/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/features/attachments/components/ChatMessageImageStrip";
@@ -130,8 +129,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     clockTimezone,
     settingsProposals,
     showSettingsProposals,
-    reminderProposals,
-    showReminderProposals,
     showTodoLink,
     images,
     showImages,
@@ -270,11 +267,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                     proposal={proposal}
                     disabled={!isLastAssistant}
                   />
-                ))
-              : null}
-            {showReminderProposals
-              ? reminderProposals.map((proposal) => (
-                  <ReminderProposalCard key={proposal.proposalId} proposal={proposal} />
                 ))
               : null}
             {showTodoLink ? <TodoLinkButton /> : null}

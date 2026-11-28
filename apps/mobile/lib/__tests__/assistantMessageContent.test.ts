@@ -280,6 +280,16 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).not.toContain("vocab_card");
   });
 
+  it("draws nothing for a stored reminder card: chat only reads to-dos", () => {
+    const card = '```reminder_proposal\n{"proposal_id":"p1","items":[{"action":"add","title":"Call mom"}]}\n```';
+    const content = `Want it on your list?\n\n${card}`;
+    for (const layoutFrozen of [false, true]) {
+      const result = deriveAssistantMessageContent({ ...base, content, layoutFrozen });
+      expect(result.markdownContent).toBe("Want it on your list?");
+      expect(result).not.toHaveProperty("reminderProposals");
+    }
+  });
+
   it("strips settings_proposal fences and exposes the card payload", () => {
     const result = deriveAssistantMessageContent({
       ...base,

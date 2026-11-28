@@ -391,18 +391,6 @@ describe("done event shapes (today's strings, ES-45's typed fields)", () => {
     },
   );
 
-  it.each<[Record<string, unknown>, boolean]>([
-    [{ todos_sync: "1" }, true],
-    [{ todos_changed: true }, true],
-    [{}, false],
-    [{ todos_sync: "0" }, false],
-    [{ todos_changed: false }, false],
-  ])("reads %j as todos_changed %s", (fields, changed) => {
-    const payload = parseDone(fields);
-    expect(payload?.todos_changed === true).toBe(changed);
-    expect(payload).not.toHaveProperty("todos_sync");
-  });
-
   it("reads the day's usage the server sends as strings", () => {
     const payload = parseDone({ used_tokens: "81000", daily_limit: "100000" });
     expect(payload?.usage).toEqual({ used_tokens: 81_000, daily_limit: 100_000 });

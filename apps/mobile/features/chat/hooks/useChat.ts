@@ -23,8 +23,6 @@ type UseChatOptions = {
   onFirstReply?: (reply: FirstReply) => void;
   /** Called when the server or socket reports an error */
   onError?: (message: string, code?: string) => void;
-  /** Refresh the to-dos after a turn may have changed them */
-  onTodosSync?: () => void;
   /** The day's usage a finished turn reports. */
   onUsage?: (usage: TurnUsage) => void;
 };
@@ -122,7 +120,6 @@ export function useChat(token: string | null, chatId: string | null, options: Us
       cue,
       onError: options.onError,
       onFirstReply: options.onFirstReply,
-      onTodosSync: options.onTodosSync,
       onUsage: options.onUsage,
       dropSocket: transport.dropSocket,
       abortSse: transport.abortSse,
@@ -131,7 +128,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
         followDroppedTurn((result) => step({ type: "dropped_turn", follow, result }), polls, pollMs),
     });
   }, [
-    t, popForRegenerate, cue, options.onError, options.onFirstReply, options.onTodosSync, options.onUsage,
+    t, popForRegenerate, cue, options.onError, options.onFirstReply, options.onUsage,
     transport.dropSocket, transport.abortSse, transport.cancelSocket, followDroppedTurn, step, effects,
   ]);
 

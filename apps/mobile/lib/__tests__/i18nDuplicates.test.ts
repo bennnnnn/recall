@@ -25,7 +25,6 @@ const KEPT_APART: Record<string, string> = {
   "chat.status.answer_photo chat.status.finding_photo": "a status line per step, named by its id",
   "chat.status.chemistry_1 chat.status.physics_1": "each subject's own steps",
   "chat.status.chemistry_2 chat.status.physics_2": "each subject's own steps",
-  "common.delete todos.proposal_delete": "the Delete action, and a to-do card named by its kind",
   "common.you memory.group.you share.role_user": "the profile, a memory group named by its id, a transcript speaker",
   "drawer.reminders notifications.todo_reminder_title": "the drawer's row, and a reminder notification's title",
   "drawer.today picker.today settings.usage_today": "the drawer's day heading, the date picker's button, a usage row",
@@ -37,8 +36,6 @@ const KEPT_APART: Record<string, string> = {
   "chat.math_converter_cat_time rich.motion_quantity_time": "a converter's unit group, and a motion graph's axis the server names by its key",
   "settings.appearance settings.field_appearance": "a Settings row, and a field a settings card names by its id",
   "settings.chat share.default_title": "a Settings section, and a shared chat's default title",
-  "todos.proposal_done_move todos.proposal_done_set_due": "a to-do card per change, named by its kind",
-  "todos.proposal_move todos.proposal_set_due": "a to-do card per change, named by its kind",
 };
 
 /** Groups of keys whose text is the same in every language, each as its keys in order. */

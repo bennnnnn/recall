@@ -45,7 +45,6 @@ import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } fr
 import { useQuotaNudge } from "@/features/chat/hooks/useQuotaNudge";
 import { useChatScreenBodyProps } from "@/features/chat/hooks/useChatScreenBodyProps";
 import { useWelcomePlans } from "@/features/billing/hooks/useWelcomePlans";
-import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
 import { locationSwitchOf } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
@@ -86,14 +85,9 @@ function ChatScreen() {
   // The one hook cycle left: useChat calls it on the first reply, and the title poll that
   // answers it (the route loader's) reads the thread useChat holds. Bound once the render commits.
   const onFirstReplyRef = useRef<(id?: string | null, reply?: FirstReply) => Promise<void>>(async () => {});
-  const todosCtx = useTodosOptional();
-  const handleTodosSync = useCallback(() => {
-    void todosCtx?.refresh({ silent: true, force: true });
-  }, [todosCtx]);
   const chat = useChat(token, draft.activeChatId, {
     onFirstReply: (reply) => onFirstReplyRef.current(undefined, reply),
     onError: errors.handleChatError,
-    onTodosSync: handleTodosSync,
     onUsage: quotaNudge.applyTurnUsage,
   });
   const { messages, editThread, streaming, finalizing, stopGeneration } = chat;

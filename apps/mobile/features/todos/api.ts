@@ -13,9 +13,6 @@ type TodoPage = Page<Todo> & { older_completed?: boolean };
 /** The list, and whether older completed to-dos were left out of it. */
 export type TodoList = { todos: Todo[]; olderCompleted: boolean };
 
-/** The rows a confirmed reminder card wrote; `todos` is null when another tap saved it first. */
-type ReminderProposalSaved = { items: unknown[]; todos: Todo[] | null; deleted_ids: string[] };
-
 /**
  * Open to-dos and those completed in the last 30 days, or every row with
  * `allCompleted`. The whole list, completed rows of years ago included, was
@@ -110,12 +107,5 @@ export const todosApi = {
       withQuery("/todos/reminder-preview", { due_at: dueAt, recurrence_rule: recurrenceRule }),
       token,
       { signal },
-    ),
-  /** Save the reminder change a chat card offered. A second tap is a no-op. */
-  confirmReminderProposal: (token: string, proposalId: string) =>
-    request<ReminderProposalSaved>(
-      apiPath`/todos/proposals/${proposalId}/confirm`,
-      token,
-      { method: "POST" },
     ),
 };

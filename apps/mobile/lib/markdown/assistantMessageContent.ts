@@ -1,11 +1,6 @@
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";
-import {
-  parseReminderProposals,
-  stripReminderProposalFences,
-  type ReminderProposal,
-} from "@/features/todos/model/reminderProposal";
 import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLink";
 import type { SearchSource } from "@/lib/api";
 
@@ -42,9 +37,7 @@ export type AssistantMessageContent = {
   searchSources: SearchSource[];
   settingsProposals: SettingsProposal[];
   showSettingsProposals: boolean;
-  reminderProposals: ReminderProposal[];
-  showReminderProposals: boolean;
-  /** A to-do change asked in another language: the Open To-do button (todoLink.ts). */
+  /** A to-do change asked in chat: the Open To-do button (todoLink.ts). */
   showTodoLink: boolean;
   images: ParsedMessageImage[];
   showImages: boolean;
@@ -57,7 +50,8 @@ export type AssistantMessageContent = {
 
 /**
  * Stored chats may still contain retired product fences (the language-learning
- * cards and the Google Calendar event proposal). Drop the JSON.
+ * cards, the Google Calendar event proposal, and the chat reminder card: chat only
+ * reads to-dos since 2026-11-27). Drop the JSON.
  */
 const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "vocab_quiz",
@@ -65,6 +59,7 @@ const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "learning_launch",
   "job-results",
   "calendar_proposal",
+  "reminder_proposal",
 ]);
 
 /** One empty list, so a frozen reply's sources keep their identity flush to flush. */
@@ -111,7 +106,6 @@ function buildMarkdownContent(options: {
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   text = stripSettingsProposalFences(text);
-  text = stripReminderProposalFences(text);
   text = stripTodoLinkFences(text);
   return tagPlacesJsonFences(text);
 }
@@ -156,9 +150,6 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
   const showSettingsProposals = settingsProposals.length > 0 && !layoutFrozen;
 
-  const reminderProposals =
-    !isUser && hasContent && !layoutFrozen ? parseReminderProposals(content) : [];
-  const showReminderProposals = reminderProposals.length > 0;
   const showTodoLink = !isUser && hasContent && !layoutFrozen && hasTodoLink(content);
 
   // [Image: …] marker lines only appear in attachment/lookup replies — skip the
@@ -200,8 +191,6 @@ export function deriveAssistantMessageContent(
     searchSources,
     settingsProposals,
     showSettingsProposals,
-    reminderProposals,
-    showReminderProposals,
     showTodoLink,
     images: parsedImages.images,
     showImages,
