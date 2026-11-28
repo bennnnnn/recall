@@ -16,7 +16,8 @@ export function needsAiDataConsent(
 
 const AI_CONSENT_ROUTE = "/consent";
 
-// Signed-out screens send a new sign-in on themselves (LoginScreen redirects it).
+// Sign-in screens are left by the root stack's guard once an account is in (AppStack.tsx),
+// which opens the chat; the check runs there, not on the screens being left.
 const ROUTES_WITHOUT_CONSENT_CHECK = new Set([AI_CONSENT_ROUTE, "/login", "/onboarding"]);
 
 /** Where to send the app from ``pathname``: the consent screen, or nowhere. Covers

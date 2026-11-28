@@ -36,7 +36,12 @@ jest.mock("@/features/chat/model/sse", () => ({
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 const mockAccountSession = { account: "user-1:0", getToken: () => "token" };
 jest.mock("@/contexts/accountSession", () => ({ useAccountSession: () => mockAccountSession }));
-const mockComposer = { stashFailedDraftForThread: jest.fn() };
+const mockComposer = {
+  stashFailedDraftForThread: jest.fn(),
+  getThreadKey: () => "deleted-on-laptop",
+  inputRef: { current: "" },
+  setInput: jest.fn(),
+};
 jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   ...jest.requireActual("@/features/chat/context/ComposerDraftContext"),
   useComposerDraftApiOptional: () => mockComposer,

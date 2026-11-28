@@ -66,6 +66,10 @@ describe("useChatMetadata", () => {
       ...emptyChatList(), archived: [{ ...listed, title: "Trip to Rome", archived: true }],
     }));
     expect(result.current).toMatchObject({ chatTitle: "Trip to Rome", pinned: false, archived: true });
+
+    // Round 2: the list dropped (an unarchive in Settings) keeps the news it brought.
+    await act(async () => seedChatListCacheForTest(emptyChatList()));
+    expect(result.current).toMatchObject({ chatTitle: "Trip to Rome", pinned: false, archived: true });
   });
 
   it("keeps its own title while the list's row has none yet", async () => {

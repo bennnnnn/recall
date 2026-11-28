@@ -14,7 +14,14 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import { emitAppEvent } from "@/lib/appEvents";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
-const mockComposer = { stashFailedDraftForThread: jest.fn() };
+/** The composer's thread on screen: a chat ("other") or New chat ("new"). */
+let mockThread = "other";
+const mockComposer = {
+  stashFailedDraftForThread: jest.fn(),
+  getThreadKey: () => mockThread,
+  inputRef: { current: "" },
+  setInput: jest.fn((text: string) => { mockComposer.inputRef.current = text; }),
+};
 jest.mock("@/features/chat/context/ComposerDraftContext", () => ({
   useComposerDraftApiOptional: () => mockComposer,
 }));
@@ -44,6 +51,8 @@ function harness(rejectedByChat: Record<string, RejectedSend[]>) {
 beforeEach(() => {
   jest.clearAllMocks();
   resetComposerAttachmentQueueForTest();
+  mockThread = "other";
+  mockComposer.inputRef.current = "";
 });
 
 it("gives a deleted chat's unsent messages to New chat's composer, text and file, and drops them from the chat", async () => {
@@ -67,4 +76,29 @@ it("does nothing for a deleted chat with nothing unsent", async () => {
   await act(async () => { emitAppEvent("chatsDeleted", { chatIds: ["gone"] }); });
   expect(step).not.toHaveBeenCalled();
   expect(mockComposer.stashFailedDraftForThread).not.toHaveBeenCalled();
+});
+
+// Review of #2621, round 2: with New chat already open, a stash to the thread on screen is
+// skipped, and the text was lost; and a slot takes one text, so a second refused send was lost.
+it("puts the text straight into the open New chat composer, after any text there", async () => {
+  mockThread = "new";
+  const { turn, step } = harness({ gone: [rejected("A long message")] });
+  await renderHook(() => useUnsentOfDeletedChats(turn, step));
+  await act(async () => { emitAppEvent("chatsDeleted", { chatIds: ["gone"] }); });
+  expect(mockComposer.inputRef.current).toBe("A long message");
+  expect(mockComposer.stashFailedDraftForThread).not.toHaveBeenCalled();
+
+  mockComposer.inputRef.current = "Something new";
+  const second = harness({ gone: [rejected("Another one")] });
+  await renderHook(() => useUnsentOfDeletedChats(second.turn, second.step));
+  await act(async () => { emitAppEvent("chatsDeleted", { chatIds: ["gone"] }); });
+  expect(mockComposer.inputRef.current).toBe("Something new\n\nAnother one");
+});
+
+it("gives back every refused send as one draft, a blank line between them", async () => {
+  const { turn, step } = harness({ gone: [rejected("First"), rejected("Second")] });
+  await renderHook(() => useUnsentOfDeletedChats(turn, step));
+  await act(async () => { emitAppEvent("chatsDeleted", { chatIds: ["gone"] }); });
+  expect(mockComposer.stashFailedDraftForThread).toHaveBeenCalledTimes(1);
+  expect(mockComposer.stashFailedDraftForThread).toHaveBeenCalledWith("new", "First\n\nSecond");
 });

@@ -58,6 +58,14 @@ export function useChatMetadata(chatId: string | null) {
   }, []);
 
   const listed = useListedChat(chatId);
+  // The row's news is kept as the hook's own too: a list dropped meanwhile (Settings' archived
+  // chats) fell back to the title before a rename made on another device.
+  useEffect(() => {
+    if (!listed) return;
+    if (listed.title?.trim()) setChatTitle(listed.title);
+    setPinned(listed.pinned);
+    setArchived(Boolean(listed.archived));
+  }, [listed]);
   const chatTitle = listed?.title?.trim() ? listed.title : ownTitle;
   const pinned = listed ? listed.pinned : ownPinned;
   const archived = listed ? Boolean(listed.archived) : ownArchived;

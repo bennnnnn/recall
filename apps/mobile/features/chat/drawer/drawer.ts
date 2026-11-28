@@ -3,12 +3,13 @@ import { getSessionGeneration } from "@/lib/auth";
 import { createListenerSet } from "@/lib/listenerSet";
 
 /**
- * Screen-owned globals live on last-mounted-wins stacks. The chat screen can
- * be pushed on top of itself (Library → "open in chat" mounts a second copy
- * of the index route), and a popped instance's cleanup must not clear the
- * still-mounted instance underneath — with plain `let` slots, Back from the
- * pushed chat left the home screen's drawer / New chat / active-chat id
- * pointing at a dead component (or null).
+ * Screen-owned globals live on last-mounted-wins stacks: a screen that mounts while another
+ * is still mounted (a sign-in's chat before the last one's has unmounted) registers on top,
+ * and the one that leaves first must not clear the still-mounted one's slot. Library's "open
+ * in chat" and a memory fact's "From" line no longer push a second chat screen: they go back
+ * to the one at the bottom of the stack (`router.dismissTo`). With plain `let` slots, a Back
+ * from a stacked chat once left the drawer / New chat / active-chat id pointing at a dead
+ * component (or null).
  */
 type StackEntry<T> = { owner: object; value: T };
 

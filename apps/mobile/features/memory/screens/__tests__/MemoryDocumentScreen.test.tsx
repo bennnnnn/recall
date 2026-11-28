@@ -266,6 +266,8 @@ describe("MemoryDocumentScreen", () => {
     mockFocused = true;
     await ui.rerender(<MemoryDocumentScreen />);
     expect(ui.queryByTestId("edit-saving")).toBeNull();
+    // Saved: its sheet closed too (round 2), not left open over words already kept.
+    expect(ui.queryByTestId("edit-field")).toBeNull();
   });
 
   it("draws no fact again while its menu opens or the edit sheet is typed in", async () => {

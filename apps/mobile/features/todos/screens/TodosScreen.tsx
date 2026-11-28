@@ -196,7 +196,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (!isCurrentView()) return;
     setMenuOpen(false);
     setDetailMenu(false);
-    actions.closeTodoEditor();
+    actions.startNewTodo();
     setEditorOpen(true);
   };
 

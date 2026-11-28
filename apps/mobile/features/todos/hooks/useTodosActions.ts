@@ -65,7 +65,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const canAct = useCallback(() => mounted.current && isSameOwner() && isCurrentView(),
     [isSameOwner, isCurrentView]);
   const [, redraw] = useState(0);
-  const [attempts] = useState(createAttempts); // A Save again after a lost answer: the same id.
+  const attempts = useRef(createAttempts()); // Save again after a lost answer: the draft's same id.
   useEffect(() => {
     const changed = () => { if (mounted.current && isSameOwner()) redraw((value) => value + 1); };
     owner.mutations.listeners.add(changed);
@@ -157,7 +157,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     if (!release) return;
     applyTodos((rows) => [optimistic, ...rows]);
     try {
-      const created = await sendCreate(attempts, token, trimmed, nextTopic, due, recurrenceRule);
+      const created = await sendCreate(attempts.current, token, trimmed, nextTopic, due, recurrenceRule);
       applyTodos((rows) => replaceTodoById(rows, optimistic.id, created));
       if (created.due_at && isSameOwner()) {
         if (markSeenIds) void markSeenIds([created.id]);
@@ -172,7 +172,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
     } finally {
       release();
     }
-  }, [token, canAct, reportError, owner, applyTodos, isSameOwner, markSeenIds, userId, reconcile, askForAlerts, attempts]);
+  }, [token, canAct, reportError, owner, applyTodos, isSameOwner, markSeenIds, userId, reconcile, askForAlerts]);
 
   const handleToggle = useCallback(async (todo: Todo) => {
     if (!token) return;
@@ -292,9 +292,9 @@ export function useTodosActions({ token, userId, todos, getTodos,
     busyTodoIds: new Set(owner.mutations.pendingIds),
     editingTodo,
     savingTodo: owner.mutations.createId !== null,
-    handleCreateTodo,
-    handleToggle,
-    handleDeleteItem,
+    handleCreateTodo, handleToggle, handleDeleteItem,
+    // A new to-do's sheet: its own create id (a lost answer's held id returned the old row).
+    startNewTodo: () => { attempts.current = createAttempts(); closeTodoEditor(); },
     openTodoEditor,
     closeTodoEditor,
     handleUpdateTodo,

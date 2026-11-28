@@ -102,6 +102,7 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
     openTodoEditor: mockOpenTodo,
     handleDeleteItem: jest.fn(),
     closeTodoEditor: jest.fn(),
+    startNewTodo: jest.fn(),
     handleCreateTodo: mockCreate,
     handleUpdateTodo: jest.fn(),
   };

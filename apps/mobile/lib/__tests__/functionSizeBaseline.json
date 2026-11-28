@@ -76,7 +76,7 @@
   "features/images/hooks/useImageGeneration.ts::useImageGeneration": 236,
   "features/images/hooks/useImageGeneration.ts::useImageGeneration.submitPrompt": 168,
   "features/memory/hooks/useMemoryDocuments.ts::useMemoryDocuments": 110,
-  "features/memory/screens/MemoryDocumentScreen.tsx::DocumentContent": 237,
+  "features/memory/screens/MemoryDocumentScreen.tsx::DocumentContent": 234,
   "features/memory/screens/MemoryScreen.tsx::MemoryContent": 130,
   "features/scanner/components/LiveMathScannerCameraNative.tsx::LiveMathScannerCameraNative": 146,
   "features/scanner/components/MathEquationScanner.tsx::MathEquationScanner": 352,

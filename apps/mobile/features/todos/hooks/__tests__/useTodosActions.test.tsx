@@ -241,6 +241,27 @@ describe("useTodosActions reminders", () => {
     expect(next).not.toBe(first);
   });
 
+  // Review of #2621, round 2: a create whose answer was lost held its id; the list then showed
+  // the to-do, and a later to-do of the same words, from a new sheet, got the old one back.
+  it("gives a new to-do's sheet its own client id, even after a lost answer", async () => {
+    (api.createTodo as jest.Mock).mockRejectedValueOnce(new Error("lost"));
+    (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "milk-2", content: "Buy milk" }));
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Buy milk", null, jest.fn());
+    });
+    await act(async () => {
+      actions.startNewTodo();
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Buy milk", null, jest.fn());
+    });
+    const [lost, fresh] = (api.createTodo as jest.Mock).mock.calls.map((call) => call[3].clientId);
+    expect(fresh).not.toBe(lost);
+  });
+
   it("sends a failed create saved again with other words under a new client id", async () => {
     (api.createTodo as jest.Mock).mockRejectedValueOnce(new Error("lost"));
     (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "tea-1", content: "Buy tea" }));

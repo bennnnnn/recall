@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useFocusedList } from "@/features/account/hooks/useFocusedList";
 import { api, type Chat } from "@/lib/api";
+import { isGone } from "@/lib/api/gone";
 import {
   fetchChatList,
   fetchMoreArchivedChats,
@@ -34,6 +35,20 @@ async function readArchivedChats(token: string): Promise<Chat[]> {
   const { data, error } = await fetchChatList(token);
   if (error || !data) throw error ?? new Error("chat list unavailable");
   return data.archived ?? [];
+}
+
+/**
+ * Whether the chat was still there: one another device already deleted (`isGone`) counts as
+ * deleted, as the drawer and the header count it, never as a failure that keeps its row.
+ */
+async function stillThere(request: Promise<unknown>): Promise<boolean> {
+  try {
+    await request;
+    return true;
+  } catch (error) {
+    if (isGone(error)) return false;
+    throw error;
+  }
 }
 
 export default function ArchivedChatsScreen() {
@@ -76,8 +91,8 @@ export default function ArchivedChatsScreen() {
     void action.run(
       `unarchive:${chat.id}`,
       async () => {
-        await api.setArchive(token, chat.id, false);
-        invalidateChatListCache();
+        if (await stillThere(api.setArchive(token, chat.id, false))) invalidateChatListCache();
+        else void forgetDeletedChat(chat.id);
         drop(chat);
       },
       { errorKey: "chat.archive_failed" },
@@ -89,7 +104,7 @@ export default function ArchivedChatsScreen() {
     void action.run(
       `delete:${chat.id}`,
       async () => {
-        await api.deleteChat(token, chat.id);
+        await stillThere(api.deleteChat(token, chat.id));
         notifyDestructive();
         void forgetDeletedChat(chat.id);
         drop(chat);

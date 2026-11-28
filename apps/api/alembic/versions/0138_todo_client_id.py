@@ -15,7 +15,6 @@ from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = "0138_todo_client_id"
 down_revision: Union[str, None] = "0137_pasted_uploads"
@@ -23,30 +22,37 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    op.add_column(
-        "todo_items",
-        sa.Column("client_id", postgresql.UUID(as_uuid=True), nullable=True),
+_INDEX = "uq_todo_user_client_id"
+
+
+def _index_valid(name: str) -> bool | None:
+    """None when there is no such index; else whether Postgres may use it (0123's check)."""
+    return (
+        op.get_bind()
+        .execute(
+            sa.text("SELECT indisvalid FROM pg_index WHERE indexrelid = to_regclass(:name)"),
+            {"name": name},
+        )
+        .scalar()
     )
-    # Built beside the writes, as 0117's: the table keeps taking to-dos meanwhile.
+
+
+def upgrade() -> None:
+    # Re-runnable: the concurrent build runs outside the migration's transaction, so a build that
+    # fails (a lock wait past the deploy's timeout) leaves the column added and the revision not
+    # stamped. The next deploy adds nothing twice and rebuilds an invalid index, which enforced
+    # nothing (two rows under one id, and the id's lookup failing for good).
     with op.get_context().autocommit_block():
-        op.create_index(
-            "uq_todo_user_client_id",
-            "todo_items",
-            ["user_id", "client_id"],
-            unique=True,
-            postgresql_where=sa.text("client_id IS NOT NULL"),
-            postgresql_concurrently=True,
-            if_not_exists=True,
+        op.execute("ALTER TABLE todo_items ADD COLUMN IF NOT EXISTS client_id UUID")
+        if _index_valid(_INDEX) is False:
+            op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {_INDEX}")
+        op.execute(
+            f"CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS {_INDEX} "
+            "ON todo_items (user_id, client_id) WHERE client_id IS NOT NULL"
         )
 
 
 def downgrade() -> None:
     with op.get_context().autocommit_block():
-        op.drop_index(
-            "uq_todo_user_client_id",
-            table_name="todo_items",
-            postgresql_concurrently=True,
-            if_exists=True,
-        )
-    op.drop_column("todo_items", "client_id")
+        op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {_INDEX}")
+        op.execute("ALTER TABLE todo_items DROP COLUMN IF EXISTS client_id")

@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 
 import ArchivedChatsScreen from "@/features/account/screens/ArchivedChatsScreen";
 import { forgetDeletedChat } from "@/features/chat/model/chatListCache";
+import { ApiRequestError } from "@/lib/api/errorBody";
 
 const mockListChats = jest.fn();
 const mockDeleteChat = jest.fn();
@@ -212,4 +213,32 @@ it("shows each archived chat as one row with its date, Unarchive and Delete its 
   await fireEvent.press(ui.getByLabelText("chat.unarchive, Seattle weather forecast"));
   expect(api.setArchive).toHaveBeenCalledWith("token", "trip", false);
   expect(ui.getByText("settings.archived_chats_empty")).toBeTruthy();
+});
+
+// Review of #2621, round 2: one another device already deleted said "Could not delete this
+// chat" (or the archive failure) and kept its row; the drawer and the header count it deleted.
+it.each(["delete", "unarchive"] as const)("takes a chat already deleted elsewhere off on %s, with no failure", async (act_) => {
+  const { api } = jest.requireMock<{ api: { setArchive: jest.Mock } }>("@/lib/api");
+  const gone = new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" }));
+  api.setArchive.mockRejectedValue(gone);
+  mockDeleteChat.mockRejectedValue(gone);
+  mockListChats.mockResolvedValue({
+    archived: [{
+      id: "gone", title: "Deleted on laptop", model: "free-chat", pinned: false, archived: true,
+      created_at: "2026-01-01", updated_at: "2026-01-01",
+    }],
+  });
+  const ui = await render(<ArchivedChatsScreen />);
+  if (act_ === "delete") {
+    await fireEvent.press(ui.getByLabelText("chat.delete, Deleted on laptop"));
+    const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)[2];
+    await act(async () => { buttons.find((button: { style?: string }) => button.style === "destructive").onPress(); });
+  } else {
+    await act(async () => { await fireEvent.press(ui.getByLabelText("chat.unarchive, Deleted on laptop")); });
+  }
+  expect(ui.queryByText("Deleted on laptop")).toBeNull();
+  expect(forgetDeletedChat).toHaveBeenCalledWith("gone");
+  const shown = JSON.stringify((Alert.alert as jest.Mock).mock.calls);
+  expect(shown).not.toContain("chat.delete_failed");
+  expect(shown).not.toContain("chat.archive_failed");
 });

@@ -5,6 +5,7 @@ import { useChatPaging } from "@/features/chat/hooks/useChatPaging";
 import { api, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { writeCachedChatMessages } from "@/features/chat/model/messageCache";
+import { onAppEvent } from "@/lib/appEvents";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/lib/api", () => ({ api: { listMessages: jest.fn() } }));
@@ -76,6 +77,31 @@ it("prepends older pages above the thread", async () => {
   expect(list).toHaveBeenCalledWith("token", "chat-1", { limit: 40, before: id(960) });
   expect(contents(hook.result.current.messages)).toEqual(contents(range(920, 999)));
   expect(hook.result.current.hasMoreOlder).toBe(false);
+});
+
+// Review of #2621, round 2: a page read that finds the chat deleted elsewhere takes the chat
+// away (its row, thread and files, and the open screen), with no "Something went wrong".
+it.each(["older", "newer", "around", "latest"] as const)("takes the chat away when the %s page finds it gone", async (page) => {
+  const deleted: string[] = [];
+  const stop = onAppEvent("chatsDeleted", ({ chatIds }) => void deleted.push(...chatIds));
+  try {
+    const { hook, banner } = await setup();
+    if (page === "newer") {
+      list.mockResolvedValueOnce({ messages: range(80, 119), has_more: true, has_more_after: true });
+      await act(async () => { await hook.result.current.paging.openAround(id(100)); });
+    }
+    list.mockRejectedValueOnce(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+    await act(async () => {
+      if (page === "older") await hook.result.current.paging.loadOlderMessages();
+      if (page === "newer") await hook.result.current.paging.newerPage?.load();
+      if (page === "around") await hook.result.current.paging.openAround(id(100));
+      if (page === "latest") await hook.result.current.paging.jumpToLatest();
+    });
+    expect(deleted).toEqual(["chat-1"]);
+    expect(banner).not.toHaveBeenCalled();
+  } finally {
+    stop();
+  }
 });
 
 it("drops a window that arrives after the view moved on", async () => {

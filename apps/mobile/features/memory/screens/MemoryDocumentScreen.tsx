@@ -131,12 +131,9 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setSaving(true);
     const saved = await editFact(editing.fact.id, text);
     setSaving(false);
-    if (!isCurrentView()) return;
-    if (!saved.ok) {
-      reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
-      if (saved.failure !== "gone") return;
-    }
-    setEditing(null);
+    // The sheet ends with its save however the visit did (saved, or the fact gone); the toast is the visit's.
+    if (!saved.ok && isCurrentView()) reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
+    if (saved.ok || saved.failure === "gone") setEditing(null);
   }, [editing, saving, editFact, isCurrentView, feedback, t]);
 
   const toggleMuted = useCallback(async (fact: Memory) => {
