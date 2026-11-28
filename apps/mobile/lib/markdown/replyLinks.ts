@@ -39,8 +39,10 @@ function nameText(words: string): string {
 function decoded(text: string): string {
   try {
     return decodeURIComponent(text);
-  } catch {
-    return text;
+  } catch (error) {
+    // A stray "%" the model wrote is no escape: the city stays as written.
+    if (error instanceof URIError) return text;
+    throw error;
   }
 }
 
