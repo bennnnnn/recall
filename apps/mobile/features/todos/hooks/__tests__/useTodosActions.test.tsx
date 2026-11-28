@@ -9,6 +9,8 @@ import type { TodoDue } from "@/features/todos/model/dueDate";
 import { api, type Todo } from "@/lib/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
+let mockUuid = 0;
+jest.mock("expo-crypto", () => ({ randomUUID: () => `create-${++mockUuid}` }));
 
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
@@ -210,9 +212,49 @@ describe("useTodosActions reminders", () => {
       dueAt: null,
       dueHasTime: true,
       recurrenceRule: null,
+      clientId: expect.stringMatching(/^create-/),
     });
     const addUpdater = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     expect(addUpdater([])[0]).toMatchObject({ content: "Buy milk", due_at: null });
+  });
+
+  // Pre-launch review 2026-11-27: a create whose answer was lost, and Save tapped again,
+  // made a second to-do. The retry is sent under the first one's id, which the server makes once.
+  it("sends Save tapped again after a failed create under the same client id, and a new to-do under a new one", async () => {
+    const clientIds = () => (api.createTodo as jest.Mock).mock.calls.map((call) => call[3].clientId);
+    (api.createTodo as jest.Mock).mockRejectedValueOnce(new Error("lost"));
+    (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "milk-1", content: "Buy milk" }));
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    for (let save = 0; save < 2; save += 1) {
+      await act(async () => {
+        await actions.handleCreateTodo("Buy milk", null, jest.fn());
+      });
+    }
+    // The same to-do again, after it was made: another to-do, another id.
+    await act(async () => {
+      await actions.handleCreateTodo("Buy milk", null, jest.fn());
+    });
+    const [first, retry, next] = clientIds();
+    expect(retry).toBe(first);
+    expect(next).not.toBe(first);
+  });
+
+  it("sends a failed create saved again with other words under a new client id", async () => {
+    (api.createTodo as jest.Mock).mockRejectedValueOnce(new Error("lost"));
+    (api.createTodo as jest.Mock).mockResolvedValue(todo({ id: "tea-1", content: "Buy tea" }));
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Buy milk", null, jest.fn());
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Buy tea", null, jest.fn());
+    });
+    const [first, second] = (api.createTodo as jest.Mock).mock.calls.map((call) => call[3].clientId);
+    expect(second).not.toBe(first);
   });
 
   it("moves a due date immediately and rolls back on failure", async () => {
@@ -345,6 +387,7 @@ describe("useTodosActions: a date alone", () => {
       dueAt: "2026-11-10T00:00:00",
       dueHasTime: false,
       recurrenceRule: null,
+      clientId: expect.stringMatching(/^create-/),
     });
     const addUpdater = setTodos.mock.calls[0][0] as (prev: Todo[]) => Todo[];
     expect(addUpdater([])[0]).toMatchObject({ due_at: day.toISOString(), due_has_time: false, notify_at: null });

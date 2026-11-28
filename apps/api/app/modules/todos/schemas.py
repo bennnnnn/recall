@@ -75,6 +75,9 @@ class TodoCreate(BaseModel):
     # False: only due_at's day counts (on the user's clock), and nothing reminds of it.
     due_has_time: bool = True
     recurrence_rule: RecurrenceRule | None = None
+    # The phone's id for this create, the same on each retry of it: a create the server
+    # already made under it returns that to-do and adds nothing.
+    client_id: UUID | None = None
 
     @field_validator("content")
     @classmethod

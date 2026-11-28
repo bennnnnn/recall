@@ -84,7 +84,13 @@ async def create_todo(
     due_at: datetime | None,
     recurrence_rule: RecurrenceRule | None = None,
     due_has_time: bool = True,
+    client_id: UUID | None = None,
 ) -> TodoItem:
+    # A create sent again under the phone's id (its answer was lost): the row it made.
+    if client_id is not None:
+        made = await todos_repo.get_by_client_id(session, user.id, client_id)
+        if made is not None:
+            return made
     if chat_id is not None:
         chat = await chat_history.get_chat(session, chat_id, user.id)
         if chat is None:
@@ -106,8 +112,16 @@ async def create_todo(
             due_at=normalized_due,
             recurrence_rule=recurrence_rule,
             due_has_time=due_has_time,
+            client_id=client_id,
         )
     except IntegrityError as exc:
+        if client_id is not None and todos_repo.is_client_id_conflict(exc):
+            # The same create, sent twice at once: the other one made it.
+            await session.rollback()
+            made = await todos_repo.get_by_client_id(session, user_id, client_id)
+            if made is None:
+                raise
+            return made
         if not todos_repo.is_open_content_due_conflict(exc) or normalized_due is None:
             raise
         await session.rollback()

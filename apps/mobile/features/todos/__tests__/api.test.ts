@@ -89,6 +89,13 @@ it("creates a plain to-do without a due date", async () => {
   });
 });
 
+it("names a create with its client id, so the server makes it once", async () => {
+  jest.mocked(request).mockResolvedValue({ id: "created" });
+  await todosApi.createTodo("token", "Buy milk", "General", { clientId: "create-1" });
+  const [, , init] = jest.mocked(request).mock.calls[0];
+  expect(JSON.parse(init!.body as string)).toMatchObject({ content: "Buy milk", client_id: "create-1" });
+});
+
 it("sends an explicit null when removing a date", async () => {
   jest.mocked(request).mockResolvedValue({ id: "updated" });
   await todosApi.updateTodo("token", "todo-1", {

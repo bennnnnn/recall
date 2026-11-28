@@ -57,6 +57,14 @@ class TodoItem(Base):
         # open dated rows lives in migrations 0084 and 0127 (`uq_todo_open_content_due`)
         # so SQLite `__table__.create()` fixtures are not bound to a Postgres expression.
         Index("ix_todo_user_id", "user_id", "id"),
+        # The phone's id for one create: a retry of it finds the row (migration 0138).
+        Index(
+            "uq_todo_user_client_id",
+            "user_id",
+            "client_id",
+            unique=True,
+            postgresql_where=text("client_id IS NOT NULL"),
+        ),
         CheckConstraint("source IN ('user')", name="ck_todo_items_source"),
     )
 
@@ -78,6 +86,9 @@ class TodoItem(Base):
     )
     recurrence_rule: Mapped[str | None] = mapped_column(String(16), nullable=True)
     sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The id the phone made for the create that added this row; a create sent again under it
+    # (its answer was lost) returns this row and adds nothing. None for a chat card's add.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

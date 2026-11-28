@@ -61,6 +61,8 @@ export const todosApi = {
       /** False: only `dueAt`'s day counts, with no time and no reminder. */
       dueHasTime?: boolean;
       recurrenceRule?: Todo["recurrence_rule"];
+      /** This create's own id, the same on a retry: the server makes it once. */
+      clientId?: string;
     },
   ) =>
     request<Todo>("/todos", token, {
@@ -72,6 +74,7 @@ export const todosApi = {
         due_at: options?.dueAt ?? undefined,
         due_has_time: options?.dueHasTime ?? undefined,
         recurrence_rule: options?.recurrenceRule ?? undefined,
+        client_id: options?.clientId ?? undefined,
       }),
     }),
   updateTodo: (
