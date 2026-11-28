@@ -12,8 +12,8 @@ async function openTodos(): Promise<void> {
 }
 
 /**
- * Under a reply that asked to add or change a to-do in a language other than
- * English: chat only reads to-dos there, so the change is made in To-do.
+ * Under a reply to a request to add or change a to-do, in any language: chat only
+ * reads to-dos, so the change is made in To-do.
  */
 export function TodoLinkButton() {
   const { t } = useTranslation();
