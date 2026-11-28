@@ -72,17 +72,20 @@ describe("ChatHeader", () => {
     expect(queryByLabelText("reminders.badge_accessibility")).toBeNull();
   });
 
-  it.each(["gallery", "memory"])("goes back to the page it was pushed from: returnTo=%s", async (from) => {
+  // Library and a memory fact open the chat in the one chat screen (router.dismissTo), so
+  // the header always opens the drawer: a second chat screen with a Back over them shared
+  // the first one's streaming slot (pre-launch review, 2026-11-27).
+  it.each(["gallery", "memory"])("opens the drawer even with an old returnTo=%s link", async (from) => {
     mockReturnTo = from;
     const onOpenDrawer = jest.fn();
     const { getByLabelText, queryByLabelText } = await render(
       <ChatHeader {...props} onOpenDrawer={onOpenDrawer} />,
     );
 
-    expect(queryByLabelText("chat.open_drawer_a11y")).toBeNull();
-    await fireEvent.press(getByLabelText("common.back"));
-    expect(mockBack).toHaveBeenCalled();
-    expect(onOpenDrawer).not.toHaveBeenCalled();
+    expect(queryByLabelText("common.back")).toBeNull();
+    await fireEvent.press(getByLabelText("chat.open_drawer_a11y"));
+    expect(onOpenDrawer).toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it("uses a minimum height and reports a grown Dynamic Type layout once", async () => {

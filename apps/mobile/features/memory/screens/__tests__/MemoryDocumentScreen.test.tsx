@@ -12,7 +12,7 @@ const mockEditFact = jest.fn();
 const mockSetFactMuted = jest.fn();
 const mockConfirm = jest.fn(async (..._args: unknown[]) => true);
 const mockFeedback = { error: jest.fn(), success: jest.fn(), warning: jest.fn() };
-const mockRouter = { back: jest.fn(), push: jest.fn() };
+const mockRouter = { back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() };
 let mockDocuments: MemoryDocument[] = [];
 let mockLoading = false;
 let mockError = false;
@@ -337,10 +337,12 @@ describe("MemoryDocumentScreen", () => {
     expect(link.props.accessibilityRole).toBe("link");
     await fireEvent.press(link);
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
+    // The one chat screen under the memory pages, never a second one pushed over them.
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith({
       pathname: "/",
-      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+      params: { chatId: "chat-9", highlightMessage: "message-3" },
     });
+    expect(mockRouter.push).not.toHaveBeenCalled();
     expect(ui.queryByTestId("menu-mute")).toBeNull();
   });
 
@@ -359,9 +361,9 @@ describe("MemoryDocumentScreen", () => {
     ]);
     await fireEvent(row, "accessibilityAction", { nativeEvent: { actionName: "openSource" } });
 
-    expect(mockRouter.push).toHaveBeenCalledWith({
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith({
       pathname: "/",
-      params: { chatId: "chat-9", returnTo: "memory", highlightMessage: "message-3" },
+      params: { chatId: "chat-9", highlightMessage: "message-3" },
     });
   });
 

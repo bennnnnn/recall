@@ -9,13 +9,13 @@ describe("memoryFacts", () => {
   it("opens a fact's chat at the message that states it", () => {
     expect(
       memorySourceChatHref({ source_chat_id: "c1", source_chat_title: "Trip", source_message_id: "m1" }),
-    ).toEqual({ pathname: "/", params: { chatId: "c1", returnTo: "memory", highlightMessage: "m1" } });
+    ).toEqual({ pathname: "/", params: { chatId: "c1", highlightMessage: "m1" } });
   });
 
   it("opens the chat alone when the message is not known", () => {
     expect(
       memorySourceChatHref({ source_chat_id: "c1", source_chat_title: "Trip", source_message_id: null }),
-    ).toEqual({ pathname: "/", params: { chatId: "c1", returnTo: "memory" } });
+    ).toEqual({ pathname: "/", params: { chatId: "c1" } });
   });
 
   it.each([

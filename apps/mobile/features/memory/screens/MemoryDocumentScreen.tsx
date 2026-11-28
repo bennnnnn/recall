@@ -326,7 +326,7 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
         sourceHref ? [{ name: "openSource", label: t("memory.source_chat_hint") }] : undefined
       }
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.push(sourceHref);
+        if (event.nativeEvent.actionName === "openSource" && sourceHref) router.dismissTo(sourceHref);
       }}
       testID={`memory-fact-${fact.id}`}
     >
@@ -341,7 +341,7 @@ const FactRow = memo(function FactRow({ fact, s, onOpenMenu }: {
         {source && sourceHref ? (
           <Text
             style={[s.factMeta, s.factSource]}
-            onPress={() => router.push(sourceHref)}
+            onPress={() => router.dismissTo(sourceHref)}
             accessibilityRole="link"
             accessibilityHint={t("memory.source_chat_hint")}
             testID={`memory-fact-source-${fact.id}`}

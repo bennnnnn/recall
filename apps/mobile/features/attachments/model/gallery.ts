@@ -45,16 +45,16 @@ export function libraryOpenChatHref(
   item: Pick<AttachmentListItem, "chat_id" | "message_id">,
 ): {
   pathname: "/";
-  params: { chatId: string; returnTo: "gallery"; highlightMessage?: string };
+  params: { chatId: string; highlightMessage?: string };
 } | null {
   if (!item.chat_id) return null;
-  // Push a second instance of the main chat route; returnTo=gallery flips the
-  // header from hamburger to Back so the user returns to Library.
+  // The one chat screen, at the bottom of the stack (`router.dismissTo`): a second one
+  // pushed over Library shared the first one's streaming slot, title listener and drafts
+  // file (pre-launch review, 2026-11-27).
   return {
     pathname: "/",
     params: {
       chatId: item.chat_id,
-      returnTo: "gallery",
       ...(item.message_id ? { highlightMessage: item.message_id } : {}),
     },
   };

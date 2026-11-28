@@ -12,6 +12,8 @@ import fixture from "../../../../../../docs/fixtures/error_codes.json";
 let mockSession = 0;
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
+const mockDismissTo = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "token" }));
 const mockFeedback = { error: jest.fn(), success: jest.fn(), info: jest.fn(), warning: jest.fn(), show: jest.fn(), dismiss: jest.fn() };
@@ -26,7 +28,7 @@ jest.mock("@/ui/overlay/dialogs", () => ({
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
   return {
-    useRouter: () => ({ canGoBack: () => true, back: mockBack, replace: mockReplace }),
+    useRouter: () => ({ canGoBack: () => true, back: mockBack, replace: mockReplace, push: mockPush, dismissTo: mockDismissTo }),
     useLocalSearchParams: () => ({ composerThread: "origin" }),
     useFocusEffect: (callback: () => void) => useEffect(callback, [callback]),
   };
@@ -49,6 +51,15 @@ function Probe() {
   return <Text>Library</Text>;
 }
 beforeEach(() => { jest.clearAllMocks(); mockSession = 0; mockFeedbackEnabled = false; mockUri = "file://attachment"; });
+
+// Pre-launch review 2026-11-27: Open chat pushed a second chat screen over Library, and the
+// two shared one streaming slot, one title listener and one drafts file.
+it("opens an item's chat in the one chat screen under Library, never a second one", async () => {
+  await render(<Probe />);
+  await act(async () => { current.openChat({ ...item, chat_id: "chat-1", message_id: "m-1" } as AttachmentListItem); });
+  expect(mockDismissTo).toHaveBeenCalledWith({ pathname: "/", params: { chatId: "chat-1", highlightMessage: "m-1" } });
+  expect(mockPush).not.toHaveBeenCalled();
+});
 
 it("does not navigate or queue a Library attachment after leaving", async () => {
   let finish!: (value: unknown) => void;
