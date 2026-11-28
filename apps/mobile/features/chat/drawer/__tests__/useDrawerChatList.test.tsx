@@ -261,6 +261,8 @@ describe("a chat started on another device", () => {
     const untitled = { ...chat, id: "new", title: null };
     const titled = { ...untitled, title: "Late title" };
     seedChatListCacheForTest({ ...initial, today: [untitled] });
+    // A read landing in the seed's own millisecond looks like no read (failedAt): half the runs.
+    later(1_000);
     (api.listChats as jest.Mock)
       .mockResolvedValueOnce({ ...initial, today: [untitled] })
       .mockResolvedValueOnce({ ...initial, today: [titled] });
