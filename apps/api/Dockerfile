@@ -6,7 +6,7 @@
 # health-check it. Do NOT deploy to a serverless function platform — the worker
 # and WS connections need a persistent process.
 
-FROM python:3.12-slim AS base
+FROM python:3.14.10-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
