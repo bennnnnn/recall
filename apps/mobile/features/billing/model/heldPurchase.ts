@@ -15,15 +15,16 @@
  */
 import { Platform } from "react-native";
 
-import { cacheFile } from "@/lib/cache/cacheFile";
+import { durableFile } from "@/lib/durableFile";
 import { createValueStore } from "@/lib/listenerSet";
 import type { PaidPlanId, PlanId } from "@/lib/plan";
 
 type Hold = { plan: PaidPlanId; since: number };
 
 const held = createValueStore<Hold | null>(null);
-/** Android's hold across launches: "account|plan|since". */
-const heldFile = cacheFile("recall-held-purchase.txt");
+/** Android's hold across launches: "account|plan|since". A durable file (`lib/durableFile.ts`):
+ * the cache directory, which the OS empties when storage runs low, could drop it mid-purchase. */
+const heldFile = durableFile("recall-held-purchase.txt", "recall-held-purchase.txt");
 
 const ANDROID_HOLD_MS = 7 * 24 * 60 * 60_000;
 const IOS_HOLD_MS = 30 * 60_000;

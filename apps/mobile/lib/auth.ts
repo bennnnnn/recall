@@ -1,8 +1,8 @@
-import * as SecureStore from "expo-secure-store";
+import { SECURE_KEYS, secureDelete, secureGet, secureSet } from "@/lib/secureStore";
 
 export { clearOnboarded, getOnboarded, setOnboarded } from "@/lib/onboarding";
 
-const SESSION_KEY = "recall_session_v1";
+const SESSION_KEY = SECURE_KEYS.session;
 
 type TokenPair = { accessToken: string; refreshToken: string | null };
 
@@ -95,7 +95,7 @@ function parseTokenPair(value: string): TokenPair | null {
 }
 
 async function readTokenPair(generation: number): Promise<TokenPair | null> {
-  const stored = await SecureStore.getItemAsync(SESSION_KEY);
+  const stored = await secureGet(SESSION_KEY);
   // A JSON null record is an authoritative sign-out.
   if (stored === null) return null;
   const pair = parseTokenPair(stored);
@@ -122,11 +122,11 @@ export function setTokenPair(
   return withStorage(async () => {
     if (expectedGeneration !== sessionGeneration) return false;
     if (!accessToken || !refreshToken) throw new AuthStorageError();
-    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify({ accessToken, refreshToken }));
+    await secureSet(SESSION_KEY, JSON.stringify({ accessToken, refreshToken }));
     if (expectedGeneration !== sessionGeneration) {
       // A superseded native write may already have reached disk. Remove it
       // inside this queue slot before any newer session write can begin.
-      await SecureStore.setItemAsync(SESSION_KEY, "null");
+      await secureSet(SESSION_KEY, "null");
       return false;
     }
     sessionAccessTokens.add(accessToken);
@@ -138,11 +138,11 @@ export function clearToken(): Promise<void> {
   invalidateSession();
   return withStorage(async () => {
     try {
-      await SecureStore.setItemAsync(SESSION_KEY, "null");
+      await secureSet(SESSION_KEY, "null");
     } catch {
       // Deletion can still work when a write is unavailable (for example a
       // full store). Only report success when the credential record is gone.
-      await SecureStore.deleteItemAsync(SESSION_KEY);
+      await secureDelete(SESSION_KEY);
     }
   });
 }
