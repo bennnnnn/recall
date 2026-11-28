@@ -188,6 +188,10 @@ const mockAuth = { token: "token", user: null, updateUser: mockAsyncNoop };
 const mockRouter = { push: mockNoop, replace: mockNoop, setParams: mockNoop };
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+// The header reads the drawer list's row (useChatMetadata); no list is held here.
+jest.mock("@/features/chat/model/chatListCache", () => ({
+  getCachedChatList: () => undefined, getFetchedChat: () => undefined, subscribeChatList: () => () => {},
+}));
 // The location switch's module keeps when the account's place was saved, in a file.
 jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: async () => null, recordSync: async () => {} }));
 jest.mock("expo-router", () => ({

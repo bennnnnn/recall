@@ -105,8 +105,6 @@ const SCOPED_TO_SESSION = [
   "features/attachments/model/pendingComposerAttachment.ts#queued",
   // The sign-in the chat saw confirmed, read only while it is the session (cleared at sign-out too).
   "features/attachments/model/openedDocument.ts#confirmedSession",
-  // The chats this sign-in was told are gone, kept with the session they were told in.
-  "features/chat/model/chatGone.ts#told",
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
   "features/chat/model/pageReads.ts#pageReads",
@@ -131,6 +129,8 @@ const IN_FLIGHT = [
   "features/attachments/model/localAttachmentFile.ts#ownedCopies",
   "features/attachments/model/openedDocument.ts#copying",
   "features/chat/drawer/drawer.ts#_pendingTitleChatIds",
+  // The chats found gone and said so once, by their server ids.
+  "features/chat/model/chatGone.ts#toldChatIds",
   "features/chat/model/draftLogic.ts#emptyChatChecks",
   "features/chat/model/latency.ts#pending",
   "features/chat/model/mutationLock.ts#pendingMutations",

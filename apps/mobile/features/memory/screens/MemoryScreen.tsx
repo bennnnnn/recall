@@ -78,11 +78,9 @@ function MemoryContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setRefreshing(true);
     await load();
     refreshingRef.current = false;
-    // Always: the page stays mounted across a blur, and a spinner left on would stay on its return.
     setRefreshing(false);
   }, [isCurrentView, load]);
 
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
   if (loading) return <SkeletonList />;
   if (error) {

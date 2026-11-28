@@ -13,6 +13,11 @@ export type CreateAttempts = {
   made: (key: string) => void;
 };
 
+/** A create as it is sent: the same to-do saved again has the same key. */
+export function createAttemptKey(content: string, topic: string, dueAt: unknown, dueHasTime: unknown, repeat: unknown): string {
+  return JSON.stringify([content, topic, dueAt, dueHasTime, repeat]);
+}
+
 export function createAttempts(newId: () => string = randomUUID): CreateAttempts {
   let held: { key: string; id: string } | null = null;
   return {

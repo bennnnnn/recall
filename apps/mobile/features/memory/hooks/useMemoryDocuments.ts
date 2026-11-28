@@ -67,6 +67,21 @@ function withDocumentRestored(
     : [...documents, removed];
 }
 
+/** A delete of an item already deleted on another device: deleted all the same, nothing put back. */
+function deletedElsewhere(): MemoryChange {
+  invalidateMemoriesCache();
+  return { ok: true };
+}
+
+/** A change to a fact the server no longer has: it leaves the pages, and the change says why. */
+function changeFailed(factId: string, error: unknown, session: number): MemoryChange {
+  if (isGone(error)) {
+    updateMemoryDocuments((documents) => withoutFact(documents, factId), session);
+    invalidateMemoriesCache();
+  }
+  return { ok: false, failure: memoryFailure(error) };
+}
+
 /**
  * Memory as documents (You, Topics, Areas) for the signed-in account. Writes
  * made after an account switch never land in the next account's pages.
@@ -111,24 +126,10 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      // Already gone (deleted on another device): deleted all the same, nothing to put back.
-      if (isGone(error)) {
-        invalidateMemoriesCache();
-        return { ok: true };
-      }
-      // Put back only this item: other deletes may have finished meanwhile.
-      updateMemoryDocuments(restore, session);
+      if (isGone(error)) return deletedElsewhere();
+      updateMemoryDocuments(restore, session); // Only this item: other deletes may have finished meanwhile.
       return { ok: false, failure: memoryFailure(error) };
     }
-  }, []);
-
-  /** A change to a fact the server no longer has: it leaves the pages, and the change says why. */
-  const changeFailed = useCallback((factId: string, error: unknown, session: number): MemoryChange => {
-    if (isGone(error)) {
-      updateMemoryDocuments((documents) => withoutFact(documents, factId), session);
-      invalidateMemoriesCache();
-    }
-    return { ok: false, failure: memoryFailure(error) };
   }, []);
 
   const deleteDocument = useCallback(async (key: string): Promise<MemoryChange> => {
@@ -162,7 +163,7 @@ export function useMemoryDocuments(token: string | null) {
     } catch (error) {
       return changeFailed(factId, error, session);
     }
-  }, [token, changeFailed]);
+  }, [token]);
 
   /** Mute keeps a fact but stops Recall using it in chats; unmute brings it back. */
   const setFactMuted = useCallback(async (factId: string, muted: boolean): Promise<MemoryChange> => {
@@ -178,7 +179,7 @@ export function useMemoryDocuments(token: string | null) {
     } catch (error) {
       return changeFailed(factId, error, session);
     }
-  }, [token, changeFailed]);
+  }, [token]);
 
   return {
     documents: data?.documents ?? [],

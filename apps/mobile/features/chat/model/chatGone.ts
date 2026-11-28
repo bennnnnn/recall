@@ -7,11 +7,10 @@
 import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { isGone } from "@/lib/api/gone";
 import { emitAppEvent } from "@/lib/appEvents";
-import { getSessionGeneration } from "@/lib/auth";
 import { createListenerSet } from "@/lib/listenerSet";
 
-/** The chats this sign-in was told are gone. */
-let told: { session: number; chatIds: Set<string> } | null = null;
+/** The chats the person was told are gone: server ids, which no other account has. */
+const toldChatIds = new Set<string>();
 const goneListeners = createListenerSet<[chatId: string]>();
 
 /** Told once per chat: the notice of a chat found gone. */
@@ -21,10 +20,8 @@ export function subscribeChatGone(listener: (chatId: string) => void): () => voi
 
 /** The chat is gone on the server: take it away here and say so once. */
 export function forgetGoneChat(chatId: string): void {
-  const session = getSessionGeneration();
-  if (told?.session !== session) told = { session, chatIds: new Set() };
-  const first = !told.chatIds.has(chatId);
-  told.chatIds.add(chatId);
+  const first = !toldChatIds.has(chatId);
+  toldChatIds.add(chatId);
   emitAppEvent("chatsDeleted", { chatIds: [chatId] });
   abandonActiveChatIfDeleted([chatId]);
   if (first) goneListeners.emit(chatId);

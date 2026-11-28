@@ -107,7 +107,6 @@ export default function ArchivedChatsScreen() {
     );
   };
 
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
 
   if (loading && chats.length === 0 && !loadError) {

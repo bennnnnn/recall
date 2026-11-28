@@ -10,7 +10,7 @@ import { markReminderIdsSeen } from "@/features/todos/model/reminderSeen";
 import { buildOptimisticTodo, removeTodoById, replaceTodoById } from "@/features/todos/model/optimisticTodo";
 import { beginTodoMutation, getTodoMutationState } from "@/features/todos/model/todoMutationState";
 import { DEFAULT_TOPIC } from "@/features/todos/model/todoTopics";
-import { createAttempts } from "@/features/todos/model/createAttempt";
+import { createAttemptKey, createAttempts, type CreateAttempts } from "@/features/todos/model/createAttempt";
 import { todoErrorKey } from "@/features/todos/model/todoLimit";
 import { alertDialog, confirmDialog, offerSettings } from "@/ui/overlay/dialogs";
 import { useLatestRef } from "@/lib/latestRef";
@@ -27,6 +27,20 @@ type Params = {
   refresh: (opts?: { silent?: boolean; force?: boolean; afterPending?: boolean }) => Promise<void>;
 };
 const alwaysCurrent = () => true;
+
+/** POST /todos under the create's own id, the same when the same to-do is saved again. */
+async function sendCreate(
+  attempts: CreateAttempts, token: string, content: string, topic: string, due: TodoDue | null,
+  recurrenceRule: RecurrenceRule | null,
+): Promise<Todo> {
+  const sent = dueFieldsToSend(due);
+  const attempt = createAttemptKey(content, topic, sent.due_at, sent.due_has_time, recurrenceRule);
+  const created = await api.createTodo(token, content, topic, {
+    dueAt: sent.due_at, dueHasTime: sent.due_has_time, recurrenceRule, clientId: attempts.idFor(attempt),
+  });
+  attempts.made(attempt);
+  return created;
+}
 
 export function useTodosActions({ token, userId, todos, getTodos,
   isCurrentSession = alwaysCurrent, isCurrentView = alwaysCurrent, markSeenIds,
@@ -51,8 +65,7 @@ export function useTodosActions({ token, userId, todos, getTodos,
   const canAct = useCallback(() => mounted.current && isSameOwner() && isCurrentView(),
     [isSameOwner, isCurrentView]);
   const [, redraw] = useState(0);
-  // A Save tapped again after a create's answer was lost sends the same id: no second to-do.
-  const [attempts] = useState(createAttempts);
+  const [attempts] = useState(createAttempts); // A Save again after a lost answer: the same id.
   useEffect(() => {
     const changed = () => { if (mounted.current && isSameOwner()) redraw((value) => value + 1); };
     owner.mutations.listeners.add(changed);
@@ -143,14 +156,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
     const release = beginTodoMutation(owner.mutations, optimistic.id, "create");
     if (!release) return;
     applyTodos((rows) => [optimistic, ...rows]);
-    const sent = dueFieldsToSend(due);
-    const attempt = JSON.stringify([trimmed, nextTopic, sent.due_at, sent.due_has_time, recurrenceRule]);
     try {
-      const created = await api.createTodo(token, trimmed, nextTopic, {
-        dueAt: sent.due_at, dueHasTime: sent.due_has_time, recurrenceRule,
-        clientId: attempts.idFor(attempt),
-      });
-      attempts.made(attempt);
+      const created = await sendCreate(attempts, token, trimmed, nextTopic, due, recurrenceRule);
       applyTodos((rows) => replaceTodoById(rows, optimistic.id, created));
       if (created.due_at && isSameOwner()) {
         if (markSeenIds) void markSeenIds([created.id]);

@@ -36,14 +36,11 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const { highlight } = useLocalSearchParams<{
-    highlight?: string;
-  }>();
+  const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const {
     todos,
     setTodos,
-    loading,
-    loaded,
+    loading, loaded,
     error,
     refresh,
     markSeenIds,
@@ -149,7 +146,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       await refresh({ silent: true, force: true });
     } finally {
       refreshingRef.current = false;
-      // Always: the page stays mounted across a blur, and a spinner left on would stay on its return.
       setPullRefreshing(false);
     }
   }, [refresh, isCurrentView]);
@@ -190,7 +186,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       current.includes(todo.id) ? current.filter((id) => id !== todo.id) : [...current, todo.id],
     );
   }, []);
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
 
   if (loading && todos.length === 0) {

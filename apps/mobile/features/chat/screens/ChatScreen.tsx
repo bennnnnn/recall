@@ -215,7 +215,6 @@ function ChatScreen() {
   });
   useWelcomePlans({ user, busy: streamActive || regenerating, outOfCredit: quotaNudge.usedPct >= 100 || chatError?.kind === "quota", open: upgrade.open });
 
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
 
   const { chatTitle, pinned, archived } = metadata;

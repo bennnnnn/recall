@@ -14,7 +14,7 @@ export function needsAiDataConsent(
   return user?.ai_data_consent_at === null;
 }
 
-export const AI_CONSENT_ROUTE = "/consent";
+const AI_CONSENT_ROUTE = "/consent";
 
 // Signed-out screens send a new sign-in on themselves (LoginScreen redirects it).
 const ROUTES_WITHOUT_CONSENT_CHECK = new Set([AI_CONSENT_ROUTE, "/login", "/onboarding"]);

@@ -89,7 +89,6 @@ export default function SecuritySettingsScreen() {
     );
   };
 
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
 
   return (

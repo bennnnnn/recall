@@ -64,7 +64,6 @@ export function SettingsPage({
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
     [scrollY],
   );
-  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
   if (!token) return null;
   if (ownBarTitle == null) {
     return (
