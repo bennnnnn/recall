@@ -443,7 +443,9 @@ export type FailureArea =
    * A live dictation's call could not be made (the composer recorded the clip instead) or
    * dropped mid-take (what was heard landed).
    */
-  | "live_dictation";
+  | "live_dictation"
+  /** The screen could not be kept on (or let sleep) for a call, a take or a picture. */
+  | "keep_awake";
 
 /** A handled failure reports once per area and kind every ten minutes, twenty an hour in all. */
 const failureAllowed = reportLimit(10 * 60_000, 20);

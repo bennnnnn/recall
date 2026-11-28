@@ -5,6 +5,7 @@ import { signOutGoogle } from "@/lib/google-auth";
 import { ensureLocale } from "@/lib/i18n";
 import { deviceLanguage } from "@/lib/i18n/deviceLanguage";
 import { clearImageCaches } from "@/lib/images/imageCaches";
+import { releaseAllScreenAwake } from "@/lib/keepAwake";
 import { clearQuizAttempts } from "@/lib/lesson/quizAttempts";
 import { clearCalculatorPositions } from "@/lib/money/calculatorPositions";
 import { clearLinkPreviewCache } from "@/lib/linkPreview";
@@ -33,6 +34,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
   clearFenceScanMemo();
   clearDisplayDollarsMemo();
   publishStreamingDraft(null);
+  // A call, a take or a picture of this account's no longer keeps the screen on.
+  releaseAllScreenAwake();
   await Promise.allSettled([
     deleteAccountFiles(),
     forgetSyncRecords(),

@@ -65,6 +65,13 @@ function outermostTextAncestor(node: { type?: string; parent?: unknown }) {
   return last;
 }
 
+/** Every string a host node draws, in order: a hard break shows as its "\n". */
+function drawnText(node: unknown): string {
+  if (typeof node === "string") return node;
+  const children = (node as { children?: unknown[] } | null)?.children ?? [];
+  return children.map(drawnText).join("");
+}
+
 describe("markdown list item inline flow", () => {
   it("keeps lead-in text, a bold span, and trailing text on one inline run", async () => {
     const md =
@@ -122,14 +129,22 @@ describe("markdown list item inline flow", () => {
     expect(outermostTextAncestor(after as never)).toBe(boldOuter);
   });
 
-  it("bolds the number of an item whose title sits on its own line", async () => {
+  // The owner's layout (#2601): a titled item's name stays on its text's line, and its
+  // number keeps the body weight, as every sibling's does (listItemTitleShape.test.tsx).
+  it("keeps a titled item's name inline and its number regular", async () => {
     const md = [
       "1. **Read widely** – Consume diverse books and articles outside your comfort zone.",
       "2. **Prioritize sleep** – Aim for seven to nine hours every night.",
     ].join("\n");
     const { getByText } = await render(<MarkdownContent content={md} />);
-    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("700");
-    expect(getByText(/Consume diverse books/)).toBeTruthy();
+    expect(StyleSheet.flatten(getByText("1.").props.style).fontWeight).toBe("400");
+    const name = getByText("Read widely");
+    const run = outermostTextAncestor(name as never);
+    expect(outermostTextAncestor(getByText(/Consume diverse books/) as never)).toBe(run);
+    // A title on a line of its own is a "\n" (a hard break) inside this same run.
+    expect(drawnText(run)).toBe(
+      "Read widely – Consume diverse books and articles outside your comfort zone.",
+    );
   });
 
   it("keeps a plain numbered step's number regular", async () => {

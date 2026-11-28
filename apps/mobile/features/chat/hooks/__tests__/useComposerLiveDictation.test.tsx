@@ -11,6 +11,7 @@ import { transcribeSpeech, type User } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { reportFailure } from "@/lib/sentry";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 import { startVoiceRecording } from "@/lib/speech/voiceAudio";
 
 // The composer mic on a build with WebRTC: the words show on the composer's row while the
@@ -297,6 +298,64 @@ it("leaves no half-heard words in the chat the user leaves mid-take", async () =
   expect(current.voiceRecording).toBe(false);
   await completed("i1", "I was thinking we should go.");
   expect(input).toBe("draft for chat one");
+});
+
+// A 45 s take went dark under auto-lock (review H4, 2026-11-27): the live take holds the screen
+// on from its first tap, while it connects, through the words landing after the stop.
+describe("the live take keeps the screen on", () => {
+  const held = () => heldAwakeTags("dictation:");
+
+  it("holds it while the call connects, records and lands its last words, then lets it sleep", async () => {
+    let connect!: (value: unknown) => void;
+    (speechApi.createDictationSession as jest.Mock).mockReturnValueOnce(
+      new Promise((resolve) => { connect = resolve; }),
+    );
+    await startTake();
+    expect(screen.getByText("chat.voice_starting")).toBeOnTheScreen();
+    expect(held()).toHaveLength(1);
+    const [tag] = held();
+
+    await act(async () => {
+      connect({ call_id: "dict-1", expires_at: 1, model: "gpt-live-transcribe", max_duration_seconds: 45 });
+    });
+    await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+    await delta("i1", " see you");
+    expect(held()).toEqual([tag]);
+
+    await act(async () => { current.toggleVoiceInput(); });
+    await waitFor(() => expect(sent()).toContainEqual({ type: "input_audio_buffer.commit" }));
+    expect(current.voiceTranscribing).toBe(true);
+    expect(held()).toEqual([tag]);
+
+    await emit({ type: "input_audio_buffer.committed", item_id: "i1", previous_item_id: null });
+    await completed("i1", "See you.");
+    await waitFor(() => expect(current.voiceTranscribing).toBe(false));
+    expect(held()).toEqual([]);
+  });
+
+  it("lets it sleep when the call drops mid-take", async () => {
+    await startTake();
+    await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+    expect(held()).toHaveLength(1);
+    const pc = (webrtc.RTCPeerConnection as unknown as jest.Mock).mock.results[0].value as {
+      connectionState?: string;
+      onconnectionstatechange?: () => void;
+    };
+    await act(async () => {
+      pc.connectionState = "failed";
+      pc.onconnectionstatechange?.();
+    });
+    expect(current.voiceRecording).toBe(false);
+    expect(held()).toEqual([]);
+  });
+
+  it("lets it sleep when the take is cancelled", async () => {
+    await startTake();
+    await waitFor(() => expect(speechApi.connectDictationSession).toHaveBeenCalled());
+    expect(held()).toHaveLength(1);
+    await act(async () => { current.cancelVoiceInput(); });
+    expect(held()).toEqual([]);
+  });
 });
 
 describe("the take's timers", () => {
