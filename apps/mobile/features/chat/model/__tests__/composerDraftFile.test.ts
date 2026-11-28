@@ -92,3 +92,22 @@ it("keeps the drafts an earlier version wrote in the cache directory, and moves 
   expect(mockFiles.has(CACHE_PATH)).toBe(false);
   expect(mockFiles.has(PATH)).toBe(true);
 });
+
+// A run that could not read the old copy wrote its own file; the next run joins the two.
+it("joins an earlier version's drafts into this version's file, the newer draft kept per chat", async () => {
+  jest.resetModules();
+  mockFiles.set(PATH, JSON.stringify({ user_id: "user-1", drafts: { new: "typed after the upgrade" } }));
+  mockFiles.set(CACHE_PATH, JSON.stringify({
+    user_id: "user-1", drafts: { new: "older", "chat-1": "kept from before" }, math: ["chat-1"],
+  }));
+  const upgraded = await import("@/features/chat/model/composerDraftFile");
+  const drafts = await upgraded.readComposerDrafts("user-1");
+  expect(Object.fromEntries(drafts)).toEqual({ new: "typed after the upgrade", "chat-1": "kept from before" });
+  expect(mockFiles.has(CACHE_PATH)).toBe(false);
+
+  // Another account's old copy never joins this one's.
+  jest.resetModules();
+  mockFiles.set(CACHE_PATH, JSON.stringify({ user_id: "user-2", drafts: { new: "theirs" } }));
+  const again = await import("@/features/chat/model/composerDraftFile");
+  expect((await again.readComposerDrafts("user-1")).get("new")).toBe("typed after the upgrade");
+});

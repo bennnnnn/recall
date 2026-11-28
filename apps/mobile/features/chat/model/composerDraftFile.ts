@@ -8,7 +8,29 @@ import { parseJsonRecord } from "@/lib/fence/json";
  * app in the background. A durable file (`lib/durableFile.ts`): in the cache directory the OS
  * deleted them when storage ran low, and an Android kill mid-write lost every draft.
  */
-const draftsFile = durableFile("recall-composer-drafts.json", "recall-composer-drafts.json");
+const draftsFile = durableFile("recall-composer-drafts.json", "recall-composer-drafts.json", joinDrafts);
+
+/** Tagged with the account that typed them, so another account's file is never used. `math`
+ * names the drafts whose maths the math keyboard wrote. */
+type Stored = { user_id: string; drafts: Record<string, string>; math?: string[] };
+
+/**
+ * An earlier version's drafts (`former`) joined into this version's file (`current`), written
+ * in a run that could not read them: the same account's, each chat's newer draft kept. Another
+ * account's, or a file that is not drafts, leaves `current` as it is.
+ */
+function joinDrafts(current: string, former: string): string {
+  const now = parseJsonRecord(current);
+  const old = parseJsonRecord(former);
+  if (!now || !old || now.user_id !== old.user_id) return current;
+  const nowDrafts = (typeof now.drafts === "object" && now.drafts) || {};
+  const oldDrafts = (typeof old.drafts === "object" && old.drafts) || {};
+  const drafts = { ...oldDrafts, ...nowDrafts } as Record<string, string>;
+  const fromOld = (Array.isArray(old.math) ? old.math : []).filter((key) => !(key in nowDrafts));
+  const math = [...new Set([...(Array.isArray(now.math) ? now.math : []), ...fromOld])];
+  const joined: Stored = { user_id: String(now.user_id), drafts, ...(math.length ? { math } : {}) };
+  return JSON.stringify(joined);
+}
 
 /** Drafts kept; the least recently written goes first. */
 const MAX_DRAFTS = 50;
@@ -19,10 +41,6 @@ const MAX_DRAFT_CHARS = 20_000;
 function capped(text: string): string {
   return text.length <= MAX_DRAFT_CHARS ? text : Array.from(text).slice(0, MAX_DRAFT_CHARS).join("");
 }
-
-/** Tagged with the account that typed them, so another account's file is never used. `math`
- * names the drafts whose maths the math keyboard wrote. */
-type Stored = { user_id: string; drafts: Record<string, string>; math?: string[] };
 
 /** This account's drafts by thread key; empty when there is none, it is unreadable or another account wrote it. */
 export async function readComposerDrafts(owner: string): Promise<Map<string, string>> {

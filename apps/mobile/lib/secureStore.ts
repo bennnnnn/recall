@@ -22,8 +22,9 @@
  * The marker is written before the "ran" item, so a launch killed between the two reads as
  * the last row next time, never as a reinstall: an upgrade can never sign anyone out. Any
  * read that fails (the Keychain locked in a background launch) changes nothing; the next call
- * looks again. A reinstall clears at most once a run, so a marker that cannot be written (a
- * full disk) never deletes a sign-in made after the clear.
+ * looks again. A reinstall deletes "ran" once it has cleared, before it writes the marker: a
+ * marker that cannot be written (a full disk) then leaves "no marker, no ran", so no later
+ * launch reads the same reinstall again and deletes a sign-in made after the clear.
  */
 import * as SecureStore from "expo-secure-store";
 
@@ -99,14 +100,23 @@ function tokenPair(raw: string | null): { accessToken: string; refreshToken: str
  * sends it at start), so the server ends it and forgets this device's push token for that
  * account, instead of keeping both for the refresh token's 30 days. Then it is cleared.
  */
+async function oweLogout(session: { accessToken: string; refreshToken: string | null }): Promise<void> {
+  const parsed = readJson(await keychain.get(SECURE_KEYS.pendingLogouts));
+  const owed = (Array.isArray(parsed) ? parsed : []) as { accessToken?: unknown }[];
+  if (owed.some((entry) => entry.accessToken === session.accessToken)) return;
+  const entry = { ...session, pushToken: null, queuedAt: Date.now() };
+  await keychain.set(SECURE_KEYS.pendingLogouts, JSON.stringify([...owed, entry].slice(-MAX_PENDING_LOGOUTS)));
+}
+
 async function forgetReinstalledSession(): Promise<void> {
   const session = tokenPair(await keychain.get(SECURE_KEYS.session));
   if (session) {
-    const parsed = readJson(await keychain.get(SECURE_KEYS.pendingLogouts));
-    const owed = (Array.isArray(parsed) ? parsed : []) as { accessToken?: unknown }[];
-    if (!owed.some((entry) => entry.accessToken === session.accessToken)) {
-      const entry = { ...session, pushToken: null, queuedAt: Date.now() };
-      await keychain.set(SECURE_KEYS.pendingLogouts, JSON.stringify([...owed, entry].slice(-MAX_PENDING_LOGOUTS)));
+    try {
+      await oweLogout(session);
+    } catch (error) {
+      // A full Keychain: the server keeps the session until it ends, but this phone never
+      // hands it back, so the clear below still runs.
+      reportFailure("install_check", error);
     }
   }
   for (const key of CLEARED_ON_REINSTALL) await keychain.delete(key);
@@ -138,6 +148,9 @@ async function checkInstall(): Promise<void> {
   if (!hasMarker && ran) {
     if (!reinstallCleared) await forgetReinstalledSession();
     reinstallCleared = true;
+    // Before the marker: if it cannot be written, the next launch reads "no marker, no ran"
+    // (rewrite, keep) and never clears the sign-in made after this clear.
+    await keychain.delete(RAN_KEY);
   } else {
     await migrateItems();
   }

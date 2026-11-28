@@ -25,6 +25,10 @@ const mockKeychain = new Map<string, Item>();
 const mockFiles = new Map<string, string>();
 const mockKeychainLocked = { now: false };
 const mockDiskFull = { now: false };
+/** Keys whose writes fail as a full Keychain's do. */
+const mockKeychainFull = new Set<string>();
+/** The race: the second look at the legacy id file waits until the first call deleted it. */
+const mockRace = { on: false, looks: 0, deleted: Promise.resolve(), markDeleted: () => {} };
 const mockReport = jest.fn();
 const mockLogoutSession = jest.fn(async (..._args: unknown[]) => true);
 
@@ -38,6 +42,7 @@ const mockGetItem = jest.fn(async (key: string, _options?: object) => {
  * `SecItemUpdate`, which changes the class only when `keychainAccessible` is passed.
  */
 const mockSetItem = jest.fn(async (key: string, value: string, options?: { keychainAccessible?: number }) => {
+  if (mockKeychainFull.has(key)) throw new Error("errSecNoSpace");
   const existing = mockKeychain.get(key);
   const accessible = options?.keychainAccessible ?? existing?.accessible ?? "default";
   mockKeychain.set(key, { value, accessible });
@@ -56,7 +61,10 @@ jest.mock("expo-secure-store", () => ({
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file:///docs/",
   cacheDirectory: "file:///cache/",
-  getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
+  getInfoAsync: jest.fn(async (path: string) => {
+    if (mockRace.on && path.endsWith("recall.installation-id.txt") && ++mockRace.looks === 2) await mockRace.deleted;
+    return { exists: mockFiles.has(path) };
+  }),
   readAsStringAsync: jest.fn(async (path: string) => mockFiles.get(path) ?? ""),
   writeAsStringAsync: jest.fn(async (path: string, contents: string) => {
     if (mockDiskFull.now) throw new Error("ENOSPC");
@@ -68,6 +76,7 @@ jest.mock("expo-file-system/legacy", () => ({
   }),
   deleteAsync: jest.fn(async (path: string) => {
     mockFiles.delete(path);
+    if (path.endsWith("recall.installation-id.txt")) mockRace.markDeleted();
   }),
 }));
 jest.mock("react-native", () => ({ Platform: { OS: "ios" } }));
@@ -107,6 +116,9 @@ beforeEach(() => {
   mockFiles.clear();
   mockKeychainLocked.now = false;
   mockDiskFull.now = false;
+  mockKeychainFull.clear();
+  mockRace.on = false;
+  mockRace.looks = 0;
   mockReport.mockClear();
   mockLogoutSession.mockClear();
   mockGetItem.mockClear();
@@ -206,13 +218,21 @@ it("keeps an upgraded phone's installation id, moved from its documents file int
   await expect((await launch()).installationId.getInstallationId()).resolves.toBe("kept-id");
 });
 
-it("leaves an item's class alone on a write without this-device-only, as the native module does", async () => {
-  oldVersionSignedIn();
-  // The Keychain's own rule, which the migration relies on passing the class every time.
-  await mockSetItem(SESSION, "x");
-  expect(mockKeychain.get(SESSION)?.accessible).toBe("default");
-  await mockSetItem(SESSION, "x", { keychainAccessible: THIS_DEVICE_ONLY });
-  expect(mockKeychain.get(SESSION)?.accessible).toBe(THIS_DEVICE_ONLY);
+/**
+ * The migration rests on expo-secure-store's iOS `set`: a write over an existing item goes to
+ * `update`, which puts the requested class in `SecItemUpdate`'s attributes, and the lookup has
+ * no class in it, so an item of the old class is the one found and updated. Read from the
+ * installed native source, as appStoreConfig.test.ts reads the Android rules.
+ */
+it("rests on the installed expo-secure-store updating an existing item's class in place", () => {
+  const swift = ts.sys.readFile(
+    ts.sys.resolvePath(`${__dirname}/../../node_modules/expo-secure-store/ios/SecureStoreModule.swift`),
+  ) ?? "";
+  const body = (name: string) => swift.slice(swift.indexOf(`private func ${name}(`), swift.indexOf("\n  private func", swift.indexOf(`private func ${name}(`) + 1));
+  expect(body("set")).toMatch(/case errSecDuplicateItem:\s*return try update\(value: value, with: key, options: options\)/);
+  expect(body("update")).toMatch(/if options\.keychainAccessible != nil \{[\s\S]*updateDictionary\[kSecAttrAccessible\] = attributeWith\(options: options\)/);
+  expect(body("update")).toContain("SecItemUpdate(query as CFDictionary, updateDictionary as CFDictionary)");
+  expect(body("query")).not.toContain("kSecAttrAccessible");
 });
 
 it("on a reinstall, owes the server the old session's logout, which the next start sends", async () => {
@@ -232,7 +252,7 @@ it("on a reinstall, owes the server the old session's logout, which the next sta
   expect(JSON.parse(mockKeychain.get("recall_pending_logouts_v1")?.value ?? "[]")).toEqual([]);
 });
 
-it("clears a reinstall once a run, so a marker that cannot be written never deletes a new sign-in", async () => {
+it("clears a reinstall once, so a marker that cannot be written never deletes a new sign-in", async () => {
   oldVersionSignedIn();
   mockKeychain.set(RAN, { value: "1", accessible: THIS_DEVICE_ONLY });
   mockDiskFull.now = true;
@@ -245,15 +265,35 @@ it("clears a reinstall once a run, so a marker that cannot be written never dele
   expect(mockFiles.has(MARKER)).toBe(false);
   expect(mockReport).toHaveBeenCalledTimes(1);
 
+  // Relaunched while the disk is still full: no marker, and no "ran" either, so no reinstall.
+  const relaunched = await launch();
+  await expect(relaunched.auth.getToken()).resolves.toBe("access-new");
+  expect(mockFiles.has(MARKER)).toBe(false);
+
   // Storage frees up: the marker is written and the new sign-in stays.
   mockDiskFull.now = false;
-  await expect(auth.getToken()).resolves.toBe("access-new");
+  await expect(relaunched.auth.getToken()).resolves.toBe("access-new");
   expect(mockFiles.has(MARKER)).toBe(true);
   await expect((await launch()).auth.getToken()).resolves.toBe("access-new");
 });
 
+it("clears a reinstall's session even when the Keychain is too full to owe its logout", async () => {
+  oldVersionSignedIn();
+  mockKeychain.set(RAN, { value: "1", accessible: THIS_DEVICE_ONLY });
+  mockKeychainFull.add("recall_pending_logouts_v1");
+  await expect((await launch()).auth.getToken()).resolves.toBeNull();
+  expect(mockKeychain.has(SESSION)).toBe(false);
+  expect(mockReport).toHaveBeenCalledWith("install_check", expect.any(Error));
+  await expect((await launch()).auth.getToken()).resolves.toBeNull();
+});
+
 it("gives callers at once on the first upgraded launch the one id it moved", async () => {
   mockFiles.set(`${DOCS}recall.installation-id.txt`, "kept-id");
+  // Two reads of their own: the second looks for the file only after the first deleted it.
+  mockRace.on = true;
+  mockRace.deleted = new Promise<void>((resolve) => {
+    mockRace.markDeleted = resolve;
+  });
   const { installationId } = await launch();
   const ids = await Promise.all([installationId.getInstallationId(), installationId.getInstallationId()]);
   expect(ids).toEqual(["kept-id", "kept-id"]);

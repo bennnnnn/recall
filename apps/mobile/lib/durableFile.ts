@@ -60,29 +60,37 @@ async function exists(path: string): Promise<boolean> {
   return (await getInfoAsync(path)).exists;
 }
 
+/** Joins an earlier version's copy into this version's file: `(current, former) => joined`. */
+type Merge = (current: string, former: string) => string;
+
 /**
  * Earlier versions kept the file in the cache directory: the first change or read of a run
- * takes that copy over when this one has no file yet, then deletes it. A copy that cannot be
- * read stays for the next run.
+ * takes that copy over, then deletes it. Nothing is adopted or deleted before the copy was
+ * read: one that cannot be read stays, untouched, for the next run. If this version's file was
+ * written meanwhile (a run that could not read the copy), `merge` joins the two; without one,
+ * the newer file wins.
  */
-async function adoptCacheCopy(path: string, cachePath: string): Promise<void> {
+async function adoptCacheCopy(path: string, cachePath: string, merge?: Merge): Promise<void> {
   if (!(await exists(cachePath))) return;
-  if (!(await exists(path))) await writeFileAtomically(path, await readAsStringAsync(cachePath));
+  const former = await readAsStringAsync(cachePath);
+  if (!(await exists(path))) await writeFileAtomically(path, former);
+  else if (merge) await writeFileAtomically(path, merge(await readAsStringAsync(path), former));
   await deleteAsync(cachePath, { idempotent: true });
 }
 
 /**
  * The durable file `fileName`. `formerCacheName` names the cache-directory file earlier
- * versions wrote it to. Writes and clears run in the order they were asked for, and reads
- * wait for them, as `cacheFile` does.
+ * versions wrote it to, and `merge` joins that copy into a file this version already wrote.
+ * Writes and clears run in the order they were asked for, and reads wait for them, as
+ * `cacheFile` does.
  */
-export function durableFile(fileName: string, formerCacheName?: string): DurableFile {
+export function durableFile(fileName: string, formerCacheName?: string, merge?: Merge): DurableFile {
   const path = documentDirectory ? `${documentDirectory}${fileName}` : null;
   const cachePath = formerCacheName && cacheDirectory ? `${cacheDirectory}${formerCacheName}` : null;
   let pending: Promise<void> | null = null;
   const enqueue = (change: (filePath: string) => Promise<void>): Promise<void> => {
     if (!path) return Promise.resolve();
-    pending ??= cachePath ? adoptCacheCopy(path, cachePath).catch(reportFileFailure) : Promise.resolve();
+    pending ??= cachePath ? adoptCacheCopy(path, cachePath, merge).catch(reportFileFailure) : Promise.resolve();
     const result = pending.then(() => change(path)).catch(reportFileFailure);
     pending = result;
     return result;

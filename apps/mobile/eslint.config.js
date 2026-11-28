@@ -329,7 +329,7 @@ module.exports = defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [...REPLACED_BY_UI_KIT, ...DOMAIN_LIB_NO_REACT_NATIVE],
+          paths: [...REPLACED_BY_UI_KIT, ...DOMAIN_LIB_NO_REACT_NATIVE, ...SECURE_STORE_OWNED_BY_LIB],
           patterns: DOMAIN_LIB_LEAF,
         },
       ],
@@ -349,7 +349,7 @@ module.exports = defineConfig([
       "no-restricted-imports": [
         "error",
         {
-          paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB],
+          paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB, ...SECURE_STORE_OWNED_BY_LIB],
           patterns: [UI_LEAF],
         },
       ],
@@ -362,7 +362,7 @@ module.exports = defineConfig([
     rules: {
       "no-restricted-imports": [
         "error",
-        { paths: [...REPLACED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB], patterns: [UI_LEAF] },
+        { paths: [...REPLACED_BY_UI_KIT, ...CLIPBOARD_OWNED_BY_LIB, ...SECURE_STORE_OWNED_BY_LIB], patterns: [UI_LEAF] },
       ],
     },
   },

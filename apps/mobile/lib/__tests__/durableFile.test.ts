@@ -8,13 +8,17 @@ import { writeAsStringAsync } from "expo-file-system/legacy";
 const mockPlatform = { OS: "android" };
 const mockFiles = new Map<string, string>();
 const mockKill = { beforeRename: false };
+const mockUnreadable = new Set<string>();
 
 jest.mock("react-native", () => ({ Platform: mockPlatform }));
 jest.mock("expo-file-system/legacy", () => ({
   documentDirectory: "file:///docs/",
   cacheDirectory: "file:///cache/",
   getInfoAsync: jest.fn(async (path: string) => ({ exists: mockFiles.has(path) })),
-  readAsStringAsync: jest.fn(async (path: string) => mockFiles.get(path) ?? ""),
+  readAsStringAsync: jest.fn(async (path: string) => {
+    if (mockUnreadable.has(path)) throw new Error("EIO");
+    return mockFiles.get(path) ?? "";
+  }),
   writeAsStringAsync: jest.fn(async (path: string, contents: string) => {
     mockFiles.set(path, contents);
   }),
@@ -47,6 +51,7 @@ const CACHE = "file:///cache/drafts.json";
 beforeEach(() => {
   mockFiles.clear();
   mockKill.beforeRename = false;
+  mockUnreadable.clear();
   mockPlatform.OS = "android";
   (writeAsStringAsync as jest.Mock).mockClear();
 });
@@ -112,4 +117,19 @@ it("clears the file, its temp and the cache copy (sign-out)", async () => {
   mockFiles.set(CACHE, "c");
   await launch().durableFile("drafts.json", "drafts.json").clear();
   expect(mockFiles.size).toBe(0);
+});
+
+it("never adopts or deletes a cache copy it could not read, and joins it in once it reads", async () => {
+  mockFiles.set(CACHE, "old drafts");
+  mockUnreadable.add(CACHE);
+  const join = (current: string, former: string) => `${current} + ${former}`;
+  const file = launch().durableFile("drafts.json", "drafts.json", join);
+  await expect(file.read()).resolves.toBeNull();
+  await file.write("typed this run");
+  expect(mockFiles.get(CACHE)).toBe("old drafts");
+
+  // A later run reads the copy: it is joined into this version's file, then deleted.
+  mockUnreadable.clear();
+  await expect(launch().durableFile("drafts.json", "drafts.json", join).read()).resolves.toBe("typed this run + old drafts");
+  expect(mockFiles.has(CACHE)).toBe(false);
 });

@@ -179,3 +179,23 @@ describe("watchPendingLogouts", () => {
     expect(mockAnswered).toBeNull();
   });
 });
+
+// A launch in the background before the first unlock: the Keychain cannot be read yet. That
+// says nothing about what is owed, so the return to the app reads it again and sends it.
+it("reads again on a return to the app when the store could not be read at start", async () => {
+  mockStore.set(KEY, JSON.stringify([{ ...LOGOUT_A, queuedAt: Date.now() }]));
+  const store = jest.requireMock<{ getItemAsync: jest.Mock }>("expo-secure-store");
+  store.getItemAsync.mockRejectedValueOnce(new Error("errSecInteractionNotAllowed"));
+  mockLogoutSession.mockResolvedValue(true);
+
+  const stop = watchPendingLogouts(async () => null);
+  await flush();
+  expect(mockLogoutSession).not.toHaveBeenCalled();
+  expect(owed()).toEqual(["access-a"]);
+
+  mockForeground?.("active");
+  await flush();
+  expect(mockLogoutSession).toHaveBeenCalledWith("access-a", "refresh-a", "Expo[phone]");
+  expect(owed()).toEqual([]);
+  stop();
+});
