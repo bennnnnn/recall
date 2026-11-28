@@ -23,7 +23,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 ## Service Overview
 
-**What it does:** authenticated users chat with LLMs; the app persists chats, auto-generates titles, injects structured personal memory, and layers productivity (to-dos and reminders) plus rich rendering. Recall does not connect to calendars or email inboxes.
+**What it does:** authenticated users chat with LLMs; the app persists chats, auto-generates titles, injects structured personal memory, and layers productivity (to-dos and reminders: chat reads them, the To-do screen writes them) plus rich rendering. Recall does not connect to calendars or email inboxes.
 
 **Domain concepts:**
 
@@ -123,7 +123,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Clarifying questions | `modules/chat/clarify_card.py` (the `clarify` card checked at finalize), `clarify_turn.py` (history line, the turn after a card), `prompt_constants/clarify.py`; [docs/clarify.md](./docs/clarify.md) | `components/rich/ClarifyCard.tsx` (the card), `lib/clarify/clarifyCard.ts` (the sent message, read back onto its card) |
 | Follow-up questions | `modules/chat/related_prompts.py` (after `done`; rules in `related_questions.py`; the old `/suggestions` routes, job and table are removed) | `features/suggestions/` (`RelatedPromptLines`) |
-| Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`; the reply above an untapped card claims nothing, `reply_claims.py`; chat changes them only from an English message, another language gets an Open To-do button, `chat_language.py`) | `features/todos/` (`ReminderProposalCard`, `TodoLinkButton`); `app/todos.tsx` route only |
+| Todos / reminders | `modules/todos/` (HTTP `/todos`, the To-do screen's only writer; chat and live talk only read to-dos (owner, 2026-11-27): a read is answered from the rows, `read_asks.py` + `reading.py`; an ask to add or change one, in any language, gets the server's line and the Open To-do button, `write_asks.py` + `chat_language.py`; a reply saying one changed becomes that line, `reply_claims.py`, and an offer to set one goes, `reply_offers.py`; chat side `modules/chat/finalize_todos.py`) | `features/todos/` (`TodoLinkButton`); `app/todos.tsx` route only |
 | Home | (none: the phone builds it) | `features/home/`; a translated two-line greeting (“Hi, Bini” and a question that turns every four hours, `homeGreeting`) + one overdue reminder, from the to-dos it already holds |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Conversation (chats and messages) | `modules/conversation/` (the rows chat writes and other modules read: `history.py` reads, `service.py` writes, `turn_record.py` a turn chat did not stream; its repositories stay private) | (drawer and thread, through chat's `/chats`) |
@@ -180,7 +180,7 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup, then image generation — either may return without an LLM turn, and only when the turn's read says the message asks for one (`picture`: `photo` or `image`, `chat/drawn_picture.read_asks`); a read with no answer in time does neither. `modules/images/intent.py`'s words only find a candidate and write what to look up or draw; the phone's composer asks the same read (`POST /images/intent`, `modules/chat/picture_ask.py`). A picture shown earlier reads, in history, as what it was (`modules/chat/shown_pictures.py`)
 4. `turn_prep/`: the message is read once in the SymPy pool, beside the history load (`reading.py`: its plan, subject, maths and physics intents, routing's checks; the turn keeps one `turn_reading.turn.TurnReading` of it, and callers ask `read_turn`/`plan_of` instead of re-planning), then the turn's plan (`intents.py`: the separate requests one message holds, deterministic, no model call; two or more get a multi-part prompt contract, a settings card under the reply and a picture drawn above it, `finalize_parts.py`), memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
-5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on), only for unsolved maths, a photo lookup or a picture; it never searches on its own. A chat to-do change is always a card the user taps
+5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on), only for unsolved maths, a photo lookup or a picture; it never searches on its own. Chat writes no to-do: an ask to add or change one gets the server's line and the Open To-do button (`turn_prep/instant.py`, `finalize_todos.py`)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`). A turn the loop left alone carries `web_search`: a call it makes runs, then a second call writes the answer (`tool_loop/reply_calls.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`), each asked through its subject's adapter (`fence`)
 8. Persist assistant + usage in a finalize task (`turn_settle.py`)
@@ -297,10 +297,10 @@ working keeps its worked layout.
 running API (Free and Pro) and reports each kind (`--rescore tmp/format/run.json` re-judges).
 
 **Behavior sweep:** `apps/api/app/tests/behavior/sweep_corpus/*.json` holds ~1,000 turns (a prompt,
-any earlier turns, a reply a model might write, and what should happen: `answer`, `save`,
+any earlier turns, a reply a model might write, and what should happen: `answer`, `todo_screen`, `read`,
 `photo`, `search`, `settings`, …). `sweep.py` routes each one and runs its reply through the real
 finalize step over in-memory reminders, and `test_sweep.py` fails on any turn a rule hijacks,
-for example "Can you add 3 + 4?" answered "When should I remind you?". Most entries are
+for example "Can you add 3 + 4?" answered with the Open To-do button. Most entries are
 look-alikes: everyday messages that use reminder, settings, memory, photo or image words. When
 you add or widen a rule that reads the user's words, add its look-alikes here.
 `uv run python -m app.tests.behavior.sweep --area todo --show` prints each failing reply. The
