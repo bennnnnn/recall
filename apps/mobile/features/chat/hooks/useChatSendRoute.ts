@@ -9,7 +9,8 @@ import { buildPendingSendAfterCreate, type SendMessageOptions } from "@/features
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
-import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
+import { attachmentErrorMessage, isUploadCancelled } from "@/features/attachments/model/attachmentErrors";
+import { startSendUpload } from "@/features/chat/model/sendUpload";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
@@ -182,12 +183,17 @@ export function useChatSendRoute({
       setSendPhase(attached ? "uploading" : "preparing");
       let attachmentIds: string[] | undefined;
       if (attached) {
+        // The composer shows how far the file has got, and Cancel in place of Send.
+        const upload = startSendUpload();
         try {
-          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached));
+          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached, "chat", upload));
         } catch (error) {
           giveBack();
-          if (send.isCurrentView()) feedback?.error(attachmentErrorMessage(error, t));
+          // Cancelled: the draft is back in the composer, which says enough.
+          if (send.isCurrentView() && !isUploadCancelled(error)) feedback?.error(attachmentErrorMessage(error, t));
           return;
+        } finally {
+          upload.finish();
         }
       }
       if (!(await drafts) || !(await clearToHandOver())) return giveBack();

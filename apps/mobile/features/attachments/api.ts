@@ -2,7 +2,7 @@ import { request, requestRaw } from "@/lib/api/client";
 import { apiPath, withQuery } from "@/lib/api/path";
 import type { AttachmentListResponse } from "@/features/attachments/types";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
-import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
+import { AttachmentError, UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
 
 async function deleteAttachment(token: string, attachmentId: string): Promise<void> {
   const generation = getSessionGeneration();
@@ -103,35 +103,42 @@ export async function attachmentRecordExists(
   }
 }
 
-const ATTACHMENT_UPLOAD_TIMEOUT_MS = 120_000;
+/** A development API's own upload (local storage): the file is read and sent whole. */
+const API_UPLOAD_TIMEOUT_MS = 120_000;
 
-/** API uploads share refresh/retry; presigned storage requests never receive Recall credentials. */
+export type UploadTarget = {
+  attachment_id: string;
+  upload_url: string;
+  api_upload: boolean;
+  headers?: Record<string, string>;
+};
+
+/** How far the upload has got, and its Cancel (features/chat/model/sendUpload.ts). */
+export type AttachmentTransfer = { signal?: AbortSignal; onProgress?: (fraction: number) => void };
+
+/**
+ * A development API's upload (`api_upload`, local storage) goes through the shared client
+ * for its token refresh. Production's presigned storage upload never sees Recall's
+ * credentials and is the system's own upload (`uploadAttachmentFile`, uploadTransfer.ts).
+ */
 export async function uploadAttachmentBytes(
   token: string,
-  target: { attachment_id: string; upload_url: string; api_upload: boolean; headers?: Record<string, string> },
+  target: UploadTarget,
   contentType: string,
   bytes: ArrayBuffer,
+  signal?: AbortSignal,
 ): Promise<void> {
   requireTokenSession(token);
   const generation = getSessionGeneration();
   const headers = { "Content-Type": contentType, ...target.headers };
   let response: Response;
-  if (target.api_upload) {
+  try {
     response = await requestRaw(apiPath`/attachments/${target.attachment_id}/upload`, token, {
-      method: "PUT", headers, body: bytes,
-    }, true, ATTACHMENT_UPLOAD_TIMEOUT_MS);
-  } else {
-    const url = new URL(target.upload_url);
-    if (url.protocol !== "https:" || url.username || url.password) {
-      throw new AttachmentError("upload_failed");
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), ATTACHMENT_UPLOAD_TIMEOUT_MS);
-    try {
-      response = await fetch(url.toString(), { method: "PUT", headers, body: bytes, signal: controller.signal });
-    } finally {
-      clearTimeout(timer);
-    }
+      method: "PUT", headers, body: bytes, signal,
+    }, true, API_UPLOAD_TIMEOUT_MS);
+  } catch (error) {
+    if (signal?.aborted) throw new UploadCancelledError();
+    throw error;
   }
   if (generation !== getSessionGeneration()) throw new SessionChangedError();
   if (!response.ok) throw new AttachmentError("upload_failed");

@@ -238,6 +238,11 @@ const NO_ACCOUNT_DATA = [
   "lib/linkPreview.ts#inFlight",
   "lib/math/svgMath.ts#rendererImpl",
   "lib/math/svgMath.ts#rendererPromise",
+  // The words formulas are spoken with, in the app's language, and the ones being spoken.
+  "lib/math/speechWords.ts#current",
+  "lib/math/spokenFormula.ts#speech",
+  // The chat upload under way: its progress and its Cancel, no file or text.
+  "features/chat/model/sendUpload.ts#current",
   "lib/preview/previewPageFile.ts#pageFiles",
   "lib/networkProbe.ts#netInfoConfigured",
   // The phone's localization module and whether its failure was said: the same for every account.
