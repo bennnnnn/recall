@@ -2,6 +2,9 @@
  * A formula's words keep its grouping. Screen-reader labels read the symbol line, which
  * dropped it: (v_f − v_i)/t was read "v_f - v_i/t" and (27 − 0)/9 "27 - 0/9".
  */
+import en from "@/lib/i18n/en.json";
+import hi from "@/lib/i18n/hi.json";
+import { ENGLISH_MATH_SPEECH, readMathSpeechWords, setMathSpeechWords } from "@/lib/math/speechWords";
 import { spokenFormula } from "@/lib/math/spokenFormula";
 
 describe("spokenFormula", () => {
@@ -48,5 +51,36 @@ describe("spokenFormula", () => {
     expect(spokenFormula(String.raw`v_0 = 20\,\mathrm{m/s}`)).toBe("v subscript 0 = 20 m/s");
     expect(spokenFormula(String.raw`30^\circ`)).toBe("30 degrees");
     expect(spokenFormula(String.raw`\left(\frac{a+b}{2}\right)^2`)).toBe("(a+b, all over 2) squared");
+  });
+});
+
+describe("spokenFormula in the app's language", () => {
+  afterEach(() => setMathSpeechWords(ENGLISH_MATH_SPEECH));
+
+  it("speaks English from en.json's own words", () => {
+    for (const [key, value] of Object.entries(ENGLISH_MATH_SPEECH.words)) {
+      expect(`${key}: ${(en as Record<string, string>)[`math_speech.${key}`]}`).toBe(`${key}: ${value}`);
+    }
+  });
+
+  it("says a formula in Spanish when the app is in Spanish", async () => {
+    const { ensureLocale } = await import("@/lib/i18n");
+    await ensureLocale("es");
+    try {
+      expect(spokenFormula(String.raw`x^2 + \sqrt{y}`)).toBe("x al cuadrado + la raíz cuadrada de y");
+      expect(spokenFormula(String.raw`\frac{a+b}{c}`)).toBe("a+b, todo sobre c");
+      expect(spokenFormula(String.raw`2\frac{1}{2}`)).toBe("2 y 1 sobre 2");
+      expect(spokenFormula(String.raw`\vec{v}`)).toBe("vector v");
+    } finally {
+      await ensureLocale("en");
+    }
+    expect(spokenFormula(String.raw`x^2`)).toBe("x squared");
+  });
+
+  it("puts each word where its language says it", () => {
+    setMathSpeechWords(readMathSpeechWords((key: string) => (hi as Record<string, string>)[key] ?? key, "hi"));
+    // Hindi says the root after its body: "x का वर्गमूल".
+    expect(spokenFormula(String.raw`\sqrt{x}`)).toBe("x का वर्गमूल");
+    expect(spokenFormula(String.raw`\frac{1}{2}`)).toBe("1 बटा 2");
   });
 });

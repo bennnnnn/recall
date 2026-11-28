@@ -16,6 +16,7 @@ import { ReplyMarkdown } from "@/components/markdown/ReplyMarkdown";
 import { MarkdownErrorBoundary } from "@/features/chat/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/features/chat/components/RecallTypingIndicator";
 import { StreamProgressLabel } from "@/features/chat/components/StreamProgressLabel";
+import { MessageAuthorLabel } from "@/features/chat/components/MessageAuthorLabel";
 import { ReplyStoppedNote } from "@/features/chat/components/ReplyStoppedNote";
 import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
 import {
@@ -157,6 +158,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
+      <MessageAuthorLabel role={isUser ? "user" : "assistant"} />
       {isUser ? (
         <View style={b.userColumn}>
           <Pressable

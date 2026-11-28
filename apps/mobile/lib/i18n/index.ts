@@ -2,10 +2,12 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
 import { DATE_FORMAT_CHANGED } from "@/lib/datetime/format";
+import { readMathSpeechWords, setMathSpeechWords } from "@/lib/math/speechWords";
 
 import { deviceLanguage } from "./deviceLanguage";
 import en from "./en.json";
 import { installPluralRules } from "./pluralRules";
+import type { Translate } from "./translate";
 
 type LocaleBundle = typeof en;
 
@@ -55,6 +57,11 @@ export function startLocale(lng: string): void {
 
 // Before init: i18next reads the plural rules when it first counts.
 installPluralRules();
+
+// Formulas are spoken in the app's language (a screen reader's label, read-aloud).
+i18n.on("languageChanged", (lng: string) => {
+  setMathSpeechWords(readMathSpeechWords(((key: string) => i18n.t(key)) as Translate, lng));
+});
 
 // The phone's language until a choice replaces it: the cached account's, before the first
 // render (`startLocale`), then the profile's. Only its bundle and English are loaded.

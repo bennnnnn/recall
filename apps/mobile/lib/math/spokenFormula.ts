@@ -3,12 +3,20 @@
  * line ("v subscript f - v subscript i, all over t"). A drawing groups by position, a
  * fraction bar or a raised exponent; spoken, the grouping is said: a sum over a bar is
  * "all over", one under it "the quantity", and a sum under a root or in a power ends on
- * a pause, so what follows is not heard as part of it.
+ * a pause, so what follows is not heard as part of it. The words are the app's language's
+ * (lib/math/speechWords.ts); English is shown in these notes.
  */
 import { followsDirectly, isMixedNumber, joinsDirectly } from "@/lib/math/formulaText";
 import { isPrimeScript } from "@/lib/math/glyphs";
 import { DEGREE_RING, parseSimpleLatex } from "@/lib/math/latexParse";
-import type { MathAccentKind, MathSegment } from "@/lib/math/textTypes";
+import {
+  ACCENT_WORD,
+  fillWord,
+  mathSpeechWords,
+  type MathSpeechWord,
+  type MathSpeechWords,
+} from "@/lib/math/speechWords";
+import type { MathSegment } from "@/lib/math/textTypes";
 
 const MAX_SPEAK_MATH_DEPTH = 12;
 // A pause the words add. It is said as a comma, unless the line already pauses there (the
@@ -19,8 +27,7 @@ const SPOKEN_OPERATOR = /[+\-−±∓=<>≤≥≠≈→,]/;
 const LEADING_SIGN = /^\s*[+\-−]/;
 // A new term after a power: "x to the power of n, - 1", not x^(n-1). "Squared" closes itself.
 const OPENS_WITH_OPERATOR = /^\s*[+\-−±∓=<>≤≥≠≈×·⋅/÷]/;
-const OPEN_POWER = /^ to the power of /;
-// A mixed number's fraction in words: 2 and 1 half, 1 and 3 quarters.
+// A mixed number's fraction in English words: 2 and 1 half, 1 and 3 quarters.
 const DENOMINATOR_WORDS: Record<string, [string, string]> = {
   "2": ["half", "halves"],
   "3": ["third", "thirds"],
@@ -35,17 +42,13 @@ const DENOMINATOR_WORDS: Record<string, [string, string]> = {
 
 type Neighbours = { prev: MathSegment | undefined; next: MathSegment | undefined };
 
-const ACCENT_WORD: Record<MathAccentKind, string> = {
-  overline: "bar",
-  underline: "underlined",
-  hat: "hat",
-  tilde: "tilde",
-  vec: "vector",
-  vecLeft: "vector",
-  bar: "bar",
-  dot: "dot",
-  ddot: "double dot",
-};
+// The words of the formula being spoken: `spokenFormula` reads them once, then walks.
+let speech: MathSpeechWords = mathSpeechWords();
+
+/** One word in the app's language, its blanks filled. */
+function word(key: MathSpeechWord, values: Record<string, string> = {}): string {
+  return fillWord(speech.words[key], values);
+}
 
 /** More than one term once spoken: it needs its grouping said. A root or a fraction
  * inside counts too ("the square root of 2 over 2" is heard either way). */
@@ -73,47 +76,52 @@ function scriptIsCompound(segment: Extract<MathSegment, { type: "sup" | "sub" }>
 
 /** Spoken operators. The parser has already turned `\times` into `×`. */
 function speakPlainMath(value: string): string {
+  const plusMinus = ` ${word("plus_minus")} `;
+  const times = ` ${word("times")} `;
+  const dot = ` ${word("dot")} `;
   let out = value
-    .replaceAll("±", " plus or minus ")
-    .replaceAll("×", " times ")
-    .replaceAll("⋅", " dot ")
-    .replaceAll("·", " dot ");
+    .replaceAll("±", plusMinus)
+    .replaceAll("×", times)
+    .replaceAll("⋅", dot)
+    .replaceAll("·", dot);
   if (out.includes("\\")) {
     out = out
-      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1 over $2")
-      .replace(/\\sqrt\{([^{}]+)\}/g, "the square root of $1")
-      .replace(/\\times(?![a-zA-Z])/g, " times ")
-      .replace(/\\cdot(?![a-zA-Z])/g, " dot ")
-      .replace(/\\pm(?![a-zA-Z])/g, " plus or minus ")
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (_, num: string, den: string) => word("over", { num, den }))
+      .replace(/\\sqrt\{([^{}]+)\}/g, (_, x: string) => word("sqrt", { x }))
+      .replace(/\\times(?![a-zA-Z])/g, times)
+      .replace(/\\cdot(?![a-zA-Z])/g, dot)
+      .replace(/\\pm(?![a-zA-Z])/g, plusMinus)
       .replace(/\\[a-zA-Z]+/g, " ")
       .replace(/[{}]/g, "");
   }
   return out;
 }
 
-function speakScript(segment: Extract<MathSegment, { type: "sup" | "sub" }>, depth: number): string {
+/** A script in words; `runsOn` when it ends on its exponent ("to the power of n"). */
+function speakScript(segment: Extract<MathSegment, { type: "sup" | "sub" }>, depth: number): { words: string; runsOn: boolean } {
   const kind = segment.type;
   const spoken = (
     segment.body
       ? speakMathSegments(segment.body, depth + 1)
       : depth >= MAX_SPEAK_MATH_DEPTH ? segment.value : speakMathSegments(parseSimpleLatex(segment.value), depth + 1)
   ).trim();
-  if (!spoken) return "";
-  if (kind === "sub") return ` subscript ${spoken}`;
+  const said = (words: string, runsOn = false) => ({ words, runsOn });
+  if (!spoken) return said("");
+  if (kind === "sub") return said(` ${word("subscript", { x: spoken })}`);
   // `30^\circ` is thirty degrees, never a power.
-  if (spoken === DEGREE_RING) return " degrees";
+  if (spoken === DEGREE_RING) return said(` ${word("degrees")}`);
   // f′ is "f prime" as a screen reader says the glyph, never a power.
-  if (isPrimeScript(spoken)) return spoken;
-  if (spoken === "2") return " squared";
-  if (spoken === "3") return " cubed";
-  return ` to the power of ${spoken}`;
+  if (isPrimeScript(spoken)) return said(spoken);
+  if (spoken === "2") return said(` ${word("squared")}`);
+  if (spoken === "3") return said(` ${word("cubed")}`);
+  return said(` ${word("power", { x: spoken })}`, true);
 }
 
 /** A power said with words that run on ("to the power of n") is closed before a new term. */
 function speakScriptBefore(segment: Extract<MathSegment, { type: "sup" | "sub" }>, depth: number, next?: MathSegment): string {
-  const words = speakScript(segment, depth);
+  const { words, runsOn: open } = speakScript(segment, depth);
   const nextText = next?.type === "text" || next?.type === "upright" ? next.value : "";
-  const runsOn = OPEN_POWER.test(words) && OPENS_WITH_OPERATOR.test(nextText);
+  const runsOn = open && OPENS_WITH_OPERATOR.test(nextText);
   // H₂O is "H subscript 2 O": a letter written after the script is a word of its own.
   const gap = /^[\p{L}\p{N}]/u.test(nextText) ? " " : "";
   return `${words}${scriptIsCompound(segment) || runsOn ? PAUSE : gap}`;
@@ -123,28 +131,29 @@ function speakScriptBefore(segment: Extract<MathSegment, { type: "sup" | "sub" }
 function speakMixedFraction(segment: Extract<MathSegment, { type: "frac" }>): string {
   const num = speakMathSegments(segment.num).trim();
   const den = speakMathSegments(segment.den).trim();
-  const words = DENOMINATOR_WORDS[den];
-  return ` and ${num} ${words ? words[num === "1" ? 0 : 1] : `over ${den}`}`;
+  const ordinal = speech.ordinals ? DENOMINATOR_WORDS[den] : undefined;
+  if (ordinal) return ` and ${num} ${ordinal[num === "1" ? 0 : 1]}`;
+  return ` ${word("mixed", { num, den })}`;
 }
 
 function speakFraction(segment: Extract<MathSegment, { type: "frac" }>, depth: number, { prev, next }: Neighbours): string {
   // A number written onto the fraction is a whole part (2 and 1 half) or a factor
   // (20,000 times 0.005 over 12), never one number run into its numerator.
   if (isMixedNumber(prev, segment)) return `${speakMixedFraction(segment)}${joinsDirectly(next) ? PAUSE : ""}`;
-  const times = followsDirectly(prev) ? " times " : "";
+  const times = followsDirectly(prev) ? ` ${word("times")} ` : "";
   const num = speakMathSegments(segment.num, depth + 1).trim();
   const den = speakMathSegments(segment.den, depth + 1).trim();
   const groupedNum = isCompound(segment.num);
   const groupedDen = isCompound(segment.den);
-  const over = groupedNum ? `${num}, all over` : `${num} over`;
-  const under = groupedDen ? `the quantity ${den}` : den;
+  const under = groupedDen ? word("quantity", { x: den }) : den;
+  const fraction = word(groupedNum ? "all_over" : "over", { num, den: under });
   // ½mv² is "1 over 2, m v squared": the factor after a fraction is not its denominator.
-  return `${times}${over} ${under}${groupedNum || groupedDen || joinsDirectly(next) ? PAUSE : ""}`;
+  return `${times}${fraction}${groupedNum || groupedDen || joinsDirectly(next) ? PAUSE : ""}`;
 }
 
 function speakRoot(segment: Extract<MathSegment, { type: "sqrt" }>, depth: number, prev?: MathSegment): string {
   // 2√3 is "2 times the square root of 3", not "2the square root of 3".
-  const times = followsDirectly(prev) ? " times " : "";
+  const times = followsDirectly(prev) ? ` ${word("times")} ` : "";
   const body = speakMathSegments(segment.body, depth + 1).trim();
   const degree = segment.index
     ? speakMathSegments(segment.index, depth + 1).trim()
@@ -152,9 +161,9 @@ function speakRoot(segment: Extract<MathSegment, { type: "sqrt" }>, depth: numbe
       ? speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim()
       : "";
   const pause = isCompound(segment.body) ? PAUSE : "";
-  if (!degree) return `${times}the square root of ${body}${pause}`;
-  if (degree === "3") return `${times}the cube root of ${body}${pause}`;
-  return `${times}the ${degree} root of ${body}${pause}`;
+  if (!degree) return `${times}${word("sqrt", { x: body })}${pause}`;
+  if (degree === "3") return `${times}${word("cbrt", { x: body })}${pause}`;
+  return `${times}${word("root", { n: degree, x: body })}${pause}`;
 }
 
 /** Read-aloud walks the same segments as copy. A `[^}]+` fraction regex
@@ -179,7 +188,7 @@ function speakMathSegments(segments: MathSegment[], depth = 0): string {
         return speakMathSegments(segment.body, depth + 1);
       case "accent": {
         const body = speakMathSegments(segment.body, depth + 1).trim();
-        return `${body} ${ACCENT_WORD[segment.kind]}`;
+        return word(ACCENT_WORD[segment.kind], { x: body });
       }
       default: {
         const _exhaustive: never = segment;
@@ -191,6 +200,7 @@ function speakMathSegments(segments: MathSegment[], depth = 0): string {
 
 /** The formula as words: a screen reader's label and read-aloud, never a `\\command`. */
 export function spokenFormula(latex: string): string {
+  speech = mathSpeechWords();
   return speakMathSegments(parseSimpleLatex(latex))
     .replace(/\s+/g, " ")
     .replace(/ ?\0[\0 ]*(?=[,;:.!?)\]|]|$)/g, "")
