@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { Message } from "@/lib/api";
 import {
@@ -27,6 +28,7 @@ export function useAssistantMessageContent({
   isGenerating,
   isUser,
 }: Options): AssistantMessageContent & { content: string; markdownPresented: boolean } {
+  const { t } = useTranslation();
   const content = liveContent ?? message.content;
 
   // Streaming input is already throttled once at the draft→UI boundary
@@ -60,8 +62,11 @@ export function useAssistantMessageContent({
     ],
   );
 
+  // An old reply that was only a reminder card reads as the line chat says now.
+  const oldCardLine = derived.oldReminderCardOnly ? t("todos.change_in_todo") : null;
   return {
     ...derived,
+    ...(oldCardLine ? { markdownContent: oldCardLine, hasMarkdown: true } : {}),
     content,
     hasContent: content.trim().length > 0,
     // A saved row the server presented is shown as saved; a live draft is the

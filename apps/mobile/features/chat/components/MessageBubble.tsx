@@ -130,7 +130,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     settingsProposals,
     showSettingsProposals,
     showTodoLink,
-    oldReminderCardOnly,
     images,
     showImages,
     markdownContent,
@@ -142,8 +141,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     markdownPresented,
   } = assistant;
 
-  // An old reply that was only a reminder card reads as the line chat says now.
-  const shownMarkdown = oldReminderCardOnly ? t("todos.change_in_todo") : markdownContent;
   const imageGenFailure = message.image_gen_failure;
   const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent });
   const statusLabel = useRotatingStreamStatus(
@@ -233,17 +230,17 @@ export const MessageBubble = React.memo(function MessageBubble({
             {showLiveClock ? (
               <LazyCircularClockBlock content={clockTimezone} />
             ) : null}
-            {hasMarkdown || oldReminderCardOnly ? (
+            {hasMarkdown ? (
               <AssistantMessageScope messageId={message.id}>
                 <ClarifyMessageScope latest={Boolean(isLastAssistant)} nextUserText={nextUserText}>
                   <MarkdownErrorBoundary
                     resetKey={markdownResetKey}
-                    content={shownMarkdown}
+                    content={markdownContent}
                   >
                     {/* A row reused for another message starts afresh; renderKey survives `done`. */}
                     <ReplyMarkdown
                       key={messageListKey(message)}
-                      content={shownMarkdown}
+                      content={markdownContent}
                       streaming={markdownStreamMode}
                       presented={markdownPresented}
                       userText={priorUserText}
