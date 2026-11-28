@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Animated, ScrollView, StyleSheet, View, type HostInstance } from "react-native";
-import { type Href, Redirect, router, useFocusEffect } from "expo-router";
+import { type Href, router, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -64,7 +64,8 @@ export function SettingsPage({
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true }),
     [scrollY],
   );
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
   if (ownBarTitle == null) {
     return (
       <ScrollView

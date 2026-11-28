@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { StyleSheet } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { HeaderButton } from "@/ui/controls/HeaderButton";
@@ -108,7 +107,8 @@ export default function ArchivedChatsScreen() {
     );
   };
 
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
 
   if (loading && chats.length === 0 && !loadError) {
     return <SettingsSkeleton accessibilityLabel={t("settings.archived_chats")} />;

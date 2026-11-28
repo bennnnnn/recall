@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { FieldSheet } from "@/ui/overlay/FieldSheet";
@@ -152,7 +152,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     typeof key === "string" ? key : undefined,
   );
 
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
   if (!document) {
     if (memory.loading) return <SkeletonList />;
     // A failed read is not a deleted page: say so and offer the read again.

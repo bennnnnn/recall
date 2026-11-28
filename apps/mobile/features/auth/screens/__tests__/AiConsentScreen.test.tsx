@@ -158,9 +158,11 @@ describe("AiConsentScreen", () => {
     expect(queryByText("onboarding.consent_agree")).toBeNull();
   });
 
-  it("goes to sign-in when signed out", async () => {
+  // The root stack's guard takes it to sign-in (components/AppStack.tsx).
+  it("draws nothing and redirects nowhere when signed out", async () => {
     mockAuth = { token: null, user: null };
-    const { getByText } = await render(<AiConsentScreen />);
-    expect(getByText("redirect:/login")).toBeOnTheScreen();
+    const { queryByText } = await render(<AiConsentScreen />);
+    expect(queryByText(/^redirect:/)).toBeNull();
+    expect(queryByText("onboarding.consent_agree")).toBeNull();
   });
 });

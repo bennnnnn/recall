@@ -44,7 +44,8 @@ function AiConsent() {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { busy, agree, decline, deleteAccount } = useAiConsentActions();
 
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
   if (!needsAiDataConsent(user)) return <Redirect href="/" />;
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;

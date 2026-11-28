@@ -19,7 +19,6 @@ import { BrandMark } from "@/ui/icons/brand";
 import { Icon } from "@/ui/icons/Icon";
 import { useAuth } from "@/contexts/AuthContext";
 import { type LoginProvider, useLoginActions } from "@/features/auth/hooks/useLoginActions";
-import { AI_CONSENT_ROUTE, needsAiDataConsent } from "@/features/auth/model/aiConsent";
 import { AgreeLine } from "@/features/auth/components/AgreeLine";
 import { shouldShowAppleSignInButton } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
@@ -49,7 +48,7 @@ export default function LoginScreen() {
 }
 
 function SignIn() {
-  const { token, user, loading, onboarded } = useAuth();
+  const { token, loading, onboarded } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -62,9 +61,10 @@ function SignIn() {
     );
   }
 
-  // A tap here agrees, so a sign-in comes back agreed and opens the chat. An account the
-  // server answers without it (an older API) still sees the consent screen first.
-  if (token) return <Redirect href={needsAiDataConsent(user) ? AI_CONSENT_ROUTE : "/"} />;
+  // Signed in: the root stack's guard opens the chat (components/AppStack.tsx). A tap here
+  // agrees, so a sign-in comes back agreed; an account the server answers without it (an
+  // older API) is sent to the consent screen from there (AiConsentRedirect).
+  if (token) return null;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
   const gradientColors = [theme.primaryLight, theme.bg] as const;

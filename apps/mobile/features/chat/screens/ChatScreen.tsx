@@ -5,7 +5,7 @@ import {
   type HostInstance,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/features/chat/drawer/drawer";
-import { Redirect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -215,7 +215,8 @@ function ChatScreen() {
   });
   useWelcomePlans({ user, busy: streamActive || regenerating, outOfCredit: quotaNudge.usedPct >= 100 || chatError?.kind === "quota", open: upgrade.open });
 
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
 
   const { chatTitle, pinned, archived } = metadata;
   return (

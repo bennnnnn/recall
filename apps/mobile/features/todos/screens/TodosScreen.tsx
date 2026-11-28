@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Redirect, useLocalSearchParams, usePreventRemove } from "expo-router";
+import { useLocalSearchParams, usePreventRemove } from "expo-router";
 import { Keyboard, View, type HostInstance } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -189,7 +189,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       current.includes(todo.id) ? current.filter((id) => id !== todo.id) : [...current, todo.id],
     );
   }, []);
-  if (!token) return <Redirect href="/login" />;
+  // Signed out: the root stack's guard takes this screen away (components/AppStack.tsx).
+  if (!token) return null;
 
   if (loading && todos.length === 0) {
     return <SkeletonList />;
