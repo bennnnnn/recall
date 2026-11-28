@@ -7,6 +7,7 @@
  */
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
+import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
 import { presentStreamTail } from "@/lib/markdown/presentation";
@@ -16,11 +17,12 @@ import { prepareStreamingMathText } from "@/lib/math/streaming";
 
 import fixture from "../../../../docs/fixtures/display_math_cases.json";
 
-type Case = { id: string; text: string; display: string[] };
+type Case = { id: string; text: string; display: string[]; inline?: string[]; no_pair_at?: number[] };
 
 /** One-line texts with dollar runs and no formula: prices. */
 const PRICES = (fixture.cases as Case[])
-  .filter((c) => c.display.length === 0 && !c.text.includes("\n") && !c.text.includes("`") && !c.text.includes("\\"))
+  .filter((c) => c.display.length === 0 && !(c.inline ?? []).length && !c.no_pair_at)
+  .filter((c) => !c.text.includes("\n") && !c.text.includes("`") && !c.text.includes("\\"))
   .map((c): [string, string] => [c.id, c.text]);
 
 /** The dollar runs of `text`, in order: a pass that kept the prices keeps these. */
@@ -50,7 +52,8 @@ describe("every $$ reader leaves a price tier as written", () => {
     expect(runs(markdownToSpeechText(text))).toEqual(runs(text));
   });
 
-  it.each(PRICES)("%s: the live line shows it at once", (_id, text) => {
+  // A `$$` at the stream's very end may still grow into a tier of three ("$$$"), so it waits.
+  it.each(PRICES.filter(([, text]) => !text.endsWith("$$")))("%s: the live line shows it at once", (_id, text) => {
     expect(prepareStreamingMathText(text)).toEqual({ text, pending: false });
   });
 
@@ -62,6 +65,26 @@ describe("every $$ reader leaves a price tier as written", () => {
       expect(presentStreamTail(`${text} Try **brunch**now.`)).toContain("**brunch** now.");
     },
   );
+
+  it.each(
+    (fixture.cases as Case[]).filter((c) => c.inline).map((c): [string, Case] => [c.id, c]),
+  )("%s: a symbol alone between two dollars is still maths", (_id, c) => {
+    const found = splitInlineMath(c.text.replace(/\$\$[^$]*\$\$/g, " "))
+      .filter((part) => part.type === "math")
+      .map((part) => part.value);
+    expect(found).toEqual(c.inline);
+  });
+
+  it.each(
+    (fixture.cases as Case[]).filter((c) => c.no_pair_at).map((c): [string, Case] => [c.id, c]),
+  )("%s: a blank pair opens no inline formula", (_id, c) => {
+    for (const at of c.no_pair_at ?? []) expect(readInlineMathSpan(c.text, at)).toBeNull();
+  });
+
+  it.each(PRICES)("%s: the inline reader finds no maths in it", (_id, text) => {
+    // "Burmese, $–$$" drew "—$": `$–$` paired as maths and left one dollar (2026-11-27).
+    expect(splitInlineMath(text).filter((part) => part.type === "math")).toEqual([]);
+  });
 
   it.each(PRICES)("%s: the user bubble's compact maths", (_id, text) => {
     expect(displayMathToInline(text)).toBe(text);

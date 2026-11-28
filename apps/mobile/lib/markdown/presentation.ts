@@ -13,7 +13,7 @@ import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
 import { displayDollarPairEnd, displayDollarsMayOpen } from "@/lib/markdown/displayDollars";
 import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
-import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
+import { readInlineMathSpan, startsPriceRange } from "@/lib/markdown/inlineMath";
 import { breaksBefore, separateLeadLines } from "@/lib/markdown/leadLines";
 import { codeNotation } from "@/lib/markdown/notationSpans";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
@@ -140,7 +140,8 @@ function openMathStart(prose: string): number | null {
           i = span.end;
           continue;
         }
-        if (!currencyDollarAt(prose, i) || unfinishedFormulaAt(prose, i)) {
+        // A price range ("$–$$") opens nothing either.
+        if ((!currencyDollarAt(prose, i) && !startsPriceRange(prose, i)) || unfinishedFormulaAt(prose, i)) {
           inline = true;
           openAt = i;
         }

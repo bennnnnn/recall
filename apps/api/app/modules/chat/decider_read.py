@@ -57,6 +57,8 @@ _RESUMES_AT = 0.5
 SEEN_AT = 0.65
 # One procedure carried out in order (``STEPS_QUESTION``): picked on the steps-need corpus.
 STEPS_AT = 0.6
+# Named real things to look up (``NAMES_QUESTION``): picked on the names-need corpus.
+NAMES_AT = 0.5
 # How long the turn's read waits for the work question's call once its own is in: both
 # start together and answer in about 0.33 s. The cards' call is waited for as long as the
 # read's own budget allows (and the reply waits no longer than ``live_read_wait_seconds``
@@ -268,6 +270,36 @@ STEPS_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
             ),
         }
     }
+)
+
+
+# Whether the answer recommends named real things the user would look up, each of whose names
+# the reply then writes as a link the server places (``chat.names_turn``). "We need a link to
+# any name that needs a user to check" (the owner, 2026-11-27): told in the rules alone, the
+# reply's model linked the restaurants of 12 of 18 recommending replies and none of a museum
+# list's. Asked in the steps question's call, which a turn whose layout its words left open
+# already waits for (``LAYOUT_QUESTIONS``), so it costs no call and no wait of its own.
+# Measured on ``names_need_corpus.json`` (``tests/behavior/names_need_eval.py``).
+NAMES_QUESTION: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {
+        "names": {
+            "type": "noul",
+            "instructions": (
+                "Will a good answer to the user's last message recommend or point to specific "
+                "named real things the user would then look up: places to go (restaurants, "
+                "cafes, hotels, shops, museums, sights, trails), products to buy, books, films "
+                "or shows, apps or websites, courses, events, or services? Not a history, how "
+                "something works or is made, a definition, a fact or date, a story or poem, "
+                "maths, code, writing, small talk, the user's own news, or tips and advice "
+                "that name nothing to look up."
+            ),
+        }
+    }
+)
+
+# The layout questions, asked together in one call beside the turn's read.
+LAYOUT_QUESTIONS: Mapping[str, dict[str, Any]] = MappingProxyType(
+    {**STEPS_QUESTION, **NAMES_QUESTION}
 )
 
 
@@ -490,6 +522,8 @@ def decision_fields(answers: dict[str, Any], *, has_earlier: bool) -> dict[str, 
         "seen": _yes(get("seen", "noul"), SEEN_AT),
         # None (unasked or late): the scan layout's numbered list, never the steps card.
         "steps": _yes(get("steps", "noul"), STEPS_AT),
+        # None (unasked or late): the rules alone ask for the names' links.
+        "names": _yes(get("names", "noul"), NAMES_AT),
     }
 
 
@@ -506,7 +540,7 @@ async def decide_turn(
 ) -> dict[str, Any] | None:
     """The Decider's read of ``state`` (the message, its earlier turns quoted), or None. With
     ``ask_work`` the work and the asks questions, with ``ask_photo`` the photo question, with
-    ``ask_steps`` the steps question, and with ``lesson`` the questions about the last reply's
+    ``ask_steps`` the layout questions (steps, names), and with ``lesson`` the questions about the last reply's
     cards (``lesson_questions``), go in calls of their own begun beside it: the
     Decider weighs one call's questions together. Each ends when the read does, whatever ends it (an answer,
     a failure, the reply's wait, a Stop)."""
@@ -525,7 +559,7 @@ async def decide_turn(
             # Only a message with a number in it gets a verified result to fall short of.
             (ASKS_QUESTION if ask_work else None, _WORK_GRACE_SECONDS),
             (PHOTO_QUESTION if ask_photo else None, _WORK_GRACE_SECONDS),
-            (STEPS_QUESTION if ask_steps else None, _WORK_GRACE_SECONDS),
+            (LAYOUT_QUESTIONS if ask_steps else None, _WORK_GRACE_SECONDS),
             (lesson or None, None),
         )
         for questions, grace in calls:

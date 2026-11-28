@@ -32,7 +32,7 @@ _PLACEHOLDER = re.compile(r"(?<!\{)\{[A-Za-z_0-9!:.]*\}(?!\})")
 # 86 once the day reflection test asserted its constant (2026-11-27); 84 once the prompt review
 # moved the email-purpose and table rules to one place each and their tests to that place
 # (2026-11-27).
-_PINNED = 84
+_PINNED = 80
 
 
 def _as_sent(text: str) -> str:

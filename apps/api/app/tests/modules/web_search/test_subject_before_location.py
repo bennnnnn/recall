@@ -20,7 +20,6 @@ from app.modules.turn_reading.turn import TurnReading, is_homework
 from app.modules.web_search.geo_intent import (
     is_distance_query,
     is_geo_query,
-    is_places_list_query,
 )
 from app.services.text_normalize import collapse_ws
 
@@ -130,11 +129,11 @@ def test_only_a_cue_about_the_user_outweighs_a_subject(text: str, geo: bool) -> 
 def test_a_search_around_the_user_outweighs_a_problem() -> None:
     text = "Find coffee shops near me within 2 km, max 5 km"
 
-    def run() -> tuple[bool, bool]:
+    def run() -> bool:
         _read_as_turn(text)
-        return is_geo_query(text), is_places_list_query(text)
+        return is_geo_query(text)
 
-    assert contextvars.copy_context().run(run) == (True, True)
+    assert contextvars.copy_context().run(run) is True
 
 
 def test_only_the_turns_own_message_is_known() -> None:

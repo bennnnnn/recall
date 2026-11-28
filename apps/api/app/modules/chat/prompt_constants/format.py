@@ -78,6 +78,29 @@ STEPS_CONTRACT = (
 )
 
 
+# "We need a link to any name that needs a user to check" (the owner, 2026-11-27): six San
+# Francisco restaurants came as bold names with nothing to tap, while only a "near me" ask got
+# the places card's tappable names. The model marks what it recommends; the server decides
+# where each opens (``chat/name_links``), so no address here is the model's own. Said in full
+# in the rules on every turn, and in short beside the message when the turn's read says the
+# answer recommends named things (``chat.names_turn``): in the rules alone, HY4 Flash linked
+# the restaurants but none of the books, hotels, museums or apps (2026-11-27).
+NAME_LINK_NOTE = (
+    "Name each real thing you recommend to visit, buy, read, use or attend (a restaurant, "
+    "hotel, shop, museum, product, book, app, website, course, event, service) as a link the "
+    "first time: **[Python Crash Course](check)**, and for a place to walk into, its city in "
+    'quotes: **[A Brasileira](check "Lisbon")**. No link in a history, an explanation or a '
+    "story."
+)
+NAME_LINK_RULE = (
+    "Links are named, never raw URLs. " + NAME_LINK_NOTE + " The app opens its own site, "
+    "Maps or a search, so never write a web address for one yourself, and give a city only "
+    "to a place someone can go into, never to a course, an app or an event online. Never a "
+    "link on a heading, a kind of thing (a taqueria, budget phones), a private person, a "
+    "name only mentioned, or inside code, maths, a card or a draft."
+)
+
+
 # Beside every message (``message_notes``): "what should I cook tonight, I have chicken, rice
 # and spinach" got its steps as one paragraph three times in four, with this rule only in
 # FORMAT_CONTRACT (2026-11-06). A short answer is still a list when it is steps to follow; a
@@ -281,7 +304,7 @@ _UNIVERSAL_FORMAT_CORE = (
     f"{REPLY_MISSED_RULE} "
     "Never use decorative headings (Introduction, Background, Overview, Conclusion, "
     '"Let\'s dive in"); a title names what follows. '
-    "Use named markdown links like [OpenAI docs](url), not raw URLs, unless asked. "
+    f"{NAME_LINK_RULE} "
     "Honor an explicit request for a table, paragraph, outline marker, or code block. "
     "Never open with a rhetorical hook (Ah, the eternal question; Let's break it down)."
 )
@@ -393,8 +416,7 @@ ORDINARY_FORMAT_GUIDE = (
     'beside the message says to end without one, never "Let me know if you have any other '
     'questions".\n'
     "- A space goes outside bold markers (at **40 km/h**, never at**40 km/h**); bold a key "
-    "value or term, never a whole paragraph. No colon alone on a line. Links are named "
-    "([OpenAI docs](url)), not raw URLs.\n"
+    f"value or term, never a whole paragraph. No colon alone on a line. {NAME_LINK_RULE}\n"
     "- Money is plain text ($48, $7.20), never inside `$...$`; maths, if any, is inline "
     "`$...$`, never a ```latex fence."
 )

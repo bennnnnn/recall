@@ -44,6 +44,7 @@ _SPAN = re.compile(
     re.DOTALL,
 )
 _INLINE_CODE = re.compile(r"`[^`\n]*`")
+_FORMULA_CHAR = re.compile(r"[^\W_]|[\\\u221e]")
 _TEX_IN_PROSE = re.compile(r"\\[A-Za-z]+|[\^_]\{")
 _COMMAND = re.compile(r"\\([A-Za-z]+)")
 _WORD_GROUP = re.compile(r"\\(?:text|textrm|mathrm|mbox|operatorname)\s*\{")
@@ -112,7 +113,12 @@ def _maths_and_prose(reply: str) -> tuple[list[str], list[str]]:
     prose.append(reply[last:])
 
     def take(span: re.Match[str]) -> str:
-        maths.append(next(group for group in span.groups() if group is not None))
+        body = next(group for group in span.groups() if group is not None)
+        # A price range's first tier ("$-$$"): no formula (math_padding._opens_price_range).
+        after = span.string[span.end() : span.end() + 1]
+        if span.group(0).startswith("$") and after == "$" and _FORMULA_CHAR.search(body) is None:
+            return span.group(0)
+        maths.append(body)
         return " "
 
     return maths, [

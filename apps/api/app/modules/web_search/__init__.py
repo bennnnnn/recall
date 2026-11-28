@@ -16,7 +16,6 @@ if TYPE_CHECKING:
         DIRECTIONS_LINK_RULE,
         GEO_ACTIVE_LOCATION_HINT,
         GEO_DISTANCE_HINT,
-        LOCAL_PLACES_FORMAT_HINT,
         WEB_SEARCH_HINT,
         SearchSource,
         format_search_block,
@@ -31,11 +30,9 @@ if TYPE_CHECKING:
         is_ambiguous_local_places_query,
         is_distance_query,
         is_geo_query,
-        is_places_list_query,
         names_its_place,
     )
     from app.modules.web_search.homework import asks_about_a_place
-    from app.modules.web_search.place_addresses import keep_given_addresses
     from app.modules.web_search.recency import wants_dated_results
     from app.modules.web_search.search_cache import (
         SideSearchBudget,
@@ -53,7 +50,6 @@ _EXPORTS = {
     "DIRECTIONS_LINK_RULE": "formatting",
     "GEO_ACTIVE_LOCATION_HINT": "formatting",
     "GEO_DISTANCE_HINT": "formatting",
-    "LOCAL_PLACES_FORMAT_HINT": "formatting",
     "SearchSource": "formatting",
     "TurnTavilyBudget": "search_cache",
     "WEB_SEARCH_HINT": "formatting",
@@ -68,8 +64,6 @@ _EXPORTS = {
     "is_ambiguous_local_places_query": "geo_intent",
     "is_distance_query": "geo_intent",
     "is_geo_query": "geo_intent",
-    "is_places_list_query": "geo_intent",
-    "keep_given_addresses": "place_addresses",
     "names_its_place": "geo_intent",
     "points_back_in_chat": "turn_query",
     "run_cached_search": "search_cache",
@@ -86,7 +80,6 @@ __all__ = [
     "DIRECTIONS_LINK_RULE",
     "GEO_ACTIVE_LOCATION_HINT",
     "GEO_DISTANCE_HINT",
-    "LOCAL_PLACES_FORMAT_HINT",
     "LOCATION_ASK_OPENING",
     "WEB_SEARCH_HINT",
     "SearchSource",
@@ -102,8 +95,6 @@ __all__ = [
     "is_ambiguous_local_places_query",
     "is_distance_query",
     "is_geo_query",
-    "is_places_list_query",
-    "keep_given_addresses",
     "names_its_place",
     "points_back_in_chat",
     "run_cached_search",
