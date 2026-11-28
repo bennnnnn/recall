@@ -76,6 +76,13 @@ written to the cache directory, that can hold an account's data is cleared in
 scoped to the session; `lib/__tests__/accountState.test.ts` lists every store and fails
 on one it doesn't know.
 
+The cache directory may be purged whenever storage runs low. A file that must not be lost
+(an unsent draft, the purchase hold) is a `durableFile` (`lib/durableFile.ts`): the documents
+directory, each write whole or not at all. Android backs none of it up; an iOS backup carries
+it, a deliberate choice explained in that file (each file names its account). A secret goes
+through `secureGet`/`secureSet`/`secureDelete` (`lib/secureStore.ts`, this phone only; a
+reinstall clears the session), never `expo-secure-store`.
+
 ## A setting
 
 1. The row comes from `features/account/components/settingsUi.tsx`: `SettingsGroup`,
