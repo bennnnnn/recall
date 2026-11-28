@@ -1,10 +1,9 @@
 /**
- * Landing scenes drawn as a chat: a picture drawn from a sentence, a question about the news
- * answered with its sources, and a reminder made from one sentence, which, as in the app,
- * waits for its tap before it is added.
+ * Landing scenes drawn as a chat: a picture drawn from a sentence, and a question about the
+ * news answered with its sources.
  */
 import { useMemo } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
@@ -60,39 +59,6 @@ export function NewsScene({ active }: SceneProps) {
   );
 }
 
-export function ReminderScene({ active }: SceneProps) {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
-  return (
-    <SceneCard>
-      <Reveal active={active} step={0}>
-        <UserBubble text={t("onboarding.demo_remind_ask")} />
-      </Reveal>
-      <Reveal active={active} step={1} style={s.reminder}>
-        <View style={s.reminderIcon}>
-          <Icon name="bell" size={IconSize.sm} color={theme.primary} />
-        </View>
-        <View style={s.reminderText}>
-          <SceneText style={s.reminderTitle}>{t("onboarding.demo_remind_title")}</SceneText>
-          <SceneText style={s.reminderWhen}>{t("onboarding.demo_remind_when")}</SceneText>
-        </View>
-      </Reveal>
-      <View>
-        <Reveal active={active} step={2} style={s.addButton}>
-          <SceneText style={s.addText}>{t("onboarding.demo_remind_add")}</SceneText>
-        </Reveal>
-        <View style={s.overlay} pointerEvents="none">
-          <Reveal active={active} step={3} style={[s.addButton, s.added]}>
-            <Icon name="check" size={IconSize.xs} color={theme.success} />
-            <SceneText style={s.addedText}>{t("onboarding.demo_remind_added")}</SceneText>
-          </Reveal>
-        </View>
-      </View>
-    </SceneCard>
-  );
-}
-
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     // The picture fills the card's room under the ask, whatever the screen's height.
@@ -111,41 +77,5 @@ function makeStyles(theme: Theme) {
       paddingVertical: Space.xxs,
     },
     sourcesText: { ...Type.caption, ...Weight.semibold, color: theme.textSecondary },
-    reminder: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      borderRadius: Radius.lg,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      padding: Space.sm,
-      marginTop: Space.xs,
-    },
-    reminderIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: Radius.md,
-      backgroundColor: theme.primaryLight,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    reminderText: { flex: 1 },
-    reminderTitle: { ...Type.body, ...Weight.semibold, color: theme.text },
-    reminderWhen: { ...Type.caption, color: theme.textSecondary },
-    addButton: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Space.xxs,
-      borderRadius: Radius.full,
-      backgroundColor: theme.primary,
-      paddingVertical: Space.sm,
-    },
-    addText: { ...Type.secondary, ...Weight.semibold, color: theme.onPrimary },
-    // The confirmed state covers the button it replaces, as the tap in the app does.
-    overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    added: { flex: 1, backgroundColor: theme.successLight },
-    addedText: { ...Type.secondary, ...Weight.semibold, color: theme.success },
   });
 }

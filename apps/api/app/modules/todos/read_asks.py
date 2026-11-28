@@ -17,8 +17,12 @@ from __future__ import annotations
 
 import re
 
-from app.modules.todos.spoken_change import prepare_words
-
+# "Actually", "ok", "please" around the question.
+_FILLER_LEADS = (
+    "please ", "pls ", "can you ", "could you ", "actually ", "ok so ", "okay so ", "ok ",
+    "okay ", "oh ", "yes ", "yeah ", "also ", "and ", "wait ", "so ",
+)  # fmt: skip
+_FILLER_TAILS = (" instead", " please", " then", " thanks", " thank you", " pls")
 _READ_OPENINGS = (
     "what reminders do i have",
     "what are my reminders",
@@ -93,8 +97,30 @@ def asks_to_read_reminders(user_text: str | None) -> bool:
     return all(clause in reads or _ASIDE.fullmatch(clause) for clause in clauses)
 
 
+def _prepare_words(user_text: str | None) -> str:
+    """Drop "actually", "ok", "please", a trailing "thanks" or emoji around the question."""
+    words = (user_text or "").split()
+    while words and not any(char.isalnum() for char in words[-1]):
+        words.pop()
+    text = " ".join(words)
+    while text and text[-1] in ".!?":
+        text = text[:-1].rstrip()
+    changed = True
+    while changed:
+        changed = False
+        lowered = text.lower()
+        lead = next((lead for lead in _FILLER_LEADS if lowered.startswith(lead)), None)
+        if lead is not None:
+            text, changed = text[len(lead) :].lstrip(" ,"), True
+        lowered = text.lower()
+        tail = next((tail for tail in _FILLER_TAILS if lowered.endswith(tail)), None)
+        if tail is not None:
+            text, changed = text[: -len(tail)].rstrip(" ,"), True
+    return text
+
+
 def _folded(text: str | None) -> str:
-    lowered = prepare_words(text).lower().replace("'", "").replace("\u2019", "")
+    lowered = _prepare_words(text).lower().replace("'", "").replace("\u2019", "")
     return _LIST_DASH.sub("todo ", _LIST_NAME.sub("todo", lowered))
 
 

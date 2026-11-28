@@ -17,7 +17,7 @@ _TODO_QUERY_FIXED = re.compile(
     r"what('?s| is) (?:on|in) my (?:reminders?|schedule|todos?|tasks?|calendar)|"
     r"show my (?:reminders?|schedule|todos?|tasks?|lists?|grocery list)|"
     r"my (?:reminders?|schedule|todos?|tasks?|lists?|grocery list)|"
-    r"reschedule"
+    r"reschedule|uncheck|(?:check|tick|cross)\s+(?:it|that|them|this)\s+off"
     r")\b",
     re.IGNORECASE,
 )
@@ -54,6 +54,21 @@ def _implies_move_to_tomorrow(low: str) -> bool:
                 return True
             start = i + 1
     return False
+
+
+# A to-do named in its own words: a reminder, a to-do, their list, an alarm, or ticking
+# one off. "Remind me the quadratic formula" and "create a task queue" name none.
+_NAMES_A_TODO = re.compile(
+    r"\breminders?\b|\bto-?dos?\b|\balarms?\b"
+    r"|\b(?:my|our|the)\s+(?:to-?do\s+|shopping\s+|grocery\s+)?list\b(?!\s+of\b)"
+    r"|\b(?:mark|tick|check|cross)\b[^.!?\n]{0,40}?\b(?:done|complete|completed|off)\b",
+    re.IGNORECASE,
+)
+
+
+def names_a_todo(text: str | None) -> bool:
+    """Whether ``text`` speaks of a to-do in to-do words (see ``_NAMES_A_TODO``)."""
+    return bool(text and _NAMES_A_TODO.search(text))
 
 
 def query_implies_todos(query_text: str | None) -> bool:

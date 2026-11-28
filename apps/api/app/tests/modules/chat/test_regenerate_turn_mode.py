@@ -1,13 +1,14 @@
 """A regenerate reads its line against the reply before it, not the reply it redoes.
 
 The regenerate's window still ends with the reply being replaced. Read against it, a
-"yes" to "Would you like me to set up that reminder for 7:00 PM?" answered "Setting that
-reminder for you now!", so the To-do block never loaded and the redone reply was the
-live bug again (2026-10-25).
+"yes" to the reply's question lost what it answered, and the redone reply was the live
+bug again (2026-10-25). Here the question is a clarify card: the picks sent after it
+are still read as its answer when the reply to them is redone.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -20,23 +21,35 @@ from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_load import load_regenerate_turn
 from app.repositories import users as users_repo
 
-_OFFER = "Would you like me to set up that **Practice** reminder for tomorrow at 7:00 PM?"
+_CARD = {
+    "questions": [
+        {
+            "id": "region",
+            "label": "Region",
+            "question": "Which region are you considering?",
+            "options": ["Anywhere", "Europe", "The Americas"],
+        }
+    ],
+    "closing": "Compare the strongest options.",
+    "submit": "Find my best country",
+}
+_ASKED = f"What do you mean by *best*?\n\n```clarify\n{json.dumps(_CARD)}\n```"
 
 
-async def test_a_regenerated_yes_still_accepts_the_offer() -> None:
+async def test_a_regenerated_answer_to_a_card_still_answers_it() -> None:
     await engine.dispose(close=False)
     now = datetime.now(UTC)
     lines = [
-        ("user", "wait you can't do reminders?"),
-        ("assistant", _OFFER),
-        ("user", "yes"),
-        ("assistant", "Setting that reminder for you now!"),
+        ("user", "what's the best country to live in?"),
+        ("assistant", _ASKED),
+        ("user", "Europe"),
+        ("assistant", "Here are the best options in Europe."),
     ]
     async with SessionLocal() as session:
         user = User(email=f"{uuid4()}@example.com", name="Regenerate", google_sub=str(uuid4()))
         session.add(user)
         await session.flush()
-        chat = Chat(user_id=user.id, title="Offer")
+        chat = Chat(user_id=user.id, title="Card")
         session.add(chat)
         await session.flush()
         session.add_all(
@@ -61,8 +74,8 @@ async def test_a_regenerated_yes_still_accepts_the_offer() -> None:
             chat_id=chat_id,
             model_alias=None,
         )
-        assert turn.content == "yes"
-        assert turn.turn_mode.accepted_offer
+        assert turn.content == "Europe"
+        assert turn.turn_mode.after_card
         assert turn.turn_mode.rich_context
     finally:
         async with SessionLocal() as session:

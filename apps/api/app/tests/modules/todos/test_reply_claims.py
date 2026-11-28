@@ -1,10 +1,10 @@
-"""A reply above an untapped card never says the reminder already exists."""
+"""A reply never says a to-do change happened: chat makes none."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.modules.todos.reply_claims import is_claim, without_claims
+from app.modules.todos.reply_claims import claims_change, is_claim, without_claims
 
 
 @pytest.mark.parametrize(
@@ -49,7 +49,7 @@ from app.modules.todos.reply_claims import is_claim, without_claims
     ],
 )
 def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
-    assert is_claim(sentence, ["call mom", "gym"])
+    assert is_claim(sentence)
 
 
 @pytest.mark.parametrize(
@@ -88,7 +88,7 @@ def test_is_claim_reads_a_completed_reminder_change(sentence: str) -> None:
     ],
 )
 def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:
-    assert not is_claim(sentence, ["call the dentist"])
+    assert not is_claim(sentence)
 
 
 @pytest.mark.parametrize(
@@ -127,7 +127,7 @@ def test_is_claim_leaves_ordinary_sentences(sentence: str) -> None:
     ],
 )
 def test_without_claims_keeps_everything_but_the_claim(reply: str, kept: str) -> None:
-    assert without_claims(reply, ["call the dentist", "buy milk"]) == kept
+    assert without_claims(reply) == kept
 
 
 @pytest.mark.parametrize(
@@ -186,4 +186,17 @@ def test_without_claims_keeps_everything_but_the_claim(reply: str, kept: str) ->
     ],
 )
 def test_a_reminder_said_to_be_set_for_something_is_a_claim(reply: str, kept: str) -> None:
-    assert without_claims(reply, ["Buy her gift"]) == kept
+    assert without_claims(reply) == kept
+
+
+@pytest.mark.parametrize(
+    ("reply", "claims"),
+    [
+        ("Done! I've marked **call mom** as complete ✅", True),
+        ("Sure!", True),
+        ("You have call mom at 3 PM and the gym at 6 PM.", False),
+        ("```python\nprint('Reminder set for 9 AM')\n```", False),
+    ],
+)
+def test_claims_change(reply: str, claims: bool) -> None:
+    assert claims_change(reply) is claims

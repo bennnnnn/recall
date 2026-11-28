@@ -9,6 +9,7 @@ from app.modules.chat.prompt_constants.capabilities import (
     PHOTO_LOOKUP_HINT,
     SETTINGS_ASK_REMINDER,
     SETTINGS_IN_APP_HINT,
+    TODO_IN_APP_HINT,
 )
 from app.modules.chat.prompt_constants.care import PERSONAL_HELP_RULE, TONE_RULES
 from app.modules.chat.prompt_constants.chart import CHART_FORMAT_HINT
@@ -164,6 +165,7 @@ __all__ = [
     "STEPS_FORMAT_HINT",
     "STYLE_HINTS",
     "TEACHING_HINT",
+    "TODO_IN_APP_HINT",
     "TONE_FORMAT_GUARD",
     "TONE_RULES",
     "UNCLEAR_MESSAGE_HINT",

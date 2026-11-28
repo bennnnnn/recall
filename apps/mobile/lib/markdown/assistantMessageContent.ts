@@ -1,11 +1,6 @@
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";
-import {
-  parseReminderProposals,
-  stripReminderProposalFences,
-  type ReminderProposal,
-} from "@/features/todos/model/reminderProposal";
 import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLink";
 import type { SearchSource } from "@/lib/api";
 
@@ -41,10 +36,13 @@ export type AssistantMessageContent = {
   searchSources: SearchSource[];
   settingsProposals: SettingsProposal[];
   showSettingsProposals: boolean;
-  reminderProposals: ReminderProposal[];
-  showReminderProposals: boolean;
-  /** A to-do change asked in another language: the Open To-do button (todoLink.ts). */
+  /** A to-do change asked in chat: the Open To-do button (todoLink.ts). */
   showTodoLink: boolean;
+  /**
+   * The reply was only an old reminder card (chat no longer offers one): it reads as the
+   * line chat says now, with the button, never an empty bubble.
+   */
+  oldReminderCardOnly: boolean;
   images: ParsedMessageImage[];
   showImages: boolean;
   markdownContent: string;
@@ -56,8 +54,9 @@ export type AssistantMessageContent = {
 
 /**
  * Stored chats may still contain retired product fences (the language-learning
- * cards, the Google Calendar event proposal, and the places card a reply's linked names
- * replaced, 2026-11-27). Drop the JSON.
+ * cards, the Google Calendar event proposal, the places card a reply's linked names
+ * replaced, and the chat reminder card: chat only reads to-dos, both 2026-11-27).
+ * Drop the JSON.
  */
 const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "vocab_quiz",
@@ -66,6 +65,7 @@ const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "job-results",
   "calendar_proposal",
   "places",
+  "reminder_proposal",
 ]);
 
 /** One empty list, so a frozen reply's sources keep their identity flush to flush. */
@@ -78,6 +78,9 @@ function stripUnverifiedResultLine(text: string): string {
   if (!text.includes("automatically verify this result")) return text;
   return text.replace(UNVERIFIED_RESULT_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/** An old saved reply's reminder card: shown as the To-do line and button instead. */
+const OLD_REMINDER_CARD = /```reminder_proposal\b/i;
 
 /** Any retired name in any case: a fence's language is read lower-cased. */
 const RETIRED_FENCE_NAME = new RegExp([...RETIRED_FENCE_LANGS].join("|"), "i");
@@ -139,7 +142,6 @@ function buildMarkdownContent(options: {
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   text = stripSettingsProposalFences(text);
-  text = stripReminderProposalFences(text);
   return stripTodoLinkFences(text);
 }
 
@@ -183,10 +185,9 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
   const showSettingsProposals = settingsProposals.length > 0 && !layoutFrozen;
 
-  const reminderProposals =
-    !isUser && hasContent && !layoutFrozen ? parseReminderProposals(content) : [];
-  const showReminderProposals = reminderProposals.length > 0;
-  const showTodoLink = !isUser && hasContent && !layoutFrozen && hasTodoLink(content);
+  const oldReminderCard = !isUser && hasContent && OLD_REMINDER_CARD.test(content);
+  const showTodoLink =
+    !isUser && hasContent && !layoutFrozen && (hasTodoLink(content) || oldReminderCard);
 
   // [Image: …] marker lines only appear in attachment/lookup replies — skip the
   // per-line split+regex scan for the common no-marker reply.
@@ -210,6 +211,7 @@ export function deriveAssistantMessageContent(
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
+  const oldReminderCardOnly = oldReminderCard && !hasMarkdown;
   // Live clock and "where am I" are device-driven — a Sources chip would
   // imply the answer came from those links, which it didn't.
   const showSearchSources =
@@ -227,9 +229,8 @@ export function deriveAssistantMessageContent(
     searchSources,
     settingsProposals,
     showSettingsProposals,
-    reminderProposals,
-    showReminderProposals,
     showTodoLink,
+    oldReminderCardOnly,
     images: parsedImages.images,
     showImages,
     markdownContent,

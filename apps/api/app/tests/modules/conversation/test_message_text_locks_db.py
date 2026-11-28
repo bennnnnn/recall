@@ -106,25 +106,3 @@ async def test_an_email_draft_edited_as_the_photo_lands_keeps_the_photo(
     text = await _text(message_id, chat_id)
     assert text.startswith(MARKER)
     assert "Subject: Bye" in text and "Shorter" in text and "Hello" not in text
-
-
-@pytest.mark.asyncio
-async def test_a_card_saved_as_the_photo_lands_keeps_the_photo(
-    reply: tuple[UUID, UUID, UUID],
-) -> None:
-    _user_id, chat_id, message_id = reply
-    await _set_text(message_id, chat_id, CARD)
-
-    async def save(session: Any) -> object:
-        return await conversation_service.edit_recent_reply(
-            session,
-            chat_id,
-            containing="```reminder_card",
-            edit=lambda text: text.replace("Call mom", "Call mom (saved)"),
-        )
-
-    await _while_the_photo_lands(chat_id, message_id, save)
-
-    text = await _text(message_id, chat_id)
-    assert text.startswith(MARKER)
-    assert "Call mom (saved)" in text

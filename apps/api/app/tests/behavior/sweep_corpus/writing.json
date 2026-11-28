@@ -1288,7 +1288,7 @@
   "area": "writing",
   "prompt": "remind me to update my resume on sunday at 10am",
   "reply": "Set: update your resume, Sunday at 10:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "wr-114",

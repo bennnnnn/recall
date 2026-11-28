@@ -202,17 +202,6 @@ async def test_todo_routes_never_touch_another_users_items(world: World) -> None
 
 
 @pytest.mark.asyncio
-async def test_reminder_card_of_another_user_cannot_be_confirmed(world: World) -> None:
-    c, b, data = world.client, world.b, world.a_data
-    pid = data.reminder_proposal_id
-    theirs = await c.post(f"/todos/proposals/{pid}/confirm", headers=b.headers)
-    nothing = await c.post(f"/todos/proposals/{uuid4()}/confirm", headers=b.headers)
-    assert theirs.status_code == nothing.status_code == 410
-    # B's attempt did not consume A's card.
-    assert await world.redis.exists(f"todos:proposal:{world.a.id}:{pid}") == 1
-
-
-@pytest.mark.asyncio
 async def test_settings_card_of_another_user_cannot_be_confirmed(world: World) -> None:
     c, b, data = world.client, world.b, world.a_data
     pid = data.settings_proposal_id

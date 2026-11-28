@@ -1,67 +1,14 @@
-"""Chat adds and changes to-dos only from English messages; others use To-do."""
+"""Which language a chat message is in, and the To-do line in each app language."""
 
 from __future__ import annotations
 
 import pytest
 
 from app.modules.todos.chat_language import (
+    answer_language,
     message_language,
     todo_screen_line,
-    writes_todos_in_todo_screen,
 )
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "recuérdame mañana a las 9 llamar a mamá",
-        "agrega pan a mi lista",
-        "¿qué tengo hoy?",
-        "rappelle-moi demain d'appeler ma mère",
-        "ajoute du lait à ma liste",
-        "erinnere mich morgen um 9 Uhr an den Zahnarzt",
-        "ricordami domani alle 9 di chiamare la mamma",
-        "lembra-me amanhã às 9 de ligar para a minha mãe",
-        "yarın saat 9'da annemi aramayı hatırlat",
-        "напомни завтра в 9 позвонить маме",
-        "ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ",
-        "मुझे कल सुबह 9 बजे दवाई लेने की याद दिलाना",
-        # Another script's letters outnumber the Latin ones: an English word borrowed.
-        "कल सुबह 9 बजे remind करना",
-        "напомни завтра в 9 позвонить маме, remind",
-    ],
-)
-def test_a_message_in_another_language_changes_to_dos_in_the_todo_screen(text: str) -> None:
-    assert writes_todos_in_todo_screen(text) is True
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "remind me to call mom tomorrow at 9",
-        "add milk to my list",
-        "mark the dentist done",
-        # An English to-do word keeps a mixed message English.
-        "remind me to call Getachew ነገ at 10am",
-        "remind me to call Дмитрий tomorrow",
-        "add दूध to my list",
-        # English grammar around the request, whatever script its object is in.
-        "remind me to call Сергей Владимирович Петров",
-        "remind me to buy молоко хлеб сыр яйца",
-        'remind me to send "С днём рождения, дорогая бабушка!" to grandma',
-        "add ጤፍ ዱቄት ቅቤ ሽንኩርት ቲማቲም to my list",
-        "remind me to fly to Los Angeles on Friday",
-        "remind me tonight at 9 to text selam happy birthday 🎂",
-        "done ✅ just talked to her",
-        # One word of another language is not enough to tell.
-        "call mom mañana",
-        "",
-        "   ",
-        None,
-    ],
-)
-def test_an_english_message_still_changes_to_dos_in_chat(text: str | None) -> None:
-    assert writes_todos_in_todo_screen(text) is False
 
 
 @pytest.mark.parametrize(
@@ -76,6 +23,7 @@ def test_an_english_message_still_changes_to_dos_in_chat(text: str | None) -> No
         "ነገ እናቴን እንድደውል አስታውሰኝ",
         "कल मुझे माँ को फ़ोन करने की याद दिलाना",
         "आज मेरे पास क्या है?",
+        "ዛሬ ምን አለኝ?",
     ],
 )
 def test_a_to_do_message_in_any_app_language_loads_the_list(text: str) -> None:
@@ -127,30 +75,19 @@ def test_an_unknown_language_gets_the_english_line() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "prior", "locale", "read_only"),
+    ("text", "prior_user", "locale", "language"),
     [
-        # An answer to a question asked in Spanish follows the chat: it never writes.
-        ("a las 5", "añade comprar leche a mis tareas", "en", True),
-        ("17:00", "recuérdame llamar a mamá", "en", True),
-        ("sí", "напомни позвонить маме", "en", True),
-        # With nothing earlier to go by, the app language decides.
-        ("17:00", "", "es", True),
-        ("17:00", None, "en", False),
-        # An English chat, or an English to-do word, still writes.
-        ("5pm", "remind me to call mom", "es", False),
-        ("remind me at 5pm", "recuérdame llamar a mamá", "es", False),
-        # A message with a language of its own decides alone.
-        ("recuérdame mañana a las 9", "remind me to call mom", "en", True),
+        ("remind me to call mom", None, "es", "en"),
+        # English grammar around the request keeps it English, whatever script its object is in.
+        ("remind me to buy молоко хлеб сыр", None, "ru", "en"),
+        ("напомни завтра позвонить маме", None, "en", "ru"),
+        ("कल सुबह 9 बजे remind करना", None, "en", "hi"),
+        # A message with no language of its own follows the chat, then the app language.
+        ("a las 5", "recuérdame llamar a mamá", "en", "es"),
+        ("17:00", None, "tr", "tr"),
     ],
 )
-def test_a_message_with_no_language_of_its_own_follows_the_chat(
-    text: str, prior: str | None, locale: str, read_only: bool
+def test_the_to_do_line_answers_in_the_messages_language(
+    text: str, prior_user: str | None, locale: str, language: str
 ) -> None:
-    assert writes_todos_in_todo_screen(text, prior_user=prior, locale=locale) is read_only
-
-
-@pytest.mark.parametrize("text", ["मुझे remind करना", "मुझे कल remind करना"])
-def test_a_short_hindi_request_with_an_english_verb_is_hindi(text: str) -> None:
-    """A review (2026-11-21): Hindi vowel signs are no letters to ``isalpha``, so "मुझे
-    remind करना" counted 5 Devanagari letters to 6 Latin ones and wrote a reminder."""
-    assert writes_todos_in_todo_screen(text, locale="en")
+    assert answer_language(text, prior_user=prior_user, locale=locale) == language

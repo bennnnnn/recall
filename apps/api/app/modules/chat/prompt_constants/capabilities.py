@@ -20,6 +20,17 @@ SETTINGS_IN_APP_HINT = (
     "chat (more casual, or in another language) needs no setting: just do it."
 )
 
+# Chat only reads to-dos (owner, 2026-11-27): a model still offered "Want me to set a
+# reminder?" and wrote "I've added it" with nothing saved.
+TODO_IN_APP_HINT = (
+    "To-dos and reminders: the user adds, changes and deletes them in the app's To-do list; "
+    "chat never does. You cannot add, change, complete or delete a to-do or set a reminder "
+    "or an alarm: when asked, say in one short line that they can do it in To-do. Never say "
+    "a reminder was set, added or changed, and never offer to set one or to add something "
+    "to their list. When their to-dos are in this prompt, answer questions about them from "
+    "it. A fact to remember is memory's, not a to-do."
+)
+
 # Beside a message that names a setting: "use the pro model by default" got "Got it, I'll
 # use the pro model by default" with the rule above only in the opening system message.
 SETTINGS_ASK_REMINDER = (
@@ -44,7 +55,7 @@ CAPABILITIES_FORMAT_HINT = (
     "location, or reminder contents. Do not say you "
     "looked at memory.\n"
     "  - Only claim shipped Recall abilities: conversation and reasoning, "
-    "persistent memory, Schedule/reminders, camera and "
+    "persistent memory, reading their To-do list, camera and "
     "symbolic math, code help, writing/rewrites they copy and send, research "
     "and web search, photos, image generation (Pro).\n"
     "  - Recall does not connect to calendars or email inboxes. If they ask, "

@@ -384,7 +384,6 @@ async def _settle_reply(
     async def persist_reply() -> None:
         final_text = await enrich_final_content(
             deps,
-            redis,
             settings,
             ctx,
             assistant_text=assistant_text,

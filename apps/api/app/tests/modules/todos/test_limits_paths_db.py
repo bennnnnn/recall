@@ -6,26 +6,17 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import delete, func, insert, select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.config import Settings
 from app.core.db import engine
 from app.models.orm import TodoItem, User
-from app.modules.conversation import chats_repository as chats_repo
-from app.modules.speech.live_talk import persist_live_talk_turn
-from app.modules.todos import proposals
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.actions import apply_todo_actions
-from app.modules.todos.limits import OPEN_TODOS_MAX, TODO_LIST_FULL_REPLY, TodoLimitError
-from app.modules.todos.reminder_fences import materialize_reminder_fences
-from app.modules.todos.schemas import TodoActionItem
+from app.modules.todos.limits import OPEN_TODOS_MAX, TodoLimitError
 from app.repositories import users as users_repo
-from app.tests.fakes import FakeSessionCM, redis_mock
 
 DUE = (datetime.now(UTC) + timedelta(days=30)).replace(hour=17, minute=0, second=0, microsecond=0)
 
@@ -67,26 +58,6 @@ async def _open(session: Any, user_id: Any) -> int:
 
 
 @pytest.mark.asyncio
-async def test_a_spoken_add_at_the_cap_says_the_list_is_full_and_saves_nothing(db_session):
-    user = await _full_list(db_session)
-    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
-    user_id = user.id
-    with patch("app.modules.speech.live_talk.SessionLocal", FakeSessionCM(db_session)):
-        _, assistant = await persist_live_talk_turn(
-            user=user,
-            chat_id=chat.id,
-            user_text="remind me to water the plants at 6pm",
-            assistant_text=_reply("Water the plants", DUE + timedelta(hours=1)),
-            untitled=False,
-            settings=Settings(_env_file=None),
-            redis=redis_mock(),
-            enqueue_jobs=False,
-        )
-    assert assistant is not None and assistant.content == TODO_LIST_FULL_REPLY
-    assert await _open(db_session, user_id) == OPEN_TODOS_MAX
-
-
-@pytest.mark.asyncio
 async def test_a_duplicate_at_the_cap_is_the_duplicate_it_always_was(db_session):
     """An add of a reminder already open adds nothing: it meets the open-row unique, which
     its callers skip or answer with the row that is there, never the cap."""
@@ -102,50 +73,6 @@ async def test_a_duplicate_at_the_cap_is_the_duplicate_it_always_was(db_session)
             await todos_repo.create(
                 db_session, user_id=user.id, content="Call dad", due_at=DUE, commit=False
             )
-
-
-@pytest.mark.asyncio
-async def test_reopening_a_done_to_do_at_the_cap_reaches_the_caller(db_session):
-    """A spoken reopen's action path lets the cap through: no failed-action error log."""
-    user = await _full_list(db_session)
-    with (
-        # The whole list is read, so the done "Gym" is found past the first 500.
-        patch("app.modules.todos.actions.ACTION_RELOAD_LIMIT", 2 * OPEN_TODOS_MAX),
-        patch("app.modules.todos.actions.logger.exception") as failed,
-        pytest.raises(TodoLimitError),
-    ):
-        await apply_todo_actions(
-            db_session,
-            user_id=user.id,
-            actions=[TodoActionItem(action="uncheck", topic="General", content="Gym")],
-        )
-    failed.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_a_card_tapped_at_the_cap_is_refused_and_can_be_tapped_later(db_session, fake_redis):
-    user = await _full_list(db_session)
-    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
-    text, written = await materialize_reminder_fences(
-        db_session,
-        user_id=user.id,
-        chat_id=chat.id,
-        assistant_text=_reply("Water the plants", DUE + timedelta(hours=1)),
-        user_timezone="UTC",
-        user_text="remind me to water the plants at 6pm",
-        redis=fake_redis,
-        confirm=True,
-    )
-    assert written == 0
-    proposal_id = text.split('"proposal_id": "', 1)[1].split('"', 1)[0]
-    user_id = user.id
-    with pytest.raises(TodoLimitError):
-        await proposals.confirm_proposal(
-            db_session, fake_redis, user_id=user_id, proposal_id=proposal_id
-        )
-    assert await _open(db_session, user_id) == OPEN_TODOS_MAX
-    # Kept: once there is room, the same card saves.
-    assert await fake_redis.keys(f"*{proposal_id}*")
 
 
 @pytest.mark.asyncio

@@ -82,7 +82,7 @@ async def test_done_does_not_carry_related_prompts() -> None:
 
 
 def test_done_is_the_shape_installed_phones_read() -> None:
-    """Every field, in this order; the flag and the lists are strings until ES-45."""
+    """Every field, in this order; the lists are strings until ES-45."""
     outcome = TurnOutcome(
         message_id="m1",
         final_content="Café ✓",
@@ -93,12 +93,11 @@ def test_done_is_the_shape_installed_phones_read() -> None:
         memory_hints=["Likes cats"],
         context_summarized=6,
         search_sources=[{"title": "Moon", "url": "https://example.com", "snippet": "Orbit."}],
-        todos_changed=True,
     )
     wire = json.dumps(DoneEvent.from_outcome(outcome).model_dump(), separators=(",", ":"))
     assert wire == (
         '{"type":"done","message_id":"m1","recalled":"2","memory_hints":"[\\"Likes cats\\"]",'
-        '"context_summarized":"6","todos_sync":"1","search_sources":"[{\\"title\\": '
+        '"context_summarized":"6","search_sources":"[{\\"title\\": '
         '\\"Moon\\", \\"url\\": \\"https://example.com\\", \\"snippet\\": \\"Orbit.\\"}]",'
         '"final_content":"Caf\\u00e9 \\u2713","resolved_model":"smart-chat",'
         '"fallback_used":"1","completion":"interrupted"}'
@@ -108,13 +107,9 @@ def test_done_is_the_shape_installed_phones_read() -> None:
 def test_done_while_the_commit_runs_has_no_id() -> None:
     """No message id is how a client knows the reply is still saving; a ``persisting``
     field no client read is not sent."""
-    outcome = TurnOutcome(message_id="m1", resolved_model="free-chat", todos_changed=True)
+    outcome = TurnOutcome(message_id="m1", resolved_model="free-chat")
     payload = DoneEvent.from_outcome(outcome, persisting=True).model_dump()
-    assert payload == {
-        "type": "done",
-        "todos_sync": "1",
-        "resolved_model": "free-chat",
-    }
+    assert payload == {"type": "done", "resolved_model": "free-chat"}
 
 
 def test_done_leaves_out_empty_fields() -> None:

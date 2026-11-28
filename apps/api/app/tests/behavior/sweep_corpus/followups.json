@@ -1084,7 +1084,7 @@
    ]
   ],
   "reply": "Sure! I'll remind you on **Friday, Oct 16** to pack for Gondar. What time should I send it — maybe 7:00 PM?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "hf-064",
@@ -1135,7 +1135,7 @@
    ]
   ],
   "reply": "```reminder\n{\"title\": \"Leave for the doctor\", \"due_at\": \"2026-10-15T08:30:00+03:00\"}\n```\n\nSet: leave for the doctor — Thursday, Oct 15, 8:30 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "hf-067",
@@ -1395,7 +1395,7 @@
    ]
   ],
   "reply": "Set: call the bank — Thursday, Oct 15, 6:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "hf-082",
@@ -1412,7 +1412,8 @@
    ]
   ],
   "reply": "Done — moved **gym** to Thursday, Oct 15, 7:00 PM.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-083",
@@ -1429,7 +1430,7 @@
    ]
   ],
   "reply": "Nice — marked **pay rent** as done ✅\n\nYou still have **water the plants** at 6:00 PM today.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "hf-084",
@@ -1446,7 +1447,8 @@
    ]
   ],
   "reply": "Deleted **water the plants** 🌱 — one less thing on your list.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
  },
  {
   "id": "hf-085",
@@ -1463,7 +1465,8 @@
    ]
   ],
   "reply": "What time tomorrow morning — would **8:00 AM** work?",
-  "expect": "ask_time"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-086",
@@ -1480,7 +1483,8 @@
    ]
   ],
   "reply": "Moved **call mom** to Sunday, Oct 18, 10:00 AM. 📞",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-087",
@@ -1531,7 +1535,7 @@
    ]
   ],
   "reply": "```reminder\n{\"title\": \"Submit the report\", \"due_at\": \"2026-10-16T09:00:00+03:00\"}\n```\n\nSet: submit the report — Friday, Oct 16, 9:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "hf-090",
@@ -1548,7 +1552,8 @@
    ]
   ],
   "reply": "Moved **dentist appointment** to Thursday, Oct 22, 2:00 PM. 🦷",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after a reply that named a reminder in prose (no button, card or result line), a vague change is the model's to answer; told chat changes none, it should send the user to To-do, and this reply is the old app's claim"
  },
  {
   "id": "hf-091",

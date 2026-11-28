@@ -25,14 +25,21 @@ from app.gateways.mock_llm import (
 from app.gateways.stream_signals import StreamAttempt
 from app.modules.chat import titles as chat_titles
 from app.modules.memory.offline import offline_memory_facts
-from app.modules.todos.schemas import TodoActionItem
 from app.tests.modules.chat.chat_test_support import access_for
+
+
+class _Action(BaseModel):
+    """One item of a structured list: any small schema the wrapper validates."""
+
+    action: str
+    topic: str = ""
+    content: str = ""
 
 
 class _ActionList(BaseModel):
     """A schema with one list field, as the structured-call wrapper expects for bare lists."""
 
-    actions: list[TodoActionItem]
+    actions: list[_Action]
 
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────

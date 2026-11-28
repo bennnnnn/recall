@@ -26,8 +26,6 @@ export type ChatWsPayload = {
   emoji?: string;
   reasoning?: string;
   final_content?: string;
-  /** The turn changed the to-do list. */
-  todos_changed?: boolean;
   /** On `done`: the day's usage after the turn, for the quota nudge. */
   usage?: TurnUsage;
   search_sources?: SearchSource[];
@@ -64,8 +62,8 @@ export function shouldIgnoreStoppedStreamEvent(
 }
 
 /**
- * `done` carries `search_sources` as JSON text and `todos_sync: "1"` today; ES-45 sends an
- * array and `todos_changed: true`. Either reads the same past this point. The day's usage
+ * `done` carries `search_sources` as JSON text today; ES-45 sends an array. Either reads the
+ * same past this point. The day's usage
  * comes as the strings `used_tokens` and `daily_limit` (and `messages_used`, `daily_messages`),
  * read into `usage`.
  */
@@ -94,8 +92,6 @@ function turnUsageFrom(
 function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
   const {
     search_sources: sources,
-    todos_sync: todosSync,
-    todos_changed: todosChanged,
     used_tokens: usedTokens,
     daily_limit: dailyLimit,
     messages_used: messagesUsed,
@@ -107,7 +103,6 @@ function normalizeChatWsPayload(wire: Record<string, unknown>): ChatWsPayload {
   const payload = rest as ChatWsPayload;
   const searchSources = searchSourcesFromField(sources);
   if (searchSources.length > 0) payload.search_sources = searchSources;
-  if (todosChanged === true || todosSync === "1") payload.todos_changed = true;
   if (titlePending === true || titlePending === "1") payload.title_pending = true;
   if (photoPending === true || photoPending === "1") payload.photo_pending = true;
   const usage = turnUsageFrom(usedTokens, dailyLimit, messagesUsed, dailyMessages);

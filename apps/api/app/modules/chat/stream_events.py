@@ -213,7 +213,6 @@ class DoneEvent(BaseModel):
     recalled: int = 0
     memory_hints: list[str] = []
     context_summarized: int = 0
-    todos_changed: bool = False
     # The day's usage after this turn: the quota nudge reads it here, not with a GET.
     usage: TurnUsage | None = None
     search_sources: list[SearchSource] = []
@@ -238,7 +237,6 @@ class DoneEvent(BaseModel):
             recalled=outcome.recalled,
             memory_hints=outcome.memory_hints,
             context_summarized=outcome.context_summarized,
-            todos_changed=outcome.todos_changed,
             usage=outcome.usage,
             search_sources=outcome.search_sources,
             final_content=outcome.final_content,
@@ -253,8 +251,8 @@ class DoneEvent(BaseModel):
     def _wire(self) -> dict[str, Any]:
         """The shape installed clients read: absent fields left out, the rest as strings.
 
-        ``todos_changed`` goes out as ``todos_sync: "1"`` and the lists as JSON text;
-        ES-45 sends them typed once the clients that accept both are the ones in use.
+        The lists go out as JSON text; ES-45 sends them typed once the clients that accept
+        both are the ones in use.
         """
         event: dict[str, Any] = {"type": self.type}
         if self.message_id:
@@ -265,8 +263,6 @@ class DoneEvent(BaseModel):
             event["memory_hints"] = json.dumps(self.memory_hints)
         if self.context_summarized:
             event["context_summarized"] = str(self.context_summarized)
-        if self.todos_changed:
-            event["todos_sync"] = "1"
         if self.usage:
             event["used_tokens"] = str(self.usage.used_tokens)
             event["daily_limit"] = str(self.usage.daily_limit)

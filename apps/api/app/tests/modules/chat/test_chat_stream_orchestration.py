@@ -1,5 +1,7 @@
 import asyncio
 from contextlib import ExitStack, suppress
+from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
@@ -251,9 +253,8 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(fake_redis, stream_
 
 @pytest.mark.asyncio
 async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_offline_io):
-    """A reminder change in chat waits for a tap on its card: no job writes it behind
-    the user's back (the background repair job is gone), and with nothing written the
-    phone is not told to reload its list (code-health audit NET-14)."""
+    """Chat writes no to-do (owner, 2026-11-27): no job writes one behind the user's back
+    either (the background repair job is gone, code-health audit NET-14)."""
     from app.modules import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -299,7 +300,6 @@ async def test_a_reminder_reply_enqueues_no_background_write(fake_redis, stream_
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert "todos" not in job_types
-    assert not outcome.todos_changed
 
 
 @pytest.mark.asyncio
@@ -1646,7 +1646,7 @@ async def test_stream_places_query_with_client_location_skips_the_settings_promp
 
 @pytest.mark.asyncio
 async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream_offline_io):
-    """Post-stream enrichment (reminder fences, math fences, …) must not
+    """Post-stream enrichment (the to-do pass, math fences, …) must not
     abort persistence — the user already saw streamed tokens."""
     from app.modules import chat as chat_module
 
@@ -1691,22 +1691,21 @@ async def test_stream_persists_raw_text_when_enrichment_fails(fake_redis, stream
         stack.enter_context(
             patch("app.modules.chat.stream_pipeline.finalize_stream_turn_db", finalize)
         )
-        stack.enter_context(
-            patch(
-                "app.modules.todos.materialize_reminder_fences",
-                AsyncMock(side_effect=RuntimeError("enrichment boom")),
-            )
-        )
 
         outcome = TurnOutcome()
         collected: list[str] = []
-        async for tok in chat_module.stream_chat_response(
+        # A read of the list whose rows fail to load: the last finalize step fails.
+        deps = replace(
             offline_deps(),
+            todos=SimpleNamespace(read_back=AsyncMock(side_effect=RuntimeError("boom"))),
+        )
+        async for tok in chat_module.stream_chat_response(
+            deps,
             fake_redis,
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
             user_id=fake_user.id,
             chat_id=MagicMock(),
-            content="question",
+            content="what's on my to-do list?",
             outcome=outcome,
             user=fake_user,
         ):

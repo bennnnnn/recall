@@ -29,7 +29,8 @@ _KIND_NOTES: dict[PartKind, str] = {
         "No section."
     ),
     "reminder": (
-        "a reminder. Handle it the way the To-do instructions say, in one short line; no section."
+        "a reminder or a to-do change, which chat cannot make. Write nothing about it: the app "
+        "adds a line under your reply that sends the user to To-do. No section."
     ),
 }
 _NO_SECTION_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "reminder"})

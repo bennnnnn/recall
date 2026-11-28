@@ -1,0 +1,259 @@
+[
+ {
+  "id": "crt-001",
+  "area": "todo",
+  "prompt": "remind me to call mom",
+  "reply": "Sure! When should I remind you to call mom?",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-002",
+  "area": "todo",
+  "prompt": "add milk to my list",
+  "reply": "Added **milk** to your list! 🥛",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-003",
+  "area": "todo",
+  "prompt": "set an alarm for 7",
+  "reply": "7 am or 7 pm?",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-004",
+  "area": "todo",
+  "prompt": "remind me tomorrow at 6pm to take my medicine",
+  "reply": "```reminder\n{\"title\": \"Take my medicine\", \"due_at\": \"2026-10-15T18:00:00\"}\n```\n\nDone! I'll remind you tomorrow at 6 PM.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-005",
+  "area": "todo",
+  "prompt": "mark call mom as done",
+  "reply": "Done! ✅ I've marked **call mom** as complete.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-006",
+  "area": "todo",
+  "prompt": "delete my gym reminder",
+  "reply": "I've deleted your gym reminder.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-007",
+  "area": "todo",
+  "prompt": "move the dentist to friday at 3pm",
+  "reply": "You can change it yourself in your To-do list.\n\n```todo_link\n```",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-008",
+  "area": "todo",
+  "prompt": "6pm",
+  "history": [
+   [
+    "user",
+    "remind me to water the plants"
+   ],
+   [
+    "assistant",
+    "You can add or change it in **To-do**.\n\n```todo_link\n```"
+   ]
+  ],
+  "reply": "Got it, set for 6 PM today.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-009",
+  "area": "todo language",
+  "prompt": "recuérdame llamar a mamá el viernes",
+  "reply": "¡Claro! Te lo recordaré el viernes.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-010",
+  "area": "todo language",
+  "prompt": "ነገ ጠዋት 8 ሰዓት መድሃኒቴን እንድወስድ አስታውሰኝ",
+  "reply": "እሺ፣ ነገ ጠዋት 8 ሰዓት አስታውስሻለሁ።",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-011",
+  "area": "todo",
+  "prompt": "what's on my list today?",
+  "reply": "You have call mom at 6 PM and the gym.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-012",
+  "area": "todo",
+  "prompt": "when is my dentist appointment?",
+  "reply": "Your dentist appointment is on Tuesday, Oct 20 at 6 PM.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-013",
+  "area": "todo",
+  "prompt": "do I have anything due tomorrow?",
+  "reply": "Nothing is due tomorrow. Your next reminder is pay rent on Tuesday.",
+  "expect": "read"
+ },
+ {
+  "id": "crt-014",
+  "area": "memory",
+  "prompt": "can you remember my dentist is Friday",
+  "reply": "Got it, I'll remember your dentist is on Friday.",
+  "expect": "memory"
+ },
+ {
+  "id": "crt-015",
+  "area": "chitchat",
+  "prompt": "how do I make a sourdough starter?",
+  "reply": "Mix equal parts flour and water in a jar, cover it loosely, and feed it once a day for about a week until it doubles after each feed.\n\nWant me to set a reminder to feed it every morning?",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-016",
+  "area": "chitchat",
+  "prompt": "how do I set a reminder on my iPhone?",
+  "reply": "Open the **Reminders** app, tap **New Reminder**, type it, then tap the info button to add a date and time.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-017",
+  "area": "chitchat",
+  "prompt": "remind me how to convert Celsius to Fahrenheit",
+  "reply": "Multiply the Celsius value by 9/5, then add 32. For example, 20 °C is 68 °F.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-018",
+  "area": "writing",
+  "prompt": "write a short reminder text to my team that the report is due Friday",
+  "reply": "```message\nHi team, a quick reminder that the report is due this Friday. Thanks!\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-019",
+  "area": "multi",
+  "prompt": "What is the capital of France, and remind me to call mom at 6pm",
+  "reply": "### The capital of France\n\nThe capital of France is **Paris**, a city on the Seine known for the Eiffel Tower and the Louvre.\n\nI've set a reminder to call mom at 6 PM.",
+  "expect": [
+   "answer",
+   "todo_screen"
+  ]
+ },
+ {
+  "id": "crt-020",
+  "area": "chitchat",
+  "prompt": "remind me the steps to solve a quadratic",
+  "reply": "Move everything to one side, factor or use the quadratic formula, then check each root in the original equation.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-021",
+  "area": "chitchat",
+  "prompt": "remind me the rules to chess",
+  "reply": "Each side has 16 pieces; the goal is checkmate. Pawns move forward one square and capture diagonally.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-022",
+  "area": "chitchat",
+  "prompt": "remind me the answer to question 2",
+  "reply": "Question 2's answer was 42, from multiplying 6 by 7.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-023",
+  "area": "code",
+  "prompt": "create a task queue with celery",
+  "reply": "Install Celery and Redis, define `app = Celery('tasks', broker='redis://localhost')`, and decorate a function with `@app.task`.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-024",
+  "area": "code",
+  "prompt": "make a task scheduler in python",
+  "reply": "Use the `sched` module or APScheduler: create a scheduler, add a job with a trigger, and start it.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-025",
+  "area": "code",
+  "prompt": "add dark mode to my todo list app",
+  "reply": "Add a theme context, read the system scheme with `useColorScheme()`, and switch colors in your styles.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-026",
+  "area": "chitchat",
+  "prompt": "Reminder: I'm allergic to peanuts. What snacks can I bring?",
+  "reply": "Try pretzels, popcorn, fruit, cheese and crackers, or seed-based bars made without peanuts.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-027",
+  "area": "chitchat",
+  "prompt": "explain photosynthesis",
+  "reply": "Plants turn light, water and carbon dioxide into sugar and oxygen. The sugar is then moved through the phloem to the roots.",
+  "expect": "answer",
+  "history": [
+   [
+    "user",
+    "remind me to water the plants"
+   ],
+   [
+    "assistant",
+    "You can add or change it in **To-do**.\n\n```todo_link\n```"
+   ]
+  ]
+ },
+ {
+  "id": "crt-028",
+  "area": "code",
+  "prompt": "now add type hints",
+  "reply": "Done — added type hints to every function in the module.",
+  "expect": "answer",
+  "history": [
+   [
+    "user",
+    "what's on my to-do list?"
+   ],
+   [
+    "assistant",
+    "Call mom — Tuesday, Oct 20, 6:00 PM.\nDone: Milk."
+   ]
+  ]
+ },
+ {
+  "id": "crt-029",
+  "area": "todo",
+  "prompt": "Can you mark call mom as done?",
+  "reply": "Done! I've marked **call mom** as complete.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-030",
+  "area": "todo",
+  "prompt": "Could you delete my dentist reminder?",
+  "reply": "Done! I've deleted your dentist reminder.",
+  "expect": "todo_screen"
+ },
+ {
+  "id": "crt-031",
+  "area": "multi",
+  "prompt": "Remind me the quadratic formula. Also, what's the capital of France?",
+  "reply": "The quadratic formula: for ax² + bx + c = 0, x = (−b ± √(b² − 4ac)) / 2a. The capital of France is Paris, on the Seine.",
+  "expect": "answer"
+ },
+ {
+  "id": "crt-032",
+  "area": "writing",
+  "prompt": "make a to-do list for my move",
+  "reply": "Here's a moving checklist:\n\n1. Book movers\n2. Pack room by room\n3. Change your address\n\nWant me to make a to-do list for your new apartment too?",
+  "expect": "answer"
+ }
+]

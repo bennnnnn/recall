@@ -11,7 +11,7 @@
   "area": "chemistry word lookalike",
   "prompt": "Remind me to study chemistry",
   "reply": "Sure. When should I remind you to study chemistry?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "cw-003",

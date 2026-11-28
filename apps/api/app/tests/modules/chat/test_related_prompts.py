@@ -1131,12 +1131,7 @@ _CLARIFY_FIRST = (
     '{"id":"use","label":"Main use","question":"What will you mostly use it for?",'
     '"options":["School and browsing","Gaming","Video editing"],"multi":false}]}\n```'
 )
-_REMINDER_CARD = (
-    f"{SOURDOUGH_REPLY}\n\nHere's the reminder: tap to save it.\n\n```reminder_proposal\n"
-    '{"proposal_id": "p1", "tz": "Africa/Nairobi", "items": [{"action": "add", '
-    '"title": "Feed the starter", "due_at": "2026-10-26T06:00:00Z", '
-    '"when": "Monday, Oct 26, 9:00 AM"}]}\n```'
-)
+_TODO_BUTTON = f"{SOURDOUGH_REPLY}\n\nYou can add or change it in **To-do**.\n\n```todo_link\n```"
 
 
 @pytest.mark.parametrize(
@@ -1144,9 +1139,9 @@ _REMINDER_CARD = (
     [
         ("Which laptop should I buy?", _CLARIFY_FIRST),
         (SOURDOUGH, f"{SOURDOUGH_REPLY}\n\n{_CLARIFY_FIRST.split(chr(10), 2)[2]}"),
-        (f"{SOURDOUGH} Also add a reminder to feed it on Monday at 9am", _REMINDER_CARD),
+        (f"{SOURDOUGH} Also add a reminder to feed it on Monday at 9am", _TODO_BUTTON),
     ],
-    ids=["clarify-first", "clarify-after", "reminder-card"],
+    ids=["clarify-first", "clarify-after", "todo-button"],
 )
 def test_a_card_waiting_for_a_tap_gets_no_follow_ups(question: str, answer: str) -> None:
     from app.modules.chat.related_questions import follow_up_topic

@@ -2,16 +2,13 @@ from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
-from pydantic import BaseModel
-from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_redis
+from app.core.deps import get_current_user
 from app.core.etag import conditional_json
 from app.models.orm import TodoItem, User
 from app.modules.todos import crud as todos_crud
-from app.modules.todos import proposals as reminder_proposals
 from app.modules.todos.due_day import has_time, local_day
 from app.modules.todos.due_reminders import preview_instant, reminder_instant
 from app.modules.todos.schemas import (
@@ -104,34 +101,6 @@ async def create_todo(
         due_has_time=body.due_has_time,
     )
     return _todo_out(item, user)
-
-
-class ReminderProposalConfirmOut(BaseModel):
-    items: list[reminder_proposals.CardItem]
-    # The rows the tap wrote and deleted, for the phone to apply without reading its
-    # list again (code-health audit NET-16); null when the card was already saved.
-    todos: list[TodoOut] | None = None
-    deleted_ids: list[UUID] = []
-
-
-@router.post("/proposals/{proposal_id}/confirm", response_model=ReminderProposalConfirmOut)
-async def confirm_reminder_proposal(
-    proposal_id: str,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-    redis: Redis = Depends(get_redis),
-) -> ReminderProposalConfirmOut:
-    """Save the reminder change a chat card offered. A second tap is a no-op."""
-    confirmed = await reminder_proposals.confirm_proposal(
-        session, redis, user_id=user.id, proposal_id=proposal_id
-    )
-    return ReminderProposalConfirmOut(
-        items=confirmed.items,
-        todos=(
-            None if confirmed.rows is None else [_todo_out(row, user) for row in confirmed.rows]
-        ),
-        deleted_ids=confirmed.deleted_ids,
-    )
 
 
 @router.patch("/{todo_id}", response_model=TodoOut)

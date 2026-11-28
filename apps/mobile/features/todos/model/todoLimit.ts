@@ -13,7 +13,7 @@ function codeOf(error: unknown): unknown {
 }
 
 /** Whether a failed to-do change was refused for the account's open to-do cap. */
-export function isTodoLimit(error: unknown): boolean {
+function isTodoLimit(error: unknown): boolean {
   return codeOf(error) === TODO_LIMIT_CODE;
 }
 

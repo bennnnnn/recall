@@ -392,8 +392,8 @@ def _reads_own_list(text: str) -> bool:
 
 
 # A card the user answers with a tap is the reply's next step: a clarify card's
-# picks, or a reminder to confirm. Follow-up questions under it would compete.
-_AWAITS_A_TAP = frozenset({CLARIFY_FENCE, "reminder_proposal"})
+# picks, or the button that opens To-do. Follow-up questions under it would compete.
+_AWAITS_A_TAP = frozenset({CLARIFY_FENCE, "todo_link"})
 
 
 def follow_up_topic(
@@ -410,7 +410,7 @@ def follow_up_topic(
     ``shown`` is what the chat offered under its last replies (None while not known): a
     line on a topic of its own continues a problem only when its reply still works it,
     and a tapped follow-up always does (``thread_problem``). A reply that ends on a card waiting for a tap has its follow-up already: a clarify
-    card's questions, a reminder to confirm. Suggestions under it only repeated them
+    card's questions, the button that opens To-do. Suggestions under it only repeated them
     ("What is your budget?"). A line that reads the To-do list back gets none.
     """
     if any(fence.lang in _AWAITS_A_TAP for fence in iter_fences(answer)):

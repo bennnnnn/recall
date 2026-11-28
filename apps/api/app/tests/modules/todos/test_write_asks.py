@@ -1,4 +1,7 @@
-"""A to-do change asked in another language gets the To-do button from the server."""
+"""A to-do change asked in chat, in any language, gets the To-do button from the server.
+
+Chat only reads to-dos (owner, 2026-11-27): it never asks when, never saves, never claims.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,71 @@ from app.modules.todos.chat_language import todo_screen_answer
 from app.modules.todos.write_asks import asks_to_change_todos, todo_screen_reply
 
 _BUTTON = "Puedes añadirlo o cambiarlo en **Tareas**.\n\n```todo_link\n```"
+_EN_BUTTON = "You can add or change it in **To-do**.\n\n```todo_link\n```"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "remind me to call mom",
+        "Remind me tomorrow at 6pm to call mom",
+        "ok can you remind me to water the plants",
+        "please remind me in 20 minutes to check the oven",
+        "can you set a reminder for my dentist on Friday",
+        "set a reminder to pay rent",
+        "add a reminder for the gym at 7am",
+        "create a to-do: renew my passport",
+        "set an alarm for 7",
+        "Set alarm 6:30am",
+        "add milk to my list",
+        "put eggs on the shopping list",
+        "add call the plumber to my to-do list",
+        "remimd me to call mom",
+        # An English verb in an English sentence, whatever script its object is in.
+        "remind me to buy молоко хлеб сыр",
+    ],
+)
+def test_an_english_ask_for_a_reminder_is_read_as_one(text: str) -> None:
+    assert asks_to_change_todos(text) is True
+    assert todo_screen_reply(text) == _EN_BUTTON
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Reading the list, and memory.
+        "what's on my list today?",
+        "when is my dentist appointment?",
+        "can you remember my dentist is Friday",
+        "remember that I like tea",
+        # Asked to be told or taught again, and talk about reminders.
+        "remind me how to convert Celsius to Fahrenheit",
+        "remind me what the yellow fever thing was",
+        "you forgot to remind me yesterday",
+        "how do I set a reminder on my iPhone?",
+        "what's the best to-do list app?",
+        # Edits to what the assistant wrote, and code.
+        "add a line saying the rent is paid",
+        "add two more examples",
+        "add error handling to the reminder service",
+        "how do I remove a to-do item in React",
+        "Can you add 3 + 4 using the same method?",
+        "my list of reasons to move is long",
+        # Review of #2619: told something, or code.
+        "remind me the steps to solve a quadratic",
+        "remind me the rules to chess",
+        "remind me the answer to question 2",
+        "create a task queue with celery",
+        "make a task scheduler in python",
+        "add dark mode to my todo list app",
+        "Reminder: I'm allergic to peanuts. What snacks can I bring?",
+        "make a to-do list for my move",
+        "remind me about the dentist tomorrow",
+    ],
+)
+def test_an_english_lookalike_is_not_a_to_do_change(text: str) -> None:
+    assert asks_to_change_todos(text) is False
+    assert todo_screen_reply(text) is None
 
 
 @pytest.mark.parametrize(
@@ -140,24 +208,37 @@ def test_the_server_answers_a_hindi_ask_with_the_button() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "prior_user", "prior_assistant", "locale"),
+    ("text", "prior_user", "locale", "line"),
     [
-        # English writes in chat: the model answers and the card is the user's to tap.
-        ("remind me to call mom at 9", None, None, "es"),
-        ("add milk to my list", None, None, "en"),
-        # Another language that isn't a change: the model answers from the list.
-        ("¿qué tengo hoy?", None, None, "en"),
-        # A time in an English chat.
-        ("5pm", "remind me to buy milk", "What time?", "en"),
+        # An English message is answered in English, whatever the app language.
+        ("remind me to call mom at 9", None, "es", "en"),
+        # A message with no language of its own follows the chat, then the app language.
+        ("17:00", "añade leche a mis tareas", "en", "es"),
+        ("ነገ 9 ሰዓት እናቴን እንድደውል አስታውሰኝ", None, "en", "am"),
     ],
 )
-def test_the_model_answers_everything_else(
-    text: str, prior_user: str | None, prior_assistant: str | None, locale: str
+def test_the_line_is_in_the_users_language(
+    text: str, prior_user: str | None, locale: str, line: str
 ) -> None:
-    reply = todo_screen_reply(
-        text, prior_user=prior_user, prior_assistant=prior_assistant, locale=locale
-    )
-    assert reply is None
+    reply = todo_screen_reply(text, prior_user=prior_user, prior_assistant=_BUTTON, locale=locale)
+    assert reply == todo_screen_answer(line)
+
+
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        # After the button, an English reply that only says when asks again.
+        ("6pm", True),
+        ("tomorrow at 6", True),
+        ("in 20 minutes", True),
+        # Anything else is a new message.
+        ("what is 17 * 3", False),
+        ("thanks", False),
+        ("ok", False),
+    ],
+)
+def test_a_time_after_the_button_in_english_asks_again(text: str, asks: bool) -> None:
+    assert asks_to_change_todos(text, prior_assistant=_EN_BUTTON) is asks
 
 
 def test_a_time_after_the_button_in_a_spanish_chat_gets_it_again() -> None:
@@ -165,3 +246,19 @@ def test_a_time_after_the_button_in_a_spanish_chat_gets_it_again() -> None:
         "a las 5", prior_user="añade leche a mis tareas", prior_assistant=_BUTTON, locale="en"
     )
     assert reply == _BUTTON
+
+
+@pytest.mark.parametrize(
+    ("text", "prior", "asks"),
+    [
+        # A yes to an old reply's offer of a reminder is that reminder: the To-do button.
+        ("yes", "Pack layers.\n\nWant me to set a reminder to check in online?", True),
+        ("sure", "Sure. When should I remind you?", True),
+        ("tomorrow at 6", "Sure. When should I remind you?", True),
+        # A yes to anything else is the model's.
+        ("yes", "Want a practice problem?", False),
+        ("ok", _EN_BUTTON, False),
+    ],
+)
+def test_a_yes_to_an_offered_reminder_asks_for_it(text: str, prior: str, asks: bool) -> None:
+    assert asks_to_change_todos(text, prior_assistant=prior) is asks

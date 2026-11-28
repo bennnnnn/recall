@@ -43,9 +43,6 @@ jest.mock("@/components/MarkdownContent", () => {
 jest.mock("@/features/chat/components/SettingsProposalCard", () => ({
   SettingsProposalCard: () => null,
 }));
-jest.mock("@/features/todos/components/ReminderProposalCard", () => ({
-  ReminderProposalCard: () => null,
-}));
 jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({
   ChatMessageImageStrip: () => null,
 }));
@@ -113,8 +110,6 @@ jest.mock("@/features/chat/hooks/useAssistantMessageContent", () => ({
     clockTimezone: "America/New_York",
     settingsProposals: [],
     showSettingsProposals: false,
-    reminderProposals: [],
-    showReminderProposals: false,
     images: [],
     showImages: false,
     markdownContent: isUser ? "" : "Assistant reply",

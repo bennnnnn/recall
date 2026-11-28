@@ -6,7 +6,6 @@ import { fetchLinkPreview } from "@/lib/linkPreview";
 import { latexToSvgMath, peekSvgMath, setSvgMathRendererForTest } from "@/lib/math/svgMath";
 import { clearSignedOutAccount } from "@/lib/signOutCleanup";
 import { getStreamingDraft, publishStreamingDraft } from "@/features/chat/model/streamingDraftStore";
-import { clearSavedProposals } from "@/features/todos/model/reminderProposal";
 import { resetQuotaNudgeDismissal } from "@/features/chat/model/quotaNudgeDismissal";
 import { forgetSyncRecords } from "@/lib/syncRecords";
 import { clearSettledStatuses } from "@/features/attachments/model/attachmentStatusFile";
@@ -41,7 +40,6 @@ jest.mock("@/lib/cachedModels", () => ({ clearCachedModels: jest.fn(async () => 
 jest.mock("@/lib/syncRecords", () => ({ forgetSyncRecords: jest.fn(async () => undefined) }));
 jest.mock("@/lib/google-auth", () => ({ signOutGoogle: jest.fn(async () => undefined) }));
 jest.mock("@/features/chat/model/composerDraftReset", () => ({ resetComposerDraftsForAccount: jest.fn() }));
-jest.mock("@/features/todos/model/reminderProposal", () => ({ clearSavedProposals: jest.fn() }));
 jest.mock("@/features/chat/model/quotaNudgeDismissal", () => ({ resetQuotaNudgeDismissal: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ clearLocalAttachmentFileCache: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentStatusFile", () => ({ clearSettledStatuses: jest.fn() }));
@@ -89,7 +87,6 @@ it("forgets the quiz answers, link previews, maths and the reply still streaming
   expect(getStreamingDraft()).toBeNull();
   await fetchLinkPreview("https://a.example");
   expect(request).toHaveBeenCalledTimes(2);
-  expect(clearSavedProposals).toHaveBeenCalled();
   // The server forgets the device's push token with the session.
   expect(clearPushSyncRecord).toHaveBeenCalled();
   expect(resetQuotaNudgeDismissal).toHaveBeenCalled();

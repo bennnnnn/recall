@@ -22,7 +22,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
-import { ImageScene, NewsScene, ReminderScene } from "./ChatScenes";
+import { ImageScene, NewsScene } from "./ChatScenes";
 import { PhysicsScene, ScanScene } from "./MotionScenes";
 import { SceneTint } from "./SceneParts";
 
@@ -34,8 +34,8 @@ type Slide = {
 };
 
 /** Learning first: a photo of homework worked out, then a physics answer that plays; then
- * making and asking: a picture from a sentence, today's news with its sources; then a reminder
- * from one sentence. */
+ * making and asking: a picture from a sentence, today's news with its sources. (Chat only
+ * reads to-dos since 2026-11-27, so no slide makes a reminder from a sentence.) */
 export const SLIDES: readonly Slide[] = [
   { key: "scan", Scene: ScanScene, titleKey: "onboarding.slide_scan_title", bodyKey: "onboarding.slide_scan_body" },
   {
@@ -46,12 +46,6 @@ export const SLIDES: readonly Slide[] = [
   },
   { key: "image", Scene: ImageScene, titleKey: "onboarding.slide_image_title", bodyKey: "onboarding.slide_image_body" },
   { key: "news", Scene: NewsScene, titleKey: "onboarding.slide_chat_title", bodyKey: "onboarding.slide_chat_body" },
-  {
-    key: "remind",
-    Scene: ReminderScene,
-    titleKey: "onboarding.slide_remind_title",
-    bodyKey: "onboarding.slide_remind_body",
-  },
 ];
 
 /** Large system text still reads, and the landing still fits on one screen. */

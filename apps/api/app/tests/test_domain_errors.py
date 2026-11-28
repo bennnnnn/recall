@@ -33,7 +33,6 @@ from app.modules.memory.locks import MemoryWriteLockBusyError
 from app.modules.speech.gates import SpeechRefusedError
 from app.modules.todos.crud import TodosError
 from app.modules.todos.limits import TodoLimitError
-from app.modules.todos.proposals import ProposalError
 from app.repositories.keyset import InvalidCursorError
 
 # (refusal, status, code) for every subclass.
@@ -41,7 +40,6 @@ CASES: list[tuple[DomainError, int, str]] = [
     (ChatsError("Chat not found", status_code=404), 404, "not_found"),
     (PinLimitError(), 409, "pin_limit"),
     (TodosError("recurrence_rule requires due_at", status_code=422), 422, "invalid"),
-    (ProposalError("This expired. Ask again.", status_code=410), 410, "expired"),
     (TodoLimitError("You have 1000 open to-dos."), 409, "todo_limit"),
     (SettingsProposalError("That's already set."), 400, "invalid"),
     (ImageGenerationError("Not available", status_code=404, code="not_available"), 404, "not_available"),

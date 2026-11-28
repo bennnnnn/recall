@@ -14,8 +14,8 @@ from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import (
-    _no_reminders,
     _no_session,
+    _no_todos,
     battery_settings,
     offline_pubchem,
     route_case,
@@ -50,12 +50,14 @@ async def finalize_reply(
         default_deps(),
         session_factory=_no_session,
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
-        todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
+        todos=SimpleNamespace(
+            read_back=AsyncMock(side_effect=_no_todos),
+            saved_todo_named=AsyncMock(return_value=None),
+        ),
     )
     with offline_pubchem():
         saved = await enrich_final_content(
             deps,
-            AsyncMock(),
             battery_settings(),
             ctx,
             assistant_text=reply,

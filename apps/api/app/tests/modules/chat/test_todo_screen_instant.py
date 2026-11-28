@@ -38,6 +38,13 @@ async def test_a_spanish_ask_to_add_a_to_do_gets_the_button_without_a_model() ->
 
 
 @pytest.mark.asyncio
+async def test_an_english_ask_gets_the_button_in_english_without_a_model() -> None:
+    """Chat sets no reminder in any language (owner, 2026-11-27)."""
+    out = await _instant("remind me to call mom tomorrow at 9", [], locale="es")
+    assert out == "You can add or change it in **To-do**.\n\n```todo_link\n```"
+
+
+@pytest.mark.asyncio
 async def test_a_time_after_the_button_gets_it_again() -> None:
     recent = [("user", "añade comprar leche a mis tareas"), ("assistant", _ES_BUTTON)]
     assert await _instant("mañana a las 5", recent) == _ES_BUTTON
@@ -47,8 +54,6 @@ async def test_a_time_after_the_button_gets_it_again() -> None:
 @pytest.mark.parametrize(
     ("content", "locale"),
     [
-        # English writes in chat: the model answers and offers a card to tap.
-        ("remind me to call mom tomorrow at 9", "es"),
         # A question in Spanish is answered from the list by the model.
         ("¿qué tengo hoy?", "en"),
         ("ayúdame con mi tarea de matemáticas", "es"),

@@ -26,14 +26,6 @@ OPEN_TODOS_MAX = 1000
 REMINDERS_PER_ACCOUNT_PER_CYCLE = 20
 
 
-# What live talk says when a reminder the user spoke meets the cap (English: other
-# languages never write to-dos there).
-TODO_LIST_FULL_REPLY = (
-    f"I couldn't save that reminder: your to-do list has {OPEN_TODOS_MAX} open to-dos, the "
-    "most Recall keeps. Complete or delete some, then ask again."
-)
-
-
 class TodoLimitError(DomainError):
     """The account has as many open to-dos as Recall keeps."""
 

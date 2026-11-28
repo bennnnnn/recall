@@ -51,6 +51,7 @@ from app.modules.chat.prompt_constants import (
     SETTINGS_IN_APP_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
+    TODO_IN_APP_HINT,
     TONE_RULES,
     UNCLEAR_MESSAGE_HINT,
     is_bare_writing_line,
@@ -371,7 +372,9 @@ STABLE_SECTIONS: tuple[PromptSection, ...] = (
     # "Bo" or "gd" may be a typo, another language or a half-typed message: the
     # model, which sees the conversation, decides; no word list or length gate.
     PromptSection(
-        _always, lambda _t: [UNCLEAR_MESSAGE_HINT, SETTINGS_IN_APP_HINT], name="unclear_message"
+        _always,
+        lambda _t: [UNCLEAR_MESSAGE_HINT, SETTINGS_IN_APP_HINT, TODO_IN_APP_HINT],
+        name="unclear_message",
     ),
     PromptSection(
         _always, lambda t: _present(custom_instructions_block(t.user)), name="custom_instructions"

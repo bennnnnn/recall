@@ -165,10 +165,9 @@ describe("frames", () => {
     expect(run.messages).toEqual([expect.objectContaining({ id: "m-1", content: "Hello", generationStopped: true })]);
   });
 
-  it("done reports a to-do change and the day's usage", () => {
+  it("done reports the day's usage", () => {
     const usage = { used_tokens: 81_000, daily_limit: 100_000 };
-    const run = play(streaming(), [frame({ type: "done", message_id: "m-1", final_content: "Added", todos_changed: true, usage })], [bubble]);
-    expect(run.of("todos_changed")).toHaveLength(1);
+    const run = play(streaming(), [frame({ type: "done", message_id: "m-1", final_content: "Hello", usage })], [bubble]);
     expect(run.of("usage")).toEqual([{ type: "usage", usage }]);
   });
 

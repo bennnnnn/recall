@@ -5,7 +5,7 @@
   "prompt": "remind me to call mom tomorrow at 6pm",
   "history": [],
   "reply": "I'll remind you tomorrow evening.\n\n```reminder\n{\"title\": \"Call mom\", \"due_at\": \"2026-10-15T18:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-002",
@@ -13,7 +13,7 @@
   "prompt": "remind me to pay rent on Friday at 9am",
   "history": [],
   "reply": "Set: pay rent — Friday, Oct 16, 9:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-003",
@@ -21,7 +21,7 @@
   "prompt": "Remind me to take my vitamins every day at 8:00 am",
   "history": [],
   "reply": "Daily vitamin reminder, starting tomorrow morning.\n\n```reminder\n{\"title\": \"Take my vitamins\", \"due_at\": \"2026-10-15T08:00:00+03:00\", \"recurrence_rule\": \"daily\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-004",
@@ -29,7 +29,7 @@
   "prompt": "add a reminder to submit the visa form on Monday at 10:30am",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Submit the visa form\", \"due_at\": \"2026-10-19T10:30:00+03:00\"}\n```\n\nSet: submit the visa form — Monday, Oct 19, 10:30 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-005",
@@ -37,7 +37,7 @@
   "prompt": "remind me tomorrow at 7am to go for a run",
   "history": [],
   "reply": "Early start — nice.\n\n```reminder\n{\"title\": \"Go for a run\", \"due_at\": \"2026-10-15T07:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-006",
@@ -54,7 +54,7 @@
    ]
   ],
   "reply": "Set: call mom — Thursday, Oct 15, 6:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-007",
@@ -71,7 +71,7 @@
    ]
   ],
   "reply": "Got it — 6 PM on Saturday.\n\n```reminder\n{\"title\": \"Pick up the dry cleaning\", \"due_at\": \"2026-10-17T18:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-008",
@@ -88,7 +88,7 @@
    ]
   ],
   "reply": "```reminder\n{\"title\": \"Gym\", \"due_at\": \"2026-10-15T07:30:00+03:00\"}\n```\n\nSet: gym — Thursday, Oct 15, 7:30 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-009",
@@ -96,7 +96,7 @@
   "prompt": "remind me to renew my passport on October 30 at 11am",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Renew my passport\", \"due_at\": \"2026-10-30T11:00:00+03:00\"}\n```\n\nI'll remind you on Friday, Oct 30 at 11:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-010",
@@ -104,7 +104,7 @@
   "prompt": "remind me every Monday at 9am to send the weekly report",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Send the weekly report\", \"due_at\": \"2026-10-19T09:00:00+03:00\", \"recurrence_rule\": \"weekly\"}\n```\n\nSet: send the weekly report — Monday, Oct 19, 9:00 AM · weekly.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-011",
@@ -112,7 +112,7 @@
   "prompt": "remind me to take out the trash tonight at 9pm",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Take out the trash\", \"due_at\": \"2026-10-14T21:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-012",
@@ -120,7 +120,7 @@
   "prompt": "Can you remind me to call the plumber tomorrow at 10am?",
   "history": [],
   "reply": "Sure!\n\n```reminder\n{\"title\": \"Call the plumber\", \"due_at\": \"2026-10-15T10:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-013",
@@ -128,7 +128,7 @@
   "prompt": "remind me at noon tomorrow to check on the bread dough",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Check on the bread dough\", \"due_at\": \"2026-10-15T12:00:00+03:00\"}\n```\n\nSet: check on the bread dough — Thursday, Oct 15, 12:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-014",
@@ -145,7 +145,7 @@
    ]
   ],
   "reply": "```reminder\n{\"title\": \"Send the invoice\", \"due_at\": \"2026-10-14T16:00:00+03:00\"}\n```\n\nSet: send the invoice — Wednesday, Oct 14, 4:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-015",
@@ -153,7 +153,7 @@
   "prompt": "remind me to call mom tomorrow",
   "history": [],
   "reply": "When should I remind you?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-016",
@@ -161,7 +161,8 @@
   "prompt": "add buy milk",
   "history": [],
   "reply": "Sure — what time?",
-  "expect": "ask_time"
+  "expect": "todo_screen",
+  "gap": "a bare 'add X' names no list or reminder: the model's to answer, told chat adds none"
  },
  {
   "id": "td-017",
@@ -169,7 +170,7 @@
   "prompt": "remind me to stretch tomorrow",
   "history": [],
   "reply": "Sure — what time tomorrow?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-018",
@@ -177,7 +178,7 @@
   "prompt": "add a reminder to book flights on Friday",
   "history": [],
   "reply": "What time on Friday should I remind you?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-019",
@@ -185,7 +186,7 @@
   "prompt": "remind me to email the landlord",
   "history": [],
   "reply": "When should I remind you?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-020",
@@ -193,7 +194,7 @@
   "prompt": "can you add laundry to my to-do list",
   "history": [],
   "reply": "Sure — what time should I remind you to do the laundry?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-021",
@@ -201,7 +202,7 @@
   "prompt": "remind me to take my medicine in the evening",
   "history": [],
   "reply": "What time in the evening — 7 PM?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-022",
@@ -218,7 +219,7 @@
    ]
   ],
   "reply": "What time tomorrow?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-023",
@@ -226,7 +227,7 @@
   "prompt": "move the dentist reminder to Thursday",
   "history": [],
   "reply": "What time on Thursday?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-024",
@@ -234,7 +235,7 @@
   "prompt": "mark call mom as done",
   "history": [],
   "reply": "Done: call mom.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-025",
@@ -242,7 +243,7 @@
   "prompt": "delete the dentist reminder",
   "history": [],
   "reply": "Deleted: dentist appointment.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-026",
@@ -250,7 +251,7 @@
   "prompt": "move gym to 7pm",
   "history": [],
   "reply": "Moved: gym — Thursday, Oct 15, 7:00 PM.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-027",
@@ -258,7 +259,7 @@
   "prompt": "reschedule pay rent to Saturday at 10am",
   "history": [],
   "reply": "Moved: pay rent — Saturday, Oct 17, 10:00 AM.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-028",
@@ -266,7 +267,8 @@
   "prompt": "complete the laundry task",
   "history": [],
   "reply": "Done: laundry.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "td-029",
@@ -274,7 +276,8 @@
   "prompt": "uncheck buy milk",
   "history": [],
   "reply": "Reopened: buy milk.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "td-030",
@@ -291,7 +294,8 @@
    ]
   ],
   "reply": "Moved: take my vitamins — Thursday, Oct 15, 8:00 AM · daily.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-031",
@@ -308,7 +312,7 @@
    ]
   ],
   "reply": "Done: water the plants.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-032",
@@ -316,7 +320,7 @@
   "prompt": "remove the gym reminder",
   "history": [],
   "reply": "Deleted: gym.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-033",
@@ -324,7 +328,7 @@
   "prompt": "change call mom to 8pm",
   "history": [],
   "reply": "Moved: call mom — Thursday, Oct 15, 8:00 PM.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-034",
@@ -436,7 +440,8 @@
   "prompt": "schedule a call with the bank next week",
   "history": [],
   "reply": "Which day and time next week works for the call with the bank? Once you tell me, I'll draft the event for you to confirm.",
-  "expect": "ask_time"
+  "expect": "todo_screen",
+  "gap": "scheduling with no reminder word is the model's to answer, told chat sets none"
  },
  {
   "id": "td-048",
@@ -1054,7 +1059,7 @@
    ]
   ],
   "reply": "Got it — 6:30 PM on Saturday.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-112",
@@ -1071,7 +1076,7 @@
    ]
   ],
   "reply": "Sorry, what time on Saturday should I remind you?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "td-113",
@@ -1088,7 +1093,8 @@
    ]
   ],
   "reply": "Done — moved **gym** to Thursday, Oct 15, 6:30 PM.",
-  "expect": "change"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-114",
@@ -1096,7 +1102,7 @@
   "prompt": "move gym to friday at 6:30",
   "history": [],
   "reply": "Moved **gym** to Friday, Oct 16, 6:30 PM.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "td-115",
@@ -1229,7 +1235,7 @@
    ]
   ],
   "reply": "```reminder\n{\"action\": \"set_due\", \"title\": \"water the plants\", \"due_at\": \"2026-10-14T20:00:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "td-125",
@@ -1246,7 +1252,8 @@
    ]
   ],
   "reply": "Updated: Study bio — Wednesday, Oct 14, 8:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-126",

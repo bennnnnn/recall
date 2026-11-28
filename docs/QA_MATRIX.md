@@ -98,12 +98,12 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 ---
 
-## 6. Reminder cards
+## 6. To-dos in chat (read only)
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
-| 6.1 | "Remind me to call mom tomorrow at 6pm" shows a card; nothing is saved until Add is tapped | ☐ | ☐ | |
-| 6.2 | Completing, moving or deleting a to-do from chat shows a card; the list changes only on tap | ☐ | ☐ | |
+| 6.1 | "Remind me to call mom tomorrow at 6pm" answers with one line and an Open To-do button; nothing is saved, and the reply never says it was | ☐ | ☐ | Same in Spanish and Amharic; live talk says it aloud |
+| 6.2 | "What's on my list today?" lists the saved to-dos; completing, moving or deleting one from chat gets the To-do button and changes nothing | ☐ | ☐ | |
 | 6.3 | "What's on my calendar?" says Recall does not connect to calendars and answers from To-do | ☐ | ☐ | Calendar/Gmail removed |
 
 ---

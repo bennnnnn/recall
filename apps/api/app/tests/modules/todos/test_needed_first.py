@@ -12,9 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.todos import actions as todo_actions
 from app.modules.todos import repository as todos_repo
-from app.modules.todos.schemas import TodoActionItem
 from app.repositories import users as users_repo
 
 
@@ -58,22 +56,6 @@ async def test_a_limited_read_keeps_the_open_and_overdue_first(db_session):
 
 
 @pytest.mark.asyncio
-async def test_a_chat_edit_finds_a_to_do_past_the_list_order_cut(db_session):
-    user, overdue = await _user_with_a_late_topic(db_session)
-
-    with patch.object(todo_actions, "ACTION_RELOAD_LIMIT", 2):
-        applied = await todo_actions.apply_todo_actions(
-            db_session,
-            user_id=user.id,
-            actions=[TodoActionItem(action="complete", topic="Zz", content="Zumba class")],
-        )
-
-    assert applied == 1
-    await db_session.refresh(overdue)
-    assert overdue.checked is True
-
-
-@pytest.mark.asyncio
 async def test_the_prompt_snapshot_keeps_the_overdue_reminder(db_session):
     """The headline cut: the prompt's to-do block read in list order lost it."""
     from app.core.config import Settings
@@ -86,22 +68,6 @@ async def test_the_prompt_snapshot_keeps_the_overdue_reminder(db_session):
     )
 
     assert block is not None and "Zumba class" in block
-
-
-@pytest.mark.asyncio
-async def test_a_reminder_fence_reads_the_needed_rows(db_session):
-    """A reply's reminder fences match against the saved rows read once (``load_existing``)."""
-    from app.modules.todos import reminder_writes
-
-    user, overdue = await _user_with_a_late_topic(db_session)
-    state = reminder_writes.ReminderWrites(
-        session=db_session, user_id=user.id, chat_id=uuid4(), user_timezone=None
-    )
-
-    with patch.object(reminder_writes, "ACTION_RELOAD_LIMIT", 2):
-        await reminder_writes.load_existing(state)
-
-    assert overdue.id in {item.id for item in state.existing}
 
 
 @pytest.mark.asyncio

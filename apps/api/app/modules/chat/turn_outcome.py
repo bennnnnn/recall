@@ -48,7 +48,6 @@ class TurnOutcome:
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0
     search_sources: list[SearchSource] = field(default_factory=list)
-    todos_changed: bool = False
     # The day's usage once the turn's charge settled; None until then, or on failure.
     usage: TurnUsage | None = None
     # The user message this turn answers is in the chat. An error frame says so

@@ -140,11 +140,9 @@ async def _fake_session() -> Any:
 
 
 def _deps() -> Any:
-    async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
-        return str(kwargs["assistant_text"]), 0
-
     todos = MagicMock()
-    todos.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
+    todos.read_back = AsyncMock(return_value="Nothing scheduled.")
+    todos.saved_todo_named = AsyncMock(return_value=None)
     math_fence = MagicMock()
     math_fence.check = lambda content, *_a, **_k: content
     math_fence.recover = lambda content, _verified: content
@@ -176,7 +174,6 @@ def _ctx(*, search_sources: list[WebSearchHit] | None = None) -> MagicMock:
 async def _finalize(reply: str, ctx: MagicMock, outcome: TurnOutcome) -> str:
     return await enrich_final_content(
         _deps(),
-        MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
         assistant_text=reply,

@@ -1,42 +1,44 @@
-"""Sentences in a reply that say a reminder change already happened.
+"""Sentences in a reply that say a to-do change happened.
 
-The app's own result line or card is the only confirmation of a reminder. With
-reminder cards on (the default) nothing is saved until the user taps, so the
-model's "Done! I've set a reminder for 9 AM" above the card is false.
-``without_claims`` drops those sentences and keeps the rest of the reply:
-"Water boils at 100 °C" stays above the card.
+Chat never adds or changes a to-do (``chat_language``), so a reply's "Done! I've set a
+reminder for 9 AM" or "Marked call mom as complete" is false. ``claims_change`` finds
+one; ``without_claims`` drops those sentences and keeps the rest of the reply: "Water
+boils at 100 °C" stays above the To-do line.
 
-A claim names a reminder, the card's item or a time, or is a bare "Done!" or
-"All set!". "I set aside time to write" in a story, "the meeting is set for
-Friday" and a question ("Want me to add another?") are not claims.
+A claim names a reminder or a time, or is a bare "Done!" or "All set!". "I set aside
+time to write" in a story, "the meeting is set for Friday" and a question ("Want me to
+add another?") are not claims.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 
 from app.services.md_fence_scan import line_fences
 
-# The words a change's result line opens with: the app's own ("Set:", "Moved:", "Done:")
+# The words a change's result line opens with ("Set:", "Moved:", "Done:"), the old app's
 # and a model's copies of them ("Updated: Study bio — 8:00 PM" with nothing changed).
-CLAIM_VERBS = (
+_CLAIM_VERBS = (
     r"(?:added|set|moved|deleted|done|reopened|scheduled|rescheduled|saved|created|"
     r"date removed|removed|updated|changed|completed|edited|renamed|marked(?:\s+done)?)"
 )
-# The app's own result line: "Set: gym — Thursday, 6:00 PM.", "Added: milk".
+# A result line: "Set: gym — Thursday, 6:00 PM.", "Added: milk".
 # On one line: "Updated:" above an edited draft on the lines after it claims nothing.
-CLAIM_LINE_RE = re.compile(rf"^{CLAIM_VERBS}[ \t]*:[ \t]+\S", re.IGNORECASE)
-COLON_CLAIM_RE = re.compile(rf"(?:got it!?\s*)?{CLAIM_VERBS}[ \t]*:[ \t]+\S", re.IGNORECASE)
+# "Set: $a = 1$" in a worked answer is none.
+_CLAIM_LINE_RE = re.compile(rf"^{_CLAIM_VERBS}[ \t]*:[ \t]+[^\s$\\`]", re.IGNORECASE)
+_COLON_CLAIM_RE = re.compile(
+    rf"(?:got it!?\s*)?{_CLAIM_VERBS}[ \t]*:[ \t]+[^\s$\\`]", re.IGNORECASE
+)
 # Prose that says a change was made, checked only for a message that asked for one.
-PROSE_CLAIM_RE = re.compile(
+_PROSE_CLAIM_RE = re.compile(
     r"\b(?:i(?:['\u2019]ve| have)?\s+added|"
     r"i(?:['\u2019]ll| will)\s+add|"
     r"added (?:your|it|that|a reminder|to your)|"
     r"you(?:['\u2019]ll| will)\s+now (?:get|have)|"
     r"marked as done|changed to|updated!|(?:to|on) your (?:grocery|shopping) list|"
     r"(?:moved|marked|deleted|removed|pushed|rescheduled|postponed|reopened|unchecked)\s+\**\w"
-    r"|checked off|(?:is|are) open again|back on your list)",
+    r"|checked off|(?:is|are) open again|back on your list"
+    r"|(?:keep|kept|put|placed)\b[^.!?\n]{0,60}?\b(?:on|in|to|into) your (?:to-?do\s+)?list)",
     re.IGNORECASE,
 )
 
@@ -71,7 +73,7 @@ _CLAIM_RE = re.compile(
             rf"(?:[\w'-]+\s+){{0,3}}?{_NOUN}\b(?!\s+(?:system|app|feature|tool|habit|routine"
             r"|settings?)\b)",
             rf"{_DOING}\s+(?:[\w'-]+\s+){{1,4}}?(?:to|on|in|into)\s+{_YOUR_LIST}\b",
-            # "Sure thing! I'll set that for you." above the card.
+            # "Sure thing! I'll set that for you."
             rf"{_WILL}\s+(?:set|add|save|schedule|create|put)\s+(?:it|that|this|them)\s+"
             r"(?:up\s+)?for you(?:\s+(?:now|right away))?(?=[\s!.]*$)",
             rf"{_WILL}\s+(?:\w+\s+){{0,2}}?(?:set|add|save|schedule|create|put)\s+(?:up\s+)?"
@@ -94,7 +96,7 @@ _CLAIM_RE = re.compile(
         )
     )
 )
-# A claim only beside a reminder word, the card's item, or a time: "I've set it
+# A claim only beside a reminder word or a time: "I've set it
 # for 9 AM", "Moved gym to Sunday". "It's set to 180°C" in a recipe is not one.
 _CONTEXT_CLAIM_RE = re.compile(
     "|".join(
@@ -120,7 +122,8 @@ _CONTEXT_CLAIM_RE = re.compile(
     )
 )
 _CONTEXT_RE = re.compile(
-    rf"\b{_NOUN}\b|\b{_YOUR_LIST}\b|\bas\s+(?:done|complete|completed|finished)\b"
+    rf"\b{_NOUN}\b|\b{_YOUR_LIST}\b|\b(?:as|marked)\s+(?:done|complete|completed|finished)\b"
+    r"|\b(?:checked|ticked|crossed) off\b"
     r"|\b\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)|\b\d{1,2}:\d{2}\b"
     r"|\b(?:today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday"
     r"|noon|midnight|morning|afternoon|evening|daily|weekly|weekdays|monthly)\b",
@@ -133,7 +136,7 @@ _BARE_CLAIM_RE = re.compile(
     r"|consider it done|noted|saved|scheduled|added|booked|sorted|taken care of"
     r"|reminder (?:set|added|saved|created|scheduled))"
 )
-# "Sure!" on its own above the card says nothing.
+# "Sure!" on its own says nothing.
 _ACK_ONLY_RE = re.compile(rf"{_ACK}|got it|you got it|will do|sounds good")
 _SENTENCE_RE = re.compile(r"(?<=[.!?])\s+(?=[^a-z])")
 # A claim that ends a sentence: "Water boils at 100 °C, and I've set a reminder…".
@@ -146,90 +149,56 @@ _MARKER_RE = re.compile(r"^(\s*(?:[-*+>]\s+|\d+[.)]\s+)?)(.*)$", re.DOTALL)
 _WORD_RE = re.compile(r"[^\W_]")
 
 
-def without_claim_lines(lines: list[str]) -> list[str]:
-    """Drop "Added: …" lines outside code fences; a ``done: false`` field stays."""
-    if not lines:
-        return []
-    owners = line_fences("\n".join(lines))
-    return [
-        line
-        for line, fence in zip(lines, owners, strict=True)
-        if fence is not None or not CLAIM_LINE_RE.match(line.strip())
-    ]
+def claims_change(text: str, *, about_todos: bool = False) -> bool:
+    """Whether a sentence of ``text`` outside code says a to-do change happened.
 
-
-def without_claims(text: str, titles: Iterable[str] = ()) -> str:
-    """The reply without sentences that say a reminder change already happened.
-
-    ``titles`` are the card's items: "I've marked call mom as done" names one.
-    Code is left alone. A reply left with only "Sure!" says nothing beside the
-    app's own line or card, so it goes too.
+    ``about_todos``: the message asked for one, so "Moved." or "Done — it's marked
+    complete" needs no reminder word or time beside it to be a claim.
     """
-    named = tuple(title.strip().lower() for title in titles if len(title.strip()) >= 3)
+    return without_claims(text, about_todos=about_todos) != _settled(text)
+
+
+def without_claims(text: str, *, about_todos: bool = False) -> str:
+    """The reply without sentences that say a to-do change already happened.
+
+    Code is left alone. A reply left with only "Sure!" says nothing beside the
+    app's own line, so it goes too.
+    """
     kept: list[str] = []
     for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
-        cleaned = line if fence is not None else _line_without_claims(line, named)
+        cleaned = line if fence is not None else _line_without_claims(line, about_todos)
         if cleaned is not None:
             kept.append(cleaned)
-    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+    body = _settled("\n".join(kept))
     return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
 
 
-# "When should I remind you?", "What time works?": a question the card already answers.
-_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+def _settled(text: str) -> str:
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def without_when_questions(text: str) -> str:
-    """The reply without a question asking when, once the app's card holds the time.
-
-    "Remind me to stretch in 3 minutes" answered "When should I remind you?" above
-    a card due in three minutes contradicted itself. Code is left alone.
-    """
-    kept: list[str] = []
-    for line, fence in zip(text.split("\n"), line_fences(text), strict=True):
-        sentences = _SENTENCE_RE.split(line) if fence is None else [line]
-        left = [
-            part
-            for part in sentences
-            if fence is not None or not (part.rstrip().endswith("?") and _ASKS_WHEN_RE.search(part))
-        ]
-        if left == sentences:
-            kept.append(line)
-            continue
-        joined = " ".join(left).strip()
-        if _WORD_RE.search(joined) and not _ACK_ONLY_RE.fullmatch(_plain(joined)):
-            kept.append(joined)
-    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
-    return "" if _ACK_ONLY_RE.fullmatch(_plain(body)) else body
-
-
-def split_sentences(line: str) -> list[str]:
-    """One line of prose as its sentences."""
-    return _SENTENCE_RE.split(line)
-
-
-def is_claim(sentence: str, titles: Iterable[str] = ()) -> bool:
-    """One sentence that says a reminder change happened (see the module doc)."""
+def is_claim(sentence: str, *, about_todos: bool = False) -> bool:
+    """One sentence that says a to-do change happened (see the module doc)."""
     plain = _plain(sentence)
     if not plain or sentence.rstrip().endswith("?"):
         return False
-    if _BARE_CLAIM_RE.fullmatch(plain) or COLON_CLAIM_RE.match(plain) or _CLAIM_RE.search(plain):
+    if _BARE_CLAIM_RE.fullmatch(plain) or _COLON_CLAIM_RE.match(plain) or _CLAIM_RE.search(plain):
         return True
-    if not (_CONTEXT_CLAIM_RE.search(plain) or PROSE_CLAIM_RE.search(plain)):
+    if not (_CONTEXT_CLAIM_RE.search(plain) or _PROSE_CLAIM_RE.search(plain)):
         return False
-    return bool(_CONTEXT_RE.search(plain)) or any(title in plain for title in titles)
+    return about_todos or bool(_CONTEXT_RE.search(plain))
 
 
-def _line_without_claims(line: str, titles: tuple[str, ...]) -> str | None:
+def _line_without_claims(line: str, about_todos: bool) -> str | None:
     """The line minus its claim sentences; None when nothing worth keeping is left."""
     if not line.strip():
         return line
-    if CLAIM_LINE_RE.match(line.strip()):
+    if _CLAIM_LINE_RE.match(line.strip()):
         return None
     marker = _MARKER_RE.match(line)
     prefix, body = (marker.group(1), marker.group(2)) if marker else ("", line)
     sentences = _SENTENCE_RE.split(body)
-    kept = [part for part in (_without_claim_tail(s, titles) for s in sentences) if part]
+    kept = [part for part in (_without_claim_tail(s, about_todos) for s in sentences) if part]
     if kept == sentences:
         return line
     joined = " ".join(kept).strip()
@@ -244,17 +213,21 @@ _CONDITION_HEAD = re.compile(r"^\W*(?:once|when|after|if|as soon as)\s+you\b", r
 _SAYS_IT_DID = re.compile(r"\b(?:i|we)(?:['\u2019](?:ve|ll|m|d|re))?\b", re.IGNORECASE)
 
 
-def _without_claim_tail(sentence: str, titles: tuple[str, ...]) -> str:
+def _without_claim_tail(sentence: str, about_todos: bool) -> str:
     """The sentence with its claim clause cut off, or "" when all of it is a claim."""
     for boundary in _CLAUSE_RE.finditer(sentence):
         head, tail = sentence[: boundary.start()], sentence[boundary.end() :]
         if _CONDITION_HEAD.match(head) and not _SAYS_IT_DID.search(tail):
             continue
-        if _WORD_RE.search(head) and not is_claim(head, titles) and is_claim(tail, titles):
+        if (
+            _WORD_RE.search(head)
+            and not is_claim(head, about_todos=about_todos)
+            and is_claim(tail, about_todos=about_todos)
+        ):
             return head.rstrip(" ,;\u2014\u2013-") + "."
     if _CONDITION_HEAD.match(sentence) and not _SAYS_IT_DID.search(sentence):
         return sentence
-    return "" if is_claim(sentence, titles) else sentence
+    return "" if is_claim(sentence, about_todos=about_todos) else sentence
 
 
 def _plain(text: str) -> str:

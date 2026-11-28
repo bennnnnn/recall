@@ -110,56 +110,56 @@
   "area": "todo",
   "prompt": "remind me to plate the dinner at 7pm",
   "reply": "Set: Plate the dinner — today, Oct 14, 7:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-021",
   "area": "todo",
   "prompt": "remind me to plate the dinner at 7pm",
   "reply": "Sure! I'll remind you at 7 PM tonight to plate the dinner.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-022",
   "area": "todo",
   "prompt": "remind me to call mom at 7pm",
   "reply": "Set: Call mom — today, Oct 14, 7:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-023",
   "area": "todo",
   "prompt": "remind me at 6:30am to take my pills",
   "reply": "Set: Take my pills — Thursday, Oct 15, 6:30 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-024",
   "area": "todo",
   "prompt": "set a reminder to start the oven at 6pm",
   "reply": "Set: Start the oven — today, Oct 14, 6:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-025",
   "area": "todo",
   "prompt": "can you remind me at 8pm to take out the trash",
   "reply": "Sure — I'll remind you at 8 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-026",
   "area": "todo",
   "prompt": "remind me to plate the dinner",
   "reply": "When should I remind you?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-027",
   "area": "todo",
   "prompt": "remind me to plate the dinner at 7",
   "reply": "What time — 7 PM?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "rg-028",

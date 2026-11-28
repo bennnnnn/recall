@@ -164,10 +164,12 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # an offer to draw one asked for (DESCRIBED_PICTURE_SPEECH; live, 2026-11-27); then a
 # recommended name written as a link the server places, in the rules and beside the message
 # (NAME_LINK_RULE, NAME_LINK_NOTE), and the "near me" places card's layout hint gone
-# (LOCAL_PLACES_FORMAT_HINT; the owner, 2026-11-27).
-_RULES = 232
-_RULE_GRAMS = 21212
-_RULE_GRAMS_SHA = "50fa385a2cf744e1"
+# (LOCAL_PLACES_FORMAT_HINT; the owner, 2026-11-27); then chat only reading to-dos (owner,
+# 2026-11-27): TODO_IN_APP_HINT in the opening rules, and the multi-part reminder part left
+# to the app's To-do line.
+_RULES = 233
+_RULE_GRAMS = 21319
+_RULE_GRAMS_SHA = "805652b63239c95f"
 
 
 def _rules() -> list[str]:

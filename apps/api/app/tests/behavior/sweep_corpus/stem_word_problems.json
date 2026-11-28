@@ -21,7 +21,7 @@
   "prompt": "remind me to study chemistry tomorrow at 7pm",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Study chemistry\", \"due_at\": \"2026-10-15T19:00:00+03:00\"}\n```\n\nSet: Study chemistry — Thursday, Oct 15, 7:00 PM. 🧪",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-004",
@@ -53,7 +53,7 @@
   "prompt": "set a reminder for my calculus exam on friday at 8:30am",
   "history": [],
   "reply": "Set: Calculus exam — Friday, Oct 16, 8:30 AM. Good luck! 📐",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-008",
@@ -77,7 +77,7 @@
   "prompt": "remind me at 6pm today to practice 20 integrals",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Practice 20 integrals\", \"due_at\": \"2026-10-14T18:00:00+03:00\"}\n```\n\nSet: Practice 20 integrals — today, Oct 14, 6:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-011",
@@ -118,7 +118,7 @@
    ]
   ],
   "reply": "```reminder\n{\"title\": \"Start the physics test study plan\", \"due_at\": \"2026-10-15T07:00:00+03:00\"}\n```\n\nSet: Start the physics test study plan — Thursday, Oct 15, 7:00 AM. 💪",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-015",
@@ -159,7 +159,7 @@
   "prompt": "remind me to revise physics",
   "history": [],
   "reply": "Sure — when should I remind you to revise physics?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-019",
@@ -201,7 +201,7 @@
   "prompt": "remind me to finish my chemistry lab report",
   "history": [],
   "reply": "Got it. When should I remind you to finish your chemistry lab report? (e.g. \"tonight at 8pm\" or \"Friday at 4pm\")",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-022",
@@ -251,7 +251,7 @@
    ]
   ],
   "reply": "Happy to. What time tomorrow should I remind you to go over Le Chatelier's principle?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-026",
@@ -275,7 +275,7 @@
   "prompt": "mark read as done, finished the physics chapter",
   "history": [],
   "reply": "Done — marked **Read** as complete. Nice work finishing the chapter! 📚",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-029",
@@ -307,7 +307,7 @@
   "prompt": "delete the gym reminder, i need that time for exam prep",
   "history": [],
   "reply": "Deleted your **Gym** reminder. Good luck with exam prep! 💪",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-033",
@@ -357,7 +357,7 @@
   "prompt": "move water the plants to saturday at 10am, exams all week",
   "history": [],
   "reply": "Moved **Water the plants** to Saturday, Oct 17 at 10:00 AM. 🌱",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "s2-037",

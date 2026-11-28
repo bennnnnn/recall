@@ -28,7 +28,6 @@ export type ChatTurnEffects = {
   cue: ReturnType<typeof createStreamCueGate>;
   onError?: (message: string, code?: string) => void;
   onFirstReply?: (reply: FirstReply) => void;
-  onTodosSync?: () => void;
   onUsage?: (usage: TurnUsage) => void;
   dropSocket: () => void;
   /** Close the SSE stream; `stop`: the user's Stop, said to the server first. */
@@ -82,9 +81,6 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       return;
     case "reply_saved":
       noteChatListChanged();
-      return;
-    case "todos_changed":
-      effects.onTodosSync?.();
       return;
     case "usage":
       effects.onUsage?.(command.usage);

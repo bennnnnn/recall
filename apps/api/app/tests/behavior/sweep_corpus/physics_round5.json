@@ -5,7 +5,7 @@
     "prompt": "remind me to buy a 9V battery tomorrow at 10am",
     "history": [],
     "reply": "Set: Buy a 9V battery — Thursday, Oct 15, 10:00 AM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "p5-002",
@@ -13,7 +13,7 @@
     "prompt": "remind me to charge the 12V battery in the car tomorrow at 9am",
     "history": [],
     "reply": "Set: Charge the 12V battery in the car — Thursday, Oct 15, 9:00 AM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "p5-003",
@@ -21,7 +21,7 @@
     "prompt": "set a reminder for tomorrow at 6pm to replace the 60 W bulb in the kitchen",
     "history": [],
     "reply": "Set: Replace the 60 W bulb in the kitchen — Thursday, Oct 15, 6:00 PM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "p5-004",
@@ -29,7 +29,7 @@
     "prompt": "remind me tomorrow at 7pm to charge my 5000 mAh power bank",
     "history": [],
     "reply": "Set: Charge my 5000 mAh power bank — Thursday, Oct 15, 7:00 PM.",
-    "expect": "save"
+    "expect": "todo_screen"
   },
   {
     "id": "p5-005",

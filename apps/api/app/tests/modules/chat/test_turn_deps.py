@@ -60,7 +60,8 @@ def test_default_deps_wire_the_real_modules() -> None:
     for name, module in _REAL_MODULES.items():
         assert getattr(deps, name) is module, name
     assert deps.session_factory is SessionLocal
-    assert deps.todos.materialize_reminder_fences is todos.materialize_reminder_fences
+    assert deps.todos.read_back is todos.read_back
+    assert deps.todos.saved_todo_named is todos.saved_todo_named
     # A new field gets its wiring checked here too.
     assert {field.name for field in fields(ChatTurnDeps)} == {
         *_REAL_MODULES,

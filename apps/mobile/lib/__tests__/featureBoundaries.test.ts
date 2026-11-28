@@ -102,7 +102,6 @@ const PUBLIC: Record<string, readonly string[]> = {
   ],
   suggestions: ["components/RelatedPromptLines.tsx"],
   todos: [
-    "components/ReminderProposalCard.tsx",
     "components/TodoLinkButton.tsx",
     "context/TodosContext.tsx",
     "hooks/useReminderBadgeCount.ts",
@@ -110,7 +109,6 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/homeReminderNudges.ts",
     "model/homeUrgentTodos.ts",
     "model/reminderFence.ts",
-    "model/reminderProposal.ts",
     "model/reminderSeen.ts",
     "model/reminderTiming.ts",
     "model/todoLink.ts",

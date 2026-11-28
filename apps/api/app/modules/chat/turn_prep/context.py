@@ -493,7 +493,6 @@ async def build_stream_prompt_context(
             lightweight=mode.lightweight,
             rich_context=mode.rich_context,
             advice_memory=mode.advice_memory,
-            accepted_offer=mode.accepted_offer,
             client_timezone=request.client_timezone,
             prompt_location=geo.prompt_place(identity.local_tz),
             omit_message_ids=request.omit_message_ids,

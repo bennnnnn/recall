@@ -36,7 +36,7 @@ from app.modules.chat.turn_prep.clauses import (
 from app.modules.chat.turn_prep.problems import problem_clauses
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import extract_image_lookup_query
-from app.modules.todos import is_reminder_request
+from app.modules.todos import asks_in_english
 from app.modules.turn_reading.answer_form import orders_the_answer
 from app.modules.turn_reading.plan import (
     HANDLED_KINDS,
@@ -56,10 +56,6 @@ _OWNED_KINDS: frozenset[PartKind] = frozenset({"settings", "image", "photo", "re
 _PLAN_CACHE = 256
 # The requests a comma alone sets apart from a task beside them (``Cut.LIST``).
 _LIST_KINDS: frozenset[PartKind] = frozenset({"reminder", "settings"})
-# An alarm is asked as a reminder; "remind me …" is the to-do reader's to tell apart:
-# "remind me what the yellow fever thing was" asks to be told again, and was planned as a
-# reminder, answered "I can't save one without a date and time" (2026-11-06).
-_ALARM = re.compile(r"^set (?:a |an )?alarm\b", re.IGNORECASE)
 # A calculation asked of the problem just stated: "find the total current", "work out
 # how fast it lands". "Find me a book" is a request of its own.
 _WORKS_ON_PROBLEM = re.compile(
@@ -70,9 +66,10 @@ _WORKS_ON_PROBLEM = re.compile(
 
 
 def asks_a_reminder(text: str) -> bool:
-    """The request asks for a reminder or an alarm (``part_kind``'s "reminder")."""
-    body = request_body(text)
-    return is_reminder_request(body) or _ALARM.match(body) is not None
+    """The request asks for a reminder or an alarm (``part_kind``'s "reminder"); "remind me
+    …" is the to-do reader's to tell apart: "remind me what the yellow fever thing was" asks
+    to be told again (2026-11-06)."""
+    return asks_in_english(request_body(text))
 
 
 def asks_a_setting(text: str) -> bool:

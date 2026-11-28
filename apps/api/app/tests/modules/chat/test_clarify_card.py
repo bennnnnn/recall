@@ -290,7 +290,7 @@ def test_the_pass_drops_the_card_on_a_turn_that_never_asks(ctx: dict[str, Any]) 
     assert "```clarify" not in settle_clarify(_state(_ASKED, **ctx))
 
 
-@pytest.mark.parametrize("lang", ["answer", "reminder", "reminder_proposal", "photo"])
+@pytest.mark.parametrize("lang", ["answer", "reminder", "todo_link", "photo"])
 def test_the_pass_drops_the_card_beside_a_card_that_never_asks(lang: str) -> None:
     text = f"```{lang}\n12\n```\n\n{_ASKED}"
     assert "```clarify" not in settle_clarify(_state(text))

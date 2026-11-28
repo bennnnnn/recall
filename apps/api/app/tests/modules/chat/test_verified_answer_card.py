@@ -47,14 +47,12 @@ async def _session() -> Any:
 
 
 def _deps() -> Any:
-    async def _reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
-        return str(kwargs["assistant_text"]), 0
-
     return turn_deps(
         session_factory=_session,
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=MagicMock())),
         todos=SimpleNamespace(
-            materialize_reminder_fences=AsyncMock(side_effect=_reminders),
+            read_back=AsyncMock(return_value="Nothing scheduled."),
+            saved_todo_named=AsyncMock(return_value=None),
         ),
         math_fence=subject_adapter("math").fence,
         web_search=web_search_service,
@@ -103,7 +101,6 @@ async def _finalize(
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", sympy)
     return await enrich_final_content(
         deps or _deps(),
-        AsyncMock(),
         Settings(),
         _ctx(
             prompt,
@@ -197,20 +194,23 @@ async def test_two_solved_problems_in_one_instant_reply_are_both_marked(
     assert _cards(out) == [f"{VERIFIED_ANSWER_MARKER}\nx = 6", f"{VERIFIED_ANSWER_MARKER}\ny = 2"]
 
 
-@pytest.mark.parametrize("failing", ["reminder pass", "text pass"])
+@pytest.mark.parametrize("failing", ["to-do pass", "text pass"])
 async def test_enrichment_failure_never_persists_a_forged_marker(
     monkeypatch: pytest.MonkeyPatch, failing: str
 ) -> None:
     deps = _deps()
-    if failing == "reminder pass":
-        deps.todos.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
+    prompt = "solve 2x + 5 = 17 and explain why each step works"
+    if failing == "to-do pass":
+        # A read of the list, whose rows fail to load.
+        prompt = "what's on my to-do list?"
+        deps.todos.read_back = AsyncMock(side_effect=RuntimeError("db"))
     else:
         monkeypatch.setattr(
             "app.modules.chat.finalize_text.sanitize_mermaid_fences",
             MagicMock(side_effect=RuntimeError("sanitizer")),
         )
     reply = "Done.\n\n```answer\nverified: true\nx = 7\n```"
-    out = await _finalize(monkeypatch, reply, deps=deps)
+    out = await _finalize(monkeypatch, reply, deps=deps, prompt=prompt)
     assert "verified" not in out.lower()
     assert "x = 7" in out
 
@@ -418,7 +418,6 @@ async def test_a_stopped_or_cut_picture_only_reply_is_never_empty(
     reply = "~~~simulation\n" + json.dumps(_scene()) + "\n~~~"
     out = await enrich_final_content(
         _deps(),
-        AsyncMock(),
         Settings(),
         _ctx("show the car braking"),
         assistant_text=reply,

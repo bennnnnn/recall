@@ -1,11 +1,13 @@
 # ruff: noqa: RUF001 - Turkish dotless i and Cyrillic letters are matched words
-"""Which messages in another language ask to add or change a to-do.
+"""Which messages ask chat to add or change a to-do, in any language.
 
-Chat in another language only reads to-dos (``chat_language``). Asked to add one,
-a model still asked "¿cuándo?" and then wrote "He añadido…", so such a request is
-answered by the server: one line and the Open To-do button, no model call.
+Chat only reads to-dos (owner, 2026-11-27): they are added and changed in the To-do
+screen. Asked to add one, a model still asked "¿cuándo?" and then wrote "He añadido…",
+so such a request is answered by the server: one line in the user's language and the Open
+To-do button, no model call. English is read by ``write_asks_english``, Hindi by
+``write_asks_hindi``.
 
-A request is a reminder phrase ("recuérdame", "напомни"), or an add or delete
+In the other languages a request is a reminder phrase ("recuérdame", "напомни"), or an add or delete
 verb beside a to-do target ("añade … a mis tareas"). Words with an everyday
 meaning stay out: Spanish "tarea" (also homework), "todo" (all), "pon" (play) and
 "marca" (brand), French "note" (a grade), Russian "задача" (a maths problem),
@@ -25,12 +27,16 @@ from collections.abc import Iterable
 
 from app.core.validation import unify_devanagari
 from app.modules.todos.chat_language import (
-    TODO_LINK_FENCE,
+    answer_language,
     message_language,
+    reads_as_english,
     todo_screen_answer,
-    writes_todos_in_todo_screen,
 )
+from app.modules.todos.reply_offers import asked_about_a_change, follows_todo_reply
+from app.modules.todos.spoken_when import is_only_a_when
+from app.modules.todos.write_asks_english import asks_in_english
 from app.modules.todos.write_asks_hindi import asks_in_hindi
+from app.modules.turn_reading.routing import is_short_confirmation
 
 # A phrase ending in "*" matches the start of a word (Turkish and Amharic add endings).
 _REMIND = (
@@ -108,24 +114,37 @@ _YES_OR_DAY_RE = _pattern(_YES_OR_DAY)
 
 
 def asks_to_change_todos(text: str | None, *, prior_assistant: str | None = None) -> bool:
-    """True when ``text``, in another language, asks to add, change or delete a to-do.
+    """True when ``text`` asks to add, change or delete a to-do.
 
-    ``prior_assistant`` is the reply before it: after the To-do button, a time or a
-    yes is the same request again.
+    ``prior_assistant`` is the reply before it: after the To-do button, an old reminder
+    card or a question offering one, a time or a yes is that request ("6pm", "a las 5",
+    "sí", "yes"). The other languages' words
+    are read only in a message English does not claim: "how do I remove a to-do in React"
+    is English, whatever "remove" means in Portuguese.
     """
+    if asks_in_english(text):
+        return True
+    english = reads_as_english(text)
     folded = " ".join(unify_devanagari(text or "").casefold().split())
     if not folded:
+        return False
+    if follows_todo_reply(prior_assistant) and "?" not in folded:
+        if is_only_a_when(text):
+            return True
+        # A yes to an offer of a reminder; after the button, "ok" only says it was read.
+        if asked_about_a_change(prior_assistant) and is_short_confirmation(text or ""):
+            return True
+        # "a las 5", "sí, mañana", "हाँ, कल": a time or a yes in one of the other languages.
+        said = message_language(text) is not None
+        if said and (_DIGIT.search(folded) or _YES_OR_DAY_RE.search(folded)):
+            return True
+    if english:
         return False
     if _REMIND_RE.search(folded) or _GERMAN_REMIND_RE.search(folded):
         return True
     if asks_in_hindi(folded):
         return True
-    if _ADD_OR_CHANGE_RE.search(folded) and _TODO_TARGET_RE.search(folded):
-        return True
-    after_button = f"```{TODO_LINK_FENCE}" in (prior_assistant or "")
-    if not after_button or "?" in folded:
-        return False
-    return bool(_DIGIT.search(folded) or _YES_OR_DAY_RE.search(folded))
+    return bool(_ADD_OR_CHANGE_RE.search(folded) and _TODO_TARGET_RE.search(folded))
 
 
 def todo_screen_reply(
@@ -135,9 +154,7 @@ def todo_screen_reply(
     prior_assistant: str | None = None,
     locale: str | None = None,
 ) -> str | None:
-    """The server's whole reply to a to-do change asked in another language, else None."""
-    if not writes_todos_in_todo_screen(text, prior_user=prior_user, locale=locale):
-        return None
+    """The server's whole reply to a to-do change asked in chat, else None."""
     if not asks_to_change_todos(text, prior_assistant=prior_assistant):
         return None
-    return todo_screen_answer(message_language(text) or message_language(prior_user) or locale)
+    return todo_screen_answer(answer_language(text, prior_user=prior_user, locale=locale))

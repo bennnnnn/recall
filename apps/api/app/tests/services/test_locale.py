@@ -1,6 +1,5 @@
 import pytest
 
-from app.core.validation import LOCALE_NAMES
 from app.services.locale import REPLY_LANGUAGE_ORDER, locale_display_name, locale_system_hint
 
 
@@ -31,15 +30,6 @@ def test_locale_system_hint_amharic():
     assert "Amharic" in hint
     assert "am" in hint
     assert hint.endswith(REPLY_LANGUAGE_ORDER)
-
-
-def test_language_names_hold_the_apps():
-    """Every app language is a language a user may name, and so are languages the app
-    does not offer: the names never follow the language menu."""
-    from app.services.locale import LANGUAGE_NAMES
-
-    assert {name.lower() for name in LOCALE_NAMES.values()} <= LANGUAGE_NAMES
-    assert {"german", "italian", "japanese"} <= LANGUAGE_NAMES
 
 
 @pytest.mark.parametrize(

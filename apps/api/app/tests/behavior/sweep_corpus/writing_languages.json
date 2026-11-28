@@ -47,7 +47,7 @@
    ]
   ],
   "reply": "Set: send the invitation — Thursday, Oct 15, 9:00 AM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-005",
@@ -87,7 +87,7 @@
   "prompt": "remind me friday at 8am to wish Selam happy birthday",
   "history": [],
   "reply": "```reminder\n{\"title\": \"Wish Selam happy birthday\", \"due_at\": \"2026-10-16T08:00:00+03:00\"}\n```",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-010",
@@ -128,7 +128,7 @@
    ]
   ],
   "reply": "Set: post the Buna House caption on Instagram — Sunday, Oct 18, 6:00 PM.",
-  "expect": "save"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-014",
@@ -177,7 +177,7 @@
   "prompt": "remind me to send the condolence message to yonas",
   "history": [],
   "reply": "Sure — when should I remind you to send the condolence message to Yonas?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-019",
@@ -209,7 +209,7 @@
   "prompt": "remind me tomorrow to post the job ad on linkedin",
   "history": [],
   "reply": "What time tomorrow (Thursday, Oct 15) should I remind you to post the job ad on LinkedIn?",
-  "expect": "ask_time"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-023",
@@ -823,7 +823,7 @@
   "prompt": "mark call mom as done, i just sent her the whatsapp msg instead",
   "history": [],
   "reply": "Done — marked **call mom** as complete ✅",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-077",
@@ -882,7 +882,7 @@
   "prompt": "move pay rent to nov 1 at 9am",
   "history": [],
   "reply": "Moved: **pay rent** — Sunday, Nov 1, 9:00 AM.",
-  "expect": "change"
+  "expect": "todo_screen"
  },
  {
   "id": "w2-081",

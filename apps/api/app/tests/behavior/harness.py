@@ -782,8 +782,9 @@ async def _no_session() -> Any:
     yield AsyncMock()
 
 
-async def _no_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
-    return str(kwargs["assistant_text"]), 0
+async def _no_todos(*_args: Any) -> str:
+    """No saved to-dos: a read-back says so."""
+    return "Nothing scheduled."
 
 
 async def saved_reply(route: Route, settings: Settings | None = None) -> str:
@@ -794,12 +795,14 @@ async def saved_reply(route: Route, settings: Settings | None = None) -> str:
         default_deps(),
         session_factory=_no_session,
         users=SimpleNamespace(get_by_id=AsyncMock(return_value=None)),
-        todos=SimpleNamespace(materialize_reminder_fences=AsyncMock(side_effect=_no_reminders)),
+        todos=SimpleNamespace(
+            read_back=AsyncMock(side_effect=_no_todos),
+            saved_todo_named=AsyncMock(return_value=None),
+        ),
     )
     with offline_pubchem():
         return await enrich_final_content(
             deps,
-            AsyncMock(),
             settings or battery_settings(),
             route.context,
             assistant_text=route.instant_text,
