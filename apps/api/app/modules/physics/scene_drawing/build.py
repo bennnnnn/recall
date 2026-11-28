@@ -11,7 +11,10 @@ from app.modules.physics.scene_drawing.beam import described_beam
 from app.modules.physics.scene_drawing.describe import described_scene
 from app.modules.physics.scene_drawing.forces import described_forces
 from app.modules.physics.scene_drawing.motion_graph import described_motion
+from app.modules.physics.scene_drawing.setup_motion import described_setup_motion
 from app.modules.physics.scene_drawing.vectors import described_vectors
+from app.modules.physics.schemas import SimulationBlockSpec
+from app.services.question_parts import statement_before_parts
 
 
 def scene_fences(
@@ -23,22 +26,36 @@ def scene_fences(
     arrows, only when the message asks to see a picture, as their contracts are only then
     given (review)."""
     fences: list[str] = []
+    # A question in parts is about what it sets out before its first part: the readers read
+    # that setup when the whole question, its asks and their numbers, reads as no one scene
+    # (a block on a slope asked for in ten parts, 2026-11-27).
+    setup = statement_before_parts(texts[0]) if texts else None
+    readings = [list(texts), [setup, *texts]] if setup else [list(texts)]
     for body in descriptions:
-        specs = described_scene(body, texts) or described_apparatus(body, texts)
-        if not specs and asked:
-            specs = described_vectors(body, texts)
-        # The forces on a body and a bar's moments come from the figure read alone
-        # (``figure_read``), whose own check of the read is the server's reading.
-        if not specs:
-            specs = described_forces(body, texts) or described_beam(body, texts)
+        drawn = (_setup_picture(body, read, asked) for read in readings)
+        specs = next((found for found in drawn if found), [])
         if specs and not fences:
             fences = [
                 scene_fence(spec.model_dump(mode="json", exclude_none=True)) for spec in specs
             ]
-    # A motion's graphs beside its scene: the first description of them that checks.
-    described = (described_motion(body, texts) for body in descriptions) if asked else iter(())
+    # A motion's graphs beside its scene: the first description of them that checks, a motion
+    # in stages or the scene's own motion from rest (``setup_motion``).
+    described = (
+        (described_motion(body, texts) or described_setup_motion(body, texts))
+        for body in (descriptions if asked else ())
+    )
     graphs = next((g for g in described if g), [])
     return [*fences, *(scene_fence(g.model_dump(mode="json", exclude_none=True)) for g in graphs)]
+
+
+def _setup_picture(body: str, texts: Sequence[str], asked: bool) -> list[SimulationBlockSpec]:
+    """The scene, apparatus, arrows, forces or bar one description draws of ``texts``."""
+    specs = described_scene(body, texts) or described_apparatus(body, texts)
+    if not specs and asked:
+        specs = described_vectors(body, texts)
+    # The forces on a body and a bar's moments come from the figure read alone
+    # (``figure_read``), whose own check of the read is the server's reading.
+    return specs or described_forces(body, texts) or described_beam(body, texts)
 
 
 def physics_fences(

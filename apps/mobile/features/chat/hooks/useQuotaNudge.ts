@@ -27,8 +27,8 @@ type Options = {
  * Decides whether to show a "you're nearing the free limit, go Pro" nudge. Only
  * fires for free users at/above the threshold, and only once per day until
  * dismissed. Pro users never see it, so their usage is never read for it: the
- * launch cache paints every plan as free, so this waits for the server's word on
- * the plan (`profileValidated`).
+ * launch cache holds the plan this phone last saw, which may have changed since, so this
+ * waits for the server's word on the plan (`profileValidated`).
  *
  * Today's usage is read once per account; after that each finished turn reports
  * the day's usage on its `done` (`applyTurnUsage`), so a turn costs no extra
@@ -36,7 +36,7 @@ type Options = {
  */
 export function useQuotaNudge({ isPaid, chatError = null }: Options) {
   const { account, getToken } = useAccountSession();
-  // A paid plan painted from the launch cache reads "free" until /auth/me answers.
+  // The launch cache's plan is the last one seen: an upgrade or a lapse since shows after /auth/me.
   const planKnown = useAuthOptional()?.profileValidated ?? true;
   const { t } = useTranslation();
   const [show, setShow] = useState(false);

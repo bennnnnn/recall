@@ -31,7 +31,7 @@ jest.mock("@/features/todos/model/reminderSeen", () => ({
   markReminderIdsSeen: jest.fn(),
 }));
 
-const mockAllowAlerts = jest.fn(async () => "on" as "on" | "off");
+const mockAllowAlerts = jest.fn(async () => "on" as "on" | "off" | "not_now");
 const mockShouldTell = jest.fn(() => true);
 jest.mock("@/features/todos/model/reminderAlerts", () => ({
   allowReminderAlerts: () => mockAllowAlerts(),
@@ -471,6 +471,19 @@ describe("useTodosActions alerts", () => {
       open?.onPress();
     });
     expect(openSettings).toHaveBeenCalled();
+  });
+
+  it("after Not now to Recall's explanation, saves and sends no one to Settings", async () => {
+    mockAllowAlerts.mockResolvedValue("not_now");
+    await act(async () => {
+      render(<Probe todos={[]} />);
+    });
+    await act(async () => {
+      await actions.handleCreateTodo("Call mom", timed(due), jest.fn());
+    });
+    expect(api.createTodo).toHaveBeenCalled();
+    expect(mockAllowAlerts).toHaveBeenCalledTimes(1);
+    expect(alertsOffDialog()).toBeUndefined();
   });
 
   it("does not tell again once told this session", async () => {

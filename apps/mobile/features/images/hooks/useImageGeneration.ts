@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useKeepAwakeWhile } from "@/hooks/useKeepAwakeWhile";
 import { api, type Message } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/client";
 import { notifyWarning } from "@/lib/haptics";
@@ -95,8 +96,8 @@ export function useImageGeneration({
 }: Options) {
   const feedback = useActionFeedbackOptional();
   const [generating, setGenerating] = useState(false);
-  // Refs so submitPrompt never no-ops on a stale streaming/generating closure
-  // from a prior Fast Refresh or a turn that just finished.
+  useKeepAwakeWhile("picture", generating);
+  // Refs: submitPrompt never no-ops on a stale closure (a Fast Refresh, a turn just finished).
   const generatingRef = useLatestRef(generating);
   const streamingRef = useLatestRef(streaming);
   const tokenRef = useLatestRef(token);

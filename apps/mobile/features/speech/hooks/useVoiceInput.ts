@@ -3,6 +3,7 @@ import { useSharedValue } from "react-native-reanimated";
 
 import { transcribeSpeech } from "@/lib/api";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useKeepAwakeWhile } from "@/hooks/useKeepAwakeWhile";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { stopReadAloud } from "@/features/speech/model/readAloudSession";
 import { sayDictationFailure, useLiveTake } from "@/features/speech/hooks/useLiveTake";
@@ -47,6 +48,7 @@ export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Option
   const transcribeAbortRef = useRef<AbortController | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  useKeepAwakeWhile("dictation", recording || transcribing);
   // The live level, every 60 ms while dictating: a shared value only the waveform reads.
   // As state it re-rendered the whole chat screen 16 times a second.
   const meterLevel = useSharedValue(0.12);
@@ -83,8 +85,7 @@ export function useVoiceInput({ token, onTranscript, t, onPlanRequired }: Option
   }, [meterLevel]);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
-    // `recording` only turns true once the native recorder runs, so a second
-    // tap meanwhile would open a second recorder that nothing ever stops.
+    // `recording` turns true once the recorder runs: a second tap before then opened a second.
     if (!token || recording || transcribing || startingRef.current) return false;
     startingRef.current = true;
     // Cancel and unmount bump this; a start that resolves after either must

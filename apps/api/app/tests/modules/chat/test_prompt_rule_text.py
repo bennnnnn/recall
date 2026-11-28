@@ -158,10 +158,13 @@ from app.modules.chemistry.reply_policy import CHEMISTRY_FENCE_HINT
 # the steps question's examples taken from its tuning turns (decider_read.STEPS_QUESTION);
 # then its second round: the reader note deferring to the tap card too, the self-talk rule
 # banning sentences about an earlier reply, never its point said again
-# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence.
+# (NO_TALK_ABOUT_EARLIER_REPLY), and the maths pack naming no ```worked fence; then a
+# scene's own motion from rest, a slope's weight components and an Atwood machine's
+# free-body diagrams in the physics draw contract, and no word about the app's pictures or
+# an offer to draw one asked for (DESCRIBED_PICTURE_SPEECH; live, 2026-11-27).
 _RULES = 230
-_RULE_GRAMS = 20992
-_RULE_GRAMS_SHA = "69203f4038170530"
+_RULE_GRAMS = 21122
+_RULE_GRAMS_SHA = "ec2877286366b6c2"
 
 
 def _rules() -> list[str]:

@@ -75,7 +75,8 @@ def described_motion(body: str, texts: Sequence[str]) -> list[GraphBlockSpec]:
         data = json.loads(body)
     except ValueError:
         return []
-    if not isinstance(data, dict) or data.get("kind") != "motion":
+    # A scene's own motion ("of": "incline") is ``setup_motion``'s.
+    if not isinstance(data, dict) or data.get("kind") != "motion" or "of" in data:
         return []
     try:
         motion = _Motion.model_validate(data)

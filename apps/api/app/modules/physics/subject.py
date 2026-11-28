@@ -302,9 +302,20 @@ _PICTURE_LANGS = frozenset({"simulation", "graph", "geometry"})
 
 def holds_a_picture(text: str) -> bool:
     """The reply holds one of the server's pictures."""
+    return bool(_picture_kinds(text))
+
+
+# The kinds a physics figure draws: a scene (or diagram), and a motion's graph.
+_SCENE_AND_GRAPH = frozenset({"simulation", "graph"})
+
+
+def _picture_kinds(text: str) -> set[str]:
+    """The kinds of the server's pictures ``text`` holds: "simulation", "graph", "geometry"."""
     from app.services.md_fence_scan import iter_fences
 
-    return any(fence.closed and fence.lang in _PICTURE_LANGS for fence in iter_fences(text))
+    return {
+        fence.lang for fence in iter_fences(text) if fence.closed and fence.lang in _PICTURE_LANGS
+    }
 
 
 def self_enabled(settings: Settings) -> bool:
@@ -317,7 +328,9 @@ class PhysicsFigure:
     (``draw``), and the ones a reply describes (an electric field's lines, a setup's scene).
 
     A solve that drew its picture (a scene, a circuit, rays, a wave) holds it (``shown``),
-    and a reply that holds one of the server's pictures gets no second one (``whole``). Any
+    and a reply gets no second picture of a kind it already holds (``adds_to``): a solve's
+    scene still gets the motion graphs asked for, and a reply that holds a scene and a graph
+    gets nothing more (``whole``). Any
     other physics question gets the picture the figure read names and the server checks
     (``scene_drawing.figure_read``), asked for or not, under the reply; the model's own
     sketch of it then goes (``without_substitutes``). On a physics message that asks to see
@@ -344,10 +357,14 @@ class PhysicsFigure:
         return any(holds_a_picture(card) for card in PhysicsFence().cards(verified))
 
     def whole(self, text: str) -> bool:
-        return holds_a_picture(text)
+        # A scene and a graph: the figure draws no other kind (a solve's scene alone leaves
+        # room for the motion's graphs it was asked for).
+        return _SCENE_AND_GRAPH <= _picture_kinds(text)
 
     def adds_to(self, text: str, fence: str) -> bool:
-        return not holds_a_picture(text)
+        # A picture of a kind the reply does not show: a slope's graphs beside its scene.
+        kinds = _picture_kinds(fence)
+        return bool(kinds) and not kinds & _picture_kinds(text)
 
     def without_substitutes(self, text: str, fence: str, user_text: str = "") -> str:
         from app.modules.physics.sketches import without_model_drawings

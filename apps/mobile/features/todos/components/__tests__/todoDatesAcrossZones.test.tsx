@@ -42,9 +42,6 @@ jest.mock("react-native-gesture-handler/ReanimatedSwipeable", () => {
   const { View } = jest.requireActual("react-native");
   return { __esModule: true, default: View };
 });
-jest.mock("@/features/todos/model/todoReminders", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
-}));
 
 /** 23:30 UTC: Oct 25 in UTC and New York, already Oct 26 in Kathmandu and Kiritimati. */
 const DUE = "2026-10-25T23:30:00.000Z";

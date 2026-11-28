@@ -13,7 +13,6 @@ import {
   listItemDisplayNumber,
   listItemHasNestedList,
   listHasOpenTask,
-  listItemOpensWithTitle,
   listLargestNumber,
   numberColumnWidth,
   parentHasType,
@@ -65,6 +64,12 @@ function memberRing(t: Theme): ViewStyle {
 }
 
 type ListItemNode = AstNode & { index: number; markup?: string };
+
+/*
+ * A main item's **bold name**, dash and text are one run that wraps (the owner's layout,
+ * #2601), and its number keeps the body weight: every item of a list is drawn alike, emoji
+ * or not, while it streams and once it settles, so nothing reflows as its line ends.
+ */
 
 /**
  * What a list item is drawn from: its own AST, what its list says about it
@@ -181,8 +186,6 @@ export function listRules(t: Theme, mdMath: MdMathStyles, continuesBelow = false
                     PixelRatio.getFontScale(),
                   ),
                 },
-                // "1. Read widely" is one heading: the number takes the title's weight.
-                listItemOpensWithTitle(node) && (styles.strong as object),
               ]}
             >
               {listItemDisplayNumber(parent, node.index)}

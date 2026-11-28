@@ -1,8 +1,8 @@
-import { Alert } from "react-native";
+import { Alert, AppState } from "react-native";
 import { act, render } from "@testing-library/react-native";
 import NotificationsSettingsScreen from "@/features/account/screens/NotificationsSettingsScreen";
 import { cancelAllTodoReminders, syncTodoReminders } from "@/features/todos/model/todoReminders";
-import { ensureNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/features/notifications/model/pushNotifications";
+import { askNotificationPermission, getNotificationPermissionGranted, registerRemotePushToken, unregisterRemotePushToken } from "@/features/notifications/model/pushNotifications";
 
 type PushRegistration = Awaited<ReturnType<typeof registerRemotePushToken>>;
 
@@ -45,7 +45,7 @@ jest.mock("@/ui/pickers/TimePickerDialog", () => ({
 }));
 jest.mock("@/features/todos/model/todoReminders", () => ({ cancelAllTodoReminders: jest.fn(), syncTodoReminders: jest.fn() }));
 jest.mock("@/features/notifications/model/pushNotifications", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
+  askNotificationPermission: jest.fn(async () => "granted"),
   getNotificationPermissionGranted: jest.fn(async () => true),
   registerRemotePushToken: jest.fn(async () => undefined),
   unregisterRemotePushToken: jest.fn(async () => undefined),
@@ -129,13 +129,13 @@ it("rejects a quiet-hours save after the account changes", async () => {
 });
 
 it("does not register push or change the next account after delayed permission", async () => {
-  const permission = deferred<boolean>();
-  jest.mocked(ensureNotificationPermission).mockReturnValueOnce(permission.promise);
+  const permission = deferred<"granted" | "denied" | "not_now">();
+  jest.mocked(askNotificationPermission).mockReturnValueOnce(permission.promise);
   await render(<NotificationsSettingsScreen />);
   let pending!: Promise<void>;
   await act(async () => { pending = mockSwitches["settings.push_notifications"].onValueChange(true); });
   mockSession++;
-  await act(async () => { permission.resolve(true); await pending; });
+  await act(async () => { permission.resolve("granted"); await pending; });
   expect(registerRemotePushToken).not.toHaveBeenCalled();
   expect(mockUpdate).not.toHaveBeenCalled();
 });
@@ -193,13 +193,13 @@ it.each([false, true])("finishes enabling after registration while offscreen onl
 });
 
 it.each([false, true])("shows a delayed permission denial only in its current view (unmounted: %s)", async (unmounted) => {
-  const permission = deferred<boolean>();
-  jest.mocked(ensureNotificationPermission).mockReturnValueOnce(permission.promise);
+  const permission = deferred<"granted" | "denied" | "not_now">();
+  jest.mocked(askNotificationPermission).mockReturnValueOnce(permission.promise);
   const ui = await render(<NotificationsSettingsScreen />);
   let pending!: Promise<void>;
   await act(async () => { pending = mockSwitches["settings.push_notifications"].onValueChange(true); });
   if (unmounted) await ui.unmount();
-  await act(async () => { permission.resolve(false); await pending; });
+  await act(async () => { permission.resolve("denied"); await pending; });
   expect(Alert.alert).toHaveBeenCalledTimes(unmounted ? 0 : 1);
   expect(registerRemotePushToken).not.toHaveBeenCalled();
   expect(mockUpdate).not.toHaveBeenCalled();
@@ -213,16 +213,29 @@ it("shows push off when OS permission is denied even if the server pref is on", 
   expect(mockSwitches["settings.push_notifications"].value).toBe(false);
 });
 
-it("turns the server pref off when enabling push is blocked by the OS", async () => {
+it("leaves the server pref on when enabling push is blocked by the OS", async () => {
   mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: true };
   jest.mocked(getNotificationPermissionGranted).mockResolvedValue(false);
-  jest.mocked(ensureNotificationPermission).mockResolvedValueOnce(false);
+  jest.mocked(askNotificationPermission).mockResolvedValueOnce("denied");
   await render(<NotificationsSettingsScreen />);
   await act(async () => { await Promise.resolve(); });
   await act(async () => { await mockSwitches["settings.push_notifications"].onValueChange(true); });
   expect(Alert.alert).toHaveBeenCalledTimes(1);
   expect(registerRemotePushToken).not.toHaveBeenCalled();
-  expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: false });
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+});
+
+it("puts the switch back quietly on Not now to Recall's explanation", async () => {
+  jest.mocked(getNotificationPermissionGranted).mockResolvedValue(false);
+  jest.mocked(askNotificationPermission).mockResolvedValueOnce("not_now");
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { await mockSwitches["settings.push_notifications"].onValueChange(true); });
+  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(registerRemotePushToken).not.toHaveBeenCalled();
+  expect(mockUpdate).not.toHaveBeenCalled();
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
 });
 
 it("optimistically turns push on while registration is pending", async () => {
@@ -333,4 +346,52 @@ it("saves quick taps on two switches at once, without locking either", async () 
     [{ quiet_hours_enabled: false }],
   ]);
   expect(mockSwitches["settings.email_reminders"].disabled).toBeFalsy();
+});
+
+describe("back from the phone's Settings", () => {
+  const appState = new Set<(state: string) => void>();
+  async function returnToApp() {
+    await act(async () => { for (const listener of [...appState]) listener("background"); });
+    await act(async () => { for (const listener of [...appState]) listener("active"); });
+    await act(async () => { await Promise.resolve(); });
+  }
+  beforeEach(() => {
+    appState.clear();
+    jest.spyOn(AppState, "addEventListener").mockImplementation(((_type: string, listener: (state: string) => void) => {
+      appState.add(listener);
+      return { remove: () => appState.delete(listener) };
+    }) as typeof AppState.addEventListener);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it("shows a permission taken away while the page was open, and leaves the account's switch on", async () => {
+    mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: true };
+    jest.mocked(getNotificationPermissionGranted).mockResolvedValue(true);
+    await render(<NotificationsSettingsScreen />);
+    await act(async () => { await Promise.resolve(); });
+    expect(mockSwitches["settings.push_notifications"].value).toBe(true);
+
+    jest.mocked(getNotificationPermissionGranted).mockResolvedValue(false);
+    await returnToApp();
+    expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("finishes turning on once the user allowed notifications in Settings after a refusal", async () => {
+    mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: false };
+    jest.mocked(getNotificationPermissionGranted).mockResolvedValue(false);
+    jest.mocked(askNotificationPermission).mockResolvedValueOnce("denied");
+    await render(<NotificationsSettingsScreen />);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await mockSwitches["settings.push_notifications"].onValueChange(true); });
+    expect(registerRemotePushToken).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
+
+    jest.mocked(getNotificationPermissionGranted).mockResolvedValue(true);
+    jest.mocked(registerRemotePushToken).mockResolvedValueOnce("registered");
+    await returnToApp();
+    await act(async () => { await Promise.resolve(); });
+    expect(registerRemotePushToken).toHaveBeenCalledWith("token", true);
+    expect(mockUpdate).toHaveBeenCalledWith({ push_notifications_enabled: true });
+  });
 });

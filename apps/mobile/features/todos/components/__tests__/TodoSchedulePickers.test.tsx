@@ -29,8 +29,14 @@ jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn() }));
 // The detail page asks the server for Remind at; signed out here, it asks nothing.
 jest.mock("@/contexts/AuthContext", () => ({ useAuthOptional: () => null }));
 jest.mock("@/lib/api", () => ({ api: { previewReminder: jest.fn() } }));
+// Any ask for notifications: opening a picker asks none (the save does, useTodosActions).
+const mockAsk = jest.fn(async () => true);
 jest.mock("@/features/todos/model/todoReminders", () => ({
-  ensureNotificationPermission: jest.fn(async () => true),
+  ensureNotificationPermission: () => mockAsk(),
+}));
+jest.mock("@/features/notifications/model/pushNotifications", () => ({
+  askNotificationPermission: () => mockAsk(),
+  ensureNotificationPermission: () => mockAsk(),
 }));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");
@@ -66,6 +72,8 @@ it("creates a reminder from the date dialog and the clock", async () => {
   expect(mockTime.visible).toBe(false);
   await act(() => { mockForm.onSave(); });
   expect(save).toHaveBeenCalledWith("Call Mom", timed(new Date(2026, 9, 12, 17, 45)), null, "General");
+  // The time picker opened for a new reminder, and nothing asked for notifications.
+  expect(mockAsk).not.toHaveBeenCalled();
 });
 
 it("creates a plain to-do without opening the date picker", async () => {

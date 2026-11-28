@@ -26,6 +26,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.modules.physics.force_pictures import force_picture
+from app.modules.physics.scene_drawing.weight_parts import with_weight_parts
 from app.modules.physics.schemas import SimulationBlockSpec
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ class _Forces(BaseModel):
     body: str = Field(max_length=30)
     forces: list[Force] = Field(min_length=1, max_length=6)
     part: str | None = None
+    # A block on a slope with its weight resolved along and into the slope (``weight_parts``).
+    components: bool | None = None
 
 
 # The force each arrow of the server's picture is, by its label or its derived kind: the
@@ -110,7 +113,7 @@ def described_forces(body: str, texts: Sequence[str]) -> list[SimulationBlockSpe
     if drawn is None or not _agree(drawn, set(described.forces), picture.shows):
         logger.info("described forces not drawn: the server reads other forces")
         return []
-    return [picture.spec]
+    return [with_weight_parts(picture.spec) if described.components else picture.spec]
 
 
 # Forces every body on a surface has, which a read that names only the ones along the motion
