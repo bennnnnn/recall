@@ -49,6 +49,8 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/openedDocument").then(({ clearOpenedDocument }) => clearOpenedDocument()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
+    // A chat's file upload under way, its progress and Cancel.
+    import("@/features/chat/model/sendUpload").then(({ hideSendUpload }) => hideSendUpload()),
     // The streaming draft's lines already given their emoji.
     import("@/features/chat/model/emojiPlacement").then(({ clearPlacedDraft }) => clearPlacedDraft()),
     // The unsent text of each chat's composer, kept for the next run.

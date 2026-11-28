@@ -133,3 +133,10 @@ describe("a fence's shape", () => {
     },
   );
 });
+
+describe("a tag this build does not know", () => {
+  // A model makes these up; only the user's data under them is sure, so it shows, with Copy.
+  it.each(["plotly", "vegalite", "tool_call", "ipynb", "swagger"])("```%s around JSON is a code card", (lang) => {
+    expect(classifyFence(lang, '{"data":[{"x":[1,2]}]}').kind).toBe("code");
+  });
+});

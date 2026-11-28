@@ -1,6 +1,14 @@
 // First: crash reporting is on before any other app module runs (lib/sentryStart.ts).
 import "@/lib/sentryStart";
 import "@/lib/i18n";
+// The caches that listen for app events as they load: loaded at launch, so a photo or chat
+// deleted before any of them is first used still reaches their saved copies (metro.config.js
+// loads every other import on first use; lib/__tests__/metroBundle.test.ts holds this list).
+import "@/features/chat/model/messageCache";
+import "@/features/chat/model/chatListCache";
+import "@/features/attachments/model/galleryListCache";
+import "@/features/memory/model/memoryListCache";
+import "@/features/memory/model/memoryDocumentsCache";
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -18,7 +26,7 @@ import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/features/todos/components/PushNotificationBootstrap";
-import { OfflineBanner } from "@/components/OfflineBanner";
+import { OfflineFrame } from "@/components/OfflineBanner";
 import { stackBackOptions } from "@/ui/controls/StackBackButton";
 import { DialogHost } from "@/ui/overlay/DialogHost";
 import { preloadFigures } from "@/components/rich/LazyHeavyRich";
@@ -65,53 +73,55 @@ function RootNavigator() {
   return (
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
-      <OfflineBanner status={status} />
-      <Stack
-        screenOptions={{
-          ...stackPushTransition(reduceMotion),
-          headerShown: false,
-          contentStyle: { backgroundColor: theme.bg },
-        }}
-      >
-        <Stack.Screen name="login" options={stackAuthTransition(reduceMotion)} />
-        <Stack.Screen name="onboarding" options={stackAuthTransition(reduceMotion)} />
-        <Stack.Screen name="consent" options={stackAuthTransition(reduceMotion)} />
-        <Stack.Screen
-          name="index"
-          options={{ ...stackHomeTransition(), title: "", headerShown: false }}
-        />
-        <Stack.Screen
-          name="memory"
-          options={{ ...stackUtilityTransition(reduceMotion), headerShown: false }}
-        />
-        <Stack.Screen
-          name="settings"
-          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
-        />
-        <Stack.Screen
-          name="todos"
-          options={{
-            ...stackUtilityTransition(reduceMotion),
-            ...header,
-            headerShown: true,
-            title: t("drawer.reminders"),
-            headerBackVisible: false,
-            ...stackBackOptions(),
+      {/* The banner takes its own room at the top; the screens sit below it, headers and all. */}
+      <OfflineFrame status={status}>
+        <Stack
+          screenOptions={{
+            ...stackPushTransition(reduceMotion),
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.bg },
           }}
-        />
-        <Stack.Screen
-          name="gallery"
-          options={{
-            ...stackUtilityTransition(reduceMotion),
-            ...header,
-            headerShown: true,
-            title: t("gallery.title"),
-            headerBackVisible: false,
-            headerRight: undefined,
-            ...stackBackOptions(),
-          }}
-        />
-      </Stack>
+        >
+          <Stack.Screen name="login" options={stackAuthTransition(reduceMotion)} />
+          <Stack.Screen name="onboarding" options={stackAuthTransition(reduceMotion)} />
+          <Stack.Screen name="consent" options={stackAuthTransition(reduceMotion)} />
+          <Stack.Screen
+            name="index"
+            options={{ ...stackHomeTransition(), title: "", headerShown: false }}
+          />
+          <Stack.Screen
+            name="memory"
+            options={{ ...stackUtilityTransition(reduceMotion), headerShown: false }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
+          />
+          <Stack.Screen
+            name="todos"
+            options={{
+              ...stackUtilityTransition(reduceMotion),
+              ...header,
+              headerShown: true,
+              title: t("drawer.reminders"),
+              headerBackVisible: false,
+              ...stackBackOptions(),
+            }}
+          />
+          <Stack.Screen
+            name="gallery"
+            options={{
+              ...stackUtilityTransition(reduceMotion),
+              ...header,
+              headerShown: true,
+              title: t("gallery.title"),
+              headerBackVisible: false,
+              headerRight: undefined,
+              ...stackBackOptions(),
+            }}
+          />
+        </Stack>
+      </OfflineFrame>
     </>
   );
 }

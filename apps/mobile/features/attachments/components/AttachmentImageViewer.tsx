@@ -17,7 +17,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentImageStage } from "@/features/attachments/components/AttachmentImageStage";
@@ -136,7 +136,7 @@ function ViewerContent({
   const { t } = useTranslation();
   const token = useAuthToken();
   const feedback = useActionFeedback();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const theme = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReduceMotion();

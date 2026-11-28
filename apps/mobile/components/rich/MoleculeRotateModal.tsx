@@ -6,7 +6,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -28,7 +28,7 @@ type Props = {
 export function MoleculeRotateModal({ visible, onClose, onGrant, onMove, children }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const s = useMemo(() => makeStyles(), []);
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
   const grantRef = useLatestRef(onGrant);

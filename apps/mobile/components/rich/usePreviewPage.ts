@@ -3,7 +3,7 @@
  * waits for the page, then hands it this block's data. Every block of a kind
  * loads the same file, so a block never builds or sends a page of its own.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
@@ -18,6 +18,7 @@ import {
   readyPreviewPageFile,
 } from "@/lib/preview/previewPageFile";
 import { createPreviewTapGate } from "@/lib/preview/previewTap";
+import { useWebViewRecovery } from "@/components/rich/useWebViewRecovery";
 import type { VendorLibrary } from "@/lib/vendorAssets";
 import {
   allowPreviewPageNavigation,
@@ -33,9 +34,20 @@ type WebViewMessage = { nativeEvent: { data?: string } };
 
 type PreviewPageState =
   | { status: "loading" | "failed" }
+  // The system ended the page's process twice: the card shows Retry (PreviewLostNote).
+  | { status: "lost"; retry: () => void }
   | { status: "ready"; webViewKey: string; webViewProps: Record<string, unknown> };
 
 type PageFileState = { uri: string | null; attempt: number; failed: boolean };
+
+/** A view shown again (a full-screen diagram reopened) starts with no losses behind it. */
+function useRestartWhenShown(active: boolean, restart: () => void): void {
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (active && !wasActive.current) restart();
+    wasActive.current = active;
+  }, [active, restart]);
+}
 
 /**
  * `config` is the block's data (memoize it). `active` is false when no preview
@@ -73,6 +85,8 @@ export function usePreviewPage<L extends VendorLibrary>(
   const script = useMemo(() => previewPageConfigScript(config), [config]);
   // A link opens only right after the user's finger touched this WebView.
   const [tap] = useState(createPreviewTapGate);
+  const recovery = useWebViewRecovery();
+  useRestartWhenShown(active, recovery.retry);
 
   const onShouldStartLoadWithRequest = useCallback(
     (request?: unknown) => {
@@ -126,11 +140,14 @@ export function usePreviewPage<L extends VendorLibrary>(
       injectedJavaScript: script,
       onMessage: handleMessage,
       onError,
+      // The system ended the page's process: load it again once, then offer Retry.
+      ...recovery.handlers,
     }),
-    [uri, onShouldStartLoadWithRequest, tap, script, handleMessage, onError],
+    [uri, onShouldStartLoadWithRequest, tap, script, handleMessage, onError, recovery.handlers],
   );
 
   if (file.failed) return { status: "failed" };
+  if (recovery.lost) return { status: "lost", retry: recovery.retry };
   if (uri === null) return { status: "loading" };
-  return { status: "ready", webViewKey: `${attempt}\n${uri}\n${script}`, webViewProps };
+  return { status: "ready", webViewKey: `${attempt}.${recovery.mount}\n${uri}\n${script}`, webViewProps };
 }

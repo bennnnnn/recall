@@ -211,6 +211,18 @@ it("reports a store purchase that failed, but not one the shopper cancelled", as
   expect(reportFailure).toHaveBeenCalledWith("purchase", failure);
 });
 
+it("says a failed purchase to a screen reader as it appears", async () => {
+  const { AccessibilityInfo, Platform } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.replaceProperty(Platform, "OS", "ios");
+  const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+  mockPurchase.mockRejectedValueOnce(Object.assign(new Error("store said no"), { code: "PURCHASE_NOT_ALLOWED" }));
+  const screen = await openSheet();
+  await buy(screen);
+  expect(announce).toHaveBeenCalledWith("upgrade.purchase_failed");
+  expect(screen.getByTestId("upgrade-error").props.accessibilityRole).toBe("alert");
+  announce.mockRestore();
+});
+
 it("never unlocks on the client when the store did not grant the plan", async () => {
   mockPurchase.mockResolvedValue("free");
   const screen = await openSheet();
@@ -259,22 +271,27 @@ it("restore that finds a plan refreshes the server plan", async () => {
   expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
 });
 
-it("sells what the plan helps with, never a count or a model's name: two lines, the rest from under the button", async () => {
+it("sells what Pro adds, never a count or a model's name: two lines, the rest from under the button", async () => {
   const screen = await openSheet();
   expect(screen.getByText('upgrade.plan_title {"plan":"plans.pro"}')).toBeOnTheScreen();
   expect(screen.getByText("upgrade.benefit_chat")).toBeOnTheScreen();
-  expect(screen.getByText("upgrade.benefit_maths")).toBeOnTheScreen();
-  expect(screen.queryByText("upgrade.benefit_scanner")).toBeNull();
+  expect(screen.getByText("upgrade.benefit_searches")).toBeOnTheScreen();
+  expect(screen.queryByText("upgrade.benefit_storage")).toBeNull();
   await act(async () => {
     fireEvent.press(screen.getByText('upgrade.see_all_benefits {"plan":"plans.pro"}'));
   });
   // The full list opens under the link, not in the card.
   const all = within(screen.getByTestId("upgrade-all-benefits"));
-  for (const name of ["chat", "maths", "physics", "chemistry", "calculator", "images", "transcription", "pdf", "scanner"]) {
+  const adds = ["chat", "searches", "more_images", "lookups", "documents", "transcription", "read_aloud", "storage"];
+  for (const name of adds) {
     expect(all.getByText(`upgrade.benefit_${name}`)).toBeOnTheScreen();
   }
-  // "Web search" is the setting's own words, one key in every language.
-  expect(all.getByText("settings.web_search")).toBeOnTheScreen();
+  // Live talk is the feature's own name, one key in every language.
+  expect(all.getByText("chat.live_talk_a11y")).toBeOnTheScreen();
+  // Nothing Free has too: maths help, the scanner, PDFs and web search are every plan's.
+  for (const free of ["upgrade.benefit_maths", "upgrade.benefit_scanner", "upgrade.benefit_pdf", "settings.web_search"]) {
+    expect(screen.queryByText(free)).toBeNull();
+  }
   expect(screen.queryByText(/model/i)).toBeNull();
   // Open, the link keeps its words; only its arrow turns. It closes the list again.
   expect(screen.getByTestId("upgrade-benefits-toggle").props.accessibilityState.expanded).toBe(true);

@@ -21,6 +21,7 @@ import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 
 type Props = { content: string };
 
@@ -29,7 +30,7 @@ const QUIZ_BODY = { json: true };
 
 /** "Exercise 1": the code, pick an option, check it, see why. Nothing is sent to the chat. */
 export function QuizCard({ content }: Props) {
-  const theme = useTheme();
+  const theme = useTheme(); useMathSpeechWords(); // Its labels say maths in the app's language.
   const s = useMemo(() => makeStyles(theme), [theme]);
   const body = useMemo(() => quizBody(content), [content]);
   const quiz = body?.kind === "card" ? body.card : null;

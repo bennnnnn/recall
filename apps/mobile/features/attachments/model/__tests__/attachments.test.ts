@@ -28,6 +28,7 @@ import {
 } from "@/features/attachments/model/attachments";
 import { IMAGE_JPEG_QUALITY, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
+import { UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { ImageManipulator } from "expo-image-manipulator";
@@ -37,8 +38,14 @@ const offerSettings = jest.requireMock<{ offerSettings: jest.Mock }>("@/ui/overl
 jest.mock("@/lib/i18n", () => ({ __esModule: true, default: { t: (key: string) => key } }));
 
 const mockRead = jest.fn();
+// The system's upload of a file to storage (File.upload): its URL and options.
+const mockUpload = jest.fn();
 let mockGeneration = 0;
-jest.mock("expo-file-system", () => ({ File: jest.fn(), Paths: { cache: { uri: "file:///cache/" } } }));
+jest.mock("expo-file-system", () => ({
+  File: jest.fn(),
+  Paths: { cache: { uri: "file:///cache/" } },
+  UploadType: { BINARY_CONTENT: 0, MULTIPART: 1 },
+}));
 jest.mock("expo-file-system/legacy", () => ({ getInfoAsync: jest.fn(async () => ({ exists: true, size: 3 })) }));
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("expo-image-picker", () => ({
@@ -113,12 +120,14 @@ beforeEach(() => {
   }));
   mockFetch.mockReset().mockResolvedValue({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
   mockRead.mockReset().mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
+  mockUpload.mockReset().mockResolvedValue({ status: 200, body: "", headers: {} });
   jest.mocked(File).mockImplementation((...uris) => {
     const uri = String(uris[0]);
     return {
       exists: !mockDeleted.includes(uri),
       size: mockSizes[uri] ?? mockBytes[uri]?.length ?? 3,
       arrayBuffer: () => mockRead(uri),
+      upload: (url: string, options: unknown) => mockUpload(uri, url, options),
       bytes: async () => mockBytes[uri] ?? new Uint8Array([1, 2, 3]),
       write: (bytes: Uint8Array) => { mockBytes[uri] = bytes; },
       delete: () => { mockDeleted.push(uri); },
@@ -140,9 +149,112 @@ it("reads picked native files with Expo File and uploads API bytes through refre
 it("never adds Recall authorization to a storage URL sharing only the API host prefix", async () => {
   jest.mocked(api.presignAttachment).mockResolvedValue({ attachment_id: "a1", upload_url: "https://api.test.external.test/upload", api_upload: false, headers: {} });
   await uploadChatAttachment("token", pending);
-  const remote = mockFetch.mock.calls.find(([url]) => url === "https://api.test.external.test/upload");
-  expect(remote?.[1].headers).not.toHaveProperty("Authorization");
+  const remote = mockUpload.mock.calls.find(([, url]) => url === "https://api.test.external.test/upload");
+  expect(remote?.[2].headers).not.toHaveProperty("Authorization");
   expect(api.confirmAttachment).toHaveBeenCalledWith("token", "a1");
+});
+
+describe("a file's upload to storage", () => {
+  const storage = { attachment_id: "a1", upload_url: "https://r2.example/put", api_upload: false, headers: { "Content-Length": "3" } };
+  beforeEach(() => jest.mocked(api.presignAttachment).mockResolvedValue(storage));
+
+  it("is the system's own upload of the file, with its progress, never one fetch of its bytes", async () => {
+    const progress: number[] = [];
+    mockUpload.mockImplementationOnce(async (_uri, _url, options: { onProgress: (p: object) => void }) => {
+      options.onProgress({ bytesSent: 1, totalBytes: 4 });
+      options.onProgress({ bytesSent: 4, totalBytes: 4 });
+      return { status: 200, body: "", headers: {} };
+    });
+    await uploadChatAttachment("token", pending, "chat", { onProgress: (p) => progress.push(p) });
+    expect(mockUpload).toHaveBeenCalledWith("file:///picked.pdf", "https://r2.example/put", expect.objectContaining({
+      httpMethod: "PUT",
+      headers: { "Content-Type": "application/pdf", "Content-Length": "3" },
+    }));
+    expect(progress).toEqual([0.25, 1, 1]);
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockRead).not.toHaveBeenCalled();
+  });
+
+  it("runs as long as bytes keep moving, and fails only once it stalls", async () => {
+    jest.useFakeTimers();
+    try {
+      let tick: (p: object) => void = () => undefined;
+      mockUpload.mockImplementationOnce((_uri, _url, options: { onProgress: (p: object) => void; signal: AbortSignal }) => {
+        tick = options.onProgress;
+        return new Promise((_, reject) => {
+          options.signal.addEventListener("abort", () => reject(new Error("AbortError")));
+        });
+      });
+      let settled = false;
+      const outcome = uploadChatAttachment("token", pending).then(
+        () => "done",
+        (error: unknown) => error,
+      ).finally(() => { settled = true; });
+      await jest.advanceTimersByTimeAsync(0);
+      // Four minutes of a slow upload, a byte every 20 s: well past the old 120 s total.
+      for (let second = 0; second < 240; second += 20) {
+        tick({ bytesSent: second, totalBytes: 10_000 });
+        await jest.advanceTimersByTimeAsync(20_000);
+      }
+      expect(settled).toBe(false);
+      // 29 s since the last byte: still going. 31 s: stalled.
+      await jest.advanceTimersByTimeAsync(9_000);
+      expect(settled).toBe(false);
+      await jest.advanceTimersByTimeAsync(2_000);
+      expect(settled).toBe(true);
+      expect(await outcome).toMatchObject({ reason: "upload_failed" });
+      expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("stops on Cancel and says it was cancelled, refunding the upload", async () => {
+    const controller = new AbortController();
+    mockUpload.mockImplementationOnce((_uri, _url, options: { signal: AbortSignal }) =>
+      new Promise((_, reject) => options.signal.addEventListener("abort", () => reject(new Error("AbortError")))),
+    );
+    const upload = uploadChatAttachment("token", pending, "chat", { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    controller.abort();
+    await expect(upload).rejects.toBeInstanceOf(UploadCancelledError);
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+    expect(api.confirmAttachment).not.toHaveBeenCalled();
+  });
+
+  it.each([403, 413, 500])("fails an upload the storage refuses (%s) and refunds it, never sending it", async (status) => {
+    // An expired presign answers 403, a file too large 413: no message may name a file never stored.
+    mockUpload.mockResolvedValueOnce({ status, body: "", headers: {} });
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "upload_failed" });
+    expect(api.confirmAttachment).not.toHaveBeenCalled();
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+  });
+
+  it("still stops on Cancel once the file is up, while its confirm is on its way", async () => {
+    const controller = new AbortController();
+    let confirmed: () => void = () => undefined;
+    jest.mocked(api.confirmAttachment).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { confirmed = resolve; }),
+    );
+    const upload = uploadChatAttachment("token", pending, "chat", { signal: controller.signal });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(api.confirmAttachment).toHaveBeenCalled();
+    // "Uploading… 100%": Cancel, then the confirm lands.
+    controller.abort();
+    confirmed();
+    await expect(upload).rejects.toBeInstanceOf(UploadCancelledError);
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+  });
+
+  it("refuses a file that changed size since the presign before sending it", async () => {
+    mockSizes = { "file:///picked.pdf": 3 };
+    jest.mocked(api.presignAttachment).mockImplementationOnce(async () => {
+      mockSizes = { "file:///picked.pdf": 9 };
+      return storage;
+    });
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "changed" });
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
 });
 
 it("does not continue an upload after account change during native file reading", async () => {

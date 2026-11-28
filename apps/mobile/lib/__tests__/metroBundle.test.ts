@@ -11,7 +11,12 @@ type ResolveRequest = (
   moduleName: string,
   platform: string | null,
 ) => Resolution;
-type MetroConfig = { resolver: { assetExts: string[]; resolveRequest: ResolveRequest } };
+type MetroConfig = {
+  resolver: { assetExts: string[]; resolveRequest: ResolveRequest };
+  transformer: {
+    getTransformOptions: (...args: unknown[]) => Promise<{ transform: Record<string, unknown> }>;
+  };
+};
 
 const { join } = jest.requireActual<{ join(...parts: string[]): string }>("node:path");
 const fs = jest.requireActual<{
@@ -64,6 +69,40 @@ describe("metro.config.js", () => {
     expect(plugins.map((plugin) => plugin.name)).toContain(
       "unstableBeforeAssetSerializationDebugIdPlugin",
     );
+  });
+
+  it("loads a module when its import is first used, and still starts Sentry first", async () => {
+    // Off, about three quarters of the app ran before the first frame (2,908 of 3,923 modules).
+    const options = await config.transformer.getTransformOptions([], { dev: false, hot: false, platform: "ios" }, async () => []);
+    expect(options.transform).toMatchObject({ inlineRequires: true, experimentalImportSupport: true });
+    // A bare side-effect import is never moved to its first use: the layout's first line still
+    // starts Sentry before any other app module runs.
+    const layout = fs.readFileSync(join(__dirname, "..", "..", "app", "_layout.tsx"), "utf8");
+    const firstImport = layout.split("\n").find((line) => line.startsWith("import "));
+    expect(firstImport).toBe('import "@/lib/sentryStart";');
+  });
+
+  it("loads at launch every module that starts listening as it loads", () => {
+    // With imports loaded on first use, a module's top-level `onAppEvent(...)` or
+    // `x.subscribe(...)` would wait for that use and miss the events before it (a photo
+    // deleted from the Library staying in a chat's saved copy).
+    const app = join(__dirname, "..", "..");
+    const listening: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(join(app, dir), { withFileTypes: true })) {
+        const path = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          if (entry.name !== "__tests__" && entry.name !== "node_modules" && entry.name !== "vendor") walk(path);
+        } else if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith(".d.ts")) {
+          const source = fs.readFileSync(join(app, path), "utf8");
+          if (/^(?:onAppEvent|\w+\.subscribe)\(/m.test(source)) listening.push(path.replace(/\.tsx?$/, ""));
+        }
+      }
+    };
+    ["components", "contexts", "features", "hooks", "lib", "ui"].forEach(walk);
+    expect(listening.length).toBeGreaterThan(3);
+    const layout = fs.readFileSync(join(app, "app", "_layout.tsx"), "utf8");
+    expect(listening.filter((module) => !layout.includes(`import "@/${module}";`))).toEqual([]);
   });
 
   it("ships the preview WebViews' libraries (lib/vendor/*.txt) as assets", () => {

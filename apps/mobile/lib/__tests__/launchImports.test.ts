@@ -1,10 +1,10 @@
 /**
- * Structural guard: what the phone evaluates at launch. Metro runs without
- * `inlineRequires`, so a module that loads evaluates every module it imports
- * statically (and every `require` that runs as it loads) right then;
- * `import()` and type-only imports wait. From the routes a launch loads,
- * follow those eager edges and keep the heavy code below out: each loads on
- * first use.
+ * Structural guard: what the phone may evaluate at launch. Metro's `inlineRequires`
+ * (metro.config.js) loads an import where it is first used, but a module used as
+ * its importer loads (a component a screen renders, a value read at the top level)
+ * still loads then, so this walk treats every static import as eager, as Metro did
+ * before; `import()` and type-only imports wait. From the routes a launch loads,
+ * follow those edges and keep the heavy code below out: each loads on first use.
  *
  * A failure prints the import chain that pulled the module in. Load it with
  * `import()` where it is used (or `React.lazy`), or import only its types.

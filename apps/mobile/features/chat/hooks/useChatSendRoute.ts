@@ -9,7 +9,8 @@ import { buildPendingSendAfterCreate, type SendMessageOptions } from "@/features
 import { clearPendingChatTtft } from "@/features/chat/model/latency";
 import { resolveSendIntercept, type SendIntercept } from "@/features/chat/model/sendIntercept";
 import { shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
-import { attachmentErrorMessage } from "@/features/attachments/model/attachmentErrors";
+import { attachmentErrorMessage, isUploadCancelled } from "@/features/attachments/model/attachmentErrors";
+import { startSendUpload } from "@/features/chat/model/sendUpload";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration";
@@ -56,6 +57,22 @@ type Options = {
   /** A send for a chat that does not exist yet: it creates one and waits for its id. */
   sendToNewChat: (send: PaintedSend, pending: PendingChatSend, giveBack: () => void) => Promise<void>;
 };
+
+/**
+ * The send's file, uploaded while the composer shows how far it has got and Cancel in place
+ * of Send. A failure comes back to be said; a cancelled one (`isUploadCancelled`) is not, as
+ * the draft back in the composer says enough.
+ */
+async function uploadWithProgress(token: string, attachment: PendingAttachment) {
+  const upload = startSendUpload();
+  try {
+    return await uploadSendAttachment(token, attachment, "chat", upload);
+  } catch (error) {
+    return { error };
+  } finally {
+    upload.finish();
+  }
+}
 
 /**
  * Everything a painted send waits on before it is handed over, in one place. With
@@ -182,13 +199,13 @@ export function useChatSendRoute({
       setSendPhase(attached ? "uploading" : "preparing");
       let attachmentIds: string[] | undefined;
       if (attached) {
-        try {
-          ({ ids: attachmentIds, attachment: attached } = await uploadSendAttachment(authToken, attached));
-        } catch (error) {
+        const uploaded = await uploadWithProgress(authToken, attached);
+        if ("error" in uploaded) {
           giveBack();
-          if (send.isCurrentView()) feedback?.error(attachmentErrorMessage(error, t));
+          if (send.isCurrentView() && !isUploadCancelled(uploaded.error)) feedback?.error(attachmentErrorMessage(uploaded.error, t));
           return;
         }
+        ({ ids: attachmentIds, attachment: attached } = uploaded);
       }
       if (!(await drafts) || !(await clearToHandOver())) return giveBack();
 

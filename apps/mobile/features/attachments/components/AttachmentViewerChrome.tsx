@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { Space } from "@/lib/space";
@@ -37,7 +37,7 @@ export function AttachmentViewerChrome({
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   return (
     <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
       {/* Toasts (a failed share) show inside the viewer, not under it. */}

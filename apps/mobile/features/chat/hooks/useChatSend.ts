@@ -30,6 +30,7 @@ import type { ImageGenSubmit } from "@/features/images/hooks/useImageGeneration"
 import { type LocationSwitch, queryNeedsClientGeo } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useViewOwner } from "@/features/chat/hooks/useViewOwner";
 import type { EditThread } from "@/features/chat/model/threadEdit";
+import { hideSendUpload } from "@/features/chat/model/sendUpload";
 import { discardDraftAttachment } from "@/features/attachments/model/attachments";
 import {
   subscribeComposerAttachmentQueue,
@@ -194,7 +195,7 @@ export function useChatSend({
     if (!accountChanged && prevComposerThreadRef.current === composerThread) return;
     prevComposerThreadRef.current = composerThread;
     sendInFlightRef.current = false;
-    setSendPhase("idle");
+    setSendPhase("idle"); hideSendUpload(); // The last chat's file goes on uploading, unseen here.
     setPendingOutboundId(null);
     if (!accountChanged && fromKey === composerThread) return;
     if (!accountChanged) switchAttachmentThread(fromKey, composerThread);

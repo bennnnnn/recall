@@ -15,11 +15,13 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { CodeBlock } from "@/components/CodeBlock";
+import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
+import { useWebViewRecovery } from "@/components/rich/useWebViewRecovery";
 import type { IconName } from "@/ui/icons/names";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
@@ -132,6 +134,7 @@ function LiveWebPreview({
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
+  const recovery = useWebViewRecovery();
 
   const fullHtml = useMemo(
     () => prepareHtmlRunDocument(wrapFullDocument(html, theme)),
@@ -150,6 +153,13 @@ function LiveWebPreview({
     return (
       <View style={s.scrollContent}>
         <Text style={s.base}>{t("preview.webview_unavailable")}</Text>
+      </View>
+    );
+  }
+  if (recovery.lost) {
+    return (
+      <View style={s.webviewContainer}>
+        <PreviewLostNote onRetry={recovery.retry} style={s.lostNote} />
       </View>
     );
   }
@@ -173,6 +183,8 @@ function LiveWebPreview({
         </View>
       ) : null}
       <WebView
+        key={recovery.mount}
+        {...recovery.handlers}
         source={source}
         style={s.webview}
         scrollEnabled
@@ -257,7 +269,7 @@ function ShareToolbarItem({ html, theme, styles }: {
 }
 
 export function HtmlPreviewModal({ visible, html, onClose }: Props) {
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -373,6 +385,7 @@ const makeStyles = (theme: Theme) =>
     body: { flex: 1, minHeight: 0 },
     codeScroll: { flex: 1 },
     codeScrollContent: { padding: Space.md, paddingBottom: Space.lg },
+    lostNote: { flex: 1 },
     webviewContainer: {
       flex: 1,
       alignSelf: "stretch",

@@ -274,6 +274,18 @@ describe("MessageBubble copy feedback timers", () => {
     expect(view.getByA11yHint("chat.user_message_actions_hint")).toBeTruthy();
   });
 
+  it("tells a screen reader who wrote each message, first", async () => {
+    const sent = await render(<MessageBubble message={userMessage} />);
+    const label = sent.getByTestId("message-author");
+    expect(label).toHaveTextContent("chat.author_you");
+    // Never seen: one transparent pixel at the row's start.
+    expect(label.props.style).toMatchObject({ position: "absolute", width: 1, height: 1, color: "transparent" });
+    await sent.unmount();
+
+    const reply = await render(<MessageBubble message={assistantMessage} />);
+    expect(reply.getByTestId("message-author")).toHaveTextContent("chat.author_recall");
+  });
+
   it("opens a sent message's actions with the long-press tap every menu uses", async () => {
     const view = await render(<MessageBubble message={userMessage} />);
     await fireEvent(view.getByA11yHint("chat.user_message_actions_hint"), "longPress");

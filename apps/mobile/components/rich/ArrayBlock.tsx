@@ -17,6 +17,7 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 
 type Props = { content: string };
 
@@ -30,7 +31,7 @@ const ARRAY_BODY = { json: true };
  * lit green: an optional line above, a result caption and a note below.
  */
 export function ArrayBlock({ content }: Props) {
-  const theme = useTheme();
+  const theme = useTheme(); useMathSpeechWords(); // Its labels say maths in the app's language.
   const s = useMemo(() => makeStyles(theme), [theme]);
   const body = useMemo(() => arrayBody(content), [content]);
   const fence = body?.kind === "card" ? body.card : null;
