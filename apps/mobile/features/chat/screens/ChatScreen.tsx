@@ -49,6 +49,9 @@ import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/features/chat/model/composerLogic";
 import { locationSwitchOf } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
+import { useSendUpload } from "@/features/chat/hooks/useSendUpload";
+import { useScreenHeight } from "@/hooks/useScreenHeight";
+import { sendStatusLine } from "@/features/chat/model/sendUpload";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import type { FirstReply } from "@/features/chat/model/chatTurnCore";
 
@@ -73,7 +76,7 @@ function ChatScreen() {
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions(), windowHeight = useScreenHeight(); // Below the offline banner.
   const { routeChatId, routeHighlightMessage } = useChatRouteParams();
 
   const [chatId, setChatId] = useState<string | null>(null);
@@ -158,6 +161,7 @@ function ChatScreen() {
     onGenerateImage: (request) => void imageGen.submitPrompt(request),
   });
   const { sendPhase, sendTappedLine } = send;
+  const upload = useSendUpload();
   const composerWiring = useChatComposerWiring({
     token, user, routeChatId, chatId, send, scroll, ensureChatId, editThread, isOffline,
     openUpgrade: upgrade.open, onFirstReplyRef, t,
@@ -165,14 +169,10 @@ function ChatScreen() {
   const { liveTalk } = composerWiring;
 
   useEffect(() => setActiveChatIdGlobal(chatId), [chatId]);
-  useEffect(
-    () =>
-      registerNewChat((opts) => {
-        dismissChatError();
-        startNewChat(opts);
-      }),
-    [startNewChat, dismissChatError],
-  );
+  useEffect(() => registerNewChat((opts) => {
+    dismissChatError();
+    startNewChat(opts);
+  }), [startNewChat, dismissChatError]);
   const scrollToLatest = newerPage ? () => void jumpToLatest().then(scroll.scrollToLatest) : scroll.scrollToLatest;
 
   const { regenerate: handleRegenerate, regenerating } = useChatRegenerate({
@@ -210,7 +210,7 @@ function ChatScreen() {
     messages, chatTitle: metadata.chatTitle, routeLoader, messageList, chatActions, menuOverlayOpen, menuAnchorRef,
     handleSend: send.handleSend, wiring: composerWiring, quotaNudge, errors, retryChatError, upgrade, isPaid,
     isOffline, quotaBlocked: quotaNudge.outOfMessages, streaming: streamActive, replySaving: finalizing, sendBusy: historyPending || sendPhase !== "idle",
-    sendStatus: sendPhase === "locating" ? t("chat.locating") : undefined, stopGeneration: stopTurn,
+    sendStatus: sendStatusLine(sendPhase, upload, t), stopGeneration: stopTurn,
     liveTalkActive: liveTalk.visible,
   });
   useWelcomePlans({ user, busy: streamActive || regenerating, outOfCredit: quotaNudge.usedPct >= 100 || chatError?.kind === "quota", open: upgrade.open });

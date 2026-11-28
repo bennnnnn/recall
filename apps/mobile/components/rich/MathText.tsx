@@ -14,6 +14,7 @@ import { useFlashWhenClipped } from "@/components/rich/clippedScroll";
 import { useMathColumnInset } from "@/components/rich/mathColumn";
 import { inlineMathNeedsScroll, layoutMath } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 import { parseSimpleLatex, spokenFormula } from "@/lib/math/text";
 import { useTheme } from "@/lib/theme";
 import { makeStyles } from "@/components/rich/mathText/styles";
@@ -176,6 +177,7 @@ export const MathText = memo(function MathText({
   // reads the formula; a focusable box here would be a second TalkBack stop.
   const own = !useInsideAccessibleElement();
   const inText = useContext(TextAncestorContext);
+  useMathSpeechWords(); // Its label is said in the app's language: a change draws it again.
 
   if (!latex.trim()) return null;
 

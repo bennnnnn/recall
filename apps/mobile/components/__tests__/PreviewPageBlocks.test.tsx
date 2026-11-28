@@ -4,13 +4,14 @@
  * building a page of up to 3.4 MB per block. These tests pin what the WebView
  * gets: the file, the data, and settings no looser than the inline pages had.
  */
-import { act, render, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import type { ReactElement } from "react";
 import { Linking, Platform } from "react-native";
 
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { Chemistry2DView } from "@/components/rich/ChemistryBlock";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
+import { MermaidFullScreen } from "@/components/rich/MermaidFullScreen";
 import { CHART_PAGE } from "@/lib/chart/previewHtml";
 import { SMILES_DRAWER_PAGE } from "@/lib/chemistry/smilesDrawerHtml";
 import { MERMAID_PAGE } from "@/lib/mermaid/previewHtml";
@@ -148,6 +149,54 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     // Handed before the page loads and again once it has (Android may run the first late).
     expect(props.injectedJavaScriptBeforeContentLoaded).toBe(props.injectedJavaScript);
     expect(props.injectedJavaScript).toContain(inScript(data[0]));
+  });
+
+  it.each(["onContentProcessDidTerminate", "onRenderProcessGone"])(
+    "loads the page again once after %s, then offers Retry",
+    async (handler) => {
+      const { findByTestId, findByText, getByTestId, queryByTestId } = await render(element(data[0]));
+      await findByTestId("preview-webview");
+      expect(mockWebView.mounts).toBe(1);
+
+      // The first loss: the page mounts afresh by itself.
+      await act(async () => (lastProps()[handler] as () => void)());
+      await findByTestId("preview-webview");
+      expect(mockWebView.mounts).toBe(2);
+      expect(queryByTestId("preview-lost")).toBeNull();
+
+      // The second: Retry in place of a blank card.
+      await act(async () => (lastProps()[handler] as () => void)());
+      expect(await findByText("preview.lost")).toBeTruthy();
+      expect(queryByTestId("preview-webview")).toBeNull();
+      await act(async () => fireEvent.press(getByTestId("preview-lost-retry")));
+      await findByTestId("preview-webview");
+      expect(queryByTestId("preview-lost")).toBeNull();
+      expect(mockWebView.mounts).toBe(3);
+    },
+  );
+
+  it("counts losses in a minute: a page that loads and dies again stops at Retry", async () => {
+    const now = jest.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const { findByTestId, queryByTestId } = await render(element(data[0]));
+    await findByTestId("preview-webview");
+    const lose = () => act(async () => (lastProps().onContentProcessDidTerminate as () => void)());
+    const load = () => act(async () => (lastProps().onLoad as (() => void) | undefined)?.());
+    await lose();
+    await load();
+    // The reloaded page runs out of memory again 5 s later: no endless reload.
+    now.mockReturnValue(1_005_000);
+    await lose();
+    expect(await findByTestId("preview-lost")).toBeTruthy();
+    expect(mockWebView.mounts).toBe(2);
+    // An hour on (Retry, then two losses far apart): each reloads by itself.
+    await act(async () => fireEvent.press(await findByTestId("preview-lost-retry")));
+    now.mockReturnValue(4_600_000);
+    await lose();
+    now.mockReturnValue(8_200_000);
+    await lose();
+    await findByTestId("preview-webview");
+    expect(queryByTestId("preview-lost")).toBeNull();
+    expect(mockWebView.mounts).toBe(5);
   });
 
   it("keeps the WebView as locked down as the inline page was", async () => {
@@ -306,4 +355,21 @@ describe.each(CASES)("%s", (_name, { page, element, data, inScript, failure, dra
     expect(lastProps().source).toEqual({ uri: file });
     expect(previewPageFile).toHaveBeenCalledTimes(1);
   });
+});
+
+it("opens a full-screen diagram afresh after one that stopped was closed", async () => {
+  const page = (visible: boolean) => (
+    <MermaidFullScreen visible={visible} source="graph TD; A-->B" title="Diagram" onClose={jest.fn()} />
+  );
+  const view = await render(page(true));
+  await view.findByTestId("preview-webview");
+  const lose = () => act(async () => (lastProps().onContentProcessDidTerminate as () => void)());
+  await lose();
+  await lose();
+  expect(await view.findByTestId("preview-lost")).toBeTruthy();
+  // Closed and opened again: the diagram, not "This preview stopped."
+  await view.rerender(page(false));
+  await view.rerender(page(true));
+  expect(await view.findByTestId("preview-webview")).toBeTruthy();
+  expect(view.queryByTestId("preview-lost")).toBeNull();
 });

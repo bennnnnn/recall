@@ -59,6 +59,7 @@ const PUBLIC: Record<string, readonly string[]> = {
     "model/emojiPlacement.ts",
     "model/messageCache.ts",
     "model/quotaNudgeDismissal.ts",
+    "model/sendUpload.ts",
     "model/streamingDraftStore.ts",
   ],
   drafts: [

@@ -14,6 +14,8 @@ import { useTranslation } from "react-i18next";
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 
+import { WindowInsetsScope } from "../hooks/useWindowInsets";
+
 /** How long the exit fade runs before the layer unmounts. */
 export const OVERLAY_EXIT_MS = 150;
 
@@ -104,7 +106,9 @@ export function Overlay({
           accessibilityLabel={t("common.close")}
           testID={testID ? `${testID}-scrim` : "overlay-scrim"}
         />
-        <ProgressContext.Provider value={progress}>{children}</ProgressContext.Provider>
+        <ProgressContext.Provider value={progress}>
+          <WindowInsetsScope>{children}</WindowInsetsScope>
+        </ProgressContext.Provider>
       </View>
     </GestureHandlerRootView>
   );

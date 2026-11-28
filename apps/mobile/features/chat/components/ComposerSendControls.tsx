@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import type { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
+import { useSendUpload } from "@/features/chat/hooks/useSendUpload";
 import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { LiveTalkButton } from "@/features/speech/components/LiveTalkButton";
 import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
@@ -50,6 +51,24 @@ export function ComposerSendControls({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const upload = useSendUpload();
+  if (sendBusy && upload) {
+    // A file on its way: Cancel stops it and gives the draft back.
+    return (
+      <View style={s.sendBtnSlot}>
+        <Pressable
+          style={s.sendBtn}
+          onPress={upload.cancel}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.cancel_upload")}
+          testID="composer-cancel-upload"
+        >
+          <Icon name="stop" size={IconSize.xxs} color={theme.onPrimary} />
+        </Pressable>
+      </View>
+    );
+  }
   if (streaming) {
     return (
       <View style={s.sendBtnSlot}>

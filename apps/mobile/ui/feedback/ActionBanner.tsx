@@ -127,9 +127,8 @@ export function ActionBanner({
           accessibilityLabel={message}
         >
           <Icon name={icon} size={IconSize.sm} color={iconColor} />
-          <Text style={s.text} numberOfLines={2}>
-            {message}
-          </Text>
+          {/* Never cut: at the largest text sizes a toast takes the lines it needs. */}
+          <Text style={s.text}>{message}</Text>
         </Pressable>
       </Animated.View>
     </Animated.View>
@@ -163,7 +162,8 @@ function makeStyles(theme: Theme, appearance: ActionBannerAppearance) {
       alignItems: "center",
       gap: Space.xs,
       backgroundColor: toastBg,
-      borderRadius: Radius.full,
+      // A pill on one line; a rounded box, not an oval, when the words wrap.
+      borderRadius: Radius.card,
       paddingHorizontal: Space.gutter,
       paddingVertical: Space.sm,
       maxWidth: 340,

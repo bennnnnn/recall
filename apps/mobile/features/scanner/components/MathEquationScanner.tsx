@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { useTranslation } from "react-i18next";
 
 import { MathScannerChrome } from "@/features/scanner/components/MathScannerChrome";
@@ -110,7 +110,7 @@ const ANDROID_DISMISS_MS = 400;
 export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const windowSize = useWindowDimensions();
   // The camera fills this view; the overlay and the crop map against its measured size.
   const [view, setView] = useState({ width: windowSize.width, height: windowSize.height });

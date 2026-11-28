@@ -55,7 +55,9 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 - `icons/`: Icon, BrandMark, the icon manifest and generated glyphs, IconSize.
 - `feedback/`: ActionBanner (the toast), StateView, SkeletonLoader, CountBadge, ActionShimmer.
 - `hooks/`: useKeyboardHeight, useBottomLiftStyle (bottom chrome that rides a keyboard-lifted composer on the UI thread),
-  useLiveAnnouncement (the iOS half of a live region: VoiceOver hears a result or error that appears).
+  useLiveAnnouncement (the iOS half of a live region: VoiceOver hears a result or error that appears),
+  useWindowInsets / WindowInsetsScope (the window's safe area for a sheet, menu or full-screen page:
+  the screens' own is their frame's, under the offline banner).
 
 ## Tokens
 

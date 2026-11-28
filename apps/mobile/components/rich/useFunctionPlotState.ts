@@ -5,11 +5,12 @@
  */
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useWindowDimensions, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
-import { useSafeAreaInsets, type EdgeInsets } from "react-native-safe-area-context";
+import type { EdgeInsets } from "react-native-safe-area-context";
 
 import { GRAPH_AXIS_PAD } from "@/components/rich/GraphCanvas";
 import { markLabel, type GraphPoints } from "@/components/rich/graphPoints";
 import { MODAL_PLOT_MIN } from "@/components/rich/ExplorerModal";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import {
   drawGraphSeries,
   useGraphSeries,
@@ -160,7 +161,7 @@ function useExplorerPlot(
 }
 
 export function useFunctionPlotState(spec: GraphSpec, chartWidth: number, theme: Theme) {
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets(); // The explorer covers the window, offline banner or not.
   const [open, setOpen] = useState(false);
   const closeExplorer = useCallback(() => setOpen(false), []);
   const cardClipId = useId().replace(/:/g, "");

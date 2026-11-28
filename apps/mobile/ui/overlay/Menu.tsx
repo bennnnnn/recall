@@ -11,7 +11,6 @@ import {
   type HostInstance,
 } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { selection } from "@/lib/haptics";
 import { Radius } from "@/lib/radius";
@@ -21,6 +20,7 @@ import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 import { menuItemRole } from "../controls/a11yRoles";
+import { useWindowInsets } from "../hooks/useWindowInsets";
 import { Icon } from "../icons/Icon";
 import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
@@ -102,7 +102,7 @@ function MenuCard({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const progress = useOverlayProgress();
   const screen = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const [anchor, setAnchor] = useState<Rect | null>(null);
   const [waitedForAnchor, setWaitedForAnchor] = useState(false);
   const [contentHeight, setContentHeight] = useState<number | null>(null);

@@ -4,7 +4,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-na
 
 import { selection } from "@/lib/haptics";
 import { Motion, useReduceMotion } from "@/lib/motion";
-import { Radius } from "@/lib/radius";
 import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -20,6 +19,8 @@ type Props<K extends string> = {
   accessibilityLabel?: string;
   /** On a tinted background: a see-through track that takes the tint, not a grey one. */
   tinted?: boolean;
+  /** How far the labels grow with the phone's text size, on a page that caps its own. */
+  maxFontSizeMultiplier?: number;
   testID?: string;
 };
 
@@ -33,6 +34,7 @@ export function SegmentedControl<K extends string>({
   onChange,
   accessibilityLabel,
   tinted = false,
+  maxFontSizeMultiplier,
   testID = "segmented",
 }: Props<K>) {
   const theme = useTheme();
@@ -89,7 +91,8 @@ export function SegmentedControl<K extends string>({
             accessibilityLabel={segment.label}
             testID={`${testID}-${segment.key}`}
           >
-            <Text style={[s.label, selected && s.labelOn]} numberOfLines={1}>
+            {/* A label wraps, never cuts: "Yearly · Save 37%" at the largest text size. */}
+            <Text style={[s.label, selected && s.labelOn]} maxFontSizeMultiplier={maxFontSizeMultiplier}>
               {segment.label}
             </Text>
           </Pressable>
@@ -99,13 +102,18 @@ export function SegmentedControl<K extends string>({
   );
 }
 
+/** A one-line segment's height; its corners are half of it, a pill that stays a pill's
+ * shape (a rounded box, not an oval) when a label wraps to more lines. */
+const SEGMENT_HEIGHT = Space.xl + Space.xs;
+const SEGMENT_RADIUS = SEGMENT_HEIGHT / 2;
+
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     // The thumb is always the lighter of the two, so the choice reads as raised.
     track: {
       flexDirection: "row",
       padding: Space.xxs,
-      borderRadius: Radius.full,
+      borderRadius: SEGMENT_RADIUS + Space.xxs,
       backgroundColor: t.isDark ? t.surface : t.control,
     },
     trackTinted: { backgroundColor: withAlpha(t.isDark ? t.surface : t.elevated, 0.55) },
@@ -114,19 +122,20 @@ function makeStyles(t: Theme) {
       top: Space.xxs,
       bottom: Space.xxs,
       left: Space.xxs,
-      borderRadius: Radius.full,
+      borderRadius: SEGMENT_RADIUS,
       backgroundColor: t.isDark ? t.control : t.elevated,
       ...shadowRaised(t),
     },
     segment: {
       flex: 1,
-      minHeight: Space.xl + Space.xs,
+      minHeight: SEGMENT_HEIGHT,
       paddingHorizontal: Space.xs,
-      borderRadius: Radius.full,
+      paddingVertical: Space.xxs,
+      borderRadius: SEGMENT_RADIUS,
       alignItems: "center",
       justifyContent: "center",
     },
-    label: { ...Type.label, ...Weight.medium, color: t.textSecondary },
+    label: { ...Type.label, ...Weight.medium, color: t.textSecondary, textAlign: "center" },
     labelOn: { ...Weight.semibold, color: t.text },
   });
 }

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWindowInsets } from "@/ui/hooks/useWindowInsets";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +23,7 @@ import {
   yearlySaving,
 } from "@/features/billing/model/planCopy";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 import { Button } from "@/ui/controls/Button";
 import { IconButton } from "@/ui/controls/IconButton";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
@@ -80,7 +81,7 @@ function PlansPage({ visible, onClose, source = "other" }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const insets = useWindowInsets();
   const { token, user, syncSubscription, devUpgrade, setUpStore } = useSubscriptionActions();
   const current = planOf(user);
   // The one paid plan, or none for an account already on it.
@@ -248,6 +249,8 @@ function PeriodSwitch({
       onChange={(next) => onPick?.(next)}
       accessibilityLabel={t("upgrade.billing_period")}
       tinted
+      // As large as the page's other text, so "Monthly" never breaks mid-word.
+      maxFontSizeMultiplier={PLANS_FONT_SCALE}
       testID="upgrade-period"
     />
   );
@@ -279,7 +282,7 @@ function StoreNotes({
     <>
       {unavailable ? (
         <>
-          <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
+          <PlansError text={t("upgrade.store_unavailable")} style={s.error} />
           <Button title={t("common.retry")} onPress={onRetry} variant="secondary" />
         </>
       ) : null}
@@ -346,8 +349,18 @@ function PlansFooter({
         // A subscriber still has Privacy, Terms and Restore (a new phone finds the purchase there).
         legal
       )}
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <PlansError text={error} style={s.error} testID="upgrade-error" /> : null}
     </View>
+  );
+}
+
+/** What went wrong, said to a screen reader as it appears (a purchase, the store). */
+function PlansError({ text, style, testID }: { text: string; style: object; testID?: string }) {
+  useLiveAnnouncement(text);
+  return (
+    <Text style={style} accessibilityRole="alert" accessibilityLiveRegion="assertive" testID={testID}>
+      {text}
+    </Text>
   );
 }
 

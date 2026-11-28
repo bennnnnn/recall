@@ -28,6 +28,18 @@ export class AttachmentError extends Error {
   }
 }
 
+/** The user cancelled the upload (Cancel in the composer): nothing to report or say. */
+export class UploadCancelledError extends Error {
+  constructor() {
+    super("UPLOAD_CANCELLED");
+    this.name = "UploadCancelledError";
+  }
+}
+
+export function isUploadCancelled(error: unknown): boolean {
+  return error instanceof UploadCancelledError;
+}
+
 const MESSAGE_KEYS: Record<AttachmentFailure, string> = {
   too_large: "chat.attach_too_large",
   unsupported_type: "chat.attach_unsupported_type",
