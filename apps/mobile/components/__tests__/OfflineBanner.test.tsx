@@ -14,18 +14,19 @@ import { useWindowInsets, WindowInsetsScope } from "@/ui/hooks/useWindowInsets";
 
 const WINDOW = { top: 47, bottom: 34, left: 0, right: 0 };
 const seen = { screenTop: -1, windowTop: -1, layerTop: -1, mounts: 0 };
+const record = (values: Partial<typeof seen>) => Object.assign(seen, values);
+const mounted = () => {
+  seen.mounts += 1;
+};
 
 function Screen() {
-  seen.screenTop = useSafeAreaInsets().top;
-  seen.windowTop = useWindowInsets().top;
-  useEffect(() => {
-    seen.mounts += 1;
-  }, []);
+  record({ screenTop: useSafeAreaInsets().top, windowTop: useWindowInsets().top });
+  useEffect(mounted, []);
   return <Text>screen</Text>;
 }
 
 function Layer() {
-  seen.layerTop = useSafeAreaInsets().top;
+  record({ layerTop: useSafeAreaInsets().top });
   return null;
 }
 
@@ -45,7 +46,7 @@ beforeEach(() => {
 });
 
 it("puts the banner above the screens, never over their header", async () => {
-  const view = await render(app("offline"));
+  const view = await render(app("no_internet"));
   const banner = StyleSheet.flatten(view.getByTestId("offline-banner").props.style);
   expect(banner.position).not.toBe("absolute");
   // The banner covers the status bar itself.
@@ -59,7 +60,7 @@ it("puts the banner above the screens, never over their header", async () => {
 it("keeps the screens mounted as the connection comes and goes", async () => {
   const view = await render(app("online"));
   expect(view.queryByTestId("offline-banner")).toBeNull();
-  await act(async () => view.rerender(app("offline")));
+  await act(async () => view.rerender(app("no_internet")));
   expect(view.getByTestId("offline-banner")).toBeTruthy();
   await act(async () => view.rerender(app("online")));
   expect(seen.mounts).toBe(1);

@@ -60,7 +60,12 @@ installPluralRules();
 
 // Formulas are spoken in the app's language (a screen reader's label, read-aloud).
 i18n.on("languageChanged", (lng: string) => {
-  setMathSpeechWords(readMathSpeechWords(((key: string) => i18n.t(key)) as Translate, lng));
+  const english = en as Record<string, string>;
+  const word = (key: string): string => {
+    const value: unknown = i18n.getResource(lng, "translation", key);
+    return typeof value === "string" ? value : (english[key] ?? key);
+  };
+  setMathSpeechWords(readMathSpeechWords(word as Translate, lng));
 });
 
 // The phone's language until a choice replaces it: the cached account's, before the first
