@@ -23,6 +23,16 @@ describe("SegmentedControl", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
+  it("wraps a long label instead of cutting it", async () => {
+    // "Yearly · Save 37%" at the largest text size on a small phone.
+    const periods = [
+      { key: "monthly", label: "Monthly" },
+      { key: "yearly", label: "Yearly · Save 37%" },
+    ] as const;
+    const view = await render(<SegmentedControl segments={periods} value="monthly" onChange={jest.fn()} />);
+    expect(view.getByText("Yearly · Save 37%").props.numberOfLines).toBeUndefined();
+  });
+
   it("sizes the thumb to one segment once laid out", async () => {
     const view = await render(<SegmentedControl segments={SIZES} value="small" onChange={jest.fn()} />);
     expect(view.queryByTestId("segmented-thumb")).toBeNull();
