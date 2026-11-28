@@ -158,25 +158,6 @@ def claims_change(text: str, *, about_todos: bool = False) -> bool:
     return without_claims(text, about_todos=about_todos) != _settled(text)
 
 
-def says_it_will_remind(text: str) -> bool:
-    """Whether a sentence outside code says a reminder was set or will fire ("I'll remind
-    you tomorrow at 6 PM", "I've set a reminder"): about a reminder by its own words."""
-    return any(
-        fence is None and _CLAIM_RE.search(_plain(sentence))
-        for line, fence in zip(text.split("\n"), line_fences(text), strict=True)
-        for sentence in _SENTENCE_RE.split(line)
-    )
-
-
-def has_result_line(text: str) -> bool:
-    """Whether a line of ``text`` is a change's result line ("Set: gym — Thursday, 6:00 PM."),
-    as the old app wrote under a reply and a model may copy."""
-    return any(
-        fence is None and _CLAIM_LINE_RE.match(line.strip())
-        for line, fence in zip(text.split("\n"), line_fences(text), strict=True)
-    )
-
-
 def without_claims(text: str, *, about_todos: bool = False) -> str:
     """The reply without sentences that say a to-do change already happened.
 

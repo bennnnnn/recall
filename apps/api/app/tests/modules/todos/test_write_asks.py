@@ -61,6 +61,16 @@ def test_an_english_ask_for_a_reminder_is_read_as_one(text: str) -> None:
         "how do I remove a to-do item in React",
         "Can you add 3 + 4 using the same method?",
         "my list of reasons to move is long",
+        # Review of #2619: told something, or code.
+        "remind me the steps to solve a quadratic",
+        "remind me the rules to chess",
+        "remind me the answer to question 2",
+        "create a task queue with celery",
+        "make a task scheduler in python",
+        "add dark mode to my todo list app",
+        "Reminder: I'm allergic to peanuts. What snacks can I bring?",
+        "make a to-do list for my move",
+        "remind me about the dentist tomorrow",
     ],
 )
 def test_an_english_lookalike_is_not_a_to_do_change(text: str) -> None:

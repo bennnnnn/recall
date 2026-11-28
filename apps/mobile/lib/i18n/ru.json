@@ -1069,6 +1069,7 @@
   "todos.delete_selected_other": "Удалить {{count}} задачи?",
   "todos.empty_open": "Невыполненных задач нет",
   "todos.menu": "Меню задач",
+  "todos.change_in_todo": "Добавить или изменить это можно в разделе **Задачи**.",
   "todos.open_from_chat": "Открыть задачи",
   "todos.menu_select": "Выбрать задачи",
   "todos.detail_menu": "Действия",

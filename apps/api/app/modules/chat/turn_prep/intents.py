@@ -36,7 +36,7 @@ from app.modules.chat.turn_prep.clauses import (
 from app.modules.chat.turn_prep.problems import problem_clauses
 from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import extract_image_lookup_query
-from app.modules.todos import asks_for_reminder
+from app.modules.todos import asks_in_english
 from app.modules.turn_reading.answer_form import orders_the_answer
 from app.modules.turn_reading.plan import (
     HANDLED_KINDS,
@@ -69,7 +69,7 @@ def asks_a_reminder(text: str) -> bool:
     """The request asks for a reminder or an alarm (``part_kind``'s "reminder"); "remind me
     …" is the to-do reader's to tell apart: "remind me what the yellow fever thing was" asks
     to be told again (2026-11-06)."""
-    return asks_for_reminder(request_body(text))
+    return asks_in_english(request_body(text))
 
 
 def asks_a_setting(text: str) -> bool:

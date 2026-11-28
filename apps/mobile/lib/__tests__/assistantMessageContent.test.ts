@@ -287,7 +287,16 @@ describe("deriveAssistantMessageContent", () => {
       const result = deriveAssistantMessageContent({ ...base, content, layoutFrozen });
       expect(result.markdownContent).toBe("Want it on your list?");
       expect(result).not.toHaveProperty("reminderProposals");
+      expect(result.oldReminderCardOnly).toBe(false);
     }
+  });
+
+  it("shows an old reply that was only a reminder card as the To-do line and button", () => {
+    const content = '```reminder_proposal\n{"proposal_id":"p1","items":[]}\n```';
+    const result = deriveAssistantMessageContent({ ...base, content });
+    expect(result.markdownContent).toBe("");
+    expect(result.oldReminderCardOnly).toBe(true);
+    expect(result.showTodoLink).toBe(true);
   });
 
   it("strips settings_proposal fences and exposes the card payload", () => {

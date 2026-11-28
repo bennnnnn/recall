@@ -1030,6 +1030,7 @@
   "todos.delete_selected_other": "{{count}} टू-डू डिलीट करें?",
   "todos.empty_open": "करने को कुछ नहीं बचा",
   "todos.menu": "टू-डू मेन्यू",
+  "todos.change_in_todo": "आप इसे **टू-डू** में जोड़ या बदल सकते हैं।",
   "todos.open_from_chat": "टू-डू खोलें",
   "todos.menu_select": "टास्क चुनें",
   "todos.detail_menu": "टू-डू के विकल्प",

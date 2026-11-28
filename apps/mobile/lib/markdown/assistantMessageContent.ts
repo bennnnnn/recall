@@ -39,6 +39,11 @@ export type AssistantMessageContent = {
   showSettingsProposals: boolean;
   /** A to-do change asked in chat: the Open To-do button (todoLink.ts). */
   showTodoLink: boolean;
+  /**
+   * The reply was only an old reminder card (chat no longer offers one): it reads as the
+   * line chat says now, with the button, never an empty bubble.
+   */
+  oldReminderCardOnly: boolean;
   images: ParsedMessageImage[];
   showImages: boolean;
   markdownContent: string;
@@ -72,6 +77,9 @@ function stripUnverifiedResultLine(text: string): string {
   if (!text.includes("automatically verify this result")) return text;
   return text.replace(UNVERIFIED_RESULT_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/** An old saved reply's reminder card: shown as the To-do line and button instead. */
+const OLD_REMINDER_CARD = /```reminder_proposal\b/i;
 
 /** Any retired name in any case: a fence's language is read lower-cased. */
 const RETIRED_FENCE_NAME = new RegExp([...RETIRED_FENCE_LANGS].join("|"), "i");
@@ -150,7 +158,9 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
   const showSettingsProposals = settingsProposals.length > 0 && !layoutFrozen;
 
-  const showTodoLink = !isUser && hasContent && !layoutFrozen && hasTodoLink(content);
+  const oldReminderCard = !isUser && hasContent && OLD_REMINDER_CARD.test(content);
+  const showTodoLink =
+    !isUser && hasContent && !layoutFrozen && (hasTodoLink(content) || oldReminderCard);
 
   // [Image: …] marker lines only appear in attachment/lookup replies — skip the
   // per-line split+regex scan for the common no-marker reply.
@@ -174,6 +184,7 @@ export function deriveAssistantMessageContent(
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
+  const oldReminderCardOnly = oldReminderCard && !hasMarkdown;
   // Live clock and "where am I" are device-driven — a Sources chip would
   // imply the answer came from those links, which it didn't.
   const showSearchSources =
@@ -192,6 +203,7 @@ export function deriveAssistantMessageContent(
     settingsProposals,
     showSettingsProposals,
     showTodoLink,
+    oldReminderCardOnly,
     images: parsedImages.images,
     showImages,
     markdownContent,

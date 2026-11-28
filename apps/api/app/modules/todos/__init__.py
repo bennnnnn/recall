@@ -25,6 +25,12 @@ if TYPE_CHECKING:
     from app.modules.todos.chat_language import (
         todo_screen_answer as todo_screen_answer,
     )
+    from app.modules.todos.chat_language import (
+        todo_screen_line as todo_screen_line,
+    )
+    from app.modules.todos.classification import (
+        names_a_todo as names_a_todo,
+    )
     from app.modules.todos.classification import (
         query_implies_todos as query_implies_todos,
     )
@@ -89,22 +95,13 @@ if TYPE_CHECKING:
         claims_change as claims_change,
     )
     from app.modules.todos.reply_claims import (
-        says_it_will_remind as says_it_will_remind,
-    )
-    from app.modules.todos.reply_claims import (
         without_claims as without_claims,
     )
     from app.modules.todos.reply_offers import (
         asks_when as asks_when,
     )
     from app.modules.todos.reply_offers import (
-        follows_todo_reply as follows_todo_reply,
-    )
-    from app.modules.todos.reply_offers import (
         without_reminder_offers as without_reminder_offers,
-    )
-    from app.modules.todos.spoken_when import (
-        find_when as find_when,
     )
     from app.modules.todos.spoken_when import (
         is_only_a_when as is_only_a_when,
@@ -113,19 +110,17 @@ if TYPE_CHECKING:
         todo_screen_reply as todo_screen_reply,
     )
     from app.modules.todos.write_asks_english import (
-        asks_for_reminder as asks_for_reminder,
+        asks_in_english as asks_in_english,
     )
 
 _EXPORTS = {
     "TODO_HINT": ("prompt_hint", "TODO_HINT"),
     "TODO_LINK_FENCE": ("chat_language", "TODO_LINK_FENCE"),
     "answer_language": ("chat_language", "answer_language"),
-    "asks_for_reminder": ("write_asks_english", "asks_for_reminder"),
+    "asks_in_english": ("write_asks_english", "asks_in_english"),
     "asks_to_read_reminders": ("read_asks", "asks_to_read_reminders"),
     "build_todos_system_section": ("prompt_context", "build_todos_system_section"),
     "claims_change": ("reply_claims", "claims_change"),
-    "says_it_will_remind": ("reply_claims", "says_it_will_remind"),
-    "find_when": ("spoken_when", "find_when"),
     "format_todos_voice_block": ("prompt_context", "format_todos_voice_block"),
     "is_only_a_when": ("spoken_when", "is_only_a_when"),
     "language_evidence": ("chat_language", "language_evidence"),
@@ -133,10 +128,11 @@ _EXPORTS = {
     "query_implies_todos": ("classification", "query_implies_todos"),
     "read_back": ("reading", "read_back"),
     "saved_todo_named": ("reading", "saved_todo_named"),
-    "follows_todo_reply": ("reply_offers", "follows_todo_reply"),
+    "names_a_todo": ("classification", "names_a_todo"),
     "asks_when": ("reply_offers", "asks_when"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "todo_screen_answer": ("chat_language", "todo_screen_answer"),
+    "todo_screen_line": ("chat_language", "todo_screen_line"),
     "todo_screen_reply": ("write_asks", "todo_screen_reply"),
     "without_claims": ("reply_claims", "without_claims"),
     "without_reminder_offers": ("reply_offers", "without_reminder_offers"),

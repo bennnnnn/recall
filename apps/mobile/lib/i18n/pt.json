@@ -1057,6 +1057,7 @@
   "todos.delete_selected_other": "Excluir {{count}} tarefas?",
   "todos.empty_open": "Nenhuma tarefa pendente",
   "todos.menu": "Menu de tarefas",
+  "todos.change_in_todo": "Você pode adicionar ou alterar isso em **Tarefas**.",
   "todos.open_from_chat": "Abrir Tarefas",
   "todos.menu_select": "Selecionar tarefas",
   "todos.detail_menu": "Ações da tarefa",

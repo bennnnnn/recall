@@ -1045,6 +1045,7 @@
   "todos.delete_selected_other": "{{count}} ተግባሮች ይሰረዙ?",
   "todos.empty_open": "የቀረ ተግባር የለም",
   "todos.menu": "የተግባር ምናሌ",
+  "todos.change_in_todo": "በ**የሚደረጉ** ውስጥ ማከል ወይም መቀየር ይችላሉ።",
   "todos.open_from_chat": "የሚደረጉን ክፈት",
   "todos.menu_select": "ተግባሮችን ምረጥ",
   "todos.detail_menu": "የተግባር እርምጃዎች",

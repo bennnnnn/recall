@@ -1284,8 +1284,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ❌ **Reminder cards and chat to-do writes** — removed (owner, 2026-11-27). Chat and live
   talk never add, edit, complete or delete a to-do: no ` ```reminder ` fence is taught or
   applied, no ` ```reminder_proposal ` card is offered, and `POST /todos/proposals/{id}/confirm`
-  is gone. Old saved replies may still hold a card: the phone draws nothing for it and the
-  prompt's history leaves it out. Never offer it back.
+  is gone. Old saved replies may still hold a card: the phone and the prompt's history read it as
+  the To-do line. Never offer it back.
 - ✅ **Chat and live talk only read to-dos** — in every language. A question about the list
   loads it into the prompt (“what's on my list today?”, “when is my dentist appointment?”,
   “¿qué tengo hoy?”), and a plain “what's on my to-do list?” is answered from the saved rows,
@@ -1293,14 +1293,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   change one (“remind me to call mom”, “add milk to my list”, “set an alarm for 7”,
   “recuérdame…”, “напомни…”, “አስታውሰኝ”) gets the server's own reply, no model call: one line in
   the user's language and an **Open To-do** button (` ```todo_link `,
-  `todos/write_asks.py`, `todos/chat_language.py`). A time or a yes right after the button
-  (“6pm”, “a las 5”) gets it again. A change the words did not catch (“mark call mom as
-  done”) is the model's: it is told it cannot change one and writes the button; a reply
-  that writes the old fence, the button, or says a change was made (“Done! I've marked
-  it”) becomes the server's line and button (`chat/finalize_todos.py`,
-  `todos/reply_claims.py`). A message of several requests keeps its other answers, with the
-  line under them. A question offering to set a reminder (“Want me to set a reminder?”) is
-  dropped from every reply (`todos/reply_offers.py`). Live talk reads a compact snapshot of
+  `todos/write_asks.py`, `todos/chat_language.py`). Only reminder or to-do words count:
+  “remind me” with the task right after it or a time, “set a reminder/alarm”, “to-do”, “my
+  list”; “remind me the steps to solve…” and “create a task queue” go to the model. A time
+  right after the button, or a yes to an old offer of a reminder, gets it again. A change
+  the words did not catch (“mark call mom as done”) is the model's: it is told it cannot
+  change one and writes the button. A reply to a request that writes the old fence or the
+  button, or that says a change was made (“Done! I've marked it”) when the request names a
+  to-do in to-do words or names one the user saved, becomes the server's line and button
+  (`chat/finalize_todos.py`, `todos/reply_claims.py`); every other reply is kept, whatever
+  came before it. A message of several requests keeps its other answers, with the line
+  under them. A question offering to set a reminder (“Want me to set a reminder?”) is
+  dropped from every reply; an offer of written text (“a to-do list for your move”) stays
+  (`todos/reply_offers.py`). An old reply that was only a card shows the line and the
+  button. Live talk reads a compact snapshot of
   the list and is told to answer a spoken “remind me…” by sending the user to the To-do
   screen, in their language; it saves nothing.
 - ✅ **To-dos in the prompt** — Schedule + overdue summary in the system prompt when a turn

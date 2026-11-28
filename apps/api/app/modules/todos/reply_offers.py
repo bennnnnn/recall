@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import re
 
-from app.modules.todos.reply_claims import has_result_line
 from app.services.md_fence_scan import iter_fences, line_fences
 
 _ASKS = (
@@ -22,10 +21,10 @@ _ASKS = (
     r"(?:(?:go ahead and|also|quickly)\s+)?"
 )
 _NOT_A_REMINDER = (
-    r"(?!\s+(?:lists?\s+)?(?:of|on how|about how|app|apps|system|tool|service|services|feature"
+    r"(?!\s+(?:lists?\b|(?:lists?\s+)?(?:of|on how|about how|app|apps|system|tool|service|services|feature"
     r"|features|function|component|module|class|code|template|logic|api|screen|page|banner"
     r"|field|button|card|section|widget|bar|popup|modal|email|message|text|note|letter|post"
-    r")\b)"
+    r")\b))"
 )
 # Words between the verb and the reminder, none of them a preposition: "set up that
 # Practice list comprehensions reminder", not "add error handling to the reminder".
@@ -35,7 +34,7 @@ _OFFER = re.compile(
     rf"|cancel|reschedule|update|mark)\s+{_OBJECT_WORDS}"
     rf"(?:reminders?|to-?dos?){_NOT_A_REMINDER}\b"
     rf"|\b{_ASKS}(?:add|put|save)\s+[^?]{{0,80}}?\s+(?:to|on|in)\s+your\s+"
-    r"(?:(?:to-?do|grocery|shopping)\s+)?(?:list|to-?dos|reminders)\b(?!\s+app\b)"
+    r"(?:(?:to-?do|grocery|shopping)\s+)?(?:list|to-?dos|reminders)\b(?!\s+(?:app|of)\b)"
     rf"|\b{_ASKS}remind you\b(?!\s+(?:how|what|why|of|that|about how)\b)"
     rf"|\b(?:would|do) you (?:like|want) (?:a|that|this)\s+reminders?\b{_NOT_A_REMINDER}",
     re.IGNORECASE,
@@ -52,7 +51,7 @@ _AN_OFFER_OPENS = re.compile(
     r"^\W*(?:want|would|do|shall|should|can|could|how about|maybe|need)\b", re.IGNORECASE
 )
 # Every fence the phone draws as a card (``apps/mobile/lib/fence/registry.ts``, held to it by
-# test_reminder_offers) and the server's worked layout. Any other fence holds code.
+# test_reply_offers) and the server's worked layout. Any other fence holds code.
 CARD_LANGS = frozenset(
     {
         "3dmol", "answer", "arithmetic", "array", "blockquote", "calculator", "callout",
@@ -92,10 +91,6 @@ def follows_todo_reply(prior_reply: str | None) -> bool:
     if not prior_reply:
         return False
     if any(fence.lang.lower() in _TODO_FENCES for fence in iter_fences(prior_reply)):
-        return True
-    # An old chat's result line ("Set: gym — Thursday, 6:00 PM."): "make it 7 instead"
-    # after it is a change too.
-    if has_result_line(prior_reply):
         return True
     return asked_about_a_change(prior_reply)
 

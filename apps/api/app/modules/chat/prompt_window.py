@@ -16,6 +16,7 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.models.orm import Chat
+from app.modules import todos as todos_service
 from app.modules.chat import shown_pictures
 from app.modules.chat.clarify_card import CLARIFY_FENCE
 from app.modules.chat.clarify_turn import card_as_line
@@ -32,10 +33,9 @@ from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 from app.services.subjects.registry import subject_adapter
 
-# A reminder card is an old reply's (chat no longer offers one): the model never copies it.
-_PROMPT_STRIP_FENCE_LANGS = (
-    "geometry", "graph", "sources", "places", "photo", "calculator", "reminder_proposal",
-)  # fmt: skip
+_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo", "calculator")
+# An old reply's reminder card (chat no longer offers one) reads as the line chat says now.
+_OLD_REMINDER_CARD = "reminder_proposal"
 
 
 @dataclass(frozen=True)
@@ -184,6 +184,10 @@ def _answer_line(body: str) -> str:
 _LABEL_UNDER_HEADING = re.compile(r"(?m)^(\*\*Answer:?\*\*:?[ \t]*\n(?:[ \t]*\n)*)Answer: ")
 
 
+def _todo_screen_line(_body: str) -> str:
+    return todos_service.todo_screen_line("en")
+
+
 def strip_prompt_owned_fences(content: str) -> str:
     """Drop solver/search fences from assistant history before the model sees them.
 
@@ -196,6 +200,7 @@ def strip_prompt_owned_fences(content: str) -> str:
     out = _LABEL_UNDER_HEADING.sub(r"\1", map_closed_fences(content, "answer", _answer_line))
     # A clarify card is read as what it asked, never as JSON to copy.
     out = map_closed_fences(out, CLARIFY_FENCE, card_as_line)
+    out = map_closed_fences(out, _OLD_REMINDER_CARD, _todo_screen_line)
     for lang in _PROMPT_STRIP_FENCE_LANGS:
         out = strip_closed_fences(out, lang)
     return out

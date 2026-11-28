@@ -1412,7 +1412,8 @@
    ]
   ],
   "reply": "Done — moved **gym** to Thursday, Oct 15, 7:00 PM.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-083",
@@ -1464,7 +1465,8 @@
    ]
   ],
   "reply": "What time tomorrow morning — would **8:00 AM** work?",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-086",
@@ -1481,7 +1483,8 @@
    ]
   ],
   "reply": "Moved **call mom** to Sunday, Oct 18, 10:00 AM. 📞",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "hf-087",

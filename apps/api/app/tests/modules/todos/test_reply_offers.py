@@ -116,10 +116,24 @@ def test_a_denial_or_another_thing_stays(reply: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "reply",
+    [
+        # Offers of written text, which the model can keep.
+        "Want me to make a to-do list for your move?",
+        "Want me to add Python to your list of skills?",
+    ],
+)
+def test_an_offer_of_written_text_stays(reply: str) -> None:
+    assert without_reminder_offers(reply) == reply
+
+
+@pytest.mark.parametrize(
     ("prior", "follows", "asked"),
     [
         ("You can add or change it in **To-do**.\n\n```todo_link\n```", True, False),
-        ("Set: gym — Thursday, Oct 15, 6:00 PM.", True, False),
+        # A read-back's "Done: Milk." or an old result line is no change asked about.
+        ("Set: gym — Thursday, Oct 15, 6:00 PM.", False, False),
+        ("Call mom — Tuesday, Oct 20, 6:00 PM.\nDone: Milk.", False, False),
         ("Pack layers.\n\nWant me to set a reminder to check in online?", True, True),
         ("Sure. When should I remind you?", True, True),
         ("Here's your routine.\n\nWhat time should I set it for?", False, False),

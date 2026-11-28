@@ -267,7 +267,8 @@
   "prompt": "complete the laundry task",
   "history": [],
   "reply": "Done: laundry.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "td-029",
@@ -275,7 +276,8 @@
   "prompt": "uncheck buy milk",
   "history": [],
   "reply": "Reopened: buy milk.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "td-030",
@@ -292,7 +294,8 @@
    ]
   ],
   "reply": "Moved: take my vitamins — Thursday, Oct 15, 8:00 AM · daily.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-031",
@@ -1090,7 +1093,8 @@
    ]
   ],
   "reply": "Done — moved **gym** to Thursday, Oct 15, 6:30 PM.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-114",
@@ -1248,7 +1252,8 @@
    ]
   ],
   "reply": "Updated: Study bio — Wednesday, Oct 14, 8:00 PM.",
-  "expect": "todo_screen"
+  "expect": "todo_screen",
+  "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
  },
  {
   "id": "td-126",

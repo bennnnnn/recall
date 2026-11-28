@@ -193,14 +193,16 @@
   "area": "time",
   "prompt": "Move my 3pm call to tomorrow",
   "reply": "Moved your **3 PM call** to **tomorrow (Thursday) at 3:00 PM**.",
-  "expect": "todo"
+  "expect": "todo",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "sp-026",
   "area": "time",
   "prompt": "Every day at 7am remind me to drink water",
   "reply": "I'll remind you **every day at 7:00 AM** to drink water.",
-  "expect": "todo"
+  "expect": "todo",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "sp-027",
@@ -619,7 +621,8 @@
   "area": "shopping",
   "prompt": "Buy milk tomorrow at 6pm",
   "reply": "I'll remind you to **buy milk** tomorrow (Thursday) at **6:00 PM**.",
-  "expect": "todo"
+  "expect": "todo",
+  "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
  },
  {
   "id": "sp-069",

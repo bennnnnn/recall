@@ -1057,6 +1057,7 @@
   "todos.delete_selected_other": "Supprimer {{count}} tâches ?",
   "todos.empty_open": "Plus rien à faire",
   "todos.menu": "Menu des tâches",
+  "todos.change_in_todo": "Vous pouvez l'ajouter ou le modifier dans **Tâches**.",
   "todos.open_from_chat": "Ouvrir Tâches",
   "todos.menu_select": "Sélectionner",
   "todos.detail_menu": "Actions de la tâche",

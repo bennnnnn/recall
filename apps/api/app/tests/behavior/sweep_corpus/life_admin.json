@@ -37,7 +37,8 @@
     "prompt": "every monday at 8am remind me to take out the trash",
     "history": [],
     "reply": "Set: take out the trash — every Monday at 8:00 AM, starting Monday, Oct 19. 🗑️",
-    "expect": "todo_screen"
+    "expect": "todo_screen",
+    "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
   },
   {
     "id": "l2-006",
@@ -53,7 +54,8 @@
     "prompt": "sat 9am wash the car. remind me",
     "history": [],
     "reply": "Set: wash the car — Saturday, Oct 17, 9:00 AM. 🚗",
-    "expect": "todo_screen"
+    "expect": "todo_screen",
+    "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
   },
   {
     "id": "l2-008",
@@ -85,7 +87,8 @@
     "prompt": "can u remind me abt the water bill",
     "history": [],
     "reply": "Of course — when should I remind you about the water bill? A day and time works, like \"Friday at 9am\".",
-    "expect": "todo_screen"
+    "expect": "todo_screen",
+    "gap": "a request in its own words (no 'remind me to …' or time right after it, no reminder or to-do word) is the model's: told chat sets none, it should send the user to To-do; the instant reply needs reminder or to-do wording (review of #2619)"
   },
   {
     "id": "l2-012",
@@ -194,7 +197,8 @@
       ]
     ],
     "reply": "Deleted: **gym**. If you start working out at home, I can set a reminder for that instead.",
-    "expect": "todo_screen"
+    "expect": "todo_screen",
+    "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
   },
   {
     "id": "l2-022",
@@ -247,7 +251,8 @@
       ]
     ],
     "reply": "Moved: **pay rent** — Friday, Oct 16, 9:00 AM.",
-    "expect": "todo_screen"
+    "expect": "todo_screen",
+    "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
   },
   {
     "id": "l2-025",

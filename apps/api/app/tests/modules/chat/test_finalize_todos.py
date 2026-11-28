@@ -113,12 +113,6 @@ async def test_a_reply_saying_a_change_was_made_becomes_the_todo_line(reply: str
 
 
 @pytest.mark.asyncio
-async def test_after_the_button_a_claim_is_still_false() -> None:
-    out = await _pass("tomorrow then", "Got it, set for tomorrow at 9 AM.", prior_reply=_EN)
-    assert out == _EN
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("message", "reply"),
     [
@@ -189,18 +183,6 @@ async def test_a_title_the_reply_before_holds_is_that_replys() -> None:
 
 
 @pytest.mark.asyncio
-async def test_after_a_result_line_a_bare_claim_is_false() -> None:
-    out = await _pass("make it 7 instead", "Done.", prior_reply="Set: gym — Thursday, 6:00 PM.")
-    assert out == _EN
-
-
-@pytest.mark.asyncio
-async def test_a_promised_reminder_at_a_time_is_false() -> None:
-    reply = "I'll remind you to **buy milk** tomorrow at **6:00 PM**."
-    assert await _pass("Buy milk tomorrow at 6pm", reply) == _EN
-
-
-@pytest.mark.asyncio
 async def test_a_reply_that_was_only_an_offer_sends_the_user_to_todo() -> None:
     reply = "Want me to add **Buy milk** to your reminders?"
     assert await _pass("buy milk", reply) == _EN
@@ -210,3 +192,33 @@ async def test_a_reply_that_was_only_an_offer_sends_the_user_to_todo() -> None:
 async def test_a_worked_answer_s_set_line_is_no_claim() -> None:
     reply = "Remember: for $ax^2 + bx + c = 0$,\n\nSet: $a = 1$, $b = 4$, $c = 1$."
     assert await _pass("remind me the quadratic formula and use it", reply) == reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prior", "message", "reply"),
+    [
+        # Review of #2619: after the button or a read-back, an ordinary turn keeps its reply.
+        (_EN, "explain photosynthesis", "The sugar is then moved through the phloem to the roots."),
+        (
+            "Call mom — Tuesday, Oct 20, 6:00 PM.\nDone: Milk.",
+            "now add type hints",
+            "Done — added type hints to every function.",
+        ),
+        ("Set: gym — Thursday, 6:00 PM.", "make it shorter", "Done. Here's a shorter version."),
+    ],
+)
+async def test_an_ordinary_turn_after_a_to_do_reply_keeps_its_reply(
+    prior: str, message: str, reply: str
+) -> None:
+    assert await _pass(message, reply, prior_reply=prior) == reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message",
+    ["Can you mark call mom as done?", "Could you delete my dentist reminder?"],
+)
+async def test_a_polite_request_is_still_a_request(message: str) -> None:
+    reply = "Done! I've deleted your dentist reminder and marked call mom as done."
+    assert await _pass(message, reply) == _EN

@@ -1045,6 +1045,7 @@
   "todos.delete_selected_other": "{{count}} görev silinsin mi?",
   "todos.empty_open": "Tamamlanmayan görev yok",
   "todos.menu": "Görev menüsü",
+  "todos.change_in_todo": "**Yapılacaklar** bölümünden ekleyebilir veya değiştirebilirsiniz.",
   "todos.open_from_chat": "Yapılacakları aç",
   "todos.menu_select": "Görev seç",
   "todos.detail_menu": "Görev işlemleri",

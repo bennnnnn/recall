@@ -1030,6 +1030,7 @@
   "todos.delete_selected_other": "Delete {{count}} to-dos?",
   "todos.empty_open": "Nothing left to do",
   "todos.menu": "To-do menu",
+  "todos.change_in_todo": "You can add or change it in **To-do**.",
   "todos.open_from_chat": "Open To-do",
   "todos.menu_select": "Select tasks",
   "todos.detail_menu": "To-do actions",

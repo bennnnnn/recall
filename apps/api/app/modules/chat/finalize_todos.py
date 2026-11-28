@@ -30,7 +30,6 @@ from app.modules.chat.remember_reply import without_remember_turn_claims
 from app.modules.chat.turn_deps import ChatTurnDeps
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.turn_prep.reading import plan_of
-from app.modules.turn_reading.writing_kind import writing_request_kind
 from app.services.draft_fences import has_draft
 from app.services.md_fence_scan import iter_fences, strip_closed_fences
 from app.services.prompt_safety import said_by_user
@@ -43,6 +42,12 @@ logger = logging.getLogger(__name__)
 _CHANGE_FENCES = ("reminder", todos_service.TODO_LINK_FENCE)
 # A question asks what is saved; a claim beside it may be true ("yes, it's set for 6pm").
 _QUESTION_END = re.compile(r"\?\W*$")
+# "Can you mark call mom as done?": a request asked politely.
+_ASKS_TO_CHANGE = re.compile(
+    r"^\W*(?:can|could|would|will)\s+(?:you|u)\s+(?:please\s+)?(?:mark|delete|remove|move"
+    r"|change|cancel|reschedule|add|set|create|complete|uncheck|edit|update|push|clear)\b",
+    re.IGNORECASE,
+)
 _ASKS = re.compile(
     r"^\W*(?:what|when|which|where|who|how|did|do|does|is|are|was|were|have|has|any)\b",
     re.IGNORECASE,
@@ -109,9 +114,13 @@ async def _without_changes(
 def _requests(message: str) -> bool:
     """The message asks for something done: no question ("is my dentist still on?", "did
     you set it"), no fact for memory to keep. "What's on my list? push gym to friday" ends
-    on a request."""
+    on a request, and "Could you delete my dentist reminder?" is one."""
     stripped = message.strip()
-    if memory_service.asks_to_remember(stripped) or _QUESTION_END.search(stripped):
+    if memory_service.asks_to_remember(stripped):
+        return False
+    if _ASKS_TO_CHANGE.match(stripped):
+        return True
+    if _QUESTION_END.search(stripped):
         return False
     return "?" in stripped or not _ASKS.match(stripped)
 
@@ -119,35 +128,19 @@ def _requests(message: str) -> bool:
 async def _took_on_a_change(
     deps: ChatTurnDeps, ctx: StreamContext, message: str, prior: str, reply: str
 ) -> bool:
-    """The reply says a to-do changed or asks when, as if it would make a change the request
-    asked for. After a reply about a change (the To-do button, an old card or result line,
-    an offer) "Moved." is enough; a line in a to-do's own words ("mark … done") or naming
-    one the user saved ("move gym to 7pm") needs the reminder or the time in the claim. A
-    title the reply before also holds is that reply's ("remove the gym days" from a workout
-    plan), and a line after a draft edits the draft."""
-    if todos_service.follows_todo_reply(prior):
-        return _takes_on(reply, about_todos=True)
-    # "Buy milk tomorrow at 6pm" answered "I'll remind you tomorrow at 6 PM": a time asked
-    # for, and a reminder promised, which nothing sets. A draft or story says what it likes.
-    if _promises_a_reminder(message, reply):
-        return True
-    if not _takes_on(reply, about_todos=False):
-        return False
-    if todos_service.query_implies_todos(message):
-        return True
-    if has_draft(prior):
+    """The reply says a to-do changed, or asks when as if it would make the change, for a
+    request about a to-do: in its own reminder or to-do words ("delete my dentist
+    reminder", "mark it done"), with the reminder or the time in the claim, or naming one the
+    user saved ("move gym to 7pm"), where "Moved." is enough. Any other turn keeps its
+    reply, whatever came before it. A title the reply before also holds is that reply's
+    ("remove the gym days" from a workout plan), and a line after a draft edits the draft."""
+    if todos_service.names_a_todo(message):
+        return _takes_on(reply, about_todos=False)
+    if has_draft(prior) or not _takes_on(reply, about_todos=True):
         return False
     async with deps.session_factory() as session:
         title = await deps.todos.saved_todo_named(session, ctx.user_id, message)
     return title is not None and title not in prior.casefold()
-
-
-def _promises_a_reminder(message: str, reply: str) -> bool:
-    return (
-        bool(todos_service.find_when(message).spans)
-        and writing_request_kind(message) is None
-        and todos_service.says_it_will_remind(reply)
-    )
 
 
 def _takes_on(reply: str, *, about_todos: bool) -> bool:

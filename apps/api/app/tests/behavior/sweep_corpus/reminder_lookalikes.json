@@ -1640,7 +1640,8 @@
         "assistant",
         "Set: call mom — tomorrow, 6:00 PM."
       ]
-    ]
+    ],
+    "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
   },
   {
     "id": "rl-move-category",
@@ -1657,7 +1658,8 @@
         "assistant",
         "Set: call mom — tomorrow, 6:00 PM."
       ]
-    ]
+    ],
+    "gap": "after an old chat's result line, card or reminder question, a vague follow-up is the model's: told chat changes no to-do, it should send the user to To-do; this reply is the old app's claim (review of #2619: a turn after a to-do reply is never rewritten)"
   },
   {
     "id": "rl-edit-after-long-plan-time",
