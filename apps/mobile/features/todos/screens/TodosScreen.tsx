@@ -149,7 +149,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       await refresh({ silent: true, force: true });
     } finally {
       refreshingRef.current = false;
-      if (isCurrentView()) setPullRefreshing(false);
+      // Always: the page stays mounted across a blur, and a spinner left on would stay on its return.
+      setPullRefreshing(false);
     }
   }, [refresh, isCurrentView]);
 

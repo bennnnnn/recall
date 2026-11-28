@@ -194,6 +194,20 @@ it("deduplicates pull refresh before React rerenders", async () => {
   expect(mockList.refreshing).toBe(false);
 });
 
+// The page stays mounted across a blur: a pull that ends while away left the spinner on for good.
+it("ends a pull's spinner that finished while the page was away", async () => {
+  let resolve!: () => void;
+  mockRefresh.mockReturnValue(new Promise<void>((done) => { resolve = done; }));
+  const ui = await render(<TodosScreen />);
+  let pending!: Promise<void>;
+  await act(() => { pending = mockList.onRefresh(); });
+  expect(mockList.refreshing).toBe(true);
+  mockFocused = false; await ui.rerender(<TodosScreen />);
+  await act(async () => { resolve(); await pending; });
+  mockFocused = true; await ui.rerender(<TodosScreen />);
+  expect(mockList.refreshing).toBe(false);
+});
+
 it("opens a to-do when its row is tapped", async () => {
   await render(<TodosScreen />);
   const todo = { id: "todo-1", content: "Walk" };
