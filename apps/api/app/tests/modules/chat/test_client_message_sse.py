@@ -163,7 +163,7 @@ async def test_sse_client_gone_at_start_frees_the_claim(fake_redis) -> None:
     user_id, chat_id, name = uuid4(), uuid4(), uuid4()
     factory = MagicMock()
     body = cast(
-        AsyncGenerator[str, None],
+        AsyncGenerator[str],
         _stream_tokens_sse(
             chat_id=chat_id,
             stream_factory=factory,

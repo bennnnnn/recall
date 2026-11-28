@@ -30,8 +30,8 @@ if [[ -x "${HOME}/.local/bin/uv" ]]; then
 fi
 export PATH="/usr/local/bin:${HOME}/.local/bin:${PATH}"
 
-# System Python on this image is 3.12.3, which segfaults compiling the API tests.
-uv python install 3.12
+# The API runs on CPython 3.14 (apps/api/pyproject.toml); the image's system Python is older.
+uv python install 3.14
 
 cd "${ROOT}/apps/api"
 uv sync --all-groups --frozen

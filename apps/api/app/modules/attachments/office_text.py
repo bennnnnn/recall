@@ -10,7 +10,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def _spreadsheet_lines(data: bytes) -> Generator[str, None, None]:
+def _spreadsheet_lines(data: bytes) -> Generator[str]:
     from openpyxl import load_workbook
 
     book = load_workbook(io.BytesIO(data), read_only=True, data_only=False, keep_links=False)
@@ -50,7 +50,7 @@ def _shape_text(shapes: Any, depth: int = 0) -> Iterator[str]:
             yield from _shape_text(shape.shapes, depth + 1)
 
 
-def _presentation_lines(data: bytes) -> Generator[str, None, None]:
+def _presentation_lines(data: bytes) -> Generator[str]:
     from pptx import Presentation
 
     presentation = Presentation(io.BytesIO(data))

@@ -51,6 +51,6 @@ async def warmup_db_pool() -> None:
         await conn.execute(text("SELECT 1"))
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession]:
     async with SessionLocal() as session:
         yield session
