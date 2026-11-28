@@ -247,7 +247,6 @@ async def test_regenerate_acquires_chatprep_lock():
                     prompt_messages=[],
                     instant_reply=None,
                     search_sources=[],
-                    local_places=False,
                     fallback_models=[],
                     geo=MagicMock(),
                     local_tz="UTC",

@@ -304,6 +304,22 @@ export function listHasOpenTask(parent: unknown): boolean {
 
 const OPEN_TASK_LISTS = new WeakMap<AstNode, boolean>();
 
+/**
+ * A Google search or Maps link the server placed for a name (apps/api `name_links.py`): it
+ * stays the name's dotted link, never a preview card of google.com.
+ */
+function isPlacedSearch(href: string): boolean {
+  try {
+    const url = new URL(href);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "maps.google.com") return true;
+    return host === "google.com" && (url.pathname.startsWith("/maps") || url.pathname.startsWith("/search"));
+  } catch (error) {
+    if (error instanceof TypeError) return false;
+    throw error;
+  }
+}
+
 export function detectStandaloneLink(node: AstNode): string | null {
   let kids = node.children ?? [];
   // markdown-display flattens inlines then wraps them in `textgroup`.
@@ -315,7 +331,7 @@ export function detectStandaloneLink(node: AstNode): string | null {
   }
   if (kids.length === 1 && kids[0].type === "link") {
     const href = kids[0].attributes?.href;
-    return href && isStandaloneUrl(href) ? href : null;
+    return href && isStandaloneUrl(href) && !isPlacedSearch(href) ? href : null;
   }
   if (kids.length === 1 && kids[0].type === "text") {
     return isStandaloneUrl(kids[0].content ?? "");

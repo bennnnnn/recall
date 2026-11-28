@@ -45,6 +45,7 @@ def _by_character(line: str, closer: Closer) -> Closer:
                 end - index == 2
                 and closer != "\\]"
                 and not display_dollars._bracketed_tier(line, index, end)
+                and not display_dollars._range_end(line, index)
             ):
                 closer, index = display_dollars._dollar_mark(read, index, end, closer, None)
             else:

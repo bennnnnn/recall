@@ -1482,7 +1482,7 @@ CASES: tuple[Case, ...] = (
         "location-nearby-set",
         "time and location",
         "find a coffee shop near me",
-        Expect(search="ask", hints=("local_places",)),
+        Expect(search="ask", hints=("near_user",)),
         "A short list of nearby coffee shops around Nairobi, with sources.",
         location="Westlands, Nairobi, Kenya",
     ),

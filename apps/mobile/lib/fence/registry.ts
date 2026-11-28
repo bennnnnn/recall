@@ -55,7 +55,6 @@ type FallbackKind =
   | "graph"
   | "answer"
   | "sources"
-  | "places"
   | "visual";
 
 /**
@@ -73,7 +72,7 @@ type FencePlainText = "drop" | "chart" | "diagram";
 export type FencePlainReader = "worked" | "quiz" | "clarify" | "array";
 
 /** A card shown in a shared document (Share, PDF) as a one-line label (`lib/markdown/document.ts`). */
-export type FenceDocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator" | "places";
+export type FenceDocumentBlock = "chart" | "graph" | "diagram" | "molecule" | "calculator";
 
 type FenceSpecRow = {
   id: string;
@@ -323,16 +322,6 @@ const FENCE_TABLE = [
     inDocument: "molecule",
   },
   {
-    id: "places",
-    langs: ["places"],
-    structured: true,
-    neverCodeBlock: true,
-    owner: "model", body: "data",
-    fallback: "places",
-    plainText: "drop",
-    inDocument: "places",
-  },
-  {
     id: "callout",
     langs: ["tip", "note", "warning", "info", "important", "callout"],
     structured: true,
@@ -476,12 +465,15 @@ export function isDataBodyFenceId(id: FenceId): boolean {
 
 /**
  * Prompt-control fences parsed outside this registry (assistantMessageContent.ts).
- * `calendar_proposal` (Google Calendar was removed) and `reminder_proposal` (chat only
- * reads to-dos since 2026-11-27) are retired; old saved replies may still carry them.
+ * `calendar_proposal` is retired (Google Calendar was removed), `places` too (a
+ * reply's linked names replaced the card, 2026-11-27), and `reminder_proposal` (chat only
+ * reads to-dos since 2026-11-27); old saved replies may still carry them, and Copy, Share
+ * and the PDF leave them out.
  */
 const CONTROL_LANGS: ReadonlySet<string> = new Set([
   "reminder",
   "calendar_proposal",
+  "places",
   "settings_proposal",
   "reminder_proposal",
   "todo_link",

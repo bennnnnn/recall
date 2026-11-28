@@ -172,8 +172,8 @@ LOOKALIKE_HINTS = {
     "forget lookalike": "memory_forget",
     # "How do I stop mentioning my ex in every conversation?" asks for advice.
     "mute lookalike": "memory_mute",
-    # "The best restaurants in Addis Ababa" names its place: no near-you places card.
-    "places lookalike": "local_places",
+    # "The best restaurants in Addis Ababa" names its place: no location from the phone.
+    "places lookalike": "near_user",
 }
 # "Fix my code", "is my answer right?", "oh my god": a "my" that names nothing of the
 # user's life (an idiom, or the text the message hands over) is not read as a personal turn.
@@ -554,7 +554,7 @@ def judge(outcome: Outcome) -> list[str]:
         problems.append("not read as more than one request")
     if entry.area in SINGLE_PART_AREAS and "multi_intent" in route.hints:
         problems.append("split into separate requests")
-    if entry.area in NEAR_USER_AREAS and "local_places" not in route.hints:
+    if entry.area in NEAR_USER_AREAS and "near_user" not in route.hints:
         problems.append("not read as places near the user")
     if entry.area in NOT_CHEMISTRY_AREAS and route.subject == "chemistry":
         problems.append("read as a chemistry question")

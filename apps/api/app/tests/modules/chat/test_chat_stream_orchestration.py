@@ -1828,12 +1828,6 @@ async def test_regenerate_keeps_assistant_when_stream_empty(fake_redis):
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
-        stack.enter_context(
-            patch(
-                "app.modules.web_search.is_places_list_query",
-                MagicMock(return_value=False),
-            )
-        )
         stack.enter_context(patch("app.services.quota.reserve_usage_up_to", grant_quota()))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
@@ -1905,7 +1899,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
             prompt_messages=[{"role": "system", "content": "sys"}],
             stats=PromptStats(),
             instant_reply=None,
-            local_places=False,
             max_out=100,
             fallback_models=[],
             lightweight=False,
@@ -1917,7 +1910,6 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
                 has_geo_fix=False,
                 geo_query=False,
                 ambiguous_nearby=False,
-                local_places=False,
             ),
             local_tz="UTC",
             verified_subject=None,

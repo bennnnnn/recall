@@ -21,6 +21,7 @@ from app.modules.chat.display_dollars import (
 )
 from app.modules.chat.inline_boundaries import repair_inline_token_boundaries
 from app.modules.chat.markdown_regions import display_math_lines
+from app.modules.chat.math_padding import maths_pair_end
 from app.modules.chat.notation_spans import code_notation
 from app.tests.behavior.latex_check import _maths_and_prose
 
@@ -46,8 +47,11 @@ def test_display_dollars_pair_end_pairs_the_same_dollars(case: dict[str, object]
 
 @pytest.mark.parametrize("case", CASES, ids=IDS)
 def test_display_dollars_latex_check_reads_the_same_maths(case: dict[str, object]) -> None:
+    if case.get("no_pair_at"):
+        pytest.skip("a blank pair's text is read by test_display_dollars_a_blank_pair_is_no_maths")
     maths, _prose = _maths_and_prose(str(case["text"]))
-    assert [body.strip() for body in maths] == case["display"]
+    expected = [*case["display"], *case.get("inline", [])]  # type: ignore[misc]
+    assert [body.strip() for body in maths] == expected
 
 
 @pytest.mark.parametrize(
@@ -114,6 +118,8 @@ PRICES = [
     case
     for case in CASES
     if not case["display"]
+    and not case.get("inline")
+    and not case.get("no_pair_at")
     and "\n" not in case["text"]
     and "`" not in case["text"]
     and "\\" not in case["text"]
@@ -124,6 +130,36 @@ PRICE_IDS = [case["id"] for case in PRICES]
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
 def test_display_dollars_inline_boundaries_leave_a_price(case: dict[str, object]) -> None:
     assert repair_inline_token_boundaries(str(case["text"])) == case["text"]
+
+
+INLINE = [case for case in CASES if case.get("inline")]
+
+
+@pytest.mark.parametrize("case", INLINE, ids=[case["id"] for case in INLINE])
+def test_display_dollars_a_symbol_alone_is_still_maths(case: dict[str, object]) -> None:
+    """ "Flip $<$ to $>$" drew as maths before price ranges were read, and still does."""
+    text = str(case["text"])
+    found = []
+    index = 0
+    while index < len(text):
+        if text.startswith("$$", index):
+            end = display_dollar_pair_end(text, index)
+            index = end if end is not None else index + 2
+            continue
+        end = maths_pair_end(text, index)
+        if end is None:
+            index += 1
+            continue
+        found.append(text[index + 1 : end - 1].strip())
+        index = end
+    assert found == case["inline"]
+
+
+@pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
+def test_display_dollars_inline_reader_finds_no_maths_in_a_price(case: dict[str, object]) -> None:
+    # "Burmese, $-$$" drew "-$": `$-$` paired as maths and left one dollar (2026-11-27).
+    text = str(case["text"])
+    assert [i for i in range(len(text)) if maths_pair_end(text, i) is not None] == []
 
 
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
@@ -140,3 +176,14 @@ def test_display_dollars_calculation_layout_splits_no_chain_a_tier_closes() -> N
 def test_display_dollars_notation_between_tiers_paragraphs_apart() -> None:
     text = "Zuni - $$.\n\nIts smell is CC(=O)O.\n\nTartine - $$."
     assert "`CC(=O)O`" in code_notation(text)
+
+
+BLANK = [case for case in CASES if case.get("no_pair_at")]
+
+
+@pytest.mark.parametrize("case", BLANK, ids=[case["id"] for case in BLANK])
+def test_display_dollars_a_blank_pair_is_no_maths(case: dict[str, object]) -> None:
+    """The phone's ``!value.trim()``: ``$ $`` opens no inline formula on either side."""
+    text = str(case["text"])
+    for at in case["no_pair_at"]:  # type: ignore[attr-defined]
+        assert maths_pair_end(text, at) is None

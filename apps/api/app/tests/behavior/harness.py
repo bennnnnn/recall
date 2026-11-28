@@ -150,7 +150,8 @@ HINTS: dict[str, str] = {
     "greeting_again": pc.REPEATED_GREETING_HINT,
     "web_search": web_search_service.WEB_SEARCH_HINT,
     "photo": pc.PHOTO_LOOKUP_HINT,
-    "local_places": web_search_service.LOCAL_PLACES_FORMAT_HINT,
+    # Where the user is, for an ask that place answers ("coffee near me").
+    "near_user": web_search_service.GEO_ACTIVE_LOCATION_HINT,
     "answer_photo": pc.ANSWER_PHOTO_HINT,
     "where_is_photo": pc.WHERE_IS_PHOTO_HINT,
     # The subject is the user's own words; its fixed part marks the hint.

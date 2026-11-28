@@ -20,9 +20,11 @@ from app.modules.chat.inline_code import (
 )
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
-# The phone's rules (inlineMath.ts): a digit or a spaced amount after the closer is a price,
-# a body that opens with an amount and goes on in words is one, and two words of three
-# letters or more (outside a sub- or superscript) are prose. A TeX command makes it maths.
+# The phone's rules (inlineMath.ts): a body with no letter, digit or command whose closer runs
+# into more dollars is a price range ("$-$$"), a digit or a spaced amount after the closer is
+# a price, a body that opens with an amount and goes on in words is one, and two words of
+# three letters or more (outside a sub- or superscript) are prose. A TeX command makes it
+# maths.
 # An exclamation mark is a factorial only where the span ends or maths goes on (`$4!$`,
 # `$4! + 3!$`); followed by a number, a word, a dollar or a bracket it ends a price's clause.
 _PRICE_LEAD = re.compile(
@@ -35,6 +37,9 @@ _MATH_WORD = re.compile(r"[a-z]|sin|cos|tan|sec|csc|cot|log|ln|exp|lim|max|min",
 _TEX_COMMAND = re.compile(r"\\[A-Za-z]")
 _LABEL = re.compile(r"[_^]\{[^{}]*\}")
 _LONG_WORD = re.compile(r"[A-Za-z]{3,}")
+# Something a formula is made of, in any script; a price range's dash is none
+# (``display_dollars._FORMULA_CHAR``).
+_FORMULA_CHAR = re.compile(r"[^\W_]|[\\∞]")
 
 
 def without_math_padding(text: str) -> str:
@@ -108,11 +113,20 @@ def maths_pair_end(line: str, start: int) -> int | None:
     if end < 0:
         return None
     body = line[start + 1 : end]
-    if not body.strip() or code_span_opens_within(line, start + 1, end):
+    if not body.strip() or _opens_price_range(line, end, body):
+        return None
+    if code_span_opens_within(line, start + 1, end):
         return None
     if _opens_price(line, end, body) or _price_body(body):
         return None
     return end + 1
+
+
+def _opens_price_range(line: str, end: int, body: str) -> bool:
+    """A price range's first tier, "Burmese, $-$$": a pair around no letter, digit or command
+    whose closer runs on into more dollars. A symbol alone between two dollars is still maths
+    ("flip $<$ to $>$")."""
+    return line[end + 1 : end + 2] == "$" and _FORMULA_CHAR.search(body) is None
 
 
 def _opens_price(line: str, dollar: int, body: str) -> bool:

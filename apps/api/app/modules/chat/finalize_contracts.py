@@ -60,6 +60,8 @@ STOPPED_REPLY_PASSES = frozenset(
         "prepare_model_reply",
         "answer_labels",
         "untrusted_media",
+        # A stopped reply's marks ([Zuni Café](check)) never save raw.
+        "reply_links",
         "meta_notes",
         "prompt_leaks",
         "self_attribution",
@@ -74,7 +76,7 @@ STOPPED_REPLY_PASSES = frozenset(
         "clarify_card",
         "recipient_placeholders",
         "prose",
-        "mermaid_and_places",
+        "chart_and_mermaid",
         "proper_case",
         "request_sections",
         "presentation",

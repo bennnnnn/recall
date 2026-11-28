@@ -33,6 +33,8 @@ from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts
 from app.services.subjects.registry import subject_adapter
 
+# A saved ```places card (retired 2026-11-27) is stripped too: its JSON taught the model to
+# write one again, which the phone now drops.
 _PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo", "calculator")
 # An old reply's reminder card (chat no longer offers one) reads as the line chat says now.
 _OLD_REMINDER_CARD = "reminder_proposal"

@@ -62,7 +62,6 @@ def _ctx() -> MagicMock:
     ctx.chat_id = uuid4()
     ctx.search_sources = [WebSearchHit(title="Rates", url="https://example.com/r", snippet="s")]
     ctx.verified_subject = None
-    ctx.local_places = False
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
     ctx.user_message_content = "Solve x^2 = 16 and remind me to call mom tomorrow at 6pm"

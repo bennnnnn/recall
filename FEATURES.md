@@ -129,7 +129,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   under a streamed reply whose last step runs before it saves; the label goes when that
   step ends, and at `stream_end` at the latest. After the first
   token, 20 s without new text shows "Still working on it… Tap Stop". A card fence
-  (quiz, steps, array, places, any data-bodied registry fence) is a quiet placeholder
+  (quiz, steps, array, any data-bodied registry fence) is a quiet placeholder
   until it closes, a table waits for its delimiter row, and verified-solve markers or
   text-written tool calls never reach the phone. Turn start overlaps waiting for the previous reply to persist
   with user/quota load (regenerate still waits first so it does not miss that reply).
@@ -700,9 +700,19 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array`, `steps` for
   a lesson's or a how-to's steps,
   chemistry source). Server attaches
-  verified `answer` / `graph` / `geometry` and `sources`; a `places` list is the model's,
-  drawn where it wrote it, and keeps only the addresses the search's pages give each
-  place (the pages never become a list themselves). Layout fences
+  verified `answer` / `graph` / `geometry` and `sources`. A name the reply recommends to
+  look up (a restaurant, hotel, museum, product, book, app, course, event or service) is a
+  link in the normal layout, which the model marks (`[Zuni Café](check "San Francisco")`,
+  `NAME_LINK_RULE`) and the server places (`chat/name_links.py`, `chat/reply_links.py`): its
+  own site when a search result of the turn is on a host that names it, else a Google Maps
+  search for the name and its city, else a Google search. A web address the model wrote that
+  no result gave opens the name's own site from the results or keeps only its words, never a
+  search; a heading, a kind of thing, a bare URL, a name's second mark and a mark inside a card
+  or draft keep only their words, and maths, code and a target that is no web address are left
+  as written. While a reply streams the phone draws a mark as its words; the server's link
+  appears when it is saved. Every link a reply shows looks one way, the text's colour with a
+  dotted underline (the retired `places` card's look, 2026-11-27); a saved `places` card, or
+  its venue list fenced as `json`, is dropped. Layout fences
   (`comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`

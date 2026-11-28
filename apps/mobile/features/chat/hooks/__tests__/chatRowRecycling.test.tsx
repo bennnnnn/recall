@@ -25,7 +25,6 @@ jest.mock("@/features/chat/components/MessageActions", () => ({
 }));
 jest.mock("@/features/suggestions/components/RelatedPromptLines", () => ({ RelatedPromptLines: () => null }));
 jest.mock("@/features/chat/components/SettingsProposalCard", () => ({ SettingsProposalCard: () => null }));
-jest.mock("@/components/rich/PlacesListBlock", () => ({ PlacesListBlock: () => null }));
 jest.mock("@/features/attachments/components/ChatMessageImageStrip", () => ({ ChatMessageImageStrip: () => null }));
 jest.mock("@/features/images/components/ImageGenPlaceholder", () => ({ ImageGenPlaceholder: () => null }));
 jest.mock("@/ui/feedback/ActionShimmer", () => ({ ActionShimmer: () => null }));

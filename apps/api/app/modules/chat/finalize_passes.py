@@ -110,9 +110,9 @@ from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.repeated_fences import drop_repeated_pictures
 from app.modules.chat.reply_labels import one_answer_label
+from app.modules.chat.reply_links import link_reply_names, place_marks_only
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.rounded_end import round_working_ends
-from app.modules.chat.search_links import unlink_unretrieved_links
 from app.modules.chat.self_attribution import drop_self_attribution
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.turn_deps import ChatTurnDeps
@@ -263,8 +263,9 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     ),
     # After untrusted_media, whose image-made links are no source claims.
     FinalizePass(
-        "search_links",
-        unlink_unretrieved_links,
+        "reply_links",
+        link_reply_names,
+        closed=place_marks_only,
         kind=TEXT,
         after=frozenset({"untrusted_media"}),
     ),
@@ -426,7 +427,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
         kind=TEXT,
         after=FENCE_READERS | SERVER_MEDIA | {"close_fences", "settings_card", "money_card"},
     ),
-    FinalizePass("mermaid_and_places", sanitize_fences, kind=TEXT),
+    FinalizePass("chart_and_mermaid", sanitize_fences, kind=TEXT),
     FinalizePass("proper_case", restore_case, kind=TEXT),
     FinalizePass("presentation", present_markdown, kind=TEXT),
     FinalizePass("clock", fix_clock, kind=TEXT),
