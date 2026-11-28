@@ -11,6 +11,7 @@ import { AppState, BackHandler } from "react-native";
 
 import { useDrawerControls } from "@/contexts/DrawerContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useKeepAwakeWhile } from "@/hooks/useKeepAwakeWhile";
 import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
@@ -114,10 +115,10 @@ export function useLiveTalk({
   t,
 }: Options) {
   const feedback = useActionFeedbackOptional();
-  // Read when Back is pressed, not subscribed: the chat screen that calls this
-  // hook must not render again every time the drawer opens or closes.
+  // Read when Back is pressed, not subscribed: the chat screen must not render on every drawer move.
   const drawer = useDrawerControls();
   const [visible, setVisible] = useState(false);
+  useKeepAwakeWhile("live-talk", visible);
   const [phase, setPhase] = useState<LiveTalkPhase>("idle");
   const [muted, setMuted] = useState(false);
   /** The reply's audio is playing on the phone: the only time the orb moves. */

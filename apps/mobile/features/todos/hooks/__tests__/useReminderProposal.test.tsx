@@ -101,6 +101,15 @@ describe("asking for alerts when a dated reminder is saved", () => {
     expect(result.current.alertsOff).toBe(true);
   });
 
+  it("after Not now to Recall's explanation, says nothing: nothing was refused", async () => {
+    jest.mocked(api.confirmReminderProposal).mockResolvedValue({ items: [], todos: [], deleted_ids: [] });
+    mockAllowAlerts.mockResolvedValueOnce("not_now" as "on");
+    const { result } = await renderHook(() => useReminderProposal(dated("add")));
+    await act(async () => { await result.current.confirm(); });
+    expect(mockAllowAlerts).toHaveBeenCalledTimes(1);
+    expect(result.current.alertsOff).toBe(false);
+  });
+
   it("does not ask for a delete, or a reminder with no time", async () => {
     jest.mocked(api.confirmReminderProposal).mockResolvedValue({ items: [], todos: [], deleted_ids: [] });
     const { result } = await renderHook(() => useReminderProposal(dated("delete")));

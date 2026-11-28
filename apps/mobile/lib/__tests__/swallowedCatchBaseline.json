@@ -62,7 +62,6 @@
   "lib/accountFiles.ts": 2,
   "lib/api/connectivity.ts": 1,
   "lib/api/errorBody.ts": 1,
-  "lib/api/tokenExpiry.ts": 1,
   "lib/appVersion.ts": 1,
   "lib/auth.ts": 1,
   "lib/cache/cacheFile.ts": 1,

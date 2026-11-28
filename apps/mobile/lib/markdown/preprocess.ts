@@ -5,7 +5,6 @@ import {
 } from "@/lib/chemistry/moleculePair";
 import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
 import { codeNotation } from "@/lib/markdown/notationSpans";
-import { breakListItemTitles } from "@/lib/markdown/listItemTitles";
 import {
   convertCalloutBlocks,
   normalizeQuoteAttributionDashes,
@@ -153,10 +152,6 @@ export function preprocessMarkdown(
   // above still build maths of their own from it (display maths and retagged
   // fences become ```math), so the calculation rows are laid out either way.
   return attachAnswerHeadingToFence(
-    breakListItemTitles(
-      options.presented
-        ? layoutCalculations(out)
-        : presentAssistantMarkdown(out, worked),
-    ),
+    options.presented ? layoutCalculations(out) : presentAssistantMarkdown(out, worked),
   );
 }

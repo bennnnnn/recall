@@ -1,3 +1,8 @@
+// The token this install last registered (a device file): none here.
+jest.mock("@/features/notifications/model/registeredPushToken", () => ({
+  readRegisteredPushToken: async () => null,
+  rememberRegisteredPushToken: async () => undefined,
+}));
 jest.mock("@/lib/api", () => ({
   api: {
     registerPushToken: jest.fn(),
