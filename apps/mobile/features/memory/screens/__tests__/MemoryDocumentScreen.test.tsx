@@ -4,6 +4,8 @@ import MemoryDocumentScreen from "@/features/memory/screens/MemoryDocumentScreen
 import type { MemoryDocument } from "@/features/memory/types";
 
 let mockKey = "area:recall";
+/** The page has focus (a blur and return keeps it mounted). */
+let mockFocused = true;
 const mockLoad = jest.fn(async () => {});
 const mockInstruct = jest.fn();
 const mockDeleteDocument = jest.fn();
@@ -99,11 +101,13 @@ jest.mock("@/ui/overlay/FieldSheet", () => ({
     value,
     onChangeText,
     onSave,
+    saving,
   }: {
     visible: boolean;
     value: string;
     onChangeText: (text: string) => void;
     onSave: () => void;
+    saving?: boolean;
   }) => {
     const { Text, TextInput, View } = jest.requireActual("react-native");
     if (!visible) return null;
@@ -111,6 +115,7 @@ jest.mock("@/ui/overlay/FieldSheet", () => ({
       <View>
         <TextInput testID="edit-field" value={value} onChangeText={onChangeText} />
         <Text testID="edit-save" onPress={onSave}>save</Text>
+        {saving ? <Text testID="edit-saving">saving</Text> : null}
       </View>
     );
   },
@@ -121,7 +126,8 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => ({ key: mockKey }),
   useFocusEffect: (effect: () => void | (() => void)) => {
     const React = jest.requireActual("react");
-    React.useEffect(() => effect(), [effect]);
+    const focused = mockFocused;
+    React.useEffect(() => (focused ? effect() : undefined), [effect, focused]);
   },
 }));
 jest.mock("@/features/memory/hooks/useMemoryDocuments", () => ({
@@ -153,6 +159,7 @@ async function flush() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocused = true;
   mockKey = "area:recall";
   mockLoading = false;
   mockError = false;
@@ -240,6 +247,25 @@ describe("MemoryDocumentScreen", () => {
     await flush();
 
     expect(ui.queryByTestId("edit-field")).toBeNull();
+  });
+
+  // Review of #2621: the page stays mounted across a blur, and an edit that saved while away
+  // left its sheet "saving" for good.
+  it("ends an edit's saving that finished while the page was away", async () => {
+    let finish!: (value: { ok: true }) => void;
+    mockEditFact.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 10, pageY: 20 } });
+    await fireEvent.press(ui.getByTestId("menu-edit"));
+    await fireEvent.changeText(ui.getByTestId("edit-field"), "New words");
+    await fireEvent.press(ui.getByTestId("edit-save"));
+    expect(ui.getByTestId("edit-saving")).toBeTruthy();
+    mockFocused = false;
+    await ui.rerender(<MemoryDocumentScreen />);
+    await act(async () => { finish({ ok: true }); await flush(); });
+    mockFocused = true;
+    await ui.rerender(<MemoryDocumentScreen />);
+    expect(ui.queryByTestId("edit-saving")).toBeNull();
   });
 
   it("draws no fact again while its menu opens or the edit sheet is typed in", async () => {

@@ -30,7 +30,7 @@
   "chat.delete_confirm_title": "चैट डिलीट करें",
   "chat.delete_failed": "यह चैट डिलीट नहीं हो सकी।",
   "chat.deleted_toast": "चैट डिलीट हो गई",
-  "chat.gone_toast": "यह चैट किसी दूसरे डिवाइस पर डिलीट हो गई",
+  "chat.gone_toast": "यह चैट अब मौजूद नहीं है",
   "chat.email_card_body_placeholder": "ईमेल का मुख्य भाग",
   "chat.email_card_copy": "ईमेल कॉपी करें",
   "chat.email_card_done": "एडिट पूरा हुआ",

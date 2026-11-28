@@ -130,8 +130,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     if (!editing || !text || saving) return;
     setSaving(true);
     const saved = await editFact(editing.fact.id, text);
-    if (!isCurrentView()) return;
     setSaving(false);
+    if (!isCurrentView()) return;
     if (!saved.ok) {
       reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
       if (saved.failure !== "gone") return;

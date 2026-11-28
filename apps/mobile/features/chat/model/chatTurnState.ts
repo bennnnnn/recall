@@ -458,6 +458,9 @@ export function reduceChatTurn(state: ChatTurnState, event: ChatTurnEvent, now: 
     case "rejected_draft_restored":
       if (s.chatId) setRejected(s, s.chatId, (s.rejected.get(s.chatId) ?? []).slice(1));
       break;
+    case "rejected_dropped":
+      setRejected(s, event.chatId, []);
+      break;
     case "dots_begin":
       onDotsBegin(s, out);
       break;

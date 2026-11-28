@@ -74,6 +74,11 @@ function giveBack(turns: PendingSend[], thread: string, home: DraftHome | null, 
   }
 }
 
+/** A deleted chat's unsent turns (its Retry queue) go back to New Chat's composer, text and file. */
+export function giveBackToNewChat(turns: PendingSend[], home: DraftHome | null): void {
+  giveBack(turns, COMPOSER_NEW_THREAD_KEY, home, true);
+}
+
 /**
  * The route loader reads a chat's newest page while the cached page is on
  * screen and Send already works. A turn sent meanwhile is painted at once but

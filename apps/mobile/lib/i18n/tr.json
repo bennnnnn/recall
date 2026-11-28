@@ -30,7 +30,7 @@
   "chat.delete_confirm_title": "Sohbeti sil",
   "chat.delete_failed": "Bu sohbet silinemedi.",
   "chat.deleted_toast": "Sohbet silindi",
-  "chat.gone_toast": "Bu sohbet başka bir cihazda silindi",
+  "chat.gone_toast": "Bu sohbet artık yok",
   "chat.email_card_body_placeholder": "E-posta metni",
   "chat.email_card_copy": "E-postayı kopyala",
   "chat.email_card_done": "Düzenlemeyi bitir",

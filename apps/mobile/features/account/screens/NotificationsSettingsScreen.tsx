@@ -125,10 +125,10 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
       setReminderLeadMinutesState(normalized);
       await updateUser({ reminder_lead_minutes: normalized });
     } catch {
-      if (isCurrent()) setReminderLeadMinutesState(previous);
+      if (sameAccount()) setReminderLeadMinutesState(previous);
       reportError("common.error");
     } finally { finish(request); }
-  }, [begin, reminderLeadMinutes, updateUser, isCurrent, reportError, finish]);
+  }, [begin, reminderLeadMinutes, updateUser, sameAccount, reportError, finish]);
 
 
   // The dialog keeps its title and time through the closing fade.

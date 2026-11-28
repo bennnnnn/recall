@@ -282,8 +282,8 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
             content,
             due,
             (created) => {
-              if (!isCurrentView()) return;
               setEditorOpen(false);
+              if (!isCurrentView()) return;
               // In its section wherever it falls, scrolled on screen: a later day or Anytime may
               // be far down the list.
               reveal(created);

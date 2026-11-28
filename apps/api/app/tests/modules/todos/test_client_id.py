@@ -115,7 +115,6 @@ async def test_a_create_racing_its_twin_returns_the_row_the_twin_made(db_session
         due_at=None,
         client_id=client_id,
     )
-    # The rollback below expires the rows the session holds.
     made_id, user_id = made.id, user.id
     looked_up = 0
     real_lookup = todos_crud.todos_repo.get_by_client_id
@@ -137,3 +136,31 @@ async def test_a_create_racing_its_twin_returns_the_row_the_twin_made(db_session
     )
     assert again.id == made_id
     assert await _count(db_session, user_id) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_dated_create_racing_its_twin_over_http_answers_the_twins_todo(
+    db_session, monkeypatch
+):
+    """Review of #2621: the losing send rolled the whole session back, which expired the
+    request's user, and reading its zone for the answer failed (500, not the twin's to-do)."""
+    user = await _user(db_session)
+    body = {"content": "Call mom", "due_at": "2026-12-01T15:00:00Z", "client_id": str(uuid4())}
+    real_lookup = todos_crud.todos_repo.get_by_client_id
+    looked_up = 0
+
+    async def miss_second_send(session, user_id, cid):
+        # The second send's first look comes before the twin's insert is visible to it.
+        nonlocal looked_up
+        looked_up += 1
+        return None if looked_up == 2 else await real_lookup(session, user_id, cid)
+
+    monkeypatch.setattr(todos_crud.todos_repo, "get_by_client_id", miss_second_send)
+    async with _client(db_session, user) as client:
+        first = await client.post("/todos", json=body)
+        twin = await client.post("/todos", json=body)
+    assert first.status_code == 201
+    assert twin.status_code == 201, twin.text
+    assert twin.json()["id"] == first.json()["id"]
+    assert twin.json()["notify_at"] == first.json()["notify_at"]
+    assert await _count(db_session, user.id) == 1

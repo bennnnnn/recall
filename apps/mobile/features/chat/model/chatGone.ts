@@ -1,8 +1,10 @@
 /**
- * A chat the server no longer has (deleted on another device) goes as this phone's own delete
- * takes it: its drawer row, saved thread and files (`chatsDeleted`), and the open chat, which
- * gives way to New chat. The person is told once per chat (`subscribeChatGone`, drawn by
- * `ChatGoneNotice`). Every read and change of a chat that finds it gone comes here.
+ * A chat the server no longer has (deleted on another device, or a draft chat its retention let
+ * go) goes as this phone's own delete takes it: its drawer row, saved thread and files
+ * (`chatsDeleted`), its unsent messages to New chat's composer (`useUnsentOfDeletedChats`), and
+ * the open chat, which gives way to New chat. The person is told once per chat, in words that
+ * name no device (`subscribeChatGone`, drawn by `ChatGoneNotice`). Every read and change of a
+ * chat that finds it gone comes here.
  */
 import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import { isGone } from "@/lib/api/gone";

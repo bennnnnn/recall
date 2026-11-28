@@ -245,8 +245,9 @@ jest.mock("@/features/speech/hooks/useLiveTalk", () => ({ useLiveTalk: () => moc
 jest.mock("@/features/chat/hooks/useDraftChat", () => ({ useDraftChat: () => mockDraft }));
 jest.mock("@/hooks/useModels", () => ({ useModels: () => mockModels }));
 jest.mock("@/contexts/NetworkContext", () => ({ useNetwork: () => ({ isOffline: false }) }));
+const mockErrorHandlersCalls = jest.fn((..._args: unknown[]) => mockErrorHandlers);
 jest.mock("@/features/chat/hooks/useChatErrorHandlers", () => ({
-  useChatErrorHandlers: () => mockErrorHandlers,
+  useChatErrorHandlers: (...args: unknown[]) => mockErrorHandlersCalls(...args),
   useChatErrorRecovery: () => mockNoop,
   useChatStreamLifecycle: () => undefined,
 }));
@@ -365,6 +366,13 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+// Review of #2621: the screen hands its token and open chat to the error handlers, which read
+// the chat again when a send is refused as not found.
+it("hands its token and open chat to the error handlers", async () => {
+  await render(<HomeScreen />);
+  expect(mockErrorHandlersCalls).toHaveBeenLastCalledWith(expect.any(Boolean), { token: "token", chatId: null });
 });
 
 describe("ChatScreen renders", () => {

@@ -163,9 +163,8 @@ export function useTodosActions({ token, userId, todos, getTodos,
         if (markSeenIds) void markSeenIds([created.id]);
         else if (userId) void markReminderIdsSeen(userId, [created.id]);
       }
-      if (canAct()) {
-        onCreated(created);
-      }
+      // Its own page closes and lights it even after a blur: the page stays mounted.
+      if (mounted.current && isSameOwner()) onCreated(created);
     } catch (error) {
       applyTodos((rows) => removeTodoById(rows, optimistic.id));
       reportError(todoErrorKey(error, "todos.error_create"));

@@ -95,6 +95,8 @@ export type ChatTurnEvent =
   | { type: "regenerate_failed"; error?: unknown }
   | { type: "dropped_turn"; follow: DroppedTurnFollow; result: DroppedTurnResult }
   | { type: "rejected_draft_restored" }
+  /** The chat was deleted: its unsent sends went back to New chat's composer. */
+  | { type: "rejected_dropped"; chatId: string }
   /** Any other change to the thread on screen (threadEdit.ts names every writer). */
   | {
       type: "thread_edit";

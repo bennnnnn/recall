@@ -9,6 +9,8 @@ column as truthy. These are specced against the real classes. Redis is the
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -33,10 +35,17 @@ def empty_result() -> MagicMock:
     return result
 
 
+@asynccontextmanager
+async def _savepoint() -> AsyncIterator[None]:
+    yield
+
+
 def fake_session(**attributes: Any) -> AsyncMock:
     """An ``AsyncSession`` over empty tables: its async methods are awaitable, ``add`` and
     friends are not, and a query answers no rows unless the test sets ``execute``."""
     session = AsyncMock(spec=AsyncSession)
+    # A savepoint (``async with session.begin_nested()``) that lets an error through.
+    session.begin_nested = MagicMock(side_effect=_savepoint)
     session.execute.return_value = empty_result()
     session.scalar.return_value = None
     session.scalars.return_value = empty_result().scalars.return_value

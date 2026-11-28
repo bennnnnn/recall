@@ -9,6 +9,7 @@ import { useDroppedTurnReconcile } from "@/features/chat/hooks/useDroppedTurnRec
 import { useStreamingDraftPublisher } from "@/features/chat/hooks/useStreamingDraftPublisher";
 import { useThreadEdits } from "@/features/chat/hooks/useThreadEdits";
 import { useTurnStart } from "@/features/chat/hooks/useTurnStart";
+import { useUnsentOfDeletedChats } from "@/features/chat/hooks/useUnsentOfDeletedChats";
 import { headRejectedSend, initialChatTurnState, type ChatTurnEvent, type FirstReply } from "@/features/chat/model/chatTurnCore";
 import { runChatTurnCommands, type ChatTurnEffects } from "@/features/chat/model/chatTurnEffects";
 import { createTurnEffectsSlot } from "@/features/chat/model/turnEffectsSlot";
@@ -135,11 +136,8 @@ export function useChat(token: string | null, chatId: string | null, options: Us
     transport.dropSocket, transport.abortSse, transport.cancelSocket, followDroppedTurn, step, effects,
   ]);
 
-  useEffect(() => {
-    const current = view.current;
-    current.mounted = true;
-    return () => { current.mounted = false; };
-  }, []);
+  // Unmounted, the view's late callbacks change nothing.
+  useEffect(() => { const current = view.current; current.mounted = true; return () => { current.mounted = false; }; }, []);
 
   // A new chat or account: the transport detaches (SSE drains, as a WebSocket close would).
   useEffect(() => {
@@ -148,6 +146,7 @@ export function useChat(token: string | null, chatId: string | null, options: Us
   }, [viewIdentity, chatId, sessionGeneration, detach, step]);
 
   const editThread = useThreadEdits({ chatId, isCurrentView, step, turn });
+  useUnsentOfDeletedChats(turn, step);
 
   const onUnreachable = useCallback(() => effects.current?.onError?.(t("chat.error_unreachable")), [effects, t]);
   const actions = useChatTurnActions({
