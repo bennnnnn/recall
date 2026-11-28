@@ -211,6 +211,18 @@ it("reports a store purchase that failed, but not one the shopper cancelled", as
   expect(reportFailure).toHaveBeenCalledWith("purchase", failure);
 });
 
+it("says a failed purchase to a screen reader as it appears", async () => {
+  const { AccessibilityInfo, Platform } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.replaceProperty(Platform, "OS", "ios");
+  const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+  mockPurchase.mockRejectedValueOnce(Object.assign(new Error("store said no"), { code: "PURCHASE_NOT_ALLOWED" }));
+  const screen = await openSheet();
+  await buy(screen);
+  expect(announce).toHaveBeenCalledWith("upgrade.purchase_failed");
+  expect(screen.getByTestId("upgrade-error").props.accessibilityRole).toBe("alert");
+  announce.mockRestore();
+});
+
 it("never unlocks on the client when the store did not grant the plan", async () => {
   mockPurchase.mockResolvedValue("free");
   const screen = await openSheet();

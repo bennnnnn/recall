@@ -23,6 +23,7 @@ import {
   yearlySaving,
 } from "@/features/billing/model/planCopy";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 import { Button } from "@/ui/controls/Button";
 import { IconButton } from "@/ui/controls/IconButton";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
@@ -279,7 +280,7 @@ function StoreNotes({
     <>
       {unavailable ? (
         <>
-          <Text style={s.error}>{t("upgrade.store_unavailable")}</Text>
+          <PlansError text={t("upgrade.store_unavailable")} style={s.error} />
           <Button title={t("common.retry")} onPress={onRetry} variant="secondary" />
         </>
       ) : null}
@@ -346,8 +347,18 @@ function PlansFooter({
         // A subscriber still has Privacy, Terms and Restore (a new phone finds the purchase there).
         legal
       )}
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <PlansError text={error} style={s.error} testID="upgrade-error" /> : null}
     </View>
+  );
+}
+
+/** What went wrong, said to a screen reader as it appears (a purchase, the store). */
+function PlansError({ text, style, testID }: { text: string; style: object; testID?: string }) {
+  useLiveAnnouncement(text);
+  return (
+    <Text style={style} accessibilityRole="alert" accessibilityLiveRegion="assertive" testID={testID}>
+      {text}
+    </Text>
   );
 }
 
