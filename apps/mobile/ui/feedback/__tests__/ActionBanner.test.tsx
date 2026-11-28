@@ -51,6 +51,12 @@ describe("ActionBanner", () => {
     jest.restoreAllMocks();
   });
 
+  it("shows the whole message at any text size, never cut after two lines", async () => {
+    const long = "That chat was deleted on another device, so it can't be renamed or pinned here.";
+    const { getByText } = await render(<ActionBanner message={long} onDismiss={jest.fn()} />);
+    expect(getByText(long).props.numberOfLines).toBeUndefined();
+  });
+
   it("renders an in-tree host instead of a native Modal", async () => {
     const { getByTestId, getByLabelText } = await render(
       <ActionBanner message="Saved" onDismiss={jest.fn()} />,

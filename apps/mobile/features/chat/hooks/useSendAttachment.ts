@@ -6,7 +6,8 @@ import {
   uploadChatAttachment,
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
-import type { UploadPurpose } from "@/features/attachments/api";
+import type { AttachmentTransfer, UploadPurpose } from "@/features/attachments/api";
+import { isUploadCancelled } from "@/features/attachments/model/attachmentErrors";
 import { useLatestRef } from "@/lib/latestRef";
 import { reportFailure } from "@/lib/sentry";
 
@@ -120,9 +121,11 @@ export async function uploadSendAttachment(
   token: string,
   attachment: PendingAttachment,
   purpose: UploadPurpose = "chat",
+  transfer?: AttachmentTransfer,
 ) {
-  const id = await uploadChatAttachment(token, attachment, purpose).catch((error: unknown) => {
-    reportFailure("attachment_upload", error);
+  const id = await uploadChatAttachment(token, attachment, purpose, transfer).catch((error: unknown) => {
+    // The user's own Cancel is no failure.
+    if (!isUploadCancelled(error)) reportFailure("attachment_upload", error);
     throw error;
   });
   // A Library pick was already on the server; only a fresh upload is this draft's to cancel.

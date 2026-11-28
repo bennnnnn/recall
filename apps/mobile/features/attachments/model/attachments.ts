@@ -3,8 +3,9 @@ import * as ImagePicker from "expo-image-picker";
 import { Directory, File, Paths } from "expo-file-system";
 
 import { api } from "@/lib/api";
-import { uploadAttachmentBytes, type UploadPurpose } from "@/features/attachments/api";
-import { AttachmentError, presignFailure } from "@/features/attachments/model/attachmentErrors";
+import { type AttachmentTransfer, uploadAttachmentBytes, type UploadPurpose } from "@/features/attachments/api";
+import { uploadAttachmentFile } from "@/features/attachments/model/uploadTransfer";
+import { AttachmentError, presignFailure, UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
 import { DOCUMENT_MIME_TYPES, MAX_ATTACHMENT_BYTES } from "@/features/attachments/model/attachmentLimits";
 import { localFileSize, preparePickedAsset, type PickedAsset } from "@/features/attachments/model/attachmentPrep";
 import { adoptLocalCopy, discardLocalCopy } from "@/features/attachments/model/localAttachmentFile";
@@ -329,11 +330,15 @@ export async function uploadChatAttachment(
   token: string,
   pending: PendingAttachment,
   purpose: UploadPurpose = "chat",
+  transfer: AttachmentTransfer = {},
 ): Promise<string> {
   requireTokenSession(token);
   const generation = getSessionGeneration();
+  // Every step after the presign stops on a sign-out, and on Cancel: one tapped after the
+  // file is up (its confirm still on its way) still gives the draft back, the upload refunded.
   const requireCurrent = () => {
     if (generation !== getSessionGeneration()) throw new SessionChangedError();
+    if (transfer.signal?.aborted) throw new UploadCancelledError();
   };
   if (pending.existingAttachmentId) return pending.existingAttachmentId;
 
@@ -351,10 +356,17 @@ export async function uploadChatAttachment(
   });
   try {
     requireCurrent();
-    const bytes = await new File(pending.localUri).arrayBuffer();
-    requireCurrent();
-    if (bytes.byteLength !== sizeBytes) throw new AttachmentError("changed");
-    await uploadAttachmentBytes(token, presign, pending.contentType, bytes);
+    if (presign.api_upload) {
+      const bytes = await new File(pending.localUri).arrayBuffer();
+      requireCurrent();
+      if (bytes.byteLength !== sizeBytes) throw new AttachmentError("changed");
+      await uploadAttachmentBytes(token, presign, pending.contentType, bytes, transfer.signal);
+    } else {
+      // The system reads the file as it sends it: one that changed since the presign is refused first.
+      if (localFileSize(pending.localUri) !== sizeBytes) throw new AttachmentError("changed");
+      await uploadAttachmentFile(presign, pending.contentType, pending.localUri, transfer);
+    }
+    transfer.onProgress?.(1);
     requireCurrent();
 
     if (!presign.api_upload) {

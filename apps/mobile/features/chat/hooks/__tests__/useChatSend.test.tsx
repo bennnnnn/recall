@@ -13,7 +13,9 @@ import {
   pickFromPhotoLibrary,
   uploadChatAttachment,
 } from "@/features/attachments/model/attachments";
-import { AttachmentError } from "@/features/attachments/model/attachmentErrors";
+import { AttachmentError, UploadCancelledError } from "@/features/attachments/model/attachmentErrors";
+import { sendStatusLine, sendUploadStore } from "@/features/chat/model/sendUpload";
+import type { Translate } from "@/lib/i18n/translate";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import { notifyWarning, tap } from "@/lib/haptics";
 import * as latency from "@/features/chat/model/latency";
@@ -1499,13 +1501,79 @@ describe("useChatSend send steps", () => {
     await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
     await act(async () => { current.setPendingAttachment(file); });
     await send();
-    expect(uploadAttachment).toHaveBeenCalledWith("token", file, "chat");
+    expect(uploadAttachment).toHaveBeenCalledWith("token", file, "chat", expect.objectContaining({ signal: expect.anything() }));
     expect(mockFeedbackError).toHaveBeenCalledWith(message);
     expect(mockSetInput).toHaveBeenLastCalledWith("hello");
     expect(current.pendingAttachment).toEqual(file);
     expect(setMessages).toHaveBeenCalledTimes(2);
     expect(sendMessage).not.toHaveBeenCalled();
     expect(current.sendPhase).toBe("idle");
+  });
+
+  it("shows the upload's progress with Cancel, and a cancelled one gives the draft back unsaid", async () => {
+    let progress: (fraction: number) => void = () => undefined;
+    uploadAttachment.mockImplementationOnce(
+      (_token, _file, _purpose, transfer: { signal: AbortSignal; onProgress: (fraction: number) => void }) =>
+        new Promise((_, reject) => {
+          progress = transfer.onProgress;
+          transfer.signal.addEventListener("abort", () => reject(new UploadCancelledError()));
+        }),
+    );
+    const sendMessage = sent();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    let sending: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      sending = current.handleSend();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => progress(0.42));
+    const upload = sendUploadStore.get();
+    expect(upload?.progress).toBe(0.42);
+    const t = ((key: string, options?: object) => `${key} ${JSON.stringify(options)}`) as Translate;
+    expect(sendStatusLine("uploading", upload, t)).toBe('chat.uploading_percent {"percent":42}');
+
+    await act(async () => {
+      upload?.cancel();
+      await sending;
+    });
+    expect(sendUploadStore.get()).toBeNull();
+    expect(mockFeedbackError).not.toHaveBeenCalled();
+    expect(mockSetInput).toHaveBeenLastCalledWith("hello");
+    expect(current.pendingAttachment).toEqual(file);
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("keeps one chat's upload out of another chat", async () => {
+    let progress: (fraction: number) => void = () => undefined;
+    uploadAttachment.mockImplementationOnce(
+      (_token, _file, _purpose, transfer: { signal: AbortSignal; onProgress: (fraction: number) => void }) =>
+        new Promise((_, reject) => {
+          progress = transfer.onProgress;
+          transfer.signal.addEventListener("abort", () => reject(new UploadCancelledError()));
+        }),
+    );
+    const sendMessage = sent();
+    const view = await render(<Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    let sending: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      sending = current.handleSend();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const upload = sendUploadStore.get();
+    expect(upload).not.toBeNull();
+    // Chat 2 opens while chat 1's file uploads: it shows neither the percent nor a Cancel,
+    // and chat 1's progress, still coming, never puts them back.
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    expect(sendUploadStore.get()).toBeNull();
+    await act(async () => progress(0.5));
+    expect(sendUploadStore.get()).toBeNull();
+    await act(async () => {
+      upload?.cancel();
+      await sending;
+    });
   });
 
   it("restores the draft when the server makes no new chat", async () => {

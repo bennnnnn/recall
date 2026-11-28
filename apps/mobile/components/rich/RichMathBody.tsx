@@ -18,6 +18,7 @@ import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 import { spokenFormula } from "@/lib/math/text";
 import { parseRichMathText } from "@/lib/markdown/richMathText";
 import { useTheme } from "@/lib/theme";
@@ -88,7 +89,8 @@ export function RichMathBody({
   // maths read as words, not one stop per word. Under an accessible parent the
   // parent is that element (see accessibleElement.tsx).
   const inside = useInsideAccessibleElement();
-  const label = useMemo(() => (inside ? undefined : richTextLabel(content)), [inside, content]);
+  const words = useMathSpeechWords(); // Said in the app's language: a change reads it again.
+  const label = useMemo(() => (inside || !words ? undefined : richTextLabel(content)), [inside, content, words]);
   if (!parts.some((part) => part.type === "math")) {
     return <RichBodyText style={style} selectable={selectable}>{content}</RichBodyText>;
   }

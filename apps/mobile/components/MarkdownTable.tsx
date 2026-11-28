@@ -101,14 +101,15 @@ type Props = {
 export function MarkdownTable({ nodeKey, columns, children }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, fontScale } = useWindowDimensions();
   const [viewportW, setViewportW] = useState(0);
   // Some message parents report the intrinsic table width during their first
   // layout pass. Never let that measurement exceed the physical chat canvas,
   // or `scrollable` becomes false while the last columns are clipped.
   const layoutW = tableViewportWidth(screenWidth, viewportW);
   // `columns` is read again on every parse; the cells redraw only when a width changes.
-  const widthsKey = tableColumnWidths(columns, layoutW).join(",");
+  // The cells' text follows the phone's text size, and so do the widths it asks for.
+  const widthsKey = tableColumnWidths(columns, layoutW, fontScale).join(",");
   const layout = useMemo(() => ({ columnWidths: widthsKey.split(",").map(Number) }), [widthsKey]);
   const { columnWidths } = layout;
   const tableWidth = sumWidths(columnWidths);

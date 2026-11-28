@@ -7,20 +7,28 @@ import type { BillingPeriod, FreeTrial } from "@/features/billing/model/purchase
 import { formatDate } from "@/lib/datetime/format";
 import type { Translate } from "@/lib/i18n/translate";
 
-/** What the plan gives, in the owner's words (2026-11-24): what it helps with, never a count
- * or which model answers. */
-const BENEFITS = [
-  "upgrade.benefit_chat",
-  "upgrade.benefit_maths",
-  "upgrade.benefit_physics",
-  "upgrade.benefit_chemistry",
-  "upgrade.benefit_calculator",
-  "upgrade.benefit_images",
-  "settings.web_search",
-  "upgrade.benefit_transcription",
-  "upgrade.benefit_pdf",
-  "upgrade.benefit_scanner",
-] as const;
+/**
+ * What Pro adds to Free, never a count or which model answers (owner, 2026-11-24). The
+ * page listed maths, physics, chemistry, the calculator, web search, PDFs and the scanner,
+ * which Free has too, and "Unlimited chat" without the daily guard behind it. Each line
+ * here is one of Pro's allowances in apps/api/app/core/settings/plans.py, larger than
+ * Free's or Free's 0 (`PRO_ADDS`, which planCopy.test.ts holds to that file).
+ */
+export const PRO_ADDS = {
+  // Unlimited messages; a daily token budget guards against a runaway account.
+  "upgrade.benefit_chat": ["daily_message_limit", "daily_token_limit"],
+  "upgrade.benefit_searches": ["daily_tavily_searches"],
+  "upgrade.benefit_more_images": ["daily_image_generations"],
+  "upgrade.benefit_lookups": ["daily_image_searches"],
+  "upgrade.benefit_documents": ["daily_document_limit"],
+  "upgrade.benefit_transcription": ["daily_speech_transcriptions"],
+  // The feature's own name, one key in every language.
+  "chat.live_talk_a11y": ["monthly_live_talk_minutes"],
+  "upgrade.benefit_read_aloud": ["daily_speech_tts"],
+  "upgrade.benefit_storage": ["library_storage_bytes"],
+} as const;
+
+const BENEFITS = Object.keys(PRO_ADDS) as (keyof typeof PRO_ADDS)[];
 
 export function planBenefits(t: Translate): string[] {
   return BENEFITS.map((key) => t(key));

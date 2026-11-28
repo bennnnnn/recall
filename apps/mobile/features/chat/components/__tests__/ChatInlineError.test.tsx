@@ -127,3 +127,16 @@ it("offers explicit draft restoration for an unsaved file with no generic Retry 
   fireEvent.press(view.getByRole("button", { name: "Restore draft" }));
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
+
+it("says a failed send to a screen reader as it appears", async () => {
+  const { AccessibilityInfo, Platform } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.replaceProperty(Platform, "OS", "ios");
+  const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => undefined);
+  const view = await render(
+    <ChatInlineError error={{ kind: "generic", message: "Message wasn’t sent." }} onDismiss={jest.fn()} bottom={20} />,
+  );
+  expect(announce).toHaveBeenCalledWith("Message wasn’t sent.");
+  // TalkBack reads the alert's live region.
+  expect(view.getByRole("alert").props.accessibilityLiveRegion).toBe("assertive");
+  announce.mockRestore();
+});

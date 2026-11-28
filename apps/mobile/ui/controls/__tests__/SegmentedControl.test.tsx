@@ -23,6 +23,20 @@ describe("SegmentedControl", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
+  it("wraps a long label instead of cutting it", async () => {
+    // "Yearly · Save 37%" at the largest text size on a small phone.
+    const periods = [
+      { key: "monthly", label: "Monthly" },
+      { key: "yearly", label: "Yearly · Save 37%" },
+    ] as const;
+    const view = await render(
+      <SegmentedControl segments={periods} value="monthly" onChange={jest.fn()} maxFontSizeMultiplier={1.3} />,
+    );
+    expect(view.getByText("Yearly · Save 37%").props.numberOfLines).toBeUndefined();
+    // On a page that caps its text, as far as the page's: "Monthly" never breaks mid-word.
+    expect(view.getByText("Monthly").props.maxFontSizeMultiplier).toBe(1.3);
+  });
+
   it("sizes the thumb to one segment once laid out", async () => {
     const view = await render(<SegmentedControl segments={SIZES} value="small" onChange={jest.fn()} />);
     expect(view.queryByTestId("segmented-thumb")).toBeNull();

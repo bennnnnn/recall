@@ -12,6 +12,7 @@ import { Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
 import { useBottomLiftStyle } from "@/ui/hooks/useBottomLiftStyle";
+import { useLiveAnnouncement } from "@/ui/hooks/useLiveAnnouncement";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -25,6 +26,12 @@ type Props = {
   /** Rides the keyboard with the composer, frame by frame. */
   lift?: SharedValue<number>;
 };
+
+function errorIcon(kind: ResolvedChatError["kind"]) {
+  if (kind === "quota") return "zap";
+  if (kind === "busy" || kind === "send_rejected") return "hourglass";
+  return kind === "model_unavailable" ? "cloud-off" : "alert-circle";
+}
 
 export function ChatInlineError({
   error,
@@ -41,21 +48,15 @@ export function ChatInlineError({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const liftStyle = useBottomLiftStyle(lift);
+  // A failed send is said as it appears: VoiceOver hears nothing of a live region.
+  useLiveAnnouncement(error?.message);
 
   if (!error) return null;
-
-  const iconName =
-    error.kind === "quota"
-      ? "zap"
-      : error.kind === "busy" || error.kind === "send_rejected"
-        ? "hourglass"
-        : error.kind === "model_unavailable"
-          ? "cloud-off"
-          : "alert-circle";
+  const iconName = errorIcon(error.kind);
 
   return (
     <Animated.View style={[s.wrap, { bottom }, lift ? liftStyle : null]}>
-      <View style={s.body}>
+      <View style={s.body} accessible accessibilityRole="alert" accessibilityLiveRegion="assertive">
         <Icon name={iconName} size={IconSize.xs} color={theme.warning} style={s.icon} />
         <Text style={s.text}>{error.message}</Text>
       </View>

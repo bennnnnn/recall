@@ -12,6 +12,7 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { ChartFallback } from "@/components/rich/ChartFallback";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
+import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { useWebPreviewHeight } from "@/components/rich/useWebPreviewHeight";
 import { VisualCard } from "@/components/rich/VisualCard";
@@ -98,6 +99,8 @@ export function ChartBlock({ content }: Props) {
               {previewError}
             </Text>
           </View>
+        ) : preview.status === "lost" ? (
+          <PreviewLostNote onRetry={preview.retry} style={{ height }} />
         ) : WebView && canRenderInlineChart ? (
           canMount && preview.status === "ready" ? (
             <WebView

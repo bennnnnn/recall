@@ -22,6 +22,7 @@ import {
 } from "@/lib/math/text";
 import { latexLeanEm } from "@/lib/math/glyphs";
 import { fittedIndent } from "@/lib/math/layout";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 
@@ -124,7 +125,9 @@ export const MathSvgView = React.memo(function MathSvgView({
   // VoiceOver reads the formula as words: an SVG has no text of its own. Under
   // an accessible parent (an answer card) the parent reads it instead.
   const own = !useInsideAccessibleElement();
-  const label = useMemo(() => (own ? spokenFormula(latex) : undefined), [own, latex]);
+  // Said in the app's language: a language change reads it again.
+  const words = useMathSpeechWords();
+  const label = useMemo(() => (own && words ? spokenFormula(latex) : undefined), [own, latex, words]);
   // The conversion is held with the latex it was made from. A view whose latex changes (a
   // streaming answer growing, a reused row) never draws the previous formula's result, not
   // even for one frame: until its own result arrives it shows the cached one or the slot.

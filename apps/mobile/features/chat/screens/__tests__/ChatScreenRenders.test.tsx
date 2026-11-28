@@ -188,6 +188,10 @@ const mockAuth = { token: "token", user: null, updateUser: mockAsyncNoop };
 const mockRouter = { push: mockNoop, replace: mockNoop, setParams: mockNoop };
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 1 }));
+// Online, the screens are as tall as the window (the safe-area mock's own frame is 640 pt).
+jest.mock("@/hooks/useScreenHeight", () => ({
+  useScreenHeight: () => jest.requireActual<typeof import("react-native")>("react-native").Dimensions.get("window").height,
+}));
 // The location switch's module keeps when the account's place was saved, in a file.
 jest.mock("@/lib/syncRecords", () => ({ recentSyncAt: async () => null, recordSync: async () => {} }));
 jest.mock("expo-router", () => ({

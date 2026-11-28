@@ -11,6 +11,7 @@ import { stepParts } from "@/lib/richBlocks";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 
 type Props = { steps: string[] };
 
@@ -28,7 +29,7 @@ const ARROW_HEIGHT = 20;
  * flow with arrows" (the owner, 2026-11-14). A step's `$…$` is drawn as maths.
  */
 export function StepFlow({ steps }: Props) {
-  const theme = useTheme();
+  const theme = useTheme(); useMathSpeechWords(); // Its labels say maths in the app's language.
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (

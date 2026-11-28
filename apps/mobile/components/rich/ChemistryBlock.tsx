@@ -9,6 +9,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import { useFenceRefused } from "@/components/rich/useFenceRefused";
+import { PreviewLostNote } from "@/components/rich/PreviewLostNote";
 import { usePreviewPage } from "@/components/rich/usePreviewPage";
 import { imageLabelProps } from "@/components/rich/imageLabel";
 import { VisualCard } from "@/components/rich/VisualCard";
@@ -80,10 +81,7 @@ export function Chemistry2DView({
   const renderError = drawError ?? (preview.status === "failed" ? "unavailable" : null);
   useFenceRefused(fence, smiles, drawError === "render", undefined, "draw_failed");
 
-  const handleWebViewFailure = useCallback(() => {
-    setFailure({ smiles, code: "render" });
-  }, [smiles]);
-
+  if (preview.status === "lost") return <PreviewLostNote onRetry={preview.retry} />;
   if (renderError) {
     return (
       <View style={s.previewBox}>
@@ -110,7 +108,6 @@ export function Chemistry2DView({
           javaScriptEnabled
           domStorageEnabled={false}
           onLoadEnd={onLoaded}
-          onRenderProcessGone={handleWebViewFailure}
         />
       </View>
     );

@@ -82,6 +82,20 @@ config.resolver.resolveRequest = withSentryFeedbackResolver(
   false,
 ).resolver.resolveRequest;
 
+/**
+ * A module evaluates when its import is first used, not when its importer loads
+ * (`inlineRequires`): about three quarters of the app's modules (2,908 of 3,923 in a
+ * development bundle) ran before the first frame. A side-effect import
+ * (`import "@/lib/sentryStart"`, `import "@/lib/i18n"`) still runs where it is written, so
+ * Sentry still starts before any other app module (app/_layout.tsx). Expo's own default
+ * is otherwise kept (`experimentalImportSupport`).
+ */
+const expoTransformOptions = config.transformer.getTransformOptions;
+config.transformer.getTransformOptions = async (...args) => {
+  const options = await expoTransformOptions(...args);
+  return { ...options, transform: { ...options.transform, inlineRequires: true } };
+};
+
 // Keep Jest-only tooling out of the app bundle (SDK 52+ handles monorepo resolution;
 // avoid extraNodeModules — it can break RN global init with "property is not writable").
 config.resolver.blockList = [
