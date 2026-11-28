@@ -11,13 +11,15 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.chat.finalize_passes import FinalizeState
 from app.modules.chat.name_links import is_a_name, name_target, own_site
-from app.modules.chat.reply_links import link_reply_names
+from app.modules.chat.reply_links import link_reply_names, place_marks_only
 from app.modules.chat.turn_outcome import TurnOutcome
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.chat.untrusted_media import neutralize_untrusted_media
 
 FIXTURE = Path(__file__).resolve().parents[6] / "docs" / "fixtures" / "name_links.json"
-NAME_CASES = json.loads(FIXTURE.read_text(encoding="utf-8"))["cases"]
+_FIXTURE = json.loads(FIXTURE.read_text(encoding="utf-8"))
+NAME_CASES = _FIXTURE["cases"]
+MARKDOWN_CASES = _FIXTURE["markdown"]
 
 _HITS = [
     WebSearchHit(title="Reuters", url="https://www.reuters.com/world/lisbon-2026", snippet="s"),
@@ -115,15 +117,60 @@ def test_a_bare_url_as_the_words_becomes_the_site_name() -> None:
     assert link_reply_names(_state(reply)) == "Source: made-up.example"
 
 
-def test_a_model_address_with_no_search_opens_a_search_for_its_name() -> None:
-    """With nothing searched, a site the model wrote from memory is no address the server
-    stands behind: the name opens a search, and a link naming nothing keeps its words."""
+def test_an_unmarked_address_no_result_gave_keeps_its_words() -> None:
+    """Only a ``check`` mark makes a search: "Read More" or "1" is no name to search, and a
+    site the model wrote from memory is no address the server stands behind."""
     reply = (
-        "Try [Duolingo](https://www.duolingo-app.example/learn) or "
-        "[the docs](https://docs.python.org/3/library/json.html)."
+        "Try [Duolingo](https://www.duolingo-app.example/learn), see [1](https://made-up.example/a), "
+        "[Read More](https://x.example/more) or [the docs](https://docs.python.org/3/library/json.html)."
     )
     out = link_reply_names(_state(reply, hits=[]))
-    assert out == f"Try [Duolingo]({_SEARCH}Duolingo) or the docs."
+    assert out == "Try Duolingo, see 1, Read More or the docs."
+
+
+def test_an_unmarked_name_opens_its_own_site_from_the_results() -> None:
+    reply = "Book at [Zuni Café](https://zuni-cafe-from-memory.example)."
+    out = link_reply_names(_state(reply, hits=_RESTAURANT_HITS))
+    assert out == "Book at [Zuni Café](https://zunicafe.com/)."
+
+
+@pytest.mark.parametrize(
+    ("link", "kept"),
+    [
+        # A host with no scheme, from a result: https.
+        ("[Nopa](www.nopasf.com)", "[Nopa](https://www.nopasf.com)"),
+        ("[Nopa](nopasf.com)", "[Nopa](https://nopasf.com)"),
+        # Not from a result, or no address at all: its words, never a dead link.
+        ("[Tartine](tartine-guess.com)", "Tartine"),
+        ("[La Taqueria](#)", "La Taqueria"),
+        ("[click](" + "java" + "script:alert(1))", "click"),
+        # An app's link stays.
+        ("[call](tel:+14155551234)", "[call](tel:+14155551234)"),
+    ],
+)
+def test_an_address_with_no_scheme_is_https_from_a_result_or_its_words(
+    link: str, kept: str
+) -> None:
+    out = link_reply_names(_state(f"See {link}.", hits=_RESTAURANT_HITS))
+    assert out == f"See {kept}."
+
+
+def test_a_link_the_user_typed_earlier_in_the_chat_stays() -> None:
+    """Turn 1 "summarise https://example.org/report-2026", turn 2 with no search."""
+    state = _state("The [report](https://example.org/report-2026) says rents rose.", hits=[])
+    state.ctx.prompt_messages = [
+        {"role": "user", "content": "summarise https://example.org/report-2026"},
+        {"role": "assistant", "content": "It covers rents."},
+        {"role": "user", "content": "what did it say about rents?"},
+    ]
+    state.ctx.user_message_content = "what did it say about rents?"
+    assert link_reply_names(state) == state.text
+
+
+def test_the_closed_strip_places_marks_and_drops_the_rest() -> None:
+    text = '[Zuni Café](check "San Francisco") and [Read More](https://x.example)'
+    expected = f"[Zuni Café]({_MAPS}Zuni%20Caf%C3%A9%2C%20San%20Francisco) and Read More"
+    assert place_marks_only(text) == expected
 
 
 def test_a_model_image_turned_into_a_link_stays_a_link() -> None:
@@ -178,6 +225,7 @@ def test_what_never_gets_a_link_keeps_its_words(reply: str, kept: str) -> None:
         ("CS50", True),
         ("ቶሞካ ቡና", True),
         ("a taqueria", False),
+        ("1", False),
         ("the city's page", False),
         ("—", False),
         ("Read the full guide to every one of the city's best places here", False),
@@ -215,3 +263,8 @@ def test_a_name_is_linked_the_first_time_only() -> None:
     out = link_reply_names(_state(reply, hits=[]))
     assert out.count("Python%20Crash%20Course") == 1
     assert out.endswith("Start with **Python Crash Course**.")
+
+
+@pytest.mark.parametrize("case", MARKDOWN_CASES, ids=[case["id"] for case in MARKDOWN_CASES])
+def test_a_marked_link_as_written_opens_what_the_phone_opens(case: dict[str, str]) -> None:
+    assert f"]({case['url']})" in place_marks_only(case["markdown"])

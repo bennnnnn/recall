@@ -465,12 +465,14 @@ export function isDataBodyFenceId(id: FenceId): boolean {
 
 /**
  * Prompt-control fences parsed outside this registry (assistantMessageContent.ts).
- * `calendar_proposal` is retired (Google Calendar was removed); old saved
- * replies may still carry it.
+ * `calendar_proposal` is retired (Google Calendar was removed) and `places` too (a
+ * reply's linked names replaced the card, 2026-11-27); old saved replies may still carry
+ * them, and Copy, Share and the PDF leave them out.
  */
 const CONTROL_LANGS: ReadonlySet<string> = new Set([
   "reminder",
   "calendar_proposal",
+  "places",
   "settings_proposal",
   "reminder_proposal",
   "todo_link",

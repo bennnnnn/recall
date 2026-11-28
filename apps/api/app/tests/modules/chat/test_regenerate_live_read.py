@@ -83,7 +83,14 @@ async def test_a_regenerate_starts_the_read_and_hands_it_to_the_turn() -> None:
             fallback_models=[],
             lightweight=False,
             rich_context=False,
-            geo=ClientGeoContext(None, None, None, False, False, False, False),
+            geo=ClientGeoContext(
+                user_location=None,
+                client_lat=None,
+                client_lng=None,
+                has_geo_fix=False,
+                geo_query=False,
+                ambiguous_nearby=False,
+            ),
             local_tz="UTC",
         )
 

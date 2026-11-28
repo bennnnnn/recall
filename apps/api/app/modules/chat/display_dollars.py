@@ -141,12 +141,14 @@ def _bracketed_tier(line: str, start: int, end: int) -> bool:
 
 # A dash that joins two price tiers ("$-$$", "$$-$$$"), en and em dashes included.
 _RANGE_DASHES = "-\u2013\u2014"
+# What may come before a price tier: the line's start, a blank or an opening mark.
+_TIER_BEFORE = " \t(,:;"
 
 
 def _range_end(line: str, start: int) -> bool:
     """The run of two at ``start`` ends a price range, ``$-$$`` or ``$ - $$``: a dash before it
-    and a dollar before the dash, with no blank between unless that dollar stands alone (a lone
-    ``$`` is never a delimiter). "Burmese, $-$$" at a line's end opened a formula there
+    and a tier before the dash that starts a word, with no blank between unless that tier is a
+    lone ``$`` (never a delimiter). "Burmese, $-$$" at a line's end opened a formula there
     (2026-11-27)."""
     at = start - 1
     while at >= 0 and line[at] in " \t":
@@ -160,8 +162,13 @@ def _range_end(line: str, start: int) -> bool:
         at -= 1
     if at < 0 or line[at] != "$":
         return False
-    alone = line[at - 1 : at] != "$"
-    return alone or (not spaced and at == dash)
+    first = at
+    while first > 0 and line[first - 1] == "$":
+        first -= 1
+    # A tier starts a word: "$a$ - $$b$$" closes a formula with its "$", which is no tier.
+    if first > 0 and line[first - 1] not in _TIER_BEFORE:
+        return False
+    return first == at or (not spaced and at == dash)
 
 
 def _prose_words(text: str) -> int:

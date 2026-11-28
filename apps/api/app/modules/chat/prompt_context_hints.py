@@ -58,7 +58,7 @@ def slim_geo_hints(turn: SlimTurn) -> list[str]:
     """A slim turn has no profile block, so it states where the user is whenever Location
     gives a place (the turn's fix, else the saved one), whatever the message's wording
     (``USE_THE_LOCATION``). A greeting and a "who am I" turn, which share no profile detail,
-    state it only when they ask about a place; the places layout hints go with that too."""
+    state it only when they ask about a place; the nearby and distance hints go with that too."""
     query = turn.query_text
     asks_place = bool(
         turn.settings.web_search_enabled and query and web_search_service.is_geo_query(query)

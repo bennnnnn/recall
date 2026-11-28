@@ -1,4 +1,4 @@
-"""In-app visual fence hints (HTML, charts, places). Chemistry is gated."""
+"""In-app visual fence hints (HTML, Mermaid, charts). Chemistry is gated."""
 
 # Only injected when turn_prep actually has chemistry context (PubChem / SMILES).
 # Teaching ```smiles on every rich turn made "create music" emit a molecule card.

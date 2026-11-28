@@ -197,7 +197,14 @@ async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(
             fallback_models=[],
             lightweight=False,
             rich_context=False,
-            geo=ClientGeoContext(None, None, None, False, False, False, False),
+            geo=ClientGeoContext(
+                user_location=None,
+                client_lat=None,
+                client_lng=None,
+                has_geo_fix=False,
+                geo_query=False,
+                ambiguous_nearby=False,
+            ),
             local_tz="UTC",
         )
 

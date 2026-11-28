@@ -52,21 +52,23 @@ def _turn(read: TurnDecision | None, *, steps_open: bool = True, **fields: Any) 
 
 @pytest.mark.asyncio
 async def test_an_answer_that_recommends_names_asks_for_their_links() -> None:
-    begin_turn_trace("new")
+    trace = begin_turn_trace("new")
     ctx = _turn(_read(True))
     await decide_from_the_read(ctx, _SETTINGS)
     assert ctx.prompt_messages[-2]["content"] == NAME_LINK_NOTE
     assert ctx.prompt_messages[-1]["role"] == "user"
+    assert "read.names" in trace.prompt_rules
 
 
 @pytest.mark.parametrize("names", [False, None], ids=["history", "no-answer"])
 @pytest.mark.asyncio
 async def test_no_names_or_no_answer_leave_the_rules_alone(names: bool | None) -> None:
-    begin_turn_trace("new")
+    trace = begin_turn_trace("new")
     ctx = _turn(_read(names))
     before = list(ctx.prompt_messages)
     await decide_from_the_read(ctx, _SETTINGS)
     assert NAME_LINK_NOTE not in [m["content"] for m in ctx.prompt_messages]
+    assert "read.names" not in trace.prompt_rules
     assert ctx.prompt_messages[-1] == before[-1]
 
 

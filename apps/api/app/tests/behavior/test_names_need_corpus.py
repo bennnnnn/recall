@@ -7,8 +7,8 @@ that the set is whole, that no word rule picks the links, and the measure.
 
 from __future__ import annotations
 
-from app.modules.chat.prompt_constants.format import NAME_LINK_NOTE
-from app.modules.chat.prompt_format import _style_format_hints
+from app.modules import web_search
+from app.modules.chat.prompt_context_hints import _geo_hints
 from app.tests.behavior.names_need_eval import NamesTurn, Outcome, load, rates
 
 TURNS = load()
@@ -24,12 +24,12 @@ def test_the_set_is_whole() -> None:
 
 
 def test_the_words_of_a_near_me_ask_pick_no_layout() -> None:
-    """Only "near me" got tappable names, from a word rule (the owner, 2026-11-27)."""
+    """Only "near me" got tappable names, from a word rule picking the places card's layout
+    (the owner, 2026-11-27): its geo hints now hold the location and nothing about a card."""
     near = next(turn for turn in TURNS if turn.prompt == "coffee shops near me")
-    hints = _style_format_hints(
-        query_text=near.prompt, is_day_plan=False, minimal_personal_context=False
-    )
-    assert NAME_LINK_NOTE not in hints
+    hints = _geo_hints(near.prompt, "Mission District, San Francisco")
+    assert hints == [web_search.GEO_ACTIVE_LOCATION_HINT]
+    assert not any("```places" in hint for hint in hints)
 
 
 def test_the_measure_counts_links_on_picks_and_on_the_rest() -> None:

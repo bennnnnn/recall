@@ -1,3 +1,4 @@
+import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
 import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("deriveAssistantMessageContent", () => {
@@ -29,6 +30,11 @@ describe("deriveAssistantMessageContent", () => {
     expect(text).not.toContain("```places");
     expect(text).toContain("The top pick near you is Copra.");
     expect(text).toContain("reserve ahead");
+    // Copy, Share and the PDF read the saved text: its JSON never prints there either.
+    for (const out of [markdownToCopyText(content), markdownToSpeechText(content)]) {
+      expect(out).not.toContain('"name"');
+      expect(out).toContain("reserve ahead");
+    }
   });
 
   it("returns empty markdown flags for user rows", () => {

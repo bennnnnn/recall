@@ -29,6 +29,7 @@ WEB_SEARCH = "https://www.google.com/search?q="
 _URI_SAFE = "!~*'()"
 # Markdown a link's words may carry: **bold**, *italic*, `code`.
 _EMPHASIS = re.compile(r"[*_`]+")
+_STRAIGHT_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
 # Past this many words a link's words are a sentence, not a name.
 _NAME_WORDS_MAX = 8
 _NAME_CHARS_MAX = 80
@@ -57,17 +58,20 @@ def web_search_url(query: str) -> str:
 
 
 def name_text(words: str) -> str:
-    """A link's words as the name they say: no emphasis marks, one space between words."""
-    return " ".join(_EMPHASIS.sub("", words).split())
+    """A link's words as the name they say: no emphasis marks, curly quotes straight, one space
+    between words (the phone reads the typographer's curled apostrophe back the same way)."""
+    plain = _EMPHASIS.sub("", words).translate(_STRAIGHT_QUOTES)
+    return " ".join(plain.split())
 
 
 def is_a_name(words: str) -> bool:
-    """Words that can name a thing to look up: a capital or a digit in a script with case
-    ("Zuni Café", "iPhone 16", "CS50"), not a kind of thing ("a taqueria") or a sentence."""
+    """Words that can name a thing to look up: a letter, and a capital or a digit in a script
+    with case ("Zuni Café", "iPhone 16", "CS50"); not a number alone ("1"), a kind of thing ("a
+    taqueria") or a sentence."""
     text = name_text(words)
     if not text or len(text) > _NAME_CHARS_MAX or len(text.split()) > _NAME_WORDS_MAX:
         return False
-    if not any(char.isalnum() for char in text):
+    if not any(char.isalpha() for char in text):
         return False
     cased = [char for char in text if char.lower() != char.upper()]
     return not cased or any(char.isupper() or char.isdigit() for char in text)

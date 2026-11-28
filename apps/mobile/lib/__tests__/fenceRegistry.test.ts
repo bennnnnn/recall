@@ -244,7 +244,7 @@ describe("fence registry lookups", () => {
       "message",
       "molecule",
       "molecule3d",
-          "quiz",
+      "quiz",
       "quote",
       // P14. Server-owned like geometry/graph: the prompt forbids it and
       // validate_math_fences replaces or strikes out anything the model
@@ -266,7 +266,7 @@ describe("fence registry lookups", () => {
       "math",
       "mermaid",
       "message",
-          "quiz",
+      "quiz",
       "social",
       "steps",
     ]);
@@ -349,6 +349,7 @@ describe("per-fence predicates accept exactly these fences", () => {
     "reminder_proposal",
     "settings_proposal",
     "calendar_proposal",
+    "places",
     "photo",
     "python",
     "json",
@@ -391,7 +392,8 @@ describe("per-fence predicates accept exactly these fences", () => {
       "calculator",
       "calendar_proposal",
       "photo",
-          "reminder",
+      "places",
+      "reminder",
       "reminder_proposal",
       "settings_proposal",
       "sources",

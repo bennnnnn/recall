@@ -111,7 +111,7 @@ from app.modules.chat.praise_opener import strip_praise_opener
 from app.modules.chat.prompt_leaks import drop_prompt_leaks_pass, drop_prompt_lines
 from app.modules.chat.repeated_fences import drop_repeated_pictures
 from app.modules.chat.reply_labels import one_answer_label
-from app.modules.chat.reply_links import link_reply_names
+from app.modules.chat.reply_links import link_reply_names, place_marks_only
 from app.modules.chat.reply_meta import local_today, without_turn_meta
 from app.modules.chat.rounded_end import round_working_ends
 from app.modules.chat.self_attribution import drop_self_attribution
@@ -273,6 +273,7 @@ FINALIZE_PASSES: tuple[FinalizePass, ...] = (
     FinalizePass(
         "reply_links",
         link_reply_names,
+        closed=place_marks_only,
         kind=TEXT,
         after=frozenset({"untrusted_media"}),
     ),

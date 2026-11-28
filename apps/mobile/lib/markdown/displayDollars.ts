@@ -126,11 +126,13 @@ function bracketedTier(line: string, start: number, end: number): boolean {
 
 /** A dash that joins two price tiers ("$–$$", "$$-$$$"), en and em dashes included. */
 const RANGE_DASHES = "-–—";
+/** What may come before a price tier: the line's start, a blank or an opening mark. */
+const TIER_BEFORE = " \t(,:;";
 
 /**
  * The run of two at `start` ends a price range, `$–$$` or `$ – $$`: a dash before it and a
- * dollar before the dash, with no blank between unless that dollar stands alone (a lone `$` is
- * never a delimiter). "Burmese, $–$$" at a line's end opened a formula there (2026-11-27).
+ * tier before the dash that starts a word, with no blank between unless that tier is a lone `$`
+ * (never a delimiter). "Burmese, $–$$" at a line's end opened a formula there (2026-11-27).
  */
 function rangeEnd(line: string, start: number): boolean {
   let at = start - 1;
@@ -141,8 +143,11 @@ function rangeEnd(line: string, start: number): boolean {
   const dash = at;
   while (at >= 0 && /[ \t]/.test(line[at]!)) at -= 1;
   if (line[at] !== "$") return false;
-  const alone = line[at - 1] !== "$";
-  return alone || (!spaced && at === dash);
+  let first = at;
+  while (first > 0 && line[first - 1] === "$") first -= 1;
+  // A tier starts a word: "$a$ — $$b$$" closes a formula with its "$", which is no tier.
+  if (first > 0 && !TIER_BEFORE.includes(line[first - 1]!)) return false;
+  return first === at || (!spaced && at === dash);
 }
 
 /**

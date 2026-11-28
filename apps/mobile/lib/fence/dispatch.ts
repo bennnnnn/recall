@@ -24,6 +24,7 @@ import {
   drawsBareJson,
   fenceIdForLang,
   fenceSpecForLang,
+  isControlFenceLang,
   isDataBodyFenceId,
   isMathDiagramLang,
   isPlainTextFenceLang,
@@ -175,6 +176,8 @@ export function classifyOpenFencePreview(lang: string, body: string): OpenFenceP
   // which bodies are data, so a new card fence is covered when it is added.
   const id = decision.id ?? fenceIdForLang(lang);
   if (id != null && isDataBodyFenceId(id)) return "placeholder";
+  // Control JSON the settled reply drops (a retired ```places card) shows nothing either.
+  if (isControlFenceLang(lang)) return "placeholder";
   // A card around text (a callout, a quote) streams as that text.
   if (decision.kind === "rich") return "prose";
   return "code";

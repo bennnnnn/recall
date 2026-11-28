@@ -2,6 +2,7 @@ import { Linking, StyleSheet, Text, type StyleProp, type TextStyle, type ViewSty
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import nameLinks from "../../../../../docs/fixtures/name_links.json";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import {
@@ -17,6 +18,8 @@ import "@/lib/i18n";
 
 // These check the English copy, so they read the real react-i18next over lib/i18n.
 jest.unmock("react-i18next");
+
+const NAME_LINK_MARKDOWN = nameLinks.markdown as { id: string; markdown: string; words: string; url: string }[];
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual(
@@ -378,6 +381,28 @@ describe("markdown render rules", () => {
         textDecorationColor: lightTheme.textSecondary,
       });
     }
+  });
+
+  // docs/fixtures/name_links.json: the reply's marked links as written, drawn and tapped,
+  // open what the server writes when it places them (test_reply_links.py).
+  it.each(NAME_LINK_MARKDOWN.map((c) => [c.id, c] as const))(
+    "%s: a marked link opens what the server writes",
+    async (_id, c) => {
+      const open = jest.spyOn(Linking, "openURL").mockResolvedValue(undefined);
+      const { getByText } = await render(<MarkdownContent content={c.markdown} />);
+      fireEvent.press(getByText(c.words));
+      await Promise.resolve();
+      expect(open).toHaveBeenCalledWith(c.url);
+      open.mockRestore();
+    },
+  );
+
+  it("draws a link it cannot open as its words, never a dead link", async () => {
+    const { getByText, queryByRole } = await render(
+      <MarkdownContent content={"See [Nopa](#) and [Zuni](zunicafe.com) tonight."} />,
+    );
+    expect(getByText(/Nopa/)).toBeOnTheScreen();
+    expect(queryByRole("link")).toBeNull();
   });
 
   it("opens a name still marked while streaming on Maps with its city", async () => {

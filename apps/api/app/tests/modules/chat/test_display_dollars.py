@@ -48,7 +48,8 @@ def test_display_dollars_pair_end_pairs_the_same_dollars(case: dict[str, object]
 @pytest.mark.parametrize("case", CASES, ids=IDS)
 def test_display_dollars_latex_check_reads_the_same_maths(case: dict[str, object]) -> None:
     maths, _prose = _maths_and_prose(str(case["text"]))
-    assert [body.strip() for body in maths] == case["display"]
+    expected = [*case["display"], *case.get("inline", [])]  # type: ignore[misc]
+    assert [body.strip() for body in maths] == expected
 
 
 @pytest.mark.parametrize(
@@ -115,6 +116,7 @@ PRICES = [
     case
     for case in CASES
     if not case["display"]
+    and not case.get("inline")
     and "\n" not in case["text"]
     and "`" not in case["text"]
     and "\\" not in case["text"]
@@ -125,6 +127,29 @@ PRICE_IDS = [case["id"] for case in PRICES]
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)
 def test_display_dollars_inline_boundaries_leave_a_price(case: dict[str, object]) -> None:
     assert repair_inline_token_boundaries(str(case["text"])) == case["text"]
+
+
+INLINE = [case for case in CASES if case.get("inline")]
+
+
+@pytest.mark.parametrize("case", INLINE, ids=[case["id"] for case in INLINE])
+def test_display_dollars_a_symbol_alone_is_still_maths(case: dict[str, object]) -> None:
+    """ "Flip $<$ to $>$" drew as maths before price ranges were read, and still does."""
+    text = str(case["text"])
+    found = []
+    index = 0
+    while index < len(text):
+        if text.startswith("$$", index):
+            end = display_dollar_pair_end(text, index)
+            index = end if end is not None else index + 2
+            continue
+        end = maths_pair_end(text, index)
+        if end is None:
+            index += 1
+            continue
+        found.append(text[index + 1 : end - 1].strip())
+        index = end
+    assert found == case["inline"]
 
 
 @pytest.mark.parametrize("case", PRICES, ids=PRICE_IDS)

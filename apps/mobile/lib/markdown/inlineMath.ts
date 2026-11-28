@@ -69,8 +69,17 @@ function proseWords(text: string): number {
   return (text.match(/[A-Za-z]{3,}/g) ?? []).filter((w) => !MATH_WORD.test(w)).length;
 }
 
-/** Something a formula is made of, in any script; "$–$$" (a price range) holds none. */
+/** Something a formula is made of, in any script; "–" (a price range's dash) is none. */
 const FORMULA_CHAR = /[\p{L}\p{N}\\∞]/u;
+
+/**
+ * A price range's first tier, "Burmese, $–$$": a pair around no letter, digit or command whose
+ * closer runs on into more dollars. A symbol alone between two dollars is still maths ("flip
+ * $<$ to $>$", "the $\pm$ sign"), as it was before ranges were read.
+ */
+function opensPriceRangePair(text: string, end: number, value: string): boolean {
+  return text[end + 1] === "$" && !FORMULA_CHAR.test(restoreMathEscapes(value));
+}
 
 /** A dollar beside another is part of a run of them ("$$", a tier). */
 function inDollarRun(text: string, dollar: number): boolean {
@@ -115,7 +124,9 @@ export function readInlineMathSpan(
   while (end >= 0 && escapedAt(text, end)) end = text.indexOf(closer, end + closer.length);
   if (end < 0) return null;
   const value = text.slice(start + opener.length, end);
-  if (!value.trim() || (opener === "$" && (value.includes("\n") || !FORMULA_CHAR.test(value)))) return null;
+  if (!value.trim() || (opener === "$" && (value.includes("\n") || opensPriceRangePair(text, end, value)))) {
+    return null;
+  }
   if (codeSpanOpensWithin(text, start + opener.length, end)) return null;
   // "$5 and $10" contains two prices, not a math span ending before "10".
   if (opener === "$" && dollarOpensPrice(text, end, value)) return null;

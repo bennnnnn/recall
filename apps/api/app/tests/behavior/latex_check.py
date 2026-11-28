@@ -114,8 +114,9 @@ def _maths_and_prose(reply: str) -> tuple[list[str], list[str]]:
 
     def take(span: re.Match[str]) -> str:
         body = next(group for group in span.groups() if group is not None)
-        # A body with no letter, digit or command ("$ - $") is no formula (math_padding).
-        if span.group(0).startswith("$") and _FORMULA_CHAR.search(body) is None:
+        # A price range's first tier ("$-$$"): no formula (math_padding._opens_price_range).
+        after = span.string[span.end() : span.end() + 1]
+        if span.group(0).startswith("$") and after == "$" and _FORMULA_CHAR.search(body) is None:
             return span.group(0)
         maths.append(body)
         return " "

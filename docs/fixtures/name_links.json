@@ -1,5 +1,5 @@
 {
-  "about": "Where a name the reply marks to look up, [Name](check \"City\"), opens when no search result is its own site: a Google Maps search for the name and its city when it gives one, else a Google search for the name. The server places it when the reply is saved (apps/api/app/modules/chat/name_links.py, test_reply_links.py); the phone opens a marked name the same way while the reply streams (apps/mobile/lib/markdown/replyLinks.ts, lib/__tests__/replyLinks.test.ts). Each address is encoded as encodeURIComponent encodes it.",
+  "about": "Where a name the reply marks to look up, [Name](check \"City\"), opens when no search result is its own site: a Google Maps search for the name and its city when it gives one, else a Google search for the name. The server places it when the reply is saved (apps/api/app/modules/chat/name_links.py, test_reply_links.py); the phone opens a marked name the same way while the reply streams (apps/mobile/lib/markdown/replyLinks.ts, lib/__tests__/replyLinks.test.ts; the drawn and tapped cases in components/markdown/__tests__/markdownRenderRules.test.tsx). Each address is encoded as encodeURIComponent encodes it. `markdown` holds whole marked links as the reply writes them: the server places each (`place_links`), and the phone, drawing it through MarkdownContent (whose typographer curls the apostrophe and whose parser escapes the city), opens the same address on a tap.",
   "cases": [
     {
       "id": "restaurant-with-city",
@@ -30,6 +30,26 @@
       "name": "ቶሞካ ቡና",
       "city": "Addis Ababa",
       "url": "https://www.google.com/maps/search/?api=1&query=%E1%89%B6%E1%88%9E%E1%8A%AB%20%E1%89%A1%E1%8A%93%2C%20Addis%20Ababa"
+    }
+  ],
+  "markdown": [
+    {
+      "id": "typographer-apostrophe",
+      "markdown": "1. **[Ben & Jerry's](check \"Burlington, VT\")** — ice cream",
+      "words": "Ben & Jerry’s",
+      "url": "https://www.google.com/maps/search/?api=1&query=Ben%20%26%20Jerry's%2C%20Burlington%2C%20VT"
+    },
+    {
+      "id": "city-after-the-mark",
+      "markdown": "Try [Café Sprüngli](check:Zürich) for pastries.",
+      "words": "Café Sprüngli",
+      "url": "https://www.google.com/maps/search/?api=1&query=Caf%C3%A9%20Spr%C3%BCngli%2C%20Z%C3%BCrich"
+    },
+    {
+      "id": "bold-book",
+      "markdown": "2. **[Atomic Habits](check)** — small habits",
+      "words": "Atomic Habits",
+      "url": "https://www.google.com/search?q=Atomic%20Habits"
     }
   ]
 }
