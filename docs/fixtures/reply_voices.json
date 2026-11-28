@@ -1,60 +1,164 @@
 {
-  "about": "The Reply voice picker (Settings -> Voice) by app language: the voices of the model that plays replies in that language. The API's models/voice_catalog.py and the phone's features/speech/model/voices.ts are both held to this file. Kokoro (OpenRouter) plays en, es, fr, hi and pt; tts-1 (OpenAI) the rest.",
+  "about": "The Reply voice picker (Settings -> Voice) by app language: the voices of the model that plays replies in that language. The API's models/voice_catalog.py and the phone's features/speech/model/voices.ts are both held to this file. Kokoro (OpenRouter) plays en, es, fr, hi and pt; tts-1 (OpenAI) the rest. A user who never picked a reply voice hears the language's first voice; the live talk voice plays no part (owner, 2026-11-27).",
   "languages": {
     "en": [
-      {"id": "af_heart", "female": true},
-      {"id": "af_bella", "female": true},
-      {"id": "af_nicole", "female": true},
-      {"id": "af_kore", "female": true},
-      {"id": "af_sarah", "female": true},
-      {"id": "bf_emma", "female": true},
-      {"id": "am_michael", "female": false},
-      {"id": "am_fenrir", "female": false},
-      {"id": "am_puck", "female": false},
-      {"id": "bm_george", "female": false}
+      {
+        "id": "af_heart",
+        "female": true
+      },
+      {
+        "id": "af_bella",
+        "female": true
+      },
+      {
+        "id": "af_nicole",
+        "female": true
+      },
+      {
+        "id": "af_kore",
+        "female": true
+      },
+      {
+        "id": "af_sarah",
+        "female": true
+      },
+      {
+        "id": "bf_emma",
+        "female": true
+      },
+      {
+        "id": "am_michael",
+        "female": false
+      },
+      {
+        "id": "am_fenrir",
+        "female": false
+      },
+      {
+        "id": "am_puck",
+        "female": false
+      },
+      {
+        "id": "bm_george",
+        "female": false
+      }
     ],
     "es": [
-      {"id": "ef_dora", "female": true},
-      {"id": "em_alex", "female": false}
+      {
+        "id": "ef_dora",
+        "female": true
+      },
+      {
+        "id": "em_alex",
+        "female": false
+      }
     ],
     "fr": [
-      {"id": "ff_siwis", "female": true}
+      {
+        "id": "ff_siwis",
+        "female": true
+      }
     ],
     "hi": [
-      {"id": "hf_alpha", "female": true},
-      {"id": "hf_beta", "female": true},
-      {"id": "hm_omega", "female": false},
-      {"id": "hm_psi", "female": false}
+      {
+        "id": "hf_alpha",
+        "female": true
+      },
+      {
+        "id": "hf_beta",
+        "female": true
+      },
+      {
+        "id": "hm_omega",
+        "female": false
+      },
+      {
+        "id": "hm_psi",
+        "female": false
+      }
     ],
     "pt": [
-      {"id": "pf_dora", "female": true},
-      {"id": "pm_alex", "female": false}
+      {
+        "id": "pf_dora",
+        "female": true
+      },
+      {
+        "id": "pm_alex",
+        "female": false
+      }
     ],
     "ru": "openai",
     "tr": "openai",
     "am": "openai"
   },
   "openai": [
-    {"id": "coral", "female": true},
-    {"id": "alloy", "female": true},
-    {"id": "nova", "female": true},
-    {"id": "sage", "female": true},
-    {"id": "shimmer", "female": true},
-    {"id": "ash", "female": false},
-    {"id": "echo", "female": false},
-    {"id": "fable", "female": false},
-    {"id": "onyx", "female": false}
+    {
+      "id": "coral",
+      "female": true
+    },
+    {
+      "id": "alloy",
+      "female": true
+    },
+    {
+      "id": "nova",
+      "female": true
+    },
+    {
+      "id": "sage",
+      "female": true
+    },
+    {
+      "id": "shimmer",
+      "female": true
+    },
+    {
+      "id": "ash",
+      "female": false
+    },
+    {
+      "id": "echo",
+      "female": false
+    },
+    {
+      "id": "fable",
+      "female": false
+    },
+    {
+      "id": "onyx",
+      "female": false
+    }
   ],
   "defaults": [
-    {"language": "en", "reply_voice": null, "live_voice": "marin", "plays": "af_heart"},
-    {"language": "en", "reply_voice": null, "live_voice": "cedar", "plays": "am_michael"},
-    {"language": "en", "reply_voice": null, "live_voice": null, "plays": "af_heart"},
-    {"language": "ru", "reply_voice": null, "live_voice": "sage", "plays": "sage"},
-    {"language": "ru", "reply_voice": null, "live_voice": "marin", "plays": "coral"},
-    {"language": "ru", "reply_voice": null, "live_voice": "verse", "plays": "ash"},
-    {"language": "es", "reply_voice": "am_puck", "live_voice": "marin", "plays": "em_alex"},
-    {"language": "fr", "reply_voice": "am_puck", "live_voice": null, "plays": "ff_siwis"},
-    {"language": "pt", "reply_voice": "pf_dora", "live_voice": "cedar", "plays": "pf_dora"},
-    {"language": "tr", "reply_voice": "af_bella", "live_voice": null, "plays": "coral"}
+    {
+      "language": "en",
+      "reply_voice": null,
+      "plays": "af_heart"
+    },
+    {
+      "language": "ru",
+      "reply_voice": null,
+      "plays": "coral"
+    },
+    {
+      "language": "es",
+      "reply_voice": "am_puck",
+      "plays": "em_alex"
+    },
+    {
+      "language": "fr",
+      "reply_voice": "am_puck",
+      "plays": "ff_siwis"
+    },
+    {
+      "language": "pt",
+      "reply_voice": "pf_dora",
+      "plays": "pf_dora"
+    },
+    {
+      "language": "tr",
+      "reply_voice": "af_bella",
+      "plays": "coral"
+    }
   ]
 }

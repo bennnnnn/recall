@@ -996,7 +996,6 @@
   "settings.voice_speed": "Speed",
   "settings.voice_live": "Live talk",
   "settings.voice_reply": "TTS",
-  "settings.voice_reply_follow": "Same as live talk",
   "settings.voice_summary": "Voices and speed for Listen and live talk",
   "settings.web_search": "Web search",
   "settings.web_search_off": "Web search off",
