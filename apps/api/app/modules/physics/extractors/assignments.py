@@ -6,6 +6,8 @@ import re
 
 _PARAM_ASSIGN_RE = re.compile(
     r"\b(?:gravity|theta|angle|h_?0|v_?0|omega|mu|rho|delta|"
+    # The same letters in Greek ("θ = 30°", "μₖ = 0.20"), and a starting speed "u = 0 m/s".
+    r"[\u03b8\u03b1\u03c6\u03bc\u03c9\u03c1][\u2096\u209b]?|u|"
     # A constant stated as a given: "k = 9.0e9 N·m²/C²", "k_e = 8.99e9", "G = 6.67e-11".
     r"[mqxv]_?[12]|k_?e|[hFmgMRIcRxkG])\s*=\s*(?=-?\d)",
     re.IGNORECASE,

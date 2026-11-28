@@ -377,7 +377,7 @@ def _atwood(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
             QuantityResult("", a_val, "m/s^2"),
             QuantityResult("", t_val, "N"),
         ),
-        simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
+        simulation_specs=_atwood_scene(m1, m2, a_val, t_val, g),
     )
 
 

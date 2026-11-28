@@ -121,9 +121,9 @@ class UserOut(BaseModel):
     @property
     def reply_voice_heard(self) -> str:
         """The voice a reply in the app's language really plays in: the one picked, or the
-        one the live talk voice gives (``voice_catalog.reply_voice_for_app``)."""
+        list's first voice (``voice_catalog.reply_voice_for_app``)."""
         locale = normalize_locale_code(self.locale)
-        return reply_voice_for_app(locale, self.reply_voice, self.tts_voice)
+        return reply_voice_for_app(locale, self.reply_voice)
 
     # mypy rejects a decorator over @property; pydantic documents this ignore.
     @computed_field  # type: ignore[prop-decorator]

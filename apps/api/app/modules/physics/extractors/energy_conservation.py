@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.extractors.cues import FROM_REST_RE
 from app.modules.physics.extractors.stated_values import (
     find_value_with_specific_unit,
     labeled_value,
@@ -33,10 +34,6 @@ _CLOSED_ENERGY_RE = re.compile(
     re.IGNORECASE,
 )
 _SPRING_RE = re.compile(r"\bspring\b|\bN/m\b", re.IGNORECASE)
-_FROM_REST_RE = re.compile(
-    r"\b(?:from rest|starts at rest|released from rest|initially at rest)\b",
-    re.IGNORECASE,
-)
 _ASK = r"\b(?:find|what is|calculate)\b"
 _WORK_ENERGY_RE = re.compile(r"\bnet work\b|\bwork-energy\b|\bwork energy theorem\b", re.IGNORECASE)
 _CONSERVATION_RE = re.compile(
@@ -108,7 +105,7 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
         units["v1"] = from_to.group(2)
         params["v2"] = float(from_to.group(3))
         units["v2"] = from_to.group(4)
-    if _FROM_REST_RE.search(cleaned):
+    if FROM_REST_RE.search(cleaned):
         params["v1"] = 0.0
         units["v1"] = "m/s"
     initial = labeled_value(cleaned, r"initial (?:speed|velocity)", VELOCITY_UNIT_PATTERN)
@@ -165,7 +162,7 @@ def _work_energy(cleaned: str) -> PhysicsIntent | None:
 def _gravity(cleaned: str) -> PhysicsIntent | None:
     params: dict[str, float] = {}
     units: dict[str, str] = {}
-    if _FROM_REST_RE.search(cleaned):
+    if FROM_REST_RE.search(cleaned):
         params["v1"] = 0.0
         units["v1"] = "m/s"
     for key, label, unit in (
@@ -206,7 +203,7 @@ def _spring(cleaned: str) -> PhysicsIntent | None:
         return None
     params: dict[str, float] = {"k": float(stiffness.group(1)), "m": mass[0]}
     units: dict[str, str] = {"k": "N/m", "m": mass[1] or "kg"}
-    if _FROM_REST_RE.search(cleaned):
+    if FROM_REST_RE.search(cleaned):
         params["v1"] = 0.0
         units["v1"] = "m/s"
     for key, label in (

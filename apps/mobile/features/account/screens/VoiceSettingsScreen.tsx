@@ -32,7 +32,6 @@ import { numberFormat } from "@/lib/money/format";
 
 const DEFAULT_VOICE = "default";
 // The TTS menu's row that saves null: a reply follows the live talk voice ("Same as live talk").
-const FOLLOW_LIVE_VOICE = "follow";
 
 /**
  * Settings → Voice. Two voices are saved on the account: TTS, the one a reply plays in when the
@@ -80,8 +79,34 @@ export default function VoiceSettingsScreen() {
 
   return (
     <SettingsPage>
+      {/* Listen (TTS) and everything that shapes it together, then live talk on its own
+          (owner, 2026-11-27). */}
       <SettingsGroup>
         <ReplyVoiceRow action={action} preview={preview} />
+        <SettingsMenuRow
+          title={t("settings.voice_speed")}
+          value={rateLabel(rate)}
+          options={rateOptions}
+          selectedKey={String(rate)}
+          onSelect={(key) => {
+            const next = SPEECH_RATES.find((value) => String(value) === key);
+            if (next === undefined) return;
+            setRate(next);
+            void setSpeechRate(next);
+          }}
+        />
+        <SettingsSwitchRow
+          title={t("settings.voice_on_device")}
+          subtitle={t("settings.voice_on_device_summary")}
+          value={onDevice}
+          onValueChange={(next) => {
+            setOnDevice(next);
+            void setTtsModel(next ? TTS_DEVICE_MODEL : TTS_QUALITY_MODEL);
+          }}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup>
         <SettingsMenuRow
           title={t("settings.voice_live")}
           value={voice ? voiceLabel(voice) : t("settings.voice_default")}
@@ -96,38 +121,15 @@ export default function VoiceSettingsScreen() {
             });
           }}
         />
-        <SettingsMenuRow
-          title={t("settings.voice_speed")}
-          value={rateLabel(rate)}
-          options={rateOptions}
-          selectedKey={String(rate)}
-          onSelect={(key) => {
-            const next = SPEECH_RATES.find((value) => String(value) === key);
-            if (next === undefined) return;
-            setRate(next);
-            void setSpeechRate(next);
-          }}
-        />
-      </SettingsGroup>
-
-      <SettingsGroup>
-        <SettingsSwitchRow
-          title={t("settings.voice_on_device")}
-          subtitle={t("settings.voice_on_device_summary")}
-          value={onDevice}
-          onValueChange={(next) => {
-            setOnDevice(next);
-            void setTtsModel(next ? TTS_DEVICE_MODEL : TTS_QUALITY_MODEL);
-          }}
-        />
       </SettingsGroup>
     </SettingsPage>
   );
 }
 
 /**
- * TTS: "Same as live talk" (saves null), then the voices of the model that plays replies in the
- * app's language. The pick ticks its row; the row names the voice heard, and says it.
+ * TTS: the voices of the model that plays replies in the app's language. The voice heard is
+ * ticked and named (the first voice until one is picked); a pick says it. There is no "Same as
+ * live talk": Listen's models lack the live voices, so it played another voice (owner, 2026-11-27).
  */
 function ReplyVoiceRow({
   action,
@@ -140,21 +142,15 @@ function ReplyVoiceRow({
   const { t } = useTranslation();
   const replyVoices = replyVoicesFor(user?.locale);
   const options = useMemo(
-    () => [
-      { key: FOLLOW_LIVE_VOICE, label: t("settings.voice_reply_follow") },
-      ...replyVoices.map((voice) => ({ key: voice.id, label: replyVoiceLabel(voice.id) })),
-    ],
-    [replyVoices, t],
+    () => replyVoices.map((voice) => ({ key: voice.id, label: replyVoiceLabel(voice.id) })),
+    [replyVoices],
   );
   const heard = user?.reply_voice_heard ?? null;
   const picked = user?.reply_voice ?? null;
-  // A pick from another app language (George, now in Russian) is not in this list: the voice
-  // heard in its place is ticked.
-  const ticked = picked
-    ? replyVoices.some((voice) => voice.id === picked)
-      ? picked
-      : (heard ?? FOLLOW_LIVE_VOICE)
-    : FOLLOW_LIVE_VOICE;
+  // A pick from another app language (George, now in Russian) is not in this list, and nothing
+  // picked plays the first voice: the voice heard in its place is ticked.
+  const ticked =
+    picked && replyVoices.some((voice) => voice.id === picked) ? picked : (heard ?? replyVoices[0]?.id);
   return (
     <SettingsMenuRow
       title={t("settings.voice_reply")}
@@ -163,10 +159,8 @@ function ReplyVoiceRow({
       selectedKey={ticked}
       busy={action.busy === "reply_voice"}
       onSelect={(key) => {
-        const next = key === FOLLOW_LIVE_VOICE ? null : key;
-        void action.run("reply_voice", () => updateUser({ reply_voice: next })).then((saved) => {
-          // Same as live talk says the voice that now follows, read from the saved account.
-          if (saved) preview("reply", next);
+        void action.run("reply_voice", () => updateUser({ reply_voice: key })).then((saved) => {
+          if (saved) preview("reply", key);
         });
       }}
     />

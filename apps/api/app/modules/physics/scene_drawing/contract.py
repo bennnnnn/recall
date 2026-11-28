@@ -20,7 +20,8 @@ SCENE_VOCABULARY = (
     '"horizontal": true, when it is launched horizontally), height (of the launch above '
     "the landing ground), g;\n"
     "- incline (a block sliding down a slope with friction): angle*, friction* (the "
-    "coefficient), mass, g;\n"
+    'coefficient), mass, g; with "components": true when the question asks for the '
+    "weight's components along and perpendicular to the slope;\n"
     "- atwood (two masses hanging over one pulley): mass1*, mass2*;\n"
     "- collision (two bodies on a line, moving the same way): mass1*, speed1* (of the "
     "moving or faster body), mass2*, speed2 (left out when it is at rest), and "
@@ -68,7 +69,10 @@ FORCES_VOCABULARY = (
     "tension; an applied push, a driving force or a thrust is push; air resistance is "
     "drag. Only the forces acting at the moment the question describes, none it does not "
     "state or imply: no friction on a smooth or frictionless surface, no drag unless air "
-    "resistance acts."
+    'resistance acts. Add "components": true for a body on a slope when the question asks '
+    "for its weight's components along and perpendicular to the slope. Two masses over one "
+    'pulley, each asked for in its own free-body diagram, are one forces block, "body": '
+    '"mass", their forces weight and tension.'
 )
 
 # A bar or rod with forces at points along it (moments), checked value by value (``beam``).
@@ -119,12 +123,21 @@ MOTION_DRAW_CONTRACT = (
     'start>","to":"<speed at its end>","time":"<how long>"}]}, every value as the question '
     'states it with its unit; "0" for a stage at rest; a minus sign on a speed the other '
     "way. Every stage needs its time. The app works out every point and every "
-    "acceleration and draws each graph asked; one it cannot draw is said under your reply."
+    "acceleration and draws each graph asked; one it cannot draw is said under your reply. "
+    "The motion of a block sliding down a slope with friction or of an Atwood machine's "
+    "masses, from rest, is one block naming the scene instead of stages: "
+    '{"kind":"motion","of":"incline" or "atwood","graphs":[each graph asked, by the word the '
+    'question uses: "displacement", "distance", "velocity", "speed" or "acceleration"],'
+    '"time":"<the span the graphs cover, as the question states it>"}; the app works out '
+    "the acceleration and draws each graph, each mass its own."
 )
 
 # How a reply speaks when it describes a picture: the app shows it, or says it could not.
 DESCRIBED_PICTURE_SPEECH = (
-    "Never write that a picture, animation or graph is here, shown or coming, and never "
-    "mention the ```draw block or what the app may show: the app draws the picture or "
-    "says in one line that it could not."
+    "Never write that a picture, animation or graph is here, shown or coming, never "
+    "mention the ```draw block or what the app may or may not show, draw or have (no "
+    '"the app has no scene for this"), and never offer to draw a picture the message '
+    "asks for: the app draws the picture or says in one line that it could not. Where a "
+    "part asks for a picture, give what it shows (each force with its size and direction, "
+    "each graph's shape and its values) in words, as a caption beside it."
 )

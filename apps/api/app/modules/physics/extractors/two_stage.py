@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.ask import ask_clause, asked_phrases
+from app.modules.physics.extractors.cues import FROM_REST_RE
 from app.modules.physics.givens import Given, scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -32,11 +33,6 @@ _SECOND_STAGE_RE = re.compile(
     r"|\s+and\s+(?=(?:holds?|maintains?|keeps?|continues?|cruises?|travels?|moves?|runs?"
     r"|drives?|brakes?|decelerates?|slows?)\b)"
     r"|,?\s*\bafter\s+which\b",
-    re.IGNORECASE,
-)
-_FROM_REST_RE = re.compile(
-    r"\bfrom\s+(?:rest|a\s+standstill|standstill|a\s+standing\s+start|a\s+stop)\b"
-    r"|\bstarts?\s+at\s+rest\b",
     re.IGNORECASE,
 )
 _SPEEDS_UP_RE = re.compile(
@@ -120,7 +116,7 @@ def extract_two_stage_intent(cleaned: str) -> PhysicsIntent | None:
     if ask_start < split.end():
         return None
     first, second = cleaned[: split.start()], cleaned[split.end() : ask_start]
-    if not _FROM_REST_RE.search(first) or not _SPEEDS_UP_RE.search(first):
+    if not FROM_REST_RE.search(first) or not _SPEEDS_UP_RE.search(first):
         return None
     if _SLOWS_RE.search(first):
         return None
