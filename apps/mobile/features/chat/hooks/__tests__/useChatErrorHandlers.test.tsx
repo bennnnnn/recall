@@ -34,6 +34,13 @@ describe("a turn refused as not found", () => {
     }
   });
 
+  it("asks for a send the server refused as not found, reported as the send's retry", async () => {
+    (api.getChat as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+    const { result } = await renderHook(() => useChatErrorHandlers(false, { token: "token", chatId: "gone-send" }));
+    await act(async () => { result.current.handleChatError("Chat not found.", "send_rejected", "not_found"); });
+    expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["gone-send"]);
+  });
+
   it("leaves a chat that is still there, and reads nothing for any other error", async () => {
     (api.getChat as jest.Mock).mockResolvedValue({ id: "here" });
     const { result } = await renderHook(() => useChatErrorHandlers(false, { token: "token", chatId: "here" }));

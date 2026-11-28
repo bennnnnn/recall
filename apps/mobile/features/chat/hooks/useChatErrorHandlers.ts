@@ -31,10 +31,11 @@ export function useChatErrorHandlers(isPaid: boolean, open?: { token: string | n
   const openRef = useLatestRef(open);
 
   const handleChatError = useCallback(
-    (message: string, code?: string) => {
+    (message: string, code?: string, cause?: string) => {
       setChatError(resolveChatError({ message, code, isPaid, t }));
       const { token, chatId } = openRef.current ?? {};
-      if (code === NOT_FOUND_CODE && token && chatId) void checkChatGone(token, chatId);
+      // An unsaved send is reported as its retry; `cause` is the server's own code.
+      if ((cause ?? code) === NOT_FOUND_CODE && token && chatId) void checkChatGone(token, chatId);
     },
     [isPaid, t, openRef],
   );

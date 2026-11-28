@@ -115,7 +115,11 @@ function onError(s: ChatTurnState, out: Out, payload: ChatSsePayload, ttftTurnId
     clearStreamingBubble(s, out);
   }
   const queuedReason = pending && reason ? headRejectedSend(s)?.reason : undefined;
-  reportError(out, { message: payload.message, key: "chat.error_generic", code: queuedReason ?? code });
+  reportError(out, {
+    message: payload.message, key: "chat.error_generic", code: queuedReason ?? code,
+    // A send refused because its chat is gone: the screen asks whether the chat is (chatGone.ts).
+    ...(queuedReason && frameCode === "not_found" ? { cause: frameCode } : {}),
+  });
 }
 
 /**

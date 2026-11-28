@@ -26,7 +26,7 @@ export type ChatTurnEffects = {
   /** Pops the last answer for Regenerate from the newest list. */
   popForRegenerate: () => void;
   cue: ReturnType<typeof createStreamCueGate>;
-  onError?: (message: string, code?: string) => void;
+  onError?: (message: string, code?: string, cause?: string) => void;
   onFirstReply?: (reply: FirstReply) => void;
   onTodosSync?: () => void;
   onUsage?: (usage: TurnUsage) => void;
@@ -68,7 +68,8 @@ function runCommand(command: ChatTurnCommand, effects: ChatTurnEffects): void {
       notifyConsentRequired();
       return;
     case "report_error":
-      effects.onError?.(command.message ?? effects.t(command.key), command.code);
+      if (command.cause === undefined) effects.onError?.(command.message ?? effects.t(command.key), command.code);
+      else effects.onError?.(command.message ?? effects.t(command.key), command.code, command.cause);
       return;
     case "first_reply":
       effects.onFirstReply?.(command.reply);

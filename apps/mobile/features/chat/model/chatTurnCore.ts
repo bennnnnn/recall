@@ -119,7 +119,8 @@ export type ChatTurnCommand =
   | { type: "announce"; key: string }
   | { type: "consent_required" }
   /** The server's words when it sent some, else `key` translated. */
-  | { type: "report_error"; message?: string; key: string; code?: string }
+  // `cause`: the server's own code when an unsaved send is reported as its retry (a chat gone).
+  | { type: "report_error"; message?: string; key: string; code?: string; cause?: string }
   | { type: "first_reply"; reply: FirstReply }
   /** A new chat's title, which followed the first reply's `done` on its stream (null: none came). */
   | { type: "title"; chatId: string | null; title: string | null }
@@ -176,7 +177,7 @@ export function cue(out: Out, value: Extract<ChatTurnCommand, { type: "cue" }>["
   out.push({ type: "cue", cue: value });
 }
 
-export function reportError(out: Out, error: { message?: string; key: string; code?: string }): void {
+export function reportError(out: Out, error: { message?: string; key: string; code?: string; cause?: string }): void {
   out.push({ type: "report_error", ...error });
 }
 

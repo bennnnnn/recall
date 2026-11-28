@@ -226,6 +226,16 @@ describe("errors", () => {
     expect(run.of("report_error")).toEqual([{ type: "report_error", message: "Busy", key: "chat.error_generic", code: "send_rejected" }]);
   });
 
+  // Pre-launch review 2026-11-27: a send to a chat deleted on another device said only
+  // "wasn't sent"; the server's not_found rides with it so the screen can ask about the chat.
+  it("an unsaved send refused as not found keeps the server's code beside its Retry", () => {
+    const run = play(streaming({ pending: pending() }), [
+      frame({ type: "error", code: "not_found", message: "Chat not found.", user_message_saved: false }, "turn-1"),
+    ], [bubble]);
+    expect(headRejectedSend(run.state)?.reason).toBe("send_rejected");
+    expect(run.of("report_error")[0]).toMatchObject({ code: "send_rejected", cause: "not_found" });
+  });
+
   it("a rejected attachment waits under its own reason", () => {
     const run = play(streaming({ pending: pending() }), [frame({ type: "error", code: "attachment_rejected", message: "Too big" }, "turn-1")], [bubble]);
     expect(run.of("clear_ttft")).toEqual([{ type: "clear_ttft", turnId: "turn-1" }]);

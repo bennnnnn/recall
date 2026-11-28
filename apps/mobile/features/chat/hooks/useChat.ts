@@ -22,7 +22,7 @@ type UseChatOptions = {
   /** The view's first saved reply: its chat reaches the drawer and gets its title. */
   onFirstReply?: (reply: FirstReply) => void;
   /** Called when the server or socket reports an error */
-  onError?: (message: string, code?: string) => void;
+  onError?: (message: string, code?: string, cause?: string) => void;
   /** Refresh the to-dos after a turn may have changed them */
   onTodosSync?: () => void;
   /** The day's usage a finished turn reports. */
