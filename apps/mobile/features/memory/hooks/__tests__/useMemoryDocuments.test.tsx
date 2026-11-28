@@ -16,6 +16,7 @@ jest.mock("@/lib/api", () => ({
     deleteMemory: jest.fn(),
     deleteMemoryDocument: jest.fn(),
     listMemoryDocuments: jest.fn(),
+    updateMemory: jest.fn(),
   },
 }));
 jest.mock("@/lib/auth", () => ({
@@ -137,7 +138,6 @@ describe("useMemoryDocuments deletes", () => {
     // Redis down at the write lock: it answered the busy 409 above.
     [503, { code: "unavailable", message: "Service temporarily unavailable. Please retry shortly." }, "unavailable"],
     [409, { code: "memory_off", message: "Memory is off." }, "off"],
-    [404, "Memory not found", "gone"],
     [429, { code: "rate_limited", message: "Too many memory edits — try again later." }, "limited"],
     [422, [{ msg: "too long" }], "failed"],
   ])("says why a change was refused: %i %j is %s (CLAR-08)", async (status, detail, failure) => {
@@ -150,6 +150,40 @@ describe("useMemoryDocuments deletes", () => {
     });
 
     expect(done).toEqual({ ok: false, failure });
+  });
+
+  // Pre-launch review 2026-11-27: a fact deleted on another device stayed on the page, its
+  // delete put it back with a failure, and an edit or a mute left it there.
+  it("deletes a fact or page already deleted on another device as any other, with nothing put back", async () => {
+    const gone = new ApiRequestError(404, JSON.stringify({ detail: "Memory not found" }));
+    (api.deleteMemory as jest.Mock).mockRejectedValue(gone);
+    (api.deleteMemoryDocument as jest.Mock).mockRejectedValue(gone);
+    const { result } = await renderHook(() => useMemoryDocuments("token"));
+
+    let fact: MemoryChange = { ok: false, failure: "failed" };
+    let document: MemoryChange = { ok: false, failure: "failed" };
+    await act(async () => {
+      fact = await result.current.deleteFact("a");
+      document = await result.current.deleteDocument("notes");
+    });
+
+    expect(fact).toEqual({ ok: true });
+    expect(document).toEqual({ ok: true });
+    expect(shown()).toEqual([["interests", ["b"]]]);
+  });
+
+  it.each(["edit", "mute"] as const)("takes away a fact deleted on another device on its %s, and says it is gone", async (change) => {
+    (api.updateMemory as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Memory not found" })));
+    const { result } = await renderHook(() => useMemoryDocuments("token"));
+
+    let done: MemoryChange = { ok: true };
+    await act(async () => {
+      done = change === "edit" ? await result.current.editFact("c", "New words") : await result.current.setFactMuted("c", true);
+    });
+
+    expect(done).toEqual({ ok: false, failure: "gone" });
+    // Its page went with its last fact.
+    expect(shown()).toEqual([["interests", ["a", "b"]]]);
   });
 
   it("keeps a deleted fact gone when a refresh lands mid-request", async () => {

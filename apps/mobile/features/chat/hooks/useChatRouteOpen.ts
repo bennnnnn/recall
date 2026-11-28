@@ -4,13 +4,13 @@ import type { IconName } from "@/ui/icons/names";
 
 import { useComposerDraftApiOptional } from "@/features/chat/context/ComposerDraftContext";
 import { api, type Chat, type Message } from "@/lib/api";
-import { ApiRequestError } from "@/lib/api/client";
+import { isGone } from "@/lib/api/gone";
+import { forgetGoneChat } from "@/features/chat/model/chatGone";
 import { getSessionGeneration } from "@/lib/auth";
 import { reportFailure } from "@/lib/sentry";
 import { getCachedChat, getFetchedChat } from "@/features/chat/model/chatListCache";
 import {
   cachedChatPageFetchedAt,
-  clearCachedChatMessages,
   isCachedChatPageFresh,
   peekCachedChatPage,
   readCachedChatMessages,
@@ -20,7 +20,7 @@ import { addedSincePaint, mergeOpenedPage, paintCachedThread } from "@/features/
 import { MESSAGE_PAGE_SIZE } from "@/features/chat/model/constants";
 import { beginOpenedPageRead, type OpenedPageRead } from "@/features/chat/model/openedPage";
 import { chatHasThreadContent, shouldProbePreviousChat } from "@/features/chat/model/draftLogic";
-import { getChatMutationRevision, removeChatGlobal } from "@/features/chat/drawer/drawer";
+import { getChatMutationRevision } from "@/features/chat/drawer/drawer";
 import type { useDraftChat } from "@/features/chat/hooks/useDraftChat";
 import type { EditThread } from "@/features/chat/model/threadEdit";
 
@@ -201,13 +201,16 @@ async function readOpenedChat(
     }
   } catch (error) {
     if (isCurrent()) {
-      if (error instanceof ApiRequestError && error.status === 404) {
+      if (isGone(error)) {
+        // Deleted on another device: its row, thread and files go, it is said once, and the
+        // screen is New chat.
         read.chatGone(composer);
-        removeChatGlobal(chatId);
-        void clearCachedChatMessages(chatId);
+        forgetGoneChat(chatId);
         options.startNewChat({ force: true });
-      } else reportFailure("chat_load", error);
-      options.showActionBanner(options.t("common.error"), "alert-circle");
+      } else {
+        reportFailure("chat_load", error);
+        options.showActionBanner(options.t("common.error"), "alert-circle");
+      }
     }
   } finally {
     // A read that failed lets a turn waiting for it go out.

@@ -30,6 +30,7 @@
   "chat.delete_confirm_title": "ውይይት ሰርዝ",
   "chat.delete_failed": "ይህን ውይይት መሰረዝ አልተቻለም።",
   "chat.deleted_toast": "ውይይት ተሰርዟል",
+  "chat.gone_toast": "ይህ ውይይት በሌላ መሣሪያ ተሰርዟል",
   "chat.email_card_body_placeholder": "የኢሜይል ጽሑፍ",
   "chat.email_card_copy": "ኢሜይሉን ቅዳ",
   "chat.email_card_done": "ማስተካከል ጨርስ",

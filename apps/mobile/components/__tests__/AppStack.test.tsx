@@ -4,7 +4,7 @@
 // another chat screen on it).
 import "./support/expoGlobal";
 
-import { useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import { Text } from "react-native";
 import { type Href, router } from "expo-router";
 import { act, renderRouter, screen } from "expo-router/testing-library";
@@ -28,24 +28,23 @@ jest.mock("standard-navigation", () => ({
   }),
 }));
 
+/** The account signed in or not, as `useAuth().token` says it. */
 let signedIn = true;
-let setSignedIn: (value: boolean) => void = () => {};
-let chatMounts = 0;
+const listeners = new Set<() => void>();
+function setSignedIn(next: boolean) {
+  signedIn = next;
+  listeners.forEach((listener) => listener());
+}
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => void listeners.delete(listener);
+};
 
 function RootLayout() {
-  const React = jest.requireActual<typeof import("react")>("react");
-  const [value, setValue] = React.useState(signedIn);
-  setSignedIn = (next) => {
-    signedIn = next;
-    setValue(next);
-  };
-  return <AppStack signedIn={value} />;
+  return <AppStack signedIn={useSyncExternalStore(subscribe, () => signedIn)} />;
 }
 
 function ChatScreen() {
-  useEffect(() => {
-    chatMounts += 1;
-  }, []);
   return <Text>chat screen</Text>;
 }
 
@@ -65,7 +64,6 @@ const shown = (text: string) => screen.queryByText(text, { includeHiddenElements
 
 beforeEach(() => {
   signedIn = true;
-  chatMounts = 0;
 });
 
 it("takes the account's screens out of the history on sign-out: Back shows no old chat", async () => {

@@ -1,7 +1,7 @@
 import NetInfo from "@react-native-community/netinfo";
 
 import { api } from "@/lib/api";
-import { ApiRequestError } from "@/lib/api/errorBody";
+import { isGone } from "@/lib/api/gone";
 import { getSessionGeneration } from "@/lib/auth";
 import { isNetworkOffline } from "@/lib/networkStatus";
 import type { SettledStatus } from "@/features/attachments/model/attachmentStatusFile";
@@ -158,7 +158,7 @@ async function poll(poller: Poller): Promise<void> {
     // Gone (deleted, or an upload the server threw away): nothing will index it, so it shows
     // no indexing line, as an image does. Taken for pending, it read "Indexing…" for six
     // minutes, then "Couldn't index", and again on every launch.
-    if (session === generation && error instanceof ApiRequestError && error.status === 404) {
+    if (session === generation && isGone(error)) {
       publish(poller, INDEX_READY, true);
       void keepSettled(poller);
     }

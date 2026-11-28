@@ -19,7 +19,8 @@ jest.mock("expo-router", () => ({ useFocusEffect: () => undefined, useRouter: ()
 jest.mock("@/lib/api", () => ({ api: { getChat: jest.fn(), listMessages: jest.fn() } }));
 jest.mock("@/features/chat/model/chatListCache", () => {
   const listed = (id: string) => ({ id, title: id.toUpperCase(), pinned: false, archived: false });
-  return { getCachedChat: listed, getFetchedChat: listed };
+  // The header reads the list's row (useChatMetadata); the list itself never changes here.
+  return { getCachedChat: listed, getFetchedChat: listed, getCachedChatList: () => undefined, subscribeChatList: () => () => {} };
 });
 // The kept pages are real; the file behind them is not.
 jest.mock("expo-file-system/legacy", () => ({ cacheDirectory: null }));

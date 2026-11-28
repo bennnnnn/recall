@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppStack } from "@/components/AppStack";
 import { AiConsentRedirect } from "@/features/auth/components/AiConsentRedirect";
 import { OpenedDocumentBootstrap } from "@/features/chat/components/OpenedDocumentBootstrap";
+import { ChatGoneNotice } from "@/features/chat/components/ChatGoneNotice";
 import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
@@ -86,6 +87,7 @@ export default function RootLayout() {
                   <NetworkProvider>
                     <PushNotificationBootstrap />
                     <OpenedDocumentBootstrap />
+                    <ChatGoneNotice />
                     <AiConsentRedirect />
                     <RootNavigator />
                     <DialogHost />

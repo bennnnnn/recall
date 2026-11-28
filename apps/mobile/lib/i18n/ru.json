@@ -30,6 +30,7 @@
   "chat.delete_confirm_title": "Удалить чат",
   "chat.delete_failed": "Не удалось удалить этот чат.",
   "chat.deleted_toast": "Чат удалён",
+  "chat.gone_toast": "Этот чат удалён на другом устройстве",
   "chat.email_card_body_placeholder": "Текст письма",
   "chat.email_card_copy": "Скопировать письмо",
   "chat.email_card_done": "Завершить редактирование",

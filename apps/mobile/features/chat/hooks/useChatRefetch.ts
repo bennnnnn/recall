@@ -6,6 +6,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { reportFailure } from "@/lib/sentry";
 import { onAppStateChange } from "@/lib/foregroundRefresh";
 import { getCachedChat, getFetchedChat } from "@/features/chat/model/chatListCache";
+import { forgetChatIfGone } from "@/features/chat/model/chatGone";
 import { shouldForceForegroundChatRecovery, shouldRefetchChatOnForeground } from "@/features/chat/model/foregroundRefetch";
 import { markCachedChatPagesStale, shouldSkipChatPageRead } from "@/features/chat/model/messageCache";
 import { mergeLocalAttachmentUris } from "@/features/chat/model/messageMerge";
@@ -36,7 +37,8 @@ type RefetchOptions = {
 /**
  * Reads the open chat's newest page and merges it into the thread, unless it was read within
  * the stale window (`force` reads it anyway). The thread on screen stays as it is when the
- * read fails, or when anything changed it while the read was out.
+ * read fails, or when anything changed it while the read was out; a chat the read finds gone
+ * goes (`forgetChatIfGone`).
  */
 export function useSilentRefetchChat({
   token, viewRef, activeChatRef, messagesRef, setChatId, editThread, setHasMoreOlder, applyMetadata, notePageRead,
@@ -67,7 +69,9 @@ export function useSilentRefetchChat({
         setHasMoreOlder(page.has_more);
         notePageRead(openChatId);
       } catch (error) {
-        reportFailure("chat_refresh", error); // The messages on screen stay.
+        // Deleted on another device: it goes, and the screen gives way to New chat.
+        if (cancelled() || ownerSession !== getSessionGeneration()) return;
+        if (!forgetChatIfGone(openChatId, error)) reportFailure("chat_refresh", error); // The messages on screen stay.
       }
     },
     [

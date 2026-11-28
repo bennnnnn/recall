@@ -134,7 +134,8 @@ function DocumentContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setSaving(false);
     if (!saved.ok) {
       reportRecoverableError(feedback, t(memoryFailureKey(saved.failure, "memory.edit_failed")));
-      return;
+      // Deleted on another device: the fact left the page, and its edit goes with it.
+      if (saved.failure !== "gone") return;
     }
     setEditing(null);
   }, [editing, saving, editFact, isCurrentView, feedback, t]);

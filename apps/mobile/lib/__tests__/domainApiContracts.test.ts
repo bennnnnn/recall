@@ -1,5 +1,6 @@
 import { attachmentRecordExists, attachmentsApi } from "@/features/attachments/api";
 import { request } from "@/lib/api/client";
+import { ApiRequestError } from "@/lib/api/errorBody";
 import { removeCachedAttachmentFiles } from "@/features/attachments/model/downloadChatAttachment";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
@@ -65,7 +66,7 @@ describe("domain API contracts", () => {
     await expect(attachmentRecordExists("token", "a")).resolves.toBe(true);
     expect(mockRequest).toHaveBeenCalledWith("/attachments/a/url", "token");
 
-    mockRequest.mockRejectedValue(Object.assign(new Error("gone"), { status: 404 }));
+    mockRequest.mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Not found" })));
     await expect(attachmentRecordExists("token", "gone")).resolves.toBe(false);
 
     mockRequest.mockRejectedValue(new Error("offline"));

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, type Memory } from "@/lib/api";
+import { isGone } from "@/lib/api/gone";
 import { getSessionGeneration } from "@/lib/auth";
 import { useReadFailureReport } from "@/hooks/useReadFailureReport";
 import {
@@ -110,10 +111,24 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
+      // Already gone (deleted on another device): deleted all the same, nothing to put back.
+      if (isGone(error)) {
+        invalidateMemoriesCache();
+        return { ok: true };
+      }
       // Put back only this item: other deletes may have finished meanwhile.
       updateMemoryDocuments(restore, session);
       return { ok: false, failure: memoryFailure(error) };
     }
+  }, []);
+
+  /** A change to a fact the server no longer has: it leaves the pages, and the change says why. */
+  const changeFailed = useCallback((factId: string, error: unknown, session: number): MemoryChange => {
+    if (isGone(error)) {
+      updateMemoryDocuments((documents) => withoutFact(documents, factId), session);
+      invalidateMemoriesCache();
+    }
+    return { ok: false, failure: memoryFailure(error) };
   }, []);
 
   const deleteDocument = useCallback(async (key: string): Promise<MemoryChange> => {
@@ -145,9 +160,9 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      return { ok: false, failure: memoryFailure(error) };
+      return changeFailed(factId, error, session);
     }
-  }, [token]);
+  }, [token, changeFailed]);
 
   /** Mute keeps a fact but stops Recall using it in chats; unmute brings it back. */
   const setFactMuted = useCallback(async (factId: string, muted: boolean): Promise<MemoryChange> => {
@@ -161,9 +176,9 @@ export function useMemoryDocuments(token: string | null) {
       invalidateMemoriesCache();
       return { ok: true };
     } catch (error) {
-      return { ok: false, failure: memoryFailure(error) };
+      return changeFailed(factId, error, session);
     }
-  }, [token]);
+  }, [token, changeFailed]);
 
   return {
     documents: data?.documents ?? [],

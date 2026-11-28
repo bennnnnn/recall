@@ -7,6 +7,9 @@ import { api, type Chat } from "@/lib/api";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
 import { abandonActiveChatIfDeleted, insertChatGlobal, patchChatGlobal } from "@/features/chat/drawer/drawer";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
+import { subscribeChatGone } from "@/features/chat/model/chatGone";
+import { ApiRequestError } from "@/lib/api/errorBody";
+import { onAppEvent } from "@/lib/appEvents";
 
 let mockSession = 0;
 const mockError = jest.fn();
@@ -224,6 +227,50 @@ it("keeps the rename editor open and says why when the title is blank, like the 
   expect(actions.renameVisible).toBe(true);
   expect(api.renameChat).not.toHaveBeenCalled();
   expect(mockError).toHaveBeenCalledWith("chat.rename_blank");
+});
+
+// Pre-launch review 2026-11-27: a chat deleted on another device stayed open, and each
+// rename, pin or archive rolled back against its ghost row with a "Could not …".
+let goneSession = 100;
+describe.each([
+  ["rename", "renameChat", "confirmRename"],
+  ["pin", "setPin", "togglePin"],
+  ["archive", "setArchive", "toggleArchive"],
+] as const)("%s of a chat deleted on another device", (_name, apiMethod, action) => {
+  it("takes the chat away and says so once, with no rollback and no failure", async () => {
+    const deleted: string[][] = [];
+    const stop = onAppEvent("chatsDeleted", ({ chatIds }) => void deleted.push([...chatIds]));
+    const told: string[] = [];
+    const stopTold = subscribeChatGone((chatId) => void told.push(chatId));
+    (api[apiMethod] as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+    try {
+      goneSession += 1;
+      mockSession = goneSession; // A sign-in of its own: this chat was told of in no other test.
+      await render(<Probe />);
+      await act(async () => { actions.setRenameText("New title"); });
+      await act(async () => { await actions[action](); });
+      await act(async () => { await actions[action](); });
+      expect(patchChatGlobal).toHaveBeenCalledTimes(2); // Each tap's change shown; neither put back.
+      expect(mockError).not.toHaveBeenCalled();
+      expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["chat-1"]);
+      expect(deleted).toEqual([["chat-1"], ["chat-1"]]);
+      expect(told).toEqual(["chat-1"]);
+    } finally {
+      stop();
+      stopTold();
+    }
+  });
+});
+
+it("deletes a chat already deleted on another device as any other, with nothing put back", async () => {
+  (api.deleteChat as jest.Mock).mockRejectedValue(new ApiRequestError(404, JSON.stringify({ detail: "Chat not found" })));
+  await render(<Probe />);
+  await act(async () => { actions.confirmDelete(); });
+  await act(async () => { await deletePress()(); });
+  expect(insertChatGlobal).not.toHaveBeenCalled();
+  expect(mockError).not.toHaveBeenCalled();
+  expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["chat-1"]);
+  expect(actions.actionBanner?.message).toBe("chat.deleted_toast");
 });
 
 it("names an archive failure the same way the drawer does", async () => {

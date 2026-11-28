@@ -103,6 +103,8 @@ const SCOPED_TO_SESSION = [
   "features/attachments/model/pendingComposerAttachment.ts#queued",
   // The sign-in the chat saw confirmed, read only while it is the session (cleared at sign-out too).
   "features/attachments/model/openedDocument.ts#confirmedSession",
+  // The chats this sign-in was told are gone, kept with the session they were told in.
+  "features/chat/model/chatGone.ts#told",
   "features/chat/drawer/drawer.ts#chatMutationRevisions",
   "features/chat/drawer/drawer.ts#mutationSession",
   "features/chat/model/pageReads.ts#pageReads",

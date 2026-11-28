@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { render } from "@testing-library/react-native";
 
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -21,7 +21,9 @@ let mounts = 0;
 let latestIsCurrent: () => boolean = () => false;
 
 function Content({ isCurrent }: { isCurrent: () => boolean }) {
-  latestIsCurrent = isCurrent;
+  useLayoutEffect(() => {
+    latestIsCurrent = isCurrent;
+  });
   useEffect(() => {
     mounts += 1;
   }, []);

@@ -2,16 +2,19 @@
  * Rename, pin, archive and delete one chat: the one implementation the drawer's row menu
  * and the chat header's menu share, so a failure reads and recovers the same in both.
  * Each change shows at once, is saved, then takes the server's answer; a failed save
- * puts the chat back as it was and says what failed.
+ * puts the chat back as it was and says what failed. A chat the server no longer has
+ * (deleted on another device) goes from the list and the screen instead (`forgetGoneChat`).
  */
 
 import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
+import { forgetChatIfGone } from "@/features/chat/model/chatGone";
 import { getCachedChat, peekCreatedChat } from "@/features/chat/model/chatListCache";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { beginChatMutation } from "@/features/chat/model/mutationLock";
 import { sanitizeManualChatTitle } from "@/features/chat/model/title";
 import { api, type Chat } from "@/lib/api";
 import { ApiRequestError } from "@/lib/api/errorBody";
+import { isGone } from "@/lib/api/gone";
 import { emitAppEvent } from "@/lib/appEvents";
 import { notifyDestructive } from "@/lib/haptics";
 import type { IconName } from "@/ui/icons/names";
@@ -70,8 +73,8 @@ async function saveTitle(ctx: ChatOperationContext, chat: ChatRef, title: string
     if (!ctx.signedIn()) return;
     apply(ctx, chat.id, { title: saved.title });
     if (ctx.shown()) ctx.banner(ctx.t("chat.renamed_toast"), "pencil");
-  } catch {
-    if (!ctx.signedIn()) return;
+  } catch (error) {
+    if (!ctx.signedIn() || forgetChatIfGone(chat.id, error)) return;
     apply(ctx, chat.id, { title: chat.title });
     if (ctx.shown()) ctx.failure(ctx.t("chat.rename_failed"));
   } finally {
@@ -103,7 +106,7 @@ export async function setChatPinned(
       );
     }
   } catch (error) {
-    if (!ctx.signedIn()) return;
+    if (!ctx.signedIn() || forgetChatIfGone(chat.id, error)) return;
     apply(ctx, chat.id, { pinned: chat.pinned });
     const full = error instanceof ApiRequestError && error.code === PIN_LIMIT_CODE;
     // The cap is the server's (its `limit`), so the words never name a stale number.
@@ -133,8 +136,8 @@ export async function setChatArchived(
         saved.archived ? "archive" : "unarchive",
       );
     }
-  } catch {
-    if (!ctx.signedIn()) return;
+  } catch (error) {
+    if (!ctx.signedIn() || forgetChatIfGone(chat.id, error)) return;
     apply(ctx, chat.id, { archived: Boolean(chat.archived), pinned: chat.pinned });
     if (ctx.shown()) ctx.failure(ctx.t("chat.archive_failed"));
   } finally {
@@ -162,7 +165,10 @@ async function deleteChat(ctx: ChatOperationContext, chatId: string, known?: Cha
   const snapshot = getCachedChat(chatId) ?? peekCreatedChat(chatId) ?? known ?? null;
   ctx.list.remove(chatId);
   try {
-    await api.deleteChat(ctx.token, chatId);
+    // Already gone (deleted on another device): deleted all the same, nothing to put back.
+    await api.deleteChat(ctx.token, chatId).catch((error: unknown) => {
+      if (!isGone(error)) throw error;
+    });
     if (!ctx.signedIn()) return;
     notifyDestructive();
     ctx.list.remove(chatId);

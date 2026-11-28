@@ -228,6 +228,20 @@ describe("MemoryDocumentScreen", () => {
     expect(ui.queryByTestId("edit-field")).toBeNull();
   });
 
+  // Pre-launch review 2026-11-27: the edit of a fact deleted on another device stayed open,
+  // its Save failing again on each tap.
+  it("closes the edit of a fact deleted on another device, and says it is gone", async () => {
+    mockEditFact.mockResolvedValue({ ok: false, failure: "gone" });
+    const ui = await render(<MemoryDocumentScreen />);
+    await fireEvent.press(ui.getByTestId("memory-fact-f2"), { nativeEvent: { pageX: 10, pageY: 20 } });
+    await fireEvent.press(ui.getByTestId("menu-edit"));
+    await fireEvent.changeText(ui.getByTestId("edit-field"), "New words");
+    await fireEvent.press(ui.getByTestId("edit-save"));
+    await flush();
+
+    expect(ui.queryByTestId("edit-field")).toBeNull();
+  });
+
   it("draws no fact again while its menu opens or the edit sheet is typed in", async () => {
     const facts = Array.from({ length: 150 }, (_, i) => fact(`f${i}`, `Remembered fact ${i}`));
     mockDocuments = [{ ...mockDocuments[0]!, facts }];

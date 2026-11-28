@@ -7,6 +7,9 @@ import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { api, type Message } from "@/lib/api";
 import * as foregroundRefresh from "@/lib/foregroundRefresh";
 import { getCachedChat } from "@/features/chat/model/chatListCache";
+import { onAppEvent } from "@/lib/appEvents";
+import { subscribeChatGone } from "@/features/chat/model/chatGone";
+import { abandonActiveChatIfDeleted } from "@/features/chat/drawer/drawer";
 import {
   clearAllCachedChatMessages,
   clearCachedChatMessages,
@@ -32,9 +35,10 @@ jest.mock("@/features/chat/drawer/drawer", () => ({
   getChatMutationRevision: () => mockRevision,
   subscribeChatChanges: (fn: typeof mockChatChange) => { mockChatChange = fn; return () => { mockChatChange = undefined; }; },
   removeChatGlobal: jest.fn(),
+  abandonActiveChatIfDeleted: jest.fn(),
 }));
 jest.mock("@/lib/api/client", () => ({
-  ApiRequestError: class extends Error { status: number; constructor(status: number) { super("Request failed"); this.status = status; } },
+  ApiRequestError: jest.requireActual("@/lib/api/errorBody").ApiRequestError,
 }));
 import { ApiRequestError } from "@/lib/api/client";
 
@@ -50,7 +54,11 @@ jest.mock("@/lib/api", () => ({
 }));
 jest.mock("@/features/chat/model/chatListCache", () => {
   const getCachedChat = jest.fn((_id: string): unknown => undefined);
-  return { getCachedChat, getFetchedChat: (id: string) => getCachedChat(id) };
+  // The header reads the list's row (useChatMetadata); the list itself never changes here.
+  return {
+    getCachedChat, getFetchedChat: (id: string) => getCachedChat(id),
+    getCachedChatList: () => undefined, subscribeChatList: () => () => {},
+  };
 });
 // The kept pages are real; the file behind them is not.
 jest.mock("expo-file-system/legacy", () => ({ cacheDirectory: null }));
@@ -486,13 +494,24 @@ describe("chat history navigation races", () => {
     expect(keepCachedChatPage).not.toHaveBeenCalled();
   });
 
-  it("clears cached history when the server confirms the chat is gone", async () => {
-    (readCachedChatMessages as jest.Mock).mockResolvedValue({ messages: [current], has_more: true });
-    (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(404, "Gone"));
-    await render(<RouteProbe routeId="chat-a" />);
-    await waitFor(() => expect(routeState.chatLoading).toBe(false));
-    expect(visibleMessages).toEqual([]);
-    expect(clearCachedChatMessages).toHaveBeenCalledWith("chat-a");
+  it("clears cached history when the server confirms the chat is gone, and says so once", async () => {
+    const deleted: string[] = [];
+    const stopDeleted = onAppEvent("chatsDeleted", ({ chatIds }) => void deleted.push(...chatIds));
+    const told: string[] = [];
+    const stopTold = subscribeChatGone((chatId) => void told.push(chatId));
+    try {
+      (readCachedChatMessages as jest.Mock).mockResolvedValue({ messages: [current], has_more: true });
+      (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(404, "Gone"));
+      await render(<RouteProbe routeId="chat-a" />);
+      await waitFor(() => expect(routeState.chatLoading).toBe(false));
+      expect(visibleMessages).toEqual([]);
+      // Its row, saved thread and files go as a delete takes them (chatsDeleted clears the thread).
+      expect(deleted).toEqual(["chat-a"]);
+      expect(told).toEqual(["chat-a"]);
+    } finally {
+      stopDeleted();
+      stopTold();
+    }
   });
 
   it.each(["home", "new chat"])("leaves no chat on screen on %s: no thread, title, pin or older page", async (via) => {
@@ -912,6 +931,30 @@ describe("opening a chat", () => {
       await waitFor(() => expect(api.listMessages).toHaveBeenCalledWith("token", "chat-a", { limit: 40 }));
     } finally {
       subscribe.mockRestore();
+    }
+  });
+
+  // Pre-launch review 2026-11-27: a chat deleted on another device stayed on screen after a
+  // return to the app, its failed read reported and the thread left as it was.
+  it("takes the open chat away when the read on a return finds it deleted elsewhere", async () => {
+    const deleted: string[] = [];
+    const stop = onAppEvent("chatsDeleted", ({ chatIds }) => void deleted.push(...chatIds));
+    const now = Date.now();
+    const clock = jest.spyOn(Date, "now").mockReturnValue(now);
+    try {
+      const view = await render(<RouteProbe routeId="chat-a" />);
+      await waitFor(() => expect(routeState.chatLoading).toBe(false));
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("background"); });
+      (api.listMessages as jest.Mock).mockRejectedValue(new ApiRequestError(404, "Gone"));
+      // Away past the page's stale window.
+      clock.mockReturnValue(now + 10 * 60_000);
+      await view.rerender(<RouteProbe routeId="chat-a" />);
+      await act(async () => { for (const handler of [...appStateHandlers]) handler("active"); });
+      await waitFor(() => expect(deleted).toEqual(["chat-a"]));
+      expect(abandonActiveChatIfDeleted).toHaveBeenCalledWith(["chat-a"]);
+    } finally {
+      stop();
+      clock.mockRestore();
     }
   });
 

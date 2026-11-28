@@ -80,7 +80,7 @@ function ChatScreen() {
   const composerActive = useComposerDraftActivity();
   const draft = useDraftChat({ chatId, intent: composerActive });
   const { isPaid, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
-  const errors = useChatErrorHandlers(isPaid);
+  const errors = useChatErrorHandlers(isPaid, { token, chatId });
   const { chatError, dismissChatError } = errors;
   const quotaNudge = useQuotaNudge({ isPaid, chatError });
   // The one hook cycle left: useChat calls it on the first reply, and the title poll that
