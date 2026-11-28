@@ -2,15 +2,20 @@
  * A preview WebView whose web process the system ended (memory pressure, a crash in the
  * page's engine). iOS leaves the card blank and Android, with no handler, ends the app,
  * so every preview card (chart, Mermaid, chemistry, the HTML Run tab) passes both
- * handlers here: the first loss loads the page again under a new key, and a second
- * shows the card's Retry (`PreviewLostNote`), which starts over.
+ * handlers here: a loss loads the page again under a new key, and a second loss within
+ * `PREVIEW_LOSS_WINDOW_MS` shows the card's Retry (`PreviewLostNote`), which starts over.
+ * Counted in time, not reset by a load: a page that loads and then runs out of memory
+ * would otherwise reload forever, and a chart that sat through two trips to the
+ * background an hour apart still reloads by itself.
  */
 import { useCallback, useMemo, useState } from "react";
 
-/** Process losses the card recovers from on its own before it asks for a Retry. */
+/** Process losses the card recovers from on its own, within the window, before it asks for a Retry. */
 const PREVIEW_PROCESS_RELOADS = 1;
+/** Losses this far apart are separate events, each recovered from on its own. */
+const PREVIEW_LOSS_WINDOW_MS = 60_000;
 
-type Recovery = { losses: number; mount: number };
+type Recovery = { losses: number[]; lost: boolean; mount: number };
 
 type WebViewRecovery = {
   /** Part of the WebView's key: it changes on every reload, so the view mounts afresh. */
@@ -19,34 +24,26 @@ type WebViewRecovery = {
   lost: boolean;
   retry: () => void;
   /** Spread onto the WebView. */
-  handlers: { onContentProcessDidTerminate: () => void; onRenderProcessGone: () => void; onLoad: () => void };
+  handlers: { onContentProcessDidTerminate: () => void; onRenderProcessGone: () => void };
 };
 
 export function useWebViewRecovery(): WebViewRecovery {
-  const [state, setState] = useState<Recovery>({ losses: 0, mount: 0 });
+  const [state, setState] = useState<Recovery>({ losses: [], lost: false, mount: 0 });
   const onGone = useCallback(() => {
-    setState((current) =>
-      current.losses < PREVIEW_PROCESS_RELOADS
-        ? { losses: current.losses + 1, mount: current.mount + 1 }
-        : { ...current, losses: current.losses + 1 },
-    );
+    const now = Date.now();
+    setState((current) => {
+      const losses = [...current.losses.filter((at) => now - at < PREVIEW_LOSS_WINDOW_MS), now];
+      return losses.length > PREVIEW_PROCESS_RELOADS
+        ? { ...current, losses, lost: true }
+        : { losses, lost: false, mount: current.mount + 1 };
+    });
   }, []);
   const retry = useCallback(() => {
-    setState((current) => ({ losses: 0, mount: current.mount + 1 }));
-  }, []);
-  // A page that loaded again starts the count over: Retry is for two losses in a row, not
-  // two trips to the background a chart sat through.
-  const onLoad = useCallback(() => {
-    setState((current) => (current.losses === 0 ? current : { ...current, losses: 0 }));
+    setState((current) => ({ losses: [], lost: false, mount: current.mount + 1 }));
   }, []);
   const handlers = useMemo(
-    () => ({ onContentProcessDidTerminate: onGone, onRenderProcessGone: onGone, onLoad }),
-    [onGone, onLoad],
+    () => ({ onContentProcessDidTerminate: onGone, onRenderProcessGone: onGone }),
+    [onGone],
   );
-  return {
-    mount: state.mount,
-    lost: state.losses > PREVIEW_PROCESS_RELOADS,
-    retry,
-    handlers,
-  };
+  return { mount: state.mount, lost: state.lost, retry, handlers };
 }

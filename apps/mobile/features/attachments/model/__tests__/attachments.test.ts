@@ -222,6 +222,14 @@ describe("a file's upload to storage", () => {
     expect(api.confirmAttachment).not.toHaveBeenCalled();
   });
 
+  it.each([403, 413, 500])("fails an upload the storage refuses (%s) and refunds it, never sending it", async (status) => {
+    // An expired presign answers 403, a file too large 413: no message may name a file never stored.
+    mockUpload.mockResolvedValueOnce({ status, body: "", headers: {} });
+    await expect(uploadChatAttachment("token", pending)).rejects.toMatchObject({ reason: "upload_failed" });
+    expect(api.confirmAttachment).not.toHaveBeenCalled();
+    expect(api.cancelAttachment).toHaveBeenCalledWith("token", "a1");
+  });
+
   it("still stops on Cancel once the file is up, while its confirm is on its way", async () => {
     const controller = new AbortController();
     let confirmed: () => void = () => undefined;

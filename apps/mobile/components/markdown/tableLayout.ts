@@ -32,6 +32,8 @@ const WIDE_CHAR =
 /** Han, kana and Hangul lines break between any two characters, as words do at spaces. */
 const BREAKS_ANYWHERE = /[⺀-〾ぁ-㏿㐀-䶿一-鿿가-힣豈-﫿\u{20000}-\u{3FFFD}]/u;
 const MARK = /[\p{Mn}\p{Me}]/u;
+/** A space a line may break at: not a no-break space ("1 234 567 €", "100 km" stay whole). */
+const BREAKING_SPACE = /[^\S   ]/u;
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 /** One character's width in Latin letters. */
@@ -49,7 +51,7 @@ export function textWidthUnits(text: string): { width: number; longestWord: numb
   for (const char of text) {
     const units = charUnits(char);
     width += units;
-    if (/\s/.test(char)) {
+    if (BREAKING_SPACE.test(char)) {
       word = 0;
     } else if (BREAKS_ANYWHERE.test(char)) {
       word = 0;

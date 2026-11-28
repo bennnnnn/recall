@@ -141,6 +141,15 @@ describe("textWidthUnits", () => {
     expect(hindi).toBeGreaterThanOrEqual(11 * 8);
   });
 
+  it("keeps a number held together by no-break spaces as one word", () => {
+    // French thousands (U+202F), a no-break space (U+00A0) and a figure space (U+2007).
+    expect(textWidthUnits("1 234 567 €").longestWord).toBe(11);
+    expect(textWidthUnits("100 km").longestWord).toBe(6);
+    expect(textWidthUnits("1 000").longestWord).toBe(5);
+    // An ordinary space still breaks.
+    expect(textWidthUnits("100 km").longestWord).toBe(3);
+  });
+
   it("lets Chinese and Japanese break between any two characters", () => {
     // One unspaced run of four Han characters: its widest piece is one character.
     expect(textWidthUnits("价格很高")).toEqual({ width: 8, longestWord: 2 });

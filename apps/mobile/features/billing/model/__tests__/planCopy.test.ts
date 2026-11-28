@@ -13,6 +13,21 @@ function product(text: string): number {
     .reduce((total, factor) => total * factor.split("**").map(Number).reduceRight((exponent, base) => base ** exponent), 1);
 }
 
+/** The settings of the allowances Free counts as part of its messages (`follow_messages`,
+ * named by allowance there; entitlements.py's `_ALLOWANCE_SETTING` names their settings). */
+function freeFollowsMessages(): Set<string> {
+  const api = join(__dirname, "../../../../../api/app");
+  const plans = readFileSync(join(api, "core/settings/plans.py"), "utf8");
+  const listed = /^\s{4}follow_messages: list\[str\] = \[([^\]]*)\]/m.exec(plans)?.[1] ?? "";
+  const allowances = [...listed.matchAll(/"(\w+)"/g)].map((m) => m[1]!);
+  const entitlements = readFileSync(join(api, "modules/billing/entitlements.py"), "utf8");
+  const setting = new Map([...entitlements.matchAll(/^\s{4}"(\w+)": "(\w+)",$/gm)].map((m) => [m[1]!, m[2]!]));
+  if (allowances.length === 0 || allowances.some((name) => !setting.has(name))) {
+    throw new Error("follow_messages or _ALLOWANCE_SETTING could not be read");
+  }
+  return new Set(allowances.map((name) => setting.get(name)!));
+}
+
 /** Each allowance in the server's plan settings: Free's value and Pro's (null = no cap). */
 function serverPlans(): Map<string, { free: number | null; pro: number | null }> {
   const source = readFileSync(join(__dirname, "../../../../../api/app/core/settings/plans.py"), "utf8");
@@ -32,11 +47,16 @@ function serverPlans(): Map<string, { free: number | null; pro: number | null }>
 describe("the plans page's benefits", () => {
   it("lists only what Pro has more of than Free, each from the server's plan settings", () => {
     const plans = serverPlans();
+    // Free's searches, lookups and uploads follow its messages: its own cap for one is unused,
+    // and what it gets is up to its day's messages (plans.py `follow_messages`).
+    const followed = freeFollowsMessages();
+    const freeCap = (name: string) => (followed.has(name) ? plans.get("daily_message_limit")!.free : plans.get(name)!.free);
     for (const [line, settings] of Object.entries(PRO_ADDS)) {
       const more = settings.some((name) => {
         const plan = plans.get(name);
         if (!plan) throw new Error(`${line}: ${name} is not a plan setting`);
-        return plan.pro === null ? plan.free !== null : plan.free !== null && plan.pro > plan.free;
+        const free = freeCap(name);
+        return plan.pro === null ? free !== null : free !== null && plan.pro > free;
       });
       expect(`${line}: ${more}`).toBe(`${line}: true`);
     }

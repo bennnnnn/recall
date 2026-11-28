@@ -4,13 +4,14 @@
  * whose safe area is their own frame's, while a layer over the window keeps the window's.
  */
 import { useEffect } from "react";
-import { StyleSheet, Text } from "react-native";
+import { Dimensions, StyleSheet, Text } from "react-native";
 import { act, render } from "@testing-library/react-native";
-import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaFrameContext, SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as ts from "typescript";
 
 import { OfflineFrame } from "@/components/OfflineBanner";
+import { useScreenHeight } from "@/hooks/useScreenHeight";
 import { MoleculeRotateModal } from "@/components/rich/MoleculeRotateModal";
 import type { ConnectivityStatus } from "@/lib/networkProbe";
 import { useWindowInsets, WindowInsetsScope } from "@/ui/hooks/useWindowInsets";
@@ -96,12 +97,38 @@ it("keeps a full-screen page's close button clear of the notch while the banner 
   expect(tops).toContain(WINDOW.top);
 });
 
+it("sizes the chat from the screens' frame, which the banner shortens, not the window", async () => {
+  // What the screens' own provider measures below a 75 pt banner on an 844 pt window.
+  const frame = { x: 0, y: 75, width: 390, height: 769 };
+  const heights: number[] = [];
+  function Probe() {
+    heights.push(useScreenHeight());
+    return null;
+  }
+  await render(
+    <SafeAreaFrameContext.Provider value={frame}>
+      <Probe />
+    </SafeAreaFrameContext.Provider>,
+  );
+  expect(heights.at(-1)).toBe(769);
+  expect(heights.at(-1)).not.toBe(Dimensions.get("window").height);
+  const chat = ts.sys.readFile(`${ROOT}/features/chat/screens/ChatScreen.tsx`) ?? "";
+  expect(chat).toMatch(/windowHeight = useScreenHeight\(\)/);
+  expect(chat).not.toMatch(/height: windowHeight[^}]*\} = useWindowDimensions/);
+});
+
 it("has every full-screen page's owner read the window's insets, not its screen's", () => {
   // The page covers the window, so its top bar clears the status bar whatever the screens' frame says.
-  const owners = ts.sys
-    .readDirectory(ROOT, [".tsx"], ["node_modules", "**/__tests__"])
-    .filter((file) => /<FullScreenModal\b/.test(ts.sys.readFile(file) ?? ""));
+  // A file that reads the screen's insets keeps them: it renders no full-screen page and hands
+  // them to nothing (`insets={insets}`, or `insets,` in what a hook returns, as the graph
+  // explorer's state did for its modal).
+  const files = ts.sys.readDirectory(ROOT, [".ts", ".tsx"], ["node_modules", "**/__tests__"]);
+  const owners = files.filter((file) => /<FullScreenModal\b/.test(ts.sys.readFile(file) ?? ""));
   expect(owners.length).toBeGreaterThan(4);
-  const screenInsets = owners.filter((file) => /useSafeAreaInsets\(/.test(ts.sys.readFile(file) ?? ""));
+  const handsOn = /<FullScreenModal\b|insets=\{insets\}|^\s+insets,\s*$/m;
+  const screenInsets = files.filter((file) => {
+    const source = ts.sys.readFile(file) ?? "";
+    return /useSafeAreaInsets\(/.test(source) && handsOn.test(source);
+  });
   expect(screenInsets.map((file) => file.slice(ROOT.length + 1))).toEqual([]);
 });

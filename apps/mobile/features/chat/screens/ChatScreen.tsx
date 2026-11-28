@@ -50,6 +50,7 @@ import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/featu
 import { locationSwitchOf } from "@/features/chat/model/resolveClientGeoForQuery";
 import { useChatImageGeneration } from "@/features/chat/hooks/useChatImageGeneration";
 import { useSendUpload } from "@/features/chat/hooks/useSendUpload";
+import { useScreenHeight } from "@/hooks/useScreenHeight";
 import { sendStatusLine } from "@/features/chat/model/sendUpload";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import type { FirstReply } from "@/features/chat/model/chatTurnCore";
@@ -75,7 +76,7 @@ function ChatScreen() {
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions(), windowHeight = useScreenHeight(); // Below the offline banner.
   const { routeChatId, routeHighlightMessage } = useChatRouteParams();
 
   const [chatId, setChatId] = useState<string | null>(null);

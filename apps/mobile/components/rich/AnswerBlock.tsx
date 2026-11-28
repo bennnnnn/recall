@@ -26,6 +26,7 @@ import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 
 type Props = {
   content: string;
@@ -115,7 +116,7 @@ function FormulaLine({ style, endsOn, children }: { style: StyleProp<TextStyle>;
 }
 
 export function AnswerBlock({ content, settled = true }: Props) {
-  const theme = useTheme();
+  const theme = useTheme(); useMathSpeechWords(); // Its labels say maths in the app's language.
   const s = useMemo(() => makeStyles(theme), [theme]);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
   const check =

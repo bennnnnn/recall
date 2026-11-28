@@ -4,6 +4,7 @@ import Markdown, { type RenderRules } from "react-native-markdown-display";
 
 import type { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import type { markdownItInstance } from "@/lib/markdown/parser";
+import { useMathSpeechWords } from "@/lib/math/speechWords";
 
 /** What every `Markdown` of one reply is drawn with. */
 export type MarkdownProps = {
@@ -46,6 +47,8 @@ export const MarkdownPiece = React.memo(function MarkdownPiece({
   content: string;
   md: MarkdownProps;
 }) {
+  // A line's maths is read in the app's language (inlineFlow): a change draws the piece again.
+  useMathSpeechWords();
   return (
     <Markdown {...md} allowedImageHandlers={IMAGE_HANDLERS} topLevelMaxExceededItem={MORE_CHILDREN}>
       {content}
