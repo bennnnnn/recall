@@ -165,7 +165,6 @@ def _ctx(*, search_sources: list[WebSearchHit] | None = None) -> MagicMock:
     ctx.chat_id = uuid4()
     ctx.search_sources = search_sources or []
     ctx.verified_subject = None
-    ctx.local_places = False
     ctx.instant_reply = None
     ctx.user_message_content = "what does my week look like?"
     ctx.solver_unverified = False

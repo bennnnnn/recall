@@ -1,4 +1,4 @@
-"""In-app visual fence hints (HTML, charts, places). Chemistry is gated."""
+"""In-app visual fence hints (HTML, Mermaid, charts). Chemistry is gated."""
 
 # Only injected when turn_prep actually has chemistry context (PubChem / SMILES).
 # Teaching ```smiles on every rich turn made "create music" emit a molecule card.
@@ -44,9 +44,6 @@ VISUALIZATION_HINTS = (
     "**Geometry / graphs** — Do not emit ```geometry or ```graph JSON. Do not "
     "tell the user a diagram will be attached. "
     "Never invent measures. School shapes only — not molecules.\n\n"
-    "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
-    "venue recommendations (any nearby place). Use when the user asks for something "
-    "near them — nearest/closest/nearby — regardless of category.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
 )
 

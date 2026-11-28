@@ -67,6 +67,7 @@ from app.modules.chat.model_routing.thinking import (
     resumes_a_cut_off_reply,
     thinks_through_parts,
 )
+from app.modules.chat.names_turn import link_the_names
 from app.modules.chat.ordinary_prompt import is_ordinary
 from app.modules.chat.prompt_constants.conversation import (
     FOLLOW_NOTES,
@@ -149,8 +150,10 @@ async def decide_from_the_read(ctx: StreamContext, settings: Settings) -> None:
     _settle_the_photo(ctx, read)
     await _apply_the_read(ctx, settings, read, deadline)
     # Last, once the worked layout is settled: one procedure done in order gets the ```steps
-    # card beside the message, and a calculation laid out never does (``steps_turn``).
+    # card beside the message, and a calculation laid out never does (``steps_turn``); an
+    # answer that recommends named things gets their links asked for there (``names_turn``).
     lay_out_the_steps(ctx, read)
+    link_the_names(ctx, read)
 
 
 async def _apply_the_read(

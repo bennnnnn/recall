@@ -40,13 +40,8 @@ WEB_SEARCH_HINT = (
     "did not qualify or has no match in that tournament, say so clearly. "
     "Do NOT offer fictional results, tournament-schedule guesses, or 'probably Matchday X' "
     "speculation. "
-    "When the user asks for anything nearby or at a distance (venues, directions, "
-    "how far, travel time), give a one-sentence intro then a ```places fence with JSON "
-    "when listing findable places (see format hint). For mileage-only answers, state "
-    "distance and time in prose — no ```places fence. "
-    "The app renders places blocks natively — do NOT also hand-format a markdown list. "
-    "If you must use markdown links instead, use [Name](https://url) with parentheses "
-    "around the URL — never $url$ delimiters — and link only pages from the results. "
+    "Write a link to a page as [Name](https://url), with parentheses around the URL, never "
+    "$url$ delimiters, and link only pages from the results. "
     "When search returned no hits, say you could not verify that live right now — "
     "do NOT guess why or fill in from training data. When the block says the search "
     "failed, say the search didn't work just now, not that nothing exists. "
@@ -79,19 +74,12 @@ def format_search_block(
     hits: list[WebSearchHit],
     *,
     team: str | None = None,
-    local_places: bool = False,
-    user_location: str | None = None,
     user_timezone: str | None = None,
 ) -> str:
     lines = [
         "Web search results (retrieved just now — ground your answer in these):",
         NEWEST_SOURCE_RULE,
     ]
-    if local_places and not (user_location or "").strip():
-        lines.append(
-            "User location is not set — nearby results may be less precise. "
-            "If they asked for 'near me', briefly suggest Settings → Location."
-        )
     if team:
         lines.append(
             f"Report scores or tournament status only for **{team}**, the team asked about: "
@@ -104,17 +92,7 @@ def format_search_block(
         snippet = flowed_snippet(mark_dates(hit.snippet, today), indent="   ")
         note = published_note(hit.published, today, user_timezone) + stale_note(hit.snippet, today)
         lines.append(f"{index}. {hit.title} ({hit.url}) — {note}{snippet}")
-    if local_places:
-        # No starter list from these pages: a page is an article as often as a venue, and
-        # its title is no place's name.
-        lines.append(
-            "Required: one-sentence intro, then a ```places fence with JSON array "
-            '[{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
-            '"note":"optional","address":"street when known","price":"$$"}]. '
-            "url must be a Google Maps link to the venue address — never a generic search page. "
-            "Do NOT also output a markdown numbered list of venues."
-        )
-    elif team:
+    if team:
         lines.append(
             f"Required: answer using the results above for **{team}** only. "
             "Include concrete scores and dates when snippets mention them. "
@@ -136,24 +114,11 @@ def format_search_block(
     return "\n".join(lines)
 
 
-LOCAL_PLACES_FORMAT_HINT = (
-    "Local places output (any nearby venue the user asked for):\n"
-    "- One short intro sentence, then ONLY a ```places JSON fence — no duplicate markdown list.\n"
-    '- Schema: [{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
-    '"note":"rating/cuisine","address":"street, city","price":"$$"}]\n'
-    "- url MUST open the venue on Google Maps (use address in the query). "
-    "Never use generic Yelp/Google search pages.\n"
-    "- address: the street a result gives that venue itself, never one a list gives the "
-    "entry beside it; leave it out when none does. A neighbourhood in the note is the "
-    "address's own.\n"
-    "- price is optional plain text like $, $$, or $$$ — never inside the url field."
-)
-
 AMBIGUOUS_NEARBY_HINT = (
     "Before answering a nearby request that leaves its kind open ('nearest house' without "
     "sale vs rent vs a specific address), do NOT web-search or guess listings. Ask 1-3 concise "
     "clarifying questions — e.g. homes for sale near their location, rentals, or nearest to "
-    "a specific address. No ```places fence and no listing links until they clarify."
+    "a specific address. No listings and no listing links until they clarify."
 )
 
 # "Can i wolk?" to the nearest Apple Store got "1.5 miles, about 30 minutes" to a store
@@ -171,8 +136,7 @@ DIRECTIONS_LINK_RULE = (
 )
 
 GEO_DISTANCE_HINT = (
-    "Distance / travel query: use the user's location and search results. "
-    f"{DIRECTIONS_LINK_RULE} Do NOT use a ```places fence unless they also asked to find venues."
+    f"Distance / travel query: use the user's location and search results. {DIRECTIONS_LINK_RULE}"
 )
 
 GEO_ACTIVE_LOCATION_HINT = (
@@ -259,9 +223,7 @@ def sources_payload(hits: list[WebSearchHit]) -> list[SearchSource]:
     return rows
 
 
-def format_search_empty_block(
-    queries: list[str], *, local_places: bool = False, failed: bool = False
-) -> str:
+def format_search_empty_block(queries: list[str], *, failed: bool = False) -> str:
     """The block for a search that came back with nothing, or that failed (``failed``)."""
     tried = ", ".join(f'"{q}"' for q in queries[:3])
     if failed:
@@ -271,12 +233,6 @@ def format_search_empty_block(
             "Tell the user in one sentence that the search didn't work just now and to try "
             "again shortly. Do not say nothing exists, and do not present an answer from "
             "memory as checked or current."
-        )
-    if local_places:
-        return (
-            f"Web search was run ({tried}) but returned no usable results.\n"
-            "Tell the user live search found nothing useful — one short sentence only. "
-            "Do NOT invent restaurant names, addresses, or ratings from memory."
         )
     return (
         f"Web search was run ({tried}) but returned no usable results.\n"

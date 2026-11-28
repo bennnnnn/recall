@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from app.modules.chat.prompt_constants import MATH_FENCE_SAFETY_HINT, UNIVERSAL_FORMAT_BASELINE
+from app.modules.chat.prompt_constants.format import NAME_LINK_RULE
 from app.modules.chat.prompt_format import _style_format_hints
 from app.modules.math.reply_policy import MATH_TUTORING_HINT, SHORT_MATH_SAFETY_HINT
 
@@ -77,7 +78,7 @@ def test_rich_turn_injects_universal_format_baseline():
     parts = _hints()
     assert UNIVERSAL_FORMAT_BASELINE in parts
     joined = "\n".join(parts)
-    assert "[OpenAI docs](url)" in joined
+    assert NAME_LINK_RULE in joined
 
 
 def test_only_maths_pack_says_a_shape_is_never_drawn_in_text():

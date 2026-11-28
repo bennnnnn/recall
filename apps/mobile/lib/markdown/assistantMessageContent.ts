@@ -10,7 +10,6 @@ import { hasTodoLink, stripTodoLinkFences } from "@/features/todos/model/todoLin
 import type { SearchSource } from "@/lib/api";
 
 import { isLocationQuestion } from "@/lib/places/localPlacesQuery";
-import { tagPlacesJsonFences } from "@/lib/places/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, stripLookupSourceCaption, type ParsedMessageImage } from "@/lib/messageAttachments";
 import { parseFenceLang } from "@/lib/codeHighlight";
@@ -57,7 +56,8 @@ export type AssistantMessageContent = {
 
 /**
  * Stored chats may still contain retired product fences (the language-learning
- * cards and the Google Calendar event proposal). Drop the JSON.
+ * cards, the Google Calendar event proposal, and the places card a reply's linked names
+ * replaced, 2026-11-27). Drop the JSON.
  */
 const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "vocab_quiz",
@@ -65,6 +65,7 @@ const RETIRED_FENCE_LANGS: ReadonlySet<string> = new Set([
   "learning_launch",
   "job-results",
   "calendar_proposal",
+  "places",
 ]);
 
 /** One empty list, so a frozen reply's sources keep their identity flush to flush. */
@@ -81,17 +82,44 @@ function stripUnverifiedResultLine(text: string): string {
 /** Any retired name in any case: a fence's language is read lower-cased. */
 const RETIRED_FENCE_NAME = new RegExp([...RETIRED_FENCE_LANGS].join("|"), "i");
 
+/** The retired places card's fields (`name`, `url`, `note`, `address`, `price`). */
+const PLACES_CARD_KEYS: ReadonlySet<string> = new Set(["name", "url", "note", "address", "price"]);
+
+/**
+ * A ```json fence holding the retired places card's venue list, as models once wrote it in
+ * place of the card (`[{"name":"Shell","url":…}]`, 2026-11-08): every row the card's fields
+ * alone, with a name and an address to open. JSON with any other field stays as written.
+ */
+function isRetiredVenueList(body: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) return false;
+    throw error;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return false;
+  return parsed.every((row: unknown) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+    const fields = row as Record<string, unknown>;
+    const onlyCardFields = Object.keys(fields).every((key) => PLACES_CARD_KEYS.has(key));
+    return onlyCardFields && typeof fields.name === "string" && typeof fields.url === "string";
+  });
+}
+
 function stripRetiredFences(text: string): string {
   // Only old stored chats hold one; every other reply skips the line walk.
-  if (!text.includes("```") || !RETIRED_FENCE_NAME.test(text)) return text;
-  return mapClosedFences(text, (info, _body, original) =>
-    RETIRED_FENCE_LANGS.has(parseFenceLang(info)) ? "" : original,
-  );
+  if (!text.includes("```")) return text;
+  if (!/```json/i.test(text) && !RETIRED_FENCE_NAME.test(text)) return text;
+  return mapClosedFences(text, (info, body, original) => {
+    const lang = parseFenceLang(info);
+    if (RETIRED_FENCE_LANGS.has(lang)) return "";
+    return lang === "json" && isRetiredVenueList(body) ? "" : original;
+  });
 }
 
 /**
- * The reply's markdown, its control fences stripped. A ```places list stays where the
- * model wrote it, streaming and settled alike: RichFence draws it there.
+ * The reply's markdown, its control fences stripped.
  */
 function buildMarkdownContent(options: {
   content: string;
@@ -112,8 +140,7 @@ function buildMarkdownContent(options: {
   text = stripReminderFences(text);
   text = stripSettingsProposalFences(text);
   text = stripReminderProposalFences(text);
-  text = stripTodoLinkFences(text);
-  return tagPlacesJsonFences(text);
+  return stripTodoLinkFences(text);
 }
 
 /** Pure assistant reply display model — fences stripped, rich blocks resolved. */

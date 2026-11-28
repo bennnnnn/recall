@@ -1,3 +1,4 @@
+import { markdownToCopyText, markdownToSpeechText } from "@/lib/markdown/plain";
 import { deriveAssistantMessageContent } from "@/lib/markdown/assistantMessageContent";
 
 describe("deriveAssistantMessageContent", () => {
@@ -19,20 +20,31 @@ describe("deriveAssistantMessageContent", () => {
     }
   });
 
-  it("keeps a places list where the model wrote it, streaming and settled alike", () => {
-    // Settled, the list was pulled out of the reply and drawn at the bubble's end: it
-    // jumped there from mid-reply when the reply finished (2026-11-08).
+  it("drops a saved places card, retired for the reply's linked names (2026-11-27)", () => {
     const content = [
       "The top pick near you is Copra.",
       '```places\n[{"name":"Copra","url":"https://maps.example/copra"}]\n```',
       "🚩 Copra books up fast, so reserve ahead.",
     ].join("\n\n");
-    const streaming = deriveAssistantMessageContent({ ...base, content, layoutFrozen: true, isGenerating: true });
-    const settled = deriveAssistantMessageContent({ ...base, content });
-    expect(settled.markdownContent).toBe(streaming.markdownContent);
-    const text = settled.markdownContent;
-    expect(text.indexOf("Copra.")).toBeLessThan(text.indexOf("```places"));
-    expect(text.indexOf("```places")).toBeLessThan(text.indexOf("reserve ahead"));
+    const text = deriveAssistantMessageContent({ ...base, content }).markdownContent;
+    expect(text).not.toContain("```places");
+    expect(text).toContain("The top pick near you is Copra.");
+    expect(text).toContain("reserve ahead");
+    // Copy, Share and the PDF read the saved text: its JSON never prints there either.
+    for (const out of [markdownToCopyText(content), markdownToSpeechText(content)]) {
+      expect(out).not.toContain('"name"');
+      expect(out).toContain("reserve ahead");
+    }
+  });
+
+  it("drops a retired venue list a reply once fenced as json, and keeps other json", () => {
+    const venues = '```json\n[{"name":"Shell","url":"https://maps.example/shell","address":"1 Main St"}]\n```';
+    const asked = '```json\n[{"name":"Shell","cuisine":"diner","url":"https://shell.example"}]\n```';
+    const settled = deriveAssistantMessageContent({ ...base, content: `Nearby:\n\n${venues}\n\nEnjoy.` });
+    expect(settled.markdownContent).not.toContain("Shell");
+    expect(settled.markdownContent).toContain("Enjoy.");
+    const kept = deriveAssistantMessageContent({ ...base, content: `Here:\n\n${asked}` });
+    expect(kept.markdownContent).toContain('"cuisine":"diner"');
   });
 
   it("returns empty markdown flags for user rows", () => {

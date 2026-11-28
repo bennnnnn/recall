@@ -2,6 +2,7 @@ import { StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from
 import { fireEvent, render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
+import nameLinks from "../../../../../docs/fixtures/name_links.json";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { runRule } from "@/components/markdown/__tests__/support/runRule";
 import {
@@ -17,6 +18,9 @@ import "@/lib/i18n";
 
 // These check the English copy, so they read the real react-i18next over lib/i18n.
 jest.unmock("react-i18next");
+
+const NAME_LINK_MARKDOWN = nameLinks.markdown as { id: string; markdown: string; words: string; url: string }[];
+const NAME_LINK_UNTOUCHED = nameLinks.untouched as { id: string; text: string }[];
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual(
@@ -361,6 +365,63 @@ describe("markdown render rules", () => {
       <MarkdownContent content={"See [the docs](https://example.com/docs)"} />,
     );
     expect(getByRole("link", { name: /the docs/ })).toBeOnTheScreen();
+  });
+
+  it("draws every link one way: the text's colour, dotted underline (2026-11-27)", async () => {
+    const placed = "https://www.google.com/maps/search/?api=1&query=Zuni%20Caf%C3%A9%2C%20San%20Francisco";
+    const { getByText } = await render(
+      <MarkdownContent
+        content={`1. **[Zuni Café](${placed})** — Californian\n2. See [the docs](https://example.com/docs).`}
+      />,
+    );
+    for (const words of ["Zuni Café", "the docs"]) {
+      const style = StyleSheet.flatten(getByText(words).props.style);
+      expect(style).toMatchObject({
+        color: lightTheme.text,
+        textDecorationLine: "underline",
+        textDecorationStyle: "dotted",
+        textDecorationColor: lightTheme.textSecondary,
+      });
+    }
+  });
+
+  // docs/fixtures/name_links.json: a mark still in the text (the reply is streaming) is its
+  // words, never a link; the server's placed link appears when the reply settles, so the
+  // phone never opens an address the saved reply does not have.
+  it.each(NAME_LINK_MARKDOWN.map((c) => [c.id, c] as const))(
+    "%s: a marked name is its words until the server places it",
+    async (_id, c) => {
+      const { getByText, queryByRole } = await render(<MarkdownContent content={c.markdown} />);
+      // The typographer curls the apostrophe ("Joe’s Pizza").
+      expect(getByText(c.words.replace(/'/g, "\u2019"))).toBeOnTheScreen();
+      expect(queryByRole("link")).toBeNull();
+    },
+  );
+
+  // Maths and code whose brackets look like a link, and targets that are no web address,
+  // draw no link (the server leaves them as written: test_reply_links.py).
+  it.each(NAME_LINK_UNTOUCHED.map((c) => [c.id, c] as const))(
+    "%s: no link is drawn",
+    async (_id, c) => {
+      const { queryByRole } = await render(<MarkdownContent content={c.text} />);
+      expect(queryByRole("link")).toBeNull();
+    },
+  );
+
+  it("draws a link it cannot open as its words, never a dead link", async () => {
+    const { getByText, queryByRole } = await render(
+      <MarkdownContent content={"See [Nopa](#) and [Zuni](zunicafe.com) tonight."} />,
+    );
+    expect(getByText(/Nopa/)).toBeOnTheScreen();
+    expect(queryByRole("link")).toBeNull();
+  });
+
+  it("previews no search or Maps link the server placed for a name alone on its line", async () => {
+    const { queryByTestId, getByText } = await render(
+      <MarkdownContent content={"[Atomic Habits](https://www.google.com/search?q=Atomic%20Habits)"} />,
+    );
+    expect(queryByTestId("link-preview-card")).toBeNull();
+    expect(getByText("Atomic Habits")).toBeOnTheScreen();
   });
 
   it("renders a preview card for a standalone markdown link", async () => {
@@ -1458,10 +1519,8 @@ describe("reply rhythm", () => {
     expect(StyleSheet.flatten(getByText("code").props.style).color).toBe(
       lightTheme.textSecondary,
     );
-    // A link keeps its own color inside the quote.
-    expect(StyleSheet.flatten(getByText("a link").props.style).color).toBe(
-      lightTheme.primary,
-    );
+    // A link keeps its own look inside the quote.
+    expect(StyleSheet.flatten(getByText("a link").props.style).textDecorationStyle).toBe("dotted");
   });
 
   it("outlines a quote card with a visible border and keeps its quote in body ink", async () => {

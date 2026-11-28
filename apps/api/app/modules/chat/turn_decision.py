@@ -266,6 +266,10 @@ class TurnDecision(BaseModel):
     # (``decider_read.STEPS_QUESTION``). The Decider's alone: None from the text read, and the
     # reply takes the scan layout's numbered list (``chat.steps_turn``).
     steps: bool | None = None
+    # Whether the answer recommends named real things to look up, each written as a link
+    # (``decider_read.NAMES_QUESTION``, asked with the steps question). The Decider's alone:
+    # None from the text read, and the rules alone ask for the links (``chat.names_turn``).
+    names: bool | None = None
 
     @field_validator("subject", mode="before")
     @classmethod

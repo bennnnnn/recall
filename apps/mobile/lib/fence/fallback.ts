@@ -3,7 +3,7 @@
  *
  * When the rich markdown renderer throws, `FallbackMarkdown` renders a
  * best-effort view. Callouts stay as labeled prose. Geometry/graph keep their
- * SVG renderers. Server transport (sources/answer), model places, and heavy visuals
+ * SVG renderers. Server transport (sources/answer) and heavy visuals
  * degrade to a short human summary — never raw JSON or SDF dumps.
  */
 import { splitAnswerNotation } from "@/lib/answerNotation";
@@ -13,7 +13,6 @@ import { fenceIdForLang, fallbackKindForLang } from "@/lib/fence/registry";
 import { parseJsonRecord } from "@/lib/fence/json";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 import { parseSearchSourcesJson } from "@/lib/searchSources";
-import { parsePlacesJson } from "@/lib/places/placesList";
 
 const VISUAL_SNIPPET_MAX = 80;
 
@@ -25,7 +24,6 @@ type FallbackFence =
   | { kind: "graph"; body: string }
   | { kind: "answer"; body: string }
   | { kind: "sources"; items: FallbackNamedItem[] }
-  | { kind: "places"; items: FallbackNamedItem[] }
   | { kind: "visual"; labelLang: string; snippet: string }
   | { kind: "code"; lang: string; code: string };
 
@@ -108,14 +106,6 @@ export function classifyFallbackFence(
         return item;
       });
       return { kind: "sources", items };
-    }
-    case "places": {
-      const items = parsePlacesJson(body).map((row) => {
-        const item: FallbackNamedItem = { title: row.name };
-        if (row.url) item.url = row.url;
-        return item;
-      });
-      return { kind: "places", items };
     }
     case "visual":
       return { kind: "visual", labelLang: l, snippet: visualSnippet(l, body) };

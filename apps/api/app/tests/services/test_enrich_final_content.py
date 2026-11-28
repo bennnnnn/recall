@@ -75,9 +75,7 @@ def _deps() -> Any:
     )
 
 
-def _ctx(
-    *, search_sources: list[WebSearchHit] | None = None, local_places: bool = False
-) -> MagicMock:
+def _ctx(*, search_sources: list[WebSearchHit] | None = None) -> MagicMock:
     ctx = MagicMock()
     ctx.user = MagicMock()
     ctx.user.timezone = "UTC"
@@ -86,7 +84,6 @@ def _ctx(
     ctx.chat_id = uuid4()
     ctx.search_sources = search_sources or []
     ctx.verified_subject = None
-    ctx.local_places = local_places
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"

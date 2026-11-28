@@ -8,7 +8,8 @@
  *
  * remark-math's rule, as a reader reads a price list:
  * - a delimiter is a run of exactly two unescaped dollars: three or more ("$$$") are a
- *   price tier, never maths, and so is one in brackets ("($$)");
+ *   price tier, never maths, and so is one in brackets ("($$)") or one that ends a range
+ *   ("$–$$");
  * - at the start of a line (after its indent, a quote mark or a list marker) it opens a
  *   formula that runs on over the lines below to the next `$$`;
  * - mid-line it is maths as `$$x$$`, nothing between the dollars and the formula, or as a
@@ -123,6 +124,33 @@ function bracketedTier(line: string, start: number, end: number): boolean {
   return line[before] === "(" && line[after] === ")";
 }
 
+/** A dash that joins two price tiers ("$–$$", "$$-$$$"), en and em dashes included. */
+const RANGE_DASHES = "-–—";
+/** What may come before a price tier: the line's start, a blank, an opening mark, the bold that
+ * closes a name or a dash ("**Burma Superstar**—$–$$"). */
+const TIER_BEFORE = " \t(,:;*-–—";
+
+/**
+ * The run of two at `start` ends a price range, `$–$$` or `$ – $$`: a dash before it and a
+ * tier before the dash that starts a word, with no blank between unless that tier is a lone `$`
+ * (never a delimiter). "Burmese, $–$$" at a line's end opened a formula there (2026-11-27).
+ */
+function rangeEnd(line: string, start: number): boolean {
+  let at = start - 1;
+  while (at >= 0 && /[ \t]/.test(line[at]!)) at -= 1;
+  const spaced = at < start - 1;
+  if (at < 0 || !RANGE_DASHES.includes(line[at]!)) return false;
+  at -= 1;
+  const dash = at;
+  while (at >= 0 && /[ \t]/.test(line[at]!)) at -= 1;
+  if (line[at] !== "$") return false;
+  let first = at;
+  while (first > 0 && line[first - 1] === "$") first -= 1;
+  // A tier starts a word: "$a$ — $$b$$" closes a formula with its "$", which is no tier.
+  if (first > 0 && !TIER_BEFORE.includes(line[first - 1]!)) return false;
+  return first === at || (!spaced && at === dash);
+}
+
 /**
  * Words of three letters or more, TeX aside (word groups whatever they hold, commands and
  * their environment names): "a night, and suites" holds two, "v = 20 \text{ meters per
@@ -223,7 +251,7 @@ export function scanDisplayLine(
     }
     if (char === "$" && slashes % 2 === 0) {
       const end = runEnd(line, index);
-      if (end - index === 2 && closer !== "\\]" && !bracketedTier(line, index, end)) {
+      if (end - index === 2 && closer !== "\\]" && !bracketedTier(line, index, end) && !rangeEnd(line, index)) {
         const start = startKind(starts, index);
         if (awaitsDollars(closer)) {
           // A formula opened at a line's end closes only at a line's start.
