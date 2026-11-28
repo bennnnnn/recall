@@ -47,22 +47,6 @@ export function listItemHasNestedList(node: AstNode): boolean {
   return false;
 }
 
-/** A list item that opens with a bold title on its own line (`**Read widely**`, a break). */
-export function listItemOpensWithTitle(node: AstNode): boolean {
-  const leaves: AstNode[] = [];
-  const walk = (n: AstNode) => {
-    if (leaves.length >= 2) return;
-    const kids = n.children ?? [];
-    if (n.type === "strong" || n.type === "hardbreak" || kids.length === 0) {
-      if (n.type !== "text" || n.content) leaves.push(n);
-      return;
-    }
-    kids.forEach(walk);
-  };
-  walk(node);
-  return leaves[0]?.type === "strong" && leaves[1]?.type === "hardbreak";
-}
-
 /** The largest number an ordered list shows: its start plus its item count. */
 export function listLargestNumber(parent: unknown): number {
   if (!Array.isArray(parent) || parent.length === 0) return 1;

@@ -28,6 +28,7 @@ import { beginOpenedPageRead, OPENED_PAGE_WAIT_MS } from "@/features/chat/model/
 import { emitAppEvent } from "@/lib/appEvents";
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { mergeOpenedPage } from "@/features/chat/model/messageMerge";
+import { heldAwakeTags } from "@/lib/__tests__/support/screenAwake";
 
 const SERVER_USER_ID = "0190a000-0000-7000-8000-000000000001";
 const SERVER_REPLY_ID = "0190a000-0000-7000-8000-000000000002";
@@ -2396,5 +2397,70 @@ describe("a picture that outlives its chat", () => {
     await act(async () => { current.editThread([], "view_cleared"); });
     await act(finish);
     expect(current.messages).toEqual([]);
+  });
+});
+
+// Regenerate on a picture reply, or a send the server's intercept draws, waits 30 s to 2
+// minutes over the stream (status `image_gen`) with no composer picture running: the screen
+// stayed free to lock under it (review H4, round 2).
+describe("useChat keeps the screen on while the stream draws a picture", () => {
+  const originalSocket = globalThis.WebSocket;
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    listMessages.mockReset();
+    FakeSocket.instances = [];
+    mockSessionGeneration = 0;
+    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    resetStreamingDraftStoreForTest();
+  });
+  afterEach(async () => {
+    await cleanup();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    globalThis.WebSocket = originalSocket;
+  });
+
+  it("holds it from the picture's status to its reply, on a regenerate", async () => {
+    const view = await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket);
+    await act(async () => {
+      socket.emit({ type: "stream_end" });
+      socket.emit({ type: "done", message_id: "saved", final_content: "![a cat](https://img/cat.png)" });
+    });
+    expect(heldAwakeTags("picture:")).toEqual([]);
+
+    await act(async () => {
+      current.beginRegenerateUi();
+      await current.regenerateResponse();
+      socket.emit({ type: "start" });
+      socket.emit({ type: "status", phase: "image_gen" });
+      jest.advanceTimersByTime(20);
+    });
+    expect(getStreamingDraft()?.status).toBe("image_gen");
+    expect(heldAwakeTags("picture:")).toHaveLength(1);
+
+    await act(async () => {
+      socket.emit({ type: "stream_end" });
+      socket.emit({ type: "done", message_id: "saved-again", final_content: "![a cat](https://img/cat2.png)" });
+      jest.advanceTimersByTime(20);
+    });
+    expect(heldAwakeTags("picture:")).toEqual([]);
+    await view.unmount();
+  });
+
+  it("lets it sleep when the chat screen goes mid-picture", async () => {
+    const view = await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("draw a cat");
+      socket.emit({ type: "start" });
+      socket.emit({ type: "status", phase: "image_gen" });
+      jest.advanceTimersByTime(20);
+    });
+    expect(heldAwakeTags("picture:")).toHaveLength(1);
+    await view.unmount();
+    expect(heldAwakeTags("picture:")).toEqual([]);
   });
 });
